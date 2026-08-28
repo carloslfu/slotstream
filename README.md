@@ -57,9 +57,12 @@ curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.s
 One line: it installs the prebuilt binary into `~/.slotstream/bin`, puts it on
 your PATH, and offers to start the server, which asks before downloading the
 model (104 GB, resumable). The script is [install.sh](install.sh) in this
-repo, and the release tarball is sha256-checked before anything runs. Re-run
-the same line to upgrade; uninstall with `rm -rf ~/.slotstream` plus the PATH
-line it added, if any.
+repo, and the release tarball is sha256-checked before anything runs.
+Releases are built by CI from the tagged commit with signed provenance; each
+release notes its commit and build log, and
+`gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream`
+checks an asset independently. Re-run the same line to upgrade; uninstall
+with `rm -rf ~/.slotstream` plus the PATH line it added, if any.
 
 Needs an Apple Silicon Mac, macOS 14 or newer, and about 110 GB of free disk.
 To build from source instead:
@@ -163,9 +166,9 @@ hyper-connections), are bit-exact; deeper layers sit within a few bf16 ulps.
 
 Working and measured on one machine, zero tuning so far. Known gaps: prefill
 is naive chunked and slow for long prompts, the small configurations were
-emulated here rather than run on real 16 GB hardware, non-greedy sampling has
-no golden test yet, and releases are built on the dev machine rather than CI.
-[PLAN.md](PLAN.md) has the design, the byte math, and the milestone tracker.
+emulated here rather than run on real 16 GB hardware, and non-greedy sampling
+has no golden test yet. [PLAN.md](PLAN.md) has the design, the byte math, and
+the milestone tracker.
 
 ## License
 

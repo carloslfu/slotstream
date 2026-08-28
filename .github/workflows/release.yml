@@ -12,11 +12,12 @@ permissions:
   attestations: write
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - name: toolchain
+      - name: toolchain (newest Xcode on the image; mlx-swift needs Swift >= 6.3)
         run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
           sw_vers
           swift --version
       - name: metal library (pinned mlx-metal 0.31.1 wheel, macOS 26 build)

@@ -57,13 +57,17 @@ multi-GB. These rules are mandatory:
   whole process groups.
 - Distribution: `install.sh` (repo root) is the public one-line installer; it
   fetches the latest release asset `slotstream-arm64.tar.gz` (binary +
-  `mlx.metallib`, plus a `.sha256` file) into `~/.slotstream/bin`. Cutting a
-  release = `make build`, tar those two files from `.build/release/`, shasum,
-  `gh release create vX.Y.Z` with both assets; bump `version:` in
-  `Sources/slotstream/main.swift` to match. Asset names are stable (the
-  installer uses `releases/latest/download/`), so never rename them. The
-  tarball's metallib is the macOS 26 build; `install.sh` swaps in the
-  macOS 14/15 builds from pinned mlx-metal wheels — when bumping the MLX
-  version, update those wheel URLs + sha256s alongside
+  `mlx.metallib`, plus a `.sha256` file) into `~/.slotstream/bin`. **Cutting a
+  release**: bump `version:` in `Sources/slotstream/main.swift` to match the
+  tag, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z` —
+  `.github/workflows/release.yml` builds on a macos-15 runner, fails unless
+  `--version` equals the tag, packages, attests provenance
+  (`gh attestation verify <asset> --repo carloslfu/slotstream`), and
+  publishes. Never build release assets locally except as a documented
+  emergency fallback. Asset names are stable (the installer uses
+  `releases/latest/download/`), so never rename them. The tarball's metallib
+  is the macOS 26 build (CI pins it via `SLOTSTREAM_METALLIB_MACOS=26`);
+  `install.sh` swaps in the macOS 14/15 builds from pinned mlx-metal wheels —
+  when bumping the MLX version, update those wheel URLs + sha256s alongside
   `Tools/fetch_metallib.sh`. raw.githubusercontent caches `install.sh` for
   ~5 minutes after a push.
