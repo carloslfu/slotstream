@@ -12,10 +12,13 @@ by a measurement; everything marked **verified** came from the model config or a
 
 ## 0. Status tracker (living)
 
+Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
+design and the estimates it replaces.
+
 | Milestone | State | Exit proof |
 |---|---|---|
-| M0 Ground truth & feasibility | ☐ not started | numbers table below filled with measured values |
-| M1 Expert-locality study | ☐ | hit-rate curves committed to `bench/locality/` |
+| M0 Ground truth & feasibility | ✅ **done 2026-08-28** | byte-exact model inventory, Metal limits, cold SSD curve, MLX+Swift slot-pool gate, Swift prior-art survey — all in MEASUREMENTS.md |
+| M1 Expert-locality study | ◐ tooling built (`Tools/trace_routers.py`, `Tools/cachesim.py`), traces pending | hit-rate curves committed to `bench/locality/` |
 | M2 `.ssmodel` container + repack | ☐ | byte-exact spot checks pass |
 | M3 Swift engine, resident correctness (incl. QSA indexer) | ☐ | layerwise parity vs Python ref ≤ 1e-2 |
 | M4 Slot streaming decode (first full-model run) | ☐ | golden equivalence + ≥10 tok/s warm on dev Mac |

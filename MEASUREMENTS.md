@@ -244,6 +244,33 @@ ceiling — the real model issues many ops per layer with better parallelism (an
 MoE path gathers 11 experts per layer at once). The honest compute number has to
 come from running the model, not from extrapolating one kernel.
 
+## M0.7 — The naive path fails (why slotstream exists)
+
+Downloaded the full 4-bit conversion (97 GB on disk, 11 shards + tokenizer) and ran
+it through stock `mlx_lm.load()` on this 48 GB Mac.
+
+**Result: the machine went to 48.8 GB of swap and the process was killed before
+emitting a single token.** Root cause, found in
+`mlx_lm/utils.py:load_model`:
+
+```python
+model.load_weights(list(weights.items()), strict=strict)
+if not lazy:
+    mx.eval(model.parameters())   # <- materialises all 104 GB
+```
+
+`load()` defaults to `lazy=False`. So the out-of-the-box Python path is not merely
+slow on a 48 GB machine — it is fatal, and it takes the whole machine into heavy
+swap on the way down (the exact failure mode PLAN.md §3.4 predicted for
+mmap-and-pray, now observed rather than argued).
+
+Re-run with `load(..., lazy=True)` keeps the weights memory-mapped; results below.
+
+Practical note for the runbook: `mlx_lm.load()` must never be called on this model
+without `lazy=True`, and `slotstream doctor` should refuse to start a configuration
+whose resident set exceeds the measured working-set limit rather than letting the OS
+swap.
+
 ## Reference implementation
 
 `Tools/reference/qwen4_exp.py` (vendored, from the pinned conversion) — the port
