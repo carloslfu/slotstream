@@ -12,6 +12,27 @@ check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); 
 echo "== build =="
 make build >/dev/null
 
+# Size the heavy gates to the machine: the equality properties they check are
+# size-independent, and the suite must run on a 16 GB contributor machine (or
+# a busy 48 GB one) without swamping it. Full profile needs ~32 GB reclaimable.
+AVAIL=$(python3 - <<'PY'
+import subprocess
+vs = subprocess.run(['vm_stat'], capture_output=True, text=True).stdout
+d = {}
+for line in vs.splitlines()[1:]:
+    if ':' in line:
+        k, v = line.split(':')
+        d[k.strip()] = int(v.strip().rstrip('.'))
+print(int((d['Pages free'] + d['Pages purgeable'] + d.get('File-backed pages', 0)) * 16384 / 1e9))
+PY
+)
+if [ "$AVAIL" -ge 32 ]; then
+  BIG=181; ECBIG=8688
+else
+  BIG=60; ECBIG=2892
+  echo "(reclaimable ~${AVAIL} GB: heavy gates scaled to ${BIG}/layer — the equality properties are unchanged)"
+fi
+
 echo "== weights provenance (hashes all 103.8 GB vs the pinned upstream revision) =="
 check "pull --verify: 24/24 files match"     "$BIN pull --verify"
 
@@ -38,18 +59,18 @@ $BIN doctor --memory-gb 30 --sim-ram 51.5 --sim-working-set 40.2 --sim-available
 check "explicit 30GB on busy 48: honored + info note"  "grep -q 'target: 30.0' /tmp/ssv_e48.txt && grep -q 'only 18.0 GB is reclaimable' /tmp/ssv_e48.txt"
 
 echo "== golden equivalence: streaming must not change the math =="
-$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer 181 2>/dev/null > /tmp/ssv_big.txt
+$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer $BIG 2>/dev/null > /tmp/ssv_big.txt
 $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer 30 2>/dev/null > /tmp/ssv_small.txt
-check "30/layer cache output == 181/layer cache output" "diff /tmp/ssv_big.txt /tmp/ssv_small.txt"
+check "30/layer cache output == ${BIG}/layer cache output" "diff /tmp/ssv_big.txt /tmp/ssv_small.txt"
 
 echo "== elastic pool: live resizes must not change the math =="
-check "grow/shrink/regrow byte-identical (elastic-check)" "$BIN elastic-check"
+check "grow/shrink/regrow byte-identical (elastic-check)" "$BIN elastic-check --big-slots $ECBIG"
 
 echo "== memory target keeps its promise =="
 $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --memory-gb 8 2>/tmp/ssv_mem.err > /tmp/ssv_mem.txt
 PEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_mem.err | grep -o '[0-9.]*')
-check "--memory-gb 8 peak ($PEAK GB) under 8 GB"  "awk 'BEGIN{exit !($PEAK < 8.0)}' </dev/null"
-check "--memory-gb 8 output == 181/layer output"  "diff /tmp/ssv_mem.txt /tmp/ssv_big.txt"
+check "--memory-gb 8 peak ($PEAK GB) under 8 GB"    "awk 'BEGIN{exit !($PEAK < 8.0)}' </dev/null"
+check "--memory-gb 8 output == ${BIG}/layer output" "diff /tmp/ssv_mem.txt /tmp/ssv_big.txt"
 
 echo
 echo "passed $PASS, failed $FAIL"

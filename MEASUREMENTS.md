@@ -561,6 +561,25 @@ what the margin is for). Note: decode after a long prefill runs slower than
 the short-prompt anchors (3.5 vs ~7 tok/s at 41/layer) — KV/indexer overhead
 plus a prefill-polluted cache; the est. table is anchored on short prompts.
 
+**Soak (bounded)**: `serve --memory-gb 10` ran ~40 min with a request every
+45 s — 28/28 requests succeeded, latency flat at 6–7 s, RSS flat across the
+whole window: **no leak, no drift, no crash**. (The request loop itself paused
+when the machine slept; the server rode through it.)
+
+**RSS finding → MLX cache limit**: that soak surfaced a real hidden footprint —
+**15.1 GB RSS for a 10 GB-target server**. MLX's allocator retains freed
+transients (per-request KV caches, activations) in an unbounded internal
+cache; the Metal "peak" metric doesn't show it, real process memory does. Fix:
+`GPU.set(cacheLimit: 2 GB)` at engine init. Measured after: **6.0 GB RSS,
+flat across requests, identical 6–7 s latency** — real process memory now
+tracks the announced plan instead of exceeding it by 50%.
+
+**verify.sh is now memory-adaptive**: the heavy equality gates size themselves
+to what is reclaimable (181/layer when ≥32 GB, 60/layer otherwise, printed
+when scaled) — the equality properties are size-independent, and the suite
+must be runnable on a 16 GB contributor machine, or a busy 48 GB one, without
+swamping it. Current full battery: **15/15 PASS**.
+
 **Operational lesson (learned the hard way):** stacking two slotstream
 instances plus a full test load (browser, builds, request loops) on one 48 GB
 machine overcommitted the host and crashed it. The governor protects a single

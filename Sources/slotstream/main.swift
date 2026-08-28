@@ -290,11 +290,14 @@ struct ElasticCheck: ParsableCommand {
         abstract: "Prove greedy output is byte-identical across live pool grow/shrink")
     @OptionGroup var model: ModelOptions
     @Option var maxTokens: Int = 24
+    @Option(help: "Slot count for the grow step (lower it on small machines; the equality property is size-independent)")
+    var bigSlots: Int = 8688
 
     func run() throws {
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         let tokens = maxTokens
+        let big = bigSlots
         Task {
             do {
                 // start small (30/layer), grow warm, shrink cold, regrow
@@ -312,14 +315,15 @@ struct ElasticCheck: ParsableCommand {
                     return out
                 }
                 let a = gen("baseline    ")
-                engine.withExclusive { engine.model.pool.resize(to: 8688) }
+                engine.withExclusive { engine.model.pool.resize(to: big) }
                 let b = gen("after grow  ")
                 engine.withExclusive { engine.model.pool.resize(to: 1446) }
                 let c = gen("after shrink")
                 engine.withExclusive { engine.model.pool.resize(to: 2400) }
                 let d = gen("after regrow")
                 if a == b, b == c, c == d {
-                    print("ELASTIC CHECK PASS: 4 generations byte-identical across 30→181→30→50 experts/layer")
+                    print("ELASTIC CHECK PASS: 4 generations byte-identical across "
+                        + "30→\(Int(Geometry.perLayer(big)))→30→50 experts/layer")
                 } else {
                     print("ELASTIC CHECK FAIL")
                     for (n, s) in [("a", a), ("b", b), ("c", c), ("d", d)] { print("--- \(n):\n\(s)") }

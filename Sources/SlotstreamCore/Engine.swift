@@ -53,6 +53,12 @@ public final class Engine {
     public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
         self.modelDir = modelDir
         self._plan = plan
+        // MLX's allocator otherwise retains freed transients (KV caches,
+        // activations) in an unbounded internal cache — measured ~5 GB of RSS
+        // above the memory plan after a few dozen requests. 2 GB keeps
+        // per-token reallocation churn away while making real process memory
+        // track the announced plan.
+        MLX.GPU.set(cacheLimit: 2 << 30)
         self.modelName = "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index = try CheckpointIndex(dir: modelDir)
