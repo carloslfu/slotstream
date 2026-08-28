@@ -26,24 +26,36 @@ Measured on an M5 Pro with 48 GB and a 2 TB SSD (method and full data in
 | Peak memory with a 24 GB cache | 27.3 GB |
 | Smallest run so far | 7.3 GB peak, 5.6 tok/s |
 
-## Quick start
+## Install
 
 ```bash
-make build                        # fetches a 50 MB Metal library on first run
-.build/release/slotstream pull    # 104 GB download; resumable, hash-checked
-.build/release/slotstream serve   # picks a size for this machine and says so
-.build/release/slotstream run --prompt "Why is the sky blue?"
+curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
 ```
 
-Needs an Apple Silicon Mac, macOS 14 or newer, about 110 GB of free disk, and
-the Swift toolchain (Command Line Tools are enough; Xcode is not required).
+One line: it installs the prebuilt binary into `~/.slotstream/bin`, puts it on
+your PATH, and offers to start the server, which asks before downloading the
+model (104 GB, resumable). The script is [install.sh](install.sh) in this
+repo, and the release tarball is sha256-checked before anything runs. Re-run
+the same line to upgrade; uninstall with `rm -rf ~/.slotstream` plus the PATH
+line it added, if any.
 
-`pull` downloads the pinned pipenetwork MLX conversion into
+Needs an Apple Silicon Mac, macOS 14 or newer, and about 110 GB of free disk.
+To build from source instead:
+
+```bash
+git clone https://github.com/carloslfu/slotstream && cd slotstream
+make build      # needs the Swift toolchain; Command Line Tools are enough
+.build/release/slotstream serve
+```
+
+The weights are the pinned pipenetwork MLX conversion, stored in
 `~/.slotstream/models/` (a dev checkout's `models/` directory is used first if
-present). It checks disk space before moving bytes, resumes mid-file after an
-interruption, and refuses any file whose sha256 doesn't match the pinned
-revision, so a corrupted download can never become garbage tokens.
-`pull --verify` re-hashes an existing copy, about 14 s for all of it.
+present). `serve` and `run` offer the download when weights are missing;
+`slotstream pull` runs it directly. Either way, the download checks disk
+space before moving bytes, resumes mid-file after an interruption, and
+refuses any file whose sha256 doesn't match the pinned revision, so a
+corrupted download can never become garbage tokens. `pull --verify` re-hashes
+an existing copy, about 14 s for all of it.
 
 ## The server
 
@@ -129,8 +141,8 @@ hyper-connections), are bit-exact; deeper layers sit within a few bf16 ulps.
 Working and measured on one machine, zero tuning so far. Known gaps: prefill
 is naive chunked and slow for long prompts, the small configurations were
 emulated here rather than run on real 16 GB hardware, non-greedy sampling has
-no golden test yet, and there are no prebuilt binaries. [PLAN.md](PLAN.md) has
-the design, the byte math, and the milestone tracker.
+no golden test yet, and releases are built on the dev machine rather than CI.
+[PLAN.md](PLAN.md) has the design, the byte math, and the milestone tracker.
 
 ## License
 

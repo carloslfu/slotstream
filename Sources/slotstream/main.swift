@@ -9,6 +9,7 @@ struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "slotstream",
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
+        version: "0.1.0",
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self,
@@ -59,19 +60,65 @@ struct ModelOptions: ParsableArguments {
     var modelURL: URL { ModelLocator.resolve(model) }
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
-    /// place a stranger hits with no weights — fail with the fix, not a stack.
+    /// place a stranger hits with no weights — offer the download right there.
     func announcedPlan() throws -> MemoryPlan {
-        let url = modelURL
-        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("config.json").path)
-        else {
-            throw PlanError(
-                "no model at \(url.path) — download it first with:  slotstream pull")
-        }
+        try ensureWeights()
         let plan = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
         return plan
     }
+
+    /// If the pinned model isn't downloaded and we have a terminal, ask once
+    /// and run the pull inline. Anything else fails with the fix, not a stack.
+    func ensureWeights() throws {
+        let url = modelURL
+        let fm = FileManager.default
+        if fm.fileExists(atPath: url.appendingPathComponent("config.json").path) { return }
+        guard model == PinnedModel.name || model == PinnedModel.dirName else {
+            throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")
+        }
+        let free = (try? fm.attributesOfFileSystem(
+            forPath: fm.homeDirectoryForCurrentUser.path))?[.systemFreeSize] as? Int64 ?? 0
+        print("""
+            \(PinnedModel.name) is not downloaded yet.
+              size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)
+              to:    \(url.path)
+              disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
+            """)
+        fflush(stdout)
+        switch askYesNo("download now? [Y/n] ") {
+        case .some(true):
+            try Pull.download(to: url)
+            try Pull.verify(at: url)
+        case .some(false):
+            throw PlanError("not downloading — when you are ready:  slotstream pull")
+        case .none:  // no terminal to ask on
+            throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")
+        }
+    }
+}
+
+/// Ask on the controlling terminal. Returns nil when there is no terminal
+/// (piped stdin and no /dev/tty), so callers can fail with instructions
+/// instead of hanging.
+func askYesNo(_ prompt: String) -> Bool? {
+    func parse(_ s: String) -> Bool {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return t.isEmpty || t == "y" || t == "yes"
+    }
+    if isatty(0) == 1 {
+        print(prompt, terminator: "")
+        guard let line = readLine() else { return false }
+        return parse(line)
+    }
+    guard let tty = fopen("/dev/tty", "r") else { return nil }
+    defer { fclose(tty) }
+    print(prompt, terminator: "")
+    fflush(stdout)
+    var buf = [CChar](repeating: 0, count: 64)
+    guard fgets(&buf, 64, tty) != nil else { return false }
+    return parse(String(cString: buf))
 }
 
 // MARK: run

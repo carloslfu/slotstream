@@ -24,7 +24,7 @@ design and the estimates it replaces.
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
 | M5 Prefill/prefetch perf | ◐ partial | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; dense-sweep prefill + cross-token prefetch not yet built (prefill 4.6–13.2 tok/s naive) |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
-| M7 CLI, install, packaging | ◐ mostly | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile work; `pull` is resumable + sha256-verified against the pinned revision (proven live incl. resume, 429 retry, corruption fail-closed); LaunchAgent install not built (foreground serve is the supported mode); metallib ships via Makefile copy |
+| M7 CLI, install, packaging | ✅ **done 2026-08-28** (LaunchAgent deferred) | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile; `pull` resumable + sha256-verified (proven live incl. resume, 429 retry, corruption fail-closed); `serve`/`run` offer the download on first run (consent-gated, /dev/tty-aware); public one-line installer (`install.sh` → sha256-checked release tarball → `~/.slotstream/bin` → PATH → optional handoff to serve); v0.1.0 release ships binary + metallib; LaunchAgent not built (foreground serve is the supported mode) |
 | M8 Matrix bench + tier validation | ◐ first data | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (30 experts/layer cached); real small-Mac runs pending |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
 
@@ -367,11 +367,14 @@ slotstream bench [--suite full|quick] [--sim-ram 16]
 ```
 
 Config: `~/.slotstream/config.json` + env overrides; models in `~/.slotstream/models/`;
-logs via os_log + `~/.slotstream/logs/`. Distribution while private: `make install` from
-source + `gh release` binaries (arm64-only, macOS 14+). If ever public: Homebrew tap +
-notarized binaries + curl installer. Disk requirement enforced by `pull`: ~105 GB for the
-4-bit build (+ transient download staging; `--purge-source` streams the repack to stay
-under ~130 GB peak), ~84 GB for the later compact build.
+logs via os_log + `~/.slotstream/logs/`. ✅ Distribution (2026-08-28): public curl
+installer (`install.sh` at the repo root → latest `gh release` tarball of binary +
+metallib, sha256-checked, installed to `~/.slotstream/bin`, PATH wired, optional
+handoff to `serve`); `serve`/`run` offer the model download interactively when weights
+are missing. Later: Homebrew tap + notarized binaries + CI-built releases. Disk
+requirement enforced by `pull`: ~105 GB for the 4-bit build (+ transient download
+staging; `--purge-source` streams the repack to stay under ~130 GB peak), ~84 GB for
+the later compact build.
 
 ---
 
@@ -691,7 +694,9 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
 - [~] Ollama surface: full curl-level battery passes (`Tools/api_test.sh`:
       version/tags/chat±stream/generate/v1±SSE/embed-reject); real GUI clients
       not yet exercised (sandbox intercepts local HTTP clients; nc transport used).
-- [ ] Clean-machine install (`pull` + LaunchAgent) — not built.
+- [~] Clean-machine install: one-line curl installer + v0.1.0 release binary +
+      consent-gated auto-pull shipped and tested end to end here; LaunchAgent
+      not built, and no clean *machine* has run it yet.
 - [x] Docs from measured numbers only (README/MEASUREMENTS).
 
 ## 12. Open questions (answer at the milestone noted)

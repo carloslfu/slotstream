@@ -30,6 +30,12 @@ public final class Server {
         guard bindResult == 0 else { fatalError("bind :\(port) failed (in use?)") }
         listen(listenFD, 16)
         print("slotstream listening on http://127.0.0.1:\(port)")
+        print("""
+        try it:
+          curl localhost:\(port)/api/chat -d '{"model": "\(engine.modelName)", "messages": [{"role": "user", "content": "hello"}]}'
+        or point any Ollama or OpenAI client at http://localhost:\(port)
+        """)
+        fflush(stdout)  // visible immediately even when stdout is a file/pipe
         while true {
             let fd = accept(listenFD, nil, nil)
             if fd < 0 { continue }

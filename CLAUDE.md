@@ -55,3 +55,10 @@ multi-GB. These rules are mandatory:
   with `nc` raw sockets, or the app's Browser pane (which reaches localhost).
 - Launch background servers with `(nohup ... &)` subshells; TaskStop kills
   whole process groups.
+- Distribution: `install.sh` (repo root) is the public one-line installer; it
+  fetches the latest release asset `slotstream-arm64.tar.gz` (binary +
+  `mlx.metallib`, plus a `.sha256` file) into `~/.slotstream/bin`. Cutting a
+  release = `make build`, tar those two files from `.build/release/`, shasum,
+  `gh release create vX.Y.Z` with both assets; bump `version:` in
+  `Sources/slotstream/main.swift` to match. Asset names are stable (the
+  installer uses `releases/latest/download/`), so never rename them.
