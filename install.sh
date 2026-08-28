@@ -23,7 +23,7 @@ MAJOR=$(sw_vers -productVersion | cut -d. -f1)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-echo "downloading slotstream (latest release, about 60 MB)"
+echo "downloading slotstream (latest release, about 50 MB)"
 curl -fL --progress-bar -o "$TMP/slotstream.tar.gz" "$BASE/slotstream-arm64.tar.gz"
 curl -fsSL -o "$TMP/expected.sha256" "$BASE/slotstream-arm64.tar.gz.sha256"
 GOT=$(shasum -a 256 "$TMP/slotstream.tar.gz" | cut -d' ' -f1)
@@ -66,7 +66,7 @@ case ":$PATH:" in
     ;;
 esac
 
-if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+if (exec < /dev/tty) 2>/dev/null; then
     printf "start the server now? (it will ask before downloading the 104 GB model) [Y/n] " > /dev/tty
     read -r ANS < /dev/tty || ANS=n
     case "$ANS" in
