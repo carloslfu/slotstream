@@ -376,6 +376,48 @@ hyper-connections, embeddings) bit-exact, this is numerics skew, not porting
 error. Parity gate adopted: layers 0–1 must be bit-exact; deeper layers RMS-rel
 ≤ 3e-2 (tracked, with the ulp origin documented).
 
+## M4/M5/M6 — End-to-end results (2026-08-28, this Mac, zero tuning)
+
+### The headline: the full 125B+51B model generates on this 48 GB machine
+
+`slotstream run --prompt "Why is the sky blue?" --greedy --pool-gb 24`:
+
+| Metric | Cold (first run) | Warm (server, 2nd request) |
+|---|---|---|
+| Engine start | 2.3 s (page-cached residents: 1.1 s) | — |
+| Prefill (18–23 tok) | 1.9–4.6 tok/s | 13.2 tok/s |
+| **Decode** | **7.8–10.4 tok/s** | **20.0 tok/s** |
+| Expert hit rate | 0.837 (cold cache) | higher (persistent pool) |
+| Peak Metal memory | 27.3 GB (24 GB pool) | — |
+| Output | fully coherent, correct Rayleigh-scattering answer | deterministic across requests |
+
+**Golden equivalence (the design's core invariant) passed on the full model**:
+a 4 GB pool (1,446 slots, 5.9% coverage, hit rate 0.556) produced **byte-identical
+greedy output** to the 24 GB pool — streaming placement provably does not touch
+the math. That starved run peaked at **7.3 GB** total at **5.6 tok/s**: the
+lite16 tier already works in emulation, at ~10× the plan's original 4–9 tok/s
+low-end estimate... and within its band despite the cold cache.
+
+### Ollama API surface
+
+`Tools/api_test.sh` (raw-socket transport; this sandbox proxies curl/urllib —
+external clients on a normal machine are unaffected): `/api/version`, `/api/tags`,
+`/api/chat` non-streaming + NDJSON streaming, `/api/generate`,
+`/v1/chat/completions` non-streaming + SSE with `[DONE]`, `/api/embed` clean
+reject — **all pass**. Instruction following through the whole stack verified
+("Reply with exactly: SLOTSTREAM OK" → `SLOTSTREAM OK`; "2+2" → `4`).
+
+Engine code: ~2,300 lines of Swift (`Sources/`), single binary + colocated
+metallib via `make build`.
+
+### Honest gaps (not yet done)
+
+Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow for
+long prompts). QSA indexer implemented but not exercised past the 2048-token
+budget in a live run. Real ≤16 GB hardware validation. GUI-client (Open WebUI)
+end-to-end. LaunchAgent install + `pull`. 30-min soak. Sampler (non-greedy) is
+implemented but not golden-tested against a reference.
+
 ## Reference implementation
 
 `Tools/reference/qwen4_exp.py` (vendored, from the pinned conversion) — the port

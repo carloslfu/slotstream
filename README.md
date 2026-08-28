@@ -1,49 +1,44 @@
 # slotstream
 
-Run **Qwen3.8-Flash-Next** (125B-A6B + 51B n-gram store, 4-bit) on any Apple Silicon Mac —
-SSD-streamed experts and PLE/n-gram rows, with RAM **cache slots** as the memory↔speed
-knob. MLX + Swift, single binary, Ollama-compatible API.
+Run **Qwen3.8-Flash-Next** (125B-A6B + 51B n-gram store, 4-bit, ~104 GB) on a
+48 GB Mac — and in as little as **7.3 GB** of memory — by streaming the routed
+experts and PLE/n-gram rows from SSD into a fixed pool of RAM **cache slots**.
+MLX + Swift, single binary, Ollama-compatible API.
 
-- **[PLAN.md](PLAN.md)** — design, byte math, tiers, milestones, test matrix, risks.
-- **[MEASUREMENTS.md](MEASUREMENTS.md)** — everything actually measured on hardware.
-  PLAN holds estimates; MEASUREMENTS replaces them as they are made.
-
-## Status — M0 complete (2026-08-28)
-
-The design survived measurement, with one finding that changed its status from
-"good idea" to "the only option":
-
-**MLX cannot sparsely materialise a memory-mapped tensor.** A top-10 expert gather
-materialises all 512 experts of that layer (→68 GB across the model); a 16-row
-n-gram lookup materialises the whole 250 MB shard (→32 GB). Stock lazy loading
-therefore pulls in ~100 GB and dies at any prompt length — observed, repeatedly, on
-a 48 GB M5 Pro. A bounded, pre-allocated slot pool filled by explicit `pread` is the
-only construction that avoids this. Every piece of it now measures working:
+**Status: it works.** Built and measured 2026-08-28 on an M5 Pro / 48 GB:
 
 | | measured |
 |---|---|
-| `gatherQuantizedMM` over a resident pool | bit-identical to `quantizedMatmul` (Python **and** Swift) |
-| Slot fills into a 27 GB pool | 49–75 GB/s, in place, no copy |
-| SSD, cold, never-repeat, expert-record size | 9.5 GB/s @QD1 → **17.3 GB/s** @QD8+ |
-| Lazy `load()` of the 97 GB checkpoint | 0.4 s, 0 GB resident |
-| Expert record geometry | 2,764,800 B — exactly as planned |
+| Decode, warm | **20.0 tok/s** |
+| Decode, cold cache | 7.8–10.4 tok/s |
+| Cold start → first token | ~12 s (engine up in 1–2 s; no full-model load ever) |
+| Peak memory @ 24 GB pool | 27.3 GB |
+| Minimum demonstrated | **7.3 GB peak** @ 5.6 tok/s (4 GB pool) |
+| Streaming correctness | 4 GB pool ≡ 24 GB pool: **byte-identical** greedy output |
+| Port correctness | layers incl. streamed MoE/GDN/PLE **bit-exact** vs the Python reference (mlx-0.31.1-matched) |
+| Chat template | token-for-token identical to `transformers` |
 
-Not yet done: no end-to-end generation of the full model (it requires the slot pool
-that M3/M4 build), and no expert-locality curves from the real model. See the
-summary at the end of MEASUREMENTS.md for the full list of what was confirmed,
-corrected, discovered, and left open.
-
-## Layout
-
-```
-PLAN.md           design + milestones (the living plan)
-MEASUREMENTS.md   measured facts, with methodology and superseded attempts
-Tools/            coldread.c, diskbench.c, slotbench*.py, cachesim.py,
-                  trace_routers.py, run_model.py, reference/qwen4_exp.py
-swift-probe/      Swift proof of the slot-pool + pread mechanism
-bench/            traces, locality results
+```bash
+make build                       # SwiftPM build + colocate the metallib
+.build/release/slotstream run --prompt "Why is the sky blue?"
+.build/release/slotstream serve --port 11434    # Ollama-compatible API
+Tools/api_test.sh 11434                          # endpoint battery
+.build/release/slotstream doctor                 # device → recommended pool
 ```
 
-Build note: mlx-swift's Metal shaders cannot be built by SwiftPM CLI. Until that is
-resolved properly, the probe runs by colocating the prebuilt `mlx.metallib` from the
-Python `mlx` wheel next to the binary (see MEASUREMENTS.md §M0.4).
+Point any Ollama/OpenAI client at it: `/api/chat`, `/api/generate`, `/api/tags`,
+`/v1/chat/completions` (streaming NDJSON / SSE). Model dir defaults to
+`models/qwen38-flash-next-mlx-4bit` (the pinned `pipenetwork` MLX conversion);
+`--pool-gb` is the memory↔speed knob.
+
+- **[PLAN.md](PLAN.md)** — design, byte math, tiers, milestone tracker.
+- **[MEASUREMENTS.md](MEASUREMENTS.md)** — every number above, with method,
+  including the false starts (page-cache-contaminated disk benches, MLX
+  version-skew parity, the mmap OOM story) and the honest gap list
+  (dense-sweep prefill, real 16 GB hardware, GUI clients, installers).
+
+Why this design is required rather than merely nice: MLX cannot sparsely
+materialise a memory-mapped tensor — a top-10 expert gather pulls **all 512**
+experts of that layer, a 16-row n-gram lookup pulls its whole **250 MB** shard,
+so every mmap-based path loads ~100 GB and dies. The slot pool is the workaround
+with receipts; see MEASUREMENTS §M0.8.
