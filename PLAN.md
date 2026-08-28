@@ -197,8 +197,10 @@ frequency stats, and admits experts into slots only by frequency/hot-set — oth
 every long prefill flushes the warm cache and the decode that follows starts cold.
 N-gram rows for the entire prompt are known upfront → batch-fetch before layer 2.
 
-Cold start: resident load (~3.3 GB) + optional hot-set preload, sequential at 5–7 GB/s →
-**first token in seconds, not minutes** — no full-model load ever happens.
+Cold start: resident load (**3.822 GB** ✅measured) + optional hot-set preload, at the
+measured 17.3 GB/s → **first token in seconds, not minutes** — no full-model load ever
+happens. ✅Confirmed on the real checkpoint: lazy `load()` of all 97 GB returns in
+**0.4 s with 0 GB resident**.
 
 ### 3.4 Why explicit slots instead of mmap-and-pray
 
@@ -319,7 +321,8 @@ explicit go — billed).
 
 
 Keys for token t's rows are a pure function of input token ids (bi/tri-grams × 8 heads,
-~16 rows ≈ 23 KB @4-bit). Decode: after sampling token t, issue reads for step t+1
+✅measured **16 rows × 100 B = 1.6 KB**, touching ≤16 of the 128 shards).
+Decode: after sampling token t, issue reads for step t+1
 immediately — a handful of 4–16 KiB reads (~0.1–0.3 ms) mostly hidden behind layers 0–1
 of that step plus the row cache. Prefill: batch-read the whole
 prompt's (deduplicated) rows before layer 2. Small LRU row cache (128–256 MB) absorbs
