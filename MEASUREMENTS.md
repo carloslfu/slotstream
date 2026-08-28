@@ -587,6 +587,40 @@ auto-sized instance against the rest of the system; it cannot protect against
 deliberately stacked model processes. Rule, now in the README: **one instance
 per machine**; test instances get small explicit `--memory-gb` sizes.
 
+### One-command install (2026-08-28): v0.1.0 release + installer, proven end to end
+
+Release v0.1.0 ships `slotstream-arm64.tar.gz` (50.8 MB compressed: the
+36.9 MB binary + the 131 MB mlx-0.31.1 metallib, built from commit `6a038fe`)
+plus a `.sha256` asset; names are stable because the installer fetches
+`releases/latest/download/`. `install.sh` (repo root) gates on
+Darwin/arm64/macOS ≥ 14, sha256-verifies the tarball, installs to
+`~/.slotstream/bin`, wires PATH (a wrapper in `/usr/local/bin` when writable
+without sudo, else one grep-guarded profile line), and offers a handoff to
+`serve` when a real terminal exists.
+
+`serve`/`run` now offer the download themselves: pinned model missing + a
+terminal → a size/destination/free-disk block and one `[Y/n]`. Proven live
+with an APFS-cloned copy missing only `config.json`: consent pulled the
+missing file over the network, ran the full 24-file verify (PASS), and
+generated correctly at a 6.9 GB peak. Decline exits 1 with "when you are
+ready: slotstream pull"; no terminal (piped stdin, no usable `/dev/tty`)
+exits 1 with the pull hint. `serve` now also prints a copy-paste curl and the
+client hint at bind time; the exact printed payload returned HTTP 200 NDJSON
+with the CORS header on the wire.
+
+End-to-end as a stranger, from GitHub, under an isolated `$HOME`: the README
+one-liner installed 0.1.0, appended the PATH line exactly once, printed the
+no-terminal fallback, and exited 0; under a pty it prompted and honored "n".
+From the installed directory (outside any checkout), `doctor` initialized
+Metal off the colocated metallib and a real generation produced the exact
+requested string at a 6.9 GB peak. Two installer findings: `[ -r /dev/tty ]`
+passes even with no controlling terminal, so the guard must actually open it
+(`(exec < /dev/tty)`); and raw.githubusercontent caches for ~5 minutes and
+ignores query-string cache busting, so after editing `install.sh` wait out
+the cache before re-testing. Not proven here: a truly clean machine (this
+Mac's dev checkout resolves first via the embedded path), and the handoff
+"y" branch was not exec'd live (it composes two proven pieces).
+
 ### Honest gaps (not yet done)
 
 Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow
