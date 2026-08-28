@@ -396,7 +396,7 @@ Budget rule: total footprint ≤ ~65–70% of RAM **and** under
 working set = **37.4 GiB of 48 GB** (78%), so the real ceiling is tighter than "RAM"
 everywhere — `doctor` must read this value, not infer it from `hw.memsize`. Also
 ✅measured: `max_buffer_length` = **28.1 GiB**, which caps any *single* MLXArray;
-harmless in the 9-tensor pool layout (a 27 GB pool's largest tensor is 8.0 GiB) but
+harmless in the 9-tensor pool layout (a 204-experts/layer = 27 GB pool's largest tensor is 8.0 GiB) but
 it would have been binding for a single-tensor pool.
 
 Resident floor ✅measured at **3.822 GB** (everything except experts and n-gram),
@@ -628,7 +628,7 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB, `gh` authed as carloslf
 | Batch-1 4-bit matmul | 47.2 GB/s (launch-bound) |
 | SSD random 2.7648 MB, cold never-repeat | 9.46 (QD1) → **17.3 GB/s** (QD8+) |
 | SSD random 4 KiB / 16 KiB, QD1 | 0.08 / 0.27 GB/s (53.6 / 60.1 µs) |
-| Slot scatter, 27 GB pool | **74.9 GB/s**, in place |
+| Slot scatter, 204-experts/layer (27 GB) pool | **74.9 GB/s**, in place |
 | Xcode | **not installed** (CLT only) — see risk register |
 
 ## 11. Definition of Done — v0.1 (updated with 2026-08-28 results)
