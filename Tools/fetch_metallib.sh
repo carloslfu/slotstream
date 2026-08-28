@@ -11,7 +11,8 @@ if [ -s "$OUT" ]; then
     exit 0
 fi
 mkdir -p "$(dirname "$OUT")"
-HOST=$(sw_vers -productVersion | cut -d. -f1)
+# CI overrides this to package a specific build regardless of runner OS.
+HOST=${SLOTSTREAM_METALLIB_MACOS:-$(sw_vers -productVersion | cut -d. -f1)}
 URL=$(curl -fsSL https://pypi.org/pypi/mlx-metal/0.31.1/json | python3 -c "
 import json, sys
 host = int(sys.argv[1])

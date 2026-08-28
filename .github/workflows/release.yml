@@ -1,0 +1,57 @@
+# Release build in CI: every asset traces to a public commit and build log,
+# with signed provenance (verify: gh attestation verify <asset> --repo <repo>).
+# Cut a release by pushing a tag: git tag vX.Y.Z && git push origin vX.Y.Z.
+# The binary's --version must match the tag or the build fails.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: toolchain
+        run: |
+          sw_vers
+          swift --version
+      - name: metal library (pinned mlx-metal 0.31.1 wheel, macOS 26 build)
+        run: SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
+      - name: build
+        run: |
+          swift build -c release
+          cp Tools/lib/mlx-0.31.1.metallib .build/release/mlx.metallib
+      - name: smoke
+        run: |
+          V=$(.build/release/slotstream --version)
+          echo "binary $V, tag $GITHUB_REF_NAME"
+          [ "v$V" = "$GITHUB_REF_NAME" ]
+      - name: package
+        run: |
+          mkdir dist
+          tar -czf dist/slotstream-arm64.tar.gz -C .build/release slotstream mlx.metallib
+          (cd dist && shasum -a 256 slotstream-arm64.tar.gz > slotstream-arm64.tar.gz.sha256)
+          cat dist/slotstream-arm64.tar.gz.sha256
+      - name: attest provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/slotstream-arm64.tar.gz
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(cut -d' ' -f1 < dist/slotstream-arm64.tar.gz.sha256)
+          gh release create "$GITHUB_REF_NAME" \
+            dist/slotstream-arm64.tar.gz dist/slotstream-arm64.tar.gz.sha256 \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Built by CI from commit $GITHUB_SHA (build log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).
+
+          sha256: $SHA
+
+          Verify provenance: download slotstream-arm64.tar.gz, then: gh attestation verify slotstream-arm64.tar.gz --repo $GITHUB_REPOSITORY
+
+          Install or upgrade: curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/install.sh | sh"
