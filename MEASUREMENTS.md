@@ -649,6 +649,20 @@ each OS now gets exactly the library a from-source build there would use.
 Also fixed: re-running the installer says "PATH already set up" and appends
 nothing (verified one profile line after two runs).
 
+**CI-built releases with signed provenance (2026-08-28):** v0.1.0 and v0.1.1
+were built on the dev machine and traceable only to a commit hash and
+checksum in hand-written notes. From v0.1.2, pushing a tag runs
+`.github/workflows/release.yml` on a GitHub macos-26 runner: newest-Xcode
+selection (mlx-swift needs Swift 6.3), the pinned-wheel metallib
+(`SLOTSTREAM_METALLIB_MACOS=26`), a smoke gate that fails the build unless
+`--version` equals the tag, packaging with sha256, GitHub artifact
+attestation (verify:
+`gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream`),
+and publish with the commit and build-log URL in the notes. First live run
+found the macos-15 image's Swift too old for mlx-swift 0.31.6 (tools version
+6.3); the macos-26 image with newest Xcode selected is the working recipe.
+Local asset builds are retired to a documented emergency fallback.
+
 ### Honest gaps (not yet done)
 
 Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow
