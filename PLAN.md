@@ -502,7 +502,15 @@ checksummed, config-driven geometry. Swift `Format/` reader + verifier.
 **Exit:** full 4-bit repack on this Mac; random-sampled records byte-equal to source
 tensors; `slotstream verify` green.
 
-### M3 — Swift engine, resident-path correctness (4–7 d — the long pole)
+### M3 — Swift engine, resident-path correctness (**3–5 d**, revised down after M0)
+
+Revised because M0 found far more Swift prior art than assumed: `gatedDeltaUpdate` +
+`Qwen3NextGatedDeltaNet`, `SwitchGLU`/`QuantizedSwitchLinear`, and
+`gatherQuantizedMM` all already exist and are verified working (MEASUREMENTS.md
+§M0.3–4). The slot-write gate is already passed, so the microbench that opened this
+milestone is done. Novel work is now only: QSA indexer, hyper-connections, PLE path.
+Add the metallib/Xcode decision (open question 9) before anything ships.
+
 Entry task: the §4.2 slot-write microbench. Then port qwen4_exp to mlx-swift in
 `SlotstreamCore/Model/`: GDN (chunked gated delta rule; fp32 state; custom Metal kernel
 only if profiling demands — start with pure MLX ops), QSA **including the indexer**

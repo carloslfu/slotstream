@@ -29,6 +29,7 @@ def main():
     ap.add_argument("--prompt", default="Explain in two sentences why the sky is blue.")
     ap.add_argument("--trace", default=None)
     ap.add_argument("--wired-limit-gb", type=float, default=0)
+    ap.add_argument("--raw", action="store_true", help="skip chat template")
     args = ap.parse_args()
 
     from mlx_lm import load
@@ -74,9 +75,21 @@ def main():
             # DecoderLayer does `self.mlp(x)`, which resolves the instance attribute.
             object.__setattr__(layer, "mlp", _Wrapped(mlp, make(li, mlp, inner)))
 
-    messages = [{"role": "user", "content": args.prompt}]
-    text = tok.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+    if args.raw:
+        # Bypass the chat template. Expert coverage grows as 1-exp(-topk*T/512) per
+        # layer, so a short raw prompt keeps the touched-expert set (and therefore
+        # peak residency, which nothing in the stock path can evict) bounded.
+        text = args.prompt
+    else:
+        messages = [{"role": "user", "content": args.prompt}]
+        text = tok.apply_chat_template(messages, add_generation_prompt=True,
+                                       tokenize=False)
     ids = mx.array([tok.encode(text)])
+    T = ids.shape[1]
+    cov = 1 - pow(2.718281828, -top_k * T / 512)
+    print(f"  expected expert coverage/layer ≈ {cov*100:.0f}%  "
+          f"→ ≈{cov*512*n_layers:,.0f} records ≈ {cov*512*n_layers*2.7648/1024:.1f} GB "
+          f"live if nothing is evicted")
     print(f"\nprompt {args.prompt!r} -> {ids.shape[1]} tokens")
 
     cache = model.make_cache()
