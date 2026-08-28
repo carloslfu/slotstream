@@ -410,6 +410,32 @@ reject — **all pass**. Instruction following through the whole stack verified
 Engine code: ~2,300 lines of Swift (`Sources/`), single binary + colocated
 metallib via `make build`.
 
+### The memory planner and its promise (2026-08-28)
+
+The default UX is now zero-flag auto-tune (`SlotstreamCore/Plan.swift`), and the
+constants in it are derived from the measurements above, not chosen:
+
+- **Fixed (non-pool) footprint modeled at 3.9 GB** = resident weights 3.822 GB
+  + n-gram row cache ≤0.13 GB. Measured whole-run peaks actually came in at
+  pool + ~3.3 GB (27.3 @ 24.0-GB pool; 7.3 @ 4.0-GB pool) — the model errs
+  ~0.6 GB high on purpose so the announce over-promises memory use, never
+  under-promises.
+- **`--memory-gb G` derivation**: pool = G − 3.9 − 0.5 margin. Promise test,
+  measured: `--memory-gb 8` → 27 experts/layer, **actual peak 7.0 GB**
+  (predicted 7.5, target 8.0), 5.2 tok/s decode, byte-identical greedy output —
+  now a standing gate in `Tools/verify.sh`.
+- **Auto policy**: target = min(70% RAM, working set − 2 GB). On this Mac:
+  min(36.1, 38.2) = 36.1 GB → 239/layer (31.7 GB pool) → **actual peak 35.0 GB**
+  (predicted 35.6) under the 40.2 GB working set. Announced at startup and in
+  `/api/show` `details.memory_plan`.
+- **est. tok/s in the announce** is log-linear between the two measured anchors
+  (30/layer = 5.6, 181/layer = 20.0) and flat above 181 (decode is
+  kernel-launch-bound there, §M0.6) — labeled "est. from M5 Pro anchors"
+  because other machines' SSD/GPU shift the curve. Spot check: the 8-GB-target
+  run's 27/layer estimated ~5.2 and measured 5.22.
+- **Floor**: 640 global slots (~14/layer, §SlotPool) ⇒ minimum honest target
+  6.2 GB; below it `--memory-gb` refuses with the arithmetic spelled out.
+
 ### Honest gaps (not yet done)
 
 Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow for

@@ -171,12 +171,14 @@ public final class Server {
     }
 
     private func modelDetails() -> [String: Any] {
-        [
+        var d: [String: Any] = [
             "format": "safetensors", "family": "qwen4_exp",
             "parameter_size": "176B-A6B", "quantization_level": "4bit",
             "expert_cache_per_layer": Int(engine.model.pool.slotsPerLayer.rounded()),
             "experts_per_layer": engine.model.cfg.numExperts,
         ]
+        if let plan = engine.plan { d["memory_plan"] = plan.json() }
+        return d
     }
 
     private func modelCard(loaded: Bool = false) -> [String: Any] {

@@ -16,65 +16,54 @@ struct Slotstream: ParsableCommand {
     )
 }
 
-/// Model geometry the cache math speaks in. Validated against config.json at
-/// engine init; the CLI needs them before the checkpoint is opened.
-enum Geometry {
-    static let layers = 48
-    static let expertsPerLayer = 512
-    static let recordBytes = 2_764_800.0
-    static let totalRecords = layers * expertsPerLayer
-    /// Prefill can pin up to one full layer of experts (256-token chunk × top-10
-    /// covers ~all 512) plus an in-flight miss batch; below this the eviction
-    /// scan has no victim. 640 global ≈ 13/layer equivalent.
-    static let floorSlots = 640
-
-    static func gb(_ globalSlots: Int) -> Double { Double(globalSlots) * recordBytes / 1e9 }
-    static func perLayer(_ globalSlots: Int) -> Double { Double(globalSlots) / Double(layers) }
-}
-
 struct ModelOptions: ParsableArguments {
     @Option(name: .long, help: "Model directory (MLX 4-bit checkpoint)")
     var model: String = defaultModelDir.path
+
+    @Option(
+        name: .customLong("memory-gb"),
+        help: ArgumentHelp(
+            "Total memory target for the whole process, in GB.",
+            discussion: """
+                The easiest knob: how much of this Mac slotstream may use. The \
+                expert cache gets what remains after the ~3.9 GB fixed \
+                footprint (resident weights + n-gram row cache) and a 0.5 GB \
+                margin, e.g. 16 GB -> ~87 of 512 experts cached per layer. \
+                Minimum ~6.2 GB. Default: auto -- 70% of RAM, kept 2 GB under \
+                the Metal working-set limit; the chosen plan is announced at \
+                startup. --experts-per-layer / --pool-gb take precedence.
+                """))
+    var memoryGB: Double?
 
     @Option(
         name: .customLong("experts-per-layer"),
         help: ArgumentHelp(
             "Expert cache size, in experts per layer (1...512).",
             discussion: """
-                The primary memory<->speed knob. Each of the 48 layers has 512 \
-                experts of 2.76 MB; the cache holds N x 48 of them, so memory = \
+                The precise memory<->speed knob. Each of the 48 layers has 512 \
+                experts of 2.76 MB; the cache holds N x 48 of them, so pool = \
                 N x 0.133 GB (e.g. 226/layer = 30 GB, 181/layer = 24 GB, \
-                30/layer = 4 GB). The pool itself is one GLOBAL cache shared \
-                across layers -- N is the intuitive unit, not a per-layer quota: \
-                hot layers borrow slots from cold ones. Default: auto from \
-                device memory (see `slotstream doctor`).
+                30/layer = 4 GB) plus the ~3.9 GB fixed footprint. The pool \
+                itself is one GLOBAL cache shared across layers -- N is the \
+                intuitive unit, not a per-layer quota: hot layers borrow slots \
+                from cold ones. Takes precedence over --memory-gb/--pool-gb. \
+                Default: auto (see `slotstream doctor`).
                 """))
     var expertsPerLayer: Int?
 
     @Option(name: .customLong("pool-gb"),
-            help: "Same knob in GB (1 GB ≈ 7.5 experts/layer). --experts-per-layer wins if both are given.")
+            help: "Raw expert-pool size in GB (1 GB ≈ 7.5 experts/layer). Beats --memory-gb; loses to --experts-per-layer.")
     var poolGB: Double?
 
     var modelURL: URL { URL(fileURLWithPath: model) }
 
-    func slots() -> Int {
-        if let n = expertsPerLayer {
-            return max(Geometry.floorSlots, min(n, Geometry.expertsPerLayer) * Geometry.layers)
-        }
-        if let g = poolGB { return max(Geometry.floorSlots, Int(g * 1e9 / Geometry.recordBytes)) }
-        return autoSlots()
+    /// Resolve knobs -> plan, print the announce, return it.
+    func announcedPlan() throws -> MemoryPlan {
+        let plan = try Planner.plan(
+            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB)
+        FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
+        return plan
     }
-}
-
-func deviceWorkingSet() -> Int {
-    Int(MLX.GPU.deviceInfo().maxRecommendedWorkingSetSize)
-}
-
-/// Auto cache size: working set − resident(3.9 GB) − headroom(6 GB), capped.
-func autoSlots() -> Int {
-    let ws = Double(deviceWorkingSet())
-    let budget = min(max(ws - 3.9e9 - 6e9, 2e9), 30e9)
-    return max(Geometry.floorSlots, Int(budget / Geometry.recordBytes))
 }
 
 // MARK: run
@@ -91,9 +80,10 @@ struct Run: ParsableCommand {
     func run() throws {
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
+        let plan = try model.announcedPlan()
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, poolSlots: model.slots())
+                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
                 let ids: [Int]
                 if raw {
                     ids = engine.tokenizer.encode(text: prompt)
@@ -111,7 +101,7 @@ struct Run: ParsableCommand {
                 }
                 print("")
                 let hs = String(format: "%.3f", stats.expertHitRate)
-                let perLayer = String(format: "~%.0f/%d experts per layer", Geometry.perLayer(model.slots()), Geometry.expertsPerLayer)
+                let perLayer = String(format: "~%.0f/%d experts per layer", plan.expertsPerLayerCached, Geometry.expertsPerLayer)
                 FileHandle.standardError.write(
                     """
 
@@ -139,11 +129,12 @@ struct Serve: ParsableCommand {
     @Option var port: UInt16 = 11434
 
     func run() throws {
+        let plan = try model.announcedPlan()
         let sem = DispatchSemaphore(value: 0)
         var engine: Engine!
         var err: Error?
         Task {
-            do { engine = try await Engine(modelDir: model.modelURL, poolSlots: model.slots()) } catch { err = error }
+            do { engine = try await Engine(modelDir: model.modelURL, plan: plan) } catch { err = error }
             sem.signal()
         }
         sem.wait()
@@ -209,34 +200,48 @@ struct Parity: ParsableCommand {
 // MARK: doctor
 
 struct Doctor: ParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Device + recommended preset")
+    static let configuration = CommandConfiguration(
+        abstract: "Device report, the plan your flags produce, and what each memory target buys")
+    @OptionGroup var model: ModelOptions
+
     func run() throws {
         let info = MLX.GPU.deviceInfo()
-        let ws = deviceWorkingSet()
-        print("device: \(info.architecture)  |  memory \(String(format: "%.0f", Double(info.memorySize) / 1e9)) GB, "
-            + "Metal working set \(String(format: "%.1f", Double(ws) / 1e9)) GB")
-        print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts, "
-            + "2.76 MB each  (\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
-        let auto = autoSlots()
-        print(String(
-            format: "auto cache: ~%.0f of %d experts per layer   (%d global slots = %.1f GB, %.0f%% coverage)",
-            Geometry.perLayer(auto), Geometry.expertsPerLayer, auto, Geometry.gb(auto),
-            100 * Double(auto) / Double(Geometry.totalRecords)))
+        print("device: \(info.architecture)  |  "
+            + String(format: "%.0f GB RAM, %.1f GB Metal working set",
+                     Planner.deviceRAMGB(), Planner.deviceWorkingSetGB()))
+        print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts x 2.76 MB "
+            + "(\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
+        print("")
+        let plan = try Planner.plan(
+            expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB, memoryGB: model.memoryGB)
+        print(plan.banner())
         print("""
 
-        the knob:  --experts-per-layer N   memory = N x 0.133 GB   (floor 14/layer)
-                   --pool-gb G             same knob in GB (1 GB = 7.5 experts/layer)
-
-        reference points measured on this model:
-          512/layer = 67.9 GB  everything resident
-          226/layer = 30.0 GB  this device's auto
-          181/layer = 24.0 GB  20 tok/s warm decode
-           30/layer =  4.0 GB  5.6 tok/s, 7.3 GB total peak (identical output)
-
-        The pool is one global cache shared across all layers; per-layer is the
-        unit of intuition (each token activates 10 of 512 per layer), not a
-        quota -- hot layers borrow slots from cold ones.
+        knobs (first one given wins; with none, auto is the default):
+          --memory-gb G           easiest: total memory the process may use
+          --experts-per-layer N   precise: cache N of 512 per layer (pool = N x 0.133 GB)
+          --pool-gb G             raw pool size (1 GB = 7.5 experts/layer)
         """)
+        print(String(
+            format: "min ~14/layer = %.1f GB total. The pool is one global cache shared across",
+            Planner.minMemoryGB))
+        print("""
+            all layers -- per-layer is the unit of intuition (a token activates 10
+            of its 512 per layer), not a quota: hot layers borrow slots from cold.
+
+            what a memory target buys (warm decode est. from the measured M5 Pro
+            anchors 30/layer = 5.6 tok/s and 181/layer = 20.0; * = interpolated):
+              target     experts/layer  est. warm decode
+            """)
+        for t in [Planner.minMemoryGB, 8, 12, 16, 24, 28, 36, 48, 73] {
+            let s = Planner.slotsForTarget(t)
+            let e = Geometry.perLayer(s)
+            let est = Planner.estWarmTokS(expertsPerLayer: e)
+            let full = s >= Geometry.totalRecords
+            print(String(
+                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@%@",
+                t, e, est, e >= 181 ? " " : "*", full ? "  (fully resident)" : ""))
+        }
     }
 }
 

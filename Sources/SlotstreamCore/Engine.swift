@@ -20,10 +20,17 @@ public final class Engine {
     public let tokenizer: any Tokenizers.Tokenizer
     public let eosIds: Set<Int>
     public let modelName: String
+    /// The memory plan that sized the pool (nil for internal fixed-size uses).
+    public let plan: MemoryPlan?
     private let lock = NSLock()
 
-    public init(modelDir: URL, poolSlots: Int) async throws {
+    public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan)
+    }
+
+    public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
         self.modelDir = modelDir
+        self.plan = plan
         self.modelName = "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index = try CheckpointIndex(dir: modelDir)

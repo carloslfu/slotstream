@@ -356,9 +356,10 @@ IO stays trivial; only disk grows).
 
 ```
 slotstream pull qwen3.8-flash-next:4bit    # HF download (resumable) + repack + verify
-slotstream doctor                          # chip/RAM/SSD bench/wired-limit → recommends preset, checks disk
+slotstream doctor [--memory-gb G]          # ✅ device report + the plan any flags produce + target table
 slotstream run qwen3.8-flash-next:4bit     # REPL chat
-slotstream serve [--preset auto]           # foreground server
+slotstream serve                           # ✅ zero-config: auto-tunes to the machine, announces the plan
+slotstream serve --memory-gb 16            # ✅ total-process memory target (cache gets G − 4.4 GB)
 slotstream install                         # LaunchAgent (com.slotstream.server), starts at login
 slotstream bench [--suite full|quick] [--sim-ram 16]
 ```
@@ -378,7 +379,7 @@ Axes — every named preset is a point in this space:
 
 | Axis | Values | Effect |
 |---|---|---|
-| Cache size | **experts per layer** (of 512; 0.133 GB per expert/layer; CLI `--experts-per-layer`, GB alias `--pool-gb`) | THE memory↔speed knob |
+| Cache size | **experts per layer** (of 512; 0.133 GB per expert/layer; CLI `--experts-per-layer`, raw-pool alias `--pool-gb`, total-process form `--memory-gb`, default **auto** from RAM + working set) | THE memory↔speed knob |
 | Resident policy | experts-streamed · +ngram-streamed (default) · +ngram-resident (big RAM) | footprint vs decode variance |
 | Quant recipe | all-4bit (default) · mixed-4-8 (trunk/attn 8-bit) · compact (3-bit experts) · ngram bits 4/6/8 | quality vs disk/RAM |
 | KV | bf16 (default) · fp8 (later) | context memory |
@@ -401,6 +402,22 @@ it would have been binding for a single-tensor pool.
 
 Resident floor ✅measured at **3.822 GB** (everything except experts and n-gram),
 up from the 3.3 GB estimated — footprints below include this.
+
+**✅ Auto-tuning planner implemented (2026-08-28), replacing named presets as the
+default UX.** `SlotstreamCore/Plan.swift` is the single policy used by run/serve/
+doctor and echoed in `/api/show` `details.memory_plan`. Policy: target =
+min(70% of RAM, working set − 2 GB); pool = target − 3.9 GB fixed footprint
+(resident weights + n-gram row cache) − 0.5 GB margin; floor 640 global slots
+(~14/layer); min honest target 6.2 GB. Precedence `--experts-per-layer` >
+`--pool-gb` > `--memory-gb` > auto, losing knobs noted, never silently dropped.
+The startup announce prints device, target, experts/layer cached, expected peak,
+and est. warm tok/s (log-linear between the measured anchors 30/layer = 5.6 and
+181/layer = 20.0, flat above — decode is launch-bound past ~181/layer). Promise
+✅measured: `--memory-gb 8` → 27/layer, **7.0 GB actual peak** (predicted 7.5),
+5.2 tok/s, byte-identical greedy output; auto on this Mac → 36.1 GB target,
+239/layer, **35.0 GB actual peak** (predicted 35.6). The preset table below
+remains the cross-machine *map*; the planner is the *mechanism* that lands each
+machine on its row without anyone reading the table.
 
 | Preset | RAM | **Experts/layer cached** (of 512) | Cache mem | Footprint | Ctx default | h est. | Decode est. | Measured |
 |---|---|---|---|---|---|---|---|---|

@@ -23,6 +23,12 @@ $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-
 $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer 30 2>/dev/null > /tmp/ssv_small.txt
 check "30/layer cache output == 181/layer cache output" "diff /tmp/ssv_big.txt /tmp/ssv_small.txt"
 
+echo "== memory target keeps its promise =="
+$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --memory-gb 8 2>/tmp/ssv_mem.err > /tmp/ssv_mem.txt
+PEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_mem.err | grep -o '[0-9.]*')
+check "--memory-gb 8 peak ($PEAK GB) under 8 GB"  "awk 'BEGIN{exit !($PEAK < 8.0)}' </dev/null"
+check "--memory-gb 8 output == 181/layer output"  "diff /tmp/ssv_mem.txt /tmp/ssv_big.txt"
+
 echo
 echo "passed $PASS, failed $FAIL"
 [ $FAIL -eq 0 ]
