@@ -7,3 +7,6 @@ models/
 .venv/
 __pycache__/
 bench/traces/*.npz
+
+Tools/coldread
+Tools/diskbench
