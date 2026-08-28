@@ -1,50 +1,64 @@
 # slotstream
 
-Run **Qwen3.8-Flash-Next** (125B-A6B + 51B n-gram store, 4-bit, ~104 GB) on a
-48 GB Mac — and in as little as **7.3 GB** of memory — by streaming the routed
-experts and PLE/n-gram rows from SSD into a fixed pool of RAM **cache slots**.
-MLX + Swift, single binary, Ollama-compatible API.
+Run Qwen3.8-Flash-Next locally on a Mac that can't hold it. The model is
+104 GB at 4-bit (125B mixture-of-experts plus a 51B n-gram store). slotstream
+streams it from SSD, so it runs in whatever memory you give it, down to about
+7 GB. MLX and Swift, one binary, Ollama-compatible API.
 
-**Status: it works.** Built and measured 2026-08-28 on an M5 Pro / 48 GB:
+Two things make this model a good fit for streaming. Almost all of its bytes
+sit in two places: 68 GB of routed experts (512 per layer, 10 active per token)
+and a 32 GB n-gram embedding table whose rows are selected by token ids alone,
+which means they can be prefetched before the forward pass needs them. The
+dense trunk is 3.8 GB and stays resident. Experts are fetched with `pread` into
+a fixed pool of cache slots shared by all 48 layers; hot layers take slots from
+cold ones. Cache size changes speed, never output: greedy decoding is
+byte-identical between a 4 GB cache and a 24 GB cache, and that equivalence is
+a standing test.
 
-| | measured |
+Measured on an M5 Pro with 48 GB and a 2 TB SSD (method and full data in
+[MEASUREMENTS.md](MEASUREMENTS.md)):
+
+| what | measured |
 |---|---|
-| Decode, warm | **20.0 tok/s** |
-| Decode, cold cache | 7.8–10.4 tok/s |
-| Cold start → first token | ~12 s (engine up in 1–2 s; no full-model load ever) |
-| Peak memory @ 181 experts/layer cached (24 GB) | 27.3 GB |
-| Minimum demonstrated | **7.3 GB peak** @ 5.6 tok/s (30 experts/layer cached) |
-| Streaming correctness | 30/layer cache ≡ 181/layer cache: **byte-identical** greedy output |
-| Port correctness | layers incl. streamed MoE/GDN/PLE **bit-exact** vs the Python reference (mlx-0.31.1-matched) |
-| Chat template | token-for-token identical to `transformers` |
+| Decode, warm cache | 20.0 tok/s |
+| Decode, cold cache | 7.8 to 10.4 tok/s |
+| Cold start to first token | about 12 s |
+| Peak memory with a 24 GB cache | 27.3 GB |
+| Smallest run so far | 7.3 GB peak, 5.6 tok/s |
+
+## Quick start
 
 ```bash
-make build                       # SwiftPM build + colocate the metallib
-.build/release/slotstream pull                   # weights: 103.8 GB, resumable, hash-verified
-.build/release/slotstream serve                  # zero config: auto-tunes to this Mac
+make build                        # fetches a 50 MB Metal library on first run
+.build/release/slotstream pull    # 104 GB download; resumable, hash-checked
+.build/release/slotstream serve   # picks a size for this machine and says so
 .build/release/slotstream run --prompt "Why is the sky blue?"
-.build/release/slotstream doctor                 # what auto picks here + what each target buys
-Tools/api_test.sh 11434                          # endpoint battery
 ```
 
-`pull` downloads the pinned `pipenetwork` MLX conversion into
-`~/.slotstream/models/` (a dev checkout's `models/` dir is found first):
-resumable mid-file after any interruption, disk-checked before bytes move, and
-every weight file must match its upstream sha256 (embedded at build time from
-the pinned revision) or it is deleted and refused — a corrupted download can
-never become garbage tokens. `pull --verify` re-checks an existing copy (14 s
-for all 103.8 GB) and is part of `Tools/verify.sh`.
+Needs an Apple Silicon Mac, macOS 14 or newer, about 110 GB of free disk, and
+the Swift toolchain (Command Line Tools are enough; Xcode is not required).
 
-Point any Ollama/OpenAI client at it: `/api/chat`, `/api/generate`, `/api/tags`,
-`/v1/chat/completions` (streaming NDJSON / SSE), with CORS + preflight so
-browser-based GUIs work — verified from a real browser (streaming `/api/chat`
-from page JS). Run **one instance per machine**: the auto-sizer protects a
-single server against the rest of the system, not two model processes stacked
-by hand.
+`pull` downloads the pinned pipenetwork MLX conversion into
+`~/.slotstream/models/` (a dev checkout's `models/` directory is used first if
+present). It checks disk space before moving bytes, resumes mid-file after an
+interruption, and refuses any file whose sha256 doesn't match the pinned
+revision, so a corrupted download can never become garbage tokens.
+`pull --verify` re-hashes an existing copy, about 14 s for all of it.
 
-**Zero flags is the intended UX.** At startup slotstream reads the machine and
-announces exactly what it chose (also served under `details.memory_plan` in
-`/api/show`):
+## The server
+
+`serve` speaks the Ollama API (`/api/chat`, `/api/generate`, `/api/tags`,
+`/api/show`, `/api/ps`, `/api/version`) plus `/v1/chat/completions` and
+`/v1/models`, with NDJSON and SSE streaming and CORS, so existing Ollama and
+OpenAI clients and browser GUIs work unchanged. `/api/show` reports the live
+memory plan. Run one instance per machine; two model processes will fight over
+the same memory.
+
+## Memory
+
+With no flags, slotstream sizes itself. At startup it reads total RAM, the
+Metal working-set limit, and how much memory is reclaimable right now, then
+announces what it chose:
 
 ```
 slotstream memory plan (auto)
@@ -54,67 +68,75 @@ slotstream memory plan (auto)
   expect: ~33.8 GB peak, ~20 tok/s warm decode (est. from M5 Pro anchors)
 ```
 
-The auto policy has a ceiling and a clamp:
+The target is 70% of RAM, kept 2 GB under the Metal working-set limit. If other
+apps hold most of the machine, auto sizes down to what can be taken without
+swapping anyone, and prints a note saying so. In one live test, a 21.5 GB
+memory hog pushed auto from 36 GB down to 10.7 GB; the run completed normally
+at a 9.4 GB peak with no thrash.
 
-- **Ceiling** (deterministic): 70% of RAM, kept 2 GB under the Metal
-  working-set limit — whichever binds.
-- **Clamp** (protects busy machines): auto also reads what is *reclaimable
-  right now* — free + purgeable + file-cache pages, i.e. memory that can be
-  taken **without** compressing or swapping other apps — and sizes down to
-  that minus slack when it's the binding constraint, saying so in a note:
-  `only 13.2 GB of 52 GB RAM is reclaimable right now (other apps hold the
-  rest) — sized down from the usual 36.1 GB; close apps and restart for full
-  speed, or force a size with --memory-gb`. Measured under a real 21.5 GB
-  memory hog: auto sized 36 → 10.7 GB, generated normally at a 9.4 GB actual
-  peak with zero thrash, and sprang back to 34.4 GB the moment the hog exited.
-  On a quiet machine the clamp never binds, so the plan stays deterministic.
-  Explicit knobs are never resized — the user chose — they just get an
-  informational note when the machine is busy.
+An auto-sized `serve` also stays elastic while running: it re-checks
+availability every 15 s and resizes the cache between requests, shrinking when
+other apps need the memory and growing back, contents intact, after a minute of
+calm. OS memory-pressure events act as a backstop. Every resize is one stderr
+line and shows up in `/api/show`. Output stays byte-identical across live
+resizes; `slotstream elastic-check` proves that and runs in the test battery.
 
-- **Elastic while serving**: a startup-time size can't be right for a
-  daemon's whole lifetime, so an auto-sized `serve` keeps resizing itself
-  between requests — an availability replan every 15 s (shrink in one step
-  when other apps need the memory; grow back with contents intact after 60 s
-  of calm) plus OS memory-pressure events as the backstop for overcommit the
-  availability math can't see. Each resize is one stderr line
-  (`elastic: availability dropped — cache ~220 → ~183 experts/layer …`) and
-  is reflected live in `/api/show`. Explicit sizes are never elastic;
-  `--no-elastic` pins an auto size too. Proven byte-identical across live
-  grow/shrink by `slotstream elastic-check` (a standing verify gate) and
-  live under a 21.5 GB memory hog: the pool shed 29.2 → 9.9 GB as the hog
-  grew, requests stayed byte-identical throughout, and the full size came
-  back after the hog exited.
+Explicit sizes are never adjusted. Three flags override auto, first one wins:
 
-Three knobs override auto (first one given wins):
+- `--memory-gb G`: total memory for the process. The cache gets what remains
+  after the 3.9 GB fixed footprint (resident weights plus the n-gram row
+  cache) and a 0.5 GB margin. Minimum 6.2. Measured: `--memory-gb 8` ran at a
+  7.0 GB actual peak with byte-identical output.
+- `--experts-per-layer N`: cache size in experts per layer, of the model's 512.
+  Each costs 0.133 GB. Measured points: 30 runs in 7.3 GB total at 5.6 tok/s,
+  181 runs in 27.3 GB at 20.0 tok/s, 512 is fully resident.
+- `--pool-gb G`: raw pool size. 1 GB is about 7.5 experts per layer.
 
-- **`--memory-gb G`** — the easy knob: total memory the process may use.
-  The expert cache gets what remains after the ~3.9 GB fixed footprint
-  (resident weights + n-gram row cache) and a 0.5 GB margin. Measured:
-  `--memory-gb 8` → 27 experts/layer cached, **7.0 GB actual peak**, 5.2 tok/s,
-  and byte-identical greedy output. Minimum ~6.2 GB.
-- **`--experts-per-layer N`** — the precise knob (of the model's 512). Each of
-  the 48 layers has 512 experts of 2.76 MB and a token activates 10 of them per
-  layer, so N is the intuitive unit: pool = N × 0.133 GB. Reference points, all
-  measured: 512/layer = 67.9 GB fully resident · 181/layer = 24 GB → 20 tok/s
-  warm · 30/layer = 4 GB → 5.6 tok/s in 7.3 GB total, byte-identical output.
-- **`--pool-gb G`** — raw pool size (1 GB ≈ 7.5 experts/layer).
+The floor is 14 experts per layer; below that a long prefill could pin every
+slot. `slotstream doctor` prints the plan any flags would produce here, plus a
+table of target sizes against expected speed, and takes
+`--sim-ram/--sim-working-set/--sim-available` to preview any other machine
+(`doctor --sim-ram 17.2 --sim-available 6` is a busy 16 GB Mac). The planner's
+choices across seven such setups are pinned in the test battery.
 
-The pool is one global cache shared across layers — per-layer is a unit, not a
-quota; hot layers borrow slots from cold ones. Floor is 14/layer (below that, a
-prefill chunk could pin every slot). `slotstream doctor` prints the plan any
-flags would produce plus a target → experts/layer → est. tok/s table, and takes
-`--sim-ram/--sim-working-set/--sim-available` to preview what auto would do on
-any other machine (`doctor --sim-ram 17.2 --sim-available 6` = a busy 16 GB
-Mac); `Tools/verify.sh` pins the planner's choices across seven such setups.
+## Why slots instead of mmap
 
-- **[PLAN.md](PLAN.md)** — design, byte math, tiers, milestone tracker.
-- **[MEASUREMENTS.md](MEASUREMENTS.md)** — every number above, with method,
-  including the false starts (page-cache-contaminated disk benches, MLX
-  version-skew parity, the mmap OOM story) and the honest gap list
-  (dense-sweep prefill, real 16 GB hardware, GUI clients, installers).
+MLX cannot materialize part of a memory-mapped tensor. A top-10 expert gather
+evaluates all 512 experts of that layer, and a 16-row n-gram lookup evaluates
+the whole 250 MB shard, so any mmap-based path loads about 100 GB and dies.
+The stock `mlx_lm.load()` route took this 48 GB machine into 48 GB of swap
+without producing a token. A preallocated pool filled by explicit reads is the
+only bounded construction under MLX. The measurements behind this are in
+MEASUREMENTS.md, sections M0.7 and M0.8.
 
-Why this design is required rather than merely nice: MLX cannot sparsely
-materialise a memory-mapped tensor — a top-10 expert gather pulls **all 512**
-experts of that layer, a 16-row n-gram lookup pulls its whole **250 MB** shard,
-so every mmap-based path loads ~100 GB and dies. The slot pool is the workaround
-with receipts; see MEASUREMENTS §M0.8.
+## Testing
+
+`Tools/verify.sh` is the acceptance battery: weight provenance (every file
+re-hashed against the pinned upstream), goldens against the Python reference,
+planner behavior across simulated machines, byte-equality across cache sizes
+and across live resizes, and the `--memory-gb` promise. Currently 15 for 15.
+The heavy gates size themselves to the machine's free memory, so the suite
+also runs on small or busy machines.
+
+Parity is checked against Python mlx 0.31.1, the version mlx-swift vendors
+(kernel changes between MLX versions are larger than porting error, so the
+reference must be version-matched). Layers 0 and 1, which cover every
+structural path (streamed MoE, gated DeltaNet, PLE injection,
+hyper-connections), are bit-exact; deeper layers sit within a few bf16 ulps.
+
+## Status
+
+Working and measured on one machine, zero tuning so far. Known gaps: prefill
+is naive chunked and slow for long prompts, the small configurations were
+emulated here rather than run on real 16 GB hardware, non-greedy sampling has
+no golden test yet, and there are no prebuilt binaries. [PLAN.md](PLAN.md) has
+the design, the byte math, and the milestone tracker.
+
+## License
+
+MIT. `Sources/SlotstreamCore/Vendored/GatedDelta.swift` is ported from
+[mlx-swift-lm](https://github.com/ml-explore/mlx-swift-lm) (MIT), and
+`Tools/reference/` vendors the community `qwen4_exp.py` used as the test
+oracle. Weights are pulled from
+[pipenetwork/Qwen3.8-Flash-Next-MLX-4bit](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit)
+and remain under the Qwen community license.

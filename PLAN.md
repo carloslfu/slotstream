@@ -275,8 +275,8 @@ design's fixed budget exists to prevent.
 Repack is **bit-exact** (no requantization): source = a vetted community MLX 4-bit
 conversion (pipenetwork first candidate; spot-checked, checksummed, revision-pinned), so
 our quality baseline equals mlx-lm's by construction. Own conversion from official
-FP8/BF16 on a rented box is the fallback if community quants prove broken (needs Carlos's
-explicit go — billed).
+FP8/BF16 on a rented box is the fallback if community quants prove broken (billed, so it
+needs an explicit decision).
 
 ### 4.2 Slot pool mechanics
 
@@ -662,7 +662,7 @@ lands (the whole point of targeting the preview architecture now).
 ## 10. Dev-Mac reference (measured 2026-08-28 — full data in MEASUREMENTS.md)
 
 MacBook Pro, Apple M5 Pro, 48 GB unified, 18 cores, 2 TB SSD (APPLE SSD AP2048Z),
-macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB, `gh` authed as carloslfu.
+macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
 
 | Measured | Value |
 |---|---|
