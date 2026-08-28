@@ -26,6 +26,28 @@ Measured on an M5 Pro with 48 GB and a 2 TB SSD (method and full data in
 | Peak memory with a 24 GB cache | 27.3 GB |
 | Smallest run so far | 7.3 GB peak, 5.6 tok/s |
 
+## What Mac do I need
+
+Any Apple Silicon Mac with 16 GB of memory, and about 110 GB of free disk for
+the weights. Disk is the gate that bites first: a 256 GB Mac rarely has that
+much free, so 512 GB or larger is the realistic minimum. What you get scales
+with memory:
+
+| memory | what to expect |
+|---|---|
+| 8 GB | too small: the 6.2 GB minimum doesn't fit alongside macOS, and `doctor` says so instead of letting it thrash |
+| 16 GB | runs; about 4 to 7 tok/s depending on what else is open |
+| 24 GB | the comfortable minimum alongside normal use; roughly 9 to 13 tok/s |
+| 32 GB | roughly 12 to 17 tok/s |
+| 48 GB and up | 20 tok/s, measured; past a 24 GB cache decode is compute-bound, so more memory buys headroom for the rest of your apps, not speed |
+
+Only the 48 GB row is measured on real hardware. The others are estimates
+from its anchors and haven't run on physically smaller Macs yet; smaller
+Macs also have slower SSDs, which mostly slows the cold cache, not warm
+decode. `slotstream doctor` shows what auto would pick on your machine
+before you download anything, and the `--sim-ram/--sim-available` flags
+preview any other machine.
+
 ## Install
 
 ```bash
