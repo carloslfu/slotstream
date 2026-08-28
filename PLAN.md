@@ -24,7 +24,7 @@ design and the estimates it replaces.
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
 | M5 Prefill/prefetch perf | ◐ partial | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; dense-sweep prefill + cross-token prefetch not yet built (prefill 4.6–13.2 tok/s naive) |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
-| M7 CLI, install, packaging | ◐ partial | `run/serve/parity/doctor/goldens` CLI + Makefile work; LaunchAgent install + `pull` not built; metallib ships via Makefile copy |
+| M7 CLI, install, packaging | ◐ mostly | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile work; `pull` is resumable + sha256-verified against the pinned revision (proven live incl. resume, 429 retry, corruption fail-closed); LaunchAgent install not built (foreground serve is the supported mode); metallib ships via Makefile copy |
 | M8 Matrix bench + tier validation | ◐ first data | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (30 experts/layer cached); real small-Mac runs pending |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
 
@@ -355,7 +355,7 @@ IO stays trivial; only disk grows).
 ### 4.5 CLI & install UX
 
 ```
-slotstream pull qwen3.8-flash-next:4bit    # HF download (resumable) + repack + verify
+slotstream pull                            # ✅ resumable, sha256-verified download of the pinned revision (`--verify` re-checks)
 slotstream doctor [--memory-gb G]          # ✅ device report + the plan any flags produce + target table
 slotstream run qwen3.8-flash-next:4bit     # REPL chat
 slotstream serve                           # ✅ zero-config: auto-tunes, announces the plan, resizes elastically

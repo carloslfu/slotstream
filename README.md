@@ -20,15 +20,27 @@ MLX + Swift, single binary, Ollama-compatible API.
 
 ```bash
 make build                       # SwiftPM build + colocate the metallib
+.build/release/slotstream pull                   # weights: 103.8 GB, resumable, hash-verified
 .build/release/slotstream serve                  # zero config: auto-tunes to this Mac
 .build/release/slotstream run --prompt "Why is the sky blue?"
 .build/release/slotstream doctor                 # what auto picks here + what each target buys
 Tools/api_test.sh 11434                          # endpoint battery
 ```
 
+`pull` downloads the pinned `pipenetwork` MLX conversion into
+`~/.slotstream/models/` (a dev checkout's `models/` dir is found first):
+resumable mid-file after any interruption, disk-checked before bytes move, and
+every weight file must match its upstream sha256 (embedded at build time from
+the pinned revision) or it is deleted and refused — a corrupted download can
+never become garbage tokens. `pull --verify` re-checks an existing copy (14 s
+for all 103.8 GB) and is part of `Tools/verify.sh`.
+
 Point any Ollama/OpenAI client at it: `/api/chat`, `/api/generate`, `/api/tags`,
-`/v1/chat/completions` (streaming NDJSON / SSE). Model dir defaults to
-`models/qwen38-flash-next-mlx-4bit` (the pinned `pipenetwork` MLX conversion).
+`/v1/chat/completions` (streaming NDJSON / SSE), with CORS + preflight so
+browser-based GUIs work — verified from a real browser (streaming `/api/chat`
+from page JS). Run **one instance per machine**: the auto-sizer protects a
+single server against the rest of the system, not two model processes stacked
+by hand.
 
 **Zero flags is the intended UX.** At startup slotstream reads the machine and
 announces exactly what it chose (also served under `details.memory_plan` in

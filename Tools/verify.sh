@@ -12,6 +12,9 @@ check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); 
 echo "== build =="
 make build >/dev/null
 
+echo "== weights provenance (hashes all 103.8 GB vs the pinned upstream revision) =="
+check "pull --verify: 24/24 files match"     "$BIN pull --verify"
+
 echo "== goldens (need bench/parity31 from Tools/parity_ref.py under mlx==0.31.1) =="
 $BIN ngram-golden --tokens "9707,11,1246,525,498,30" 2>/dev/null | sed 's/^pos[0-9]*: //' > /tmp/ssv_ngram.txt
 check "ngram row ids == python reference"  "diff /tmp/ssv_ngram.txt bench/parity31/ngram_ids.txt"
