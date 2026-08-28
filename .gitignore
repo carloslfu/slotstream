@@ -4,6 +4,6 @@
 .swiftpm/
 models/
 *.ssmodel/
-bench/results/**/*.trace
 .venv/
 __pycache__/
+bench/traces/*.npz
