@@ -28,10 +28,5 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        .testTarget(
-            name: "SlotstreamTests",
-            dependencies: ["SlotstreamCore"],
-            swiftSettings: [.swiftLanguageMode(.v5)]
-        ),
     ]
 )

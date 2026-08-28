@@ -463,3 +463,11 @@ locality curves from the real model (the trace collector and simulator are built
 the simulator is validated on synthetic input, but collecting real traces requires
 the same bounded forward pass). M1's h-curves remain open — though they no longer
 gate viability, only tier sizing.
+
+### One more toolchain constraint (found the hard way)
+
+`swift test` is impossible on this machine: neither XCTest nor swift-testing ships
+with Command Line Tools — both require Xcode. Acceptance testing therefore lives in
+`Tools/verify.sh`, which is strictly stronger anyway: it runs the n-gram-id golden,
+the chat-template golden, the bit-exact layer-parity gate, and the full-model
+golden-equivalence test against the real checkpoint. Current status: **4/4 PASS.**
