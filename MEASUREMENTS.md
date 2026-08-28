@@ -91,11 +91,11 @@ the row cache should be **page-granular (16 KiB holds ~128 rows)**, not row-gran
 
 | Pool | Strategy | ms/batch | GB/s | Verdict |
 |---|---|---|---|---|
-| 5.66 GB (2,048 slots) | contiguous slice | 1.24 | 107.31 | PASS |
+| 5.66 GB (2,048 slots ≈ 43/layer) | contiguous slice | 1.24 | 107.31 | PASS |
 | | `slice_update` | 1.34 | 98.74 | PASS |
 | | **batch scatter** | **2.70** | **49.22** | PASS |
 | | per-slot assign | 9.19 | 14.44 | PASS |
-| **27.10 GB (9,800 slots)** | contiguous slice | 1.17 | 113.80 | PASS |
+| **27.10 GB (9,800 slots ≈ 204/layer)** | contiguous slice | 1.17 | 113.80 | PASS |
 | | `slice_update` | 1.18 | 112.72 | PASS |
 | | **batch scatter** | **1.77** | **74.86** | PASS |
 | | per-slot assign | 7.79 | 17.03 | PASS |
@@ -380,7 +380,7 @@ error. Parity gate adopted: layers 0–1 must be bit-exact; deeper layers RMS-re
 
 ### The headline: the full 125B+51B model generates on this 48 GB machine
 
-`slotstream run --prompt "Why is the sky blue?" --greedy --pool-gb 24`:
+`slotstream run --prompt "Why is the sky blue?" --greedy --experts-per-layer 181` (24 GB cache):
 
 | Metric | Cold (first run) | Warm (server, 2nd request) |
 |---|---|---|
@@ -388,12 +388,12 @@ error. Parity gate adopted: layers 0–1 must be bit-exact; deeper layers RMS-re
 | Prefill (18–23 tok) | 1.9–4.6 tok/s | 13.2 tok/s |
 | **Decode** | **7.8–10.4 tok/s** | **20.0 tok/s** |
 | Expert hit rate | 0.837 (cold cache) | higher (persistent pool) |
-| Peak Metal memory | 27.3 GB (24 GB pool) | — |
+| Peak Metal memory | 27.3 GB (181 experts/layer cached) | — |
 | Output | fully coherent, correct Rayleigh-scattering answer | deterministic across requests |
 
 **Golden equivalence (the design's core invariant) passed on the full model**:
-a 4 GB pool (1,446 slots, 5.9% coverage, hit rate 0.556) produced **byte-identical
-greedy output** to the 24 GB pool — streaming placement provably does not touch
+caching only **30 of 512 experts per layer** (1,446 global slots, 5.9% coverage,
+hit rate 0.556) produced **byte-identical greedy output** to the 181-per-layer cache — streaming placement provably does not touch
 the math. That starved run peaked at **7.3 GB** total at **5.6 tok/s**: the
 lite16 tier already works in emulation, at ~10× the plan's original 4–9 tok/s
 low-end estimate... and within its band despite the cold cache.

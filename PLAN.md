@@ -21,11 +21,11 @@ design and the estimates it replaces.
 | M1 Expert-locality study | ◐ tooling built (`Tools/trace_routers.py`, `Tools/cachesim.py`), traces pending | hit-rate curves committed to `bench/locality/` |
 | M2 `.ssmodel` container + repack | **skipped, by measurement** | engine streams from original shards (9 preads/expert); repack is now a measured-optimization backlog item |
 | M3 Swift engine, resident correctness (incl. QSA indexer) | ✅ **done 2026-08-28** | layers 0–1 **bit-exact** vs mlx-0.31.1 reference; template/ngram/dequant goldens exact; deeper layers ≤2.4% RMS (vendored-kernel ulp skew, documented) |
-| M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (4 GB pool ≡ 24 GB pool, identical greedy text); full model generates coherently on the 48 GB dev Mac |
+| M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
 | M5 Prefill/prefetch perf | ◐ partial | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; dense-sweep prefill + cross-token prefetch not yet built (prefill 4.6–13.2 tok/s naive) |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
 | M7 CLI, install, packaging | ◐ partial | `run/serve/parity/doctor/goldens` CLI + Makefile work; LaunchAgent install + `pull` not built; metallib ships via Makefile copy |
-| M8 Matrix bench + tier validation | ◐ first data | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (4 GB pool); real small-Mac runs pending |
+| M8 Matrix bench + tier validation | ◐ first data | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (30 experts/layer cached); real small-Mac runs pending |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
 
 ---
@@ -37,8 +37,9 @@ embedding store, + 4B MTP) **in 4-bit on this Mac (MacBook Pro, M5 Pro, 48 GB) a
 with much less memory (down to 16 GB officially, 8 GB experimentally)**, by:
 
 1. Keeping the small dense trunk resident.
-2. Streaming the **routed experts** from SSD into a fixed pool of **cache slots** — the slot
-   count is *the* RAM↔speed tradeoff knob.
+2. Streaming the **routed experts** from SSD into a fixed pool of **cache slots** — sized
+   in **experts per layer** (of each layer's 512; 0.133 GB per expert/layer), *the*
+   RAM↔speed tradeoff knob (`--experts-per-layer`).
 3. Streaming the **n-gram / per-layer-embedding (PLE) store** from SSD with a small row
    cache — near-free because lookups are known from token ids alone (perfect prefetch).
 4. Shipping it as a single Swift binary (`slotstream`) with a one-line install and an
@@ -377,7 +378,7 @@ Axes — every named preset is a point in this space:
 
 | Axis | Values | Effect |
 |---|---|---|
-| Slot budget S | GB of expert slots (362 experts/GB) | THE memory↔speed knob |
+| Cache size | **experts per layer** (of 512; 0.133 GB per expert/layer; CLI `--experts-per-layer`, GB alias `--pool-gb`) | THE memory↔speed knob |
 | Resident policy | experts-streamed · +ngram-streamed (default) · +ngram-resident (big RAM) | footprint vs decode variance |
 | Quant recipe | all-4bit (default) · mixed-4-8 (trunk/attn 8-bit) · compact (3-bit experts) · ngram bits 4/6/8 | quality vs disk/RAM |
 | KV | bf16 (default) · fp8 (later) | context memory |
@@ -401,17 +402,17 @@ it would have been binding for a single-tensor pool.
 Resident floor ✅measured at **3.822 GB** (everything except experts and n-gram),
 up from the 3.3 GB estimated — footprints below include this.
 
-| Preset | RAM | Footprint | Slots (experts, coverage) | Ctx default | h est. | Decode est. | Measured |
-|---|---|---|---|---|---|---|---|
-| `max192` | ≥192 GB | ~110 GB | all 24,576 (100%) + ngram resident, MTP on | 262k | 1.0 | 40–80 | — |
-| `big128` | 128 GB | ~79 GB | all 24,576 (100%); ngram streamed | 262k | 1.0 | 35–70 | — |
-| `big96` | 96 GB | ~63 GB | ~55 GB (19.9k, 81%); ngram streamed | 128k | ~0.99 | 30–60 | — |
-| `big64` | 64 GB | ~42 GB | ~36 GB (13.0k, 53%) | 128k | .93–.98 | 25–45 | — |
-| `pro48` ← this Mac | 48 GB | ~32 GB | ~27 GB (9.8k, 40%) | 64k | .88–.96 | 18–35 | — |
-| `mid32` | 32 GB | ~21 GB | ~16 GB (5.8k, 24%) | 32k | .80–.92 | 12–25 | — |
-| `mid24` | 24 GB | ~15.5 GB | ~10.5 GB (3.8k, 15%) | 32k | .70–.87 | 8–16 | — |
-| `lite16` | 16 GB | ~10 GB | ~5.5 GB (2.0k, 8%) | 16k | .55–.80 | 4–9 | — |
-| `edge8` (experimental) | 8 GB | ~5 GB | ~1.8 GB (0.65k, 2.6%) | 8k | .30–.60 | 1–4 | — |
+| Preset | RAM | **Experts/layer cached** (of 512) | Cache mem | Footprint | Ctx default | h est. | Decode est. | Measured |
+|---|---|---|---|---|---|---|---|---|
+| `max192` | ≥192 GB | **512** + ngram resident, MTP on | 67.9 GB | ~110 GB | 262k | 1.0 | 40–80 | — |
+| `big128` | 128 GB | **512**; ngram streamed | 67.9 GB | ~79 GB | 262k | 1.0 | 35–70 | — |
+| `big96` | 96 GB | **~414**; ngram streamed | ~55 GB | ~63 GB | 128k | ~0.99 | 30–60 | — |
+| `big64` | 64 GB | **~271** | ~36 GB | ~42 GB | 128k | .93–.98 | 25–45 | — |
+| `pro48` ← this Mac | 48 GB | **~204** | ~27 GB | ~32 GB | 64k | .88–.96 | 18–35 | 20.0 warm @181/layer |
+| `mid32` | 32 GB | **~121** | ~16 GB | ~21 GB | 32k | .80–.92 | 12–25 | — |
+| `mid24` | 24 GB | **~79** | ~10.5 GB | ~15.5 GB | 32k | .70–.87 | 8–16 | — |
+| `lite16` | 16 GB | **~41** | ~5.5 GB | ~10 GB | 16k | .55–.80 | 4–9 | 5.6 @30/layer (emulated) |
+| `edge8` (experimental) | 8 GB | **~14** (the floor) | ~1.8 GB | ~5 GB | 8k | .30–.60 | 1–4 | — |
 
 **The decode-est. column is now known to be too pessimistic at the low end.** With
 17.3 GB/s measured, IO alone floors decode at ~13 tok/s even at h=0, so `lite16`
@@ -633,7 +634,7 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB, `gh` authed as carloslf
 ## 11. Definition of Done — v0.1 (updated with 2026-08-28 results)
 
 - [x] Golden: tiny-cache ≡ big-cache greedy outputs, exact — **passed on the full
-      model** (4 GB vs 24 GB pool, identical text).
+      model** (30 vs 181 experts/layer cached, identical text).
 - [x] Parity vs Python reference: layers 0–1 (GDN, MoE-over-pool, PLE,
       hyper-connections, embeddings) **bit-exact**; QSA layer ≤2.4% RMS with the
       few-ulp vendored-kernel origin documented in MEASUREMENTS.md.

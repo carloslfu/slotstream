@@ -19,9 +19,9 @@ check "chat template == transformers"      "[ \"\$($BIN template-check 2>/dev/nu
 check "layer parity (0-1 bit-exact gate)"  "$BIN parity --tokens '9707,11,1246,525,498,30' --layers 2 --compare bench/parity31"
 
 echo "== golden equivalence: streaming must not change the math =="
-$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --pool-gb 24 2>/dev/null > /tmp/ssv_big.txt
-$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --pool-gb 4  2>/dev/null > /tmp/ssv_small.txt
-check "4GB pool output == 24GB pool output" "diff /tmp/ssv_big.txt /tmp/ssv_small.txt"
+$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer 181 2>/dev/null > /tmp/ssv_big.txt
+$BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer 30 2>/dev/null > /tmp/ssv_small.txt
+check "30/layer cache output == 181/layer cache output" "diff /tmp/ssv_big.txt /tmp/ssv_small.txt"
 
 echo
 echo "passed $PASS, failed $FAIL"

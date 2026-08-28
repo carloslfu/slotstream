@@ -12,15 +12,15 @@ MLX + Swift, single binary, Ollama-compatible API.
 | Decode, warm | **20.0 tok/s** |
 | Decode, cold cache | 7.8–10.4 tok/s |
 | Cold start → first token | ~12 s (engine up in 1–2 s; no full-model load ever) |
-| Peak memory @ 24 GB pool | 27.3 GB |
-| Minimum demonstrated | **7.3 GB peak** @ 5.6 tok/s (4 GB pool) |
-| Streaming correctness | 4 GB pool ≡ 24 GB pool: **byte-identical** greedy output |
+| Peak memory @ 181 experts/layer cached (24 GB) | 27.3 GB |
+| Minimum demonstrated | **7.3 GB peak** @ 5.6 tok/s (30 experts/layer cached) |
+| Streaming correctness | 30/layer cache ≡ 181/layer cache: **byte-identical** greedy output |
 | Port correctness | layers incl. streamed MoE/GDN/PLE **bit-exact** vs the Python reference (mlx-0.31.1-matched) |
 | Chat template | token-for-token identical to `transformers` |
 
 ```bash
 make build                       # SwiftPM build + colocate the metallib
-.build/release/slotstream run --prompt "Why is the sky blue?"
+.build/release/slotstream run --prompt "Why is the sky blue?" --experts-per-layer 181
 .build/release/slotstream serve --port 11434    # Ollama-compatible API
 Tools/api_test.sh 11434                          # endpoint battery
 .build/release/slotstream doctor                 # device → recommended pool

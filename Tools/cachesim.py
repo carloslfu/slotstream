@@ -140,7 +140,7 @@ def analyze(name, arr, caps_gb):
           f"(concentration)")
     print(f"    working set if fully cached: {uniq*REC_MB/1024:.1f} GB")
 
-    print(f"    {'cache GB':>9} {'slots':>7} {'LRU':>8} {'LFU':>8} {'hot+LRU':>8}"
+    print(f"    {'exp/layer':>9} {'cache GB':>9} {'slots':>7} {'LRU':>8} {'LFU':>8} {'hot+LRU':>8}"
           f" {'miss MB/tok':>12} {'IO ms/tok@6GB/s':>16}")
     rows = []
     for gb in caps_gb:
@@ -154,7 +154,7 @@ def analyze(name, arr, caps_gb):
         per_tok = arr.shape[1] * arr.shape[2]  # layers*topk expert-uses per token
         miss_mb = per_tok * (1 - best) * REC_MB
         io_ms = miss_mb / 6000 * 1000
-        print(f"    {gb:9.1f} {cap:7d} {h_lru:8.3f} {h_lfu:8.3f} {h_hot:8.3f}"
+        print(f"    {cap/N_LAYERS:9.1f} {gb:9.1f} {cap:7d} {h_lru:8.3f} {h_lfu:8.3f} {h_hot:8.3f}"
               f" {miss_mb:12.1f} {io_ms:16.1f}")
         rows.append(dict(gb=gb, slots=cap, lru=h_lru, lfu=h_lfu, hot=h_hot,
                          miss_mb=miss_mb, io_ms=io_ms))
