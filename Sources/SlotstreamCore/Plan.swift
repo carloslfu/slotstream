@@ -4,6 +4,7 @@
 // exposed over /api/show — so what the process *does* and what it *says* can
 // never drift apart.
 
+import Darwin
 import Foundation
 import MLX
 
@@ -46,6 +47,10 @@ public struct MemoryPlan {
     public let targetGB: Double?
     public let ramGB: Double
     public let workingSetGB: Double
+    /// Memory reclaimable at planning time (nil = could not be read).
+    public let availableGB: Double?
+    /// True when auto sized itself down because of what other apps hold now.
+    public let clamped: Bool
     public let notes: [String]
 
     public var expertsPerLayerCached: Double { Geometry.perLayer(slots) }
@@ -58,8 +63,14 @@ public struct MemoryPlan {
     public func banner() -> String {
         var l: [String] = []
         l.append("slotstream memory plan (\(source.rawValue))")
-        l.append(String(
-            format: "  device: %.0f GB RAM, %.1f GB Metal working set", ramGB, workingSetGB))
+        if let a = availableGB, a.isFinite {
+            l.append(String(
+                format: "  device: %.0f GB RAM (%.1f GB reclaimable now), %.1f GB Metal working set",
+                ramGB, a, workingSetGB))
+        } else {
+            l.append(String(
+                format: "  device: %.0f GB RAM, %.1f GB Metal working set", ramGB, workingSetGB))
+        }
         if let t = targetGB {
             let hint = source == .auto
                 ? "   (override: --memory-gb N | --experts-per-layer N)"
@@ -92,8 +103,10 @@ public struct MemoryPlan {
             "expected_peak_gb": (expectedPeakGB * 10).rounded() / 10,
             "device_ram_gb": (ramGB * 10).rounded() / 10,
             "device_working_set_gb": (workingSetGB * 10).rounded() / 10,
+            "availability_clamped": clamped,
             "fully_resident": fullyResident,
         ]
+        if let a = availableGB, a.isFinite { d["device_available_gb"] = (a * 10).rounded() / 10 }
         if let t = targetGB { d["target_gb"] = (t * 10).rounded() / 10 }
         if !notes.isEmpty { d["notes"] = notes }
         return d
@@ -123,6 +136,34 @@ public enum Planner {
         return ws > 0 ? ws : deviceRAMGB() * 0.75
     }
 
+    /// Memory reclaimable RIGHT NOW without compressing or swapping any other
+    /// process's memory: free pages (the raw counter includes speculative) +
+    /// purgeable + file-backed cache. Deliberately NOT `kern.memorystatus_level`
+    /// (the `memory_pressure` "free percentage"): that counts other apps'
+    /// compressible/swappable memory as available, and sizing a GPU pool
+    /// against it is exactly how you cause the swap storm. nil if the mach
+    /// call fails (then no clamp is applied).
+    public static func deviceAvailableGB() -> Double? {
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
+        var stats = vm_statistics64_data_t()
+        let kr = withUnsafeMutablePointer(to: &stats) { p in
+            p.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+            }
+        }
+        guard kr == KERN_SUCCESS else { return nil }
+        let pages = Double(stats.free_count) + Double(stats.purgeable_count)
+            + Double(stats.external_page_count)
+        return pages * Double(vm_page_size) / 1e9
+    }
+
+    /// Headroom kept between our expected peak and what is reclaimable, so
+    /// claiming it doesn't leave the machine at zero.
+    public static func availabilitySlackGB(ramGB: Double) -> Double {
+        max(1.5, 0.05 * ramGB)
+    }
+
     /// Auto policy: leave 30% of RAM to the OS and the user's other apps, and
     /// stay 2 GB under the Metal recommended working set — whichever binds.
     public static func autoTargetGB(ramGB: Double, workingSetGB: Double) -> Double {
@@ -150,13 +191,21 @@ public enum Planner {
 
     /// Resolve the knobs. Precedence: --experts-per-layer > --pool-gb >
     /// --memory-gb > auto. Losing knobs are noted, never silently dropped.
+    ///
+    /// Auto (and only auto) also clamps to what is reclaimable right now, so a
+    /// busy machine degrades gracefully instead of swap-storming — explicit
+    /// knobs mean the user chose, so they only get an informational note. On a
+    /// quiet machine the clamp never binds and auto stays deterministic.
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
-        ramGB: Double? = nil, workingSetGB: Double? = nil
+        ramGB: Double? = nil, workingSetGB: Double? = nil,
+        availableGB: Double? = nil
     ) throws -> MemoryPlan {
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
+        let avail = availableGB ?? deviceAvailableGB()
         var notes: [String] = []
+        var clamped = false
 
         func finish(_ source: MemoryPlan.Source, _ slots: Int, target: Double?) -> MemoryPlan {
             let capped = min(slots, Geometry.totalRecords)
@@ -172,9 +221,16 @@ public enum Planner {
                     format: "expected peak %.1f GB exceeds the %.1f GB Metal working set — expect paging; close other apps or lower the knob",
                     peak, ws))
             }
+            // Explicit raw knobs: warn (don't resize) when the machine is busy.
+            if source == .expertsPerLayer || source == .poolGB, let a = avail, peak > a {
+                notes.append(String(
+                    format: "only %.1f GB is reclaimable right now — expect paging until other apps release memory (auto would size to the machine)",
+                    a))
+            }
             return MemoryPlan(
                 source: source, slots: floored, targetGB: target,
-                ramGB: ram, workingSetGB: ws, notes: notes)
+                ramGB: ram, workingSetGB: ws, availableGB: avail, clamped: clamped,
+                notes: notes)
         }
 
         if let n = expertsPerLayer {
@@ -200,16 +256,35 @@ public enum Planner {
                     format: "target %.1f GB exceeds the %.1f GB Metal working set; the OS may page — auto would pick %.1f GB here",
                     m, ws, max(minMemoryGB, autoTargetGB(ramGB: ram, workingSetGB: ws))))
             }
+            if let a = avail, m > a {
+                notes.append(String(
+                    format: "only %.1f GB is reclaimable right now — expect paging until other apps release memory",
+                    a))
+            }
             return finish(.memoryGB, slotsForTarget(m), target: m)
         }
 
         // auto: the default
-        let raw = autoTargetGB(ramGB: ram, workingSetGB: ws)
+        let ceiling = autoTargetGB(ramGB: ram, workingSetGB: ws)
+        var raw = ceiling
+        if let a = avail, a - availabilitySlackGB(ramGB: ram) < raw {
+            raw = a - availabilitySlackGB(ramGB: ram)
+            clamped = true
+        }
         let target = max(minMemoryGB, raw)
-        if raw < minMemoryGB {
+        // Exactly one note tells the story of why the target is what it is.
+        if raw < minMemoryGB, ceiling < minMemoryGB {
             notes.append(String(
                 format: "this machine (%.0f GB RAM) is below the comfortable minimum — running at the %.1f GB floor; expect slow decode and close other apps",
                 ram, minMemoryGB))
+        } else if raw < minMemoryGB {
+            notes.append(String(
+                format: "only %.1f GB of %.0f GB RAM is reclaimable right now — running at the %.1f GB floor anyway; expect heavy paging until other apps release memory",
+                avail ?? 0, ram, minMemoryGB))
+        } else if clamped {
+            notes.append(String(
+                format: "only %.1f GB of %.0f GB RAM is reclaimable right now (other apps hold the rest) — sized down from the usual %.1f GB; close apps and restart for full speed, or force a size with --memory-gb",
+                avail ?? 0, ram, ceiling))
         }
         return finish(.auto, slotsForTarget(target), target: target)
     }

@@ -204,16 +204,32 @@ struct Doctor: ParsableCommand {
         abstract: "Device report, the plan your flags produce, and what each memory target buys")
     @OptionGroup var model: ModelOptions
 
+    @Option(name: .customLong("sim-ram"),
+            help: "What-if: preview the plan for a machine with this much RAM in GB (pristine unless --sim-available is also given; working set defaults to 75% of RAM)")
+    var simRAM: Double?
+    @Option(name: .customLong("sim-working-set"),
+            help: "What-if: pretend this Metal working-set limit (GB)")
+    var simWorkingSet: Double?
+    @Option(name: .customLong("sim-available"),
+            help: "What-if: pretend this much memory is reclaimable right now (GB)")
+    var simAvailable: Double?
+
     func run() throws {
         let info = MLX.GPU.deviceInfo()
         print("device: \(info.architecture)  |  "
-            + String(format: "%.0f GB RAM, %.1f GB Metal working set",
-                     Planner.deviceRAMGB(), Planner.deviceWorkingSetGB()))
+            + String(format: "%.0f GB RAM (%.1f GB reclaimable now), %.1f GB Metal working set",
+                     Planner.deviceRAMGB(),
+                     Planner.deviceAvailableGB() ?? .nan, Planner.deviceWorkingSetGB()))
         print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts x 2.76 MB "
             + "(\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
         print("")
+        let simulating = simRAM != nil || simWorkingSet != nil || simAvailable != nil
+        if simulating { print("what-if for a simulated machine (this device shown above):") }
         let plan = try Planner.plan(
-            expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB, memoryGB: model.memoryGB)
+            expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB, memoryGB: model.memoryGB,
+            ramGB: simRAM,
+            workingSetGB: simWorkingSet ?? simRAM.map { $0 * 0.75 },
+            availableGB: simulating ? (simAvailable ?? .infinity) : nil)
         print(plan.banner())
         print("""
 

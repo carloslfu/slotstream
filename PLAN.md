@@ -405,11 +405,22 @@ up from the 3.3 GB estimated — footprints below include this.
 
 **✅ Auto-tuning planner implemented (2026-08-28), replacing named presets as the
 default UX.** `SlotstreamCore/Plan.swift` is the single policy used by run/serve/
-doctor and echoed in `/api/show` `details.memory_plan`. Policy: target =
-min(70% of RAM, working set − 2 GB); pool = target − 3.9 GB fixed footprint
-(resident weights + n-gram row cache) − 0.5 GB margin; floor 640 global slots
-(~14/layer); min honest target 6.2 GB. Precedence `--experts-per-layer` >
-`--pool-gb` > `--memory-gb` > auto, losing knobs noted, never silently dropped.
+doctor and echoed in `/api/show` `details.memory_plan`. Policy: ceiling =
+min(70% of RAM, working set − 2 GB), then **clamped to currently reclaimable
+memory** (free + purgeable + file-cache pages via `host_statistics64` — what can
+be taken without compressing/swapping other apps; `kern.memorystatus_level` was
+rejected as too optimistic) minus max(1.5 GB, 5% RAM) slack, with an explanatory
+note whenever the clamp binds; quiet machine ⇒ clamp never binds ⇒ deterministic.
+Pool = target − 3.9 GB fixed footprint (resident weights + n-gram row cache)
+− 0.5 GB margin; floor 640 global slots (~14/layer); min honest target 6.2 GB.
+Precedence `--experts-per-layer` > `--pool-gb` > `--memory-gb` > auto, losing
+knobs noted, never silently dropped; explicit knobs are never resized by the
+clamp (informational note only). `doctor --sim-ram/--sim-working-set/
+--sim-available` previews any machine; `Tools/verify.sh` pins seven setups
+(48 GB pristine/busy, 16 GB pristine/busy, 8 GB, 128 GB, explicit-on-busy).
+✅Measured live under a 21.5 GB incompressible hog: auto sized 36.1 → 10.7 GB
+(47/layer), generated at a 9.4 GB actual peak with no thrash, and recovered to
+34.4 GB when the hog exited.
 The startup announce prints device, target, experts/layer cached, expected peak,
 and est. warm tok/s (log-linear between the measured anchors 30/layer = 5.6 and
 181/layer = 20.0, flat above — decode is launch-bound past ~181/layer). Promise
