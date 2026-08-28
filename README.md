@@ -50,7 +50,8 @@ make build      # needs the Swift toolchain; Command Line Tools are enough
 
 The weights are the pinned pipenetwork MLX conversion, stored in
 `~/.slotstream/models/` (a dev checkout's `models/` directory is used first if
-present). `serve` and `run` offer the download when weights are missing;
+present). `serve` and `run` offer the download when weights are missing or
+partial (an interrupted download resumes from where it stopped);
 `slotstream pull` runs it directly. Either way, the download checks disk
 space before moving bytes, resumes mid-file after an interruption, and
 refuses any file whose sha256 doesn't match the pinned revision, so a

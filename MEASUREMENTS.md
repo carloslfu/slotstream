@@ -621,6 +621,20 @@ the cache before re-testing. Not proven here: a truly clean machine (this
 Mac's dev checkout resolves first via the embedded path), and the handoff
 "y" branch was not exec'd live (it composes two proven pieces).
 
+**Clean-machine simulation (2026-08-28, follow-up):** with the dev checkout's
+weights hidden and a fresh `$HOME`, the full stranger chain ran live:
+one-liner → installer → "y" handoff (exec'd this time) → serve → "y" → the
+real 104 GB pull streamed (killed deliberately at ~0.6 GB). It exposed two
+defects, both fixed and re-proven in v0.1.1: (1) the weights presence check
+was `config.json` alone, and small files download first, so an interrupted
+first download passed the check and died later in engine load — `serve`/`run`
+now size-check every manifest file (plus `.part` progress) and the prompt
+says `have: N GB already here — the download resumes`; proven by resuming the
+interrupted state at the exact byte offset through the prompt. (2)
+`FileManager.homeDirectoryForCurrentUser` ignores the `$HOME` environment
+variable, so redirecting the download (external drive, tests) silently used
+the passwd home — `ModelLocator` now honors `$HOME` when set.
+
 ### Honest gaps (not yet done)
 
 Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow

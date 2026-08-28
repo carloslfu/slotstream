@@ -10,9 +10,16 @@ import CryptoKit
 import Foundation
 
 enum ModelLocator {
+    /// Respect $HOME when set (redirecting 104 GB of weights is a real use
+    /// case); Foundation's homeDirectoryForCurrentUser ignores it.
+    static var home: URL {
+        if let h = ProcessInfo.processInfo.environment["HOME"], !h.isEmpty {
+            return URL(fileURLWithPath: h)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+    }
     static var userModelsDir: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".slotstream/models")
+        home.appendingPathComponent(".slotstream/models")
     }
     static var repoLocalDir: URL {
         URL(fileURLWithPath: #filePath)  // Sources/slotstream/Pull.swift
@@ -121,6 +128,22 @@ struct Pull: ParsableCommand {
             return true
         }) {}
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Bytes still to download at `dest` (counting .part progress), by size
+    /// only — hashes are verify's job. 0 means every file is present whole.
+    static func remainingBytes(at dest: URL) -> Int64 {
+        let fm = FileManager.default
+        var remaining: Int64 = 0
+        for f in PinnedModel.files {
+            let final = dest.appendingPathComponent(f.path)
+            if let size = (try? fm.attributesOfItem(atPath: final.path))?[.size] as? Int64,
+                size == f.size { continue }
+            let part = final.appendingPathExtension("part")
+            let have = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64 ?? 0
+            remaining += f.size - min(have, f.size)
+        }
+        return remaining
     }
 
     // MARK: download

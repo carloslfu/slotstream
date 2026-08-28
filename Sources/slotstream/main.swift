@@ -9,7 +9,7 @@ struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "slotstream",
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
-        version: "0.1.0",
+        version: "0.1.1",
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self,
@@ -69,20 +69,35 @@ struct ModelOptions: ParsableArguments {
         return plan
     }
 
-    /// If the pinned model isn't downloaded and we have a terminal, ask once
-    /// and run the pull inline. Anything else fails with the fix, not a stack.
+    /// If the pinned model isn't fully downloaded and we have a terminal, ask
+    /// once and run the pull inline (resuming whatever is already there).
+    /// Anything else fails with the fix, not a stack.
     func ensureWeights() throws {
         let url = modelURL
         let fm = FileManager.default
-        if fm.fileExists(atPath: url.appendingPathComponent("config.json").path) { return }
         guard model == PinnedModel.name || model == PinnedModel.dirName else {
-            throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")
+            // explicit path: all we can check cheaply is that a model is there
+            guard fm.fileExists(atPath: url.appendingPathComponent("config.json").path) else {
+                throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")
+            }
+            return
+        }
+        // pinned model: every manifest file must be present whole (a partial
+        // first download must resume here, not die later in the engine)
+        let remaining = Pull.remainingBytes(at: url)
+        if remaining == 0 { return }
+        let have = PinnedModel.totalBytes - remaining
+        // free disk where the weights will actually land
+        var probe = url
+        while !fm.fileExists(atPath: probe.path), probe.path != "/" {
+            probe.deleteLastPathComponent()
         }
         let free = (try? fm.attributesOfFileSystem(
-            forPath: fm.homeDirectoryForCurrentUser.path))?[.systemFreeSize] as? Int64 ?? 0
+            forPath: probe.path))?[.systemFreeSize] as? Int64 ?? 0
         print("""
-            \(PinnedModel.name) is not downloaded yet.
-              size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)
+            \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
+              size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
+                  have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
               to:    \(url.path)
               disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
             """)
