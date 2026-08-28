@@ -12,7 +12,10 @@ struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "slotstream",
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
-        subcommands: [Run.self, Serve.self, Parity.self, Doctor.self, NgramGolden.self, DequantGolden.self, TemplateCheck.self]
+        subcommands: [
+            Run.self, Serve.self, Parity.self, Doctor.self, ElasticCheck.self,
+            NgramGolden.self, DequantGolden.self, TemplateCheck.self,
+        ]
     )
 }
 
@@ -127,6 +130,9 @@ struct Serve: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Ollama-compatible API server")
     @OptionGroup var model: ModelOptions
     @Option var port: UInt16 = 11434
+    @Flag(name: .customLong("no-elastic"),
+          help: "Pin the cache at its startup size. Default: an auto-sized cache resizes itself between requests as memory pressure and availability change (explicit size flags are always pinned).")
+    var noElastic = false
 
     func run() throws {
         let plan = try model.announcedPlan()
@@ -139,6 +145,16 @@ struct Serve: ParsableCommand {
         }
         sem.wait()
         if let e = err { throw e }
+        var governor: MemoryGovernor?
+        if plan.source == .auto, !noElastic {
+            governor = MemoryGovernor(engine: engine)
+            governor?.start()
+        } else if plan.source != .auto, !noElastic {
+            FileHandle.standardError.write(
+                "elastic: off — an explicit size is pinned; omit the size flag for elastic auto\n"
+                    .data(using: .utf8)!)
+        }
+        defer { governor?.stop() }
         let server = Server(engine: engine, port: port)
         try server.run()
     }
@@ -258,6 +274,59 @@ struct Doctor: ParsableCommand {
                 format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@%@",
                 t, e, est, e >= 181 ? " " : "*", full ? "  (fully resident)" : ""))
         }
+    }
+}
+
+// MARK: elastic-check
+
+struct ElasticCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "elastic-check",
+        abstract: "Prove greedy output is byte-identical across live pool grow/shrink")
+    @OptionGroup var model: ModelOptions
+    @Option var maxTokens: Int = 24
+
+    func run() throws {
+        let sem = DispatchSemaphore(value: 0)
+        var result: Result<Void, Error> = .success(())
+        let tokens = maxTokens
+        Task {
+            do {
+                // start small (30/layer), grow warm, shrink cold, regrow
+                let engine = try await Engine(modelDir: model.modelURL, poolSlots: 1446)
+                let ids = try engine.encodeChat(
+                    [ChatMessage(role: "user", content: "Why is the sky blue?")], thinking: false)
+                var p = SampleParams.greedy
+                p.maxTokens = tokens
+                func gen(_ label: String) -> String {
+                    let t0 = Date()
+                    let out = engine.generate(promptIds: ids, params: p).text
+                    FileHandle.standardError.write(String(
+                        format: "  %@ (%d slots): %.1fs\n", label, engine.model.pool.slots,
+                        -t0.timeIntervalSinceNow).data(using: .utf8)!)
+                    return out
+                }
+                let a = gen("baseline    ")
+                engine.withExclusive { engine.model.pool.resize(to: 8688) }
+                let b = gen("after grow  ")
+                engine.withExclusive { engine.model.pool.resize(to: 1446) }
+                let c = gen("after shrink")
+                engine.withExclusive { engine.model.pool.resize(to: 2400) }
+                let d = gen("after regrow")
+                if a == b, b == c, c == d {
+                    print("ELASTIC CHECK PASS: 4 generations byte-identical across 30→181→30→50 experts/layer")
+                } else {
+                    print("ELASTIC CHECK FAIL")
+                    for (n, s) in [("a", a), ("b", b), ("c", c), ("d", d)] { print("--- \(n):\n\(s)") }
+                    throw ExitCode(2)
+                }
+            } catch {
+                result = .failure(error)
+            }
+            sem.signal()
+        }
+        sem.wait()
+        try result.get()
     }
 }
 

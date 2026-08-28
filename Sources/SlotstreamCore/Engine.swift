@@ -20,9 +20,31 @@ public final class Engine {
     public let tokenizer: any Tokenizers.Tokenizer
     public let eosIds: Set<Int>
     public let modelName: String
-    /// The memory plan that sized the pool (nil for internal fixed-size uses).
-    public let plan: MemoryPlan?
+    /// The live memory plan (updated by the elastic governor on resize; nil
+    /// for internal fixed-size uses). Guarded by its own lock so /api reads
+    /// never block behind a running generation.
+    private var _plan: MemoryPlan?
+    private let planLock = NSLock()
+    public var currentPlan: MemoryPlan? {
+        planLock.lock()
+        defer { planLock.unlock() }
+        return _plan
+    }
+    public func updatePlan(_ p: MemoryPlan) {
+        planLock.lock()
+        _plan = p
+        planLock.unlock()
+    }
+
     private let lock = NSLock()
+
+    /// Run `body` with the generation lock held — the governor uses this to
+    /// resize the pool strictly between requests.
+    public func withExclusive<T>(_ body: () throws -> T) rethrows -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body()
+    }
 
     public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
         try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan)
@@ -30,7 +52,7 @@ public final class Engine {
 
     public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
         self.modelDir = modelDir
-        self.plan = plan
+        self._plan = plan
         self.modelName = "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index = try CheckpointIndex(dir: modelDir)

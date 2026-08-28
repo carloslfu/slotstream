@@ -177,7 +177,7 @@ public final class Server {
             "expert_cache_per_layer": Int(engine.model.pool.slotsPerLayer.rounded()),
             "experts_per_layer": engine.model.cfg.numExperts,
         ]
-        if let plan = engine.plan { d["memory_plan"] = plan.json() }
+        if let plan = engine.currentPlan { d["memory_plan"] = plan.json() }
         return d
     }
 

@@ -105,7 +105,7 @@ public final class ExpertStore {
 /// misses in one batched read + scatter. Bit-exact: the pool holds the same
 /// quantized bytes the checkpoint does.
 public final class SlotPool {
-    public let slots: Int
+    public private(set) var slots: Int
     private let cfg: ModelConfig
     private let store: ExpertStore
 
@@ -125,6 +125,18 @@ public final class SlotPool {
     /// global and shared -- hot layers borrow from cold ones).
     public var slotsPerLayer: Double { Double(slots) / Double(cfg.numLayers) }
 
+    /// Per-piece shapes for a pool of `n` slots (order = ExpertStore.pieces).
+    private static func poolShapes(_ n: Int, _ cfg: ModelConfig) -> [(shape: [Int], dtype: DType)] {
+        let h = cfg.hiddenSize
+        let ff = cfg.moeIntermediate
+        let g = cfg.qGroup
+        return [
+            ([n, ff, h / 8], .uint32), ([n, ff, h / g], .bfloat16), ([n, ff, h / g], .bfloat16),
+            ([n, ff, h / 8], .uint32), ([n, ff, h / g], .bfloat16), ([n, ff, h / g], .bfloat16),
+            ([n, h, ff / 8], .uint32), ([n, h, ff / g], .bfloat16), ([n, h, ff / g], .bfloat16),
+        ]
+    }
+
     public init(slots: Int, store: ExpertStore) {
         self.slots = slots
         self.store = store
@@ -132,16 +144,61 @@ public final class SlotPool {
         self.keyOf = Array(repeating: nil, count: slots)
         self.refBit = Array(repeating: false, count: slots)
         self.pinned = Array(repeating: false, count: slots)
-        let h = cfg.hiddenSize
-        let ff = cfg.moeIntermediate
-        let g = cfg.qGroup
-        func z(_ shape: [Int], _ dt: DType) -> MLXArray { MLXArray.zeros(shape, dtype: dt) }
-        pools = [
-            z([slots, ff, h / 8], .uint32), z([slots, ff, h / g], .bfloat16), z([slots, ff, h / g], .bfloat16),
-            z([slots, ff, h / 8], .uint32), z([slots, ff, h / g], .bfloat16), z([slots, ff, h / g], .bfloat16),
-            z([slots, h, ff / 8], .uint32), z([slots, h, ff / g], .bfloat16), z([slots, h, ff / g], .bfloat16),
-        ]
+        pools = Self.poolShapes(slots, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
         eval(pools)
+    }
+
+    /// Resize the pool. Must only be called between requests (the caller holds
+    /// the engine's generation lock); stale pins are cleared, not honored.
+    ///
+    /// Grow keeps the cached contents: each piece is gathered into its larger
+    /// replacement one at a time, so the transient overhead stays bounded by
+    /// one piece — and growth only happens when availability covers the new
+    /// pool anyway. Shrink FREES the old tensors before allocating the small
+    /// ones (transient = max(old, new), never the sum) and restarts cold:
+    /// shrink happens under memory pressure, where holding two pools to
+    /// preserve cache warmth would spike memory at exactly the wrong moment.
+    /// The cache refills from SSD in a few seconds of subsequent requests.
+    /// Byte-exactness is unaffected either way (golden-equivalence invariant:
+    /// pool size and content never change the math).
+    public func resize(to newSlots: Int) {
+        let n = max(newSlots, 1)
+        if n == slots { return }
+        unpinAll()
+        if n > slots {
+            // grow, preserving contents in the slot-index prefix
+            let occupied = (0 ..< slots).filter { keyOf[$0] != nil }
+            let idx = MLXArray(occupied.map(Int32.init))
+            var newKeyOf: [ExpertKey?] = Array(repeating: nil, count: n)
+            var newRef = Array(repeating: false, count: n)
+            map.removeAll(keepingCapacity: true)
+            for (i, s) in occupied.enumerated() {
+                newKeyOf[i] = keyOf[s]
+                newRef[i] = refBit[s]
+                map[keyOf[s]!] = i
+            }
+            for (p, spec) in Self.poolShapes(n, cfg).enumerated() {
+                let np = MLXArray.zeros(spec.shape, dtype: spec.dtype)
+                if !occupied.isEmpty { np[0 ..< occupied.count] = pools[p][idx] }
+                eval(np)
+                pools[p] = np  // old piece freed here, bounding the transient
+            }
+            keyOf = newKeyOf
+            refBit = newRef
+            pinned = Array(repeating: false, count: n)
+            hand = occupied.count % n
+        } else {
+            // shrink: free first, allocate after, start cold
+            pools = []
+            map.removeAll(keepingCapacity: true)
+            keyOf = Array(repeating: nil, count: n)
+            refBit = Array(repeating: false, count: n)
+            pinned = Array(repeating: false, count: n)
+            hand = 0
+            pools = Self.poolShapes(n, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
+            eval(pools)
+        }
+        slots = n
     }
 
     private func victim() -> Int {

@@ -358,8 +358,10 @@ IO stays trivial; only disk grows).
 slotstream pull qwen3.8-flash-next:4bit    # HF download (resumable) + repack + verify
 slotstream doctor [--memory-gb G]          # ✅ device report + the plan any flags produce + target table
 slotstream run qwen3.8-flash-next:4bit     # REPL chat
-slotstream serve                           # ✅ zero-config: auto-tunes to the machine, announces the plan
-slotstream serve --memory-gb 16            # ✅ total-process memory target (cache gets G − 4.4 GB)
+slotstream serve                           # ✅ zero-config: auto-tunes, announces the plan, resizes elastically
+slotstream serve --memory-gb 16            # ✅ total-process memory target (cache gets G − 4.4 GB; pinned)
+slotstream serve --no-elastic              # ✅ pin an auto size too
+slotstream elastic-check                   # ✅ byte-identical output across live pool grow/shrink
 slotstream install                         # LaunchAgent (com.slotstream.server), starts at login
 slotstream bench [--suite full|quick] [--sim-ram 16]
 ```
@@ -421,6 +423,21 @@ clamp (informational note only). `doctor --sim-ram/--sim-working-set/
 ✅Measured live under a 21.5 GB incompressible hog: auto sized 36.1 → 10.7 GB
 (47/layer), generated at a 9.4 GB actual peak with no thrash, and recovered to
 34.4 GB when the hog exited.
+
+**✅ Elastic pool implemented (2026-08-28): `serve` resizes the cache while
+running.** `SlotstreamCore/Governor.swift` re-runs the feasibility replan every
+15 s (crediting the pool + fixed footprint a restart would release; absolute
+dead-bands −1 GB shrink / +2 GB grow, one-step convergence) and subscribes to
+OS memory-pressure events as the overcommit backstop (warning ≥2 GB/15%,
+critical ≥4 GB/50%, repeated events keep shedding; growth waits 60 s of calm).
+Resizes run strictly between requests under the generation lock: grow copies
+contents piece-by-piece (transient ≤ one piece), shrink frees before
+reallocating (transient = max(old,new), restarts cold — under pressure,
+holding two pools to keep warmth would spike memory at the wrong moment).
+Auto-sized pools only; explicit knobs and `--no-elastic` pin. Byte-exactness
+across live resizes is a standing gate (`slotstream elastic-check`), and live
+hog experiments (shed cascade, identical outputs under pressure, contents-kept
+recovery, macOS-swaps-idle equilibrium) are in MEASUREMENTS.
 The startup announce prints device, target, experts/layer cached, expected peak,
 and est. warm tok/s (log-linear between the measured anchors 30/layer = 5.6 and
 181/layer = 20.0, flat above — decode is launch-bound past ~181/layer). Promise

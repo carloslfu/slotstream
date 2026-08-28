@@ -59,6 +59,20 @@ The auto policy has a ceiling and a clamp:
   Explicit knobs are never resized — the user chose — they just get an
   informational note when the machine is busy.
 
+- **Elastic while serving**: a startup-time size can't be right for a
+  daemon's whole lifetime, so an auto-sized `serve` keeps resizing itself
+  between requests — an availability replan every 15 s (shrink in one step
+  when other apps need the memory; grow back with contents intact after 60 s
+  of calm) plus OS memory-pressure events as the backstop for overcommit the
+  availability math can't see. Each resize is one stderr line
+  (`elastic: availability dropped — cache ~220 → ~183 experts/layer …`) and
+  is reflected live in `/api/show`. Explicit sizes are never elastic;
+  `--no-elastic` pins an auto size too. Proven byte-identical across live
+  grow/shrink by `slotstream elastic-check` (a standing verify gate) and
+  live under a 21.5 GB memory hog: the pool shed 29.2 → 9.9 GB as the hog
+  grew, requests stayed byte-identical throughout, and the full size came
+  back after the hog exited.
+
 Three knobs override auto (first one given wins):
 
 - **`--memory-gb G`** — the easy knob: total memory the process may use.
