@@ -101,14 +101,14 @@ Quantization overhead (MLX affine, group size 64): bits + 0.5 bpp for fp16 scale
 
 | Component | Params | 4-bit size | Placement |
 |---|---|---|---|
-| Routed experts (48×512) | 120.8B | **67.9 GB** | SSD, slot-cached |
-| — one expert record (3 × 2560×640) | 4.92M | **2.76 MB** | unit of streaming |
-| — one layer's experts (512) | 2.52B | 1.42 GB | unit of prefill sweep |
+| Routed experts (48×512) | 120.8B | **67.948 GB** ✅measured | SSD, slot-cached |
+| — one expert record (3 × 2560×640) | 4.92M | **2,764,800 B** ✅measured | unit of streaming |
+| — one layer's experts (512) | 2.52B | 1.4156 GB ✅measured | unit of prefill sweep |
 | Shared experts (48) | 0.24B | 133 MB | resident, always |
 | Routers (48 × 2560×512) | 63M | 126 MB (bf16) | resident (routing precedes fetch) |
 | Dense trunk (GDN+QSA+HC+norms) | ~2.7B | 1.5 GB (2.2 GB @6-bit) | resident |
 | Embeddings + lm_head (untied) | 1.27B | 0.72 GB | resident |
-| N-gram/PLE store | 51.2B | **28.8 GB** (row = 1,440 B) | SSD, row-cached, exact-prefetched |
+| N-gram/PLE store | 51.2B | **32.0 GB** ✅measured (320,001,536 rows × 100 B) | SSD, page-cached, exact-prefetched |
 | MTP block | ~4B | 2.25 GB | optional, off in v0 |
 | Vision encoder | ~0.4B | 0.43 GB @8-bit | optional, off in v0 |
 | **Fully resident total** | ~180B | **~102 GB** | doesn't fit even in 48 GB → streaming is mandatory on the dev Mac too; exceeds the default wired limit even on 128 GB (see §5) |
@@ -126,34 +126,44 @@ Per token: 48 layers × 10 routed experts = 480 expert-uses. With hit rate *h* o
 cache:
 
 ```
-miss_bytes/token = 480 × (1 − h) × 2.76 MB          (+ ~23 KB ngram rows, prefetched)
+miss_bytes/token = 480 × (1 − h) × 2.7648 MB     (+ 16 ngram rows ≈ 1.6 KB, prefetched)
 t_token ≈ max(t_compute, miss_bytes / BW_ssd_eff) + stalls
 ```
 
-- `t_compute` floor (resident path): ~6B active × 0.5625 B ≈ 3.4 GB read from unified
-  memory per token → at ~270 GB/s ≈ 12.5 ms → **~60–80 tok/s ceiling** (est.; M5 Pro
-  bandwidth to be measured at M0).
-- `BW_ssd_eff`: Apple NVMe does 5–7 GB/s sequential on recent 1–2 TB drives; 2.76 MB
-  random reads reach near-sequential rates at queue depth ≥ 8–16 (M0 measures the real
-  curve; base-capacity SSDs on small Macs are slower, 1.5–3.5 GB/s).
-- Worst case h=0 (cold): 1.33 GB/token → ~0.2–0.9 s/token = 1–5 tok/s. **Even the floor is
-  usable-ish**, which is why the 8 GB tier is "experimental" rather than "impossible".
+- `t_compute` floor: unified-memory bandwidth measured at **235 GB/s**, so a purely
+  bandwidth-bound token (3.375 GB active) would be 14 ms → ~70 tok/s. But a batch-1
+  4-bit matmul was measured at only **47 GB/s** (launch/occupancy-bound, not
+  bandwidth-bound), so decode is dominated by **kernel-launch count**, not bytes.
+  The real figure must come from running the model; do not extrapolate from either
+  number alone.
+- `BW_ssd_eff` (this Mac, measured never-repeat cold): **17.3 GB/s** at expert-record
+  size, saturating by QD8; 9.46 GB/s even at QD1. Small-page IO is ~100× worse at
+  QD1 (4 KiB: 0.08 GB/s, 53.6 µs latency) — the quantitative case for record-sized
+  reads over page-granular mmap. Base-capacity SSDs on small Macs will be much
+  slower; Stage C must re-measure per machine.
+- Worst case h=0 (cold): 1.33 GB/token → 77 ms = **13 tok/s**, from IO alone. The
+  8 GB tier is memory-constrained, not bandwidth-constrained.
 - Per-layer fetch parallelism is bounded (only that layer's ≤10 misses are known before
   its MoE runs), so latency hiding comes from (a) QD within the layer, (b) overlapping the
   fetch with the shared-expert branch (independent of routed experts), (c) **cross-token
   prefetch** (issue predicted per-layer expert sets for token t+1 right after sampling
   token t — prediction = union of each layer's experts over the last W tokens).
 
-Illustrative IO-side decode bounds at 6 GB/s (dev Mac; est. until M1 fixes h):
+IO-side decode bounds at the **measured 17.3 GB/s** (see MEASUREMENTS.md §M0.5;
+the 5–7 GB/s originally assumed here was ~3× too pessimistic):
 
-| h | miss MB/tok | IO ms/tok | decode cap |
+| h | miss MB/tok | IO ms/tok | IO-bound cap |
 |---|---|---|---|
-| 0.98 | 27 | 4 | compute-bound (~40+ tok/s) |
-| 0.95 | 66 | 11 | ~30 tok/s |
-| 0.90 | 133 | 22 | ~22 tok/s |
-| 0.80 | 265 | 44 | ~14 tok/s |
-| 0.60 | 530 | 88 | ~8 tok/s |
-| 0.30 | 928 | 155 | ~5 tok/s |
+| 0.98 | 27 | 1.5 | 650 tok/s |
+| 0.90 | 133 | 7.7 | 130 tok/s |
+| 0.50 | 663 | 38 | 26 tok/s |
+| **0.00** | 1,327 | **77** | **13 tok/s** |
+
+**The headline consequence: even a zero-hit cache sustains ~13 tok/s from IO.**
+Streaming bandwidth is therefore *not* the binding constraint on any tier; memory
+(what fits) and compute (kernel-launch-bound decode) are. h still governs how far
+above that floor a tier lands, so M1 still matters — but it is no longer the
+difference between "viable" and "not".
 
 The single biggest unknown in this whole plan is **h(cache_size, workload)** for this
 model's router. Everything else is deterministic byte-pushing. Hence M1 exists to measure
@@ -168,11 +178,14 @@ layer's used experts sequentially in groups** (staging G×2.76 MB, e.g. G=64 →
 apply each group to its gathered tokens, discard, next group. Prefill cost per chunk ≈ one
 ~68 GB sweep (less router-skipped experts) regardless of chunk size → **make chunks big**:
 
-| chunk C | sweep IO / token | prefill IO cap @6 GB/s |
+| chunk C | sweep IO / token | prefill IO cap @**17.3 GB/s** (measured) |
 |---|---|---|
-| 1,024 | 66 MB | ~15 tok/s (don't) |
-| 4,096 | 16.6 MB | ~360 tok/s |
-| 8,192 | 8.3 MB | ~720 tok/s |
+| 1,024 | 66 MB | ~260 tok/s |
+| 4,096 | 16.6 MB | ~1,040 tok/s |
+| 8,192 | 8.3 MB | ~2,100 tok/s |
+
+A full 68 GB sweep costs 3.9 s at the measured rate, so prefill is compute-bound at
+every useful chunk size and the sweep design has ample headroom.
 
 Effective prefill = min(IO cap, compute cap ~300–800 tok/s est.). Short prompts below a
 threshold (~512 tok) use the normal cached path. **The sweep must be scan-resistant**: it
@@ -233,9 +246,23 @@ design's fixed budget exists to prevent.
 - `resident.safetensors` — trunk, shared experts, routers, embeddings, norms. Loaded whole.
 - `experts.bin` — 24,576 fixed-size records, `idx = layer×512 + expert`,
   record = packed(gate|up|down: weights+scales+biases) padded to 16 KiB multiple
-  (2,764,800 → 2,768,896 B); pure `pread(fd, idx × record_size)`. ~68 GB.
-- `ngram.bin` — 20.0M rows, stride padded to 1,536 B @4-bit (64 B aligned), read in
-  4–16 KiB aligned windows. ~30.7 GB.
+  (**2,764,800 → 2,768,896 B**, ✅measured); pure `pread(fd, idx × record_size)`.
+  **67.948 GB**.
+  Note: in the source checkpoint each layer's 512 experts are *already contiguous*
+  per projection (`[512, 640, 320]` etc.), verified by matching a direct `pread` of
+  expert *i* against `mx.load(...)[i]`. So a working engine can stream straight from
+  the original shards with **9 preads per expert**; `experts.bin` collapses that to
+  **1**. The repack is a measured optimisation, not a prerequisite — which makes it
+  safe to build the engine first and A/B the repack's real benefit.
+- `ngram.bin` — ✅measured geometry: **320,001,536 rows** (128 shards × 2,500,012)
+  of **160 dims**, quant group size **32**, packed **100 B/row** (80 weight + 10
+  scales + 10 biases), **32.0 GB**. The repack's job here is *interleaving*: in the
+  source checkpoint a row's three parts live in three different tensors ~3.25 GB
+  apart, so an unrepacked reader needs **3 preads per row = 48 per token**; packing
+  each row contiguously makes it **16 per token**. Rows stay packed (not padded):
+  at 100 B a row straddles a 16 KiB page only ~0.6% of the time, and padding to
+  128 B would cost +9 GB of disk for nothing. Read in 16 KiB aligned windows
+  (~163 rows each); the cache is **page-granular, not row-granular**.
 - `mtp.safetensors`, `vision.safetensors` — optional, absent in v0 default build.
 - `tokenizer/` — tokenizer.json, tokenizer_config.json (chat template), generation_config.
 
@@ -339,8 +366,16 @@ Axes — every named preset is a point in this space:
 
 ### Presets v1 (est. columns to be replaced by M8 measurements)
 
-Budget rule: total footprint ≤ ~65–70% of RAM (and under the Metal recommended working-set
-/ wired limit), leaving OS+apps alive. `doctor` picks; user can override.
+Budget rule: total footprint ≤ ~65–70% of RAM **and** under
+`max_recommended_working_set_size`, leaving OS+apps alive. ✅measured on this Mac:
+working set = **37.4 GiB of 48 GB** (78%), so the real ceiling is tighter than "RAM"
+everywhere — `doctor` must read this value, not infer it from `hw.memsize`. Also
+✅measured: `max_buffer_length` = **28.1 GiB**, which caps any *single* MLXArray;
+harmless in the 9-tensor pool layout (a 27 GB pool's largest tensor is 8.0 GiB) but
+it would have been binding for a single-tensor pool.
+
+Resident floor ✅measured at **3.822 GB** (everything except experts and n-gram),
+up from the 3.3 GB estimated — footprints below include this.
 
 | Preset | RAM | Footprint | Slots (experts, coverage) | Ctx default | h est. | Decode est. | Measured |
 |---|---|---|---|---|---|---|---|
@@ -354,10 +389,16 @@ Budget rule: total footprint ≤ ~65–70% of RAM (and under the Metal recommend
 | `lite16` | 16 GB | ~10 GB | ~5.5 GB (2.0k, 8%) | 16k | .55–.80 | 4–9 | — |
 | `edge8` (experimental) | 8 GB | ~5 GB | ~1.8 GB (0.65k, 2.6%) | 8k | .30–.60 | 1–4 | — |
 
+**The decode-est. column is now known to be too pessimistic at the low end.** With
+17.3 GB/s measured, IO alone floors decode at ~13 tok/s even at h=0, so `lite16`
+(4–9) and `edge8` (1–4) are wrong *as IO estimates*; their real limit is memory
+pressure and compute. Those bands are left unrevised deliberately — M8 replaces them
+with measurements rather than a second round of guessing.
+
 Notes: fully-resident-incl-ngram on a 128 GB Mac (~110 GB with KV) exceeds the default
 wired limit (~96 GB) — possible only with an explicit `iogpu.wired_limit_mb` bump, which
 is why `big128` streams the n-gram store instead: it needs no sysctl and loses almost
-nothing (n-gram IO is ~23 KB/token, exact-prefetched). Smaller Macs also have slower SSDs (1.5–3.5 GB/s) — folded into the est. bands;
+nothing (n-gram IO is ✅measured at 16 rows ≈ 1.6 KB/token, exact-prefetched). Smaller Macs also have slower SSDs (1.5–3.5 GB/s) — folded into the est. bands;
 `lite16`/`edge8` use trunk @4-bit to shave the floor; `edge8` may additionally need the
 compact 3-bit expert build and a raised `iogpu.wired_limit_mb` (doctor detects + explains,
 never auto-sudos). External USB4 NVMe (~3 GB/s) is a supported weights location — worth a
@@ -518,22 +559,36 @@ lands (the whole point of targeting the preview architecture now).
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Expert locality worse than assumed (flat router → low h) | medium | M1 measures before tuning work; even h≈0.3 yields usable-if-slow decode (§3.2); prefill unaffected (sweep); worst case: reposition tiers honestly |
+| Expert locality worse than assumed (flat router → low h) | medium | **downgraded**: at the measured 17.3 GB/s even h=0 sustains ~13 tok/s, so low locality costs speed, not viability. M1 still sizes the tiers |
+| Model is far slower than hoped for *compute* reasons (launch-bound decode) | **medium-high, newly elevated** | batch-1 4-bit matmul measured at 47 GB/s vs 235 GB/s bandwidth → decode is kernel-launch-bound. Mitigation: MLX compiled graphs (`Qwen3NextCompiledDecodeTests` shows upstream does this), fewer/larger kernels, MTP self-speculation. Measure on the real model before optimising |
 | Community 4-bit conversion broken/requantized badly | medium | spot-check vs FP8 endpoint at M0; pin revision; fallback own conversion on rented box (approval-gated) |
 | mlx-lm PR churn / reference impl bugs | medium | vendor the exact reference revision into repo; layerwise parity catches divergence |
 | GDN port numerics (fp32 state, chunked scan) | medium | §6.2 layerwise harness from day one; keep pure-MLX-op version as oracle for any later Metal kernel |
 | QSA indexer complexity (core path — dense is only exact ≤ 2048 tokens) | medium | port from reference impl; dense path as ≤2k test oracle; +1–2 d already in the M3 estimate |
-| `gatherQMM`/slice-write perf on partial pools in mlx-swift | low-med | microbench at M3 start; fallback direct MTLBuffer fill path |
+| ~~`gatherQMM`/slice-write perf in mlx-swift~~ | **RESOLVED** ✅ | `MLX.gatherQuantizedMM` exists and is bit-identical to `quantizedMatmul`; batched slot scatter measured 49.8 GB/s (Swift) / 74.9 GB/s (Python, 27 GB pool), in place. ~12× faster than the SSD can feed it |
+| **mlx-swift Metal shaders cannot be built by SwiftPM CLI — needs Xcode** | **CONFIRMED, unplanned** | mlx-swift's own README says so; this machine has CLT only, no Xcode. Workaround verified: colocate the prebuilt `mlx.metallib` from the Python mlx wheel next to the binary (must be named `mlx.metallib`). Version skew (0.32.2 lib vs 0.31.1 vendored) worked for every kernel probed but is not a shipping strategy. **Decide before M7**: install Xcode on the build machine, or vendor a metallib as a package resource |
 | F_NOCACHE semantics/perf on APFS | low-med | DiskBench A/Bs it at M0; pagecache mode as fallback |
 | Wired-limit ceilings on ≤16 GB Macs | high (known) | doctor measures + documents `iogpu.wired_limit_mb`; budgets sized under recommendedMaxWorkingSetSize; never auto-sudo |
 | Thermal throttling on fanless Airs | high (known) | W5 soak captures sustained numbers; publish sustained not burst |
 | Model is 2 days old — ecosystem/weights churn | high | pin everything; manifest checksums; §2 re-verify step in M0 is repeatable |
 | Scope creep (vision, MTP, batching, other models) | high | §8 gates; v0 = text, single-flight, this model only |
 
-## 10. Dev-Mac reference (verified 2026-08-28)
+## 10. Dev-Mac reference (measured 2026-08-28 — full data in MEASUREMENTS.md)
 
-MacBook Pro, Apple M5 Pro, 48 GB unified, 18 cores, 2 TB SSD (~695 GB free), macOS 26,
-Swift 6.3.3, `gh` authed as carloslfu. SSD curve, memory bandwidth, wired limit: fill at M0.
+MacBook Pro, Apple M5 Pro, 48 GB unified, 18 cores, 2 TB SSD (APPLE SSD AP2048Z),
+macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB, `gh` authed as carloslfu.
+
+| Measured | Value |
+|---|---|
+| Metal working set | 40,200,896,512 B (**37.4 GiB**) |
+| Metal max single buffer | 30,150,672,384 B (**28.1 GiB**) |
+| `iogpu.wired_limit_mb` | 0 (default) |
+| Unified-memory bandwidth | **235.1 GB/s** |
+| Batch-1 4-bit matmul | 47.2 GB/s (launch-bound) |
+| SSD random 2.7648 MB, cold never-repeat | 9.46 (QD1) → **17.3 GB/s** (QD8+) |
+| SSD random 4 KiB / 16 KiB, QD1 | 0.08 / 0.27 GB/s (53.6 / 60.1 µs) |
+| Slot scatter, 27 GB pool | **74.9 GB/s**, in place |
+| Xcode | **not installed** (CLT only) — see risk register |
 
 ## 11. Definition of Done — v0.1
 
@@ -550,13 +605,28 @@ Swift 6.3.3, `gh` authed as carloslfu. SSD curve, memory bandwidth, wired limit:
 
 ## 12. Open questions (answer at the milestone noted)
 
-1. Exact n-gram hashing/lookup-count and per-part row addressing (M0, from reference code).
-2. Does "6B active" include n-gram rows, and what's the real per-token row count? (M0)
-3. Is there GDN Swift prior art in `mlx-swift-lm` to adapt? (M0 — changes M3 estimate.)
+1. ✅**ANSWERED (M0).** N-gram indexing: `ngram_heads = (ngram_size−1) × heads_per_ngram
+   = 16`; per head, id = XOR of `splitmix64`-derived multipliers over the token n-gram,
+   mod that head's distinct prime near 20 M (`_nth_prime_after(19_999_999, g+1)`), plus
+   the head's offset; the concatenation is split into 128 shards of 2,500,012 rows.
+   Rows are 160-dim, 100 B packed, quant group 32. PLE sits at layer index 1.
+2. ✅**ANSWERED (M0).** **16 rows per token = 1,600 B** of n-gram data (≈20× less than
+   the 23 KB assumed). Unrepacked that is 48 scattered preads/token; repacked, 16.
+3. ✅**ANSWERED (M0), and better than hoped.** `mlx-swift-lm` ships
+   `Qwen3NextGatedDeltaNet` + `gatedDeltaUpdate` (with `conv1d`, `dt_bias`, `A_log`,
+   a `decodeConv` fast path, and compiled-decode tests), plus `SwitchGLU` /
+   `QuantizedSwitchLinear` over `MLX.gatherQuantizedMM`. Novel Swift work reduces to
+   the QSA indexer, hyper-connections, and the PLE path.
 4. MTP block internals (own experts?) and self-spec accept rates on this model (M9).
-5. h-curves per tier — the load-bearing unknown (M1).
+5. h-curves per tier (M1) — **no longer the load-bearing unknown**: at 17.3 GB/s even
+   h=0 sustains ~13 tok/s. It now sizes tiers rather than deciding viability.
 6. Whether `mixed-4-8` measurably beats all-4-bit on agentic evals worth +disk (M8).
 7. External-USB4-NVMe tier viability for 256 GB-disk Macs (M8, one bench row).
+8. **NEW — the actual binding constraint.** How much of decode is kernel-launch
+   overhead, and how far do MLX compiled graphs close it? Batch-1 matmul hits only
+   20% of memory bandwidth. This displaced IO as the top performance risk (M4/M5).
+9. **NEW.** Metal shader build: Xcode on the build machine, or a vendored metallib
+   resource? (decide before M7 — see risk register)
 
 ## 13. References
 
