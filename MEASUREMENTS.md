@@ -635,6 +635,20 @@ interrupted state at the exact byte offset through the prompt. (2)
 variable, so redirecting the download (external drive, tests) silently used
 the passwd home — `ModelLocator` now honors `$HOME` when set.
 
+**Per-OS Metal library (2026-08-28, follow-up):** the release tarball's
+metallib is built for macOS 26, but mlx-metal publishes separate builds for
+macOS 14, 15, and 26 — shipping the 26 build to older systems is the
+forward-compatibility direction that can fail. The installer now fetches the
+build matching the host's macOS from the mlx-metal 0.31.1 wheel (URL and
+sha256 hardcoded per OS; PyPI files are immutable) on macOS 14 and 15, and
+keeps the tarball's copy on 26 and later. Tested via an override on this
+host: the macOS 15 wheel downloaded, hash-verified, and extracted (107 MB vs
+the 26 build's 131 MB), Metal initialized from it, and a real generation ran
+at a 7.0 GB peak. A physical macOS 14/15 machine still hasn't run it, but
+each OS now gets exactly the library a from-source build there would use.
+Also fixed: re-running the installer says "PATH already set up" and appends
+nothing (verified one profile line after two runs).
+
 ### Honest gaps (not yet done)
 
 Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow

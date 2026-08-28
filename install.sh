@@ -32,6 +32,30 @@ WANT=$(cut -d' ' -f1 < "$TMP/expected.sha256")
 
 mkdir -p "$BIN_DIR"
 tar xzf "$TMP/slotstream.tar.gz" -C "$BIN_DIR"
+
+# The tarball's Metal library is built for macOS 26. On macOS 14 and 15,
+# replace it with the build for that OS from the pinned mlx-metal 0.31.1
+# wheel — the same source and version a from-source build uses.
+WHEEL_MAJOR=${SLOTSTREAM_MACOS_MAJOR:-$MAJOR} # override exists for testing only
+WHEEL_URL="" WHEEL_SHA=""
+case "$WHEEL_MAJOR" in
+14)
+    WHEEL_URL="https://files.pythonhosted.org/packages/39/66/2313497fdbc7fbadf8e026c09366e3f049f9114e65ca4edc23cdb8699186/mlx_metal-0.31.1-py3-none-macosx_14_0_arm64.whl"
+    WHEEL_SHA=70741174131dbf7fdd479cb730e06e08c358eac3bf7905d9e884e7960cfdd5b8
+    ;;
+15)
+    WHEEL_URL="https://files.pythonhosted.org/packages/c7/34/4c3c6890ce6095b2ab2ba2f5f15c9a7ba17208d47f8cacb572885a2dc0eb/mlx_metal-0.31.1-py3-none-macosx_15_0_arm64.whl"
+    WHEEL_SHA=6c56bd8cd27743e635f5a90a22535af7c31bd22b4b126d46b6da2da52d72e413
+    ;;
+esac
+if [ -n "$WHEEL_URL" ]; then
+    echo "fetching the Metal library built for macOS $WHEEL_MAJOR (about 40 MB)"
+    curl -fL --progress-bar -o "$TMP/mlx-metal.whl" "$WHEEL_URL"
+    GOTW=$(shasum -a 256 "$TMP/mlx-metal.whl" | cut -d' ' -f1)
+    [ "$GOTW" = "$WHEEL_SHA" ] || { echo "sha256 mismatch on the mlx-metal wheel; aborting" >&2; exit 1; }
+    unzip -p "$TMP/mlx-metal.whl" 'mlx/lib/mlx.metallib' > "$BIN_DIR/mlx.metallib"
+fi
+
 VERSION=$("$BIN_DIR/slotstream" --version) || {
     echo "the installed binary failed to run" >&2; exit 1; }
 echo "installed slotstream $VERSION to $BIN_DIR"
@@ -56,8 +80,10 @@ case ":$PATH:" in
         if [ -n "$PROFILE" ]; then
             if ! grep -qs '\.slotstream/bin' "$PROFILE"; then
                 printf '\nexport PATH="$HOME/.slotstream/bin:$PATH"\n' >> "$PROFILE"
+                echo "added ~/.slotstream/bin to PATH in $PROFILE (new terminals pick it up)"
+            else
+                echo "PATH already set up in $PROFILE"
             fi
-            echo "added ~/.slotstream/bin to PATH in $PROFILE (new terminals pick it up)"
         else
             echo 'add to your PATH: export PATH="$HOME/.slotstream/bin:$PATH"'
         fi

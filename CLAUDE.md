@@ -61,4 +61,9 @@ multi-GB. These rules are mandatory:
   release = `make build`, tar those two files from `.build/release/`, shasum,
   `gh release create vX.Y.Z` with both assets; bump `version:` in
   `Sources/slotstream/main.swift` to match. Asset names are stable (the
-  installer uses `releases/latest/download/`), so never rename them.
+  installer uses `releases/latest/download/`), so never rename them. The
+  tarball's metallib is the macOS 26 build; `install.sh` swaps in the
+  macOS 14/15 builds from pinned mlx-metal wheels — when bumping the MLX
+  version, update those wheel URLs + sha256s alongside
+  `Tools/fetch_metallib.sh`. raw.githubusercontent caches `install.sh` for
+  ~5 minutes after a push.
