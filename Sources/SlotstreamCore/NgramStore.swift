@@ -45,7 +45,7 @@ enum Splitmix {
 
 /// Round a Float to bfloat16 precision (round-to-nearest-even), matching the
 /// dtype the GPU dequant produces in the reference path.
-@inline(__always) func bf16Round(_ x: Float) -> Float {
+@inline(__always) public func bf16Round(_ x: Float) -> Float {
     let bits = x.bitPattern
     let lsb = (bits >> 16) & 1
     let rounded = bits &+ 0x7FFF &+ lsb
