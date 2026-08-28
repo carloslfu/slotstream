@@ -17,7 +17,7 @@ by a measurement; everything marked **verified** came from the model config or a
 | M0 Ground truth & feasibility | ☐ not started | numbers table below filled with measured values |
 | M1 Expert-locality study | ☐ | hit-rate curves committed to `bench/locality/` |
 | M2 `.ssmodel` container + repack | ☐ | byte-exact spot checks pass |
-| M3 Swift engine, resident correctness | ☐ | layerwise parity vs Python ref ≤ 1e-2 |
+| M3 Swift engine, resident correctness (incl. QSA indexer) | ☐ | layerwise parity vs Python ref ≤ 1e-2 |
 | M4 Slot streaming decode (first full-model run) | ☐ | golden equivalence + ≥10 tok/s warm on dev Mac |
 | M5 Dense-sweep prefill + prefetch | ☐ | perf targets §10 hit on dev Mac |
 | M6 Ollama-compatible server | ☐ | 3 real clients work end-to-end |
@@ -111,7 +111,7 @@ Quantization overhead (MLX affine, group size 64): bits + 0.5 bpp for fp16 scale
 | N-gram/PLE store | 51.2B | **28.8 GB** (row = 1,440 B) | SSD, row-cached, exact-prefetched |
 | MTP block | ~4B | 2.25 GB | optional, off in v0 |
 | Vision encoder | ~0.4B | 0.43 GB @8-bit | optional, off in v0 |
-| **Fully resident total** | ~180B | **~102 GB** | doesn't fit even in 48 GB → streaming is mandatory on the dev Mac too |
+| **Fully resident total** | ~180B | **~102 GB** | doesn't fit even in 48 GB → streaming is mandatory on the dev Mac too; exceeds the default wired limit even on 128 GB (see §5) |
 
 Resident floor (v0 text-only, trunk @6-bit): **≈ 3.3 GB** + KV + GDN state (113 MB fp32)
 + MLX graph/activations (~0.4 GB) + slot pool + ngram row cache (128–256 MB) + IO staging
@@ -175,8 +175,11 @@ apply each group to its gathered tokens, discard, next group. Prefill cost per c
 | 8,192 | 8.3 MB | ~720 tok/s |
 
 Effective prefill = min(IO cap, compute cap ~300–800 tok/s est.). Short prompts below a
-threshold (~512 tok) use the normal cached path. N-gram rows for the entire prompt are
-known upfront → batch-fetch before layer 2.
+threshold (~512 tok) use the normal cached path. **The sweep must be scan-resistant**: it
+runs through staging only, bypassing the slot cache for placement while still updating
+frequency stats, and admits experts into slots only by frequency/hot-set — otherwise
+every long prefill flushes the warm cache and the decode that follows starts cold.
+N-gram rows for the entire prompt are known upfront → batch-fetch before layer 2.
 
 Cold start: resident load (~3.3 GB) + optional hot-set preload, sequential at 5–7 GB/s →
 **first token in seconds, not minutes** — no full-model load ever happens.
@@ -254,14 +257,23 @@ explicit go — billed).
   plain uint32/fp16 tensors; a 2.76 MB device copy is ~µs against memcpy bandwidth).
   v1 option if profiling demands: pread directly into the pool's MTLBuffer contents
   (shared storage mode on Apple Silicon needs no sync) — measure before adopting.
-- Pool is allocated in ~1 GB segments so the governor can actually release memory under
-  pressure (shrink = evict segment's residents, free segment).
+- Resizing: default is a **single pool** — `gatherQMM` gathers within one tensor, and
+  sharding the pool would put per-segment dispatch on the hot path. Governor shrink/grow
+  = rebuild the pool at the new size (rare event, costs seconds, keeps the hot path
+  clean). A segmented variant is adopted only if microbenching shows per-segment
+  dispatch overhead is negligible.
+- **M3-entry gate — the slot-write microbench (before any streaming work):** prove that
+  scattered writes into the quantized pool tensors execute in place (MLX buffer donation
+  — no full-pool copy per update) and sustain > 5 GB/s of slot fills. If MLX's
+  functional-update semantics force copies at this size, switch to preads directly into
+  the pool's MTLBuffer contents (shared storage mode needs no sync on Apple Silicon).
 
 ### 4.3 N-gram/PLE path
 
 Keys for token t's rows are a pure function of input token ids (bi/tri-grams × 8 heads,
 ~16 rows ≈ 23 KB @4-bit). Decode: after sampling token t, issue reads for step t+1
-immediately — IO fully hidden behind that step's compute. Prefill: batch-read the whole
+immediately — a handful of 4–16 KiB reads (~0.1–0.3 ms) mostly hidden behind layers 0–1
+of that step plus the row cache. Prefill: batch-read the whole
 prompt's (deduplicated) rows before layer 2. Small LRU row cache (128–256 MB) absorbs
 n-gram repetition in natural text. The exact hashing scheme is read out of the reference
 `qwen4_exp.py`/PR #1788 at M0 (`heads_per_ngram 8`, `split_ngram_parts 128` — verify
@@ -332,8 +344,9 @@ Budget rule: total footprint ≤ ~65–70% of RAM (and under the Metal recommend
 
 | Preset | RAM | Footprint | Slots (experts, coverage) | Ctx default | h est. | Decode est. | Measured |
 |---|---|---|---|---|---|---|---|
-| `resident` | 128 GB | ~102 GB | all 24,576 (100%) + ngram resident | 262k | 1.0 | 40–80 | — |
-| `big96` | 96 GB | ~64 GB | ~56 GB (20.3k, 82%) | 262k | ~0.99 | 35–60 | — |
+| `max192` | ≥192 GB | ~110 GB | all 24,576 (100%) + ngram resident, MTP on | 262k | 1.0 | 40–80 | — |
+| `big128` | 128 GB | ~79 GB | all 24,576 (100%); ngram streamed | 262k | 1.0 | 35–70 | — |
+| `big96` | 96 GB | ~63 GB | ~55 GB (19.9k, 81%); ngram streamed | 128k | ~0.99 | 30–60 | — |
 | `big64` | 64 GB | ~42 GB | ~36 GB (13.0k, 53%) | 128k | .93–.98 | 25–45 | — |
 | `pro48` ← this Mac | 48 GB | ~32 GB | ~27 GB (9.8k, 40%) | 64k | .88–.96 | 18–35 | — |
 | `mid32` | 32 GB | ~21 GB | ~16 GB (5.8k, 24%) | 32k | .80–.92 | 12–25 | — |
@@ -341,7 +354,10 @@ Budget rule: total footprint ≤ ~65–70% of RAM (and under the Metal recommend
 | `lite16` | 16 GB | ~10 GB | ~5.5 GB (2.0k, 8%) | 16k | .55–.80 | 4–9 | — |
 | `edge8` (experimental) | 8 GB | ~5 GB | ~1.8 GB (0.65k, 2.6%) | 8k | .30–.60 | 1–4 | — |
 
-Notes: smaller Macs also have slower SSDs (1.5–3.5 GB/s) — folded into the est. bands;
+Notes: fully-resident-incl-ngram on a 128 GB Mac (~110 GB with KV) exceeds the default
+wired limit (~96 GB) — possible only with an explicit `iogpu.wired_limit_mb` bump, which
+is why `big128` streams the n-gram store instead: it needs no sysctl and loses almost
+nothing (n-gram IO is ~23 KB/token, exact-prefetched). Smaller Macs also have slower SSDs (1.5–3.5 GB/s) — folded into the est. bands;
 `lite16`/`edge8` use trunk @4-bit to shave the floor; `edge8` may additionally need the
 compact 3-bit expert build and a raised `iogpu.wired_limit_mb` (doctor detects + explains,
 never auto-sudos). External USB4 NVMe (~3 GB/s) is a supported weights location — worth a
@@ -361,9 +377,12 @@ row in the matrix for 256 GB-internal-disk Macs.
    Target ≤1e-2 relative; investigate anything above.
 3. **GDN state stays fp32** (`mamba_ssm_dtype: float32`) — numerics drift here is a known
    architecture foot-gun.
-4. **QSA v0 fallback**: dense attention (mask-only) is mathematically correct at any
-   length and cheap under ~32k; ship it first, then land the indexer's top-2048 selection
-   behind a flag with an equivalence test at short contexts.
+4. **QSA: the indexer is core, not optional.** Dense attention is exactly equivalent only
+   while context ≤ the indexer budget (2048 tokens) — beyond that the trained behavior is
+   top-2048-token sparse attention, and a dense path silently diverges from the model as
+   trained (and from the Python reference, so parity would fail anyway). Implement the
+   indexer in M3 proper; keep the dense path as a *test oracle* for ≤2048-token parity
+   runs and as a debug flag, never as the shipped path.
 5. Repack is checksummed both directions (source tensor sha → record sha), and `pull`
    verifies before first run. Model is 2 days old; expect re-releases — pin revisions.
 
@@ -417,7 +436,8 @@ recommendedMaxWorkingSetSize and default wired limit; check `mlx-swift-lm` for a
 Qwen3-Next/GDN Swift implementation (if present, M3 shrinks by days). Verify
 swift-transformers Jinja handles this chat template.
 **Exit:** §2/§3 tables re-verified; SSD curve measured; weights source pinned (or fallback
-conversion plan triggered); M3 effort re-estimated.
+conversion plan triggered); `gatherQMM` + quantized in-place updates confirmed available
+in mlx-swift (slot-write microbench specced); M3 effort re-estimated.
 
 ### M1 — Expert-locality study (1–2 d, the cheap de-risk)
 Traces: instrument the Python reference (mlx-lm branch) to dump per-layer top-k ids.
@@ -438,16 +458,18 @@ checksummed, config-driven geometry. Swift `Format/` reader + verifier.
 **Exit:** full 4-bit repack on this Mac; random-sampled records byte-equal to source
 tensors; `slotstream verify` green.
 
-### M3 — Swift engine, resident-path correctness (3–6 d — the long pole)
-Port qwen4_exp to mlx-swift in `SlotstreamCore/Model/`: GDN (chunked gated delta rule;
-fp32 state; custom Metal kernel only if profiling demands — start with pure MLX ops), QSA
-(dense fallback first, indexer behind flag), MoE via `gatherQMM` (resident pool = all
-experts of the layers under test), hyper-connections, n-gram/PLE module, sampler
-(temp/top-p/top-k/min-p/presence). No vision, no MTP. Test rig: truncated real-weight
-prefixes (first 4–8 layers) vs Python reference, layer-by-layer; synthetic tiny config for
-full-graph unit tests + CI.
-**Exit:** parity per §6.2 on all four block types; tiny-config end-to-end generation
-matches Python greedy output.
+### M3 — Swift engine, resident-path correctness (4–7 d — the long pole)
+Entry task: the §4.2 slot-write microbench. Then port qwen4_exp to mlx-swift in
+`SlotstreamCore/Model/`: GDN (chunked gated delta rule; fp32 state; custom Metal kernel
+only if profiling demands — start with pure MLX ops), QSA **including the indexer**
+(dense path kept only as the ≤2048-token test oracle, per §6.4), MoE via `gatherQMM`
+(resident pool = all experts of the layers under test), hyper-connections, n-gram/PLE
+module, sampler (temp/top-p/top-k/min-p/presence). No vision, no MTP. Test rig: truncated
+real-weight prefixes (first 4–8 layers) vs Python reference, layer-by-layer; synthetic
+tiny config for full-graph unit tests + CI.
+**Exit:** parity per §6.2 on all four block types (QSA checked both ≤2048 dense-oracle
+and >2048 indexer-vs-reference); tiny-config end-to-end generation matches Python greedy
+output; tokenizer round-trip parity vs Python on a mixed corpus (code/multilingual/emoji).
 
 ### M4 — Slot streaming decode → first full-model run (3–5 d)
 SlotPool + eviction + pinning; ExpertStore/NgramStore with F_NOCACHE read pool; staging →
@@ -459,8 +481,9 @@ prompt set (distribution-level, not bit-level).
 footprint within budget ±5%; 30-min soak with zero swap growth.
 
 ### M5 — Dense-sweep prefill + prefetch + perf (2–4 d)
-Chunked sweep prefill with grouped staging + auto threshold; cross-token prefetcher;
-QD autotune from doctor data; overlap shared-expert branch with miss fetches.
+Chunked sweep prefill with grouped staging + auto threshold + scan-resistant admission
+(§3.3); cross-token prefetcher; QD autotune from doctor data; overlap shared-expert
+branch with miss fetches.
 **Exit:** dev-Mac targets — prefill ≥ 150 tok/s @8k, decode ≥ 20 tok/s warm chat,
 `--sim-ram 16` decode ≥ 4 tok/s.
 
@@ -499,7 +522,7 @@ lands (the whole point of targeting the preview architecture now).
 | Community 4-bit conversion broken/requantized badly | medium | spot-check vs FP8 endpoint at M0; pin revision; fallback own conversion on rented box (approval-gated) |
 | mlx-lm PR churn / reference impl bugs | medium | vendor the exact reference revision into repo; layerwise parity catches divergence |
 | GDN port numerics (fp32 state, chunked scan) | medium | §6.2 layerwise harness from day one; keep pure-MLX-op version as oracle for any later Metal kernel |
-| QSA indexer subtleties | medium | dense fallback is correct at v0 contexts; indexer behind flag + equivalence test |
+| QSA indexer complexity (core path — dense is only exact ≤ 2048 tokens) | medium | port from reference impl; dense path as ≤2k test oracle; +1–2 d already in the M3 estimate |
 | `gatherQMM`/slice-write perf on partial pools in mlx-swift | low-med | microbench at M3 start; fallback direct MTLBuffer fill path |
 | F_NOCACHE semantics/perf on APFS | low-med | DiskBench A/Bs it at M0; pagecache mode as fallback |
 | Wired-limit ceilings on ≤16 GB Macs | high (known) | doctor measures + documents `iogpu.wired_limit_mb`; budgets sized under recommendedMaxWorkingSetSize; never auto-sudo |
