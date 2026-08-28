@@ -42,8 +42,9 @@ public final class Engine {
         }
         self.eosIds = eos
         let banner = "engine ready in \(String(format: "%.1f", -t0.timeIntervalSinceNow))s: "
-            + "pool \(String(format: "%.1f", Double(model.pool.poolBytes) / 1e9)) GB "
-            + "(\(model.pool.slots) slots), eos \(eos.sorted())\n"
+            + "expert cache ~\(String(format: "%.0f", model.pool.slotsPerLayer))/\(model.cfg.numExperts) per layer "
+            + "(\(model.pool.slots) global slots = \(String(format: "%.1f", Double(model.pool.poolBytes) / 1e9)) GB), "
+            + "eos \(eos.sorted())\n"
         FileHandle.standardError.write(banner.data(using: .utf8)!)
     }
 

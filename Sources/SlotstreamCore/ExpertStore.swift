@@ -121,6 +121,9 @@ public final class SlotPool {
     public private(set) var misses = 0
 
     public var poolBytes: Int { pools.reduce(0) { $0 + $1.nbytes } }
+    /// The cache size in the per-layer unit of intuition (the pool itself is
+    /// global and shared -- hot layers borrow from cold ones).
+    public var slotsPerLayer: Double { Double(slots) / Double(cfg.numLayers) }
 
     public init(slots: Int, store: ExpertStore) {
         self.slots = slots
@@ -146,7 +149,15 @@ public final class SlotPool {
         while true {
             let s = hand
             hand = (hand + 1) % slots
-            if pinned[s] { scanned += 1; continue }
+            if pinned[s] {
+                scanned += 1
+                precondition(
+                    scanned < 3 * slots,
+                    "slot pool exhausted: all \(slots) slots pinned. The pool must "
+                        + "hold at least one prefill chunk's expert set per layer "
+                        + "(~512 + margin); raise --experts-per-layer.")
+                continue
+            }
             if refBit[s] { refBit[s] = false; scanned += 1; continue }
             return s
         }

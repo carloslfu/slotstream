@@ -28,8 +28,18 @@ Tools/api_test.sh 11434                          # endpoint battery
 
 Point any Ollama/OpenAI client at it: `/api/chat`, `/api/generate`, `/api/tags`,
 `/v1/chat/completions` (streaming NDJSON / SSE). Model dir defaults to
-`models/qwen38-flash-next-mlx-4bit` (the pinned `pipenetwork` MLX conversion);
-`--pool-gb` is the memory↔speed knob.
+`models/qwen38-flash-next-mlx-4bit` (the pinned `pipenetwork` MLX conversion).
+
+**The knob is `--experts-per-layer N`** (of the model's 512; `--pool-gb` is the
+same knob in GB). Each of the 48 layers has 512 experts of 2.76 MB and a token
+activates 10 of them per layer, so N is the intuitive unit: memory =
+N × 0.133 GB. Reference points, all measured: 512/layer = 67.9 GB fully
+resident · 226/layer = 30 GB (this device's auto) · 181/layer = 24 GB → 20 tok/s
+warm · 30/layer = 4 GB → 5.6 tok/s in 7.3 GB total, byte-identical output. The
+pool is one global cache shared across layers — N is a unit, not a quota; hot
+layers borrow slots from cold ones. `slotstream doctor` prints the auto choice
+and this table for the current device; floor is 14/layer (below that, a prefill
+chunk could pin every slot).
 
 - **[PLAN.md](PLAN.md)** — design, byte math, tiers, milestone tracker.
 - **[MEASUREMENTS.md](MEASUREMENTS.md)** — every number above, with method,

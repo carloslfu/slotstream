@@ -174,6 +174,8 @@ public final class Server {
         [
             "format": "safetensors", "family": "qwen4_exp",
             "parameter_size": "176B-A6B", "quantization_level": "4bit",
+            "expert_cache_per_layer": Int(engine.model.pool.slotsPerLayer.rounded()),
+            "experts_per_layer": engine.model.cfg.numExperts,
         ]
     }
 

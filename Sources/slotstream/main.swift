@@ -16,27 +16,65 @@ struct Slotstream: ParsableCommand {
     )
 }
 
+/// Model geometry the cache math speaks in. Validated against config.json at
+/// engine init; the CLI needs them before the checkpoint is opened.
+enum Geometry {
+    static let layers = 48
+    static let expertsPerLayer = 512
+    static let recordBytes = 2_764_800.0
+    static let totalRecords = layers * expertsPerLayer
+    /// Prefill can pin up to one full layer of experts (256-token chunk × top-10
+    /// covers ~all 512) plus an in-flight miss batch; below this the eviction
+    /// scan has no victim. 640 global ≈ 13/layer equivalent.
+    static let floorSlots = 640
+
+    static func gb(_ globalSlots: Int) -> Double { Double(globalSlots) * recordBytes / 1e9 }
+    static func perLayer(_ globalSlots: Int) -> Double { Double(globalSlots) / Double(layers) }
+}
+
 struct ModelOptions: ParsableArguments {
     @Option(name: .long, help: "Model directory (MLX 4-bit checkpoint)")
     var model: String = defaultModelDir.path
 
-    @Option(name: .long, help: "Expert slot pool size in GB (default: auto from device)")
+    @Option(
+        name: .customLong("experts-per-layer"),
+        help: ArgumentHelp(
+            "Expert cache size, in experts per layer (1...512).",
+            discussion: """
+                The primary memory<->speed knob. Each of the 48 layers has 512 \
+                experts of 2.76 MB; the cache holds N x 48 of them, so memory = \
+                N x 0.133 GB (e.g. 226/layer = 30 GB, 181/layer = 24 GB, \
+                30/layer = 4 GB). The pool itself is one GLOBAL cache shared \
+                across layers -- N is the intuitive unit, not a per-layer quota: \
+                hot layers borrow slots from cold ones. Default: auto from \
+                device memory (see `slotstream doctor`).
+                """))
+    var expertsPerLayer: Int?
+
+    @Option(name: .customLong("pool-gb"),
+            help: "Same knob in GB (1 GB ≈ 7.5 experts/layer). --experts-per-layer wins if both are given.")
     var poolGB: Double?
 
     var modelURL: URL { URL(fileURLWithPath: model) }
 
     func slots() -> Int {
-        let recordBytes = 2_764_800.0
-        if let g = poolGB { return max(64, Int(g * 1e9 / recordBytes)) }
-        // auto: working set − resident(3.9 GB) − headroom(6 GB), capped
-        let ws = Double(deviceWorkingSet())
-        let budget = min(max(ws - 3.9e9 - 6e9, 2e9), 30e9)
-        return Int(budget / recordBytes)
+        if let n = expertsPerLayer {
+            return max(Geometry.floorSlots, min(n, Geometry.expertsPerLayer) * Geometry.layers)
+        }
+        if let g = poolGB { return max(Geometry.floorSlots, Int(g * 1e9 / Geometry.recordBytes)) }
+        return autoSlots()
     }
 }
 
 func deviceWorkingSet() -> Int {
     Int(MLX.GPU.deviceInfo().maxRecommendedWorkingSetSize)
+}
+
+/// Auto cache size: working set − resident(3.9 GB) − headroom(6 GB), capped.
+func autoSlots() -> Int {
+    let ws = Double(deviceWorkingSet())
+    let budget = min(max(ws - 3.9e9 - 6e9, 2e9), 30e9)
+    return max(Geometry.floorSlots, Int(budget / Geometry.recordBytes))
 }
 
 // MARK: run
@@ -73,12 +111,13 @@ struct Run: ParsableCommand {
                 }
                 print("")
                 let hs = String(format: "%.3f", stats.expertHitRate)
+                let perLayer = String(format: "~%.0f/%d experts per layer", Geometry.perLayer(model.slots()), Geometry.expertsPerLayer)
                 FileHandle.standardError.write(
                     """
 
                     -- prefill \(stats.prefillTokens) tok in \(String(format: "%.2f", stats.prefillSeconds))s (\(String(format: "%.1f", stats.prefillTPS)) tok/s)
                     -- decode \(stats.decodeTokens) tok in \(String(format: "%.2f", stats.decodeSeconds))s (\(String(format: "%.2f", stats.decodeTPS)) tok/s)
-                    -- expert hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | peak \(String(format: "%.1f", stats.peakMemoryGB)) GB | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
+                    -- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | peak \(String(format: "%.1f", stats.peakMemoryGB)) GB | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
 
                     """.data(using: .utf8)!)
                 result = .success(())
@@ -174,13 +213,30 @@ struct Doctor: ParsableCommand {
     func run() throws {
         let info = MLX.GPU.deviceInfo()
         let ws = deviceWorkingSet()
-        print("device: \(info.architecture)")
-        print("working set: \(String(format: "%.1f", Double(ws) / 1e9)) GB")
-        print("memory: \(info.memorySize)")
-        let recordBytes = 2_764_800.0
-        let budget = min(max(Double(ws) - 3.9e9 - 6e9, 2e9), 30e9)
-        print("auto pool: \(String(format: "%.1f", budget / 1e9)) GB = \(Int(budget / recordBytes)) slots "
-            + "(\(String(format: "%.0f", 100 * budget / recordBytes / 24576))% expert coverage)")
+        print("device: \(info.architecture)  |  memory \(String(format: "%.0f", Double(info.memorySize) / 1e9)) GB, "
+            + "Metal working set \(String(format: "%.1f", Double(ws) / 1e9)) GB")
+        print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts, "
+            + "2.76 MB each  (\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
+        let auto = autoSlots()
+        print(String(
+            format: "auto cache: ~%.0f of %d experts per layer   (%d global slots = %.1f GB, %.0f%% coverage)",
+            Geometry.perLayer(auto), Geometry.expertsPerLayer, auto, Geometry.gb(auto),
+            100 * Double(auto) / Double(Geometry.totalRecords)))
+        print("""
+
+        the knob:  --experts-per-layer N   memory = N x 0.133 GB   (floor 14/layer)
+                   --pool-gb G             same knob in GB (1 GB = 7.5 experts/layer)
+
+        reference points measured on this model:
+          512/layer = 67.9 GB  everything resident
+          226/layer = 30.0 GB  this device's auto
+          181/layer = 24.0 GB  20 tok/s warm decode
+           30/layer =  4.0 GB  5.6 tok/s, 7.3 GB total peak (identical output)
+
+        The pool is one global cache shared across all layers; per-layer is the
+        unit of intuition (each token activates 10 of 512 per layer), not a
+        quota -- hot layers borrow slots from cold ones.
+        """)
     }
 }
 
