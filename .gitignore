@@ -10,3 +10,8 @@ bench/traces/*.npz
 
 Tools/coldread
 Tools/diskbench
+bench/parity*/
+/tmp/
+Tools/lib/*.metallib
+.venv31/
+*.bin
