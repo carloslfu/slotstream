@@ -28,7 +28,7 @@ public enum Geometry {
 
 public struct PlanError: Error, CustomStringConvertible {
     public let description: String
-    init(_ s: String) { description = s }
+    public init(_ s: String) { description = s }
 }
 
 /// The resolved memory decision: which knob decided it, what it costs, and

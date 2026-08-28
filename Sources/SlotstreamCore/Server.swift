@@ -94,15 +94,19 @@ public final class Server {
         }
     }
 
+    // Browser clients (Open WebUI and any web GUI) need CORS; Ollama sends
+    // the same wide-open header on a localhost-bound server.
+    private let cors = "Access-Control-Allow-Origin: *\r\n"
+
     private func respondJSON(_ fd: Int32, _ obj: Any, status: String = "200 OK") {
         let body = (try? JSONSerialization.data(withJSONObject: obj)) ?? Data("{}".utf8)
-        var head = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\n"
+        var head = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\n" + cors
         head += "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
         _ = send(fd, Data(head.utf8) + body)
     }
 
     private func startChunked(_ fd: Int32, contentType: String) {
-        let head = "HTTP/1.1 200 OK\r\nContent-Type: \(contentType)\r\n"
+        let head = "HTTP/1.1 200 OK\r\nContent-Type: \(contentType)\r\n" + cors
             + "Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
         _ = send(fd, Data(head.utf8))
     }
@@ -124,6 +128,15 @@ public final class Server {
     private func handle(_ fd: Int32) {
         defer { close(fd) }
         guard let req = readRequest(fd) else { return }
+        if req.method == "OPTIONS" {  // CORS preflight
+            let head = "HTTP/1.1 204 No Content\r\n" + cors
+                + "Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS\r\n"
+                + "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+                + "Access-Control-Allow-Private-Network: true\r\n"
+                + "Access-Control-Max-Age: 86400\r\nConnection: close\r\n\r\n"
+            _ = send(fd, Data(head.utf8))
+            return
+        }
         let json = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any] ?? [:]
         switch (req.method, req.path) {
         case ("GET", "/api/version"):

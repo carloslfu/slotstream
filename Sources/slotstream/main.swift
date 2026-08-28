@@ -5,23 +5,21 @@ import Foundation
 import MLX
 import SlotstreamCore
 
-let defaultModelDir = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent("Projects/slotstream/models/qwen38-flash-next-mlx-4bit")
-
 struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "slotstream",
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
         subcommands: [
-            Run.self, Serve.self, Parity.self, Doctor.self, ElasticCheck.self,
+            Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self,
         ]
     )
 }
 
 struct ModelOptions: ParsableArguments {
-    @Option(name: .long, help: "Model directory (MLX 4-bit checkpoint)")
-    var model: String = defaultModelDir.path
+    @Option(name: .long,
+            help: "Model name or directory (default \(PinnedModel.name); a name resolves to the dev checkout's models/ or ~/.slotstream/models)")
+    var model: String = PinnedModel.name
 
     @Option(
         name: .customLong("memory-gb"),
@@ -58,10 +56,17 @@ struct ModelOptions: ParsableArguments {
             help: "Raw expert-pool size in GB (1 GB ≈ 7.5 experts/layer). Beats --memory-gb; loses to --experts-per-layer.")
     var poolGB: Double?
 
-    var modelURL: URL { URL(fileURLWithPath: model) }
+    var modelURL: URL { ModelLocator.resolve(model) }
 
-    /// Resolve knobs -> plan, print the announce, return it.
+    /// Resolve knobs -> plan, print the announce, return it. Also the first
+    /// place a stranger hits with no weights — fail with the fix, not a stack.
     func announcedPlan() throws -> MemoryPlan {
+        let url = modelURL
+        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("config.json").path)
+        else {
+            throw PlanError(
+                "no model at \(url.path) — download it first with:  slotstream pull")
+        }
         let plan = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
