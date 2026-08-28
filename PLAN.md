@@ -19,9 +19,9 @@ design and the estimates it replaces.
 |---|---|---|
 | M0 Ground truth & feasibility | ✅ **done 2026-08-28** | byte-exact model inventory, Metal limits, cold SSD curve, MLX+Swift slot-pool gate, Swift prior-art survey — all in MEASUREMENTS.md |
 | M1 Expert-locality study | ◐ tooling built (`Tools/trace_routers.py`, `Tools/cachesim.py`), traces pending | hit-rate curves committed to `bench/locality/` |
-| M2 `.ssmodel` container + repack | ☐ | byte-exact spot checks pass |
-| M3 Swift engine, resident correctness (incl. QSA indexer) | ☐ | layerwise parity vs Python ref ≤ 1e-2 |
-| M4 Slot streaming decode (first full-model run) | ☐ | golden equivalence + ≥10 tok/s warm on dev Mac |
+| M2 `.ssmodel` container + repack | ☐ (now optional — see §4.1) | byte-exact spot checks pass |
+| M3 Swift engine, resident correctness (incl. QSA indexer) | ☐ (de-risked, 3–5 d) | layerwise parity vs Python ref ≤ 1e-2 |
+| M4 Slot streaming decode (first full-model run) | ☐ **now the gating milestone** | golden equivalence + ≥10 tok/s warm on dev Mac |
 | M5 Dense-sweep prefill + prefetch | ☐ | perf targets §10 hit on dev Mac |
 | M6 Ollama-compatible server | ☐ | 3 real clients work end-to-end |
 | M7 CLI, install, packaging | ☐ | clean-machine install ≤ 3 commands |
@@ -277,6 +277,16 @@ explicit go — billed).
 
 ### 4.2 Slot pool mechanics
 
+> **Measured 2026-08-28 — the slot pool is mandatory, not an optimisation.**
+> MLX has no sparse-materialisation path out of a memory-mapped tensor:
+> `mx.gather_qmm` with top-10 indices materialises **all 512 experts of the layer**
+> (471.9 MB for one projection → ~68 GB across the model), and a 16-row `mx.take`
+> on an n-gram shard materialises **the whole 200 MB shard** to read 1.3 KB. Stock
+> lazy loading therefore pulls in ~100 GB and dies on any prompt length. A
+> pre-allocated, fully-resident, bounded pool that we fill by explicit `pread` is
+> the only construction that avoids this under MLX. See MEASUREMENTS.md §M0.8.
+
+
 - One **global pool across layers** (all experts share the shape 3×2560×640): quantized
   weight/scales/biases tensors sized `[S, …]`; per layer, router output ids are mapped
   through the slot table → `gatherQMM(x, pool…, rhs_indices: slots)`. Misses trigger IO;
@@ -299,6 +309,14 @@ explicit go — billed).
   the pool's MTLBuffer contents (shared storage mode needs no sync on Apple Silicon).
 
 ### 4.3 N-gram/PLE path
+
+> **Measured**: this path is the single worst offender under stock MLX — a 16-row
+> lookup materialises a 250 MB shard (~150,000× amplification), and touching most of
+> the 128 shards costs the full 32 GB. Explicit row-level `pread` into a small page
+> cache is required. Note the contrast with llama.cpp, which mmaps the PLE and lets
+> the OS work at 4–16 KiB page granularity — that is survivable; MLX's whole-tensor
+> evaluation semantics are not.
+
 
 Keys for token t's rows are a pure function of input token ids (bi/tri-grams × 8 heads,
 ~16 rows ≈ 23 KB @4-bit). Decode: after sampling token t, issue reads for step t+1
@@ -523,7 +541,15 @@ tiny config for full-graph unit tests + CI.
 and >2048 indexer-vs-reference); tiny-config end-to-end generation matches Python greedy
 output; tokenizer round-trip parity vs Python on a mixed corpus (code/multilingual/emoji).
 
-### M4 — Slot streaming decode → first full-model run (3–5 d)
+### M4 — Slot streaming decode → first full-model run (3–5 d) — **the gating milestone**
+
+Reordered emphasis after M0.8: because MLX materialises whole tensors out of mmap,
+**no full-model forward pass is possible at all until the slot pool exists**. M3's
+layerwise parity work is unaffected (its 4–8-layer truncated rig needs only
+5.6–11 GB of experts, which does fit), but "run the model" and "stream the model"
+are the same milestone, not consecutive ones. Plan M3 and M4 as one continuous push
+with a single integration point.
+
 SlotPool + eviction + pinning; ExpertStore/NgramStore with F_NOCACHE read pool; staging →
 pool writes; n-gram exact prefetch; Governor v0 (static budgets); golden equivalence
 (§6.1). Then the milestone moment: **the full 125B+51B model generating on this 48 GB Mac

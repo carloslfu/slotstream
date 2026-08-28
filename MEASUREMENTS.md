@@ -293,9 +293,45 @@ because prefill's expert coverage approaches 100%.
 Measured IO during that naive page-fault prefill: **21.8 KB mean transfer, ~271 tps,
 6.1 MB/s sustained** (an earlier sample caught a burst at 9,012 tps / 148 MB/s).
 Against the 17.3 GB/s this same SSD delivers on record-sized reads, page-fault-driven
-streaming runs **two to three orders of magnitude below device capability** — the
-strongest quantitative argument in this whole study for explicit record IO over
-mmap-and-pray.
+streaming runs **two to three orders of magnitude below device capability**.
+
+### M0.8 — The decisive finding: MLX cannot sparsely materialise a mmap'd tensor
+
+A 5-token raw prompt should touch only ~9% of experts (≈6.2 GB) and still died. So I
+measured the two gather paths directly, on lazily-loaded real tensors:
+
+| Operation | Data actually needed | **MLX materialised** | Amplification |
+|---|---|---|---|
+| `mx.take(ngram_shard, 16 rows)` | 1.3 KB | **200 MB** (the whole shard) | ~150,000× |
+| `mx.gather_qmm(x, experts, rhs_indices=top-10)` | 27.6 MB | **471.9 MB** (all 512 experts of the layer) | 17× |
+
+Scaled up: the expert path materialises **1.4 GB per layer → 68 GB** across 48
+layers, and the n-gram path materialises **250 MB per touched shard → up to 32 GB**
+across 128 shards. Together ≈100 GB. That is the whole checkpoint, and it is why
+every stock run died regardless of prompt length.
+
+**This converts slotstream's central design choice from an optimisation into a
+requirement.** MLX offers no sparse-materialisation path out of a memory-mapped
+tensor: any gather or take over a lazily-loaded array evaluates the entire source
+tensor. Therefore the only way to run this model in bounded memory under MLX is
+exactly the plan's architecture:
+
+1. `pread` precisely the records needed (2.7648 MB per expert; 16 KiB pages for
+   n-gram rows),
+2. place them into a **pre-allocated, bounded, fully-resident** pool,
+3. gather over that pool — where every element is already resident, so no
+   materialisation surprise exists.
+
+The measurements in §M0.3 confirm each step is fast: `gatherQuantizedMM` over a
+resident pool is bit-exact, slot fills run at 49–75 GB/s in place, and the SSD feeds
+records at 17.3 GB/s. **The design is not just viable — under MLX it is the only
+option, and every component of it has now been measured working in isolation.**
+
+Honest scope note: because of this, **no end-to-end generation of the full model was
+achieved on this 48 GB Mac in this session.** The stock path cannot do it, and the
+bounded path requires the slot pool that M3/M4 build. What has been proven is that
+every mechanism the bounded path depends on works, and that nothing simpler will
+substitute for it.
 
 Practical note for the runbook: `mlx_lm.load()` must never be called on this model
 without `lazy=True`, and `slotstream doctor` should refuse to start a configuration
@@ -311,3 +347,39 @@ correction was right); GDN state fp32; router in full precision
 (`quant_predicate` excludes `mlp.gate`); MTP and vision tower dropped by `sanitize`.
 mlx-lm 0.31.3 already provides `gated_delta_update`, `SwitchGLU`, `ArraysCache`;
 `qwen4_exp` itself is **not** in mlx-lm 0.31.3 (confirms the open-PR status).
+
+---
+
+## Summary — what M0 settled
+
+**Verified correct in the plan** (no change needed): expert record geometry
+(2,764,800 B exactly), routed-expert total (67.948 GB), per-layer expert block
+(1.4156 GB), shared experts (133 MB), routers (126 MB), total checkpoint (~104 GB),
+16 KiB record padding arithmetic, and the review-pass correction that QSA's dense
+path is exact only up to the 2048-token indexer budget.
+
+**Corrected by measurement**: n-gram store structure (320 M rows × 160 dims × 100 B
+= 32.0 GB, group size 32 — not 20 M × 2560 × 1440 B = 28.8 GB) and its per-token cost
+(1.6 KB, not 23 KB); resident floor (3.822 GB, not ~3.3); SSD throughput (17.3 GB/s,
+not 5–7); the memory ceiling that actually binds (Metal working set 37.4 GiB, not
+48 GB of RAM); and the low-end decode estimates, which were pessimistic on the IO
+axis by roughly an order of magnitude.
+
+**Discovered, unplanned**: (1) MLX cannot sparsely materialise a memory-mapped
+tensor, which makes the bounded slot pool mandatory rather than optional and merges
+M3/M4 into one gating milestone; (2) mlx-swift's Metal shaders cannot be built by
+SwiftPM CLI — Xcode or a vendored metallib is required, which changes M7 packaging;
+(3) `mlx_lm.load()` defaults to `lazy=False` and will drive a 48 GB Mac to 48 GB of
+swap; (4) decode is kernel-launch-bound (batch-1 matmul reaches 20% of memory
+bandwidth), which displaces IO as the top performance risk.
+
+**De-risked**: the M3 entry gate (slot writes 49–75 GB/s, in place, ~12× faster than
+the SSD can feed them), `gatherQuantizedMM` bit-exactness in both Python and Swift,
+and the existence of Swift GDN/MoE prior art.
+
+**Not achieved**: no end-to-end generation of the full model, because the stock path
+cannot produce one on this machine and the bounded path is M3/M4 work. No expert
+locality curves from the real model (the trace collector and simulator are built and
+the simulator is validated on synthetic input, but collecting real traces requires
+the same bounded forward pass). M1's h-curves remain open — though they no longer
+gate viability, only tier sizing.
