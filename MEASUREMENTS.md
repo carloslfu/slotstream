@@ -663,6 +663,28 @@ found the macos-15 image's Swift too old for mlx-swift 0.31.6 (tools version
 6.3); the macos-26 image with newest Xcode selected is the working recipe.
 Local asset builds are retired to a documented emergency fallback.
 
+**Weights mirror + multi-source pull (2026-08-29):** `pull` previously had a
+single hard-coded download base, so slotstream's availability depended on a
+third-party HF repo staying up. It now takes an ordered source list (env
+override `SLOTSTREAM_WEIGHTS_SOURCES`), tries each in turn, and skips straight
+to the next source on a permanent HTTP refusal instead of burning retries.
+Proven: bogus-primary falls back and completes (401 → next source, full verify
+pass); all-sources-bogus fails closed with "failed from all N source(s)";
+default path unchanged.
+
+A byte-identical mirror now ships as the primary source:
+`carloslfu/Qwen3.8-Flash-Next-MLX-4bit` @ `852ebf6f` (README added in a later
+commit, which is why the pin matters — the pinned revision's files are exactly
+the manifest's). Upload took seconds rather than hours because HF's
+content-addressed storage already held these chunks from the upstream repo —
+the practical argument for mirroring *while* the source is alive rather than
+after it disappears. Verified three ways: all 24 files present at exact sizes;
+all 12 LFS sha256s on the mirror equal the pinned upstream hashes (i.e. the
+whole 103.8 GB is byte-identical, proven without downloading it); and a live
+`pull` of a hashed file (`tokenizer.json`) from the pinned mirror URL passed
+the hash gate with a full 24/24 verify. Integrity semantics are unchanged:
+sources supply bytes, the compiled-in manifest supplies truth.
+
 ### Honest gaps (not yet done)
 
 Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow

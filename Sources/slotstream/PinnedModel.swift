@@ -11,6 +11,10 @@ enum PinnedModel {
     static let dirName = "qwen38-flash-next-mlx-4bit"
     static let repo = "pipenetwork/Qwen3.8-Flash-Next-MLX-4bit"
     static let revision = "aa7c790e804bbf9d491ddb109c3d61bc4a555f7c"
+    /// Byte-identical mirror (same file sha256s) under the author's account,
+    /// tried first so the project does not depend on a third party staying up.
+    static let mirrorRepo = "carloslfu/Qwen3.8-Flash-Next-MLX-4bit"
+    static let mirrorRevision = "852ebf6fdeb104dd078abe01cd4237c8a4c684fc"
 
     struct File {
         let path: String

@@ -73,7 +73,12 @@ make build      # needs the Swift toolchain; Command Line Tools are enough
 .build/release/slotstream serve
 ```
 
-The weights are the pinned pipenetwork MLX conversion, stored in
+The weights are the pinned pipenetwork MLX conversion, downloaded from a
+byte-identical mirror under the maintainer's account with the original as
+fallback (same sha256s either way, and every file is checked against hashes
+compiled into the binary, so integrity never depends on which source
+answered). `SLOTSTREAM_WEIGHTS_SOURCES` overrides the list with your own.
+Weights are stored in
 `~/.slotstream/models/` (a dev checkout's `models/` directory is used first if
 present). `serve` and `run` offer the download when weights are missing or
 partial (an interrupted download resumes from where it stopped);

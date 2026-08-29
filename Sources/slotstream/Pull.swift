@@ -61,7 +61,11 @@ enum WeightSources {
         return defaults
     }
     static let defaults = [
-        "https://huggingface.co/\(PinnedModel.repo)/resolve/\(PinnedModel.revision)"
+        // Mirror under the slotstream author's account: byte-identical to the
+        // pinned upstream revision (same sha256s), so slotstream keeps working
+        // if the upstream conversion moves, gates, or disappears.
+        "https://huggingface.co/\(PinnedModel.mirrorRepo)/resolve/\(PinnedModel.mirrorRevision)",
+        "https://huggingface.co/\(PinnedModel.repo)/resolve/\(PinnedModel.revision)",
     ]
 }
 

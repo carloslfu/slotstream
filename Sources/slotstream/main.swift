@@ -9,7 +9,7 @@ struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "slotstream",
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
-        version: "0.1.2",
+        version: "0.1.3",
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self,
