@@ -55,7 +55,7 @@ public final class Qwen4ExpModel {
                 ple[l] = PLELayer(resident, layer: l, store: ngram)
             }
         }
-        if ProcessInfo.processInfo.environment["SS_DEBUG_DIR"] != nil { attnHC[0].debugName = "hc0" }
+        if Self.debugDir != nil { attnHC[0].debugName = "hc0" }
         mixer = GatedResidual(resident, base: "model.hyper_connection_mixer", useCombine: false)
         lmHead = resident.linear("lm_head")
     }
@@ -76,8 +76,13 @@ public final class Qwen4ExpModel {
 
     /// One forward pass over `ids` (1, S). Returns final hidden (1, S, hidden).
     /// `perLayerHook` (parity rigs) receives the hyper-width h after each layer.
+    /// Read once: ProcessInfo builds a fresh dictionary on every access, and
+    /// this used to run 48 times per token.
+    static let debugDir = ProcessInfo.processInfo.environment["SS_DEBUG_DIR"]
+    static let debugLayer = Int(ProcessInfo.processInfo.environment["SS_DEBUG_LAYER"] ?? "0") ?? 0
+
     static func debugDump(_ name: String, _ arr: MLXArray) {
-        guard let dir = ProcessInfo.processInfo.environment["SS_DEBUG_DIR"] else { return }
+        guard let dir = debugDir else { return }
         let v = arr.asType(.float32).asArray(Float.self)
         let d = v.withUnsafeBufferPointer { Data(buffer: $0) }
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
@@ -101,7 +106,7 @@ public final class Qwen4ExpModel {
             if let p = ple[l] {
                 h = h + p(h, history: history, nNew: S, cache: state.linear[l] ?? nil)
             }
-            let dbgLayer = Int(ProcessInfo.processInfo.environment["SS_DEBUG_LAYER"] ?? "0") ?? 0
+            let dbgLayer = Self.debugLayer
             let (x1, inj1) = attnHC[l](h)
             if l == dbgLayer { Self.debugDump("x1", x1); Self.debugDump("inj1", inj1!) }
             let attnOut: MLXArray
@@ -145,6 +150,7 @@ public final class Qwen4ExpModel {
 // init time instead of failing silently.
 extension Qwen4ExpModel {
     public func validate() {
+        Geometry.check(against: cfg, recordBytes: pool.recordBytes)
         for l in cfg.pleLayerIndices where l < runLayers {
             precondition(
                 cfg.layerTypes[l] == "linear_attention",

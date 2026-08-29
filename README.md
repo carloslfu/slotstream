@@ -83,19 +83,45 @@ Weights are stored in
 present). `serve` and `run` offer the download when weights are missing or
 partial (an interrupted download resumes from where it stopped);
 `slotstream pull` runs it directly. Either way, the download checks disk
-space before moving bytes, resumes mid-file after an interruption, and
-refuses any file whose sha256 doesn't match the pinned revision, so a
-corrupted download can never become garbage tokens. `pull --verify` re-hashes
-an existing copy, about 14 s for all of it.
+space before moving bytes and refuses any file whose sha256 doesn't match the
+pinned revision, so a corrupted download can never become garbage tokens.
+`pull --verify` re-hashes an existing copy, about 14 s for all of it.
+
+The download runs 8 connections at once over 64 MB chunks drawn from one
+queue, so every connection stays busy across file boundaries and to the last
+byte. That measured 50 MB/s here against 30 to 40 on a single connection,
+which is also what `hf_xet`, Hugging Face's own fastest client, gets: the
+ceiling is theirs, not the link's. That is about 35 minutes for the
+103.8 GB, and your own link may be slower.
+`--connections N` (or `SLOTSTREAM_PULL_CONNECTIONS`) changes it. Interrupting
+is safe at any point: each file keeps a small chunk map beside it, so a
+resumed pull refetches at most the last few seconds of work rather than
+starting the file over.
 
 ## The server
 
 `serve` speaks the Ollama API (`/api/chat`, `/api/generate`, `/api/tags`,
 `/api/show`, `/api/ps`, `/api/version`) plus `/v1/chat/completions` and
 `/v1/models`, with NDJSON and SSE streaming and CORS, so existing Ollama and
-OpenAI clients and browser GUIs work unchanged. `/api/show` reports the live
-memory plan. Run one instance per machine; two model processes will fight over
-the same memory.
+OpenAI clients and browser GUIs work unchanged. Sampling options
+(`temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `seed`,
+`num_predict`/`max_tokens`, `stop`) are honored on both surfaces, and message
+content may be a string or OpenAI's array-of-parts form. `/api/show` reports
+the live memory plan. Run one instance per machine; two model processes will
+fight over the same memory.
+
+Prompts are capped at 32,768 tokens (`--max-context`). The cap exists because
+a long prompt is not free in either axis the rest of this page promises: KV
+plus indexer state costs about 27 KiB per token *on top of* the memory plan,
+and prefill is naive chunked, so it runs at tens of tokens a second. An
+8,000-token prompt takes about four minutes before the first token appears.
+Going past the cap is refused with a 400 rather than silently stalling.
+
+Out-of-range sampling values are clamped rather than trusted, malformed or
+oversized requests are rejected, and a client that disappears mid-stream is
+just a closed socket. `Tools/api_robustness.sh` is the standing gate for all
+of that: every case in it either crashed the server or silently corrupted
+output before 0.1.5.
 
 ## Memory
 
@@ -110,6 +136,14 @@ slotstream memory plan (auto)
   cache:  ~226 of 512 experts per layer  (10832 global slots = 29.9 GB pool)
   expect: ~33.8 GB peak, ~20 tok/s warm decode (est. from M5 Pro anchors)
 ```
+
+The prefill pass is sized from the same budget. It is expert-stream-bound —
+one pass touches nearly every expert of every layer, so the whole set is
+re-read about once per pass — which makes a bigger pass strictly faster and
+strictly more memory-hungry. Measured on a 7,960-token prompt: 40 tok/s at 256
+tokens per pass, 50 at 512, 67 at 1024, 92 at 2048, with **byte-identical
+output at every size**. The plan takes at most a fifth of the pool budget for
+it, so an 8 GB target prefills 512 at a time and a 48 GB one does 2048.
 
 The target is 70% of RAM, kept 2 GB under the Metal working-set limit. If other
 apps hold most of the machine, auto sizes down to what can be taken without
@@ -135,8 +169,8 @@ Explicit sizes are never adjusted. Three flags override auto, first one wins:
   181 runs in 27.3 GB at 20.0 tok/s, 512 is fully resident.
 - `--pool-gb G`: raw pool size. 1 GB is about 7.5 experts per layer.
 
-The floor is 14 experts per layer; below that a long prefill could pin every
-slot. `slotstream doctor` prints the plan any flags would produce here, plus a
+The floor is 13 experts per layer (640 global slots); below that a long
+prefill could pin every slot. `slotstream doctor` prints the plan any flags would produce here, plus a
 table of target sizes against expected speed, and takes
 `--sim-ram/--sim-working-set/--sim-available` to preview any other machine
 (`doctor --sim-ram 17.2 --sim-available 6` is a busy 16 GB Mac). The planner's
@@ -157,9 +191,20 @@ MEASUREMENTS.md, sections M0.7 and M0.8.
 `Tools/verify.sh` is the acceptance battery: weight provenance (every file
 re-hashed against the pinned upstream), goldens against the Python reference,
 planner behavior across simulated machines, byte-equality across cache sizes
-and across live resizes, and the `--memory-gb` promise. Currently 15 for 15.
-The heavy gates size themselves to the machine's free memory, so the suite
-also runs on small or busy machines.
+and across live resizes, the `--memory-gb` promise, and the serving-robustness
+suite. Currently 63 checks, all passing. The heavy gates size themselves to
+the machine's free memory, so the suite also runs on small or busy machines.
+
+Three parts run standalone and need no weights, so CI runs them on every
+release build: `Tools/planner_gates.sh` (memory planning, and every way a
+`--model` directory can be wrong), `Tools/sampler_gates.sh` (the sampler
+compared token-for-token against the numpy reference in `Tools/sampler_ref.py`,
+plus the elastic governor's decision policy driven through every branch), and
+`Tools/api_robustness.sh`, which starts a server and replays the inputs that
+used to crash it or corrupt its output. Everything else needs the downloaded weights,
+and two gates (n-gram row ids and layer parity) additionally need
+`bench/parity31/`, which `Tools/parity_ref.py` generates locally under
+mlx 0.31.1 and which is not committed.
 
 Parity is checked against Python mlx 0.31.1, the version mlx-swift vendors
 (kernel changes between MLX versions are larger than porting error, so the
@@ -169,11 +214,12 @@ hyper-connections), are bit-exact; deeper layers sit within a few bf16 ulps.
 
 ## Status
 
-Working and measured on one machine, zero tuning so far. Known gaps: prefill
-is naive chunked and slow for long prompts, the small configurations were
-emulated here rather than run on real 16 GB hardware, and non-greedy sampling
-has no golden test yet. [PLAN.md](PLAN.md) has the design, the byte math, and
-the milestone tracker.
+Working and measured on one machine. Known gaps: prefill is still a naive
+chunked sweep — sizing the pass from the memory plan took it from 40 to 92
+tok/s, but a dense sweep with cross-token prefetch is the real fix, and long
+prompts remain the slow axis. The small configurations were emulated here
+rather than run on real 16 GB hardware. [PLAN.md](PLAN.md) has the design, the
+byte math, and the milestone tracker.
 
 ## License
 

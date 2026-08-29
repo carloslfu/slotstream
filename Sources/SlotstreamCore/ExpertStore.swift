@@ -46,8 +46,16 @@ public final class ExpertStore {
         var buffers: [UnsafeMutableRawPointer] = []
         for pb in pieceRowBytes {
             var p: UnsafeMutableRawPointer? = nil
-            posix_memalign(&p, 16384, n * pb)
-            buffers.append(p!)
+            let rc = posix_memalign(&p, 16384, n * pb)
+            guard rc == 0, let p else {
+                buffers.forEach { free($0) }
+                // Nothing above can recover a partial expert batch, but the
+                // message should say what ran out rather than trapping on nil.
+                fatalError(
+                    "out of memory staging \(n) expert records (\(n * pb) B): "
+                        + "lower --experts-per-layer or --memory-gb")
+            }
+            buffers.append(p)
         }
         defer { buffers.forEach { free($0) } }
 
@@ -121,6 +129,8 @@ public final class SlotPool {
     public private(set) var misses = 0
 
     public var poolBytes: Int { pools.reduce(0) { $0 + $1.nbytes } }
+    /// Bytes per expert record, measured from the checkpoint headers.
+    public var recordBytes: Int { store.recordBytes }
     /// The cache size in the per-layer unit of intuition (the pool itself is
     /// global and shared -- hot layers borrow from cold ones).
     public var slotsPerLayer: Double { Double(slots) / Double(cfg.numLayers) }

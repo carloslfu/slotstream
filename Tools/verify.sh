@@ -43,20 +43,18 @@ check "chat template == transformers"      "[ \"\$($BIN template-check 2>/dev/nu
 check "layer parity (0-1 bit-exact gate)"  "$BIN parity --tokens '9707,11,1246,525,498,30' --layers 2 --compare bench/parity31"
 
 echo "== planner: right thing across machine setups (simulated, no model needed) =="
-$BIN doctor --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > /tmp/ssv_p48.txt 2>&1
-check "48GB pristine: 36.0 GB target, no notes"        "grep -q 'target: 36.0' /tmp/ssv_p48.txt && ! grep -q 'note:' /tmp/ssv_p48.txt"
-$BIN doctor --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > /tmp/ssv_b48.txt 2>&1
-check "48GB busy: clamped to 15.4 GB, sized-down note" "grep -q 'target: 15.4' /tmp/ssv_b48.txt && grep -q 'sized down from the usual 36.0' /tmp/ssv_b48.txt"
-$BIN doctor --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > /tmp/ssv_p16.txt 2>&1
-check "16GB pristine: 9.8 GB target, no notes"         "grep -q 'target: 9.8' /tmp/ssv_p16.txt && ! grep -q 'note:' /tmp/ssv_p16.txt"
-$BIN doctor --sim-ram 17.2 --sim-working-set 11.8 --sim-available 6 > /tmp/ssv_b16.txt 2>&1
-check "16GB busy: floor 6.2 GB + heavy-paging warning" "grep -q 'target: 6.2' /tmp/ssv_b16.txt && grep -q 'heavy paging' /tmp/ssv_b16.txt"
-$BIN doctor --sim-ram 8.6 --sim-working-set 5.8 --sim-available 4.5 > /tmp/ssv_m8.txt 2>&1
-check "8GB Mac: floor 6.2 GB + too-small warning"      "grep -q 'target: 6.2' /tmp/ssv_m8.txt && grep -q 'below the comfortable minimum' /tmp/ssv_m8.txt"
-$BIN doctor --sim-ram 137.4 > /tmp/ssv_p128.txt 2>&1
-check "128GB pristine: fully resident"                 "grep -q 'all 512 experts per layer resident' /tmp/ssv_p128.txt"
-$BIN doctor --memory-gb 30 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > /tmp/ssv_e48.txt 2>&1
-check "explicit 30GB on busy 48: honored + info note"  "grep -q 'target: 30.0' /tmp/ssv_e48.txt && grep -q 'only 18.0 GB is reclaimable' /tmp/ssv_e48.txt"
+if Tools/planner_gates.sh; then
+  echo "PASS  planner gates"; PASS=$((PASS+1))
+else
+  echo "FAIL  planner gates"; FAIL=$((FAIL+1))
+fi
+
+echo "== sampler vs numpy reference + elastic governor policy (no weights needed) =="
+if Tools/sampler_gates.sh; then
+  echo "PASS  sampler + governor gates"; PASS=$((PASS+1))
+else
+  echo "FAIL  sampler + governor gates"; FAIL=$((FAIL+1))
+fi
 
 echo "== golden equivalence: streaming must not change the math =="
 $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --experts-per-layer $BIG 2>/dev/null > /tmp/ssv_big.txt
@@ -71,6 +69,35 @@ $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --memory-gb 8 
 PEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_mem.err | grep -o '[0-9.]*')
 check "--memory-gb 8 peak ($PEAK GB) under 8 GB"    "awk 'BEGIN{exit !($PEAK < 8.0)}' </dev/null"
 check "--memory-gb 8 output == ${BIG}/layer output" "diff /tmp/ssv_mem.txt /tmp/ssv_big.txt"
+
+# The short-prompt gate above cannot see KV/indexer growth, which is what made
+# the promise hold by 0.1 GB on a long prompt before the prefill pass was
+# budgeted. Re-check it where the pressure actually is.
+python3 - <<'PYEOF' > /tmp/ssv_long.txt
+f = ["Routine maintenance was performed on the north corridor lighting system. ",
+     "Inventory counts were reconciled against the quarterly ledger totals. ",
+     "The east wing humidity sensors reported nominal values throughout the day. "]
+b = "The archive records that the vault combination is SEVENTEEN. "
+for i in range(700):
+    b += f[i % 3]
+print(b + "\n\nQuestion: what is the vault combination? Answer with one word.")
+PYEOF
+# 16 tokens: the reply opens with an empty <think> block, and 8 cut the answer
+# off mid-word.
+$BIN run --raw --prompt "$(cat /tmp/ssv_long.txt)" --max-tokens 16 --greedy --memory-gb 8 \
+  2>/tmp/ssv_longmem.err > /tmp/ssv_longmem.txt
+LPEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_longmem.err | grep -o '[0-9.]*')
+check "--memory-gb 8 peak ($LPEAK GB) under 8 GB on a 7,960-token prompt" \
+      "awk 'BEGIN{exit !($LPEAK < 8.0)}' </dev/null"
+check "long-context answer still correct (sparse indexer active)" \
+      "grep -q SEVENTEEN /tmp/ssv_longmem.txt"
+
+echo "== serving robustness (inputs that used to crash or corrupt output) =="
+if Tools/api_robustness.sh 11466 30; then
+  echo "PASS  serving robustness suite"; PASS=$((PASS+1))
+else
+  echo "FAIL  serving robustness suite"; FAIL=$((FAIL+1))
+fi
 
 echo
 echo "passed $PASS, failed $FAIL"

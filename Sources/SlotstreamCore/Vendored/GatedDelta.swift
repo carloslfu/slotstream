@@ -315,7 +315,11 @@ public func gatedDeltaUpdate(
     // Dk = 192 (a multiple of 32), but the value is config-driven, so route any
     // non-multiple-of-32 Dk to the ops fallback, which handles an arbitrary key
     // dimension correctly (slower, but never truncating).
-    if GatedDeltaKernelManager.shared.kernel != nil, Dk % 32 == 0 {
+    // The kernel also assumes Hv is a whole multiple of Hk (`hk_idx = hv_idx /
+    // (Hv / Hk)` truncates); a ratio that does not divide evenly would misroute
+    // key heads silently, so route that to the ops fallback as well.
+    let Hk = k.dim(2)
+    if GatedDeltaKernelManager.shared.kernel != nil, Dk % 32 == 0, Hk > 0, Hv % Hk == 0 {
         return gatedDeltaKernel(q: q, k: k, v: v, g: g, beta: beta, state: state, mask: mask)
     }
 

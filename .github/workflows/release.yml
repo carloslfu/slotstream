@@ -31,6 +31,12 @@ jobs:
           V=$(.build/release/slotstream --version)
           echo "binary $V, tag $GITHUB_REF_NAME"
           [ "v$V" = "$GITHUB_REF_NAME" ]
+      - name: planner gates (no weights needed, so CI can run them)
+        run: Tools/planner_gates.sh
+      - name: sampler golden + governor policy (no weights needed)
+        run: |
+          python3 -m pip install --quiet --break-system-packages numpy
+          Tools/sampler_gates.sh
       - name: package
         run: |
           mkdir dist

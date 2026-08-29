@@ -5,6 +5,13 @@
 import Foundation
 import MLX
 
+/// A checkpoint that cannot be read as this model. Carries the fix, because
+/// the usual causes are a wrong --model directory or an interrupted download.
+public struct ModelError: Error, CustomStringConvertible {
+    public let description: String
+    public init(_ s: String) { description = s }
+}
+
 // MARK: - Config
 
 public struct ModelConfig {
@@ -61,9 +68,16 @@ public struct ModelConfig {
     public var pleLayerIndices: [Int] { pleLayerIds.map { $0 - 1 } }
 
     public static func load(from dir: URL) throws -> ModelConfig {
-        let data = try Data(contentsOf: dir.appendingPathComponent("config.json"))
-        let root = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let t = root["text_config"] as! [String: Any]
+        let path = dir.appendingPathComponent("config.json")
+        let data = try Data(contentsOf: path)
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ModelError("\(path.path) is not valid JSON — re-run `slotstream pull`")
+        }
+        guard let t = root["text_config"] as? [String: Any] else {
+            throw ModelError(
+                "\(path.path) has no `text_config` section, so it is not a "
+                    + "\(PinnedModelName.display) checkpoint — check --model")
+        }
         var c = ModelConfig()
         func i(_ k: String, _ d: Int) -> Int { (t[k] as? Int) ?? d }
         func f(_ k: String, _ d: Float) -> Float {
@@ -148,7 +162,7 @@ public struct TensorRef {
         case "BF16", "F16", "U16": return 2
         case "I64", "U64", "F64": return 8
         case "U8", "I8": return 1
-        default: fatalError("dtype \(dtype)")
+        default: return 0  // unknown dtype; callers reject it before use
         }
     }
     /// Bytes per leading-axis row (shape[1:] product × itemSize).
@@ -171,32 +185,61 @@ public final class CheckpointIndex {
         let files = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("model") && $0.pathExtension == "safetensors" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        precondition(!files.isEmpty, "no safetensors in \(dir.path)")
+        guard !files.isEmpty else {
+            throw ModelError("no .safetensors files in \(dir.path) — run `slotstream pull`")
+        }
         for f in files {
             try parseHeader(f)
         }
+        try requireExpectedTensors()
     }
 
     private func parseHeader(_ file: URL) throws {
         let h = try FileHandle(forReadingFrom: file)
         defer { try? h.close() }
-        let lenData = try h.read(upToCount: 8)!
-        let n = lenData.withUnsafeBytes { $0.load(as: UInt64.self) }
-        let hdrData = try h.read(upToCount: Int(n))!
-        let obj = try JSONSerialization.jsonObject(with: hdrData) as! [String: Any]
+        func corrupt(_ why: String) -> ModelError {
+            ModelError(
+                "\(file.lastPathComponent) is not a readable safetensors file (\(why)) — "
+                    + "re-run `slotstream pull` to repair it")
+        }
+        guard let lenData = try h.read(upToCount: 8), lenData.count == 8 else {
+            throw corrupt("truncated header")
+        }
+        // Data's buffer carries no alignment guarantee; `load` requires one.
+        let n = lenData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
+        guard n > 0, n < 512 << 20, let hdrData = try h.read(upToCount: Int(n)),
+            hdrData.count == Int(n)
+        else { throw corrupt("header length \(n) does not fit the file") }
+        guard let obj = try? JSONSerialization.jsonObject(with: hdrData) as? [String: Any] else {
+            throw corrupt("header is not valid JSON")
+        }
         let dataStart = 8 + Int(n)
         for (key, v) in obj {
             guard key != "__metadata__", let d = v as? [String: Any] else { continue }
-            let offs = d["data_offsets"] as! [Int]
+            guard let offs = d["data_offsets"] as? [Int], offs.count == 2,
+                let dtype = d["dtype"] as? String, let shape = d["shape"] as? [Int]
+            else { throw corrupt("malformed entry for \(key)") }
             var name = key
             if name.hasPrefix("language_model.") { name.removeFirst("language_model.".count) }
             tensors[name] = TensorRef(
-                file: file,
-                dtype: d["dtype"] as! String,
-                shape: (d["shape"] as! [Int]),
-                byteOffset: dataStart + offs[0],
-                byteCount: offs[1] - offs[0]
-            )
+                file: file, dtype: dtype, shape: shape,
+                byteOffset: dataStart + offs[0], byteCount: offs[1] - offs[0])
+        }
+    }
+
+    /// Names every build path assumes exist. Checking them once, up front,
+    /// turns "pointed --model at the wrong directory" from a fatalError deep in
+    /// layer construction into one sentence naming the problem.
+    private func requireExpectedTensors() throws {
+        var required = ["model.embed_tokens.weight", "lm_head.weight"]
+        for l in 0 ..< config.numLayers {
+            required.append("model.layers.\(l).mlp.gate.weight")
+            required.append("model.layers.\(l).mlp.switch_mlp.gate_proj.weight")
+        }
+        if let missing = required.first(where: { tensors[$0] == nil }) {
+            throw ModelError(
+                "\(dir.path) does not look like a \(PinnedModelName.display) checkpoint "
+                    + "(no tensor `\(missing)`; found \(tensors.count) tensors) — check --model")
         }
     }
 

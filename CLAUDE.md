@@ -40,6 +40,79 @@ multi-GB. These rules are mandatory:
    of the system. It cannot protect against deliberately stacked processes —
    that protection is these rules, i.e. you.
 
+## Weight download
+
+`pull` runs 8 parallel connections over 64 MB chunks with a per-file
+`.partmap` (one byte per chunk) for exact resume. Hugging Face caps this
+client at about 55 MB/s no matter what: 4 through 32 connections all plateau
+there, `hf_xet` gets the same 55.7, and splitting across two mirror repos
+gains nothing (the cap is per-IP, not per-repo). The link itself does 144 MB/s
+against Hetzner, so more speed means hosting the weights off Hugging Face, not
+tuning the client. Do not "optimize" the connection count without re-measuring.
+
+To exercise the whole pull path without spending 104 GB of network, serve the
+existing `models/` copy over a Range-capable local HTTP server and point
+`SLOTSTREAM_WEIGHTS_SOURCES` at it; a full 24-file pull then runs at SSD speed
+(2.47 GB/s measured) and ends in the real `VERIFY PASS`.
+
+## Serving invariants (learned the hard way, 2026-08-29)
+
+These were all real bugs found by adversarial probing. Each is now gated by
+`Tools/api_robustness.sh`; do not "simplify" any of them away.
+
+- **SIGPIPE must stay ignored.** `Server.run` sets `signal(SIGPIPE, SIG_IGN)`
+  and each accepted socket gets `SO_NOSIGPIPE`. Without it a client closing a
+  tab mid-stream kills the whole daemon, and every `alive`/`send -> Bool` check
+  in the handlers is dead code because `write` can never return `-1`.
+- **Every sampling knob goes through `SampleParams.sanitized()`.** Clients send
+  Ollama's documented defaults `seed: -1` and `num_predict: -1`; `UInt64(-1)`
+  and `0 ..< -1` both trap and take the process with them. Out-of-range
+  `top_p`/`min_p` used to empty the candidate set and turn `probs/probs.sum()`
+  into NaN, after which the sampler emitted token 0 forever.
+- **Never normalize the sampling probabilities.** The draw is scaled by the
+  unnormalized CDF total instead. That removes the 0/0 and, since `u < 1`,
+  guarantees the pick lands on a token with actual mass.
+- **Incremental detokenization diffs by Unicode scalar, never by `Character`,
+  and never resets its token list mid-generation.** Resetting when nothing has
+  been emitted yet destroys a response that opens with an emoji; diffing by
+  `Character` drops a scalar that merges into the grapheme already sent (`❤️`
+  streams as `❤`). Non-streaming output was correct throughout, which is what
+  made this invisible.
+- **Prompts are capped (`--max-context`, default 32,768).** KV plus indexer
+  state costs ~27 KiB/token *beyond* the memory plan, which models only the
+  pool and a fixed footprint. At 8k tokens `--memory-gb 8` peaks at 7.9 GB —
+  the margin is nearly gone. If you raise the cap, re-measure the peak.
+- **`Geometry` constants are checked against config.json** in
+  `Qwen4ExpModel.validate`. The planner sizes memory from the constants while
+  the engine allocates from the config; if they drift, every memory number the
+  user sees is wrong.
+
+## Prefill, sampler, governor (0.1.5)
+
+- **The prefill pass size is part of the memory plan, not a constant.** Prefill
+  is expert-stream-bound: a pass touches nearly every expert of every layer, so
+  a bigger pass is strictly faster (40 → 92 tok/s from 256 → 2048) and strictly
+  more memory-hungry. `Planner.prefillChunkFor` takes at most a fifth of the
+  pool budget. Output is byte-identical at every size — verified at 2,980 and
+  7,960 tokens with the sparse indexer active — so do not treat the size as
+  affecting correctness, and do not hard-code it back to 256.
+- **`prefillCostGB` charges 1.8 MB/token, not the 1.1 the activations measure
+  alone.** The extra covers the ~27 KiB/token of KV and indexer state that
+  comes with the long context a big pass is for, which the pool math does not
+  model. At 1.1 the `--memory-gb 12` promise held by 0.0 GB on an 8k prompt. If
+  you retune it, re-measure with a long prompt, never a short one.
+- **The sampler has a numpy oracle.** `Tools/sampler_ref.py` must stay in step
+  with `Sampler.next`; both build logits from the same splitmix64 stream using
+  only exactly representable float operations, so the comparison is exact.
+  Changing the sampler means changing both.
+- **The governor's policy is a pure function on purpose.** `GovernorPolicy.decide`
+  is tested through all its branches by `governor-check` with no model loaded.
+  Do not fold the policy back into the daemon: the alternative test is putting
+  this machine under real memory pressure, which is exactly what the memory
+  safety rules forbid. Note the invariant it asserts — the decision depends on
+  (available + pool), never on either alone, which is why `desiredSlots` credits
+  what a restart would release.
+
 ## Repo facts
 
 - Model weights: `models/qwen38-flash-next-mlx-4bit/` (97 GB, gitignored),

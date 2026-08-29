@@ -685,17 +685,266 @@ whole 103.8 GB is byte-identical, proven without downloading it); and a live
 the hash gate with a full 24/24 verify. Integrity semantics are unchanged:
 sources supply bytes, the compiled-in manifest supplies truth.
 
+### Parallel weight download (2026-08-29): 8 connections, exact resume
+
+The pull was one connection streaming one file at a time, which measured 28 to
+40 MB/s and put the 103.8 GB download near an hour. Before changing it, the
+question was where the ceiling actually is. Same 600 MB moved every time, from
+distinct offsets, to `/dev/null`:
+
+| connections | Hugging Face | note |
+|---|---|---|
+| 1 | 28 to 40 MB/s | |
+| 4 | 54 to 57 MB/s | |
+| 8 | 50 to 55 MB/s | |
+| 16 | 53 MB/s | |
+| 32 | 53 MB/s | |
+
+The plateau starts at 4 and never moves. Three controls place it:
+`https://ash-speed.hetzner.com/1GB.bin` gave **27 MB/s on one connection and
+144 MB/s on eight**, so the link is not the limit; `hf_xet` 1.29.0, Hugging
+Face's own fastest client speaking the native xet protocol, downloaded
+model-00011 (2.19 GB) in 39.4 s, **55.7 MB/s**, the same number; and the
+reconstruction endpoint shows why, since every xet chunk URL resolves to the
+same `us.aws.cdn.hf.co` host the plain `resolve/` redirect lands on. The cap
+is per-IP rather than per-repo: 4 connections to the mirror plus 4 to
+pipenetwork gave 53.5 MB/s, no better than 8 to either alone, so sharding
+across mirrors buys nothing. **About 55 MB/s is Hugging Face's number for this
+client, and parallelism is what reaches it.**
+
+The download is now 64 MB chunks from every file in one shared queue, drawn by
+8 workers over one URLSession, so connections stay busy across file boundaries
+and to the last byte. Each incomplete file keeps a `.partmap` beside its
+`.part`: one byte per chunk, flushed every 2 s after an `fsync` of the data it
+claims, so a map never promises bytes that are not on disk. Files are hashed
+and renamed on a background queue the moment their last chunk lands, so
+verification overlaps the download still running. `--connections N` and
+`SLOTSTREAM_PULL_CONNECTIONS` override the default.
+
+**The bug this found.** The first parallel build ran at 21 MB/s, slower than
+some single-connection runs, and only 1 of the 6 small files ever renamed.
+`session` was a `lazy var`, and Swift's lazy initialization is not thread-safe:
+8 workers entering at once built several URLSessions, and `taskIdentifier` is
+only unique within one session, so in-flight state collided and 5 of 8 workers
+blocked forever on semaphores nothing would signal. 21 MB/s is 3/8 of the
+plateau, which is exactly the three workers that survived. The session is now
+built in `init`, and requests are keyed by an id the job assigns rather than
+URLSession's numbering.
+
+**Live, from scratch, against the real mirror:** 12.2 GB in 250 s (**48.8 MB/s**
+including startup, steady state 50), then killed with `kill -9`. 7 files
+complete, `model-00001.safetensors` among them: 10.04 GB assembled from 150
+chunks fetched out of order across 8 connections, and it renamed, which only
+happens after its sha256 equals the pinned upstream hash. Resuming reported
+**91.9 GB to go** and continued `model-00002` from chunk 28 of 150, refetching
+only the 8 chunks that were in flight when the process died.
+
+**Full 24-file proof without spending 104 GB of network:** a Range-capable
+local server over the existing copy, so the real pull path runs at SSD speed.
+Pass 1 moved 99 GB in 45 s (**2.47 GB/s**, so the client is nowhere near being
+the bottleneck at 55) and was killed mid-flight with 22 files complete and two
+chunk maps at 95/153 and 19/33. Pass 2 computed **4.8 GB to go**, finished, and
+the full re-hash returned **VERIFY PASS: all 24 files match the pinned
+revision (103.8 GB)**. Battery 15/15 after the change.
+
+Net effect: about **35 minutes instead of about 50** for a first install on
+this link. The remaining headroom is not reachable on Hugging Face at any
+connection count; it would take hosting the weights somewhere without that
+cap, which the link would serve at 144 MB/s.
+
+### Adversarial review of the serving layer (2026-08-29): 0.1.5
+
+An end-to-end adversarial pass over the whole system. The numerical core came
+through clean; the serving layer did not. Everything below was reproduced
+against a running server before it was fixed, and each case is now a gate in
+`Tools/api_robustness.sh`.
+
+**Held up under attack.** The acceptance battery genuinely passes (re-run, not
+taken on trust). Weight provenance over all 103.8 GB, layer parity against the
+Python reference, cache-size and live-resize byte-equality, and the
+`--memory-gb` promise all hold. `MoELayer` matches the reference block line for
+line. The slot-pool floor survives full 256-token prefill chunks. The planner
+refuses or clamps every out-of-range knob and explains itself. Parallel
+download and resume are exact: after `kill -9` mid-transfer the chunk map
+claimed 1,073.7 MB against 1,369.1 MB actually on disk — under-promising by the
+in-flight partials, which is the safe direction — and the resume continued from
+those chunks rather than restarting. Multi-source fallback works (HF answers
+401 for a missing repo, the file moves to the next base). Preallocation is
+genuinely sparse: 103.8 GB apparent, 3.3 MB on disk.
+
+**Three inputs killed the process.** No SIGPIPE disposition was ever set, so a
+client vanishing mid-stream terminated the server with signal 13 — which also
+meant the `alive` flag threaded through every streaming handler was dead code,
+since `write` could never return `-1`. `"seed": -1` trapped in `UInt64(v)`, and
+`"num_predict": -1` trapped forming `0 ..< -1`; both are Ollama's *documented*
+defaults for "random seed" and "generate until EOS". Fixed by ignoring SIGPIPE
+(plus `SO_NOSIGPIPE` per socket), and by clamping every sampling knob in one
+place, `SampleParams.sanitized()`.
+
+**Streaming silently corrupted some responses.** A reply beginning with a
+character whose UTF-8 spans several tokens lost its opening: asking for five
+emoji returned `🚀🔥⭐❤️🌳` unstreamed and `⭐❤` streamed, on all four streaming
+surfaces. The incremental detokenizer cleared its token list whenever nothing
+had been emitted yet — exactly the state a leading emoji is in while it waits
+for the token that completes it. The first fix exposed a second, subtler bug:
+diffing decoded text by `Character` drops a scalar that merges into the
+grapheme cluster already sent, so `❤️` streamed as `❤` (the U+FE0F variation
+selector vanished). The diff is now scalar-exact.
+
+**The sampler had an unguarded 0/0.** Any filter that empties the candidate set
+— `top_p` at or below 0, `min_p` above 1 — made `probs / probs.sum()` produce
+NaN, after which the server emitted token 0 forever (`!!!!!!`). The
+normalization is gone: the uniform draw is scaled by the unnormalized CDF total
+instead, which removes the division and, because `u < 1`, also removes the
+float-tail case where every CDF entry compared below `u` and the pick ran off
+the end onto a zero-probability token.
+
+**Two limits were missing.** There was no context cap at all, and the memory
+plan does not model KV growth: a 7,960-token prompt peaked at 8.3 GB against a
+7.9 GB plan, and under `--memory-gb 8` it reached 7.9 GB, consuming almost the
+entire 0.5 GB planning margin. KV plus indexer state costs **27.0 KiB per
+token** (12 QSA layers x [2 x 2 heads x 256 dims x 2 B] + 12 x 128 x 2 B), so
+32k tokens would add 0.91 GB and break the promise outright. Prompts are now
+capped at 32,768 tokens (`--max-context`) and refused with a 400. Separately,
+the connection handler had no read timeout and one thread per connection: 300
+idle sockets produced 314 threads. Reads now time out, connections are capped
+at 64, and request bodies are bounded like headers already were.
+
+**QSA indexer, previously untested past its budget.** A 7,960-token prompt with
+the answer planted in the first sentence retrieved it correctly, so the sparse
+path is exercised end to end for the first time. It also priced the naive
+prefill honestly: **30 to 32 tok/s**, i.e. about four minutes to first token at
+8k. That, not memory, is what makes long contexts impractical today.
+
+**The load path, found by asking "is anything missing?".** The first pass
+concentrated on the request path and waved the checkpoint reader through
+because the weights are hash-verified. That was the wrong test: `--model`
+accepts any directory. Pointing it at a directory with no safetensors, with a
+corrupt header, or with another model's tensors each trapped (exit 133) after
+printing the memory plan. `serve` on a port already in use — running it twice,
+the single most likely operator mistake — loaded the entire model and *then*
+hit `fatalError("bind failed")`; it now fails in 0.03 s with a sentence naming
+the fix, because the port is claimed before the model loads. `--max-context 0`
+was validated after the load too. `posix_memalign` failing in the expert read
+path was a force-unwrap. And `pull --verify` used `attributesOfItem`, which
+does not follow symlinks, so a model directory of symlinked weights reported
+all 24 files corrupt and sent the user into a 104 GB re-download. Each of these
+is now a gate in `Tools/planner_gates.sh`, which needs no weights.
+
+**Smaller things corrected.** `/api/version` reported 0.1.0 from a hard-coded
+string (now one constant, checked against the binary in CI); `/api/tags`
+reported a weights size 23.3 MB off the manifest (now read from it); the
+planner's floor was described as 14 experts/layer in every user-facing message
+while being 13.3 (640/48), with one `doctor` screen printing both; `Geometry`
+carried a comment claiming it was "validated against config.json at engine
+init" when no such check existed (now `Geometry.check` runs in
+`Qwen4ExpModel.validate`); the n-gram row-cache counters were never reset, so
+they accumulated across every request in a `serve` process; `IndexerCache`
+re-concatenated the whole cache each token where `KVCache` next to it grows in
+blocks; the safetensors header length was read with an alignment-requiring
+`load`; the GatedDelta kernel guarded `Dk % 32` but not the `Hv % Hk` ratio it
+also assumes; `SS_DEBUG_LAYER` was read from `ProcessInfo` 48 times per token;
+and in `pull`, the periodic map flush could `fsync` and rewrite the map of a
+file whose descriptor the finishing path had already closed.
+
+Also fixed for compatibility, each now a gate: `stop` sequences were accepted
+and ignored, OpenAI array-form message content was silently dropped, an empty
+prompt sampled a first token from an uninitialized tensor, malformed JSON
+returned 500 "chat template failed", `HEAD` returned a body, `/api/generate`
+omitted `prompt_eval_duration`, and `done_reason`/`finish_reason` was always
+"stop" even when the run hit the token limit.
+
+**Deliberately not changed.** The presence penalty is applied before the
+temperature division, which matches HuggingFace's processor order; the
+consequence is that API `temperature: 0` is argmax over *penalized* logits
+while CLI `--greedy` zeroes the penalty, so the two are not identical by
+construction. Attempts to make them diverge on real prompts did not succeed.
+Unknown model names are still accepted rather than 404'd: one model exists and
+its name is advertised in `/api/tags`, so leniency costs nothing.
+
+### Closing the three deferred gaps (2026-08-29): 0.1.5
+
+**Prefill: 40 -> 92 tok/s, byte-identical output.** Prefill is expert-stream-
+bound, not compute-bound: one pass activates nearly every expert of every layer,
+so the whole 68 GB expert set is re-read roughly once per pass and halving the
+number of passes halves the bytes moved. Measured on a 7,960-token prompt at
+30 experts/layer cached:
+
+| tokens per pass | prefill | MLX peak |
+|---|---|---|
+| 256 (old default) | 40.0 tok/s | 8.3 GB |
+| 512 | 49.6 | 8.6 |
+| 1024 | 67.1 | 9.2 |
+| 2048 | 91.8 to 104.8 | 10.1 |
+
+Greedy output is byte-identical across all four, checked at 2,980 and 7,960
+tokens with the sparse indexer active — the indexer's block boundaries are
+absolute positions, so chunking cannot move them. The pass size is therefore
+sized from the memory plan rather than fixed: at most a fifth of the pool
+budget, which gives 256 at the floor, 512 at an 8 GB target, 1024 at 24 GB and
+2048 from 32 GB up. An 8k prompt on this machine went from 199 s to 87 s.
+
+Budgeting it exposed the KV gap concretely. Charging only the pass's own
+activations (1.1 MB/token, which is what they measure in isolation) left
+`--memory-gb 12` peaking at **exactly 12.0 GB** on an 8k prompt — the promise
+held with no headroom at all, because the long context that motivates a big
+pass also carries ~27 KiB/token of KV and indexer state the pool math never
+modelled. Charging the two together at 1.8 MB/token is what they actually cost:
+`--memory-gb 12` now peaks at 11.4 GB and `--memory-gb 8` at 7.7 GB on the same
+prompt, the latter *better* than the 7.9 GB it used to reach while also
+prefilling 50 tok/s instead of 30. The long-prompt case is now its own gate;
+the previous one used a 6-token prompt and could not see any of this.
+
+**Sampler: golden, and it matched first try.** `Tools/sampler_ref.py`
+reimplements the sampler in numpy float32. Both sides build their logits from
+the same splitmix64 stream using only exactly representable float operations,
+so the comparison is exact rather than approximate. 14 configurations agree
+token for token — greedy, pure sampling, top-k 1, tight nucleus, min-p,
+presence penalty with accumulation, the out-of-range values the sanitizer
+clamps, seed 0, and the real 248,320-entry vocabulary. This closes "sampler
+implemented but not golden-tested"; the sampler was extracted into its own
+`Sampler` struct so it runs on synthetic logits with no checkpoint loaded,
+which also makes it a CI gate.
+
+**Governor: policy tested without a memory hog.** The gap was that only the
+resize *mechanism* was proven (`elastic-check`, byte-identical output across
+grow/shrink); the *policy* had only the one-off 21.5 GB-hog observation. Rather
+than repeat that — unsafe on a shared machine and unrepeatable — the decision
+was extracted into `GovernorPolicy.decide`, a pure function of (current size,
+availability, recent history). `slotstream governor-check` drives all 19
+branches deterministically with no model loaded: shrink, grow, both dead-bands,
+both cooldowns, warning and critical pressure, repeated pressure converging to
+the floor, and the cap.
+
+Writing it surfaced a genuine subtlety. A test that held availability fixed
+while shrinking the pool showed the governor ratcheting down step after step
+instead of converging. That state is unreachable — freeing pool memory raises
+what is reclaimable by exactly that amount — and the credit in `desiredSlots`
+(`available + pool + fixed footprint`) exists precisely so the answer does not
+depend on how much is held at the moment. Modelled correctly it converges in
+one step, and the invariant is now asserted directly: two states holding the
+same total memory must want the same size.
+
 ### Honest gaps (not yet done)
 
-Dense-sweep prefill and cross-token prefetch (prefill is naive chunked; slow
-for long prompts, and decode after long contexts runs below the short-prompt
-anchors). QSA indexer implemented but not exercised past the 2048-token budget
-in a live run. Real ≤16 GB hardware validation (floor and 16-GB-target
-behavior emulated and stress-tested here, but never run on a physically
-smaller, slower-SSD Mac). A hosted web GUI (e.g. Open WebUI) driven end to
-end (browser streaming client proven; the full product not installed here).
-LaunchAgent `install` (foreground `serve` is the supported mode). Sampler
-(non-greedy) implemented but not golden-tested against a reference.
+Dense-sweep prefill and cross-token prefetch. Sizing the pass from the memory
+plan took prefill from 40 to 92 tok/s (8k prompt: 199 s to 87 s), but the sweep
+is still naive and prefill remains the slow axis for long prompts; decode after
+a long context also runs below the short-prompt anchors (5.0 tok/s at
+30/layer after 7,960 tokens). Real ≤16 GB
+hardware validation (floor and 16-GB-target behavior emulated and
+stress-tested here, but never run on a physically smaller, slower-SSD Mac). A
+hosted web GUI (e.g. Open WebUI) driven end to end (browser streaming client
+proven; the full product not installed here). LaunchAgent `install`
+(foreground `serve` is the supported mode). The planner now charges KV and
+indexer growth through the prefill-pass budget rather than modelling context
+length directly, so a prompt far longer than the 8k the coefficient was fitted
+to is still bounded by `--max-context` rather than predicted. The governor's
+policy is tested as a pure function, which is stronger than the one-off hog
+measurement but is not the same as observing the daemon under live pressure.
+
+Closed 2026-08-29 (see the two sections above): the QSA indexer past its
+2048-token budget, the sampler golden, and the governor policy.
 
 ## Reference implementation
 

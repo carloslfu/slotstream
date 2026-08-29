@@ -24,7 +24,9 @@ design and the estimates it replaces.
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
 | M5 Prefill/prefetch perf | ◐ partial | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; dense-sweep prefill + cross-token prefetch not yet built (prefill 4.6–13.2 tok/s naive) |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
-| M7 CLI, install, packaging | ✅ **done 2026-08-28** (LaunchAgent deferred) | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile; `pull` resumable + sha256-verified (proven live incl. resume, 429 retry, corruption fail-closed); `serve`/`run` offer the download on first run (consent-gated, /dev/tty-aware); public one-line installer (`install.sh` → sha256-checked release tarball → `~/.slotstream/bin` → PATH → optional handoff to serve); v0.1.0 release ships binary + metallib; LaunchAgent not built (foreground serve is the supported mode) |
+| M7 CLI, install, packaging | ✅ **done 2026-08-28** (LaunchAgent deferred) | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile; `pull` parallel (8 connections, 64 MB chunks, per-file chunk map) + resumable + sha256-verified (proven live incl. resume, 429 retry, corruption fail-closed; ~50 MB/s vs 28-40 single-connection, which is Hugging Face's own ceiling); `serve`/`run` offer the download on first run (consent-gated, /dev/tty-aware); public one-line installer (`install.sh` → sha256-checked release tarball → `~/.slotstream/bin` → PATH → optional handoff to serve); v0.1.0 release ships binary + metallib; LaunchAgent not built (foreground serve is the supported mode) |
+| M7.5 Serving hardening | ✅ **done 2026-08-29** (v0.1.5) | adversarial review of the whole system; three process-killing inputs fixed (SIGPIPE on client disconnect, `seed: -1`, `num_predict: -1`), streaming detokenization made scalar-exact (leading multi-token characters were being dropped), sampler 0/0 removed, `stop` sequences + OpenAI array content + `--max-context` (32k) added, read timeouts and a connection cap, `IndexerCache` grown in blocks instead of re-concatenated. All 38 acceptance checks pass; `Tools/api_robustness.sh` is the standing gate and `Tools/planner_gates.sh` now runs in CI |
+| M7.6 Deferred gaps closed | ✅ **done 2026-08-29** | prefill pass sized from the memory plan: 40 → 92 tok/s, byte-identical output at every size, KV/indexer growth now charged so `--memory-gb` holds on long prompts; sampler golden vs a numpy reference (14 configs, exact); elastic governor policy extracted to a pure function and driven through all 19 branches without a memory hog. 63 acceptance checks |
 | M8 Matrix bench + tier validation | ◐ first data | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (30 experts/layer cached); real small-Mac runs pending |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
 
@@ -355,7 +357,7 @@ IO stays trivial; only disk grows).
 ### 4.5 CLI & install UX
 
 ```
-slotstream pull                            # ✅ resumable, sha256-verified download of the pinned revision (`--verify` re-checks)
+slotstream pull                            # ✅ parallel (8 conns), resumable, sha256-verified download of the pinned revision (`--verify` re-checks)
 slotstream doctor [--memory-gb G]          # ✅ device report + the plan any flags produce + target table
 slotstream run qwen3.8-flash-next:4bit     # REPL chat
 slotstream serve                           # ✅ zero-config: auto-tunes, announces the plan, resizes elastically
@@ -421,7 +423,7 @@ Pool = target − 3.9 GB fixed footprint (resident weights + n-gram row cache)
 Precedence `--experts-per-layer` > `--pool-gb` > `--memory-gb` > auto, losing
 knobs noted, never silently dropped; explicit knobs are never resized by the
 clamp (informational note only). `doctor --sim-ram/--sim-working-set/
---sim-available` previews any machine; `Tools/verify.sh` pins seven setups
+--sim-available` previews any machine; `Tools/planner_gates.sh` pins seven setups
 (48 GB pristine/busy, 16 GB pristine/busy, 8 GB, 128 GB, explicit-on-busy).
 ✅Measured live under a 21.5 GB incompressible hog: auto sized 36.1 → 10.7 GB
 (47/layer), generated at a 9.4 GB actual peak with no thrash, and recovered to

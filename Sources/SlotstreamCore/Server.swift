@@ -4,30 +4,69 @@
 
 import Foundation
 
+public struct ServerError: Error, CustomStringConvertible {
+    public let description: String
+    public init(_ s: String) { description = s }
+}
+
 public final class Server {
     let engine: Engine
     let port: UInt16
+    /// Total on-disk size of the weights, reported by /api/tags and /api/ps.
+    /// Supplied by the caller so it can come from the pinned manifest rather
+    /// than a second hand-maintained copy of the number.
+    let weightsBytes: Int
     var listenFD: Int32 = -1
 
-    public init(engine: Engine, port: UInt16) {
+    public init(engine: Engine, port: UInt16, weightsBytes: Int = 0, listenFD: Int32 = -1) {
         self.engine = engine
         self.port = port
+        self.weightsBytes = weightsBytes
+        self.listenFD = listenFD
     }
 
-    public func run() throws -> Never {
-        listenFD = socket(AF_INET, SOCK_STREAM, 0)
+    /// Claim the port. Callers bind *before* loading the model so "address
+    /// already in use" — running `serve` twice is the common case — costs a
+    /// second and one sentence instead of a full load and a fatalError.
+    public static func bindPort(_ port: UInt16) throws -> Int32 {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else {
+            throw ServerError("cannot create a socket: \(String(cString: strerror(errno)))")
+        }
         var yes: Int32 = 1
-        setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = port.bigEndian
         addr.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
-        let bindResult = withUnsafePointer(to: &addr) {
+        let rc = withUnsafePointer(to: &addr) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
-        guard bindResult == 0 else { fatalError("bind :\(port) failed (in use?)") }
+        guard rc == 0 else {
+            let why = String(cString: strerror(errno))
+            close(fd)
+            throw ServerError(
+                "cannot listen on 127.0.0.1:\(port): \(why)"
+                    + (errno == EADDRINUSE
+                        ? " — another slotstream (or Ollama) is already there; "
+                            + "stop it or pass --port" : ""))
+        }
+        return fd
+    }
+
+    /// Bounded so a client that opens sockets and never speaks cannot exhaust
+    /// the thread pool (each connection costs one thread).
+    static let maxConcurrentConnections = 64
+    private let connSlots = DispatchSemaphore(value: maxConcurrentConnections)
+
+    public func run() throws -> Never {
+        // A client that disappears mid-stream makes write() raise SIGPIPE, whose
+        // default action kills the process. Ignoring it turns that into EPIPE,
+        // which is what `send` already handles by returning false.
+        signal(SIGPIPE, SIG_IGN)
+        if listenFD < 0 { listenFD = try Self.bindPort(port) }
         listen(listenFD, 16)
         print("slotstream listening on http://127.0.0.1:\(port)")
         print("""
@@ -39,7 +78,19 @@ public final class Server {
         while true {
             let fd = accept(listenFD, nil, nil)
             if fd < 0 { continue }
-            Thread.detachNewThread { [weak self] in self?.handle(fd) }
+            // A stalled client must not pin a thread forever: give reads a
+            // deadline, and cap how many connections can be in flight.
+            var tv = timeval(tv_sec: 30, tv_usec: 0)
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+            var st = timeval(tv_sec: 120, tv_usec: 0)
+            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &st, socklen_t(MemoryLayout<timeval>.size))
+            var one: Int32 = 1
+            setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+            connSlots.wait()
+            Thread.detachNewThread { [weak self] in
+                defer { self?.connSlots.signal() }
+                self?.handle(fd)
+            }
         }
     }
 
@@ -50,6 +101,11 @@ public final class Server {
         var path = ""
         var body = Data()
     }
+
+    /// Largest request body accepted. Prompts are text; anything past this is
+    /// a mistake or an attack, and reading it unbounded is how a local process
+    /// gets OOM-killed.
+    static let maxBodyBytes = 32 << 20
 
     private func readRequest(_ fd: Int32) -> Request? {
         var buf = Data()
@@ -78,11 +134,13 @@ public final class Server {
                 contentLength = Int(kv[1].trimmingCharacters(in: .whitespaces)) ?? 0
             }
         }
+        if contentLength > Self.maxBodyBytes { return nil }
         var body = Data(buf[headerEnd!.upperBound...])
         while body.count < contentLength {
             let n = read(fd, &tmp, min(tmp.count, contentLength - body.count))
             if n <= 0 { break }
             body.append(contentsOf: tmp[0 ..< n])
+            if body.count > Self.maxBodyBytes { return nil }
         }
         req.body = body
         return req
@@ -93,6 +151,7 @@ public final class Server {
         return data.withUnsafeBytes { raw -> Bool in
             while sent < data.count {
                 let n = write(fd, raw.baseAddress! + sent, data.count - sent)
+                if n < 0 && errno == EINTR { continue }
                 if n <= 0 { return false }
                 sent += n
             }
@@ -143,10 +202,15 @@ public final class Server {
             _ = send(fd, Data(head.utf8))
             return
         }
-        let json = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any] ?? [:]
+        let parsed = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any]
+        if req.method == "POST", !req.body.isEmpty, parsed == nil {
+            respondJSON(fd, ["error": "invalid JSON body"], status: "400 Bad Request")
+            return
+        }
+        let json = parsed ?? [:]
         switch (req.method, req.path) {
         case ("GET", "/api/version"):
-            respondJSON(fd, ["version": "0.1.0-slotstream"])
+            respondJSON(fd, ["version": SlotstreamBuild.version])
         case ("GET", "/api/tags"), ("GET", "/api/tags/"):
             respondJSON(fd, ["models": [modelCard()]])
         case ("GET", "/api/ps"):
@@ -182,7 +246,12 @@ public final class Server {
         case ("POST", "/api/pull"), ("POST", "/api/create"):
             respondJSON(
                 fd, ["error": "use `slotstream pull` on the host"], status: "501 Not Implemented")
-        case ("HEAD", _), ("GET", "/"):
+        case ("HEAD", _):
+            // A HEAD response carries headers only; sending a body is a protocol error.
+            let head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" + cors
+                + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+            _ = send(fd, Data(head.utf8))
+        case ("GET", "/"):
             respondJSON(fd, ["status": "ok", "engine": "slotstream"])
         default:
             respondJSON(fd, ["error": "not found: \(req.method) \(req.path)"], status: "404 Not Found")
@@ -203,7 +272,7 @@ public final class Server {
     private func modelCard(loaded: Bool = false) -> [String: Any] {
         var c: [String: Any] = [
             "name": engine.modelName, "model": engine.modelName,
-            "modified_at": iso(Date()), "size": 103_770_199_081,
+            "modified_at": iso(Date()), "size": weightsBytes,
             "digest": "slotstream-qwen38-flash-next-4bit",
             "details": modelDetails(),
         ]
@@ -220,32 +289,73 @@ public final class Server {
 
     // MARK: params
 
+    /// OpenAI clients may send `content` as a string or as an array of typed
+    /// parts. Taking `as? String` alone silently drops the whole message, so
+    /// the text parts are joined here instead.
+    static func contentText(_ v: Any?) -> String {
+        if let s = v as? String { return s }
+        if let parts = v as? [[String: Any]] {
+            return parts.compactMap { part -> String? in
+                if let t = part["text"] as? String { return t }
+                return nil
+            }.joined()
+        }
+        return ""
+    }
+
+    private static func messages(_ json: [String: Any]) -> [ChatMessage] {
+        (json["messages"] as? [[String: Any]] ?? []).map {
+            ChatMessage(role: $0["role"] as? String ?? "user", content: contentText($0["content"]))
+        }
+    }
+
+    /// JSON numbers arrive as NSNumber; accept ints where a float is expected.
+    private static func num(_ v: Any?) -> Double? {
+        if let d = v as? Double { return d }
+        if let i = v as? Int { return Double(i) }
+        return nil
+    }
+
+    private static func stopList(_ v: Any?) -> [String]? {
+        if let a = v as? [String] { return a.filter { !$0.isEmpty } }
+        if let s = v as? String, !s.isEmpty { return [s] }
+        return nil
+    }
+
     private func sampleParams(_ json: [String: Any]) -> SampleParams {
         let thinking = (json["think"] as? Bool) ?? false
         var p: SampleParams = thinking ? .thinking : .instruct
         if let o = json["options"] as? [String: Any] {
-            if let v = o["temperature"] as? Double { p.temperature = Float(v) }
-            if let v = o["top_p"] as? Double { p.topP = Float(v) }
+            if let v = Self.num(o["temperature"]) { p.temperature = Float(v) }
+            if let v = Self.num(o["top_p"]) { p.topP = Float(v) }
             if let v = o["top_k"] as? Int { p.topK = v }
-            if let v = o["min_p"] as? Double { p.minP = Float(v) }
-            if let v = o["presence_penalty"] as? Double { p.presencePenalty = Float(v) }
+            if let v = Self.num(o["min_p"]) { p.minP = Float(v) }
+            if let v = Self.num(o["presence_penalty"]) { p.presencePenalty = Float(v) }
             if let v = o["num_predict"] as? Int { p.maxTokens = v }
-            if let v = o["seed"] as? Int { p.seed = UInt64(v) }
+            // Ollama uses -1 for "random seed"; UInt64(-1) would trap.
+            if let v = o["seed"] as? Int { p.seed = v < 0 ? nil : UInt64(v) }
+            if let s = Self.stopList(o["stop"]) { p.stop = s }
         }
-        return p
+        return p.sanitized()
     }
 
     // MARK: /api/chat
 
     private func apiChat(_ fd: Int32, _ json: [String: Any]) {
-        let msgs = (json["messages"] as? [[String: Any]] ?? []).map {
-            ChatMessage(role: $0["role"] as? String ?? "user", content: $0["content"] as? String ?? "")
-        }
+        let msgs = Self.messages(json)
         let stream = (json["stream"] as? Bool) ?? true
         let thinking = (json["think"] as? Bool) ?? false
         let params = sampleParams(json)
+        guard !msgs.isEmpty else {
+            respondJSON(fd, ["error": "messages must not be empty"], status: "400 Bad Request")
+            return
+        }
         guard let ids = try? engine.encodeChat(msgs, thinking: thinking) else {
             respondJSON(fd, ["error": "chat template failed"], status: "500 Internal Server Error")
+            return
+        }
+        if let e = engine.contextError(promptTokens: ids.count) {
+            respondJSON(fd, ["error": e], status: "400 Bad Request")
             return
         }
         let t0 = Date()
@@ -263,7 +373,7 @@ public final class Server {
         let final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
             "message": ["role": "assistant", "content": stream ? "" : text],
-            "done": true, "done_reason": "stop",
+            "done": true, "done_reason": stats.finishReason,
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
             "prompt_eval_count": stats.prefillTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
@@ -291,6 +401,16 @@ public final class Server {
         } else {
             ids = (try? engine.encodeChat([ChatMessage(role: "user", content: prompt)], thinking: false)) ?? []
         }
+        // An empty prompt would leave the first logits uninitialized and make
+        // the sampler invent a token out of nothing.
+        guard !ids.isEmpty else {
+            respondJSON(fd, ["error": "prompt must not be empty"], status: "400 Bad Request")
+            return
+        }
+        if let e = engine.contextError(promptTokens: ids.count) {
+            respondJSON(fd, ["error": e], status: "400 Bad Request")
+            return
+        }
         let t0 = Date()
         if stream { startChunked(fd, contentType: "application/x-ndjson") }
         var alive = true
@@ -305,9 +425,10 @@ public final class Server {
         }
         let final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
-            "response": stream ? "" : text, "done": true, "done_reason": "stop",
+            "response": stream ? "" : text, "done": true, "done_reason": stats.finishReason,
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
             "prompt_eval_count": stats.prefillTokens,
+            "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
             "eval_count": stats.decodeTokens,
             "eval_duration": Int(stats.decodeSeconds * 1e9),
         ]
@@ -322,17 +443,31 @@ public final class Server {
     // MARK: /v1/chat/completions (OpenAI, SSE streaming)
 
     private func v1Chat(_ fd: Int32, _ json: [String: Any]) {
-        let msgs = (json["messages"] as? [[String: Any]] ?? []).map {
-            ChatMessage(role: $0["role"] as? String ?? "user", content: $0["content"] as? String ?? "")
-        }
+        let msgs = Self.messages(json)
         let stream = (json["stream"] as? Bool) ?? false
         var params = SampleParams.instruct
-        if let v = json["temperature"] as? Double { params.temperature = Float(v) }
-        if let v = json["top_p"] as? Double { params.topP = Float(v) }
+        if let v = Self.num(json["temperature"]) { params.temperature = Float(v) }
+        if let v = Self.num(json["top_p"]) { params.topP = Float(v) }
+        if let v = json["top_k"] as? Int { params.topK = v }
+        if let v = Self.num(json["presence_penalty"]) { params.presencePenalty = Float(v) }
         if let v = json["max_tokens"] as? Int { params.maxTokens = v }
         if let v = json["max_completion_tokens"] as? Int { params.maxTokens = v }
+        if let v = json["seed"] as? Int { params.seed = v < 0 ? nil : UInt64(v) }
+        if let v = Self.stopList(json["stop"]) { params.stop = v }
+        params = params.sanitized()
+        let wantUsage = ((json["stream_options"] as? [String: Any])?["include_usage"] as? Bool) ?? false
+        guard !msgs.isEmpty else {
+            respondJSON(
+                fd, ["error": ["message": "messages must not be empty"]],
+                status: "400 Bad Request")
+            return
+        }
         guard let ids = try? engine.encodeChat(msgs, thinking: false) else {
             respondJSON(fd, ["error": ["message": "template failed"]], status: "500 Internal Server Error")
+            return
+        }
+        if let e = engine.contextError(promptTokens: ids.count) {
+            respondJSON(fd, ["error": ["message": e]], status: "400 Bad Request")
             return
         }
         let rid = "chatcmpl-\(UUID().uuidString.prefix(8))"
@@ -350,11 +485,18 @@ public final class Server {
             return alive
         }
         if stream {
-            let fin: [String: Any] = [
+            var fin: [String: Any] = [
                 "id": rid, "object": "chat.completion.chunk",
                 "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
-                "choices": [["index": 0, "delta": [:], "finish_reason": "stop"]],
+                "choices": [["index": 0, "delta": [:], "finish_reason": stats.finishReason]],
             ]
+            if wantUsage {
+                fin["usage"] = [
+                    "prompt_tokens": stats.prefillTokens,
+                    "completion_tokens": stats.decodeTokens,
+                    "total_tokens": stats.prefillTokens + stats.decodeTokens,
+                ]
+            }
             chunk(fd, Data("data: ".utf8) + (try! JSONSerialization.data(withJSONObject: fin)) + Data("\n\n".utf8))
             chunk(fd, Data("data: [DONE]\n\n".utf8))
             endChunked(fd)
@@ -366,7 +508,7 @@ public final class Server {
                     "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
                     "choices": [
                         [
-                            "index": 0, "finish_reason": "stop",
+                            "index": 0, "finish_reason": stats.finishReason,
                             "message": ["role": "assistant", "content": text],
                         ]
                     ],

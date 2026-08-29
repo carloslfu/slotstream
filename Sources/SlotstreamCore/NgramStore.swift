@@ -9,13 +9,12 @@
 import Foundation
 import MLX
 
-enum Splitmix {
-    static let mask: UInt64 = 0xFFFF_FFFF_FFFF_FFFF
+public enum Splitmix {
     static let gamma: UInt64 = 0x9E37_79B9_7F4A_7C15
     static let m1: UInt64 = 0xBF58_476D_1CE4_E5B9
     static let m2: UInt64 = 0x94D0_49BB_1331_11EB
 
-    static func mix(_ v0: UInt64) -> UInt64 {
+    public static func mix(_ v0: UInt64) -> UInt64 {
         var v = v0 &+ gamma
         v = (v ^ (v >> 30)) &* m1
         v = (v ^ (v >> 27)) &* m2
@@ -229,6 +228,12 @@ public final class NgramStore {
         cache[gid] = out
         cacheOrder.append(gid)
         return out
+    }
+
+    /// Row-cache counters are per generation, like the expert pool's.
+    public func resetStats() {
+        rowHits = 0
+        rowMisses = 0
     }
 
     /// Fetch + dequantize one row by global id (test/verification hook).

@@ -11,8 +11,37 @@ public struct SampleParams {
     public var presencePenalty: Float = 1.5
     public var seed: UInt64? = nil
     public var maxTokens = 512
+    /// Text sequences that end generation (Ollama `options.stop`, OpenAI `stop`).
+    public var stop: [String] = []
 
     public init() {}
+
+    /// Clamp every knob into the range the sampler is defined on.
+    ///
+    /// Values outside it used to produce silent garbage rather than an error:
+    /// a `top_p` of 0 or a `min_p` above 1 filters out every candidate, and the
+    /// old `probs / probs.sum()` then divided 0 by 0, so the sampler emitted
+    /// token 0 forever. A negative `num_predict` (Ollama's "until EOS") indexed
+    /// a reversed Range and trapped, killing the process.
+    public func sanitized() -> SampleParams {
+        var p = self
+        if !p.temperature.isFinite { p.temperature = 0 }
+        p.temperature = max(0, p.temperature)
+        if !p.topP.isFinite || p.topP <= 0 || p.topP > 1 { p.topP = 1 }
+        if !p.minP.isFinite { p.minP = 0 }
+        p.minP = min(max(0, p.minP), 1)
+        if !p.presencePenalty.isFinite { p.presencePenalty = 0 }
+        p.topK = max(0, p.topK)
+        // <= 0 means "as many as allowed" for Ollama (-1) and OpenAI clients.
+        if p.maxTokens <= 0 { p.maxTokens = SampleParams.maxTokenCeiling }
+        p.maxTokens = min(p.maxTokens, SampleParams.maxTokenCeiling)
+        p.stop = p.stop.filter { !$0.isEmpty }
+        return p
+    }
+
+    /// Upper bound on a single response. Decode is the slow axis here, so an
+    /// unbounded "until EOS" request needs a ceiling that is generous but finite.
+    public static let maxTokenCeiling = 32_768
 
     public static var instruct: SampleParams { SampleParams() }
     public static var thinking: SampleParams {
@@ -39,25 +68,33 @@ public struct GenStats {
     public var ngramRowHits = 0
     public var ngramRowMisses = 0
     public var peakMemoryGB = 0.0
+    /// "stop" (EOS, a stop sequence, or a cancelled stream) or "length".
+    public var finishReason = "stop"
 
     public var prefillTPS: Double { prefillSeconds > 0 ? Double(prefillTokens) / prefillSeconds : 0 }
     public var decodeTPS: Double { decodeSeconds > 0 ? Double(decodeTokens) / decodeSeconds : 0 }
 }
 
-public final class Generator {
-    public let model: Qwen4ExpModel
-    let prefillChunk = 256
-    var rngState: UInt64 = 0x9E37_79B9_7F4A_7C15
+/// Token sampling, split out from the decode loop so it can be exercised on
+/// synthetic logits with no checkpoint loaded (`slotstream sampler-golden`)
+/// and compared against the numpy reference in `Tools/sampler_ref.py`.
+///
+/// Order matches HuggingFace's processor chain: presence penalty on raw
+/// logits, then temperature, then top-k, then top-p, then min-p.
+public struct Sampler {
+    public var rngState: UInt64 = 0x9E37_79B9_7F4A_7C15
 
-    public init(model: Qwen4ExpModel) {
-        self.model = model
+    public init(seed: UInt64? = nil) {
+        if let s = seed { rngState = s == 0 ? 0xDEAD_BEEF : s }
     }
 
-    func sample(_ logits: MLXArray, params: SampleParams, generated: Set<Int>) -> Int {
+    public mutating func next(
+        _ logits: MLXArray, params: SampleParams, generated: Set<Int>
+    ) -> Int {
         var l = logits.reshaped([-1]).asType(.float32)
         if params.presencePenalty != 0 && !generated.isEmpty {
             // subtract penalty on already-generated tokens
-            let ids = MLXArray(generated.map { Int32($0) })
+            let ids = MLXArray(generated.sorted().map { Int32($0) })
             let current = take(l, ids, axis: 0)
             l = putAlong(l, ids, values: current - params.presencePenalty, axis: 0)
         }
@@ -85,13 +122,46 @@ public final class Generator {
             let cutoff = probs.max() * params.minP
             probs = which(probs .< cutoff, MLXArray(Float(0)), probs)
         }
-        probs = probs / probs.sum()
-        // gumbel-free categorical: inverse CDF with a splitmix stream
+        // gumbel-free categorical: inverse CDF with a splitmix stream.
+        // The draw is scaled by the unnormalized total instead of normalizing
+        // the probabilities: it avoids a 0/0 when a filter empties the
+        // candidate set, and since u < 1 it also guarantees u*total < total,
+        // so the pick can never run off the end of the CDF onto a
+        // zero-probability token the way a bare `cdf .< u` could.
         rngState = Splitmix.mix(rngState &+ 1)
         let u = Float(Double(rngState >> 11) / Double(1 << 53))
         let cdf = cumsum(probs, axis: 0)
-        let pick = (cdf .< u).sum().item(Int.self)
+        let total = cdf[probs.dim(0) - 1].item(Float.self)
+        guard total.isFinite, total > 0 else {
+            // Nothing survived filtering (or the logits were NaN): fall back to
+            // the most likely token rather than emitting token 0 forever.
+            return argMax(logits.reshaped([-1]).asType(.float32)).item(Int.self)
+        }
+        let pick = (cdf .< MLXArray(u * total)).sum().item(Int.self)
         return min(pick, probs.dim(0) - 1)
+    }
+}
+
+public final class Generator {
+    public let model: Qwen4ExpModel
+    /// Tokens per prefill pass. Bigger is faster on long prompts: a chunk
+    /// activates nearly every expert of every layer, so the expert stream is
+    /// re-read roughly once per chunk and halving the chunk count halves the
+    /// bytes moved. It costs transient activation memory, which is why it is a
+    /// knob rather than "as large as the prompt". Measured in MEASUREMENTS.md.
+    public var prefillChunk = PrefillTuning.chunk
+    var sampler = Sampler()
+    var rngState: UInt64 {
+        get { sampler.rngState }
+        set { sampler.rngState = newValue }
+    }
+
+    public init(model: Qwen4ExpModel) {
+        self.model = model
+    }
+
+    func sample(_ logits: MLXArray, params: SampleParams, generated: Set<Int>) -> Int {
+        sampler.next(logits, params: params, generated: generated)
     }
 
     /// Runs prefill + decode; calls `onToken` for each generated token id.
@@ -100,8 +170,13 @@ public final class Generator {
         promptIds: [Int], params: SampleParams, eosIds: Set<Int>,
         onToken: ((Int) -> Bool)? = nil
     ) -> ([Int], GenStats) {
+        let params = params.sanitized()
         if let s = params.seed { rngState = s == 0 ? 0xDEAD_BEEF : s }
         var stats = GenStats()
+        // An empty prompt would leave `logits` at its placeholder value and make
+        // the sampler invent a first token from nothing. Callers reject this at
+        // the API boundary; this is the backstop.
+        guard !promptIds.isEmpty else { return ([], stats) }
         let state = model.makeState()
         MLX.GPU.resetPeakMemory()
 
@@ -124,20 +199,24 @@ public final class Generator {
         stats.prefillTokens = promptIds.count
         stats.prefillSeconds = -t0.timeIntervalSinceNow
         model.pool.resetStats()
+        model.ngram.resetStats()
 
         // ---- decode
         var out: [Int] = []
         var generated = Set<Int>()
+        var reason = "length"
         t0 = Date()
-        for _ in 0 ..< params.maxTokens {
+        for _ in 0 ..< max(0, params.maxTokens) {
             let tok = sample(logits, params: params, generated: generated)
-            if eosIds.contains(tok) { break }
+            if eosIds.contains(tok) { reason = "stop"; break }
             out.append(tok)
             generated.insert(tok)
-            if let cb = onToken, !cb(tok) { break }
+            // The callback stops the run for a stop sequence or a gone client.
+            if let cb = onToken, !cb(tok) { reason = "stop"; break }
             logits = model.lastLogits([tok], state: state)
             eval(logits)
         }
+        stats.finishReason = reason
         stats.decodeTokens = out.count
         stats.decodeSeconds = -t0.timeIntervalSinceNow
         stats.expertHitRate = model.pool.hitRate
@@ -145,5 +224,18 @@ public final class Generator {
         stats.ngramRowMisses = model.ngram.rowMisses
         stats.peakMemoryGB = Double(MLX.GPU.peakMemory) / 1e9
         return (out, stats)
+    }
+}
+
+/// Prefill chunking. Overridable so the size can be measured and so a small
+/// machine can trade prefill speed for transient memory.
+public enum PrefillTuning {
+    public static var chunk: Int {
+        if let s = ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CHUNK"],
+            let n = Int(s), n > 0
+        {
+            return min(n, 4096)
+        }
+        return 256
     }
 }

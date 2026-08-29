@@ -27,6 +27,94 @@
 
 import Foundation
 
+/// The resize decision, split out from the daemon that applies it.
+///
+/// Keeping it a pure function of (current size, availability, recent history)
+/// is what makes the policy testable: `slotstream governor-check` drives every
+/// branch — shrink, grow, dead-bands, cooldowns, both pressure levels, the
+/// floor and the cap — deterministically, with no model loaded and without
+/// putting the machine under real memory pressure to observe it.
+public enum GovernorPolicy {
+    public enum Pressure: String { case warning, critical }
+
+    public struct Inputs {
+        public var currentSlots: Int
+        public var availableGB: Double
+        public var ramGB: Double
+        public var workingSetGB: Double
+        /// nil = no such event yet in this process.
+        public var secondsSincePressure: Double?
+        public var secondsSinceResize: Double?
+        /// Set when this tick is an OS pressure event rather than a poll.
+        public var pressure: Pressure?
+
+        public init(
+            currentSlots: Int, availableGB: Double, ramGB: Double, workingSetGB: Double,
+            secondsSincePressure: Double? = nil, secondsSinceResize: Double? = nil,
+            pressure: Pressure? = nil
+        ) {
+            self.currentSlots = currentSlots
+            self.availableGB = availableGB
+            self.ramGB = ramGB
+            self.workingSetGB = workingSetGB
+            self.secondsSincePressure = secondsSincePressure
+            self.secondsSinceResize = secondsSinceResize
+            self.pressure = pressure
+        }
+    }
+
+    public enum Decision: Equatable {
+        case hold
+        case resize(slots: Int, reason: String)
+    }
+
+    static let growCooldown: TimeInterval = 60
+    static let shrinkDeadbandGB = 1.0
+    static let growDeadbandGB = 2.0
+
+    private static func settle(_ target: Int, _ current: Int, _ reason: String) -> Decision {
+        let t = max(Geometry.floorSlots, min(target, Geometry.totalRecords))
+        return t == current ? .hold : .resize(slots: t, reason: reason)
+    }
+
+    /// What auto would choose if slotstream restarted right now: reclaimable
+    /// memory credited with everything we hold that a restart would release —
+    /// the pool AND the fixed footprint (the planner subtracts the fixed
+    /// footprint again when deriving slots, so without this credit the steady
+    /// state under contention double-reserves ~4 GB).
+    public static func desiredSlots(_ i: Inputs) -> Int? {
+        let credited = i.availableGB + Geometry.gb(i.currentSlots) + Planner.fixedFootprintGB
+        return try? Planner.plan(
+            expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
+            ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited).slots
+    }
+
+    public static func decide(_ i: Inputs) -> Decision {
+        let curGB = Geometry.gb(i.currentSlots)
+        let desired = desiredSlots(i)
+        // OS pressure events see what availability math cannot: compressor and
+        // swap strain from system-wide overcommit. Shed an absolute chunk —
+        // repeated events keep shedding until the pressure stops.
+        if let p = i.pressure {
+            let shedGB = p == .critical ? max(4.0, curGB * 0.5) : max(2.0, curGB * 0.15)
+            var target = Int((curGB - shedGB) * 1e9 / Geometry.recordBytes)
+            if let d = desired { target = min(target, d) }
+            return settle(target, i.currentSlots, "memory pressure (\(p.rawValue))")
+        }
+        guard let d = desired else { return .hold }
+        let desiredGB = Geometry.gb(d)
+        if desiredGB <= curGB - shrinkDeadbandGB {
+            return settle(d, i.currentSlots, "availability dropped")
+        }
+        if desiredGB >= curGB + growDeadbandGB {
+            let calm = i.secondsSincePressure.map { $0 > growCooldown } ?? true
+            let cooled = i.secondsSinceResize.map { $0 > growCooldown } ?? true
+            if calm, cooled { return settle(d, i.currentSlots, "memory freed") }
+        }
+        return .hold
+    }
+}
+
 public final class MemoryGovernor {
     private let engine: Engine
     private let queue = DispatchQueue(label: "slotstream.governor")
@@ -79,12 +167,23 @@ public final class MemoryGovernor {
     /// the pool AND the fixed footprint (the planner subtracts the fixed
     /// footprint again when deriving slots from the target; without this
     /// credit the steady state under contention double-reserves ~4 GB).
-    private func desiredPlan() -> MemoryPlan? {
+    /// Gather what the policy needs. Returns nil when elastic does not apply
+    /// (an explicit size is the user's stated intent) or availability is
+    /// unreadable (then nothing is resized).
+    private func inputs(pressure: GovernorPolicy.Pressure?) -> GovernorPolicy.Inputs? {
         guard let cur = engine.currentPlan, cur.source == .auto else { return nil }
-        guard let avail = Planner.deviceAvailableGB() else { return nil }
-        let credited = avail + Geometry.gb(engine.model.pool.slots) + Planner.fixedFootprintGB
-        return try? Planner.plan(
-            expertsPerLayer: nil, poolGB: nil, memoryGB: nil, availableGB: credited)
+        guard let avail = Planner.availabilityOverride ?? Planner.deviceAvailableGB() else {
+            return nil
+        }
+        let now = Date()
+        return GovernorPolicy.Inputs(
+            currentSlots: engine.model.pool.slots,
+            availableGB: avail,
+            ramGB: cur.ramGB,
+            workingSetGB: cur.workingSetGB,
+            secondsSincePressure: lastPressureAt.map { now.timeIntervalSince($0) },
+            secondsSinceResize: lastResizeAt.map { now.timeIntervalSince($0) },
+            pressure: pressure)
     }
 
     /// OS pressure events see what availability math cannot: compressor and
@@ -92,33 +191,20 @@ public final class MemoryGovernor {
     /// repeated events keep shedding until the pressure stops.
     private func onPressure(critical: Bool) {
         lastPressureAt = Date()
-        let curGB = Geometry.gb(engine.model.pool.slots)
-        let shedGB = critical ? max(4.0, curGB * 0.5) : max(2.0, curGB * 0.15)
-        var target = Int((curGB - shedGB) * 1e9 / Geometry.recordBytes)
-        let d = desiredPlan()
-        if let d { target = min(target, d.slots) }
-        apply(target, plan: d,
-              reason: critical ? "memory pressure (critical)" : "memory pressure (warning)")
+        act(critical ? .critical : .warning)
     }
 
-    private func poll() {
-        guard let d = desiredPlan() else { return }
-        let curGB = Geometry.gb(engine.model.pool.slots)
-        let desiredGB = Geometry.gb(d.slots)
-        if desiredGB <= curGB - Self.shrinkDeadbandGB {
-            apply(d.slots, plan: d, reason: "availability dropped")
-        } else if desiredGB >= curGB + Self.growDeadbandGB {
-            let now = Date()
-            let calm = lastPressureAt.map { now.timeIntervalSince($0) > Self.growCooldown } ?? true
-            let cooled = lastResizeAt.map { now.timeIntervalSince($0) > Self.growCooldown } ?? true
-            if calm, cooled {
-                apply(d.slots, plan: d, reason: "memory freed")
-            }
+    private func poll() { act(nil) }
+
+    private func act(_ pressure: GovernorPolicy.Pressure?) {
+        guard let i = inputs(pressure: pressure) else { return }
+        if case let .resize(slots, reason) = GovernorPolicy.decide(i) {
+            apply(slots, plan: engine.currentPlan, reason: reason)
         }
     }
 
     private func apply(_ slots: Int, plan: MemoryPlan?, reason: String) {
-        let target = max(Geometry.floorSlots, min(slots, Geometry.totalRecords))
+        let target = slots  // already clamped by GovernorPolicy.decide
         let before = engine.model.pool.slots
         guard target != before else { return }
         let growing = target > before
@@ -133,6 +219,8 @@ public final class MemoryGovernor {
             ramGB: ref?.ramGB ?? Planner.deviceRAMGB(),
             workingSetGB: ref?.workingSetGB ?? Planner.deviceWorkingSetGB(),
             availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
+            prefillChunk: ref?.prefillChunk ?? Planner.prefillChunkFor(
+                poolBudgetGB: Geometry.gb(after)),
             notes: [String(
                 format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
                 Geometry.perLayer(before), Geometry.perLayer(after), reason)]))

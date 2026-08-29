@@ -1,9 +1,11 @@
 // slotstream pull: download and verify the pinned model weights.
 //
-// Resumable (HTTP Range against a .part file), hash-verified (upstream LFS
-// sha256 from the pinned revision, embedded in PinnedModel.swift so integrity
-// never depends on a live API), disk-checked before any bytes move. A stranger
-// runs: `slotstream pull` → `slotstream serve`.
+// Parallel (64 MB chunks from every file share one work queue, so every
+// connection stays busy to the last byte), resumable (an on-disk chunk map
+// per file, so resume is exact even though chunks land out of order),
+// hash-verified (upstream LFS sha256 from the pinned revision, embedded in
+// PinnedModel.swift so integrity never depends on a live API), disk-checked
+// before any bytes move. A stranger runs: `slotstream pull` → `slotstream serve`.
 
 import ArgumentParser
 import CryptoKit
@@ -69,15 +71,569 @@ enum WeightSources {
     ]
 }
 
+/// Fetch shape. One connection to Hugging Face measured 28 to 40 MB/s; eight
+/// measured 50 to 57, which is also what `hf_xet`, Hugging Face's own fastest
+/// client, gets. Past eight the CDN gives nothing back, so this is the plateau
+/// rather than a guess. 64 MB chunks keep the retry unit small without making
+/// the chunk map big (about 1,600 chunks for the whole 103.8 GB).
+enum PullTuning {
+    static let chunkBytes: Int64 = 64 << 20
+    static var connections: Int {
+        if let s = ProcessInfo.processInfo.environment["SLOTSTREAM_PULL_CONNECTIONS"],
+            let n = Int(s), n > 0
+        {
+            return min(n, 32)
+        }
+        return 8
+    }
+}
+
+/// One unit of work: bytes [start, start+length) of one file.
+private struct Chunk {
+    let file: Int  // index into PinnedModel.files
+    let index: Int  // chunk number within that file
+    let start: Int64
+    let length: Int64
+}
+
+/// A file being downloaded: an fd on its .part plus the chunk map that makes
+/// resume exact when chunks land out of order.
+private final class PartFile {
+    let file: PinnedModel.File
+    let part: URL
+    let finalURL: URL
+    let mapURL: URL
+    /// -1 once closed. Guarded by `ioLock` together with every use of the fd:
+    /// the periodic map flush and the finish-and-rename path both touch it, and
+    /// fsyncing a descriptor another thread has already closed can land on
+    /// whatever file inherited that number.
+    var fd: Int32
+    let ioLock = NSLock()
+    var chunkDone: [UInt8]
+    var pending: Int
+    var sourceIdx = 0
+    var dirty = false
+
+    init(file: PinnedModel.File, dest: URL, fd: Int32, chunkDone: [UInt8], pending: Int) {
+        self.file = file
+        self.finalURL = dest.appendingPathComponent(file.path)
+        self.part = finalURL.appendingPathExtension("part")
+        self.mapURL = finalURL.appendingPathExtension("partmap")
+        self.fd = fd
+        self.chunkDone = chunkDone
+        self.pending = pending
+    }
+}
+
+/// In-flight state for one chunk request.
+private final class ChunkState {
+    let fd: Int32
+    let chunk: Chunk
+    var writeOffset: Int64
+    var received: Int64 = 0
+    var error: Error?
+    let sem = DispatchSemaphore(value: 0)
+    init(fd: Int32, chunk: Chunk) {
+        self.fd = fd
+        self.chunk = chunk
+        self.writeOffset = chunk.start
+    }
+}
+
+/// Runs the whole pull: N worker threads pulling chunks off one shared queue,
+/// one URLSession (so connections are reused), and a background queue that
+/// hashes and renames each file the moment its last chunk lands, overlapping
+/// verification with the download that is still running.
+private final class PullJob: NSObject, URLSessionDataDelegate {
+    let dest: URL
+    let bases: [String]
+    let connections: Int
+
+    private var parts: [Int: PartFile] = [:]
+    private var queue: [Chunk] = []
+    private var nextChunk = 0
+    private var live: [Int: ChunkState] = [:]
+
+    private let lock = NSLock()
+    private var failure: Error?
+    private var hashFailure: Error?
+    private var filesLeft = 0
+
+    private var grandDone: Int64 = 0
+    private var lastPrint = Date()
+    private var startTime = Date()
+    private var startBytes: Int64 = 0
+    private var rate = 0.0
+
+    private let hashQueue = DispatchQueue(label: "slotstream.pull.hash")
+    private let hashGroup = DispatchGroup()
+
+    // Built once in init, never lazily: a `lazy var` touched by 8 worker
+    // threads at once builds several sessions, and task identifiers are only
+    // unique within a session, so their in-flight state collides and requests
+    // are never completed. Requests are keyed by our own id for the same
+    // reason — nothing depends on URLSession's numbering.
+    private var session: URLSession!
+    private var nextRequestID = 1
+
+    init(dest: URL, bases: [String], connections: Int) {
+        self.dest = dest
+        self.bases = bases
+        self.connections = connections
+        super.init()
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 60
+        cfg.timeoutIntervalForResource = 7 * 24 * 3600
+        cfg.httpMaximumConnectionsPerHost = connections
+        session = URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
+    }
+
+    // MARK: plan
+
+    /// Open every incomplete file, adopt whatever is already on disk, and build
+    /// the chunk queue. Returns the number of bytes still to fetch.
+    func plan() throws -> Int64 {
+        let fm = FileManager.default
+        var remaining: Int64 = 0
+        // A throw partway through would otherwise strand the descriptors opened
+        // for earlier files; `serve` calls this in-process.
+        var ok = false
+        defer {
+            if !ok {
+                for pf in parts.values where pf.fd >= 0 {
+                    close(pf.fd)
+                    pf.fd = -1
+                }
+                parts.removeAll()
+            }
+        }
+        for (i, f) in PinnedModel.files.enumerated() {
+            let finalURL = dest.appendingPathComponent(f.path)
+            if let attrs = try? fm.attributesOfItem(atPath: finalURL.path),
+                (attrs[.size] as? Int64) == f.size
+            {
+                continue  // present with the right size; hashes checked in verify
+            }
+            try fm.createDirectory(
+                at: finalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let part = finalURL.appendingPathExtension("part")
+            let mapURL = finalURL.appendingPathExtension("partmap")
+            let n = Pull.chunkCount(f.size)
+            var map = [UInt8](repeating: 0, count: n)
+            if let d = try? Data(contentsOf: mapURL), d.count == n {
+                map = [UInt8](d)
+            } else if let ps = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64,
+                ps > 0, ps < f.size
+            {
+                // pre-0.1.4 .part files were a strict sequential append, so
+                // whole chunks below the high-water mark are already good.
+                for c in 0 ..< Int(ps / PullTuning.chunkBytes) { map[c] = 1 }
+            }
+            let fd = open(part.path, O_WRONLY | O_CREAT, 0o644)
+            guard fd >= 0 else {
+                throw ValidationError(
+                    "cannot open \(part.path): \(String(cString: strerror(errno)))")
+            }
+            guard ftruncate(fd, off_t(f.size)) == 0 else {
+                close(fd)
+                throw ValidationError(
+                    "cannot size \(part.path): \(String(cString: strerror(errno)))")
+            }
+            var pending = 0
+            for c in 0 ..< n where map[c] == 0 {
+                let start = Int64(c) * PullTuning.chunkBytes
+                let len = Pull.chunkLength(f.size, c)
+                queue.append(Chunk(file: i, index: c, start: start, length: len))
+                remaining += len
+                pending += 1
+            }
+            if pending == 0 {
+                // every chunk already present: hash and rename without fetching
+                close(fd)
+                let pf = PartFile(file: f, dest: dest, fd: -1, chunkDone: map, pending: 0)
+                filesLeft += 1
+                finishFile(pf, alreadyClosed: true)
+            } else {
+                parts[i] = PartFile(file: f, dest: dest, fd: fd, chunkDone: map, pending: pending)
+                filesLeft += 1
+            }
+        }
+        grandDone = PinnedModel.totalBytes - remaining
+        startBytes = grandDone
+        ok = true
+        return remaining
+    }
+
+    // MARK: run
+
+    func run() throws {
+        guard !queue.isEmpty else {
+            hashGroup.wait()
+            session.invalidateAndCancel()
+            if let e = hashFailure { throw e }
+            return
+        }
+        startTime = Date()
+        lastPrint = startTime
+        let group = DispatchGroup()
+        for _ in 0 ..< connections {
+            group.enter()
+            let t = Thread { [weak self] in
+                self?.workerLoop()
+                group.leave()
+            }
+            t.stackSize = 512 << 10
+            t.start()
+        }
+        group.wait()
+        hashGroup.wait()
+        session.invalidateAndCancel()
+        flushMaps(force: true)
+        // whatever is still incomplete keeps its map and its fd until here;
+        // serve calls this in-process, so the fds must not outlive the pull
+        lock.lock()
+        for pf in parts.values {
+            pf.ioLock.lock()
+            if pf.fd >= 0 {
+                close(pf.fd)
+                pf.fd = -1
+            }
+            pf.ioLock.unlock()
+        }
+        parts.removeAll()
+        let err = failure ?? hashFailure
+        lock.unlock()
+        if let err { throw err }
+    }
+
+    private func workerLoop() {
+        while let chunk = nextWork() {
+            var lastError: Error?
+            var attempt = 0
+            var ok = false
+            while true {
+                attempt += 1
+                let (base, srcIdx) = currentSource(for: chunk.file)
+                do {
+                    try fetch(chunk, base: base)
+                    ok = true
+                    break
+                } catch {
+                    lastError = error
+                    let ns = error as NSError
+                    let permanent =
+                        ns.domain == "pull" && (400 ..< 500).contains(ns.code) && ns.code != 429
+                    if permanent {
+                        // this source does not have the file; try the next one
+                        if advanceSource(for: chunk.file, from: srcIdx) {
+                            attempt = 0
+                            continue
+                        }
+                        break
+                    }
+                    if attempt >= 5 { break }
+                    Thread.sleep(forTimeInterval: Double(attempt) * 2)
+                }
+            }
+            if ok {
+                completeChunk(chunk)
+            } else {
+                recordFailure(chunk, lastError)
+                return
+            }
+        }
+    }
+
+    private func nextWork() -> Chunk? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard failure == nil, hashFailure == nil, nextChunk < queue.count else { return nil }
+        let c = queue[nextChunk]
+        nextChunk += 1
+        return c
+    }
+
+    private func currentSource(for file: Int) -> (String, Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        let i = parts[file]?.sourceIdx ?? 0
+        return (bases[min(i, bases.count - 1)], i)
+    }
+
+    private func advanceSource(for file: Int, from i: Int) -> Bool {
+        lock.lock()
+        guard let pf = parts[file] else {
+            lock.unlock()
+            return false
+        }
+        if pf.sourceIdx == i { pf.sourceIdx += 1 }
+        let next = pf.sourceIdx
+        let name = pf.file.path
+        lock.unlock()
+        guard next < bases.count else { return false }
+        FileHandle.standardError.write(
+            "  \(name): source refused it — trying \(bases[next])\n".data(using: .utf8)!)
+        return true
+    }
+
+    private func recordFailure(_ chunk: Chunk, _ error: Error?) {
+        lock.lock()
+        if failure == nil {
+            failure = ValidationError(
+                "\(PinnedModel.files[chunk.file].path): download failed from all "
+                    + "\(bases.count) source(s) (\(error?.localizedDescription ?? "?")) — "
+                    + "rerun `slotstream pull` to resume")
+        }
+        lock.unlock()
+    }
+
+    // MARK: one chunk
+
+    private func fetch(_ chunk: Chunk, base: String) throws {
+        let f = PinnedModel.files[chunk.file]
+        lock.lock()
+        let fd = parts[chunk.file]?.fd ?? -1
+        lock.unlock()
+        guard fd >= 0 else { return }
+
+        guard let url = URL(string: "\(base)/\(f.path)") else {
+            throw NSError(
+                domain: "pull", code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "bad source URL for \(f.path)"])
+        }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 60
+        req.setValue(
+            "bytes=\(chunk.start)-\(chunk.start + chunk.length - 1)",
+            forHTTPHeaderField: "Range")
+
+        let state = ChunkState(fd: fd, chunk: chunk)
+        let task = session.dataTask(with: req)
+        lock.lock()
+        let rid = nextRequestID
+        nextRequestID += 1
+        live[rid] = state
+        lock.unlock()
+        task.taskDescription = String(rid)
+        task.resume()
+        state.sem.wait()
+        lock.lock()
+        live.removeValue(forKey: rid)
+        lock.unlock()
+
+        if let e = state.error { throw e }
+        guard state.received == chunk.length else {
+            throw NSError(
+                domain: "pull", code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "short chunk: \(state.received)/\(chunk.length) bytes"
+                ])
+        }
+    }
+
+    private func state(of task: URLSessionTask) -> ChunkState? {
+        guard let rid = Int(task.taskDescription ?? "") else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return live[rid]
+    }
+
+    func urlSession(
+        _ s: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        let st = state(of: dataTask)
+        guard let st else {
+            completionHandler(.cancel)
+            return
+        }
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let wholeFile =
+            st.chunk.start == 0 && st.chunk.length == PinnedModel.files[st.chunk.file].size
+        if code == 206 || (code == 200 && wholeFile) {
+            completionHandler(.allow)
+        } else {
+            // 200 for a partial range means the server ignored Range; accepting
+            // it would write the whole file into one chunk slot.
+            st.error = NSError(
+                domain: "pull", code: code == 200 ? 1 : code,
+                userInfo: [
+                    NSLocalizedDescriptionKey: code == 200
+                        ? "server ignored the Range request" : "HTTP \(code)"
+                ])
+            completionHandler(.cancel)
+        }
+    }
+
+    func urlSession(_ s: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        let st = state(of: dataTask)
+        guard let st, st.error == nil else { return }
+        guard st.received + Int64(data.count) <= st.chunk.length else {
+            st.error = NSError(
+                domain: "pull", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "server sent more than the requested range"])
+            dataTask.cancel()
+            return
+        }
+        var wrote = 0
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            guard var p = raw.baseAddress else { return }
+            var n = raw.count
+            var off = st.writeOffset
+            while n > 0 {
+                let w = pwrite(st.fd, p, n, off_t(off))
+                if w <= 0 {
+                    st.error = NSError(
+                        domain: "pull", code: 1,
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "write failed: \(String(cString: strerror(errno)))"
+                        ])
+                    break
+                }
+                n -= w
+                p = p.advanced(by: w)
+                off += Int64(w)
+                wrote += w
+            }
+            st.writeOffset = off
+        }
+        st.received += Int64(wrote)
+        noteProgress(Int64(wrote))
+    }
+
+    func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
+        let st = state(of: task)
+        guard let st else { return }
+        if st.error == nil, let e { st.error = e }
+        st.sem.signal()
+    }
+
+    // MARK: bookkeeping
+
+    private func completeChunk(_ chunk: Chunk) {
+        var finished: PartFile?
+        lock.lock()
+        if let pf = parts[chunk.file] {
+            pf.chunkDone[chunk.index] = 1
+            pf.dirty = true
+            pf.pending -= 1
+            if pf.pending == 0 {
+                finished = pf
+                parts.removeValue(forKey: chunk.file)
+            }
+        }
+        lock.unlock()
+        if let pf = finished {
+            finishFile(pf, alreadyClosed: false)
+        }
+        flushMaps(force: false)
+    }
+
+    /// Hash and rename on a background queue so verification of a finished file
+    /// overlaps the download of the next one.
+    private func finishFile(_ pf: PartFile, alreadyClosed: Bool) {
+        if !alreadyClosed {
+            pf.ioLock.lock()
+            if pf.fd >= 0 {
+                fsync(pf.fd)
+                close(pf.fd)
+                pf.fd = -1
+            }
+            pf.ioLock.unlock()
+        }
+        hashGroup.enter()
+        hashQueue.async { [self] in
+            defer { hashGroup.leave() }
+            let fm = FileManager.default
+            do {
+                if let want = pf.file.sha256 {
+                    let got = Pull.sha256(of: pf.part)
+                    guard got == want else {
+                        try? fm.removeItem(at: pf.part)
+                        try? fm.removeItem(at: pf.mapURL)
+                        throw ValidationError(
+                            "\(pf.file.path): sha256 mismatch after download — corrupted "
+                                + "transfer; rerun `slotstream pull`")
+                    }
+                }
+                _ = try? fm.removeItem(at: pf.finalURL)
+                try fm.moveItem(at: pf.part, to: pf.finalURL)
+                try? fm.removeItem(at: pf.mapURL)
+                lock.lock()
+                filesLeft -= 1
+                lock.unlock()
+                FileHandle.standardError.write(
+                    "  done  \(pf.file.path)\n".data(using: .utf8)!)
+            } catch {
+                lock.lock()
+                if hashFailure == nil { hashFailure = error }
+                lock.unlock()
+            }
+        }
+    }
+
+    private func noteProgress(_ bytes: Int64) {
+        lock.lock()
+        grandDone += bytes
+        lock.unlock()
+    }
+
+    /// Every 2 s: flush the chunk maps (after fsyncing the data they claim, so
+    /// a map never promises bytes that are not on disk) and print one line.
+    private func flushMaps(force: Bool) {
+        lock.lock()
+        let now = Date()
+        guard force || now.timeIntervalSince(lastPrint) >= 2 else {
+            lock.unlock()
+            return
+        }
+        let elapsed = now.timeIntervalSince(startTime)
+        if elapsed > 0 { rate = Double(grandDone - startBytes) / elapsed }
+        lastPrint = now
+        var snapshots: [(PartFile, [UInt8])] = []
+        for pf in parts.values where pf.dirty {
+            pf.dirty = false
+            snapshots.append((pf, pf.chunkDone))
+        }
+        let done = grandDone
+        let left = filesLeft
+        let quiet = force
+        lock.unlock()
+
+        for (pf, map) in snapshots {
+            pf.ioLock.lock()
+            // Skip a file that finished (and had its map removed) since the
+            // snapshot was taken; rewriting its map would leave an orphan.
+            if pf.fd >= 0 {
+                fsync(pf.fd)
+                try? Data(map).write(to: pf.mapURL, options: .atomic)
+            }
+            pf.ioLock.unlock()
+        }
+        guard !quiet, rate > 0 else { return }
+        let total = PinnedModel.totalBytes
+        let eta = Double(total - done) / rate
+        FileHandle.standardError.write(
+            String(
+                format: "  %.1f/%.1f GB | %.0f MB/s | eta %dm%02ds | %d file(s) left\n",
+                Double(done) / 1e9, Double(total) / 1e9, rate / 1e6,
+                Int(eta) / 60, Int(eta) % 60, left).data(using: .utf8)!)
+    }
+}
+
 struct Pull: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Download the model weights (resumable, hash-verified). Then: slotstream serve")
+        abstract: "Download the model weights (parallel, resumable, hash-verified). Then: slotstream serve")
 
     @Argument(help: "Model to pull (only \(PinnedModel.name) exists in v0)")
     var model: String = PinnedModel.name
 
     @Option(name: .customLong("dir"), help: "Destination directory (default ~/.slotstream/models/\(PinnedModel.dirName))")
     var dir: String?
+
+    @Option(name: .customLong("connections"), help: "Parallel connections (default \(PullTuning.connections))")
+    var connections: Int?
 
     @Flag(name: .customLong("verify"), help: "Verify an existing copy against the pinned upstream hashes; download nothing")
     var verifyOnly = false
@@ -93,7 +649,7 @@ struct Pull: ParsableCommand {
             try Self.verify(at: dest)
             return
         }
-        try Self.download(to: dest)
+        try Self.download(to: dest, connections: connections)
         try Self.verify(at: dest)
         print("\nready. next:  slotstream serve     (or: slotstream run --prompt \"...\")")
     }
@@ -112,7 +668,10 @@ struct Pull: ParsableCommand {
         let files = PinnedModel.files
         DispatchQueue.concurrentPerform(iterations: files.count) { i in
             let f = files[i]
-            let url = dest.appendingPathComponent(f.path)
+            // resolvingSymlinksInPath: attributesOfItem does not follow a
+            // symlink, so a symlinked weight file reported the link's own size
+            // and every file looked corrupt.
+            let url = dest.appendingPathComponent(f.path).resolvingSymlinksInPath()
             var problem: String? = nil
             if let attrs = try? fm.attributesOfItem(atPath: url.path),
                 let size = attrs[.size] as? Int64
@@ -157,17 +716,38 @@ struct Pull: ParsableCommand {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Bytes still to download at `dest` (counting .part progress), by size
+    // MARK: chunk math
+
+    static func chunkCount(_ size: Int64) -> Int {
+        max(1, Int((size + PullTuning.chunkBytes - 1) / PullTuning.chunkBytes))
+    }
+
+    static func chunkLength(_ size: Int64, _ index: Int) -> Int64 {
+        let start = Int64(index) * PullTuning.chunkBytes
+        return max(0, min(PullTuning.chunkBytes, size - start))
+    }
+
+    /// Bytes still to download at `dest` (counting chunk-map progress), by size
     /// only — hashes are verify's job. 0 means every file is present whole.
     static func remainingBytes(at dest: URL) -> Int64 {
         let fm = FileManager.default
         var remaining: Int64 = 0
         for f in PinnedModel.files {
             let final = dest.appendingPathComponent(f.path)
-            if let size = (try? fm.attributesOfItem(atPath: final.path))?[.size] as? Int64,
+            let resolved = final.resolvingSymlinksInPath()
+            if let size = (try? fm.attributesOfItem(atPath: resolved.path))?[.size] as? Int64,
                 size == f.size { continue }
             let part = final.appendingPathExtension("part")
-            let have = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64 ?? 0
+            let mapURL = final.appendingPathExtension("partmap")
+            let n = chunkCount(f.size)
+            var have: Int64 = 0
+            if let d = try? Data(contentsOf: mapURL), d.count == n {
+                for (i, b) in d.enumerated() where b == 1 { have += chunkLength(f.size, i) }
+            } else if let ps = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64,
+                ps < f.size
+            {
+                have = ps  // pre-0.1.4 sequential .part
+            }
             remaining += f.size - min(have, f.size)
         }
         return remaining
@@ -175,26 +755,16 @@ struct Pull: ParsableCommand {
 
     // MARK: download
 
-    static func download(to dest: URL) throws {
+    static func download(to dest: URL, connections: Int? = nil) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
 
-        // what remains?
-        var todo: [(PinnedModel.File, Int64)] = []  // (file, bytes already present in .part)
-        var remaining: Int64 = 0
-        for f in PinnedModel.files {
-            let final = dest.appendingPathComponent(f.path)
-            if let attrs = try? fm.attributesOfItem(atPath: final.path),
-                (attrs[.size] as? Int64) == f.size
-            {
-                continue  // present with the right size; hashes checked in verify
-            }
-            let part = final.appendingPathExtension("part")
-            let have = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64 ?? 0
-            todo.append((f, min(have, f.size)))
-            remaining += f.size - min(have, f.size)
-        }
-        if todo.isEmpty {
+        let conns = max(1, min(connections ?? PullTuning.connections, 32))
+        let bases = WeightSources.bases
+        let job = PullJob(dest: dest, bases: bases, connections: conns)
+        let remaining = try job.plan()
+        if remaining == 0 {
+            try job.run()  // may still have files to hash and rename
             print("all \(PinnedModel.files.count) files already present")
             return
         }
@@ -209,169 +779,12 @@ struct Pull: ParsableCommand {
                 Double(needed) / 1e9, Double(remaining) / 1e9, Double(free) / 1e9, dest.path))
         }
         print(String(
-            format: "pulling %@ @ %@: %d file(s), %.1f GB to go (resumable — rerun to continue)",
-            PinnedModel.repo, String(PinnedModel.revision.prefix(12)), todo.count,
-            Double(remaining) / 1e9))
-        let bases = WeightSources.bases
+            format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
+            PinnedModel.repo, String(PinnedModel.revision.prefix(12)),
+            Double(remaining) / 1e9, conns))
         print("source: \(bases[0])")
         for b in bases.dropFirst() { print("fallback: \(b)") }
-
-        var done: Int64 = PinnedModel.totalBytes - remaining
-        for (f, have) in todo {
-            try downloadFile(f, to: dest, resumeFrom: have, totalDone: &done)
-        }
-    }
-
-    static func downloadFile(
-        _ f: PinnedModel.File, to dest: URL, resumeFrom: Int64, totalDone: inout Int64
-    ) throws {
-        let final = dest.appendingPathComponent(f.path)
-        let part = final.appendingPathExtension("part")
-        var offset = resumeFrom
-        let bases = WeightSources.bases
-        var lastError: Error?
-        var succeeded = false
-        for (i, base) in bases.enumerated() {
-            var attempt = 0
-            while true {
-                attempt += 1
-                do {
-                    try fetchRange(f, base: base, into: part, from: offset, totalDone: &totalDone)
-                    succeeded = true
-                    break
-                } catch {
-                    lastError = error
-                    offset = (try? FileManager.default.attributesOfItem(atPath: part.path))?[
-                        .size] as? Int64 ?? 0
-                    // a permanent refusal (404/403/...) means this source
-                    // doesn't have the file — go straight to the next one
-                    let code = (error as NSError).code
-                    let permanent = (error as NSError).domain == "pull"
-                        && (400 ..< 500).contains(code) && code != 429
-                    if permanent || attempt >= 5 { break }
-                    FileHandle.standardError.write(
-                        "  retrying \(f.path) from \(offset / 1_000_000) MB (\(error.localizedDescription))\n"
-                            .data(using: .utf8)!)
-                    Thread.sleep(forTimeInterval: Double(attempt) * 2)
-                }
-            }
-            if succeeded { break }
-            if i + 1 < bases.count {
-                FileHandle.standardError.write(
-                    "  source unavailable for \(f.path) (\(lastError?.localizedDescription ?? "?")) — trying fallback: \(bases[i + 1])\n"
-                        .data(using: .utf8)!)
-            }
-        }
-        guard succeeded else {
-            throw ValidationError(
-                "\(f.path): download failed from all \(bases.count) source(s) (\(lastError?.localizedDescription ?? "?")) — rerun `slotstream pull` to resume")
-        }
-        // hash before accepting (only LFS files carry hashes)
-        if let want = f.sha256 {
-            let got = sha256(of: part)
-            guard got == want else {
-                try? FileManager.default.removeItem(at: part)
-                throw ValidationError(
-                    "\(f.path): sha256 mismatch after download — corrupted transfer; rerun `slotstream pull`")
-            }
-        }
-        _ = try? FileManager.default.removeItem(at: final)
-        try FileManager.default.moveItem(at: part, to: final)
-    }
-
-    /// Stream one file (from byte `from`) into `part`, appending. Throws on
-    /// network errors; progress goes to stderr about once per 2 s.
-    static func fetchRange(
-        _ f: PinnedModel.File, base: String, into part: URL, from: Int64, totalDone: inout Int64
-    ) throws {
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: part.path) {
-            fm.createFile(atPath: part.path, contents: nil)
-        }
-        let fh = try FileHandle(forWritingTo: part)
-        defer { try? fh.close() }
-        try fh.truncate(atOffset: UInt64(from))
-        try fh.seekToEnd()
-
-        let urlStr = "\(base)/\(f.path)"
-        var req = URLRequest(url: URL(string: urlStr)!)
-        req.timeoutInterval = 60
-        if from > 0 { req.setValue("bytes=\(from)-", forHTTPHeaderField: "Range") }
-
-        final class Sink: NSObject, URLSessionDataDelegate {
-            let fh: FileHandle
-            let name: String
-            let fileTotal: Int64
-            var fileDone: Int64
-            var grandDone: Int64
-            let grandTotal = PinnedModel.totalBytes
-            var lastPrint = Date.distantPast
-            var lastBytes: Int64
-            var lastRate = 0.0
-            var error: Error?
-            let sem = DispatchSemaphore(value: 0)
-            init(fh: FileHandle, name: String, fileTotal: Int64, start: Int64, grandStart: Int64) {
-                self.fh = fh
-                self.name = name
-                self.fileTotal = fileTotal
-                self.fileDone = start
-                self.grandDone = grandStart
-                self.lastBytes = start
-            }
-            func urlSession(
-                _ s: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
-                completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
-            ) {
-                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-                if code == 200 || code == 206 {
-                    completionHandler(.allow)
-                } else {
-                    error = NSError(
-                        domain: "pull", code: code,
-                        userInfo: [NSLocalizedDescriptionKey: "HTTP \(code)"])
-                    completionHandler(.cancel)
-                }
-            }
-            func urlSession(_ s: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-                fh.write(data)
-                fileDone += Int64(data.count)
-                grandDone += Int64(data.count)
-                let now = Date()
-                if now.timeIntervalSince(lastPrint) >= 2 {
-                    let dt = now.timeIntervalSince(lastPrint)
-                    if lastPrint != Date.distantPast {
-                        lastRate = Double(fileDone - lastBytes) / dt
-                    }
-                    lastPrint = now
-                    lastBytes = fileDone
-                    let eta = lastRate > 0 ? Double(grandTotal - grandDone) / lastRate : 0
-                    FileHandle.standardError.write(String(
-                        format: "  %@ %5.1f%% (%.2f/%.2f GB) | total %.1f/%.1f GB | %.0f MB/s eta %dm%02ds\n",
-                        name, 100 * Double(fileDone) / Double(fileTotal), Double(fileDone) / 1e9,
-                        Double(fileTotal) / 1e9, Double(grandDone) / 1e9, Double(grandTotal) / 1e9,
-                        lastRate / 1e6, Int(eta) / 60, Int(eta) % 60).data(using: .utf8)!)
-                }
-            }
-            func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
-                if error == nil { error = e }
-                sem.signal()
-            }
-        }
-
-        let sink = Sink(fh: fh, name: f.path, fileTotal: f.size, start: from, grandStart: totalDone)
-        let cfg = URLSessionConfiguration.ephemeral
-        cfg.timeoutIntervalForResource = 7 * 24 * 3600
-        let session = URLSession(configuration: cfg, delegate: sink, delegateQueue: nil)
-        session.dataTask(with: req).resume()
-        sink.sem.wait()
-        session.finishTasksAndInvalidate()
-        totalDone = sink.grandDone
-        if let e = sink.error { throw e }
-        let written = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64 ?? -1
-        guard written == f.size else {
-            throw NSError(
-                domain: "pull", code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "incomplete: \(written)/\(f.size) bytes"])
-        }
+        fflush(stdout)
+        try job.run()
     }
 }

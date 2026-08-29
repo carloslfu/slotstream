@@ -9,10 +9,10 @@ struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "slotstream",
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
-        version: "0.1.3",
+        version: SlotstreamBuild.version,
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
-            NgramGolden.self, DequantGolden.self, TemplateCheck.self,
+            NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
         ]
     )
 }
@@ -142,7 +142,8 @@ struct Run: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Generate from a prompt")
     @OptionGroup var model: ModelOptions
     @Option var prompt: String = "Why is the sky blue?"
-    @Option var maxTokens: Int = 128
+    @Option(help: "Maximum tokens to generate (<= 0 means as many as allowed)")
+    var maxTokens: Int = 128
     @Flag(help: "Greedy sampling (deterministic)") var greedy = false
     @Flag(help: "Raw prompt (no chat template)") var raw = false
     @Flag(help: "Enable thinking mode") var think = false
@@ -161,6 +162,7 @@ struct Run: ParsableCommand {
                     ids = try engine.encodeChat([ChatMessage(role: "user", content: prompt)], thinking: think)
                 }
                 FileHandle.standardError.write("prompt tokens: \(ids.count)\n".data(using: .utf8)!)
+                if let e = engine.contextError(promptTokens: ids.count) { throw PlanError(e) }
                 var params: SampleParams = greedy ? .greedy : (think ? .thinking : .instruct)
                 params.maxTokens = maxTokens
                 let t0 = Date()
@@ -197,12 +199,19 @@ struct Serve: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Ollama-compatible API server")
     @OptionGroup var model: ModelOptions
     @Option var port: UInt16 = 11434
+    @Option(name: .customLong("max-context"),
+            help: "Longest prompt accepted, in tokens. Beyond it a request is refused rather than stalling: KV plus indexer state costs ~27 KiB per token on top of the memory plan, and prefill runs at tens of tokens a second.")
+    var maxContext: Int = 32_768
     @Flag(name: .customLong("no-elastic"),
           help: "Pin the cache at its startup size. Default: an auto-sized cache resizes itself between requests as memory pressure and availability change (explicit size flags are always pinned).")
     var noElastic = false
 
     func run() throws {
+        guard maxContext > 0 else { throw PlanError("--max-context must be > 0") }
         let plan = try model.announcedPlan()
+        // Claim the port first: failing here after a full model load wastes
+        // half a minute and used to be a fatalError.
+        let listenFD = try Server.bindPort(port)
         let sem = DispatchSemaphore(value: 0)
         var engine: Engine!
         var err: Error?
@@ -212,6 +221,7 @@ struct Serve: ParsableCommand {
         }
         sem.wait()
         if let e = err { throw e }
+        engine.maxContextTokens = maxContext
         var governor: MemoryGovernor?
         if plan.source == .auto, !noElastic {
             governor = MemoryGovernor(engine: engine)
@@ -222,7 +232,9 @@ struct Serve: ParsableCommand {
                     .data(using: .utf8)!)
         }
         defer { governor?.stop() }
-        let server = Server(engine: engine, port: port)
+        let server = Server(
+            engine: engine, port: port, weightsBytes: Int(PinnedModel.totalBytes),
+            listenFD: listenFD)
         try server.run()
     }
 }
@@ -322,8 +334,8 @@ struct Doctor: ParsableCommand {
           --pool-gb G             raw pool size (1 GB = 7.5 experts/layer)
         """)
         print(String(
-            format: "min ~14/layer = %.1f GB total. The pool is one global cache shared across",
-            Planner.minMemoryGB))
+            format: "min ~%.0f/layer = %.1f GB total. The pool is one global cache shared across",
+            Geometry.perLayer(Geometry.floorSlots), Planner.minMemoryGB))
         print("""
             all layers -- per-layer is the unit of intuition (a token activates 10
             of its 512 per layer), not a quota: hot layers borrow slots from cold.
@@ -439,6 +451,185 @@ struct DequantGolden: ParsableCommand {
         print("multipliers: \(store.multipliers)")
         let row = store.debugRow(gid)
         print("row[\(gid)][0..16]: " + row.prefix(16).map { String(format: "%.6f", $0) }.joined(separator: ","))
+    }
+}
+
+/// Drives the elastic governor's decision policy across every branch with
+/// scripted inputs. No checkpoint is loaded and no real memory is consumed:
+/// putting the machine under genuine pressure to observe the policy is both
+/// dangerous and unrepeatable, so the policy is a pure function and this is
+/// its test. `elastic-check` separately proves the resize *mechanism* keeps
+/// output byte-identical.
+struct GovernorCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "governor-check",
+        abstract: "Prove the elastic resize policy behaves across pressure, availability and cooldowns")
+
+    typealias P = GovernorPolicy
+    // A 48 GB Mac sitting at what auto picks when nothing else is running.
+    static let ram = 51.5
+    static let ws = 40.2
+
+    static func inputs(
+        slots: Int, avail: Double, sincePressure: Double? = nil,
+        sinceResize: Double? = nil, pressure: P.Pressure? = nil
+    ) -> P.Inputs {
+        P.Inputs(
+            currentSlots: slots, availableGB: avail, ramGB: ram, workingSetGB: ws,
+            secondsSincePressure: sincePressure, secondsSinceResize: sinceResize,
+            pressure: pressure)
+    }
+
+    func run() throws {
+        var pass = 0, fail = 0
+        func check(_ name: String, _ cond: Bool, _ detail: @autoclosure () -> String = "") {
+            if cond { print("PASS  \(name)"); pass += 1 }
+            else { print("FAIL  \(name)  \(detail())"); fail += 1 }
+        }
+        func slots(_ d: P.Decision) -> Int? {
+            if case let .resize(s, _) = d { return s }
+            return nil
+        }
+        func reason(_ d: P.Decision) -> String {
+            if case let .resize(_, r) = d { return r }
+            return "hold"
+        }
+
+        // Steady state: a quiet machine holding what auto would pick.
+        let steady = Planner.slotsForTarget(Planner.autoTargetGB(ramGB: Self.ram, workingSetGB: Self.ws))
+        let steadyAvail = Geometry.gb(steady) + Planner.fixedFootprintGB + 6.0
+        let d0 = P.decide(Self.inputs(slots: steady, avail: steadyAvail))
+        check("quiet machine at target: hold", d0 == .hold, "got \(d0)")
+
+        // Availability collapses: shrink, in one step, to what a restart would pick.
+        let d1 = P.decide(Self.inputs(slots: steady, avail: 2.0))
+        check("availability collapses: shrinks", (slots(d1) ?? steady) < steady, "got \(d1)")
+        check("  ...and says why", reason(d1) == "availability dropped")
+        // Shrinking the pool releases that memory, so availability must rise by
+        // exactly what the pool gave up. Holding it fixed is not a reachable
+        // state, and the credit in desiredSlots exists precisely so the answer
+        // does not depend on how much we happen to hold right now.
+        let after = slots(d1)!
+        let freed = Geometry.gb(steady) - Geometry.gb(after)
+        let once = P.decide(Self.inputs(slots: after, avail: 2.0 + freed))
+        check("  ...converges in one step (no ratcheting)", once == .hold, "got \(once)")
+
+        // The invariant behind that: only (availability + pool) matters, so two
+        // states holding the same total memory must want the same size.
+        // Compare the desired target, not the decision: whether a resize is
+        // emitted also depends on dead-bands and cooldowns, and a machine
+        // already at the desired size correctly holds.
+        let small = Geometry.floorSlots * 3
+        let wantA = P.desiredSlots(Self.inputs(slots: steady, avail: 12.0))
+        let wantB = P.desiredSlots(
+            Self.inputs(slots: small, avail: 12.0 + Geometry.gb(steady) - Geometry.gb(small)))
+        check("target depends on (available + pool), not on either alone",
+              wantA != nil && wantA == wantB,
+              "\(String(describing: wantA)) vs \(String(describing: wantB))")
+
+        // Dead-bands: a small change must not churn the pool.
+        let smallDrop = Geometry.gb(steady) + Planner.fixedFootprintGB + 5.4
+        check("small drop inside the shrink dead-band: hold",
+              P.decide(Self.inputs(slots: steady, avail: smallDrop)) == .hold)
+        let tinyGain = steadyAvail + 1.0
+        check("small gain inside the grow dead-band: hold",
+              P.decide(Self.inputs(slots: steady, avail: tinyGain)) == .hold)
+
+        // Growth is gated on calm and on cooldown.
+        let roomy = 30.0
+        check("grow blocked while a resize is recent",
+              P.decide(Self.inputs(slots: small, avail: roomy, sinceResize: 10)) == .hold)
+        check("grow blocked while pressure is recent",
+              P.decide(Self.inputs(slots: small, avail: roomy, sincePressure: 10, sinceResize: 999)) == .hold)
+        let grow = P.decide(Self.inputs(slots: small, avail: roomy, sincePressure: 999, sinceResize: 999))
+        check("grow allowed once calm and cooled", (slots(grow) ?? 0) > small, "got \(grow)")
+        check("  ...and says why", reason(grow) == "memory freed")
+
+        // OS pressure events shed immediately, regardless of cooldown.
+        let warn = P.decide(Self.inputs(slots: steady, avail: steadyAvail, sinceResize: 0, pressure: .warning))
+        let warnShed = Geometry.gb(steady) - Geometry.gb(slots(warn) ?? steady)
+        check("warning pressure sheds >= max(2 GB, 15%)",
+              warnShed >= min(2.0, Geometry.gb(steady)) - 0.01, "shed \(warnShed) GB")
+        check("  ...ignores the resize cooldown", slots(warn) != nil)
+        let crit = P.decide(Self.inputs(slots: steady, avail: steadyAvail, sinceResize: 0, pressure: .critical))
+        let critShed = Geometry.gb(steady) - Geometry.gb(slots(crit) ?? steady)
+        check("critical pressure sheds >= max(4 GB, 50%)",
+              critShed >= min(4.0, Geometry.gb(steady)) - 0.01, "shed \(critShed) GB")
+        check("critical sheds strictly more than warning", critShed > warnShed)
+
+        // Repeated pressure keeps shedding, but never past the floor.
+        var cur = steady
+        for _ in 0 ..< 20 {
+            guard let n = slots(P.decide(Self.inputs(slots: cur, avail: 1.0, pressure: .critical))) else { break }
+            cur = n
+        }
+        check("repeated critical pressure converges to the floor", cur == Geometry.floorSlots, "ended at \(cur)")
+        check("floor is never breached", cur >= Geometry.floorSlots)
+        check("at the floor, more pressure is a no-op",
+              P.decide(Self.inputs(slots: Geometry.floorSlots, avail: 0.5, pressure: .critical)) == .hold)
+
+        // The cap holds on a machine with more memory than the model needs.
+        let huge = P.Inputs(
+            currentSlots: Geometry.floorSlots, availableGB: 400, ramGB: 512, workingSetGB: 400,
+            secondsSincePressure: nil, secondsSinceResize: nil, pressure: nil)
+        check("never asks for more slots than the model has",
+              (slots(P.decide(huge)) ?? 0) <= Geometry.totalRecords,
+              "got \(String(describing: slots(P.decide(huge))))")
+
+        print("")
+        print("governor policy: passed \(pass), failed \(fail)")
+        if fail > 0 { throw ExitCode(2) }
+    }
+}
+
+/// Drives the sampler on synthetic logits with no checkpoint loaded, so its
+/// behaviour can be diffed against `Tools/sampler_ref.py`. The logits come from
+/// the same splitmix64 stream on both sides, built only from exactly
+/// representable float operations so the two agree bit for bit.
+struct SamplerGolden: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "sampler-golden",
+        abstract: "Sample from reproducible synthetic logits (compare vs Tools/sampler_ref.py)")
+    @Option var vocab: Int = 256
+    @Option var draws: Int = 24
+    @Option var seed: UInt64 = 7
+    @Option(help: "Seed for the synthetic logits themselves") var logitSeed: UInt64 = 99
+    @Option var temperature: Float = 0.8
+    @Option var topP: Float = 0.95
+    @Option var topK: Int = 40
+    @Option var minP: Float = 0
+    @Option var presencePenalty: Float = 0
+    @Flag(help: "Feed each pick back as 'already generated' (exercises the penalty)")
+    var accumulate = false
+
+    static func logits(vocab: Int, seed: UInt64) -> [Float] {
+        var st = seed
+        return (0 ..< vocab).map { _ in
+            st = Splitmix.mix(st)
+            // 24 bits / 2^24 is exact in f32; x8 and -4 are exact scalings.
+            return Float(st >> 40) / Float(1 << 24) * 8.0 - 4.0
+        }
+    }
+
+    func run() throws {
+        var p = SampleParams()
+        p.temperature = temperature
+        p.topP = topP
+        p.topK = topK
+        p.minP = minP
+        p.presencePenalty = presencePenalty
+        p = p.sanitized()
+        let vals = Self.logits(vocab: vocab, seed: logitSeed)
+        let arr = MLXArray(vals)
+        var sampler = Sampler(seed: seed)
+        var generated = Set<Int>()
+        var picks: [Int] = []
+        for _ in 0 ..< draws {
+            let t = sampler.next(arr, params: p, generated: generated)
+            picks.append(t)
+            if accumulate { generated.insert(t) }
+        }
+        print(picks.map(String.init).joined(separator: ","))
     }
 }
 

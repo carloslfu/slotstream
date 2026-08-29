@@ -7,8 +7,6 @@ import MLX
 import MLXFast
 import MLXNN
 
-let kMaskNegative: Float = -1e9
-
 // MARK: - norms
 
 /// RMSNorm; with groupSize set, statistics are computed per group of `groupSize`
@@ -115,11 +113,27 @@ final class KVCache {
     }
 }
 
+/// Grown in blocks like KVCache rather than re-concatenated per token: a
+/// fresh `concatenated` every step copies the whole cache each time, which is
+/// quadratic in context length. Values are identical either way.
 final class IndexerCache {
-    var keys: MLXArray?  // (B, T, dim)
+    private var buf: MLXArray?  // (B, cap, dim)
+    private(set) var offset = 0
+    let step = 1024
+
     func update(_ k: MLXArray) -> MLXArray {
-        keys = keys == nil ? k : concatenated([keys!, k], axis: 1)
-        return keys!
+        let s = k.dim(1)
+        if buf == nil || offset + s > buf!.dim(1) {
+            let newCap = ((offset + s + step - 1) / step) * step
+            let grown = MLXArray.zeros([k.dim(0), newCap, k.dim(2)], dtype: k.dtype)
+            if let old = buf, offset > 0 {
+                grown[0..., 0 ..< offset, 0...] = old[0..., 0 ..< offset, 0...]
+            }
+            buf = grown
+        }
+        buf![0..., offset ..< (offset + s), 0...] = k
+        offset += s
+        return buf![0..., 0 ..< offset, 0...]
     }
 }
 
