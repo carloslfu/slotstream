@@ -113,7 +113,7 @@ Quantization overhead (MLX affine, group size 64): bits + 0.5 bpp for fp16 scale
 | Dense trunk (GDN+QSA+HC+norms) | ~2.7B | 1.5 GB (2.2 GB @6-bit) | resident |
 | Embeddings + lm_head (untied) | 1.27B | 0.72 GB | resident |
 | N-gram/PLE store | 51.2B | **32.0 GB** ✅measured (320,001,536 rows × 100 B) | SSD, page-cached, exact-prefetched |
-| MTP block | ~4B | 2.25 GB | optional, off in v0 |
+| MTP block | ~4B | 2.25 GB (est.; absent from the pinned conversion) | optional, off in v0 |
 | Vision encoder | ~0.4B | 0.43 GB @8-bit | optional, off in v0 |
 | **Fully resident total** | ~180B | **~102 GB** | doesn't fit even in 48 GB → streaming is mandatory on the dev Mac too; exceeds the default wired limit even on 128 GB (see §5) |
 
@@ -393,7 +393,7 @@ Axes — every named preset is a point in this space:
 | Prefill mode | cached · dense-sweep (auto threshold) | prefill throughput |
 | IO mode | nocache (default) · pagecache-L2 | determinism vs free OS cache |
 | QD / staging | 8–32 / 64–256 MB | SSD utilization |
-| MTP self-spec decode | off (v0) · on (M9) | decode multiplier |
+| MTP self-spec decode | off (v0) · on (M9, big-memory tiers only — see the M9 design note) | decode multiplier where launch-bound; costs ~17 experts/layer |
 
 ### Presets v1 (est. columns to be replaced by M8 measurements)
 
@@ -634,10 +634,69 @@ Run Stages A→C; fill every Measured column in §5; tune; freeze presets v1; wr
 per-tier expectations into README.
 **Exit:** §5 table complete for ≥4 tiers incl. one real ≤16 GB Mac; §11 checklist review.
 
+### M9 design note — MTP self-speculative decode: when it pays, and when experts win
+
+Not built in v0, and the pinned community conversion drops the MTP tensors
+(`sanitize` removes them; the measured 103.8 GB inventory has none), so the block
+must first be converted and quantized from Qwen's official release. This note
+records the first-principles analysis of *whether* to spend memory on it, because
+the answer is strongly tier-dependent and the earlier plan text had it backwards.
+
+**Two walls, and memory decides which one you are against.**
+
+- **Small cache → fetch-bound.** Most tokens miss; decode waits on SSD reads
+  layer by layer. Compute idles.
+- **Large cache → launch-bound.** Nearly everything hits; decode is limited by
+  kernel-launch count, not bytes (MEASUREMENTS §M0.6: batch-1 4-bit matmul reaches 20% of
+  memory bandwidth; measured decode is flat above ~181 experts/layer).
+
+Extra experts attack the fetch wall. MTP attacks the launch wall: verifying k
+drafted tokens costs roughly the launches of one. So MTP's ~1.4–1.6× is a
+*constant multiplier that only applies in the launch-bound regime*, while the
+value of the ~17 experts/layer its 2.25 GB displaces follows the measured
+decode curve (≈ experts^0.7 between the 30/layer = 5.6 and 181/layer = 20.0
+anchors, flat above).
+
+**Why tight memory keeps the experts** — three compounding reasons, not one:
+
+1. **It sells cache at its highest price.** Those 17 experts/layer are worth
+   ≈ +40% near the floor, ≈ +12% at 100/layer, and 0% past the plateau.
+2. **It spends the scarce resource on discarded work.** Every rejected draft
+   (30–40% at plausible accept rates) still fetched that token's experts from
+   SSD. Wasted verification is nearly free when compute-bound and maximally
+   expensive when fetch-bound.
+3. **Its one genuine small-tier upside is already harvested.** Batching two
+   tokens' expert fetches works because consecutive tokens reuse experts — which
+   is exactly the locality the cache already exploits, and which the MTP tax
+   shrinks the cache's ability to hold.
+
+Real small Macs also have slower SSDs than this dev machine, which deepens the
+fetch wall and widens the verdict.
+
+**Enable policy (to be confirmed by measurement, not shipped on this reasoning
+alone):** auto turns MTP on only when the target still affords ~120+ experts per
+layer *after* paying its 2.25 GB — roughly targets above ~22 GB, so 32 GB
+machines always, 24 GB when quiet, 48 GB unconditionally (there the displaced
+experts are past the plateau and worth nothing, making MTP close to free). At
+16 GB and at the floor, MTP stays off. **Governor ordering: shed MTP before
+shrinking the pool** — dropping a constant-multiplier feature always beats
+starving the cache below its knee.
+
+**Correctness:** with exact-match acceptance under greedy sampling, speculative
+decode is byte-identical to plain greedy, so MTP on/off (including a live
+governor toggle) falls under the existing golden-equivalence invariant (§6.1)
+and `elastic-check`-style gating rather than needing a new correctness story.
+
+**Measure before freezing any threshold:** (a) this model's real accept rate on
+representative text — nobody has published one; (b) whether draft-batched expert
+fetches actually raise queue depth enough to matter on fetch-bound tiers; (c)
+the true resident cost of the converted 4-bit MTP block (2.25 GB is an estimate).
+
 ### M9+ — Later (each gated on v0.1 done)
-MTP self-speculative decode (draft tokens' experts prefetch in parallel — likely the
-biggest decode multiplier *specifically* for the streaming tiers; +2.25 GB resident,
-≥32 GB tiers). Vision input (mlx-vlm parity). Compact 3-bit-expert build with eval gate.
+**MTP self-speculative decode** — see the M9 design note above for the memory
+tradeoff and enable policy (it is a big-memory feature; the earlier "biggest
+multiplier for the streaming tiers" framing was wrong).
+Vision input (mlx-vlm parity). Compact 3-bit-expert build with eval gate.
 fp8 KV. Memory-pressure dynamic resharding. JSON-schema constrained output. Upstreaming
 reusable pieces (GDN Swift kernel) to mlx-swift-lm. Multi-model residency. Qwen4 when it
 lands (the whole point of targeting the preview architecture now).
@@ -713,7 +772,9 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
    a `decodeConv` fast path, and compiled-decode tests), plus `SwitchGLU` /
    `QuantizedSwitchLinear` over `MLX.gatherQuantizedMM`. Novel Swift work reduces to
    the QSA indexer, hyper-connections, and the PLE path.
-4. MTP block internals (own experts?) and self-spec accept rates on this model (M9).
+4. MTP block internals (own experts?) and self-spec accept rates on this model (M9)
+   — now the load-bearing unknown for §8.1's enable thresholds, together with
+   whether draft-batched expert fetches help fetch-bound tiers at all.
 5. h-curves per tier (M1) — **no longer the load-bearing unknown**: at 17.3 GB/s even
    h=0 sustains ~13 tok/s. It now sizes tiers rather than deciding viability.
 6. Whether `mixed-4-8` measurably beats all-4-bit on agentic evals worth +disk (M8).

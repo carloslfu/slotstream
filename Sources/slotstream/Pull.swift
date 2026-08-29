@@ -42,6 +42,29 @@ enum ModelLocator {
     }
 }
 
+/// Where the weight bytes come from. Integrity never comes from a source —
+/// every file must match the sha256/size manifest compiled into the binary —
+/// so a wrong or stale source fails closed and the next one is tried.
+enum WeightSources {
+    /// Ordered download bases; `<base>/<file path>` must serve the file.
+    /// Override with SLOTSTREAM_WEIGHTS_SOURCES (comma-separated bases,
+    /// tried in order), e.g. a private mirror or a local cache.
+    static var bases: [String] {
+        if let env = ProcessInfo.processInfo.environment["SLOTSTREAM_WEIGHTS_SOURCES"],
+            !env.isEmpty
+        {
+            let list = env.split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            if !list.isEmpty { return list }
+        }
+        return defaults
+    }
+    static let defaults = [
+        "https://huggingface.co/\(PinnedModel.repo)/resolve/\(PinnedModel.revision)"
+    ]
+}
+
 struct Pull: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Download the model weights (resumable, hash-verified). Then: slotstream serve")
@@ -185,6 +208,9 @@ struct Pull: ParsableCommand {
             format: "pulling %@ @ %@: %d file(s), %.1f GB to go (resumable — rerun to continue)",
             PinnedModel.repo, String(PinnedModel.revision.prefix(12)), todo.count,
             Double(remaining) / 1e9))
+        let bases = WeightSources.bases
+        print("source: \(bases[0])")
+        for b in bases.dropFirst() { print("fallback: \(b)") }
 
         var done: Int64 = PinnedModel.totalBytes - remaining
         for (f, have) in todo {
@@ -198,24 +224,43 @@ struct Pull: ParsableCommand {
         let final = dest.appendingPathComponent(f.path)
         let part = final.appendingPathExtension("part")
         var offset = resumeFrom
-        var attempt = 0
-        while true {
-            attempt += 1
-            do {
-                try fetchRange(f, into: part, from: offset, totalDone: &totalDone)
-                break
-            } catch {
-                offset = (try? FileManager.default.attributesOfItem(atPath: part.path))?[
-                    .size] as? Int64 ?? 0
-                guard attempt < 5 else {
-                    throw ValidationError(
-                        "\(f.path): download failed after \(attempt) attempts (\(error.localizedDescription)) — rerun `slotstream pull` to resume")
+        let bases = WeightSources.bases
+        var lastError: Error?
+        var succeeded = false
+        for (i, base) in bases.enumerated() {
+            var attempt = 0
+            while true {
+                attempt += 1
+                do {
+                    try fetchRange(f, base: base, into: part, from: offset, totalDone: &totalDone)
+                    succeeded = true
+                    break
+                } catch {
+                    lastError = error
+                    offset = (try? FileManager.default.attributesOfItem(atPath: part.path))?[
+                        .size] as? Int64 ?? 0
+                    // a permanent refusal (404/403/...) means this source
+                    // doesn't have the file — go straight to the next one
+                    let code = (error as NSError).code
+                    let permanent = (error as NSError).domain == "pull"
+                        && (400 ..< 500).contains(code) && code != 429
+                    if permanent || attempt >= 5 { break }
+                    FileHandle.standardError.write(
+                        "  retrying \(f.path) from \(offset / 1_000_000) MB (\(error.localizedDescription))\n"
+                            .data(using: .utf8)!)
+                    Thread.sleep(forTimeInterval: Double(attempt) * 2)
                 }
-                FileHandle.standardError.write(
-                    "  retrying \(f.path) from \(offset / 1_000_000) MB (\(error.localizedDescription))\n"
-                        .data(using: .utf8)!)
-                Thread.sleep(forTimeInterval: Double(attempt) * 2)
             }
+            if succeeded { break }
+            if i + 1 < bases.count {
+                FileHandle.standardError.write(
+                    "  source unavailable for \(f.path) (\(lastError?.localizedDescription ?? "?")) — trying fallback: \(bases[i + 1])\n"
+                        .data(using: .utf8)!)
+            }
+        }
+        guard succeeded else {
+            throw ValidationError(
+                "\(f.path): download failed from all \(bases.count) source(s) (\(lastError?.localizedDescription ?? "?")) — rerun `slotstream pull` to resume")
         }
         // hash before accepting (only LFS files carry hashes)
         if let want = f.sha256 {
@@ -233,7 +278,7 @@ struct Pull: ParsableCommand {
     /// Stream one file (from byte `from`) into `part`, appending. Throws on
     /// network errors; progress goes to stderr about once per 2 s.
     static func fetchRange(
-        _ f: PinnedModel.File, into part: URL, from: Int64, totalDone: inout Int64
+        _ f: PinnedModel.File, base: String, into part: URL, from: Int64, totalDone: inout Int64
     ) throws {
         let fm = FileManager.default
         if !fm.fileExists(atPath: part.path) {
@@ -244,7 +289,7 @@ struct Pull: ParsableCommand {
         try fh.truncate(atOffset: UInt64(from))
         try fh.seekToEnd()
 
-        let urlStr = "https://huggingface.co/\(PinnedModel.repo)/resolve/\(PinnedModel.revision)/\(f.path)"
+        let urlStr = "\(base)/\(f.path)"
         var req = URLRequest(url: URL(string: urlStr)!)
         req.timeoutInterval = 60
         if from > 0 { req.setValue("bytes=\(from)-", forHTTPHeaderField: "Range") }
