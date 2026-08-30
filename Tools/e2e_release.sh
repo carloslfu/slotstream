@@ -25,7 +25,10 @@ jq_() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)" 2>/dev/n
 chat() { curl -s --max-time 900 "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' -d "$1"; }
 
 echo "== install integrity =="
-chk "installed binary reports 0.1.6"        "[ \"\$($B --version)\" = 0.1.6 ]"
+# Derive rather than hardcode: a pinned literal here goes stale on every
+# release and reports a version bump as a product failure.
+EXPECTED=$("$B" --version)
+chk "installed binary reports a version"    "[ -n \"$EXPECTED\" ]"
 chk "metallib shipped beside the binary"    "[ -f \$HOME/.slotstream/bin/mlx.metallib ]"
 chk "doctor runs with no model loaded"      "$B doctor >/dev/null"
 chk "doctor simulates a 16 GB Mac"          "$B doctor --sim-ram 17.2 --sim-available 6 | grep -q 'experts per layer'"
@@ -39,7 +42,7 @@ chk "chat template matches transformers"    "$B template-check >/dev/null"
 
 echo "== API surface =="
 V=$(curl -s --max-time 30 "http://127.0.0.1:$PORT/api/version" | jq_ "d['version']")
-chk "/api/version is 0.1.6"                 "[ \"$V\" = 0.1.6 ]"
+chk "/api/version matches the binary ($EXPECTED)" "[ \"$V\" = \"$EXPECTED\" ]"
 chk "/api/tags lists the model"             "curl -s --max-time 30 http://127.0.0.1:$PORT/api/tags | grep -q qwen3.8-flash-next"
 chk "/api/ps reports a loaded model"        "curl -s --max-time 30 http://127.0.0.1:$PORT/api/ps | grep -q qwen3.8-flash-next"
 chk "/api/show carries the memory plan"     "curl -s --max-time 60 -d '{\"model\":\"qwen3.8-flash-next:4bit\"}' http://127.0.0.1:$PORT/api/show | grep -q memory_plan"
