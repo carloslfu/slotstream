@@ -216,6 +216,12 @@ and across live resizes, prefix-reuse equivalence against a prefill-rechunk
 control, the `--memory-gb` promise, and the serving-robustness suite. Currently 80 checks, all passing. The heavy gates size themselves to
 the machine's free memory, so the suite also runs on small or busy machines.
 
+`Tools/e2e_release.sh` is the separate post-release gate: it runs 31 checks
+against the *installed* binary from `curl | sh` rather than the dev build —
+install integrity, both API surfaces, short/long/unicode/streamed generation,
+hostile inputs, live prefix reuse, concurrency, and a client disappearing
+mid-stream.
+
 A behavioural probe (`Tools/quality_probe.sh`, 15 checkable items) guards
 against gross quantization damage; it is not a comparison against the FP8
 reference, which needs an inference credential this project does not have.
