@@ -20,8 +20,8 @@ Measured on an M5 Pro with 48 GB and a 2 TB SSD (method and full data in
 
 | what | measured |
 |---|---|
-| Decode, warm cache | 20.0 tok/s |
-| Decode, cold cache | 7.8 to 10.4 tok/s |
+| Decode, warm cache | 11.2 tok/s at 120 experts/layer cached |
+| Decode, cold cache | 6.0 to 9.4 tok/s |
 | Cold start to first token | about 12 s |
 | Peak memory with a 24 GB cache | 27.3 GB |
 | Smallest run so far | 7.3 GB peak, 5.6 tok/s |
@@ -39,7 +39,7 @@ with memory:
 | 16 GB | runs; about 4 to 7 tok/s depending on what else is open |
 | 24 GB | the comfortable minimum alongside normal use; roughly 9 to 13 tok/s |
 | 32 GB | roughly 12 to 17 tok/s |
-| 48 GB and up | 20 tok/s, measured; past a 24 GB cache decode is compute-bound, so more memory buys headroom for the rest of your apps, not speed |
+| 48 GB and up | about 12 tok/s; decode flattens past roughly a 16 GB cache, so more memory buys headroom for the rest of your apps, not speed |
 
 Only the 48 GB row is measured on real hardware. The others are estimates
 from its anchors and haven't run on physically smaller Macs yet; smaller
@@ -152,7 +152,7 @@ slotstream memory plan (auto)
   device: 52 GB RAM (36.9 GB reclaimable now), 40.2 GB Metal working set
   target: 34.4 GB total for this process   (override: --memory-gb N | --experts-per-layer N)
   cache:  ~226 of 512 experts per layer  (10832 global slots = 29.9 GB pool)
-  expect: ~33.8 GB peak, ~20 tok/s warm decode (est. from M5 Pro anchors)
+  expect: ~33.8 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
 ```
 
 The prefill pass is sized from the same budget. It is expert-stream-bound —
@@ -186,8 +186,11 @@ Explicit sizes are never adjusted. Three flags override auto, first one wins:
   cache) and a 0.5 GB margin. Minimum 6.2. Measured: `--memory-gb 8` ran at a
   7.0 GB actual peak with byte-identical output.
 - `--experts-per-layer N`: cache size in experts per layer, of the model's 512.
-  Each costs 0.133 GB. Measured points: 30 runs in 7.3 GB total at 5.6 tok/s,
-  181 runs in 27.3 GB at 20.0 tok/s, 512 is fully resident.
+  Each costs 0.133 GB. Measured points: 30 runs in 7.3 GB total at 6.0 tok/s,
+  120 in 20 GB at 11.2 tok/s, 150 at 11.6, 512 is fully resident. An early
+  20.0 tok/s reading at 181/layer has not reproduced on 0.1.6 — that config
+  peaks at 27.4 GB and needs a quieter machine than any since; treat it as
+  unconfirmed.
 - `--pool-gb G`: raw pool size. 1 GB is about 7.5 experts per layer.
 
 The floor is 13 experts per layer (640 global slots); below that a long
@@ -213,7 +216,7 @@ MEASUREMENTS.md, sections M0.7 and M0.8.
 re-hashed against the pinned upstream), goldens against the Python reference,
 planner behavior across simulated machines, byte-equality across cache sizes
 and across live resizes, prefix-reuse equivalence against a prefill-rechunk
-control, the `--memory-gb` promise, and the serving-robustness suite. Currently 80 checks, all passing. The heavy gates size themselves to
+control, the `--memory-gb` promise, and the serving-robustness suite. Currently 81 checks, all passing. The heavy gates size themselves to
 the machine's free memory, so the suite also runs on small or busy machines.
 
 `Tools/e2e_release.sh` is the separate post-release gate: it runs 31 checks

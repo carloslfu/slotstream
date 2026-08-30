@@ -22,7 +22,7 @@ design and the estimates it replaces.
 | M2 `.ssmodel` container + repack | **skipped, by measurement** | engine streams from original shards (9 preads/expert); repack is now a measured-optimization backlog item |
 | M3 Swift engine, resident correctness (incl. QSA indexer) | ✅ **done 2026-08-28** | layers 0–1 **bit-exact** vs mlx-0.31.1 reference; template/ngram/dequant goldens exact; deeper layers ≤2.4% RMS (vendored-kernel ulp skew, documented) |
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
-| M5 Prefill/prefetch perf | ◐ partial → **queued as N2** | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; prefill 40 → **92 tok/s** once the pass was sized from the memory plan (M7.6), still short of the ≥150 @8k target; dense sweep + cross-token prefetch not yet built |
+| M5 Prefill/prefetch perf | ◐ partial → **queued as N2** | warm decode was recorded at **20.0 tok/s** but has not reproduced on 0.1.6 (re-anchored to 11.2 at 120/layer; see the DoD note and MEASUREMENTS); prefill 40 → **92 tok/s** once the pass was sized from the memory plan (M7.6), still short of the ≥150 @8k target; dense sweep + cross-token prefetch not yet built |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
 | M7 CLI, install, packaging | ✅ **done 2026-08-28** (LaunchAgent deferred) | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile; `pull` parallel (8 connections, 64 MB chunks, per-file chunk map) + resumable + sha256-verified (proven live incl. resume, 429 retry, corruption fail-closed; ~50 MB/s vs 28-40 single-connection, which is Hugging Face's own ceiling); `serve`/`run` offer the download on first run (consent-gated, /dev/tty-aware); public one-line installer (`install.sh` → sha256-checked release tarball → `~/.slotstream/bin` → PATH → optional handoff to serve); v0.1.0 release ships binary + metallib; LaunchAgent not built (foreground serve is the supported mode) |
 | M7.5 Serving hardening | ✅ **done 2026-08-29** (v0.1.5) | adversarial review of the whole system; three process-killing inputs fixed (SIGPIPE on client disconnect, `seed: -1`, `num_predict: -1`), streaming detokenization made scalar-exact (leading multi-token characters were being dropped), sampler 0/0 removed, `stop` sequences + OpenAI array content + `--max-context` (32k) added, read timeouts and a connection cap, `IndexerCache` grown in blocks instead of re-concatenated. All 38 acceptance checks pass; `Tools/api_robustness.sh` is the standing gate and `Tools/planner_gates.sh` now runs in CI |
@@ -868,7 +868,13 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
 - [x] Parity vs Python reference: layers 0–1 (GDN, MoE-over-pool, PLE,
       hyper-connections, embeddings) **bit-exact**; QSA layer ≤2.4% RMS with the
       few-ulp vendored-kernel origin documented in MEASUREMENTS.md.
-- [~] This Mac: decode ≥ 20 tok/s warm chat ✅ (20.01) · cold→first-token ≤ 15 s ✅
+- [ ] This Mac: decode ≥ 20 tok/s warm chat — **was marked ✅ (20.01) and is now
+      unconfirmed**: re-measured on 0.1.6 the curve reads 6.0 / 8.2 / 11.2 / 11.6
+      tok/s at 30 / 60 / 120 / 150 experts per layer and is already flat by 120.
+      Not a regression (0.1.5 and 0.1.6 A/B identical) and not under-warming
+      (flat over 14 consecutive generations). The 181/layer config that produced
+      20.01 peaks at 27.4 GB and has not fit in reclaimable memory since.
+      · cold→first-token ≤ 15 s ✅
       (~12 s) · prefill ≥ 150 tok/s @8k **not yet** (needs the dense sweep; chunked
       prefill sized from the memory plan measures 92 tok/s, up from 40) · 30-min
       soak not yet run.

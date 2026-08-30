@@ -67,6 +67,17 @@ check "grow/shrink/regrow byte-identical (elastic-check)" "$BIN elastic-check --
 # re-batching the same tokens re-associates their sums, and measured here that
 # moves logits LESS than re-chunking a plain prefill already does. The gate is
 # that bound plus determinism of the cached path. See MEASUREMENTS.md.
+# Drives the governor itself — poll, decide, lock, resize, log — not just its
+# policy function, using the availability seam so no real pressure is needed.
+# Skips (does not fail) when the machine is too busy to leave shrink headroom.
+echo "== elastic governor: shrinks, honors the cooldown, grows back =="
+DRILL=$("$BIN" elastic-drill --slots 3000 2>&1 | tail -1)
+case "$DRILL" in
+  *PASS*) echo "PASS  $DRILL"; PASS=$((PASS+1)) ;;
+  *SKIP*) echo "SKIP  $DRILL" ;;
+  *)      echo "FAIL  $DRILL"; FAIL=$((FAIL+1)) ;;
+esac
+
 echo "== conversation prefix cache: bounded, flat with depth, deterministic =="
 check "prefix reuse within the prefill-rechunk control (prefix-check)" "$BIN prefix-check"
 

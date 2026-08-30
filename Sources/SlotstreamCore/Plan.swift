@@ -278,8 +278,14 @@ public enum Planner {
     /// against it is exactly how you cause the swap storm. nil if the mach
     /// call fails (then no clamp is applied).
     /// Test seam: when set, stands in for the live availability reading so the
-    /// governor's policy can be driven without putting the machine under real
-    /// memory pressure. Never set in normal operation.
+    /// governor can be driven without putting the machine under real memory
+    /// pressure. Never set in normal operation.
+    ///
+    /// **It does not make the resulting allocation imaginary.** The governor
+    /// acts on this number, so setting it *above* what the machine has makes it
+    /// allocate a pool the machine cannot hold: simulating 60 GB free on a Mac
+    /// with 7 GB took a real 25 GB pool and drove tens of GB of swap. Anything
+    /// using this seam must bound the value by `deviceAvailableGB()`.
     public nonisolated(unsafe) static var availabilityOverride: Double?
 
     public static func deviceAvailableGB() -> Double? {
@@ -313,11 +319,39 @@ public enum Planner {
     /// (30/layer → 5.6 tok/s, 181/layer → 20.0; ≥181 is kernel-launch-bound,
     /// so the curve flattens). Log-linear between anchors. Other machines'
     /// SSD/GPU shift this; it is a shape, not a promise.
+    /// Warm decode estimate, re-anchored 2026-08-30 on measured points.
+    ///
+    /// The old curve interpolated between 30/layer = 5.6 and 181/layer = 20.0
+    /// and **over-promised by 25 to 45% across the middle of its own range**,
+    /// which is the part most machines actually land in. Re-measured on 0.1.6
+    /// with the pool properly warmed (throughput plateaus by the second
+    /// generation, so three samples is enough — verified over 14 consecutive
+    /// runs):
+    ///
+    /// | experts/layer | measured | old estimate |
+    /// |---|---|---|
+    /// | 30 | 6.0 | 5.6 |
+    /// | 60 | 8.2 | 9.2 |
+    /// | 120 | 11.2 | 14.8 |
+    /// | 150 | 11.6 | 17.3 |
+    ///
+    /// It is also nearly flat from 120 to 150, so the plateau starts far below
+    /// the 181 the old curve assumed. The 20.0 figure at 181/layer could not be
+    /// re-verified: that config peaks at 27.4 GB and the machine had 26.6 GB
+    /// reclaimable, and forcing it once already drove 13 GB of swap. One run
+    /// under that pressure produced a 15 to 18 band, consistent with a
+    /// threshold once the working set fits, but it is not a clean measurement.
+    ///
+    /// So this now interpolates the verified points and **holds flat above
+    /// them** rather than extrapolating to an unconfirmed number. It
+    /// under-promises above 150/layer on purpose: a plan that quotes a speed
+    /// the machine does not reach is worse than one that quotes less.
     public static func estWarmTokS(expertsPerLayer e: Double) -> Double {
-        let (e0, r0) = (30.0, 5.6)
-        let (e1, r1) = (181.0, 20.0)
+        let (e0, r0) = (30.0, 6.0)
+        let (e1, r1) = (150.0, 11.6)
         if e >= e1 { return r1 }
-        let t = log(max(e, 1) / e0) / log(e1 / e0)
+        if e <= e0 { return r0 * (max(e, 1) / e0) }
+        let t = log(e / e0) / log(e1 / e0)
         return r0 * pow(r1 / r0, t)
     }
 

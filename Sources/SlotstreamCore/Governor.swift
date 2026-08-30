@@ -68,7 +68,7 @@ public enum GovernorPolicy {
         case resize(slots: Int, reason: String)
     }
 
-    static let growCooldown: TimeInterval = 60
+    public static let growCooldown: TimeInterval = 60
     static let shrinkDeadbandGB = 1.0
     static let growDeadbandGB = 2.0
 
@@ -195,6 +195,16 @@ public final class MemoryGovernor {
     }
 
     private func poll() { act(nil) }
+
+    /// Run one poll cycle immediately, as the 15 s timer would.
+    ///
+    /// Exists so the *governor* can be driven end to end — poll, decide, take
+    /// the generation lock, resize, update the plan, log — rather than only its
+    /// policy function. `slotstream elastic-drill` uses it with
+    /// `Planner.availabilityOverride` so that path is covered without putting
+    /// the machine under real memory pressure, which is the one way this had
+    /// never been exercised on a shipped build.
+    public func pollNow() { act(nil) }
 
     private func act(_ pressure: GovernorPolicy.Pressure?) {
         guard let i = inputs(pressure: pressure) else { return }

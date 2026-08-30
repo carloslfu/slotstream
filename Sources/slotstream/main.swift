@@ -13,7 +13,7 @@ struct Slotstream: ParsableCommand {
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
-            PrefixCheck.self,
+            PrefixCheck.self, ElasticDrill.self,
         ]
     )
 }
@@ -413,6 +413,134 @@ struct ElasticCheck: ParsableCommand {
                 } else {
                     print("ELASTIC CHECK FAIL")
                     for (n, s) in [("a", a), ("b", b), ("c", c), ("d", d)] { print("--- \(n):\n\(s)") }
+                    throw ExitCode(2)
+                }
+            } catch {
+                result = .failure(error)
+            }
+            sem.signal()
+        }
+        sem.wait()
+        try result.get()
+    }
+}
+
+struct ElasticDrill: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "elastic-drill",
+        abstract: "Drive the live governor through shrink and grow and prove output is unchanged")
+    @OptionGroup var model: ModelOptions
+    @Option(help: "Slots to start from (must be well above the floor so there is room to shrink)")
+    var slots: Int = 4000
+    @Flag(help: "Skip the 60 s grow cooldown wait and only assert the shrink half")
+    var quick = false
+
+    /// `elastic-check` proves the *pool* can be resized without changing the
+    /// math. This proves the *governor* actually decides to do it: poll,
+    /// decide, take the generation lock, resize, update the plan, log. That
+    /// path had never been exercised on a shipped build, because triggering it
+    /// for real needs the machine pushed to the edge of its memory — which is
+    /// exactly what `Planner.availabilityOverride` exists to avoid.
+    func run() throws {
+        let sem = DispatchSemaphore(value: 0)
+        var result: Result<Void, Error> = .success(())
+        let startSlots = slots
+        let skipGrow = quick
+        Task {
+            do {
+                var fail: [String] = []
+                func note(_ s: String) {
+                    FileHandle.standardError.write((s + "\n").data(using: .utf8)!)
+                }
+                // `availabilityOverride` makes the governor allocate for real,
+                // so every simulated figure here is bounded by what the machine
+                // actually has. Simulating "plenty free" on a busy Mac once made
+                // the governor take a 25 GB pool and drove tens of GB of swap —
+                // the seam avoids *needing* pressure, it does not make the
+                // resulting allocation imaginary.
+                // A shrink can only be demonstrated from a pool at least the
+                // floor plus the 1 GB dead-band above the floor; below that the
+                // governor correctly refuses to move and the gate would read as
+                // a failure when it is really a machine too busy to test on.
+                let needPool = Geometry.gb(Geometry.floorSlots) + 2.0
+                guard let realAvail = Planner.deviceAvailableGB(), realAvail >= needPool * 3 else {
+                    print(String(format:
+                        "ELASTIC DRILL SKIP: needs ~%.0f GB reclaimable to leave room for a "
+                        + "shrink, machine has %.1f GB. Close some apps and retry.",
+                        needPool * 3, Planner.deviceAvailableGB() ?? 0))
+                    sem.signal()
+                    return
+                }
+                // Take at most a third of what is genuinely free for the pool.
+                let poolCeiling = min(Geometry.gb(startSlots), realAvail / 3)
+                let roomy = poolCeiling + Planner.fixedFootprintGB
+                    + Planner.planningMarginGB + 3.0
+                let plan = try Planner.plan(
+                    expertsPerLayer: nil, poolGB: nil, memoryGB: nil, availableGB: roomy)
+                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                note(String(format: "  (machine has %.1f GB reclaimable; drill capped at a "
+                    + "%.1f GB pool)", realAvail, poolCeiling))
+
+                var p = SampleParams.greedy
+                p.maxTokens = 20
+                let ids = try engine.encodeChat(
+                    [ChatMessage(role: "user", content: "Name three rivers, comma separated.")],
+                    thinking: false)
+                func gen() -> String { engine.generate(promptIds: ids, params: p).text }
+
+                let gov = MemoryGovernor(engine: engine)
+                gov.start()
+                defer { gov.stop() }
+
+                let before = gen()
+                let s0 = engine.model.pool.slots
+                note(String(format: "  start:  %d slots (~%.0f/layer) -> %@",
+                    s0, Geometry.perLayer(s0), before))
+
+                // --- shrink: pretend the machine just got busy
+                Planner.availabilityOverride = 2.0
+                gov.pollNow()
+                let s1 = engine.model.pool.slots
+                let underPressure = gen()
+                note(String(format: "  squeeze: %d slots (~%.0f/layer) -> %@",
+                    s1, Geometry.perLayer(s1), underPressure))
+                if s1 >= s0 { fail.append("governor did not shrink: \(s0) -> \(s1)") }
+                if underPressure != before {
+                    fail.append("output changed across a shrink\n    before: \(before)\n    after:  \(underPressure)")
+                }
+
+                // --- grow: memory comes back, but only to where we started —
+                //     never to a figure the machine cannot actually honour.
+                Planner.availabilityOverride = roomy
+                gov.pollNow()
+                if engine.model.pool.slots != s1 {
+                    fail.append("governor grew during the cooldown (should wait \(Int(GovernorPolicy.growCooldown)) s)")
+                } else {
+                    note("  cooldown: held at \(s1) slots, as designed")
+                }
+
+                if !skipGrow {
+                    note("  waiting out the \(Int(GovernorPolicy.growCooldown)) s grow cooldown...")
+                    Thread.sleep(forTimeInterval: GovernorPolicy.growCooldown + 3)
+                    gov.pollNow()
+                    let s2 = engine.model.pool.slots
+                    let recovered = gen()
+                    note(String(format: "  recover: %d slots (~%.0f/layer) -> %@",
+                        s2, Geometry.perLayer(s2), recovered))
+                    if s2 <= s1 { fail.append("governor did not grow back: \(s1) -> \(s2)") }
+                    if recovered != before {
+                        fail.append("output changed across a grow\n    before: \(before)\n    after:  \(recovered)")
+                    }
+                }
+                Planner.availabilityOverride = nil
+
+                if fail.isEmpty {
+                    print("ELASTIC DRILL PASS: governor shrank under simulated pressure, honored the "
+                        + "grow cooldown\(skipGrow ? "" : ", grew back when memory returned"), "
+                        + "and every generation was byte-identical")
+                } else {
+                    print("ELASTIC DRILL FAIL")
+                    for f in fail { print("  - \(f)") }
                     throw ExitCode(2)
                 }
             } catch {
