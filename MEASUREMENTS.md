@@ -428,11 +428,13 @@ constants in it are derived from the measurements above, not chosen:
   min(36.1, 38.2) = 36.1 GB → 239/layer (31.7 GB pool) → **actual peak 35.0 GB**
   (predicted 35.6) under the 40.2 GB working set. Announced at startup and in
   `/api/show` `details.memory_plan`.
-- **est. tok/s in the announce** is log-linear between the two measured anchors
-  (30/layer = 5.6, 181/layer = 20.0) and flat above 181 (decode is
+- **est. tok/s in the announce** was log-linear between the two measured
+  anchors (30/layer = 5.6, 181/layer = 20.0) and flat above 181 (decode is
   kernel-launch-bound there, §M0.6) — labeled "est. from M5 Pro anchors"
   because other machines' SSD/GPU shift the curve. Spot check: the 8-GB-target
-  run's 27/layer estimated ~5.2 and measured 5.22.
+  run's 27/layer estimated ~5.2 and measured 5.22. **This curve was replaced on
+  2026-08-30** — it over-promised 25 to 45% through its own middle; see the
+  re-anchoring section below for the measured replacement.
 - **Floor**: 640 global slots (~14/layer, §SlotPool) ⇒ minimum honest target
   6.2 GB; below it `--memory-gb` refuses with the arithmetic spelled out.
 
@@ -751,6 +753,36 @@ Net effect: about **35 minutes instead of about 50** for a first install on
 this link. The remaining headroom is not reachable on Hugging Face at any
 connection count; it would take hosting the weights somewhere without that
 cap, which the link would serve at 144 MB/s.
+
+### Prefill: a bigger pass really is faster, measured at a matched pool (2026-08-30)
+
+The pass-size ladder had one anchor and one guess. 2048 was solid — **112.9
+tok/s** on an 8,016-token prompt at a 16 GB target, mean of three interleaved
+runs. 4096 was extrapolated to 125, which is the same mistake the decode curve
+was making one section down.
+
+It cannot be measured at its natural home: a machine that *chooses* 4096 is on
+a 36 GB target and needs ~33 GB reclaimable, which has not been available. So
+the two were compared at a matched pool of 60 experts/layer instead, on the
+same 8,016-token prompt, interleaved:
+
+| round | chunk 2048 | chunk 4096 |
+|---|---|---|
+| 1 | 96.6 | **108.8** |
+| 2 | 76.3 | **92.2** |
+| 3 | 91.4 | **103.9** |
+| mean | 88.1 | **101.6** |
+
+4096 wins every paired round: **1.15x**. Applied to the 2048 anchor that
+implies ~130, so the shipped estimate of 125 sits under the evidence rather
+than over it, and 8192 is credited with no further gain because nothing has
+measured one.
+
+Note what these absolute numbers also show: **prefill depends on pool size, not
+just chunk size.** The same 2048 pass gives 88 tok/s at 60 experts/layer and
+113 at 67, because a bigger cache means fewer expert misses per pass. The
+estimator is a function of chunk alone, so read it as typical-for-a-machine-
+that-would-pick-that-chunk, not as a law.
 
 ### Warm decode re-anchored, and the live governor finally observed (2026-08-30)
 

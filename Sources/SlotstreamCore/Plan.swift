@@ -246,6 +246,22 @@ public enum Planner {
     }
 
     /// Prefill throughput estimate for the banner, from the anchors above.
+    /// Prefill throughput estimate, from measurement plus one measured ratio.
+    ///
+    /// 2048 is the solid anchor: **112.9 tok/s** on an 8,016-token prompt at a
+    /// 16 GB target, mean of three interleaved runs. 4096 could not be measured
+    /// at *its* natural home (a 36 GB target needs ~33 GB free, which has not
+    /// been available), so it is derived from a ratio measured at a matched
+    /// pool of 60 experts/layer, where 4096 beat 2048 in all three paired
+    /// rounds — 108.8/96.6, 92.2/76.3, 103.9/91.4, a mean 101.6 against 88.1,
+    /// or 1.15x. Applied to the anchor that implies ~130; 125 is quoted so the
+    /// estimate stays under the evidence rather than over it, and 8192 is not
+    /// credited with any further gain because nothing has measured one.
+    ///
+    /// Caveat this does not model: prefill also depends on pool size, because
+    /// a bigger cache means fewer expert misses per pass. The same chunk gives
+    /// 88 tok/s at 60 experts/layer and 113 at 67, so treat these as typical
+    /// for a machine that would *choose* that chunk, not as a pure function.
     public static func estPrefillTokS(chunk: Int) -> Double {
         switch chunk {
         case ..<512: return 40

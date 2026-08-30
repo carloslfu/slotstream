@@ -55,7 +55,7 @@ existing `models/` copy over a Range-capable local HTTP server and point
 `SLOTSTREAM_WEIGHTS_SOURCES` at it; a full 24-file pull then runs at SSD speed
 (2.47 GB/s measured) and ends in the real `VERIFY PASS`.
 
-## Serving invariants (learned the hard way, 2026-08-29)
+## Serving invariants (learned the hard way)
 
 These were all real bugs found by adversarial probing. Each is now gated by
 `Tools/api_robustness.sh`; do not "simplify" any of them away.
@@ -87,7 +87,7 @@ These were all real bugs found by adversarial probing. Each is now gated by
   the engine allocates from the config; if they drift, every memory number the
   user sees is wrong.
 
-## Conversation prefix cache (0.1.6)
+## Conversation prefix cache
 
 - **A reused state is extend-only and can never be rewound.** `LinearCache`
   holds the GDN recurrent state, a fold over every token with no inverse, and
@@ -124,15 +124,30 @@ These were all real bugs found by adversarial probing. Each is now gated by
   suggestions) breaks a one-slot cache. Because several held states are
   additive, the retention ceiling is charged against the memory budget.
 
-## Prefill: what has already been measured (0.1.6)
+## Prefill
 
-Do not re-derive these; each cost a measured experiment.
+Each of these cost a measured experiment. Do not re-derive them, and do not
+revert the constants to their older values — two of those older values are
+still quoted in commit history and both are wrong.
 
-- **The pass cost model is calibrated, not guessed.** ~1.30 MB per chunk token,
-  linear from zero. The old `(chunk - 256) x 1.8 MB` conflated pass activations
-  with context KV and overcharged 2x, which silently kept the planner one chunk
-  size too small. Context state is separate and small: 4k -> 8k tokens moved
-  peak by 0.1 GB.
+- **The pass size is part of the memory plan, not a constant.** Prefill is
+  expert-stream-bound: a pass touches nearly every expert of every layer, so a
+  bigger pass is strictly faster and strictly more memory-hungry. Measured
+  40 → 113 tok/s from 256 → 2048, and 4096 beat 2048 in all three paired rounds
+  at a matched pool (1.15x). Output is byte-identical at every size, verified
+  at 2,980 and 7,960 tokens with the sparse indexer active — the size does not
+  affect correctness, and it must not be hard-coded back to 256.
+- **`prefillCostGB` charges ~1.30 MB per chunk token, linear from zero.**
+  It previously charged `(chunk - 256) x 1.8 MB`, which conflated two different
+  things — pass activations, which scale with the chunk, and KV plus indexer
+  state, which scales with the *context* — and so overcharged a big pass by 2x
+  and kept the planner one size below the best available. Measured directly:
+  1024 → 1.30 GB, 2048 → 2.19, 4096 → 4.30. Context state is separate and
+  small: 4k → 8k tokens moved peak by 0.1 GB. **Do not restore the 1.8 figure.**
+- **`prefillChunkFor` takes at most a quarter of the pool budget**, raised from
+  a fifth once the cost above was honest. The deciding experiment held total
+  memory fixed and traded pool for pass size: 2048 dominated 1024 on every axis
+  — faster prefill, faster decode, *lower* peak.
 - **Prefill IO runs at ~4.5 GB/s, not the SSD's 17.3, and queue depth is not
   why.** An expert is nine ~307 KB pieces, not one 2.76 MB block. QD 12 and 32
   tie; 64 and 128 are worse. Making it faster means a contiguous on-disk repack
@@ -145,20 +160,8 @@ Do not re-derive these; each cost a measured experiment.
   which needs a Metal kernel, which needs Xcode on the build machine (see the
   risk register). Not doable from CLT alone.
 
-## Prefill, sampler, governor (0.1.5)
+## Sampler and governor
 
-- **The prefill pass size is part of the memory plan, not a constant.** Prefill
-  is expert-stream-bound: a pass touches nearly every expert of every layer, so
-  a bigger pass is strictly faster (40 → 92 tok/s from 256 → 2048) and strictly
-  more memory-hungry. `Planner.prefillChunkFor` takes at most a fifth of the
-  pool budget. Output is byte-identical at every size — verified at 2,980 and
-  7,960 tokens with the sparse indexer active — so do not treat the size as
-  affecting correctness, and do not hard-code it back to 256.
-- **`prefillCostGB` charges 1.8 MB/token, not the 1.1 the activations measure
-  alone.** The extra covers the ~27 KiB/token of KV and indexer state that
-  comes with the long context a big pass is for, which the pool math does not
-  model. At 1.1 the `--memory-gb 12` promise held by 0.0 GB on an 8k prompt. If
-  you retune it, re-measure with a long prompt, never a short one.
 - **The sampler has a numpy oracle.** `Tools/sampler_ref.py` must stay in step
   with `Sampler.next`; both build logits from the same splitmix64 stream using
   only exactly representable float operations, so the comparison is exact.
@@ -170,6 +173,16 @@ Do not re-derive these; each cost a measured experiment.
   safety rules forbid. Note the invariant it asserts — the decision depends on
   (available + pool), never on either alone, which is why `desiredSlots` credits
   what a restart would release.
+- **`elastic-drill` covers the wiring the policy test cannot**: poll, decide,
+  take the generation lock, resize, log. It uses `Planner.availabilityOverride`,
+  which **does not make the allocation imaginary** — simulating 60 GB free on a
+  machine with 7 GB made the governor take a real 25.4 GB pool and drove swap
+  from 13 to 39 GB. Anything using that seam must bound the simulated value by
+  `deviceAvailableGB()`.
+- **Warm decode estimates are measured, not extrapolated.** 6.0 / 8.2 / 11.2 /
+  11.6 tok/s at 30 / 60 / 120 / 150 experts per layer, flat by 120. An older
+  20.0 at 181/layer has never reproduced; the estimator holds flat above the
+  verified points rather than extrapolating to it.
 
 ## Repo facts
 

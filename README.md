@@ -95,8 +95,9 @@ tokens were nearly tied. `--no-prefix-cache` turns it off if you need exact
 reproducibility.
 
 Prompts are capped at 32,768 tokens (`--max-context`). Long prompts are the
-slow axis: prefill runs at ~113 tok/s, so an 8,000-token prompt waits about
-70 seconds for its first token. Run one instance per machine.
+slow axis: prefill runs at roughly 50 tok/s on a 16 GB Mac and 125 on a 48 GB
+one, so an 8,000-token prompt waits somewhere between about a minute and about
+three before its first token. Run one instance per machine.
 
 ## Memory
 
