@@ -5,7 +5,6 @@
 set -e
 cd "$(dirname "$0")/.."
 BIN=.build/release/slotstream
-MODEL=models/qwen38-flash-next-mlx-4bit
 PASS=0; FAIL=0
 check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); else echo "FAIL  $1"; FAIL=$((FAIL+1)); fi }
 
