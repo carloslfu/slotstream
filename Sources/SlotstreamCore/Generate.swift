@@ -60,7 +60,15 @@ public struct SampleParams {
 }
 
 public struct GenStats {
+    /// Every token in the prompt, whether or not it had to be recomputed.
+    /// This is what the Ollama/OpenAI surfaces report as prompt_eval_count.
+    public var promptTokens = 0
+    /// Prompt tokens actually pushed through the model this request. Equal to
+    /// `promptTokens` on a cold prompt; `promptTokens - reusedPrefixTokens`
+    /// when the conversation prefix cache matched.
     public var prefillTokens = 0
+    /// Prompt tokens served from the retained state of a previous request.
+    public var reusedPrefixTokens = 0
     public var prefillSeconds = 0.0
     public var decodeTokens = 0
     public var decodeSeconds = 0.0
@@ -68,10 +76,16 @@ public struct GenStats {
     public var ngramRowHits = 0
     public var ngramRowMisses = 0
     public var peakMemoryGB = 0.0
+    /// Prefill time split: reading expert records, scattering them into the
+    /// pool, and how many records were fetched. Everything else is compute.
+    public var prefillIOSeconds = 0.0
+    public var prefillScatterSeconds = 0.0
+    public var prefillRecords = 0
     /// "stop" (EOS, a stop sequence, or a cancelled stream) or "length".
     public var finishReason = "stop"
 
     public var prefillTPS: Double { prefillSeconds > 0 ? Double(prefillTokens) / prefillSeconds : 0 }
+    public var prefixHit: Bool { reusedPrefixTokens > 0 }
     public var decodeTPS: Double { decodeSeconds > 0 ? Double(decodeTokens) / decodeSeconds : 0 }
 }
 
@@ -166,8 +180,11 @@ public final class Generator {
 
     /// Runs prefill + decode; calls `onToken` for each generated token id.
     /// Returns (tokenIds, stats). `stop` checked between tokens (cancellation).
+    /// `cache`, when given, is consulted for a state this prompt extends and
+    /// receives the state back at the end, holding exactly the ids it consumed.
     public func generate(
         promptIds: [Int], params: SampleParams, eosIds: Set<Int>,
+        cache: PrefixCache? = nil,
         onToken: ((Int) -> Bool)? = nil
     ) -> ([Int], GenStats) {
         let params = params.sanitized()
@@ -177,13 +194,24 @@ public final class Generator {
         // the sampler invent a first token from nothing. Callers reject this at
         // the API boundary; this is the backstop.
         guard !promptIds.isEmpty else { return ([], stats) }
-        let state = model.makeState()
+        // A hit hands over the state and the count of prompt tokens it already
+        // consumed; a miss releases the stale one before this allocation, so
+        // only ever one full state is live (see PrefixCache).
+        let hit = cache?.take(matching: promptIds)
+        let state = hit?.state ?? model.makeState()
+        let reused = hit?.reused ?? 0
+        stats.promptTokens = promptIds.count
+        stats.reusedPrefixTokens = reused
         MLX.GPU.resetPeakMemory()
+        // Zero before prefill, not only after: otherwise these carry the
+        // previous request's decode phase into this request's prefill split.
+        model.pool.resetStats()
+        model.ngram.resetStats()
 
-        // ---- prefill in chunks
+        // ---- prefill in chunks (only the tokens the state has not consumed)
         var t0 = Date()
         var logits: MLXArray = MLXArray(0)
-        var i = 0
+        var i = reused
         while i < promptIds.count {
             let hi = min(i + prefillChunk, promptIds.count)
             let chunk = Array(promptIds[i ..< hi])
@@ -196,8 +224,11 @@ public final class Generator {
             }
             i = hi
         }
-        stats.prefillTokens = promptIds.count
+        stats.prefillTokens = promptIds.count - reused
         stats.prefillSeconds = -t0.timeIntervalSinceNow
+        stats.prefillIOSeconds = model.pool.ioSeconds
+        stats.prefillScatterSeconds = model.pool.scatterSeconds
+        stats.prefillRecords = model.pool.recordsFetched
         model.pool.resetStats()
         model.ngram.resetStats()
 
@@ -205,6 +236,10 @@ public final class Generator {
         var out: [Int] = []
         var generated = Set<Int>()
         var reason = "length"
+        // Exactly the ids `state` has consumed, tracked rather than inferred:
+        // a token is sampled before it is fed, so both break paths below leave
+        // the last one unconsumed and it must not be claimed.
+        var consumed = promptIds
         t0 = Date()
         for _ in 0 ..< max(0, params.maxTokens) {
             let tok = sample(logits, params: params, generated: generated)
@@ -214,8 +249,10 @@ public final class Generator {
             // The callback stops the run for a stop sequence or a gone client.
             if let cb = onToken, !cb(tok) { reason = "stop"; break }
             logits = model.lastLogits([tok], state: state)
+            consumed.append(tok)
             eval(logits)
         }
+        cache?.store(state: state, tokens: consumed)
         stats.finishReason = reason
         stats.decodeTokens = out.count
         stats.decodeSeconds = -t0.timeIntervalSinceNow

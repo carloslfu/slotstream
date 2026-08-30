@@ -24,7 +24,19 @@ public final class Engine {
     /// state costs ~27 KiB per token beyond the announced memory plan, and
     /// prefill runs at tens of tokens a second, so a huge prompt is a long,
     /// memory-growing stall rather than a fast failure.
-    public var maxContextTokens = 32_768
+    public var maxContextTokens = 32_768 {
+        didSet { prefixCache.maxTokens = min(prefixCache.maxTokens, maxContextTokens) }
+    }
+
+    /// Retained conversation state, so a follow-up turn re-prefills only what
+    /// is new. See PrefixCache for the extend-only rule and the memory story.
+    public let prefixCache: PrefixCache
+
+    /// Release the retained conversation state. Takes the generation lock, so
+    /// never call it from inside `generate`.
+    public func dropPrefixCache() {
+        withExclusive { prefixCache.drop() }
+    }
 
     /// nil when `promptTokens` fits, otherwise the message to return to the client.
     public func contextError(promptTokens: Int) -> String? {
@@ -66,6 +78,13 @@ public final class Engine {
     public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
         self.modelDir = modelDir
         self._plan = plan
+        // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
+        // (or --no-prefix-cache) pins it off for parity work.
+        let env = ProcessInfo.processInfo.environment["SLOTSTREAM_PREFIX_CACHE"]
+        self.prefixCache = PrefixCache(
+            maxTokens: plan?.prefixCacheTokens
+                ?? Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
+            enabled: env != "0")
         // MLX's allocator otherwise retains freed transients (KV caches,
         // activations) in an unbounded internal cache — measured ~5 GB of RSS
         // above the memory plan after a few dozen requests. 2 GB keeps
@@ -170,7 +189,7 @@ public final class Engine {
         }
 
         let (ids, stats) = generator.generate(
-            promptIds: promptIds, params: params, eosIds: eosIds
+            promptIds: promptIds, params: params, eosIds: eosIds, cache: prefixCache
         ) { [weak self] tok in
             guard let self else { return false }
             // Nothing to detokenize for: skip the decode entirely.

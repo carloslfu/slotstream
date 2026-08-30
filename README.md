@@ -89,10 +89,12 @@ pinned revision, so a corrupted download can never become garbage tokens.
 
 The download runs 8 connections at once over 64 MB chunks drawn from one
 queue, so every connection stays busy across file boundaries and to the last
-byte. That measured 50 MB/s here against 30 to 40 on a single connection,
-which is also what `hf_xet`, Hugging Face's own fastest client, gets: the
-ceiling is theirs, not the link's. That is about 35 minutes for the
-103.8 GB, and your own link may be slower.
+byte. That measured 36 to 55 MB/s here against 28 to 40 on a
+single connection, which is also what `hf_xet`, Hugging Face's own fastest
+client, gets. The ceiling is Hugging Face's, not the link's: the same link
+sustains 134 MB/s to a plain datacenter host, and Cloudflare R2 was measured
+and found no faster (42 to 51), so the weights stay where they are. That is
+about 35 to 45 minutes for the 103.8 GB, and your own link may be slower.
 `--connections N` (or `SLOTSTREAM_PULL_CONNECTIONS`) changes it. Interrupting
 is safe at any point: each file keeps a small chunk map beside it, so a
 resumed pull refetches at most the last few seconds of work rather than
@@ -113,9 +115,25 @@ fight over the same memory.
 Prompts are capped at 32,768 tokens (`--max-context`). The cap exists because
 a long prompt is not free in either axis the rest of this page promises: KV
 plus indexer state costs about 27 KiB per token *on top of* the memory plan,
-and prefill is naive chunked, so it runs at tens of tokens a second. An
-8,000-token prompt takes about four minutes before the first token appears.
+and prefill is chunked rather than a dense sweep, so it runs at about 92
+tokens a second. An 8,000-token prompt takes about 90 seconds before the
+first token appears.
 Going past the cap is refused with a 400 rather than silently stalling.
+
+A follow-up turn only prefills what is new. The state that produced one reply
+is kept and reused when the next prompt starts with exactly the tokens it
+consumed, which is the ordinary shape of a chat or a tool loop. Measured over
+eight turns growing to a 1,237-token prompt, time to first token stayed **flat
+at 6.0 s** instead of climbing to **25.8 s**. Four conversations are held at
+once, not one, because clients interleave their own requests — Open WebUI asks
+for a chat title straight after every reply, and a single-slot cache never
+survived it. Anything else — an edited earlier message, a different
+conversation — rebuilds, because the recurrent state can be continued but never
+rewound. Reuse is not bit-identical to a cold rebuild and
+cannot be: the same tokens in a different batching sum in a different order.
+Measured, it perturbs the logits *less* than re-chunking a plain prefill already
+does, so a reply may occasionally differ where two tokens were nearly tied.
+`--no-prefix-cache` pins the old behaviour when you want reproducibility.
 
 Out-of-range sampling values are clamped rather than trusted, malformed or
 oversized requests are rejected, and a client that disappears mid-stream is
@@ -140,10 +158,13 @@ slotstream memory plan (auto)
 The prefill pass is sized from the same budget. It is expert-stream-bound —
 one pass touches nearly every expert of every layer, so the whole set is
 re-read about once per pass — which makes a bigger pass strictly faster and
-strictly more memory-hungry. Measured on a 7,960-token prompt: 40 tok/s at 256
-tokens per pass, 50 at 512, 67 at 1024, 92 at 2048, with **byte-identical
-output at every size**. The plan takes at most a fifth of the pool budget for
-it, so an 8 GB target prefills 512 at a time and a 48 GB one does 2048.
+strictly more memory-hungry. The plan takes at most a quarter of the pool
+budget for it, so an 8 GB target prefills 512 tokens at a time and a 36 GB one
+does 4096. That share was a fifth until the pass cost was measured properly: it
+had been charged at about twice what it uses, which kept the planner one size
+below the best one available. On an 8,016-token prompt at a 16 GB target,
+fixing that moved prefill from **93.7 to 112.9 tok/s** while *lowering* peak
+memory.
 
 The target is 70% of RAM, kept 2 GB under the Metal working-set limit. If other
 apps hold most of the machine, auto sizes down to what can be taken without
@@ -191,9 +212,13 @@ MEASUREMENTS.md, sections M0.7 and M0.8.
 `Tools/verify.sh` is the acceptance battery: weight provenance (every file
 re-hashed against the pinned upstream), goldens against the Python reference,
 planner behavior across simulated machines, byte-equality across cache sizes
-and across live resizes, the `--memory-gb` promise, and the serving-robustness
-suite. Currently 63 checks, all passing. The heavy gates size themselves to
+and across live resizes, prefix-reuse equivalence against a prefill-rechunk
+control, the `--memory-gb` promise, and the serving-robustness suite. Currently 80 checks, all passing. The heavy gates size themselves to
 the machine's free memory, so the suite also runs on small or busy machines.
+
+A behavioural probe (`Tools/quality_probe.sh`, 15 checkable items) guards
+against gross quantization damage; it is not a comparison against the FP8
+reference, which needs an inference credential this project does not have.
 
 Three parts run standalone and need no weights, so CI runs them on every
 release build: `Tools/planner_gates.sh` (memory planning, and every way a
@@ -214,10 +239,14 @@ hyper-connections), are bit-exact; deeper layers sit within a few bf16 ulps.
 
 ## Status
 
-Working and measured on one machine. Known gaps: prefill is still a naive
-chunked sweep — sizing the pass from the memory plan took it from 40 to 92
-tok/s, but a dense sweep with cross-token prefetch is the real fix, and long
-prompts remain the slow axis. The small configurations were emulated here
+Working and measured on one machine. Known gaps: prefill is still a chunked
+sweep rather than a dense one. Sizing the pass from the memory plan, then
+recalibrating what a pass actually costs, took it from 40 to ~113 tok/s at 8k,
+and long prompts remain the slow axis. Cross-layer read-ahead was built and
+measured *slower* — the reads already saturate, so a background reader only
+steals CPU from the thread feeding the GPU — and was removed; the remaining gap
+is compute, which needs a grouped-GEMM Metal kernel and therefore Xcode on the
+build machine. The small configurations were emulated here
 rather than run on real 16 GB hardware. [PLAN.md](PLAN.md) has the design, the
 byte math, and the milestone tracker.
 

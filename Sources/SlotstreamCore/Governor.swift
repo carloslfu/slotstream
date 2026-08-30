@@ -209,6 +209,12 @@ public final class MemoryGovernor {
         guard target != before else { return }
         let growing = target > before
         engine.withExclusive {
+            // Shrinking means memory is wanted elsewhere. The retained
+            // conversation state is the cheapest thing to give back — up to
+            // ~0.9 GB, recovered by one re-prefill on the next turn — so it
+            // goes before the pool is starved further. Growing keeps it: the
+            // machine has room and the next turn should still be fast.
+            if !growing { engine.prefixCache.drop() }
             engine.model.pool.resize(to: target)
         }
         lastResizeAt = Date()
@@ -221,6 +227,7 @@ public final class MemoryGovernor {
             availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
             prefillChunk: ref?.prefillChunk ?? Planner.prefillChunkFor(
                 poolBudgetGB: Geometry.gb(after)),
+            prefixCacheTokens: Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(after)),
             notes: [String(
                 format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
                 Geometry.perLayer(before), Geometry.perLayer(after), reason)]))

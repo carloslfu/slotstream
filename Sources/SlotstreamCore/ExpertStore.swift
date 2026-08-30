@@ -39,7 +39,17 @@ public final class ExpertStore {
 
     /// Read a batch of experts (QD-parallel pread) and return the 9 stacked
     /// MLXArrays shaped [n, ...piece shape...] ready to scatter into the pool.
-    public func readBatch(_ keys: [ExpertKey], queueDepth: Int = 12) -> [MLXArray] {
+    /// Reads outstanding at once. An expert record is nine separate pieces
+    /// (gate/up/down x weight/scales/biases), so this issues 9N preads of
+    /// ~307 KB rather than N of 2.76 MB. Swept 2026-08-30: 12 and 32 tie at
+    /// ~4.5 GB/s and 64 and 128 are worse, so this is not queue-depth-limited
+    /// and raising it only oversubscribes.
+    public static let defaultQueueDepth =
+        ProcessInfo.processInfo.environment["SLOTSTREAM_IO_QUEUE_DEPTH"].flatMap(Int.init) ?? 12
+
+    public func readBatch(_ keys: [ExpertKey], queueDepth: Int = ExpertStore.defaultQueueDepth)
+        -> [MLXArray]
+    {
         let n = keys.count
         precondition(n > 0)
         // one staging buffer per piece
@@ -249,6 +259,7 @@ public final class SlotPool {
             }
         }
         if !missKeys.isEmpty {
+            let tMiss = Date()
             // choose victims first (so scatter is one batched op)
             var slotIdx: [Int32] = []
             for k in missKeys {
@@ -260,12 +271,18 @@ public final class SlotPool {
                 pinned[s] = true
                 slotIdx.append(Int32(s))
             }
+            let tIO = Date()
             let batch = store.readBatch(missKeys)
+            ioSeconds += -tIO.timeIntervalSinceNow
+            let tScatter = Date()
             let idx = MLXArray(slotIdx)
             for p in 0 ..< 9 {
                 pools[p][idx] = batch[p]
             }
             eval(pools)
+            scatterSeconds += -tScatter.timeIntervalSinceNow
+            recordsFetched += missKeys.count
+            fillSeconds += -tMiss.timeIntervalSinceNow
             for (j, i) in missPos.enumerated() { result[i] = Int(slotIdx[j]) }
         }
         return result
@@ -275,6 +292,16 @@ public final class SlotPool {
         for i in 0 ..< slots where pinned[i] { pinned[i] = false }
     }
 
+    /// Where prefill time actually goes. Split out because "prefill is slow"
+    /// is not actionable: reading the records, scattering them into the pool,
+    /// and the compute over them are three different problems with three
+    /// different fixes — and measuring the split is what showed the chunk size
+    /// was the lever and read-ahead was not.
+    public private(set) var ioSeconds = 0.0
+    public private(set) var scatterSeconds = 0.0
+    public private(set) var fillSeconds = 0.0
+    public private(set) var recordsFetched = 0
+
     public var hitRate: Double {
         let t = hits + misses
         return t == 0 ? 0 : Double(hits) / Double(t)
@@ -283,5 +310,9 @@ public final class SlotPool {
     public func resetStats() {
         hits = 0
         misses = 0
+        ioSeconds = 0
+        scatterSeconds = 0
+        fillSeconds = 0
+        recordsFetched = 0
     }
 }

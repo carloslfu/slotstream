@@ -69,12 +69,17 @@ public struct MemoryPlan {
     public let clamped: Bool
     /// Tokens per prefill pass, chosen with the pool from the same budget.
     public let prefillChunk: Int
+    /// Conversation state the prefix cache may retain, in tokens. Sized from
+    /// the same budget; does not enter `expectedPeakGB` (see
+    /// `Planner.prefixCacheTokensFor`).
+    public let prefixCacheTokens: Int
     public let notes: [String]
 
     public var expertsPerLayerCached: Double { Geometry.perLayer(slots) }
     public var poolGB: Double { Geometry.gb(slots) }
     public var expectedPeakGB: Double {
         poolGB + Planner.fixedFootprintGB + Planner.prefillCostGB(prefillChunk)
+            + Double(prefixCacheTokens) * Double(PrefixCache.bytesPerToken) / 1e9
     }
     public var estWarmTokS: Double { Planner.estWarmTokS(expertsPerLayer: expertsPerLayerCached) }
     public var fullyResident: Bool { slots >= Geometry.totalRecords }
@@ -113,6 +118,13 @@ public struct MemoryPlan {
             format: "  prefill: %d tokens per pass (~%.0f tok/s here; costs ~%.1f GB of the target)",
             prefillChunk, Planner.estPrefillTokS(chunk: prefillChunk),
             Planner.prefillCostGB(prefillChunk)))
+        if prefixCacheTokens > 0 {
+            l.append(String(
+                format: "  reuse:  up to %d tokens across %d conversations (~%.1f GB), so a "
+                    + "follow-up turn re-prefills only what is new",
+                prefixCacheTokens, PrefixCache.maxEntries,
+                Double(prefixCacheTokens) * Double(PrefixCache.bytesPerToken) / 1e9))
+        }
         for n in notes { l.append("  note:   \(n)") }
         return l.joined(separator: "\n")
     }
@@ -130,6 +142,7 @@ public struct MemoryPlan {
             "availability_clamped": clamped,
             "fully_resident": fullyResident,
             "prefill_chunk": prefillChunk,
+            "prefix_cache_max_tokens": prefixCacheTokens,
         ]
         if let a = availableGB, a.isFinite { d["device_available_gb"] = (a * 10).rounded() / 10 }
         if let t = targetGB { d["target_gb"] = (t * 10).rounded() / 10 }
@@ -147,18 +160,31 @@ public enum Planner {
     /// promise ("stays under G") survives transients.
     public static let planningMarginGB = 0.5
 
-    /// What a larger prefill pass costs, over the 256-token baseline.
+    /// What a prefill pass costs in transient activations.
     ///
-    /// Two things scale together and are budgeted as one: the transient
-    /// activations of the pass itself (measured on a 7,960-token prompt:
-    /// 256 -> 8.3 GB peak, 512 -> 8.6, 1024 -> 9.2, 2048 -> 10.1), and the KV
-    /// plus indexer state of the long context that motivates a large pass in
-    /// the first place (~27 KiB per token, which the pool math does not model).
-    /// Charging activations alone at 1.1 MB/token left `--memory-gb 12` peaking
-    /// at exactly 12.0 GB on an 8k prompt — the promise held with no headroom
-    /// at all. 1.8 MB/token is what the two together actually measured.
+    /// **Recalibrated 2026-08-30, and the old figure was costing real speed.**
+    /// The previous model charged `(chunk - 256) x 1.8 MB` because it folded
+    /// two different things into one term: the pass activations, which scale
+    /// with the *chunk*, and the KV plus indexer state, which scales with the
+    /// *context*. Conflating them made a big pass look twice as expensive as it
+    /// is, so the planner kept choosing 1024 where 2048 is strictly better.
+    ///
+    /// Measured directly (`--memory-gb 16`, pool pinned at 77/layer, so peak
+    /// minus the 14.1 GB base is the pass): chunk 1024 -> 1.30 GB, 2048 -> 2.19,
+    /// 4096 -> 4.30. That is ~1.0 to 1.3 MB per chunk token, linear from zero
+    /// rather than from 256. Context state is a separate ~27.6 KB per token and
+    /// is genuinely small: going from a 4,016 to an 8,016-token prompt moved
+    /// peak by 0.1 GB. 1.30 MB/token is charged here so the estimate errs high
+    /// at every measured point.
     public static func prefillCostGB(_ chunk: Int) -> Double {
-        max(0, Double(chunk - 256)) * 1.8e-3
+        Double(chunk) * 1.30e-3
+    }
+
+    /// KV plus indexer state for a context of `tokens`, which the pool math
+    /// does not model. Separate from the pass cost above because it scales with
+    /// the conversation, not with the batch: a 32k prompt carries ~0.9 GB.
+    public static func contextStateGB(_ tokens: Int) -> Double {
+        Double(tokens) * Double(PrefixCache.bytesPerToken) / 1e9
     }
 
     /// Sizes the prefill pass from the same budget as the pool.
@@ -167,13 +193,56 @@ public enum Planner {
     /// every layer, so the whole expert set is re-read roughly once per pass
     /// and halving the number of passes halves the bytes moved. Measured on a
     /// 7,960-token prompt: 40 tok/s at 256, 50 at 512, 67 at 1024, 92 to 105 at
-    /// 2048 — with byte-identical output at every size. It is capped at a fifth
-    /// of the pool budget so a small machine never trades most of its cache for
-    /// prefill speed; at the floor that leaves 256.
+    /// 2048 — with byte-identical output at every size.
+    ///
+    /// The cap is a quarter of the pool budget, raised from a fifth once the
+    /// cost above was measured honestly. The deciding experiment held total
+    /// memory fixed and traded pool for pass size on a 4,021-token prompt:
+    ///
+    /// | chunk | pool | prefill | decode | peak |
+    /// |---|---|---|---|---|
+    /// | 1024 | 77/layer | 65.2 s | 7.3 s | 15.4 GB |
+    /// | 2048 | 67/layer | **47.9 s** | **6.6 s** | **14.9 GB** |
+    /// | 4096 | 47/layer | 42.9 s | 9.0 s | 14.4 GB |
+    ///
+    /// 2048 dominates 1024 on every axis, so a fifth was simply too tight; 4096
+    /// buys a little more prefill and gives back more decode, so it should only
+    /// be reached on a machine whose pool is already past the decode plateau —
+    /// which is exactly what a proportional cap does, since there pool memory
+    /// is worth nothing and pass memory is worth a lot.
     public static func prefillChunkFor(poolBudgetGB: Double) -> Int {
         var best = 256
-        for c in [512, 1024, 2048] where prefillCostGB(c) <= 0.20 * poolBudgetGB { best = c }
+        for c in [512, 1024, 2048, 4096, 8192] where prefillCostGB(c) <= 0.25 * poolBudgetGB {
+            best = c
+        }
         return best
+    }
+
+    /// How many tokens of conversation state the prefix cache may retain.
+    ///
+    /// The held state is ~27 KiB per token, and this is a ceiling on the total
+    /// across every conversation held, not per conversation.
+    ///
+    /// It **is** charged against the budget. The first design held one
+    /// conversation and evicted on any miss, so exactly one state was ever live
+    /// and peak was unchanged; that design was then measured against a real
+    /// client and never hit at all — Open WebUI interleaves a title-generation
+    /// request between turns and evicted the chat every time. Holding several
+    /// conversations is what makes the cache work, and several held states are
+    /// genuinely additive memory, so the budget pays for them. A tenth of the
+    /// pool budget is the ceiling, capped by the context limit above which
+    /// reuse is impossible anyway (a match needs `prompt.count > held.count`,
+    /// and a prompt that long is already refused).
+    public static func prefixCacheTokensFor(poolBudgetGB: Double, contextCap: Int = 32_768) -> Int {
+        let gb = 0.10 * max(0, poolBudgetGB)
+        let toks = Int(gb * 1e9 / Double(PrefixCache.bytesPerToken))
+        return max(0, min(toks, contextCap))
+    }
+
+    /// What that retention ceiling costs, which the plan reserves.
+    public static func prefixCacheGB(poolBudgetGB: Double) -> Double {
+        Double(prefixCacheTokensFor(poolBudgetGB: poolBudgetGB))
+            * Double(PrefixCache.bytesPerToken) / 1e9
     }
 
     /// Prefill throughput estimate for the banner, from the anchors above.
@@ -181,8 +250,9 @@ public enum Planner {
         switch chunk {
         case ..<512: return 40
         case ..<1024: return 50
-        case ..<2048: return 67
-        default: return 92
+        case ..<2048: return 94
+        case ..<4096: return 113
+        default: return 125
         }
     }
     /// Smallest honest total-memory target: floor pool + footprint + margin.
@@ -259,6 +329,7 @@ public enum Planner {
     public static func slotsForTarget(_ targetGB: Double) -> Int {
         let budget = poolBudgetGB(targetGB)
         let pool = budget - prefillCostGB(prefillChunkFor(poolBudgetGB: budget))
+            - prefixCacheGB(poolBudgetGB: budget)
         return min(
             Geometry.totalRecords,
             max(Geometry.floorSlots, Int(pool * 1e9 / Geometry.recordBytes)))
@@ -294,7 +365,9 @@ public enum Planner {
                     format: "raised to the floor of %d slots (~%.0f/layer): below it a prefill chunk can pin every slot",
                     Geometry.floorSlots, Geometry.perLayer(Geometry.floorSlots)))
             }
+            let budgetForCaches = target.map(poolBudgetGB) ?? Geometry.gb(slots)
             let peak = Geometry.gb(floored) + fixedFootprintGB + prefillCostGB(chunk)
+                + prefixCacheGB(poolBudgetGB: budgetForCaches)
             if peak > ws, source != .memoryGB {  // memoryGB branch words its own note
                 notes.append(String(
                     format: "expected peak %.1f GB exceeds the %.1f GB Metal working set — expect paging; close other apps or lower the knob",
@@ -309,7 +382,9 @@ public enum Planner {
             return MemoryPlan(
                 source: source, slots: floored, targetGB: target,
                 ramGB: ram, workingSetGB: ws, availableGB: avail, clamped: clamped,
-                prefillChunk: chunk, notes: notes)
+                prefillChunk: chunk,
+                prefixCacheTokens: prefixCacheTokensFor(poolBudgetGB: budgetForCaches),
+                notes: notes)
         }
 
         if let n = expertsPerLayer {

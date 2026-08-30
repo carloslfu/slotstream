@@ -87,6 +87,64 @@ These were all real bugs found by adversarial probing. Each is now gated by
   the engine allocates from the config; if they drift, every memory number the
   user sees is wrong.
 
+## Conversation prefix cache (0.1.6)
+
+- **A reused state is extend-only and can never be rewound.** `LinearCache`
+  holds the GDN recurrent state, a fold over every token with no inverse, and
+  `ngramCtx` is carried forward the same way. So reuse requires
+  `prompt.starts(with: heldIds)` and `prompt.count > heldIds.count`; anything
+  else is a full rebuild. Do not add "partial rewind" or longest-common-prefix
+  matching — there is nothing to rewind to.
+- **The held id list is tracked, never inferred.** A token is sampled *before*
+  it is fed, so both break paths in the decode loop leave the last token
+  unconsumed. `Generator.generate` records exactly what the state consumed; a
+  caller that recomputes this from the returned ids will be off by one and the
+  next request will silently reuse a state that does not match its prompt.
+- **A miss must evict before the caller allocates.** `PrefixCache.take` clears
+  the slot on every path. That is what keeps exactly one state live and peak
+  memory identical to the uncached path; without it two full states coexist and
+  the `--memory-gb` promise breaks on the second conversation.
+- **Do not gate this on byte-equality with a cold rebuild — it will never
+  pass.** Reuse re-batches the same tokens, MLX picks reduction orders by shape,
+  and floating point is not associative: swept over a 64-token sequence, all 63
+  split points differ. §6.1's "streaming is math-invisible" is about the expert
+  pool, where hit and miss deliver identical bytes. The gate is
+  `slotstream prefix-check`: reuse must perturb logits no more than re-chunking
+  a plain prefill already does (measured 4.37% vs 5.90% of logit spread), stay
+  flat with depth, be deterministic run to run, and actually be reusing.
+  Corollary worth knowing: the existing byte-identical-across-chunk-sizes result
+  is luckier than it reads — the logit deltas are several percent either way and
+  the text matches because top-1 usually survives.
+- **The governor sheds it before shrinking the pool.** One re-prefill is a
+  cheaper give-back than a starved cache, which taxes every token after it.
+- **It holds four conversations, and must not be reduced to one.** A single slot
+  passed every synthetic test and then scored 0 hits / 7 misses against Open
+  WebUI, whose title-generation request lands between turns and evicted the chat
+  every time. Any client that decorates a conversation (titles, tags,
+  suggestions) breaks a one-slot cache. Because several held states are
+  additive, the retention ceiling is charged against the memory budget.
+
+## Prefill: what has already been measured (0.1.6)
+
+Do not re-derive these; each cost a measured experiment.
+
+- **The pass cost model is calibrated, not guessed.** ~1.30 MB per chunk token,
+  linear from zero. The old `(chunk - 256) x 1.8 MB` conflated pass activations
+  with context KV and overcharged 2x, which silently kept the planner one chunk
+  size too small. Context state is separate and small: 4k -> 8k tokens moved
+  peak by 0.1 GB.
+- **Prefill IO runs at ~4.5 GB/s, not the SSD's 17.3, and queue depth is not
+  why.** An expert is nine ~307 KB pieces, not one 2.76 MB block. QD 12 and 32
+  tie; 64 and 128 are worse. Making it faster means a contiguous on-disk repack
+  (the skipped M2 container) — this is the evidence that would un-skip it.
+- **Cross-layer read-ahead does not work here. Do not rebuild it** without
+  first making reads contiguous. It was built, measured slower in every paired
+  run, and removed: the reads already saturate, so a background reader steals
+  CPU from the thread feeding the GPU and competes for the same unified memory.
+- **Compute is now the majority of a pass.** Closing it needs a grouped GEMM,
+  which needs a Metal kernel, which needs Xcode on the build machine (see the
+  risk register). Not doable from CLT alone.
+
 ## Prefill, sampler, governor (0.1.5)
 
 - **The prefill pass size is part of the memory plan, not a constant.** Prefill
@@ -131,8 +189,10 @@ These were all real bugs found by adversarial probing. Each is now gated by
 - Distribution: `install.sh` (repo root) is the public one-line installer; it
   fetches the latest release asset `slotstream-arm64.tar.gz` (binary +
   `mlx.metallib`, plus a `.sha256` file) into `~/.slotstream/bin`. **Cutting a
-  release**: bump `version:` in `Sources/slotstream/main.swift` to match the
-  tag, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z` —
+  release**: bump `version` in `Sources/SlotstreamCore/Version.swift` (moved
+  there in 0.1.5; it is the single source for `--version`, `/api/version` and
+  the CI tag check) to match the tag, commit, then
+  `git tag vX.Y.Z && git push origin vX.Y.Z` —
   `.github/workflows/release.yml` builds on a macos-15 runner, fails unless
   `--version` equals the tag, packages, attests provenance
   (`gh attestation verify <asset> --repo carloslfu/slotstream`), and

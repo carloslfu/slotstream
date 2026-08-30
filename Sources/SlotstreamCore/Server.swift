@@ -222,7 +222,7 @@ public final class Server {
                     "modelfile": "# slotstream: SSD-streamed qwen4_exp",
                     "parameters": "",
                     "template": "{{ .Prompt }}",
-                    "details": modelDetails(),
+                    "details": modelDetails(live: true),
                     "model_info": [
                         "general.architecture": "qwen4_exp",
                         "general.parameter_count": 176_000_000_000,
@@ -258,7 +258,10 @@ public final class Server {
         }
     }
 
-    private func modelDetails() -> [String: Any] {
+    /// `live: false` for /api/tags and /api/ps, which are *listings* — a
+    /// client may cache or diff them, so per-request counters do not belong
+    /// there. /api/show is the endpoint that reports runtime state.
+    private func modelDetails(live: Bool = false) -> [String: Any] {
         var d: [String: Any] = [
             "format": "safetensors", "family": "qwen4_exp",
             "parameter_size": "176B-A6B", "quantization_level": "4bit",
@@ -266,6 +269,7 @@ public final class Server {
             "experts_per_layer": engine.model.cfg.numExperts,
         ]
         if let plan = engine.currentPlan { d["memory_plan"] = plan.json() }
+        if live { d["prefix_cache"] = engine.prefixCache.json() }
         return d
     }
 
@@ -375,7 +379,7 @@ public final class Server {
             "message": ["role": "assistant", "content": stream ? "" : text],
             "done": true, "done_reason": stats.finishReason,
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
-            "prompt_eval_count": stats.prefillTokens,
+            "prompt_eval_count": stats.promptTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
             "eval_count": stats.decodeTokens,
             "eval_duration": Int(stats.decodeSeconds * 1e9),
@@ -427,7 +431,7 @@ public final class Server {
             "model": engine.modelName, "created_at": iso(Date()),
             "response": stream ? "" : text, "done": true, "done_reason": stats.finishReason,
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
-            "prompt_eval_count": stats.prefillTokens,
+            "prompt_eval_count": stats.promptTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
             "eval_count": stats.decodeTokens,
             "eval_duration": Int(stats.decodeSeconds * 1e9),
@@ -492,9 +496,9 @@ public final class Server {
             ]
             if wantUsage {
                 fin["usage"] = [
-                    "prompt_tokens": stats.prefillTokens,
+                    "prompt_tokens": stats.promptTokens,
                     "completion_tokens": stats.decodeTokens,
-                    "total_tokens": stats.prefillTokens + stats.decodeTokens,
+                    "total_tokens": stats.promptTokens + stats.decodeTokens,
                 ]
             }
             chunk(fd, Data("data: ".utf8) + (try! JSONSerialization.data(withJSONObject: fin)) + Data("\n\n".utf8))
@@ -513,9 +517,9 @@ public final class Server {
                         ]
                     ],
                     "usage": [
-                        "prompt_tokens": stats.prefillTokens,
+                        "prompt_tokens": stats.promptTokens,
                         "completion_tokens": stats.decodeTokens,
-                        "total_tokens": stats.prefillTokens + stats.decodeTokens,
+                        "total_tokens": stats.promptTokens + stats.decodeTokens,
                     ],
                 ])
         }

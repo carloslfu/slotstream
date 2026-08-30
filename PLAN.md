@@ -22,13 +22,21 @@ design and the estimates it replaces.
 | M2 `.ssmodel` container + repack | **skipped, by measurement** | engine streams from original shards (9 preads/expert); repack is now a measured-optimization backlog item |
 | M3 Swift engine, resident correctness (incl. QSA indexer) | ✅ **done 2026-08-28** | layers 0–1 **bit-exact** vs mlx-0.31.1 reference; template/ngram/dequant goldens exact; deeper layers ≤2.4% RMS (vendored-kernel ulp skew, documented) |
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
-| M5 Prefill/prefetch perf | ◐ partial | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; dense-sweep prefill + cross-token prefetch not yet built (prefill 4.6–13.2 tok/s naive) |
+| M5 Prefill/prefetch perf | ◐ partial → **queued as N2** | warm decode **20.0 tok/s** (target ≥20 ✅) with zero tuning; prefill 40 → **92 tok/s** once the pass was sized from the memory plan (M7.6), still short of the ≥150 @8k target; dense sweep + cross-token prefetch not yet built |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
 | M7 CLI, install, packaging | ✅ **done 2026-08-28** (LaunchAgent deferred) | `pull/run/serve/parity/doctor/elastic-check/goldens` CLI + Makefile; `pull` parallel (8 connections, 64 MB chunks, per-file chunk map) + resumable + sha256-verified (proven live incl. resume, 429 retry, corruption fail-closed; ~50 MB/s vs 28-40 single-connection, which is Hugging Face's own ceiling); `serve`/`run` offer the download on first run (consent-gated, /dev/tty-aware); public one-line installer (`install.sh` → sha256-checked release tarball → `~/.slotstream/bin` → PATH → optional handoff to serve); v0.1.0 release ships binary + metallib; LaunchAgent not built (foreground serve is the supported mode) |
 | M7.5 Serving hardening | ✅ **done 2026-08-29** (v0.1.5) | adversarial review of the whole system; three process-killing inputs fixed (SIGPIPE on client disconnect, `seed: -1`, `num_predict: -1`), streaming detokenization made scalar-exact (leading multi-token characters were being dropped), sampler 0/0 removed, `stop` sequences + OpenAI array content + `--max-context` (32k) added, read timeouts and a connection cap, `IndexerCache` grown in blocks instead of re-concatenated. All 38 acceptance checks pass; `Tools/api_robustness.sh` is the standing gate and `Tools/planner_gates.sh` now runs in CI |
 | M7.6 Deferred gaps closed | ✅ **done 2026-08-29** | prefill pass sized from the memory plan: 40 → 92 tok/s, byte-identical output at every size, KV/indexer growth now charged so `--memory-gb` holds on long prompts; sampler golden vs a numpy reference (14 configs, exact); elastic governor policy extracted to a pure function and driven through all 19 branches without a memory hog. 63 acceptance checks |
-| M8 Matrix bench + tier validation | ◐ first data | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (30 experts/layer cached); real small-Mac runs pending |
+| M8 Matrix bench + tier validation | ◐ first data — **deprioritized 2026-08-29** | pro48-class: 7.8 cold / 20.0 warm tok/s, peak 27.3 GB; lite-class emulation: 5.6 tok/s in **7.3 GB peak** (30 experts/layer cached); real small-Mac runs pending. The bench rig and the tier table are credibility artifacts, not adoption gates — moved behind N1–N5, see §8.1 |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
+| N1 Conversation prefix cache | ✅ **done 2026-08-29** (0.1.6) | TTFT is now flat in conversation length: 8 turns to a 1,237-token prompt held **6.0 s** cached against **25.8 s** uncached (whole conversation 52.2 s vs 105.9 s). Reuse perturbs logits **less** than re-chunking a plain prefill already does (4.37% vs 5.90% of spread) and stays flat with depth; `slotstream prefix-check` gates that bound plus determinism and actual reuse. `--no-prefix-cache` pins the old behaviour |
+| N2 Prefill, second pass | ◐ **partial 2026-08-30** | measured the pass split (io 33.9 / scatter 10.3 / compute 50.3 s — fully serialized), found the cost model overcharged 2x, recalibrated it to the measured 1.30 MB per chunk token and raised the cap to a quarter of the pool budget. 8k prefill at a 16 GB target: **86.0 → 71.3 s mean (93.7 → 112.9 tok/s)**, faster in every paired run, peak down. Cross-layer read-ahead was built, measured *worse*, and removed. M5's ≥150 tok/s is **not** met: compute is now the majority and closing it needs a grouped-GEMM kernel, which needs Xcode (risk register) |
+| N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI 0.11.1 driven through its actual UI: discovered the model, streamed correct replies, auto-titled the chat. It also **found a real bug** — its interleaved title request defeated the single-slot prefix cache (0 hits / 7 misses), which is why the cache now holds four conversations |
+| N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | both closed as work items by Carlos. The findings behind them are kept in MEASUREMENTS.md so they are not re-proposed: hosting is not the download's bottleneck (R2 measured no faster than Hugging Face), partial-start is worse than the progress bar it would replace (~26 s per token while the download catches up), and the FP8 comparison needs a paid inference credential that is not provisioned. `Tools/quality_probe.sh` stays in the battery as the behavioural damage gate |
+
+**What is actually next: [§8.1](#81-next--the-ordered-queue-post-015).** M0–M8 are the
+build-out phases; §8.1 is the live queue, ordered by what decides whether a person keeps
+using slotstream after their first session rather than by what completes the milestone map.
 
 ---
 
@@ -484,7 +492,12 @@ row in the matrix for 256 GB-internal-disk Macs.
 ## 6. Correctness strategy (non-negotiable invariants)
 
 1. **Streaming must be math-invisible.** Same engine, tiny cache vs infinite cache, greedy
-   sampling → **identical token sequences**, always. This is the golden test run in CI on
+   sampling → **identical token sequences**, always. This is a claim about the *expert
+   pool*, where a hit and a miss deliver the same bytes to the same kernel. It does not
+   extend to anything that changes how tokens are *batched* — prefill chunk size or
+   conversation prefix reuse — where MLX picks reduction orders by shape and floating
+   point is not associative (measured: MEASUREMENTS.md). Those are gated against a
+   control instead. This is the golden test run in CI on
    a synthetic small qwen4_exp config and on truncated real weights.
 2. **Parity with the Python reference** (the `qwen4_exp.py` shipped in the MLX conversions
    / PR #1788, revision-pinned and vendored into `Tools/reference/`): layer-by-layer
@@ -636,6 +649,114 @@ Run Stages A→C; fill every Measured column in §5; tune; freeze presets v1; wr
 per-tier expectations into README.
 **Exit:** §5 table complete for ≥4 tiers incl. one real ≤16 GB Mac; §11 checklist review.
 
+---
+
+### 8.1 Next — the ordered queue (post-0.1.5)
+
+Ordering only, deliberately no day estimates. The ordering principle is **what decides
+whether someone keeps using this after their first session**, which is not the same as
+what completes the milestone map — see the deprioritized list at the end.
+
+### N1 — Conversation prefix cache (KV + GDN state reuse across requests)
+
+**The single largest win, and it was not in this plan until now.**
+`Generator.generate` calls `model.makeState()` on every request, so a conversation
+re-prefills its entire history every turn. At the measured 92 tok/s that is ~9 s of dead
+air at turn 2 (~800 tokens), ~33 s at turn 5 (~3k), ~65 s at turn 10 (~6k) — by which
+point prefill is ~72% of the wait for a 500-token reply, and every second of it is
+recomputing tokens the previous turn already processed. Agentic and tool-loop use, many
+short turns over a long identical prefix, is the worst case and is also the use that most
+justifies a local model.
+
+**Mechanism.** Hold the live state keyed by the token prefix that produced it. If a new
+request's `promptIds` start with the cached prefix, prefill only the delta; otherwise
+rebuild. Generation already leaves the state covering prompt + completion, which is
+exactly the next turn's prefix.
+
+**Architectural constraint.** The GDN recurrent state cannot be rewound to an arbitrary
+prefix, only continued forward — so this is exact-prefix-extend or full rebuild, never
+partial rewind. That covers the dominant chat/agentic case and falls back correctly when
+the user edits earlier history or switches conversation. This is a real difference from a
+pure-attention runner, where any prefix is a slice.
+
+**Cost.** A held state is ~27 KiB/token (KV + indexer), so a 32k conversation pins
+~0.9 GB. It must be charged in the memory plan (§5) and be the first thing the governor
+sheds under pressure — ahead of shrinking the pool, on the same reasoning as the M9
+ordering note.
+
+**Exit (revised — the original was unachievable).** ✅ Turn-N latency independent of
+conversation length for an extending prefix; ✅ state dropped under memory pressure.
+
+**The byte-identity criterion written here first was wrong and had to be replaced.**
+Reusing a state pushes the same tokens through the model in a different batching, MLX
+selects kernels and reduction orders by shape, and floating point is not associative —
+swept over a 64-token sequence, *all 63* split points give different logits from a single
+pass. §6.1 is about the expert pool, where the bytes fetched are identical and the claim
+holds; it does not extend to re-batching. The replacement gate is a **control**: prefix
+reuse must not move logits more than re-chunking a plain prefill already does (measured
+4.37% vs 5.90% of logit spread), must stay flat with depth, must be deterministic run to
+run, and must actually be reusing something. Full data in MEASUREMENTS.md, including the
+by-product finding that the existing "byte-identical at every prefill chunk size" result
+is luckier than it reads.
+
+### N2 — Dense-sweep prefill (the remainder of M5)
+
+N1 cannot help the first turn, a pasted document, or a fresh RAG context; only a faster
+pass can. Sizing the pass from the memory plan already took prefill 40 → 92 tok/s
+(M7.6); the remaining work is the dense sweep proper per §3.3 — grouped staging, auto
+threshold, scan-resistant admission — plus the cross-token prefetcher. This multiplies
+with N1 rather than overlapping it: N1 removes repeated work, N2 speeds up the pass that
+is genuinely unavoidable.
+
+**Exit:** ≥150 tok/s @8k on the dev Mac; byte-identical output at every pass size (the
+existing standing gate).
+
+### N3 and N4 — removed from the queue (2026-08-30)
+
+Both were dropped as work items. They are recorded here rather than deleted so
+that neither gets re-proposed from first principles later; the measurements are
+in MEASUREMENTS.md.
+
+- **N3 (the 104 GB download).** Three levers, all closed. Hosting is not the
+  bottleneck — Cloudflare R2 measured no faster than Hugging Face (42 to 51
+  against 36 to 50 MB/s) on a link that does 134, and Hugging Face is free.
+  Serving before the download completes fails on arithmetic, not engineering: a
+  missing expert is a wrong answer rather than a slow one, so the fetch must
+  block, and one token needs ~1.3 GB of experts — about 26 s per token until the
+  download catches up, which is worse than the progress bar it would replace.
+  That left a smaller build, which needs a billed re-quantization run and a
+  quality gate to prove it cost nothing.
+- **N4 (quality against the FP8 reference).** That gate needs an inference
+  credential for Qwen3.8-Flash-Next FP8 — Qwen's own DashScope or an aggregator
+  carrying it. None is provisioned and it is paid.
+  `Tools/quality_probe.sh` remains in the battery: 15 checkable items covering
+  recall, arithmetic, sorting, instruction obedience, translation and code. It
+  catches gross quantization damage and gates any future re-quantization. It is
+  **not** a comparison against FP8 and must never be described as one.
+
+### N5 — Real GUI and editor clients
+
+Open WebUI and one editor client (Zed or Continue via the OpenAI path) — the remaining
+M6 exit criteria. The Ollama CLI and the OpenAI Python SDK are both proven end to end as
+of 0.1.5, so the wire protocol is not in doubt; this is cheap insurance against a client
+that disagrees anyway. Low risk, binary outcome.
+
+### Deprioritized (decision 2026-08-29)
+
+Not abandoned, but explicitly behind N1–N5. None of these changes whether a person keeps
+using slotstream; they are credibility artifacts and completeness for the milestone map:
+
+- **M8 in full** — the `slotstream bench` subcommand, the W1–W7 workloads, the §5
+  Measured column, the presets freeze. Days of building a measurement rig whose output is
+  a table. Do targeted measurements ad hoc instead.
+- **`lite16` on a real 16 GB Mac** — also blocked on someone else's hardware.
+- **M1 locality traces**, **LaunchAgent**, **M9 MTP**.
+- *Exception on the soak:* a leak that only appears after 30 minutes is a real bug, not a
+  credibility item. Ordinary daily use covers it in the meantime; W5 does not have to be
+  built to catch it.
+
+---
+
 ### M9 design note — MTP self-speculative decode: when it pays, and when experts win
 
 Not built in v0, and the pinned community conversion drops the MTP tensors
@@ -748,10 +869,12 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
       hyper-connections, embeddings) **bit-exact**; QSA layer ≤2.4% RMS with the
       few-ulp vendored-kernel origin documented in MEASUREMENTS.md.
 - [~] This Mac: decode ≥ 20 tok/s warm chat ✅ (20.01) · cold→first-token ≤ 15 s ✅
-      (~12 s) · prefill ≥ 150 tok/s @8k **not yet** (needs dense sweep; naive
-      chunked prefill measured 4.6–13.2 tok/s) · 30-min soak not yet run.
-- [ ] `lite16` on a **real** 16 GB Mac (emulated already: 5.6 tok/s in 7.3 GB peak).
-- [ ] bench matrix ≥ 4 tiers; presets frozen.
+      (~12 s) · prefill ≥ 150 tok/s @8k **not yet** (needs the dense sweep; chunked
+      prefill sized from the memory plan measures 92 tok/s, up from 40) · 30-min
+      soak not yet run.
+- [ ] `lite16` on a **real** 16 GB Mac (emulated already: 5.6 tok/s in 7.3 GB peak)
+      — **deliberately deferred**, see §8.1.
+- [ ] bench matrix ≥ 4 tiers; presets frozen — **deliberately deferred**, see §8.1.
 - [~] Ollama surface: full curl-level battery passes (`Tools/api_test.sh`:
       version/tags/chat±stream/generate/v1±SSE/embed-reject); real GUI clients
       not yet exercised (sandbox intercepts local HTTP clients; nc transport used).
@@ -786,6 +909,12 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
    20% of memory bandwidth. This displaced IO as the top performance risk (M4/M5).
 9. **NEW.** Metal shader build: Xcode on the build machine, or a vendored metallib
    resource? (decide before M7 — see risk register)
+10. **NEW (2026-08-29), and the reason N1 exists.** How much of real-world latency is
+   re-prefill rather than prefill? Found by inspection, not measurement: state is rebuilt
+   per request, so for a conversation it is *all* of it after turn 1. Open sub-question
+   for N1: how often does a real client actually send an exactly-extending prefix
+   (tool loops and edited history both break it), i.e. what is the true hit rate of an
+   extend-only cache?
 
 ## 13. References
 

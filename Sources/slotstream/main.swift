@@ -13,6 +13,7 @@ struct Slotstream: ParsableCommand {
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
+            PrefixCheck.self,
         ]
     )
 }
@@ -177,7 +178,8 @@ struct Run: ParsableCommand {
                 FileHandle.standardError.write(
                     """
 
-                    -- prefill \(stats.prefillTokens) tok in \(String(format: "%.2f", stats.prefillSeconds))s (\(String(format: "%.1f", stats.prefillTPS)) tok/s)
+                    -- prefill \(stats.prefillTokens) tok in \(String(format: "%.2f", stats.prefillSeconds))s (\(String(format: "%.1f", stats.prefillTPS)) tok/s)\(stats.prefixHit ? " | \(stats.reusedPrefixTokens) of \(stats.promptTokens) reused from the previous turn" : "")
+                    -- prefill split: io \(String(format: "%.2f", stats.prefillIOSeconds))s + scatter \(String(format: "%.2f", stats.prefillScatterSeconds))s + compute \(String(format: "%.2f", max(0, stats.prefillSeconds - stats.prefillIOSeconds - stats.prefillScatterSeconds)))s | \(stats.prefillRecords) records (\(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3)) GB, \(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3 / max(stats.prefillIOSeconds, 1e-9))) GB/s)
                     -- decode \(stats.decodeTokens) tok in \(String(format: "%.2f", stats.decodeSeconds))s (\(String(format: "%.2f", stats.decodeTPS)) tok/s)
                     -- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | peak \(String(format: "%.1f", stats.peakMemoryGB)) GB | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
 
@@ -205,6 +207,9 @@ struct Serve: ParsableCommand {
     @Flag(name: .customLong("no-elastic"),
           help: "Pin the cache at its startup size. Default: an auto-sized cache resizes itself between requests as memory pressure and availability change (explicit size flags are always pinned).")
     var noElastic = false
+    @Flag(name: .customLong("no-prefix-cache"),
+          help: "Re-prefill every request from scratch. Default: the state of one request is reused by the next when that request's prompt extends it, so a chat turn only prefills what is new.")
+    var noPrefixCache = false
 
     func run() throws {
         guard maxContext > 0 else { throw PlanError("--max-context must be > 0") }
@@ -222,6 +227,13 @@ struct Serve: ParsableCommand {
         sem.wait()
         if let e = err { throw e }
         engine.maxContextTokens = maxContext
+        if noPrefixCache {
+            engine.prefixCache.enabled = false
+            engine.prefixCache.drop()
+            FileHandle.standardError.write(
+                "prefix cache: off — every request re-prefills its whole prompt\n"
+                    .data(using: .utf8)!)
+        }
         var governor: MemoryGovernor?
         if plan.source == .auto, !noElastic {
             governor = MemoryGovernor(engine: engine)
@@ -401,6 +413,271 @@ struct ElasticCheck: ParsableCommand {
                 } else {
                     print("ELASTIC CHECK FAIL")
                     for (n, s) in [("a", a), ("b", b), ("c", c), ("d", d)] { print("--- \(n):\n\(s)") }
+                    throw ExitCode(2)
+                }
+            } catch {
+                result = .failure(error)
+            }
+            sem.signal()
+        }
+        sem.wait()
+        try result.get()
+    }
+}
+
+struct PrefixCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "prefix-check",
+        abstract: "Prove conversation prefix reuse is equivalent, bounded, and deterministic")
+    @OptionGroup var model: ModelOptions
+    @Option(help: "Slots to run with (small keeps the check cheap; these properties are size-independent)")
+    var slots: Int = 1446
+    @Option var maxTokens: Int = 24
+
+    /// A short multi-turn chat, driven exactly as a client drives one: every
+    /// turn re-sends the whole history through the chat template, so the prompt
+    /// is re-tokenized from text each time. That is the real test of whether a
+    /// cache can hit at all — re-encoding the previous reply has to reproduce
+    /// the ids that were generated.
+    static let turns = [
+        "Name one planet. Answer with just the name.",
+        "Is it bigger than Earth? Answer yes or no.",
+        "Why? One short sentence.",
+    ]
+
+    /// Logits after a state was built incrementally — a prefill plus one-token
+    /// decode steps, exactly how the cache builds one — against logits from a
+    /// single cold prefill of the same ids.
+    ///
+    /// These are NOT bit-identical and cannot be. MLX selects kernels and
+    /// reduction orders by tensor shape, so summing the same values in a
+    /// different batching sums them in a different order, and floating point
+    /// is not associative. Measured here: over a 64-token sequence, every one
+    /// of the 63 possible split points differs. What must hold instead is that
+    /// the difference stays down in the rounding noise and does not grow as a
+    /// conversation gets longer — that is the line between harmless
+    /// re-association and a state that is actually being corrupted.
+    /// Logits for `ids`, built either in one pass, in fixed-size passes, or
+    /// incrementally the way a cached state is (a prefill, then one-token
+    /// steps).
+    enum Build { case whole, chunked(Int), incremental(Int) }
+
+    static func logits(_ engine: Engine, ids: [Int], _ how: Build) -> [Float] {
+        func vec(_ a: MLXArray) -> [Float] {
+            a.reshaped([-1]).asType(.float32).asArray(Float.self)
+        }
+        let st = engine.model.makeState()
+        switch how {
+        case .whole:
+            return vec(engine.model.lastLogits(ids, state: st))
+        case .chunked(let c):
+            var i = 0
+            var last = MLXArray(0)
+            while i < ids.count {
+                let hi = min(i + c, ids.count)
+                if hi == ids.count {
+                    last = engine.model.lastLogits(Array(ids[i ..< hi]), state: st)
+                } else {
+                    eval(engine.model.hiddenStates(Array(ids[i ..< hi]), state: st))
+                }
+                i = hi
+            }
+            return vec(last)
+        case .incremental(let split):
+            eval(engine.model.hiddenStates(Array(ids[0 ..< split]), state: st))
+            var last = MLXArray(0)
+            for t in ids[split...] { last = engine.model.lastLogits([t], state: st) }
+            return vec(last)
+        }
+    }
+
+    static func compare(_ a: [Float], _ b: [Float]) -> (relDelta: Double, sameTop1: Bool) {
+        var maxDiff: Float = 0
+        for (x, y) in zip(a, b) { maxDiff = max(maxDiff, abs(x - y)) }
+        let spread = (a.max() ?? 1) - (a.min() ?? 0)
+        func argmax(_ v: [Float]) -> Int {
+            var bi = 0
+            for i in v.indices where v[i] > v[bi] { bi = i }
+            return bi
+        }
+        return (Double(maxDiff) / Double(max(spread, 1e-6)), argmax(a) == argmax(b))
+    }
+
+    func run() throws {
+        let sem = DispatchSemaphore(value: 0)
+        var result: Result<Void, Error> = .success(())
+        let tokens = maxTokens
+        let poolSlots = slots
+        Task {
+            do {
+                let engine = try await Engine(modelDir: model.modelURL, poolSlots: poolSlots)
+                var p = SampleParams.greedy
+                p.maxTokens = tokens
+                var failures: [String] = []
+                func note(_ s: String) {
+                    FileHandle.standardError.write((s + "\n").data(using: .utf8)!)
+                }
+
+                // ---- 1. Equivalence is bounded, and does not drift with depth.
+                //
+                // A reused state must stay in rounding noise against a cold
+                // rebuild. Corruption — a misaligned prefix, a stale cache, a
+                // dropped position — moves logits by a large fraction of their
+                // own spread, so a relative bound catches it while accepting
+                // re-association. Growth with depth is the other failure this
+                // separates out: rounding does not compound, corruption does.
+                let base = try engine.encodeChat(
+                    [ChatMessage(role: "user", content:
+                        "Explain in two sentences why the ocean is salty and how rivers carry minerals.")],
+                    thinking: false)
+                var deltas: [(Int, Double)] = []
+                var controls: [Double] = []
+                var top1 = 0
+                var probes = 0
+                for reps in [1, 4, 8] {
+                    var ids = base
+                    let body = Array(base.dropFirst(4))
+                    for _ in 1 ..< reps { ids += body }
+                    let split = ids.count / 2
+                    let whole = Self.logits(engine, ids: ids, .whole)
+                    // Control: re-chunking a plain prefill. Nobody disputes
+                    // that this is the same computation — it is the existing
+                    // chunk-equivalence gate — so whatever it moves the logits
+                    // by is the size of "the same answer, summed differently"
+                    // on this model. The cache has to live inside that band.
+                    let (ctrl, _) = Self.compare(whole, Self.logits(engine, ids: ids, .chunked(7)))
+                    let (rel, same) = Self.compare(
+                        whole, Self.logits(engine, ids: ids, .incremental(split)))
+                    deltas.append((ids.count, rel))
+                    controls.append(ctrl)
+                    probes += 1
+                    if same { top1 += 1 }
+                    note(String(format: "  equivalence at %d tokens: reuse %.3f%% vs "
+                        + "prefill-rechunk control %.3f%% of logit spread, top-1 %@",
+                        ids.count, rel * 100, ctrl * 100, same ? "same" : "differs"))
+                }
+                let worst = deltas.map(\.1).max() ?? 0
+                let worstControl = controls.max() ?? 0
+                // The bound is the control, not a number picked by hand: state
+                // reuse may not move logits materially more than re-chunking a
+                // prefill already does. A corrupted or misaligned state fails
+                // this by orders of magnitude.
+                let bound = max(worstControl * 3, 0.01)
+                if worst > bound {
+                    failures.append(String(format:
+                        "reused state moved logits by %.2f%% of their spread, over the "
+                        + "%.2f%% bound set by the prefill-rechunk control — that is "
+                        + "corruption, not re-association", worst * 100, bound * 100))
+                }
+                // Depth must not amplify it. Allow a factor of 3 over the
+                // shallowest probe before calling it drift.
+                if let first = deltas.first?.1, let deepest = deltas.last?.1,
+                    first > 0, deepest > max(first * 3, 0.01)
+                {
+                    failures.append(String(format:
+                        "equivalence degrades with depth (%.3f%% -> %.3f%%): state is "
+                        + "accumulating error, not just re-associating",
+                        first * 100, deepest * 100))
+                }
+
+                // ---- 2. A conversation, driven as a client drives one.
+                func conversation(cached: Bool, edit: String? = nil) throws -> [(String, GenStats)] {
+                    engine.prefixCache.drop()
+                    engine.prefixCache.enabled = cached
+                    engine.prefixCache.resetStats()
+                    var history: [ChatMessage] = []
+                    var out: [(String, GenStats)] = []
+                    for (i, q) in Self.turns.enumerated() {
+                        history.append(ChatMessage(
+                            role: "user", content: (i == 0 && edit != nil) ? edit! : q))
+                        let ids = try engine.encodeChat(history, thinking: false)
+                        let r = engine.generate(promptIds: ids, params: p)
+                        history.append(ChatMessage(role: "assistant", content: r.text))
+                        out.append((r.text, r.stats))
+                    }
+                    return out
+                }
+
+                let warmA = try conversation(cached: true)
+                let warmB = try conversation(cached: true)
+                let cold = try conversation(cached: false)
+
+                // ---- 3. Reuse actually happens. Without this the rest is vacuous.
+                let reusing = warmA.dropFirst().filter { $0.1.prefixHit }.count
+                if reusing == 0 {
+                    failures.append(
+                        "no turn reused a cached prefix — re-encoding a reply does not "
+                        + "reproduce its generated ids, so the cache can never hit")
+                }
+
+                // ---- 4. The cached path is deterministic. Two identical runs
+                //         must agree exactly; this is the invariant that a real
+                //         cache bug breaks, and it is not weakened by the
+                //         re-association in check 1.
+                for (i, (a, b)) in zip(warmA, warmB).enumerated() where a.0 != b.0 {
+                    failures.append("cached run is not deterministic at turn \(i + 1)\n"
+                        + "    run 1: \(a.0)\n    run 2: \(b.0)")
+                }
+
+                // ---- 5. A prompt that does not extend the held state must
+                //         rebuild, and must still be deterministic.
+                let editQ = "Name one ocean. Answer with just the name."
+                let edA = try conversation(cached: true, edit: editQ)
+                let edB = try conversation(cached: true, edit: editQ)
+                for (i, (a, b)) in zip(edA, edB).enumerated() where a.0 != b.0 {
+                    failures.append("edited-history run is not deterministic at turn \(i + 1)")
+                }
+
+                // ---- 6. The shed path the governor uses under memory pressure:
+                //         the state is released and the next turn rebuilds. Tested
+                //         through its own contract rather than by putting the
+                //         machine under real pressure to watch it happen.
+                engine.prefixCache.drop()
+                engine.prefixCache.enabled = true
+                engine.prefixCache.resetStats()
+                var hist: [ChatMessage] = [ChatMessage(role: "user", content: Self.turns[0])]
+                let r1 = engine.generate(
+                    promptIds: try engine.encodeChat(hist, thinking: false), params: p)
+                hist.append(ChatMessage(role: "assistant", content: r1.text))
+                if engine.prefixCache.heldTokens == 0 {
+                    failures.append("nothing retained after a generation")
+                }
+                engine.dropPrefixCache()
+                if engine.prefixCache.heldTokens != 0 {
+                    failures.append("dropPrefixCache left \(engine.prefixCache.heldTokens) tokens held")
+                }
+                hist.append(ChatMessage(role: "user", content: Self.turns[1]))
+                let afterShed = engine.generate(
+                    promptIds: try engine.encodeChat(hist, thinking: false), params: p)
+                if afterShed.stats.prefixHit {
+                    failures.append("a shed state was still reused — drop() is not releasing it")
+                }
+                note(String(format: "  shed: retained %d tokens, dropped, next turn rebuilt %d",
+                    r1.stats.promptTokens + r1.ids.count, afterShed.stats.prefillTokens))
+
+                for (i, (t, st)) in warmA.enumerated() {
+                    note(String(format: "  turn %d: %d prompt tok, %d reused, prefill %.2fs -> %@",
+                        i + 1, st.promptTokens, st.reusedPrefixTokens, st.prefillSeconds,
+                        t.replacingOccurrences(of: "\n", with: " ").prefix(44).description))
+                }
+                let coldPrefill = cold.dropFirst().reduce(0.0) { $0 + $1.1.prefillSeconds }
+                let warmPrefill = warmA.dropFirst().reduce(0.0) { $0 + $1.1.prefillSeconds }
+                // Informational, never asserted: how often re-association moved
+                // a near-tied greedy pick far enough to change the reply.
+                let changed = zip(cold, warmA).filter { $0.0 != $1.0 }.count
+
+                if failures.isEmpty {
+                    print(String(format:
+                        "PREFIX CHECK PASS: reuse moves logits %.2f%% vs %.2f%% for the "
+                        + "prefill-rechunk control, flat with depth, top-1 %d/%d; %d of %d "
+                        + "turns reused a prefix; cached and edited-history runs "
+                        + "deterministic; follow-up prefill %.2fs -> %.2fs (%d of %d replies "
+                        + "differ from a cold rebuild)",
+                        worst * 100, worstControl * 100, top1, probes, reusing,
+                        warmA.count - 1, coldPrefill, warmPrefill, changed, cold.count))
+                } else {
+                    print("PREFIX CHECK FAIL")
+                    for f in failures { print("  - \(f)") }
                     throw ExitCode(2)
                 }
             } catch {

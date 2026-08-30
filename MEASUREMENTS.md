@@ -752,6 +752,288 @@ this link. The remaining headroom is not reachable on Hugging Face at any
 connection count; it would take hosting the weights somewhere without that
 cap, which the link would serve at 144 MB/s.
 
+### Prefill, second pass (2026-08-30): the cost model was wrong, read-ahead does not work
+
+With the prefix cache making follow-up turns cheap, the remaining latency is the
+per-request floor, and the first job was to find out what it is rather than
+assume. Splitting the pass into its three parts settled it immediately — an
+8,016-token prefill at auto sizing:
+
+| part | seconds |
+|---|---|
+| reading expert records | 33.91 |
+| scattering them into the pool | 10.33 |
+| compute | 50.27 |
+| **sum** | **94.51** |
+| **measured pass** | **94.51** |
+
+They add up exactly, so the three phases are **fully serialized** — which is
+what made read-ahead look like a free 36%. It isn't; see below.
+
+**Read throughput is 4.5 GB/s, not the 17.3 GB/s the SSD measured, and queue
+depth is not why.** An expert record is nine separate pieces (gate/up/down x
+weight/scales/biases), so the pass issues 9N preads of ~307 KB rather than N of
+2.76 MB, and the M0 size curve is steep. Swept: QD 12 and 32 tie at ~4.0 to
+4.5 GB/s, QD 64 and 128 are *worse*. Nothing here is queue-depth-limited. Making
+these reads contiguous means an on-disk repack — the M2 container that was
+skipped by measurement — and this is the first evidence that would un-skip it.
+
+**The prefill cost model overcharged by 2x, and it was costing real speed.** It
+charged `(chunk - 256) x 1.8 MB` because it folded two different things into one
+term: pass activations, which scale with the chunk, and KV plus indexer state,
+which scales with the context. Measured separately, with the pool pinned so peak
+minus the 14.1 GB base is the pass:
+
+| chunk | charged | actually measured |
+|---|---|---|
+| 1024 | 1.38 GB | 1.30 GB |
+| 2048 | 3.23 GB | 2.19 GB |
+| 4096 | 6.91 GB | 4.30 GB |
+
+And context state really is small and really is separate: going from a 4,016 to
+an 8,016-token prompt at fixed chunk moved peak by **0.1 GB**, exactly the
+~27.6 KB per token the prefix cache already accounts for.
+
+Because a pass was priced at twice its cost, the planner kept choosing 1024
+where 2048 is strictly better. Holding total memory fixed and trading pool for
+pass size on a 4,021-token prompt:
+
+| chunk | pool | prefill | decode | peak |
+|---|---|---|---|---|
+| 1024 | 77/layer | 65.2 s | 7.3 s | 15.4 GB |
+| 2048 | 67/layer | **47.9 s** | **6.6 s** | **14.9 GB** |
+| 4096 | 47/layer | 42.9 s | 9.0 s | 14.4 GB |
+
+2048 dominates 1024 on every axis — faster prefill, faster decode, lower peak.
+4096 buys a little more prefill and gives back more decode, so it should only be
+reached where the pool is already past the decode plateau, which a proportional
+cap does on its own. The cost model is now the measured 1.30 MB per chunk token
+and the cap is a quarter of the pool budget instead of a fifth.
+
+**Result, three interleaved runs on an 8,016-token prompt at a 16 GB target**
+(interleaved because single runs here vary by 15% or more, which is enough to
+invent a result that is not there):
+
+| plan | runs | mean |
+|---|---|---|
+| chunk 1024, 77/layer (before) | 80.3, 94.8, 82.9 s | **86.0 s — 93.7 tok/s** |
+| chunk 2048, 67/layer (after) | 65.5, 76.7, 71.8 s | **71.3 s — 112.9 tok/s** |
+
+Faster in every paired run, and peak went down, not up. The `--memory-gb`
+promises still hold with headroom: 8 -> 7.5 GB peak, 12 -> 11.5, 16 -> 15.1 on
+an 8k prompt. M5's ≥150 tok/s target is still not met; compute is now the
+majority of the pass and closing that needs a grouped-GEMM kernel, which cannot
+be built on this machine (mlx-swift Metal shaders need Xcode — see the risk
+register).
+
+**Cross-layer read-ahead was built, measured, and removed.** Since the phases are
+serialized and a pass above ~512 tokens routes to essentially every expert of
+every layer, reading layer L+1's whole set while layer L computes is exact rather
+than speculative, and looked like it should hide most of the 33.9 s. It does not:
+
+| | prefetch off | prefetch on |
+|---|---|---|
+| run 1 | 64.3 s | 67.7 s |
+| run 2 | 67.9 s | 78.3 s |
+
+Read time barely moved (19.7 -> 19.5 s, 19.4 -> 17.6 s) while compute rose. The
+reads already saturate with 12 concurrent lanes, so a background reader mostly
+steals CPU from the thread feeding the GPU, and on unified memory it competes for
+the same bandwidth. It also cost 1.4 GB of pool to hold a layer's expert set. The
+implementation is gone; what remains is the timing instrumentation that disproved
+it. **Do not rebuild this without first making the reads contiguous** — the
+premise that there is idle IO capacity to overlap into is what measurement
+refuted.
+
+### Behavioural quality probe (2026-08-30), and what it is not
+
+`Tools/quality_probe.sh` runs 15 checkable prompts — factual recall, arithmetic,
+sorting, instruction obedience, translation, code, cloze — against a live server
+and requires all of them. It currently passes 15/15.
+
+**This is not the FP8 comparison the plan asks for.** That needs an inference
+credential for Qwen3.8-Flash-Next FP8 (Qwen's own DashScope, or an aggregator
+carrying it); none is provisioned, and it is paid, so it stays blocked pending a
+decision. What this probe does is catch *gross* quantization or architecture
+damage, and give any future re-quantization or kernel change a gate to fail.
+
+One item was deliberately removed after it failed: the bat-and-ball question,
+answered 0.10. That is the classic System-1 trap and a 6B-active model misses it
+on its own merits, so keeping it would have made the probe flaky in a way that
+says nothing about the conversion. A damage detector may only contain items the
+unquantized model reliably gets right.
+
+### The conversation prefix cache (2026-08-29): flat time-to-first-token
+
+Every request called `model.makeState()`, so a chat re-prefilled its whole
+history every turn and paid again for tokens it had already processed. The fix
+is to keep the state that produced one reply and let the next request extend it
+when its prompt starts with exactly the ids that state consumed.
+
+**What it buys.** Eight turns over HTTP against `--memory-gb 16` (77 experts per
+layer), each turn adding ~155 tokens of context, temperature 0, measured as
+time to the first streamed token:
+
+| turn | prompt tokens | TTFT cached | TTFT uncached |
+|---|---|---|---|
+| 1 | 152 | 7.29 s | 5.68 s |
+| 2 | 307 | 7.15 s | 8.96 s |
+| 3 | 462 | 6.03 s | 10.16 s |
+| 4 | 617 | 6.30 s | 11.65 s |
+| 5 | 772 | 6.87 s | 11.05 s |
+| 6 | 927 | 6.50 s | 13.99 s |
+| 7 | 1082 | 6.04 s | 18.60 s |
+| 8 | 1237 | **6.01 s** | **25.81 s** |
+| whole conversation | | **52.2 s** | **105.9 s** |
+
+Cached TTFT is **flat** — it does not care how long the conversation is, because
+only the new tokens are prefilled. Uncached it grows linearly and is already
+4.3x worse by turn 8 of a conversation that is only 1,237 tokens long. Turn 1 is
+slightly *slower* cached, which is the honest cost of storing the state.
+
+The ~6 s floor is not prefill. It is the fixed per-request cost of a cold expert
+cache at this pool size; the prefix cache removes the part that scales, not the
+part that does not.
+
+### One slot was not enough: what a real client did to the cache (2026-08-30)
+
+The cache shipped holding **one** conversation and evicting it on any miss. That
+kept peak memory provably unchanged, and it passed every synthetic test —
+`prefix-check` drives a clean three-turn chat and saw reuse on every follow-up.
+
+Then it met Open WebUI, and scored **0 hits and 7 misses** across a two-turn
+chat.
+
+The reason is not subtle once you watch the traffic: Open WebUI fires a
+**title-generation request** immediately after each reply, with a completely
+different prompt, and follows it with tag and follow-up-suggestion calls. With
+one slot, the chat's state is evicted by the title request before the user's
+next turn ever arrives. Every client that decorates a conversation this way —
+titles, tags, suggestions, embeddings — defeats a single-slot cache the same
+way. **A one-slot prefix cache is a cache that only works in benchmarks.**
+
+The fix is to hold several conversations (four) against one shared token budget,
+evicting least-recently-used, and to pick the *longest* matching prefix so a
+follow-up resumes the deepest state available. Re-running the identical Open
+WebUI chat afterwards: **1 hit**, and the five remaining misses are the
+auxiliary requests, which are genuinely new prompts and now occupy their own
+slots instead of destroying the chat's.
+
+This costs what the first design avoided: several held states are additive, so
+the retention ceiling is now **charged against the memory budget** rather than
+being free. At a 16 GB target that is 0.9 GB, and the pool drops from 67 to 60
+experts per layer. That is the honest price of the cache working at all outside
+a test harness.
+
+The lesson worth keeping: **the synthetic gate could not have found this.**
+`prefix-check` drives the conversation itself, so nothing ever interleaves.
+Testing against one real client changed the design.
+
+### The equivalence question, and why the answer is not "byte-identical"
+
+The obvious gate for this feature is the one every other cache here gets: output
+must be byte-identical to a cold rebuild. **That gate is not achievable, and the
+reason is worth writing down, because the first version of this work was
+specified with it and it took a failing test to find out.**
+
+Reusing a state means the same tokens were pushed through the model in a
+different batching — a prefill of 22, then single-token decode steps, then a
+prefill of 20, rather than one pass of 69. MLX picks kernels and reduction
+orders by tensor shape, so a different batching sums the same values in a
+different order, and floating point is not associative. Swept over a 64-token
+sequence, **all 63 possible split points** produce different logits from a
+single pass. (A 28-token sequence happened to be exact for splits 12 through 16,
+which is coincidence, not alignment — chasing that pattern was a dead end.)
+
+So the honest question is not "is it identical" but "is it *more* perturbing
+than something already accepted as correct". The control is re-chunking a plain
+prefill, which this project already ships, already gates, and nobody disputes:
+
+| sequence | prefix reuse | prefill re-chunk control |
+|---|---|---|
+| 28 tokens | 1.99% | 3.42% |
+| 100 tokens | 4.37% | 4.48% |
+| 196 tokens | 3.63% | 5.90% |
+
+(max |delta| as a fraction of the logit spread, greedy, 30 experts per layer)
+
+**Prefix reuse moves the logits less than prefill re-chunking already does**, and
+the gap does not grow with depth — which is the line between harmless
+re-association and a state that is accumulating error. That is the gate
+`slotstream prefix-check` enforces: the delta must stay inside the control's
+band, it must stay flat with depth, the cached path must be deterministic run to
+run, and reuse must actually be happening (without that last one the rest is
+vacuous).
+
+A by-product worth recording: the existing "byte-identical output at every
+prefill chunk size" result is **luckier than it reads**. The underlying logit
+deltas between chunk sizes are several percent of spread; the text matches
+because top-1 usually survives that, not because the computation is the same.
+One of the three probes above already shows top-1 flipping. Anything that
+demands bit-exactness across re-batching on this model is demanding something
+the numerics do not offer.
+
+**Consequences that shipped with it.** `--no-prefix-cache` pins the old
+behaviour for reproducibility and is what parity work should use. Retention is
+capped at a tenth of the pool budget (and never above the context limit, past
+which reuse is impossible anyway, since a match needs a strictly longer prompt).
+A cache miss releases the old state *before* the replacement is allocated, so
+exactly one state is ever live and peak memory is unchanged — what rises is the
+idle floor, up to ~0.9 GB. The governor drops the retained state before it
+shrinks the pool further: it is the cheapest thing to give back, costing one
+re-prefill, where a starved pool costs every token after it.
+
+### Weights hosting: Cloudflare R2 tested and rejected (2026-08-29)
+
+The section above ends on an open question — the link has headroom Hugging Face
+will not give, so *host the weights somewhere without that cap*. Cloudflare R2 is
+the obvious candidate: zero egress at any volume, ~$1.50/month for 104 GB. It was
+tested against a real bucket rather than argued about, and **it does not lift the
+cap**.
+
+Method: a throwaway public R2 bucket in the author's own Cloudflare account, a
+256 MB random object plus four distinct 64 MB objects, `curl` to `/dev/null`,
+8 connections, compared same-session against Hugging Face and against a raw
+datacenter host (Hetzner Ashburn) standing in for "what the link can actually do".
+
+| source | 1 connection | 8 connections |
+|---|---|---|
+| Hetzner US-East (raw datacenter, no CDN) | 21.9 MB/s | **133.8 MB/s** |
+| Hugging Face | 28 to 40 MB/s | 36.5 MB/s |
+| Cloudflare R2 via `r2.dev` | 28 cold / 36 warm | **50.9** (one object) / **42.4** (four objects) |
+
+Three things fall out of this.
+
+**R2 ties Hugging Face; it does not beat it.** Both sit in a 36 to 51 MB/s band
+while the same link sustains 133.8 to a plain datacenter host. Switching hosts
+buys nothing measurable.
+
+**The cap is not per-object.** Spreading 8 connections across four distinct
+objects — the shape of the real 24-file pull — measured *lower* (42.4) than
+hammering one (50.9), so no download-client change routes around it.
+
+**The one untested path is a custom domain.** Only `r2.dev` could be measured, and
+Cloudflare documents it as development-only and rate-limited; the unthrottled path
+is a custom domain on a Cloudflare zone. None of the author's domains are on
+Cloudflare DNS (Namecheap and Vercel), so testing it requires a zone migration
+first. That is the only remaining reason to think R2 might still win.
+
+Two by-products worth keeping:
+
+- **Upstream from this location is 5.0 MB/s** (measured pushing the 256 MB object).
+  Populating a 104 GB bucket from here would take about 5.8 hours, so any future
+  migration has to be driven from a machine with a real uplink, not this one.
+- **Both CDN paths cap in the same band while a raw host does 133.8.** That may be
+  ISP shaping of CDN traffic, or edge-side per-client shaping, or Popayán peering.
+  It is one link in Colombia, so it is *not* evidence about what users elsewhere
+  see from either host — which is also why hosting should not be re-litigated on
+  this measurement alone.
+
+**Decision: stay on Hugging Face.** It is free, already mirrored under the author's
+own account, already covered by the ordered fallback list and the compiled-in
+sha256 manifest, and measurably no slower. Revisit only on real reports of slow
+downloads from other geographies, and then by testing an R2 custom domain.
+
 ### Adversarial review of the serving layer (2026-08-29): 0.1.5
 
 An end-to-end adversarial pass over the whole system. The numerical core came
@@ -814,7 +1096,9 @@ at 64, and request bodies are bounded like headers already were.
 the answer planted in the first sentence retrieved it correctly, so the sparse
 path is exercised end to end for the first time. It also priced the naive
 prefill honestly: **30 to 32 tok/s**, i.e. about four minutes to first token at
-8k. That, not memory, is what makes long contexts impractical today.
+8k. That, not memory, was what made long contexts impractical — see the next
+section, which sized the prefill pass from the memory plan and took it to
+92 tok/s (about 90 s at 8k).
 
 **The load path, found by asking "is anything missing?".** The first pass
 concentrated on the request path and waved the checkpoint reader through
