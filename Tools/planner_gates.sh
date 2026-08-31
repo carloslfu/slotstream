@@ -53,6 +53,12 @@ check "--pool-gb 0 refused"                            "! $BIN doctor --pool-gb 
 check "--memory-gb below minimum refused"              "! $BIN doctor --memory-gb 3"
 check "--memory-gb inf is a clean error"               "! $BIN doctor --memory-gb inf 2>&1 | grep -q 'Fatal error'"
 check "--pool-gb inf is a clean error"                 "! $BIN doctor --pool-gb inf 2>&1 | grep -q 'Fatal error'"
+check "--pool-gb 1e300 saturates safely instead of trapping" \
+      "$BIN doctor --pool-gb 1e300 2>&1 | grep -q 'all 512 experts per layer resident'"
+check "--memory-gb 1e300 plans safely instead of trapping" \
+      "$BIN doctor --memory-gb 1e300 2>&1 | grep -q 'all 512 experts per layer resident'"
+check "huge finite memory plan remains valid JSON" \
+      "$BIN doctor --memory-gb 1e300 --json | python3 -m json.tool >/dev/null"
 check "--sim-ram inf is a clean error"                 "! $BIN doctor --sim-ram inf 2>&1 | grep -q 'Fatal error'"
 check "--sim-working-set inf is a clean error"         "! $BIN doctor --sim-working-set inf 2>&1 | grep -q 'Fatal error'"
 check "--sim-available inf is a clean error"           "! $BIN doctor --sim-available inf 2>&1 | grep -q 'Fatal error'"
@@ -70,6 +76,10 @@ check "--model with no safetensors: names the fix" "$BIN run --model $T/nosafe -
 
 mkdir -p "$T/badjson" && printf 'not json' > "$T/badjson/config.json"
 check "--model with unparseable config: clean error" "$BIN run --model $T/badjson --prompt hi 2>&1 | grep -qi 'json'"
+
+mkdir -p "$T/badcfg" && printf '%s' '{"text_config":{"hidden_size":2560,"num_hidden_layers":48,"num_experts":512,"full_attention_interval":0}}' > "$T/badcfg/config.json"
+check "invalid config arithmetic is rejected before it traps" \
+      "! $BIN run --model $T/badcfg --prompt hi 2>&1 | grep -q 'Fatal error'"
 
 mkdir -p "$T/badhdr" && printf '%s' "$MC" > "$T/badhdr/config.json"
 head -c 200 /dev/urandom > "$T/badhdr/model-00001.safetensors"
@@ -97,6 +107,18 @@ open('$T/other/model-00001.safetensors','wb').write(struct.pack('<Q',len(h))+h+b
 check "--model with a different model's tensors"   "$BIN run --model $T/other --prompt hi 2>&1 | grep -q 'does not look like'"
 
 check "serve --max-context 0 refused before load"  "! $BIN serve --max-context 0 2>&1 | grep -q 'engine ready'"
+check "parity rejects an invalid layer count before model load" \
+      "$BIN parity --layers 0 --tokens 1 2>&1 | grep -q -- '--layers must be between'"
+check "parity rejects malformed token ids without trapping" \
+      "$BIN parity --tokens nope 2>&1 | grep -q 'comma-separated list of integers'"
+check "n-gram golden rejects malformed token ids without trapping" \
+      "$BIN ngram-golden --tokens '1,nope' 2>&1 | grep -q 'comma-separated list of integers'"
+check "dequant golden rejects a negative row before model load" \
+      "$BIN dequant-golden --gid=-1 2>&1 | grep -q -- '--gid must not be negative'"
+check "sampler golden rejects an empty vocabulary without trapping" \
+      "$BIN sampler-golden --vocab 0 2>&1 | grep -q -- '--vocab must be greater than zero'"
+check "sampler golden rejects a negative draw count without trapping" \
+      "$BIN sampler-golden --draws=-1 2>&1 | grep -q -- '--draws must not be negative'"
 
 echo "planner: passed $PASS, failed $FAIL"
 [ $FAIL -eq 0 ]

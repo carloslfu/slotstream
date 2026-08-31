@@ -50,6 +50,20 @@ WORKLOADS = {
 }
 
 
+class _Wrapped:
+    """Transparent callable proxy: Python resolves `obj()` on the type, so
+    assigning an instance's `__call__` does not intercept a module call."""
+    def __init__(self, inner, fn):
+        object.__setattr__(self, "_inner", inner)
+        object.__setattr__(self, "_fn", fn)
+
+    def __call__(self, *args, **kwargs):
+        return object.__getattribute__(self, "_fn")(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_inner"), name)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
@@ -91,10 +105,7 @@ def main():
         return wrapped
 
     for i, mlp in blocks:
-        mlp.__call__ = patch(i, mlp)
-        # bind on the instance: mlx Module uses __call__ through the class, so
-        # also override the bound attribute used by the parent layer
-        object.__setattr__(mlp, "_traced_call", mlp.__call__)
+        object.__setattr__(model.layers[i], "mlp", _Wrapped(mlp, patch(i, mlp)))
 
     n_layers = len(blocks)
     top_k = blocks[0][1].top_k

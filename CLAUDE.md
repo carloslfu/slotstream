@@ -62,25 +62,27 @@ machine and **crashed the whole system**. Every model process here is
 multi-GB. These rules are mandatory:
 
 1. **One model process at a time.** Never two servers; never `serve` plus a
-   `run`/`elastic-check` concurrently. Before starting anything:
-   `pkill -f "slotstream serve"` (and any request loops), then verify with
-   `pgrep -fl slotstream` that nothing is left.
+   `run`/`elastic-check` concurrently. The binary now enforces this with a
+   per-user file lock before model allocation. Still inspect `pgrep -fl
+   slotstream` before heavy work; do not kill a process owned by another task
+   without coordinating with its owner.
 2. **Check reclaimable memory before every heavy step** (model launch, big
    build, verify run). Reclaimable = `vm_stat` free + purgeable + file-backed
    pages; `slotstream doctor` prints it as "reclaimable now". If what you are
    about to start does not fit with several GB to spare, do not start it.
-3. **Tests use small explicit sizes** — `--memory-gb 8`..`10` — never auto,
+3. **Tests use small explicit sizes** — `--memory-gb 8.1`..`10` — never auto,
    unless the large configuration is itself the measurement, and then nothing
    else heavy may be running.
 4. **Kill every test process the moment its test ends**, and confirm.
-5. `Tools/verify.sh` sizes its heavy gates to reclaimable memory on its own
-   (181/layer when ≥32 GB, 60/layer otherwise). Do not force the big profile
-   on a busy machine.
+5. `Tools/verify.sh` keeps every heavy gate between the 8.1 GB floor and a
+   10 GB target. Equality tests use small pools because their property is
+   size-independent; never restore a spare-RAM-driven large profile.
 6. The engine caps MLX's allocator cache at 2 GB (`Engine.swift`,
-   `GPU.set(cacheLimit:)`). Do not remove it: without the cap a 10 GB-target
+   `MLX.Memory.cacheLimit`). Do not remove it: without the cap a 10 GB-target
    server held 15.1 GB of real RSS (freed transients hoarded by the
-   allocator); with it, 6.0 GB flat at identical speed. RSS — not only the
-   Metal peak metric — is what can take the machine down.
+   allocator); with it, 6.0 GB flat at identical speed. `GenStats.peakMemoryGB`
+   and the verification gate now use the Mach/getrusage process RSS high-water;
+   the MLX-only peak is diagnostic only.
 7. **No memory-hog stress experiments without Carlos's explicit go.** The
    2026-08-28 hog experiments are done and documented in MEASUREMENTS.md;
    never rerun them casually.
@@ -120,16 +122,14 @@ These were all real bugs found by adversarial probing. Each is now gated by
 - **Never normalize the sampling probabilities.** The draw is scaled by the
   unnormalized CDF total instead. That removes the 0/0 and, since `u < 1`,
   guarantees the pick lands on a token with actual mass.
-- **Incremental detokenization diffs by Unicode scalar, never by `Character`,
-  and never resets its token list mid-generation.** Resetting when nothing has
-  been emitted yet destroys a response that opens with an emoji; diffing by
-  `Character` drops a scalar that merges into the grapheme already sent (`❤️`
-  streams as `❤`). Non-streaming output was correct throughout, which is what
-  made this invisible.
-- **Prompts are capped (`--max-context`, default 32,768).** KV plus indexer
-  state costs ~27 KiB/token *beyond* the memory plan, which models only the
-  pool and a fixed footprint. At 8k tokens `--memory-gb 8` peaks at 7.9 GB —
-  the margin is nearly gone. If you raise the cap, re-measure the peak.
+- **Incremental detokenization is bounded and scalar-safe.** Qwen's ByteLevel
+  decoder is run over small stable token groups while incomplete UTF-8 bytes
+  and stop-sequence prefixes remain buffered. Non-streaming requests do one
+  final decode only; never restore full-prefix decoding after every token.
+- **Prompt plus completion is capped (`--max-context`, default 32,768).** The
+  planner charges a full active context, and `Engine.generate` clamps new
+  tokens to the remaining room. If you raise the cap, update the memory model
+  and re-measure process RSS.
 - **`Geometry` constants are checked against config.json** in
   `Qwen4ExpModel.validate`. The planner sizes memory from the constants while
   the engine allocates from the config; if they drift, every memory number the
@@ -148,10 +148,10 @@ These were all real bugs found by adversarial probing. Each is now gated by
   unconsumed. `Generator.generate` records exactly what the state consumed; a
   caller that recomputes this from the returned ids will be off by one and the
   next request will silently reuse a state that does not match its prompt.
-- **A miss must evict before the caller allocates.** `PrefixCache.take` clears
-  the slot on every path. That is what keeps exactly one state live and peak
-  memory identical to the uncached path; without it two full states coexist and
-  the `--memory-gb` promise breaks on the second conversation.
+- **A miss must evict before the caller allocates.** Four conversations may be
+  retained, so `PrefixCache.take` evicts LRU entries until retained + active
+  states fit both the four-state and shared-token ceilings. Each state has
+  ~113 MB of fixed GDN memory in addition to ~27 KiB/token; both are charged.
 - **Do not gate this on byte-equality with a cold rebuild — it will never
   pass.** Reuse re-batches the same tokens, MLX picks reduction orders by shape,
   and floating point is not associative: swept over a 64-token sequence, all 63
@@ -200,6 +200,12 @@ still quoted in commit history and both are wrong.
   why.** An expert is nine ~307 KB pieces, not one 2.76 MB block. QD 12 and 32
   tie; 64 and 128 are worse. Making it faster means a contiguous on-disk repack
   (the skipped M2 container) — this is the evidence that would un-skip it.
+- **Expert-load staging is capped at 32 records.** A 256-token layer can route
+  all 512 experts; loading them as one 1.415 GB record batch, then
+  materializing its MLX scatter while the source buffers were live, made a
+  `--memory-gb 10` long prompt peak at 12.4 GB. Thirty-two-record slices cut
+  the same 7,960-token run to 8.6 GB while retaining 41.3 tok/s prefill. Do not
+  coalesce those slices without re-running the real process-RSS gate.
 - **Cross-layer read-ahead does not work here. Do not rebuild it** without
   first making reads contiguous. It was built, measured slower in every paired
   run, and removed: the reads already saturate, so a background reader steals

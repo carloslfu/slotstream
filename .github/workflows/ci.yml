@@ -1,0 +1,26 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  weights-free:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: toolchain
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: pinned Metal library
+        run: SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
+      - name: release build
+        # `make build` also colocates the pinned metallib with the binary;
+        # sampler-golden executes MLX kernels and a bare SwiftPM build does not.
+        run: make build
+      - name: static and runtime safety gates
+        run: Tools/static_gates.sh
+      - name: sampler and governor goldens
+        run: |
+          python3 -m pip install --quiet --break-system-packages numpy
+          Tools/sampler_gates.sh

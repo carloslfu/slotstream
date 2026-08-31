@@ -32,7 +32,7 @@ jobs:
           echo "binary $V, tag $GITHUB_REF_NAME"
           [ "v$V" = "$GITHUB_REF_NAME" ]
       - name: planner gates (no weights needed, so CI can run them)
-        run: Tools/planner_gates.sh
+        run: Tools/static_gates.sh
       - name: sampler golden + governor policy (no weights needed)
         run: |
           python3 -m pip install --quiet --break-system-packages numpy

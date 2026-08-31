@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")/.."
 BIN=.build/release/slotstream
 PORT=${1:-11466}
-EPL=${2:-30}
+EPL=${2:-13}
 PASS=0; FAIL=0
 TOTAL_WEIGHT_BYTES=103793508077
 
@@ -28,6 +28,41 @@ alive || { say "FAIL  server never came up"; cat /tmp/ssrob.log; exit 1; }
 
 post() { curl -s --max-time 300 -X POST "http://127.0.0.1:$PORT$1" -d "$2"; }
 content() { python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("message",{}).get("content", d.get("error","")))'; }
+
+# Browser origins are loopback-only; arbitrary websites must not be able to
+# drive a costly localhost model through CORS/private-network preflight.
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+    -H 'Origin: https://attacker.example' "http://127.0.0.1:$PORT/api/version")
+[ "$C" = 403 ] && ok "non-loopback browser origin is refused" || bad "foreign Origin returned $C"
+O=$(curl -si --max-time 20 -H 'Origin: http://localhost:3000' \
+    "http://127.0.0.1:$PORT/api/version" | tr -d '\r' | awk -F': ' '/^Access-Control-Allow-Origin/{print $2}')
+[ "$O" = 'http://localhost:3000' ] && ok "loopback browser origin is allowed exactly" \
+    || bad "loopback CORS response wrong" "$O"
+
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/api/chat" -d '{"model":"some-other-model","messages":[{"role":"user","content":"hi"}]}')
+[ "$C" = 400 ] && ok "wrong model is rejected instead of silently relabeled" || bad "wrong model returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/api/chat" -d '{"messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function"}]}')
+[ "$C" = 400 ] && ok "unsupported Ollama tools are rejected explicitly" || bad "tools returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}')
+[ "$C" = 400 ] && ok "unsupported OpenAI response_format is rejected explicitly" || bad "response_format returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/api/chat" -d '{"stream":1,"messages":[{"role":"user","content":"hi"}]}')
+[ "$C" = 400 ] && ok "numeric stream is not mistaken for a JSON boolean" || bad "numeric stream returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/api/chat" -d '{"stream":false,"messages":[{"role":"user","content":"hi"}],"options":{"temperature":"cold"}}')
+[ "$C" = 400 ] && ok "wrongly typed sampling options are rejected" || bad "string temperature returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/api/chat" -d '{"stream":false,"messages":[{"role":"user","content":"hi"}],"options":{"temperature":1e300}}')
+[ "$C" = 400 ] && ok "numbers that overflow the sampler are rejected" || bad "overflowing temperature returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"stream":false,"messages":[{"role":"user","content":"hi","name":"silently-dropped"}]}')
+[ "$C" = 400 ] && ok "unsupported message semantics are not silently dropped" || bad "message name returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"max_tokens":0}')
+[ "$C" = 400 ] && ok "OpenAI max_tokens 0 cannot become an unbounded generation" || bad "max_tokens 0 returned $C"
 
 # --- crashes: the process must survive each of these ---
 R=$(post /api/chat '{"stream":false,"messages":[{"role":"user","content":"Say OK"}],"options":{"seed":-1,"num_predict":4}}')

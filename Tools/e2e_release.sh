@@ -103,9 +103,16 @@ H1=$(curl -s --max-time 60 -d '{"model":"qwen3.8-flash-next:4bit"}' "http://127.
 if [ "${H1:-0}" -gt "${H0:-0}" ]; then ok "follow-up turn reused a cached prefix ($H0 -> $H1 hits)"; else bad "no prefix reuse ($H0 -> $H1)"; fi
 
 echo "== concurrency and liveness =="
-for i in 1 2 3 4; do chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Say OK"}],"stream":false,"options":{"temperature":0,"num_predict":4}}' >/dev/null & done
-wait
-chk "4 concurrent clients all served"        "curl -s --max-time 60 http://127.0.0.1:$PORT/api/version | grep -q version"
+PIDS=""
+for i in 1 2 3 4; do
+  chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Say OK"}],"stream":false,"options":{"temperature":0,"num_predict":4}}' \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("done") is True and d.get("eval_count",0)>0' &
+  PIDS="$PIDS $!"
+done
+CONCURRENT_OK=1
+for pid in $PIDS; do wait "$pid" || CONCURRENT_OK=0; done
+if [ "$CONCURRENT_OK" = 1 ]; then ok "4 concurrent clients all returned valid generations"
+else bad "one or more concurrent generations failed"; fi
 curl -s --max-time 2 "http://127.0.0.1:$PORT/api/chat" -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Write a long essay"}],"stream":true,"options":{"num_predict":500}}' >/dev/null 2>&1 || true
 chk "server survives a client vanishing mid-stream" "curl -s --max-time 60 http://127.0.0.1:$PORT/api/version | grep -q version"
 

@@ -10,8 +10,11 @@
 set -eu
 
 REPO="carloslfu/slotstream"
-BASE="https://github.com/$REPO/releases/latest/download"
-BIN_DIR="$HOME/.slotstream/bin"
+# Overrides exist only so CI can exercise the real installer without touching a
+# developer's home directory or downloading an already-published release.
+BASE=${SLOTSTREAM_RELEASE_BASE:-"https://github.com/$REPO/releases/latest/download"}
+ROOT_DIR=${SLOTSTREAM_ROOT_DIR:-"$HOME/.slotstream"}
+BIN_DIR="$ROOT_DIR/bin"
 
 [ "$(uname -s)" = "Darwin" ] || { echo "slotstream runs on macOS only" >&2; exit 1; }
 [ "$(uname -m)" = "arm64" ] || {
@@ -21,7 +24,8 @@ MAJOR=$(sw_vers -productVersion | cut -d. -f1)
     echo "slotstream needs macOS 14 or newer (this is $(sw_vers -productVersion))" >&2; exit 1; }
 
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+NEXT_LINK=""
+trap 'rm -rf "$TMP"; [ -z "$NEXT_LINK" ] || rm -f "$NEXT_LINK"' EXIT
 
 echo "downloading slotstream (latest release, about 50 MB)"
 curl -fL --progress-bar -o "$TMP/slotstream.tar.gz" "$BASE/slotstream-arm64.tar.gz"
@@ -30,8 +34,9 @@ GOT=$(shasum -a 256 "$TMP/slotstream.tar.gz" | cut -d' ' -f1)
 WANT=$(cut -d' ' -f1 < "$TMP/expected.sha256")
 [ "$GOT" = "$WANT" ] || { echo "sha256 mismatch (got $GOT, want $WANT); aborting" >&2; exit 1; }
 
-mkdir -p "$BIN_DIR"
-tar xzf "$TMP/slotstream.tar.gz" -C "$BIN_DIR"
+STAGE="$TMP/release"
+mkdir -p "$STAGE"
+tar xzf "$TMP/slotstream.tar.gz" -C "$STAGE"
 
 # The tarball's Metal library is built for macOS 26. On macOS 14 and 15,
 # replace it with the build for that OS from the pinned mlx-metal 0.31.1
@@ -53,11 +58,52 @@ if [ -n "$WHEEL_URL" ]; then
     curl -fL --progress-bar -o "$TMP/mlx-metal.whl" "$WHEEL_URL"
     GOTW=$(shasum -a 256 "$TMP/mlx-metal.whl" | cut -d' ' -f1)
     [ "$GOTW" = "$WHEEL_SHA" ] || { echo "sha256 mismatch on the mlx-metal wheel; aborting" >&2; exit 1; }
-    unzip -p "$TMP/mlx-metal.whl" 'mlx/lib/mlx.metallib' > "$BIN_DIR/mlx.metallib"
+    unzip -p "$TMP/mlx-metal.whl" 'mlx/lib/mlx.metallib' > "$STAGE/mlx.metallib"
 fi
 
-VERSION=$("$BIN_DIR/slotstream" --version) || {
-    echo "the installed binary failed to run" >&2; exit 1; }
+test -s "$STAGE/slotstream" && test -s "$STAGE/mlx.metallib" || {
+    echo "release is missing the binary or Metal library" >&2; exit 1; }
+chmod +x "$STAGE/slotstream"
+VERSION=$("$STAGE/slotstream" --version) || {
+    echo "the staged binary failed to run; existing install was not changed" >&2; exit 1; }
+
+# Publish a complete, verified release directory, then switch one symlink. A
+# failed download/unzip can no longer leave a new binary beside an old or
+# zero-byte metallib. The first upgrade from the old directory layout preserves
+# that directory as bin.previous.<pid> for manual rollback.
+RELEASE_KEY="$WANT-macos$WHEEL_MAJOR"
+RELEASE_DIR="$ROOT_DIR/releases/$RELEASE_KEY"
+mkdir -p "$ROOT_DIR/releases"
+if [ -d "$RELEASE_DIR" ]; then
+    # A content-addressed directory may already exist after a prior install.
+    # Do not trust its name alone: local damage or an interrupted manual copy
+    # must not be activated in place of the release we just verified.
+    cmp -s "$STAGE/slotstream" "$RELEASE_DIR/slotstream" \
+        && cmp -s "$STAGE/mlx.metallib" "$RELEASE_DIR/mlx.metallib" || {
+        echo "existing staged release is incomplete or corrupt: $RELEASE_DIR" >&2
+        echo "remove that one directory and rerun the installer" >&2
+        exit 1
+    }
+else
+    mv "$STAGE" "$RELEASE_DIR"
+fi
+NEXT_LINK="$ROOT_DIR/.bin.next.$$"
+ln -s "releases/$RELEASE_KEY" "$NEXT_LINK"
+if [ -L "$BIN_DIR" ]; then
+    mv -fh "$NEXT_LINK" "$BIN_DIR"
+elif [ -e "$BIN_DIR" ]; then
+    PREVIOUS="$ROOT_DIR/bin.previous.$$"
+    mv "$BIN_DIR" "$PREVIOUS"
+    if ! mv "$NEXT_LINK" "$BIN_DIR"; then
+        mv "$PREVIOUS" "$BIN_DIR"
+        echo "could not activate the staged release; previous install restored" >&2
+        exit 1
+    fi
+    echo "previous install preserved at $PREVIOUS"
+else
+    mv "$NEXT_LINK" "$BIN_DIR"
+fi
+NEXT_LINK=""
 echo "installed slotstream $VERSION to $BIN_DIR"
 
 # Put it on PATH: a wrapper in /usr/local/bin when that is writable without
@@ -68,8 +114,10 @@ case ":$PATH:" in
 *":$BIN_DIR:"*) ;;
 *)
     if [ -d /usr/local/bin ] && [ -w /usr/local/bin ]; then
-        printf '#!/bin/sh\nexec "$HOME/.slotstream/bin/slotstream" "$@"\n' > /usr/local/bin/slotstream
-        chmod +x /usr/local/bin/slotstream
+        WRAPPER="$TMP/slotstream-wrapper"
+        printf '#!/bin/sh\nexec "$HOME/.slotstream/bin/slotstream" "$@"\n' > "$WRAPPER"
+        chmod +x "$WRAPPER"
+        mv -f "$WRAPPER" /usr/local/bin/slotstream
         echo "linked /usr/local/bin/slotstream"
     else
         PROFILE=""
