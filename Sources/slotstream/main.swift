@@ -40,6 +40,9 @@ struct RuntimeCheck: ParsableCommand {
             cache.store(state: Qwen4ExpModel.State(), tokens: [token])
         }
         check("prefix cache reaches its four-entry bound", cache.json()["conversations"] as? Int == 4)
+        cache.store(state: Qwen4ExpModel.State(), tokens: [PrefixCache.maxEntries])
+        check("an identical history replaces instead of duplicating an entry",
+              cache.json()["conversations"] as? Int == 4)
         _ = cache.take(matching: [999], reserveTokens: 1)
         check("a miss evicts before allocating a fifth state", cache.json()["conversations"] as? Int == 3)
         cache.configure(maxTokens: 2)
@@ -105,7 +108,7 @@ struct ModelOptions: ParsableArguments {
                 Lower it to keep more of the machine for your other apps; auto \
                 still sizes down on its own when they are actually holding \
                 memory. It cannot raise the target past the point where more \
-                cache stops buying decode speed (~30 GB) — use --memory-gb for \
+                cache stops buying decode speed (~33 GB) — use --memory-gb for \
                 that. Ignored when an explicit memory knob is given.
                 """))
     var maxRAMPercent: Double?
@@ -330,9 +333,21 @@ struct Parity: ParsableCommand {
     @Option(help: "Write swift layer_{i}.bin dumps here") var out: String?
 
     func run() throws {
-        let ids = tokens.split(separator: ",").map { Int($0.trimmingCharacters(in: .whitespaces))! }
+        guard layers >= 1, layers <= Geometry.layers else {
+            throw ValidationError("--layers must be between 1 and \(Geometry.layers)")
+        }
+        let fields = tokens.split(separator: ",", omittingEmptySubsequences: false)
+        let parsed = fields.map { Int($0.trimmingCharacters(in: .whitespaces)) }
+        guard !fields.isEmpty, parsed.allSatisfy({ $0 != nil }) else {
+            throw ValidationError("--tokens must be a non-empty comma-separated list of integers")
+        }
+        let ids = parsed.compactMap { $0 }
         let index = try CheckpointIndex(dir: model.modelURL)
+        guard ids.allSatisfy({ $0 >= 0 && $0 < index.config.vocabSize }) else {
+            throw ValidationError("--tokens contains an id outside 0..<\(index.config.vocabSize)")
+        }
         let m = try Qwen4ExpModel(index: index, poolSlots: 2048, runLayers: layers)
+        try m.validate()
         let state = m.makeState()
         var dumps: [Int: [Float]] = [:]
         let h = m.hiddenStates(ids, state: state) { l, arr in
@@ -352,9 +367,17 @@ struct Parity: ParsableCommand {
             for l in 0 ..< layers {
                 let url = URL(fileURLWithPath: cmp).appendingPathComponent("layer_\(l).bin")
                 let refData = try Data(contentsOf: url)
+                guard refData.count % MemoryLayout<Float>.size == 0 else {
+                    throw ValidationError("layer \(l) reference is not a whole number of Float32 values")
+                }
                 let ref: [Float] = refData.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-                let got = dumps[l]!
-                precondition(ref.count == got.count, "layer \(l): count \(got.count) vs ref \(ref.count)")
+                guard let got = dumps[l] else {
+                    throw ValidationError("no generated dump for layer \(l)")
+                }
+                guard ref.count == got.count else {
+                    throw ValidationError(
+                        "layer \(l) reference has \(ref.count) floats, generated dump has \(got.count)")
+                }
                 var maxAbs: Float = 0
                 var refScale: Float = 0
                 for i in 0 ..< ref.count {
@@ -580,24 +603,46 @@ struct ElasticDrill: ParsableCommand {
                 // the seam avoids *needing* pressure, it does not make the
                 // resulting allocation imaginary.
                 // A shrink can only be demonstrated from a pool at least the
-                // floor plus the 1 GB dead-band above the floor; below that the
-                // governor correctly refuses to move and the gate would read as
-                // a failure when it is really a machine too busy to test on.
-                let needPool = Geometry.gb(Geometry.floorSlots) + 2.0
-                guard let realAvail = Planner.deviceAvailableGB(), realAvail >= needPool * 3 else {
+                // floor plus both policy dead-bands: shrink needs 1 GB and the
+                // later recovery needs 2 GB. Below that, the governor correctly
+                // refuses to grow and the drill would misreport a policy failure.
+                // The planner's round-trip reserves prefill/cache state from
+                // this budget too, so use 3 GB to leave the desired expert pool
+                // safely more than 2 GB above the floor after that reservation.
+                let extraSlots = Int((3.0e9 / Geometry.recordBytes).rounded(.up))
+                let minStartSlots = Geometry.floorSlots + extraSlots
+                let minStartPool = Geometry.gb(minStartSlots)
+                let minAvailable = max(12.0, minStartPool * 3)
+                guard let realAvail = Planner.deviceAvailableGB(), realAvail >= minAvailable else {
                     print(String(format:
                         "ELASTIC DRILL SKIP: needs ~%.0f GB reclaimable to leave room for a "
                         + "shrink, machine has %.1f GB. Close some apps and retry.",
-                        needPool * 3, Planner.deviceAvailableGB() ?? 0))
+                        minAvailable, Planner.deviceAvailableGB() ?? 0))
                     sem.signal()
                     return
                 }
-                // Take at most a third of what is genuinely free for the pool.
-                let poolCeiling = min(Geometry.gb(startSlots), realAvail / 3)
-                let roomy = poolCeiling + Planner.fixedFootprintGB
-                    + Planner.planningMarginGB + 3.0
-                let plan = try Planner.plan(
-                    expertsPerLayer: nil, poolGB: nil, memoryGB: nil, availableGB: roomy)
+                // Take at most a third of what is genuinely free for the pool,
+                // but always start far enough above the floor to cross the
+                // governor's 1 GB dead-band. Running an auto replan here used
+                // to subtract availability slack and cache costs again, turning
+                // --slots 1000 into a pool that was too small to shrink.
+                let cappedSlots = Int(realAvail / 3 * 1e9 / Geometry.recordBytes)
+                let initialSlots = min(max(startSlots, minStartSlots), cappedSlots)
+                let poolCeiling = Geometry.gb(initialSlots)
+                let chunk = Planner.prefillChunkFor(poolBudgetGB: poolCeiling)
+                let cacheTokens = Planner.prefixCacheTokensFor(poolBudgetGB: poolCeiling)
+                let target = poolCeiling + Planner.fixedFootprintGB
+                    + Planner.prefillCostGB(chunk)
+                    + Planner.prefixCacheCostGB(tokens: cacheTokens)
+                    + Planner.planningMarginGB
+                let plan = MemoryPlan(
+                    source: .auto, slots: initialSlots, targetGB: target,
+                    ramGB: Planner.deviceRAMGB(),
+                    workingSetGB: Planner.deviceWorkingSetGB(),
+                    ramPercent: Planner.defaultRAMPercent,
+                    availableGB: realAvail, clamped: false,
+                    prefillChunk: chunk, prefixCacheTokens: cacheTokens,
+                    notes: ["elastic drill bounded test plan"])
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
                 note(String(format: "  (machine has %.1f GB reclaimable; drill capped at a "
                     + "%.1f GB pool)", realAvail, poolCeiling))
@@ -620,14 +665,33 @@ struct ElasticDrill: ParsableCommand {
 
                 // --- shrink: pretend the machine just got busy
                 Planner.availabilityOverride = 2.0
+                let shrinkInputs = GovernorPolicy.Inputs(
+                    currentSlots: s0, availableGB: 2.0,
+                    ramGB: plan.ramGB, workingSetGB: plan.workingSetGB,
+                    ramPercent: plan.ramPercent)
+                let startCache = engine.prefixCache.maxTokens
                 gov.pollNow()
                 let s1 = engine.model.pool.slots
                 let underPressure = gen()
                 note(String(format: "  squeeze: %d slots (~%.0f/layer) -> %@",
                     s1, Geometry.perLayer(s1), underPressure))
                 if s1 >= s0 { fail.append("governor did not shrink: \(s0) -> \(s1)") }
-                let expectedChunk = Planner.prefillChunkFor(poolBudgetGB: Geometry.gb(s1))
-                let expectedCache = Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(s1))
+                // Expect the controls for the pool the governor actually landed
+                // on. decide() applies dead-bands and a per-step shed cap, so
+                // the resulting pool is frequently not the target desiredSlots
+                // suggested; asserting against that suggestion made this gate
+                // pass on a quiet machine and fail on a busy one, which is the
+                // opposite of what a memory gate is for. Tracking s1 still
+                // proves the point -- the live controls follow the real pool --
+                // and the ceiling must separately have gone down, so this
+                // cannot pass by never changing at all.
+                let shrinkControls = GovernorPolicy.liveControls(
+                    for: s1, inputs: shrinkInputs)
+                let expectedChunk = shrinkControls.prefillChunk
+                let expectedCache = shrinkControls.prefixCacheTokens
+                if engine.prefixCache.maxTokens >= startCache {
+                    fail.append("prefix-cache ceiling did not shrink at all: stayed at \(startCache)")
+                }
                 if engine.generator.prefillChunk != expectedChunk {
                     fail.append("live prefill chunk stayed at \(engine.generator.prefillChunk), expected \(expectedChunk) after shrink")
                 }
@@ -640,7 +704,39 @@ struct ElasticDrill: ParsableCommand {
 
                 // --- grow: memory comes back, but only to where we started —
                 //     never to a figure the machine cannot actually honour.
-                Planner.availabilityOverride = roomy
+                // The governor credits the currently resident (shrunken) pool
+                // and fixed weights before replanning. Find the smallest safe
+                // availability stimulus that reconstructs the actual starting
+                // pool; deriving it from the hand-built target loses the
+                // planner's nonlinear prefill/cache reservations and can land
+                // below the 2 GB grow dead-band.
+                func desiredSlots(at available: Double) -> Int {
+                    GovernorPolicy.desiredSlots(GovernorPolicy.Inputs(
+                        currentSlots: s1, availableGB: available,
+                        ramGB: plan.ramGB, workingSetGB: plan.workingSetGB,
+                        ramPercent: plan.ramPercent)) ?? s1
+                }
+                var low = 0.0
+                var high = realAvail
+                if desiredSlots(at: high) < s0 {
+                    fail.append("real reclaimable memory cannot reconstruct the bounded starting pool")
+                } else {
+                    for _ in 0 ..< 48 {
+                        let mid = (low + high) / 2
+                        if desiredSlots(at: mid) < s0 { low = mid } else { high = mid }
+                    }
+                }
+                let recoveryAvailability = high
+                let recoveryInputs = GovernorPolicy.Inputs(
+                    currentSlots: s1, availableGB: recoveryAvailability,
+                    ramGB: plan.ramGB, workingSetGB: plan.workingSetGB,
+                    ramPercent: plan.ramPercent)
+                note(String(
+                    format: "  recovery stimulus: %.1f GB available -> %d desired slots (%.1f GB growth)",
+                    recoveryAvailability,
+                    GovernorPolicy.desiredSlots(recoveryInputs) ?? s1,
+                    Geometry.gb((GovernorPolicy.desiredSlots(recoveryInputs) ?? s1) - s1)))
+                Planner.availabilityOverride = recoveryAvailability
                 gov.pollNow()
                 if engine.model.pool.slots != s1 {
                     fail.append("governor grew during the cooldown (should wait \(Int(GovernorPolicy.growCooldown)) s)")
@@ -650,7 +746,8 @@ struct ElasticDrill: ParsableCommand {
 
                 if !skipGrow {
                     note("  waiting out the \(Int(GovernorPolicy.growCooldown)) s grow cooldown...")
-                    Thread.sleep(forTimeInterval: GovernorPolicy.growCooldown + 3)
+                    try await Task.sleep(
+                        for: .seconds(GovernorPolicy.growCooldown + 3))
                     gov.pollNow()
                     let s2 = engine.model.pool.slots
                     let recovered = gen()
@@ -957,8 +1054,16 @@ struct NgramGolden: ParsableCommand {
     @Option var tokens: String
 
     func run() throws {
-        let ids = tokens.split(separator: ",").map { Int64($0.trimmingCharacters(in: .whitespaces))! }
+        let fields = tokens.split(separator: ",", omittingEmptySubsequences: false)
+        let parsed = fields.map { Int64($0.trimmingCharacters(in: .whitespaces)) }
+        guard !fields.isEmpty, parsed.allSatisfy({ $0 != nil }) else {
+            throw ValidationError("--tokens must be a non-empty comma-separated list of integers")
+        }
+        let ids = parsed.compactMap { $0 }
         let index = try CheckpointIndex(dir: model.modelURL)
+        guard ids.allSatisfy({ $0 >= 0 && $0 < Int64(index.config.vocabSize) }) else {
+            throw ValidationError("--tokens contains an id outside 0..<\(index.config.vocabSize)")
+        }
         let resident = try ResidentWeights(index: index)
         let store = NgramStore(index: index, resident: resident)
         let eos = Int64(index.config.eosTokenId)
@@ -978,9 +1083,13 @@ struct DequantGolden: ParsableCommand {
     @Option var gid: Int64 = 12345
 
     func run() throws {
+        guard gid >= 0 else { throw ValidationError("--gid must not be negative") }
         let index = try CheckpointIndex(dir: model.modelURL)
         let resident = try ResidentWeights(index: index)
         let store = NgramStore(index: index, resident: resident)
+        guard gid >= 0, gid < Int64(store.rowCapacity) else {
+            throw ValidationError("--gid must be between 0 and \(store.rowCapacity - 1)")
+        }
         print("rowsPerShard: \(store.rowsPerShard)")
         print("multipliers: \(store.multipliers)")
         let row = store.debugRow(gid)
@@ -1077,6 +1186,21 @@ struct GovernorCheck: ParsableCommand {
               P.decide(Self.inputs(slots: small, avail: roomy, sincePressure: 10, sinceResize: 999)) == .hold)
         let grow = P.decide(Self.inputs(slots: small, avail: roomy, sincePressure: 999, sinceResize: 999))
         check("grow allowed once calm and cooled", (slots(grow) ?? 0) > small, "got \(grow)")
+        if let target = slots(grow), let desired = P.desiredPlan(
+            Self.inputs(slots: small, avail: roomy, sincePressure: 999, sinceResize: 999))
+        {
+            let controls = P.liveControls(
+                for: target,
+                inputs: Self.inputs(
+                    slots: small, avail: roomy,
+                    sincePressure: 999, sinceResize: 999))
+            check("grow restores the planner's prefill and prefix budgets",
+                  controls.prefillChunk == desired.prefillChunk
+                    && controls.prefixCacheTokens == desired.prefixCacheTokens,
+                  "got \(controls), expected \((desired.prefillChunk, desired.prefixCacheTokens))")
+        } else {
+            check("grow restores the planner's prefill and prefix budgets", false)
+        }
         check("  ...and says why", reason(grow) == "memory freed")
 
         // OS pressure events shed immediately, regardless of cooldown.
@@ -1146,6 +1270,8 @@ struct SamplerGolden: ParsableCommand {
     }
 
     func run() throws {
+        guard vocab > 0 else { throw ValidationError("--vocab must be greater than zero") }
+        guard draws >= 0 else { throw ValidationError("--draws must not be negative") }
         var p = SampleParams()
         p.temperature = temperature
         p.topP = topP
@@ -1180,9 +1306,9 @@ struct TemplateCheck: ParsableCommand {
         var err: Error?
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, poolSlots: 64)
-                out = try engine.encodeChat(
-                    [
+                out = try await Engine.encodeChatWithoutModel(
+                    modelDir: model.modelURL,
+                    messages: [
                         ChatMessage(role: "system", content: "You are helpful."),
                         ChatMessage(role: "user", content: "Hi there"),
                     ], thinking: think)
