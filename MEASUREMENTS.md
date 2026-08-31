@@ -1467,3 +1467,48 @@ reported a regression at 31 GB that did not exist: the banner rounds tok/s to
 whole numbers, so 11.58 prints as 12 and 11.19 as 11. `doctor --json` now emits
 `est_warm_tok_s` and `est_prefill_tok_s` unrounded, and the gate reads those.
 Anything asserting on a plan should.
+
+### The --memory-gb promise does not hold on real prompts (2026-08-31, open)
+
+`--memory-gb 10` peaks at **12.4 GB** on a 7,960-token prompt. Characterised so
+the fix does not have to start from scratch. All runs are greedy, 8-16 tokens
+out, RSS peak as the binary reports it.
+
+**It is not the expert pool.** At the 1.8 GB floor cache the same prompt still
+peaks at 10.9 GB. Sweeping prompt length at that fixed floor pool:
+
+| prompt | peak RSS |
+|---|---|
+| ~15 tokens | 5.4 GB |
+| ~250 tokens | 10.2 GB |
+| ~1,000 tokens | 10.5 GB |
+| ~3,900 tokens | 10.9 GB |
+| ~7,960 tokens | 10.9 GB |
+
+So it is **a step, not per-token growth**: ~4.8 GB appears between a trivial
+prompt and a 250-token one, then roughly 90 KB/token after. Anything that
+budgets this by context length will mis-size it.
+
+**It is additive in the pool.** Pool 1.8 GB gives 10.5 GB peak and pool 8.0 GB
+gives 16.9 GB on the same prompt: +6.2 GB of pool costs +6.4 GB of RSS. The
+overhead above the pool is ~8.7 GB where the plan models ~5.8.
+
+**But it is not a clean constant either**, which is why this is left open rather
+than patched by inflating `fixedFootprintGB`:
+
+| target | peak | verdict |
+|---|---|---|
+| 10 GB | 12.4 | over by 2.4 |
+| 16 GB | 18.4 | over by 2.4 |
+| 20 GB | 19.6 | **under**, holds |
+
+Two candidates ruled out. The n-gram row cache is capped at 400,000 rows of
+160 floats, about 0.3 GB with overhead — an order of magnitude too small to be
+the step. `MLX.Memory.cacheLimit` is already pinned at 2 GB in `Engine.swift`,
+so an unbounded allocator cache is not it either.
+
+Raising `fixedFootprintGB` to cover the gap would push `minMemoryGB` from 8.1
+to over 10, which refuses the very target the gate tests, and would shrink every
+pool to pay for something whose location is still unknown. The next step is to
+find where the ~4.8 GB step is actually allocated on the first real prefill,
+not to widen the constant around it.
