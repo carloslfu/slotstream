@@ -15,7 +15,9 @@ existing client just works.
 ## Will it run on my Mac
 
 **Disk is the gate that bites first.** You need ~110 GB free, so a 512 GB Mac
-is the realistic minimum however much memory it has.
+is the realistic minimum however much memory it has. The weights are a one-time
+104 GB download: 35 minutes on a good connection, several hours on a slow one
+(table [below](#the-104-gb-download)).
 
 | memory | expect |
 |---|---|
@@ -40,18 +42,6 @@ Installs a prebuilt binary to `~/.slotstream/bin` and puts it on your PATH.
 Needs Apple Silicon and macOS 14+. Re-run the same line to upgrade; uninstall
 with `rm -rf ~/.slotstream`.
 
-Then start it — it offers to download the weights on first run:
-
-```bash
-slotstream serve
-```
-
-The download is 104 GB and takes 35–45 minutes on a fast link. It is safe to
-interrupt: it resumes where it stopped, and every file is checked against a
-hash compiled into the binary, so a corrupted download can never become
-garbage tokens. `slotstream pull` runs it on its own; `pull --verify` re-hashes
-an existing copy in about 10 s.
-
 Releases are built by CI from the tagged commit with signed provenance, so you
 can check an asset yourself rather than trusting the download:
 
@@ -63,8 +53,45 @@ Or build it yourself — Command Line Tools are enough, no Xcode needed:
 
 ```bash
 git clone https://github.com/carloslfu/slotstream && cd slotstream
-make build && .build/release/slotstream serve
+make build
 ```
+
+### The 104 GB download
+
+The binary is small; the weights are not. 103.8 GB across 24 files, one time.
+`serve` and `run` offer the download on first run, and `slotstream pull` does
+it on its own:
+
+```bash
+slotstream serve
+```
+
+Either way it prints the size, the destination and your free disk and waits for
+a yes before transferring anything, and it refuses outright if the disk cannot
+hold it.
+
+**Hugging Face caps this at about 50 MB/s however fast your link is** —
+measured at 1, 4, 8, 16 and 32 connections, and against `hf_xet`, Hugging
+Face's own fastest client, while the same link did 134 MB/s to an ordinary
+host. So gigabit buys you nothing here over 400 Mbit:
+
+| your connection | wait |
+|---|---|
+| 400 Mbps or faster | ~35 min — the cap, not your link |
+| 200 Mbps | ~1 h 10 |
+| 100 Mbps | ~2 h 20 |
+| 50 Mbps | ~4 h 40 |
+| 25 Mbps | ~9 h |
+
+The top row is measured on a real install. The rest is arithmetic over 103.8 GB
+assuming you get your full rated speed, so read them as best cases.
+
+Interrupting is safe: it resumes at the exact byte it stopped on, and all
+103.78 GB of weights are checked against sha256 hashes compiled into the
+binary, so a truncated or corrupted download can never turn into garbage
+tokens. (The remaining 10 MB of config and tokenizer text is size-checked, then
+parsed on load.) `pull --verify` re-hashes an existing copy in under 10 s —
+7.7 s here, all 24 files at once.
 
 ## Use it
 

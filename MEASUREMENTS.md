@@ -695,6 +695,16 @@ whole 103.8 GB is byte-identical, proven without downloading it); and a live
 the hash gate with a full 24/24 verify. Integrity semantics are unchanged:
 sources supply bytes, the compiled-in manifest supplies truth.
 
+**README correction (2026-08-31).** The README claimed "every file is checked
+against a hash compiled into the binary". Only 12 of the 24 are: the 11 shards
+plus `tokenizer.json`, which is 103.783 of the 103.794 GB. The other 12 —
+configs, `merges.txt`, `vocab.json`, the index, 10.5 MB total, 0.01% — are
+size-checked and then structurally parsed on load. The user-facing promise (a
+corrupted download cannot become garbage tokens) survives, but the README now
+states the split. A full `pull --verify` re-measured at **7.7 s** wall for
+103.8 GB (13.4 GB/s across 24 concurrent readers, consistent with the 17.3 GB/s
+sequential SSD figure and unrelated to the 4.5 GB/s random-`pread` expert path).
+
 ### Parallel weight download (2026-08-29): 8 connections, exact resume
 
 The pull was one connection streaming one file at a time, which measured 28 to
