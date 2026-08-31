@@ -19,19 +19,18 @@
 // prompt — is a full rebuild. That covers the dominant chat and tool-loop
 // shape and fails safe for the rest.
 //
-// Memory. A held state is ~27 KiB per token (KV + indexer). Peak process
-// memory is unchanged by caching, because a miss evicts before the caller
-// allocates the replacement, so exactly one state is ever live — the same one
-// that existed transiently before. What rises is the *idle* floor between
-// requests, which is why retention is capped from the memory plan and why the
-// governor sheds this before it shrinks the pool.
+// Memory. A held state is ~27 KiB per token (KV + indexer) plus ~113 MB of
+// fixed GDN recurrent state. Several conversations are genuinely additive.
+// A miss evicts enough LRU entries before the caller allocates its state that
+// retained + active states never exceed maxEntries and their token capacities
+// share one budget. The governor sheds them before shrinking the pool.
 
 import Foundation
 
-/// One conversation's worth of reusable model state, plus the exact ids that
-/// produced it. Not a general KV cache: a single slot, matched by exact prefix.
+/// A bounded set of reusable conversation states plus the exact ids that
+/// produced them. Not a general KV cache: every entry matches by exact prefix.
 ///
-/// One slot is shared by every client, which is safe for a reason worth stating
+/// Entries are shared by every client, which is safe for a reason worth stating
 /// rather than rediscovering: a match requires the incoming prompt to *begin
 /// with the entire held id sequence*, so a client can only ever reuse state
 /// whose full content it just supplied itself. There is nothing to learn from a
@@ -45,6 +44,9 @@ public final class PrefixCache {
     /// KV + indexer per token. The same figure the context-limit message and
     /// the planner quote; measured in MEASUREMENTS.md.
     public static let bytesPerToken = 27_648
+
+    /// 36 linear-attention layers × 48 value heads × 128 × 128 float32.
+    public static let fixedBytesPerEntry = 36 * 48 * 128 * 128 * 4
 
     /// How many conversations may be held at once.
     ///
@@ -72,16 +74,33 @@ public final class PrefixCache {
     /// Ceiling on tokens held across *all* entries, so several conversations
     /// share one budget rather than each reserving the maximum. One long chat
     /// may still use the whole allowance.
-    public var maxTokens: Int
-    public var enabled: Bool
+    private var _maxTokens: Int
+    private var _enabled: Bool
 
-    public private(set) var hits = 0
-    public private(set) var misses = 0
-    public private(set) var evictions = 0
+    public var maxTokens: Int {
+        get { lock.withLock { _maxTokens } }
+        set { configure(maxTokens: newValue) }
+    }
+    public var enabled: Bool {
+        get { lock.withLock { _enabled } }
+        set {
+            lock.withLock {
+                _enabled = newValue
+                if !newValue { _evictions += entries.count; entries.removeAll() }
+            }
+        }
+    }
+
+    private var _hits = 0
+    private var _misses = 0
+    private var _evictions = 0
+    public var hits: Int { lock.withLock { _hits } }
+    public var misses: Int { lock.withLock { _misses } }
+    public var evictions: Int { lock.withLock { _evictions } }
 
     public init(maxTokens: Int, enabled: Bool = true) {
-        self.maxTokens = maxTokens
-        self.enabled = enabled
+        self._maxTokens = max(0, maxTokens)
+        self._enabled = enabled
     }
 
     public var heldTokens: Int {
@@ -90,7 +109,11 @@ public final class PrefixCache {
     }
 
     public var heldGB: Double {
-        Double(heldTokens) * Double(Self.bytesPerToken) / 1e9
+        lock.withLock {
+            let bytes = entries.reduce(0) { $0 + $1.tokens.count } * Self.bytesPerToken
+                + entries.count * Self.fixedBytesPerEntry
+            return Double(bytes) / 1e9
+        }
     }
 
     /// Take ownership of a state that `promptIds` extends, or nil.
@@ -100,10 +123,12 @@ public final class PrefixCache {
     /// that entry (the caller now owns the state and will hand it back with the
     /// ids it consumed); a miss leaves the others alone — evicting them would
     /// reintroduce exactly the single-slot failure described above.
-    public func take(matching promptIds: [Int]) -> (state: Qwen4ExpModel.State, reused: Int)? {
+    public func take(
+        matching promptIds: [Int], reserveTokens: Int? = nil
+    ) -> (state: Qwen4ExpModel.State, reused: Int)? {
         lock.lock()
         defer { lock.unlock() }
-        guard enabled else { entries.removeAll(); return nil }
+        guard _enabled else { entries.removeAll(); return nil }
         // Strictly greater: at least one new token must remain to produce
         // logits from, and the state cannot be rewound to yield them.
         var best: Int?
@@ -112,11 +137,20 @@ public final class PrefixCache {
             if best == nil || e.tokens.count > entries[best!].tokens.count { best = i }
         }
         guard let i = best else {
-            misses += 1
+            _misses += 1
+            // The caller is about to allocate a new state. Make room first so
+            // four retained states plus a fifth active state never coexist.
+            let reserve = max(promptIds.count, reserveTokens ?? promptIds.count)
+            while !entries.isEmpty
+                && (entries.count >= Self.maxEntries
+                    || entries.reduce(0, { $0 + $1.tokens.count }) + reserve > _maxTokens)
+            {
+                evictLRU()
+            }
             return nil
         }
         let e = entries.remove(at: i)
-        hits += 1
+        _hits += 1
         return (e.state, e.tokens.count)
     }
 
@@ -125,16 +159,31 @@ public final class PrefixCache {
     public func store(state s: Qwen4ExpModel.State, tokens t: [Int]) {
         lock.lock()
         defer { lock.unlock() }
-        guard enabled, !t.isEmpty, t.count <= maxTokens else { return }
+        guard _enabled, !t.isEmpty, t.count <= _maxTokens else { return }
         clock += 1
         entries.append(Entry(state: s, tokens: t, used: clock))
         while entries.count > Self.maxEntries
-            || entries.reduce(0, { $0 + $1.tokens.count }) > maxTokens
+            || entries.reduce(0, { $0 + $1.tokens.count }) > _maxTokens
         {
-            guard let lru = entries.enumerated().min(by: { $0.element.used < $1.element.used })?.offset
-            else { break }
-            entries.remove(at: lru)
-            evictions += 1
+            guard !entries.isEmpty else { break }
+            evictLRU()
+        }
+    }
+
+    private func evictLRU() {
+        guard let lru = entries.enumerated().min(by: { $0.element.used < $1.element.used })?.offset
+        else { return }
+        entries.remove(at: lru)
+        _evictions += 1
+    }
+
+    /// Apply a smaller live plan immediately, evicting until it is true.
+    public func configure(maxTokens: Int) {
+        lock.withLock {
+            _maxTokens = max(0, maxTokens)
+            while entries.reduce(0, { $0 + $1.tokens.count }) > _maxTokens {
+                evictLRU()
+            }
         }
     }
 
@@ -143,30 +192,32 @@ public final class PrefixCache {
     public func drop() {
         lock.lock()
         defer { lock.unlock() }
-        evictions += entries.count
+        _evictions += entries.count
         entries.removeAll()
     }
 
     public func resetStats() {
         lock.lock()
         defer { lock.unlock() }
-        hits = 0
-        misses = 0
-        evictions = 0
+        _hits = 0
+        _misses = 0
+        _evictions = 0
     }
 
     public func json() -> [String: Any] {
         lock.lock()
         let held = entries.reduce(0) { $0 + $1.tokens.count }
         let n = entries.count
-        let (h, m, e) = (hits, misses, evictions)
+        let (h, m, e, enabled, maxTokens) =
+            (_hits, _misses, _evictions, _enabled, _maxTokens)
         lock.unlock()
         return [
             "enabled": enabled,
             "conversations": n,
             "max_conversations": Self.maxEntries,
             "held_tokens": held,
-            "held_gb": (Double(held) * Double(Self.bytesPerToken) / 1e9 * 100).rounded() / 100,
+            "held_gb": (Double(
+                held * Self.bytesPerToken + n * Self.fixedBytesPerEntry) / 1e9 * 100).rounded() / 100,
             "max_tokens": maxTokens,
             "hits": h,
             "misses": m,

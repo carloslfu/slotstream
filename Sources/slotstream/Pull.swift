@@ -11,6 +11,14 @@ import ArgumentParser
 import CryptoKit
 import Foundation
 
+private struct PullIntegrityError: Error, LocalizedError {
+    let file: String
+    var errorDescription: String? {
+        "\(file): sha256 mismatch after download — the source returned bytes "
+            + "that do not match the pinned revision"
+    }
+}
+
 enum ModelLocator {
     /// Respect $HOME when set (redirecting 104 GB of weights is a real use
     /// case); Foundation's homeDirectoryForCurrentUser ignores it.
@@ -209,15 +217,22 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         }
         for (i, f) in PinnedModel.files.enumerated() {
             let finalURL = dest.appendingPathComponent(f.path)
-            if let attrs = try? fm.attributesOfItem(atPath: finalURL.path),
-                (attrs[.size] as? Int64) == f.size
-            {
-                continue  // present with the right size; hashes checked in verify
+            let resolvedFinal = finalURL.resolvingSymlinksInPath()
+            if Pull.fileMatches(resolvedFinal, size: f.size, sha256: f.sha256) {
+                continue
             }
             try fm.createDirectory(
                 at: finalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let part = finalURL.appendingPathExtension("part")
             let mapURL = finalURL.appendingPathExtension("partmap")
+            // A same-size corrupt final used to be skipped forever. Remove only
+            // the manifest path (not a symlink target) and any stale resume map,
+            // then rebuild it through the ordinary verified download path.
+            if fm.fileExists(atPath: finalURL.path) {
+                try fm.removeItem(at: finalURL)
+                try? fm.removeItem(at: part)
+                try? fm.removeItem(at: mapURL)
+            }
             let n = Pull.chunkCount(f.size)
             var map = [UInt8](repeating: 0, count: n)
             if let d = try? Data(contentsOf: mapURL), d.count == n {
@@ -323,15 +338,16 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
                     let ns = error as NSError
                     let permanent =
                         ns.domain == "pull" && (400 ..< 500).contains(ns.code) && ns.code != 429
-                    if permanent {
-                        // this source does not have the file; try the next one
+                    if permanent || attempt >= 5 {
+                        // A source that is missing the file, repeatedly times
+                        // out, or returns 5xx is not a reason to ignore the
+                        // configured fallback.
                         if advanceSource(for: chunk.file, from: srcIdx) {
                             attempt = 0
                             continue
                         }
                         break
                     }
-                    if attempt >= 5 { break }
                     Thread.sleep(forTimeInterval: Double(attempt) * 2)
                 }
             }
@@ -372,7 +388,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         lock.unlock()
         guard next < bases.count else { return false }
         FileHandle.standardError.write(
-            "  \(name): source refused it — trying \(bases[next])\n".data(using: .utf8)!)
+            "  \(name): source failed — trying \(bases[next])\n".data(using: .utf8)!)
         return true
     }
 
@@ -406,6 +422,9 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         req.setValue(
             "bytes=\(chunk.start)-\(chunk.start + chunk.length - 1)",
             forHTTPHeaderField: "Range")
+        // URLSession may otherwise transparently decode a compressed body;
+        // byte ranges and their offsets are defined over the stored bytes.
+        req.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
 
         let state = ChunkState(fd: fd, chunk: chunk)
         let task = session.dataTask(with: req)
@@ -448,9 +467,14 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
             return
         }
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let http = response as? HTTPURLResponse
         let wholeFile =
             st.chunk.start == 0 && st.chunk.length == PinnedModel.files[st.chunk.file].size
-        if code == 206 || (code == 200 && wholeFile) {
+        let validRange = code == 206 && Pull.validContentRange(
+            http?.value(forHTTPHeaderField: "Content-Range"),
+            start: st.chunk.start, length: st.chunk.length,
+            total: PinnedModel.files[st.chunk.file].size)
+        if validRange || (code == 200 && wholeFile) {
             completionHandler(.allow)
         } else {
             // 200 for a partial range means the server ignored Range; accepting
@@ -459,7 +483,8 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
                 domain: "pull", code: code == 200 ? 1 : code,
                 userInfo: [
                     NSLocalizedDescriptionKey: code == 200
-                        ? "server ignored the Range request" : "HTTP \(code)"
+                        ? "server ignored the Range request"
+                        : code == 206 ? "invalid Content-Range" : "HTTP \(code)"
                 ])
             completionHandler(.cancel)
         }
@@ -552,9 +577,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
                     guard got == want else {
                         try? fm.removeItem(at: pf.part)
                         try? fm.removeItem(at: pf.mapURL)
-                        throw ValidationError(
-                            "\(pf.file.path): sha256 mismatch after download — corrupted "
-                                + "transfer; rerun `slotstream pull`")
+                        throw PullIntegrityError(file: pf.file.path)
                     }
                 }
                 _ = try? fm.removeItem(at: pf.finalURL)
@@ -666,6 +689,9 @@ struct Pull: ParsableCommand {
         var failures: [String] = []
         let lock = NSLock()
         let files = PinnedModel.files
+        guard files.allSatisfy({ $0.sha256 != nil }) else {
+            throw ValidationError("internal manifest error: every pinned file must have a sha256")
+        }
         DispatchQueue.concurrentPerform(iterations: files.count) { i in
             let f = files[i]
             // resolvingSymlinksInPath: attributesOfItem does not follow a
@@ -695,12 +721,28 @@ struct Pull: ParsableCommand {
             lock.unlock()
         }
         if failures.isEmpty {
-            print("VERIFY PASS: all \(files.count) files match the pinned revision "
+            print("VERIFY PASS: all \(files.count) files match the pinned revision by sha256 "
                 + String(format: "(%.1f GB)", Double(PinnedModel.totalBytes) / 1e9))
         } else {
             print("VERIFY FAIL: \(failures.count) file(s) — run `slotstream pull` to repair")
             throw ExitCode(2)
         }
+    }
+
+    /// Quiet manifest check for run/serve startup. Returning the actual files
+    /// lets the caller quote an honest repair size before asking permission.
+    static func invalidFiles(at dest: URL) -> [PinnedModel.File] {
+        let fm = FileManager.default
+        let lock = NSLock()
+        var invalid: [PinnedModel.File] = []
+        DispatchQueue.concurrentPerform(iterations: PinnedModel.files.count) { i in
+            let f = PinnedModel.files[i]
+            let url = dest.appendingPathComponent(f.path).resolvingSymlinksInPath()
+            let size = (try? fm.attributesOfItem(atPath: url.path))?[.size] as? Int64
+            let good = size == f.size && f.sha256.map { sha256(of: url) == $0 } == true
+            if !good { lock.withLock { invalid.append(f) } }
+        }
+        return invalid.sorted { $0.path < $1.path }
     }
 
     static func sha256(of url: URL) -> String {
@@ -714,6 +756,33 @@ struct Pull: ParsableCommand {
             return true
         }) {}
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func fileMatches(_ url: URL, size: Int64, sha256 expected: String?) -> Bool {
+        guard let expected,
+            let actualSize = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size]
+                as? Int64,
+            actualSize == size
+        else { return false }
+        return sha256(of: url) == expected
+    }
+
+    /// Validate the exact byte range a 206 response claims. Length alone is
+    /// insufficient: a proxy can return the right number of wrong-position bytes.
+    static func validContentRange(
+        _ value: String?, start: Int64, length: Int64, total: Int64
+    ) -> Bool {
+        guard let value else { return false }
+        let halves = value.split(separator: "/", maxSplits: 1)
+        let left = halves.first?.split(separator: " ", maxSplits: 1)
+        let bounds = left?.last?.split(separator: "-", maxSplits: 1)
+        guard halves.count == 2, left?.first?.lowercased() == "bytes",
+            bounds?.count == 2,
+            let gotStart = Int64(bounds![0]), let gotEnd = Int64(bounds![1]),
+            gotStart == start, gotEnd == start + length - 1,
+            Int64(halves[1]) == total
+        else { return false }
+        return true
     }
 
     // MARK: chunk math
@@ -773,32 +842,84 @@ struct Pull: ParsableCommand {
 
         let conns = max(1, min(connections ?? PullTuning.connections, 32))
         let bases = WeightSources.bases
-        let job = PullJob(dest: dest, bases: bases, connections: conns)
-        let remaining = try job.plan()
-        if remaining == 0 {
-            try job.run()  // may still have files to hash and rename
-            print("all \(PinnedModel.files.count) files already present")
-            return
-        }
+        var lastIntegrityError: Error?
+        for start in bases.indices {
+            let selected = Array(bases[start...])
+            let job = PullJob(dest: dest, bases: selected, connections: conns)
+            let remaining = try job.plan()
+            if remaining == 0 {
+                try job.run()  // may still have files to hash and rename
+                print("all \(PinnedModel.files.count) files already present and hash-verified")
+                return
+            }
 
-        // disk check before any bytes move
-        let free = (try? fm.attributesOfFileSystem(forPath: dest.path))?[
-            .systemFreeSize] as? Int64 ?? 0
-        let needed = remaining + 2_000_000_000
-        guard free >= needed else {
-            throw ValidationError(String(
-                format: "not enough disk: need %.1f GB (%.1f GB to download + 2 GB margin), have %.1f GB free at %@",
-                Double(needed) / 1e9, Double(remaining) / 1e9, Double(free) / 1e9, dest.path))
+            // disk check before any bytes move
+            let free = (try? fm.attributesOfFileSystem(forPath: dest.path))?[
+                .systemFreeSize] as? Int64 ?? 0
+            let needed = remaining + 2_000_000_000
+            guard free >= needed else {
+                throw ValidationError(String(
+                    format: "not enough disk: need %.1f GB (%.1f GB to download + 2 GB margin), have %.1f GB free at %@",
+                    Double(needed) / 1e9, Double(remaining) / 1e9, Double(free) / 1e9, dest.path))
+            }
+            print("est. \(Self.etaHint(remaining)) at best — the mirror tops out near "
+                + "50 MB/s, a slower link takes longer")
+            print(String(
+                format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
+                PinnedModel.repo, String(PinnedModel.revision.prefix(12)),
+                Double(remaining) / 1e9, conns))
+            print("source: \(selected[0])")
+            for b in selected.dropFirst() { print("fallback: \(b)") }
+            fflush(stdout)
+            do {
+                try job.run()
+                return
+            } catch let e as PullIntegrityError {
+                lastIntegrityError = e
+                guard start + 1 < bases.count else { throw e }
+                FileHandle.standardError.write(
+                    "  \(e.localizedDescription) — retrying from the next source\n"
+                        .data(using: .utf8)!)
+            }
         }
-        print("est. \(Self.etaHint(remaining)) at best — the mirror tops out near "
-            + "50 MB/s, a slower link takes longer")
-        print(String(
-            format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
-            PinnedModel.repo, String(PinnedModel.revision.prefix(12)),
-            Double(remaining) / 1e9, conns))
-        print("source: \(bases[0])")
-        for b in bases.dropFirst() { print("fallback: \(b)") }
-        fflush(stdout)
-        try job.run()
+        if let lastIntegrityError { throw lastIntegrityError }
+    }
+}
+
+/// Weights-free regressions for integrity decisions that previously required a
+/// 104 GB download to exercise.
+struct PullCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "pull-check",
+        abstract: "Check same-size corruption detection and HTTP range validation")
+
+    func run() throws {
+        var failures: [String] = []
+        func check(_ name: String, _ condition: @autoclosure () -> Bool) {
+            if condition() { print("PASS  \(name)") }
+            else { print("FAIL  \(name)"); failures.append(name) }
+        }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("slotstream-pull-check-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("same-size")
+        try Data("abc".utf8).write(to: file)
+        let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        check("matching file is accepted", Pull.fileMatches(file, size: 3, sha256: abc))
+        try Data("xyz".utf8).write(to: file)
+        check("same-size corruption is rejected", !Pull.fileMatches(file, size: 3, sha256: abc))
+
+        check("exact Content-Range is accepted", Pull.validContentRange(
+            "bytes 64-127/256", start: 64, length: 64, total: 256))
+        check("wrong range start is rejected", !Pull.validContentRange(
+            "bytes 0-63/256", start: 64, length: 64, total: 256))
+        check("wrong range total is rejected", !Pull.validContentRange(
+            "bytes 64-127/999", start: 64, length: 64, total: 256))
+        check("unknown range total is rejected", !Pull.validContentRange(
+            "bytes 64-127/*", start: 64, length: 64, total: 256))
+        check("every pinned file has a digest", PinnedModel.files.allSatisfy { $0.sha256 != nil })
+        if !failures.isEmpty { throw ExitCode(2) }
+        print("PULL CHECK PASS")
     }
 }
