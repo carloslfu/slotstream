@@ -9,7 +9,7 @@ jobs:
   weights-free:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: toolchain
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
       - name: pinned Metal library
