@@ -89,7 +89,7 @@ throughput moved between sessions. The rows below it are arithmetic over
 103.8 GB at your full rated speed, so treat them as best cases.
 
 Interrupting is safe: it resumes at the exact byte it stopped on, and all
-all 24 files are checked against sha256 hashes compiled into the binary, so a
+24 files are checked against sha256 hashes compiled into the binary, so a
 truncated, same-size, or corrupted download cannot reach the engine.
 `pull --verify` re-hashes an existing copy in under 10 s —
 7.7 s here, hashed in parallel.
@@ -164,8 +164,9 @@ GB. The other two limits still apply, so it can lower the target but not raise
 it past the knee.
 
 Three flags replace auto outright, first one wins, and any of them will go past
-33 GB if you want to try it — full residency (all 512 per layer, no SSD reads
-at all) needs about 88 GB and has never been measured:
+33 GB if you want to try it — full expert residency (all 512 per layer, so no
+routed-expert SSD reads; n-gram rows still stream) needs about 88 GB and has
+never been measured:
 
 - `--memory-gb G` — total memory for the process. Minimum 8.1.
 - `--experts-per-layer N` — cache size directly, of the model's 512. Each costs
