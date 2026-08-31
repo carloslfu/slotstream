@@ -13,9 +13,48 @@ struct Slotstream: ParsableCommand {
         subcommands: [
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
-            PrefixCheck.self, ElasticDrill.self,
+            PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
         ]
     )
+}
+
+/// Weights-free regressions for process and cache safety invariants that are
+/// otherwise only observable during a 100+ GB model run.
+struct RuntimeCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "runtime-check",
+        abstract: "Check process RSS accounting and prefix-cache bounds without loading weights")
+
+    func run() throws {
+        var failures: [String] = []
+        func check(_ name: String, _ condition: @autoclosure () -> Bool) {
+            if condition() { print("PASS  \(name)") }
+            else { print("FAIL  \(name)"); failures.append(name) }
+        }
+
+        check("process physical footprint is readable", ProcessMemory.residentBytes() > 0)
+        check("process RSS high-water is readable", ProcessMemory.peakResidentBytes() > 0)
+
+        let cache = PrefixCache(maxTokens: 100)
+        for token in 1 ... PrefixCache.maxEntries {
+            cache.store(state: Qwen4ExpModel.State(), tokens: [token])
+        }
+        check("prefix cache reaches its four-entry bound", cache.json()["conversations"] as? Int == 4)
+        _ = cache.take(matching: [999], reserveTokens: 1)
+        check("a miss evicts before allocating a fifth state", cache.json()["conversations"] as? Int == 3)
+        cache.configure(maxTokens: 2)
+        check("a smaller live token ceiling evicts immediately", cache.heldTokens <= 2)
+        check("held GB includes fixed recurrent state", cache.heldGB > 0.1)
+
+        for target in [Planner.minMemoryGB, 10, 16, 30] where target >= Planner.minMemoryGB {
+            let p = try Planner.plan(
+                expertsPerLayer: nil, poolGB: nil, memoryGB: target,
+                ramGB: 64, workingSetGB: 64, availableGB: 64)
+            check("\(target) GB plan stays inside its target", p.expectedPeakGB <= target + 0.01)
+        }
+        if !failures.isEmpty { throw ExitCode(2) }
+        print("RUNTIME CHECK PASS")
+    }
 }
 
 struct ModelOptions: ParsableArguments {
@@ -29,10 +68,10 @@ struct ModelOptions: ParsableArguments {
             "Total memory target for the whole process, in GB.",
             discussion: """
                 The easiest knob: how much of this Mac slotstream may use. The \
-                expert cache gets what remains after the ~3.9 GB fixed \
-                footprint (resident weights + n-gram row cache) and a 0.5 GB \
-                margin, e.g. 16 GB -> ~87 of 512 experts cached per layer. \
-                Minimum ~6.2 GB. Default: auto -- 70% of RAM, kept 2 GB under \
+                expert cache gets what remains after the conservatively charged \
+                resident/runtime/context footprint and a 1 GB margin. Run \
+                `slotstream doctor --memory-gb N` for the exact cache size. \
+                Default: auto -- 70% of RAM, kept 2 GB under \
                 the Metal working-set limit; the chosen plan is announced at \
                 startup. --experts-per-layer / --pool-gb take precedence.
                 """))
@@ -46,7 +85,7 @@ struct ModelOptions: ParsableArguments {
                 The precise memory<->speed knob. Each of the 48 layers has 512 \
                 experts of 2.76 MB; the cache holds N x 48 of them, so pool = \
                 N x 0.133 GB (e.g. 226/layer = 30 GB, 181/layer = 24 GB, \
-                30/layer = 4 GB) plus the ~3.9 GB fixed footprint. The pool \
+                30/layer = 4 GB) plus the fixed runtime/context footprint. The pool \
                 itself is one GLOBAL cache shared across layers -- N is the \
                 intuitive unit, not a per-layer quota: hot layers borrow slots \
                 from cold ones. Takes precedence over --memory-gb/--pool-gb. \
@@ -58,6 +97,19 @@ struct ModelOptions: ParsableArguments {
             help: "Raw expert-pool size in GB (1 GB ≈ 7.5 experts/layer). Beats --memory-gb; loses to --experts-per-layer.")
     var poolGB: Double?
 
+    @Option(
+        name: .customLong("max-ram-percent"),
+        help: ArgumentHelp(
+            "Auto only: the largest share of this Mac's RAM auto may target (default 70).",
+            discussion: """
+                Lower it to keep more of the machine for your other apps; auto \
+                still sizes down on its own when they are actually holding \
+                memory. It cannot raise the target past the point where more \
+                cache stops buying decode speed (~30 GB) — use --memory-gb for \
+                that. Ignored when an explicit memory knob is given.
+                """))
+    var maxRAMPercent: Double?
+
     var modelURL: URL { ModelLocator.resolve(model) }
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
@@ -65,7 +117,8 @@ struct ModelOptions: ParsableArguments {
     func announcedPlan() throws -> MemoryPlan {
         try ensureWeights()
         let plan = try Planner.plan(
-            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB)
+            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            ramPercent: maxRAMPercent)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
         return plan
     }
@@ -85,8 +138,18 @@ struct ModelOptions: ParsableArguments {
         }
         // pinned model: every manifest file must be present whole (a partial
         // first download must resume here, not die later in the engine)
-        let remaining = Pull.remainingBytes(at: url)
-        if remaining == 0 { return }
+        var remaining = Pull.remainingBytes(at: url)
+        var corrupt: [PinnedModel.File] = []
+        if remaining == 0 {
+            // Size alone cannot distinguish a valid file from same-size
+            // corruption. Hash before loading; this takes seconds and prevents
+            // a damaged tokenizer/config/weight from reaching the engine.
+            corrupt = Pull.invalidFiles(at: url)
+            if corrupt.isEmpty { return }
+            remaining = corrupt.reduce(0) { $0 + $1.size }
+            print("found \(corrupt.count) same-size file(s) that fail the pinned sha256: "
+                + corrupt.map(\.path).joined(separator: ", "))
+        }
         let have = PinnedModel.totalBytes - remaining
         // free disk where the weights will actually land
         var probe = url
@@ -168,11 +231,12 @@ struct Run: ParsableCommand {
                 var params: SampleParams = greedy ? .greedy : (think ? .thinking : .instruct)
                 params.maxTokens = maxTokens
                 let t0 = Date()
-                let (_, _, stats) = engine.generate(promptIds: ids, params: params) { _, delta in
+                let (_, _, stats) = engine.generate(
+                    promptIds: ids, params: params, onToken: { _, delta in
                     fputs(delta, stdout)
                     fflush(stdout)
                     return true
-                }
+                })
                 print("")
                 let hs = String(format: "%.3f", stats.expertHitRate)
                 let perLayer = String(format: "~%.0f/%d experts per layer", plan.expertsPerLayerCached, Geometry.expertsPerLayer)
@@ -213,7 +277,9 @@ struct Serve: ParsableCommand {
     var noPrefixCache = false
 
     func run() throws {
-        guard maxContext > 0 else { throw PlanError("--max-context must be > 0") }
+        guard maxContext > 0, maxContext <= SampleParams.maxTokenCeiling else {
+            throw PlanError("--max-context must be between 1 and \(SampleParams.maxTokenCeiling)")
+        }
         let plan = try model.announcedPlan()
         // Claim the port first: failing here after a full model load wastes
         // half a minute and used to be a fatalError.
@@ -322,6 +388,10 @@ struct Doctor: ParsableCommand {
             help: "What-if: pretend this much memory is reclaimable right now (GB)")
     var simAvailable: Double?
 
+    @Flag(name: .customLong("json"),
+          help: "Print the resolved plan as JSON instead of the report. Estimates are unrounded here; the report rounds them.")
+    var asJSON = false
+
     /// One line on the 104 GB the plan above says nothing about: is it here,
     /// is there room for it, and roughly how long it takes.
     func weightsLine() -> String {
@@ -332,7 +402,7 @@ struct Doctor: ParsableCommand {
         let fm = FileManager.default
         let remaining = Pull.remainingBytes(at: url)
         if remaining == 0 {
-            return String(format: "weights: present, %.1f GB at %@",
+            return String(format: "weights: present by size, %.1f GB at %@ (run pull --verify for hashes)",
                           Double(PinnedModel.totalBytes) / 1e9, url.path)
         }
         var probe = url
@@ -351,24 +421,39 @@ struct Doctor: ParsableCommand {
     }
 
     func run() throws {
+        // --json is for machines: emit the plan and nothing else.
+        let quiet = asJSON
         let info = MLX.GPU.deviceInfo()
-        print("device: \(info.architecture)  |  "
-            + String(format: "%.0f GB RAM (%.1f GB reclaimable now), %.1f GB Metal working set",
-                     Planner.deviceRAMGB(),
-                     Planner.deviceAvailableGB() ?? .nan, Planner.deviceWorkingSetGB()))
-        print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts x 2.76 MB "
-            + "(\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
+        if !quiet {
+            print("device: \(info.architecture)  |  "
+                + String(format: "%.0f GB RAM (%.1f GB reclaimable now), %.1f GB Metal working set",
+                         Planner.deviceRAMGB(),
+                         Planner.deviceAvailableGB() ?? .nan, Planner.deviceWorkingSetGB()))
+        }
+        if !quiet {
+            print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts x 2.76 MB "
+                + "(\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
+        }
         // Disk is the gate that bites before memory does, and the README sends
         // people here *before* they download, so answer that question too.
-        print(weightsLine())
-        print("")
+        if !quiet { print(weightsLine()) }
+        if !quiet { print("") }
         let simulating = simRAM != nil || simWorkingSet != nil || simAvailable != nil
-        if simulating { print("what-if for a simulated machine (this device shown above):") }
+        if simulating, !quiet { print("what-if for a simulated machine (this device shown above):") }
+        let simulatedAvailable = simulating
+            ? (simAvailable ?? simRAM ?? Planner.deviceRAMGB()) : nil
         let plan = try Planner.plan(
             expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB, memoryGB: model.memoryGB,
             ramGB: simRAM,
             workingSetGB: simWorkingSet ?? simRAM.map { $0 * 0.75 },
-            availableGB: simulating ? (simAvailable ?? .infinity) : nil)
+            availableGB: simulatedAvailable,
+            ramPercent: model.maxRAMPercent)
+        if asJSON {
+            let data = try JSONSerialization.data(
+                withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])
+            print(String(decoding: data, as: UTF8.self))
+            return
+        }
         print(plan.banner())
         print("""
 
@@ -384,18 +469,20 @@ struct Doctor: ParsableCommand {
             all layers -- per-layer is the unit of intuition (a token activates 10
             of its 512 per layer), not a quota: hot layers borrow slots from cold.
 
-            what a memory target buys (warm decode est. from the measured M5 Pro
-            anchors 30/layer = 5.6 tok/s and 181/layer = 20.0; * = interpolated):
+            what a memory target buys (conservative warm-decode estimate from
+            measured M5 Pro anchors: 30/layer = 6.0, 150/layer = 11.6):
               target     experts/layer  est. warm decode
             """)
-        for t in [Planner.minMemoryGB, 8, 12, 16, 24, 28, 36, 48, 73] {
+        for t in [Planner.minMemoryGB, 10, 12, 16, 24, 28, 36, 48, 73]
+        where t >= Planner.minMemoryGB
+        {
             let s = Planner.slotsForTarget(t)
             let e = Geometry.perLayer(s)
             let est = Planner.estWarmTokS(expertsPerLayer: e)
             let full = s >= Geometry.totalRecords
             print(String(
-                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@%@",
-                t, e, est, e >= 181 ? " " : "*", full ? "  (fully resident)" : ""))
+                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@",
+                t, e, est, full ? "  (fully resident)" : ""))
         }
     }
 }
@@ -409,7 +496,7 @@ struct ElasticCheck: ParsableCommand {
     @OptionGroup var model: ModelOptions
     @Option var maxTokens: Int = 24
     @Option(help: "Slot count for the grow step (lower it on small machines; the equality property is size-independent)")
-    var bigSlots: Int = 8688
+    var bigSlots: Int = 960
 
     func run() throws {
         let sem = DispatchSemaphore(value: 0)
@@ -418,8 +505,9 @@ struct ElasticCheck: ParsableCommand {
         let big = bigSlots
         Task {
             do {
-                // start small (30/layer), grow warm, shrink cold, regrow
-                let engine = try await Engine(modelDir: model.modelURL, poolSlots: 1446)
+                // stay near the safe floor; equality is independent of size
+                let smallSlots = Geometry.floorSlots
+                let engine = try await Engine(modelDir: model.modelURL, poolSlots: smallSlots)
                 let ids = try engine.encodeChat(
                     [ChatMessage(role: "user", content: "Why is the sky blue?")], thinking: false)
                 var p = SampleParams.greedy
@@ -435,13 +523,14 @@ struct ElasticCheck: ParsableCommand {
                 let a = gen("baseline    ")
                 engine.withExclusive { engine.model.pool.resize(to: big) }
                 let b = gen("after grow  ")
-                engine.withExclusive { engine.model.pool.resize(to: 1446) }
+                engine.withExclusive { engine.model.pool.resize(to: smallSlots) }
                 let c = gen("after shrink")
-                engine.withExclusive { engine.model.pool.resize(to: 2400) }
+                engine.withExclusive { engine.model.pool.resize(to: 800) }
                 let d = gen("after regrow")
                 if a == b, b == c, c == d {
                     print("ELASTIC CHECK PASS: 4 generations byte-identical across "
-                        + "30→\(Int(Geometry.perLayer(big)))→30→50 experts/layer")
+                        + "\(Int(Geometry.perLayer(smallSlots)))→\(Int(Geometry.perLayer(big)))"
+                        + "→\(Int(Geometry.perLayer(smallSlots)))→\(Int(Geometry.perLayer(800))) experts/layer")
                 } else {
                     print("ELASTIC CHECK FAIL")
                     for (n, s) in [("a", a), ("b", b), ("c", c), ("d", d)] { print("--- \(n):\n\(s)") }
@@ -537,6 +626,14 @@ struct ElasticDrill: ParsableCommand {
                 note(String(format: "  squeeze: %d slots (~%.0f/layer) -> %@",
                     s1, Geometry.perLayer(s1), underPressure))
                 if s1 >= s0 { fail.append("governor did not shrink: \(s0) -> \(s1)") }
+                let expectedChunk = Planner.prefillChunkFor(poolBudgetGB: Geometry.gb(s1))
+                let expectedCache = Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(s1))
+                if engine.generator.prefillChunk != expectedChunk {
+                    fail.append("live prefill chunk stayed at \(engine.generator.prefillChunk), expected \(expectedChunk) after shrink")
+                }
+                if engine.prefixCache.maxTokens != expectedCache {
+                    fail.append("live prefix-cache ceiling stayed at \(engine.prefixCache.maxTokens), expected \(expectedCache) after shrink")
+                }
                 if underPressure != before {
                     fail.append("output changed across a shrink\n    before: \(before)\n    after:  \(underPressure)")
                 }
@@ -591,7 +688,7 @@ struct PrefixCheck: ParsableCommand {
         abstract: "Prove conversation prefix reuse is equivalent, bounded, and deterministic")
     @OptionGroup var model: ModelOptions
     @Option(help: "Slots to run with (small keeps the check cheap; these properties are size-independent)")
-    var slots: Int = 1446
+    var slots: Int = Geometry.floorSlots
     @Option var maxTokens: Int = 24
 
     /// A short multi-turn chat, driven exactly as a client drives one: every

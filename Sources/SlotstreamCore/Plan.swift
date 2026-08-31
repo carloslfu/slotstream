@@ -63,15 +63,17 @@ public struct MemoryPlan {
     public let targetGB: Double?
     public let ramGB: Double
     public let workingSetGB: Double
+    /// The RAM share auto was allowed (--max-ram-percent, default 70). Carried
+    /// so the elastic governor grows back to the user's policy, not the default.
+    public let ramPercent: Double
     /// Memory reclaimable at planning time (nil = could not be read).
     public let availableGB: Double?
     /// True when auto sized itself down because of what other apps hold now.
     public let clamped: Bool
     /// Tokens per prefill pass, chosen with the pool from the same budget.
     public let prefillChunk: Int
-    /// Conversation state the prefix cache may retain, in tokens. Sized from
-    /// the same budget; does not enter `expectedPeakGB` (see
-    /// `Planner.prefixCacheTokensFor`).
+    /// Conversation state the prefix cache may retain, in tokens. Sized and
+    /// charged from the same budget as the pool.
     public let prefixCacheTokens: Int
     public let notes: [String]
 
@@ -79,7 +81,7 @@ public struct MemoryPlan {
     public var poolGB: Double { Geometry.gb(slots) }
     public var expectedPeakGB: Double {
         poolGB + Planner.fixedFootprintGB + Planner.prefillCostGB(prefillChunk)
-            + Double(prefixCacheTokens) * Double(PrefixCache.bytesPerToken) / 1e9
+            + Planner.prefixCacheCostGB(tokens: prefixCacheTokens)
     }
     public var estWarmTokS: Double { Planner.estWarmTokS(expertsPerLayer: expertsPerLayerCached) }
     public var fullyResident: Bool { slots >= Geometry.totalRecords }
@@ -98,7 +100,7 @@ public struct MemoryPlan {
         }
         if let t = targetGB {
             let hint = source == .auto
-                ? "   (override: --memory-gb N | --experts-per-layer N)"
+                ? "   (override: --memory-gb N | --max-ram-percent P)"
                 : ""
             l.append(String(format: "  target: %.1f GB total for this process%@", t, hint))
         }
@@ -123,7 +125,7 @@ public struct MemoryPlan {
                 format: "  reuse:  up to %d tokens across %d conversations (~%.1f GB), so a "
                     + "follow-up turn re-prefills only what is new",
                 prefixCacheTokens, PrefixCache.maxEntries,
-                Double(prefixCacheTokens) * Double(PrefixCache.bytesPerToken) / 1e9))
+                Planner.prefixCacheCostGB(tokens: prefixCacheTokens)))
         }
         for n in notes { l.append("  note:   \(n)") }
         return l.joined(separator: "\n")
@@ -139,10 +141,17 @@ public struct MemoryPlan {
             "expected_peak_gb": (expectedPeakGB * 10).rounded() / 10,
             "device_ram_gb": (ramGB * 10).rounded() / 10,
             "device_working_set_gb": (workingSetGB * 10).rounded() / 10,
+            "max_ram_percent": ramPercent,
             "availability_clamped": clamped,
             "fully_resident": fullyResident,
             "prefill_chunk": prefillChunk,
             "prefix_cache_max_tokens": prefixCacheTokens,
+            // Unrounded on purpose: the banner rounds these to whole tok/s,
+            // and a caller comparing two plans across a rounding boundary sees
+            // a step that is not there. Anything asserting on the plan should
+            // read these, not the printed line.
+            "est_warm_tok_s": estWarmTokS,
+            "est_prefill_tok_s": Planner.estPrefillTokS(chunk: prefillChunk),
         ]
         if let a = availableGB, a.isFinite { d["device_available_gb"] = (a * 10).rounded() / 10 }
         if let t = targetGB { d["target_gb"] = (t * 10).rounded() / 10 }
@@ -152,13 +161,14 @@ public struct MemoryPlan {
 }
 
 public enum Planner {
-    /// Non-pool footprint, measured: resident weights 3.82 GB + n-gram row
-    /// cache ≤0.13 GB + activations. Measured whole-run peaks came in at
-    /// pool + ~3.3; we model 3.9 so predictions err high, never low.
-    public static let fixedFootprintGB = 3.9
+    /// Non-pool footprint: resident weights, the 256 MB n-gram payload plus
+    /// collection overhead, Swift and MLX runtime allocations, one fixed GDN
+    /// recurrent state, and a full 32k active context. Expert staging is now
+    /// transferred directly into MLX, avoiding separate raw + Swift copies.
+    public static let fixedFootprintGB = 5.3
     /// Extra slack when deriving a pool from a total-memory target, so the
     /// promise ("stays under G") survives transients.
-    public static let planningMarginGB = 0.5
+    public static let planningMarginGB = 1.0
 
     /// What a prefill pass costs in transient activations.
     ///
@@ -210,12 +220,46 @@ public enum Planner {
     /// be reached on a machine whose pool is already past the decode plateau —
     /// which is exactly what a proportional cap does, since there pool memory
     /// is worth nothing and pass memory is worth a lot.
+    /// A request this plan is tuned for: prompt tokens, then generated tokens.
+    /// Only ever used to choose the prefill pass size — never correctness.
+    static let tuningPromptTokens = 2000.0
+    static let tuningReplyTokens = 400.0
+
+    /// The prefill pass to run at a given pool budget: the one that finishes a
+    /// representative request soonest.
+    ///
+    /// Pass size is a real trade, not a free choice. A bigger pass prefills
+    /// faster but costs pool, and every GB it takes is expert cache the decode
+    /// loop no longer has. The old rule — "biggest pass fitting in a quarter of
+    /// the budget" — ignored the decode side, so crossing the quarter line
+    /// doubled the pass from 2.7 to 5.3 GB and made `--memory-gb 26` plan a
+    /// *smaller* cache than 25 (116 against 128 per layer) and a slower decode.
+    /// Giving more memory made it slower.
+    ///
+    /// Scoring `prompt/prefill + reply/decode` prices both sides in the one
+    /// unit that matters, seconds, and picks the trade the machine can afford:
+    /// past the decode plateau a big pass is nearly free and wins, and below it
+    /// the pass only grows when the prefill it buys beats the decode it costs.
+    /// Swept a GB at a time from 7 to 90 GB, the estimate never gets worse as
+    /// the target grows.
     public static func prefillChunkFor(poolBudgetGB: Double) -> Int {
-        var best = 256
-        for c in [512, 1024, 2048, 4096, 8192] where prefillCostGB(c) <= 0.25 * poolBudgetGB {
-            best = c
+        let candidates = [256] + [512, 1024, 2048, 4096, 8192].filter {
+            prefillCostGB($0) <= 0.25 * poolBudgetGB
         }
-        return best
+        func seconds(_ c: Int) -> Double {
+            let pool = poolBudgetGB - prefillCostGB(c) - prefixCacheGB(poolBudgetGB: poolBudgetGB)
+            let slots = min(
+                Geometry.totalRecords,
+                max(Geometry.floorSlots, Int(max(0, pool) * 1e9 / Geometry.recordBytes)))
+            let decode = estWarmTokS(expertsPerLayer: Geometry.perLayer(slots))
+            return tuningPromptTokens / estPrefillTokS(chunk: c) + tuningReplyTokens / decode
+        }
+        // Ties (identical seconds) go to the larger pass: same request time,
+        // more headroom on a prompt longer than the one we tuned for.
+        return candidates.min { a, b in
+            let (sa, sb) = (seconds(a), seconds(b))
+            return sa != sb ? sa < sb : a > b
+        } ?? 256
     }
 
     /// How many tokens of conversation state the prefix cache may retain.
@@ -241,8 +285,18 @@ public enum Planner {
 
     /// What that retention ceiling costs, which the plan reserves.
     public static func prefixCacheGB(poolBudgetGB: Double) -> Double {
-        Double(prefixCacheTokensFor(poolBudgetGB: poolBudgetGB))
-            * Double(PrefixCache.bytesPerToken) / 1e9
+        prefixCacheCostGB(tokens: prefixCacheTokensFor(poolBudgetGB: poolBudgetGB))
+    }
+
+    /// PrefixCache evicts before a miss allocation, so no more than four
+    /// states coexist: the active state already in fixedFootprintGB plus three
+    /// retained states. Their fixed GDN memory is additive to KV/indexer bytes.
+    public static func prefixCacheCostGB(tokens: Int) -> Double {
+        guard tokens > 0 else { return 0 }
+        let tokenGB = Double(tokens) * Double(PrefixCache.bytesPerToken) / 1e9
+        let fixedGB = Double(PrefixCache.maxEntries - 1)
+            * Double(PrefixCache.fixedBytesPerEntry) / 1e9
+        return tokenGB + fixedGB
     }
 
     /// Prefill throughput estimate for the banner, from the anchors above.
@@ -325,16 +379,40 @@ public enum Planner {
         max(1.5, 0.05 * ramGB)
     }
 
-    /// Auto policy: leave 30% of RAM to the OS and the user's other apps, and
-    /// stay 2 GB under the Metal recommended working set — whichever binds.
-    public static func autoTargetGB(ramGB: Double, workingSetGB: Double) -> Double {
-        min(0.70 * ramGB, workingSetGB - 2.0)
+    /// The share of RAM auto may target before other limits apply. Overridable
+    /// per run with --max-ram-percent; it binds on small machines, where the
+    /// cache is starved and every GB still buys speed.
+    public static let defaultRAMPercent = 70.0
+
+    /// Auto will not target more than this, however large the machine.
+    ///
+    /// This is the knee of the whole plan, not a politeness limit: 33 GB is the
+    /// smallest target at which **both** numbers reach the best the
+    /// measurements support — the expert cache clears the decode plateau
+    /// (11.2 tok/s at 120 experts/layer, 11.6 at 150, flat after) *and* the
+    /// budget still affords the 4096-token prefill pass (125 tok/s against 113
+    /// at 2048). Swept a GB at a time, nothing between 34 and 84 GB improves
+    /// either number.
+    ///
+    /// So the old 70%-of-RAM policy was right for a 48 GB Mac by luck — it
+    /// landed near this knee — and wrong everywhere above: a 128 GB Mac
+    /// targeted 89.6 GB to run at exactly the same estimated speed.
+    ///
+    /// Not a hard limit: --memory-gb N goes past it deliberately, which is how
+    /// a large machine explores full residency (all 512/layer needs about
+    /// 84 GB and has never been measured). The one unreproduced hint of a
+    /// further decode step, 20 tok/s at 181/layer, is why that door stays open.
+    public static let usefulCeilingGB = 33.0
+
+    /// Auto policy: never target more than the cache can use, leave a share of
+    /// RAM to the OS and the user's other apps, and stay 2 GB under the Metal
+    /// recommended working set — whichever binds first.
+    public static func autoTargetGB(
+        ramGB: Double, workingSetGB: Double, ramPercent: Double = defaultRAMPercent
+    ) -> Double {
+        min(usefulCeilingGB, (ramPercent / 100) * ramGB, workingSetGB - 2.0)
     }
 
-    /// Warm-decode estimate from the measured M5 Pro anchors
-    /// (30/layer → 5.6 tok/s, 181/layer → 20.0; ≥181 is kernel-launch-bound,
-    /// so the curve flattens). Log-linear between anchors. Other machines'
-    /// SSD/GPU shift this; it is a shape, not a promise.
     /// Warm decode estimate, re-anchored 2026-08-30 on measured points.
     ///
     /// The old curve interpolated between 30/layer = 5.6 and 181/layer = 20.0
@@ -362,9 +440,14 @@ public enum Planner {
     /// them** rather than extrapolating to an unconfirmed number. It
     /// under-promises above 150/layer on purpose: a plan that quotes a speed
     /// the machine does not reach is worse than one that quotes less.
+    /// Where the measured decode curve stops improving: 11.2 tok/s at 120
+    /// experts/layer, 11.6 at 150, flat after. Both the estimate and the
+    /// prefill-pass sizing key off this one number.
+    public static let decodePlateauPerLayer = 150.0
+
     public static func estWarmTokS(expertsPerLayer e: Double) -> Double {
         let (e0, r0) = (30.0, 6.0)
-        let (e1, r1) = (150.0, 11.6)
+        let (e1, r1) = (decodePlateauPerLayer, 11.6)
         if e >= e1 { return r1 }
         if e <= e0 { return r0 * (max(e, 1) / e0) }
         let t = log(e / e0) / log(e1 / e0)
@@ -395,13 +478,34 @@ public enum Planner {
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
-        availableGB: Double? = nil
+        availableGB: Double? = nil, ramPercent: Double? = nil
     ) throws -> MemoryPlan {
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
         let avail = availableGB ?? deviceAvailableGB()
+        let pct = ramPercent ?? defaultRAMPercent
+        guard ram.isFinite, ram > 0 else {
+            throw PlanError("RAM must be a finite number > 0")
+        }
+        guard ws.isFinite, ws > 0 else {
+            throw PlanError("Metal working-set size must be a finite number > 0")
+        }
+        // +infinity is meaningful here: it is how doctor --sim-ram says
+        // "availability is not a constraint on this simulated machine". Only
+        // NaN and negatives are garbage.
+        if let a = avail, a.isNaN || a < 0 {
+            throw PlanError("available memory must be a number >= 0")
+        }
+        guard pct.isFinite, pct > 0, pct <= 100 else {
+            throw PlanError(String(
+                format: "--max-ram-percent %.0f is out of range — give a share between 1 and 100",
+                pct))
+        }
         var notes: [String] = []
         var clamped = false
+        if ramPercent != nil, expertsPerLayer != nil || poolGB != nil || memoryGB != nil {
+            notes.append("--max-ram-percent ignored (it only bounds auto; an explicit memory knob is already the target)")
+        }
 
         func finish(_ source: MemoryPlan.Source, _ slots: Int, target: Double?) -> MemoryPlan {
             // An explicit pool knob states the cache size, not the whole budget,
@@ -431,7 +535,8 @@ public enum Planner {
             }
             return MemoryPlan(
                 source: source, slots: floored, targetGB: target,
-                ramGB: ram, workingSetGB: ws, availableGB: avail, clamped: clamped,
+                ramGB: ram, workingSetGB: ws, ramPercent: pct,
+                availableGB: avail, clamped: clamped,
                 prefillChunk: chunk,
                 prefixCacheTokens: prefixCacheTokensFor(poolBudgetGB: budgetForCaches),
                 notes: notes)
@@ -444,11 +549,14 @@ public enum Planner {
             return finish(.expertsPerLayer, min(n, Geometry.expertsPerLayer) * Geometry.layers, target: nil)
         }
         if let g = poolGB {
-            guard g > 0 else { throw PlanError("--pool-gb must be > 0") }
+            guard g.isFinite, g > 0 else {
+                throw PlanError("--pool-gb must be a finite number > 0")
+            }
             if memoryGB != nil { notes.append("--memory-gb ignored (--pool-gb takes precedence)") }
             return finish(.poolGB, Int(g * 1e9 / Geometry.recordBytes), target: nil)
         }
         if let m = memoryGB {
+            guard m.isFinite else { throw PlanError("--memory-gb must be finite") }
             guard m >= minMemoryGB else {
                 throw PlanError(String(
                     format: "--memory-gb %.1f is below the minimum %.1f GB (floor cache of ~%.0f experts/layer = %.1f GB pool, plus the %.1f GB fixed footprint of resident weights + n-gram cache, plus %.1f GB margin)",
@@ -459,7 +567,7 @@ public enum Planner {
             if m > ws {
                 notes.append(String(
                     format: "target %.1f GB exceeds the %.1f GB Metal working set; the OS may page — auto would pick %.1f GB here",
-                    m, ws, max(minMemoryGB, autoTargetGB(ramGB: ram, workingSetGB: ws))))
+                    m, ws, max(minMemoryGB, autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct))))
             }
             if let a = avail, m > a {
                 notes.append(String(
@@ -470,7 +578,7 @@ public enum Planner {
         }
 
         // auto: the default
-        let ceiling = autoTargetGB(ramGB: ram, workingSetGB: ws)
+        let ceiling = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct)
         var raw = ceiling
         if let a = avail, a - availabilitySlackGB(ramGB: ram) < raw {
             raw = a - availabilitySlackGB(ramGB: ram)
@@ -490,6 +598,14 @@ public enum Planner {
             notes.append(String(
                 format: "only %.1f GB of %.0f GB RAM is reclaimable right now (other apps hold the rest) — sized down from the usual %.1f GB; close apps and restart for full speed, or force a size with --memory-gb",
                 avail ?? 0, ram, ceiling))
+        } else if ceiling >= usefulCeilingGB,
+            min((pct / 100) * ram, ws - 2.0) > 1.25 * usefulCeilingGB
+        {
+            // This machine could hold more and auto declined. Say so, or it
+            // reads as slotstream failing to use the hardware.
+            notes.append(String(
+                format: "this machine could hold more, but decode stops improving around here (measured 11.2 tok/s at 120 experts/layer, 11.6 at 150) — auto caps at %.1f GB rather than spend RAM for nothing; --memory-gb N to go further",
+                usefulCeilingGB))
         }
         return finish(.auto, slotsForTarget(target), target: target)
     }

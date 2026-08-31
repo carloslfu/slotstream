@@ -42,6 +42,8 @@ public enum GovernorPolicy {
         public var availableGB: Double
         public var ramGB: Double
         public var workingSetGB: Double
+        /// The RAM share auto may target; mirrors --max-ram-percent.
+        public var ramPercent: Double
         /// nil = no such event yet in this process.
         public var secondsSincePressure: Double?
         public var secondsSinceResize: Double?
@@ -50,9 +52,11 @@ public enum GovernorPolicy {
 
         public init(
             currentSlots: Int, availableGB: Double, ramGB: Double, workingSetGB: Double,
+            ramPercent: Double = Planner.defaultRAMPercent,
             secondsSincePressure: Double? = nil, secondsSinceResize: Double? = nil,
             pressure: Pressure? = nil
         ) {
+            self.ramPercent = ramPercent
             self.currentSlots = currentSlots
             self.availableGB = availableGB
             self.ramGB = ramGB
@@ -86,7 +90,8 @@ public enum GovernorPolicy {
         let credited = i.availableGB + Geometry.gb(i.currentSlots) + Planner.fixedFootprintGB
         return try? Planner.plan(
             expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
-            ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited).slots
+            ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited,
+            ramPercent: i.ramPercent).slots
     }
 
     public static func decide(_ i: Inputs) -> Decision {
@@ -181,6 +186,7 @@ public final class MemoryGovernor {
             availableGB: avail,
             ramGB: cur.ramGB,
             workingSetGB: cur.workingSetGB,
+            ramPercent: cur.ramPercent,
             secondsSincePressure: lastPressureAt.map { now.timeIntervalSince($0) },
             secondsSinceResize: lastResizeAt.map { now.timeIntervalSince($0) },
             pressure: pressure)
@@ -215,9 +221,13 @@ public final class MemoryGovernor {
 
     private func apply(_ slots: Int, plan: MemoryPlan?, reason: String) {
         let target = slots  // already clamped by GovernorPolicy.decide
-        let before = engine.model.pool.slots
+        let before = engine.withExclusive { engine.model.pool.slots }
         guard target != before else { return }
         let growing = target > before
+        let chunk = Planner.prefillChunkFor(poolBudgetGB: Geometry.gb(target))
+        let cacheTokens = Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(target))
+        let ref = plan ?? engine.currentPlan
+        var after = before
         engine.withExclusive {
             // Shrinking means memory is wanted elsewhere. The retained
             // conversation state is the cheapest thing to give back — up to
@@ -226,21 +236,24 @@ public final class MemoryGovernor {
             // machine has room and the next turn should still be fast.
             if !growing { engine.prefixCache.drop() }
             engine.model.pool.resize(to: target)
+            after = engine.model.pool.slots
+            // These are live allocation controls, not merely fields in the
+            // reported plan. Leaving startup values here let a shrunken server
+            // allocate the old large prefill and refill the old cache ceiling.
+            engine.generator.prefillChunk = chunk
+            engine.prefixCache.configure(maxTokens: cacheTokens)
+            engine.updatePlan(MemoryPlan(
+                source: .auto, slots: after, targetGB: ref?.targetGB,
+                ramGB: ref?.ramGB ?? Planner.deviceRAMGB(),
+                workingSetGB: ref?.workingSetGB ?? Planner.deviceWorkingSetGB(),
+                ramPercent: ref?.ramPercent ?? Planner.defaultRAMPercent,
+                availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
+                prefillChunk: chunk, prefixCacheTokens: cacheTokens,
+                notes: [String(
+                    format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
+                    Geometry.perLayer(before), Geometry.perLayer(after), reason)]))
         }
         lastResizeAt = Date()
-        let after = engine.model.pool.slots
-        let ref = plan ?? engine.currentPlan
-        engine.updatePlan(MemoryPlan(
-            source: .auto, slots: after, targetGB: ref?.targetGB,
-            ramGB: ref?.ramGB ?? Planner.deviceRAMGB(),
-            workingSetGB: ref?.workingSetGB ?? Planner.deviceWorkingSetGB(),
-            availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
-            prefillChunk: ref?.prefillChunk ?? Planner.prefillChunkFor(
-                poolBudgetGB: Geometry.gb(after)),
-            prefixCacheTokens: Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(after)),
-            notes: [String(
-                format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
-                Geometry.perLayer(before), Geometry.perLayer(after), reason)]))
         log(String(
             format: "%@ — cache ~%.0f → ~%.0f experts/layer (%.1f → %.1f GB pool%@)",
             reason, Geometry.perLayer(before), Geometry.perLayer(after),

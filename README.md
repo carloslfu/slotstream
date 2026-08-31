@@ -2,14 +2,14 @@
 
 Run **Qwen3.8-Flash-Next** on a Mac that cannot hold it. The model is 104 GB at
 4-bit; slotstream streams it from SSD and runs it in whatever memory you give
-it, down to about 6 GB. One Swift binary, Ollama-compatible API, so your
-existing client just works.
+it, down to an 8.1 GB planned floor. One Swift binary with the commonly used
+Ollama and OpenAI chat/generate endpoints.
 
 | on a 48 GB Mac | |
 |---|---|
 | Warm decode | ~12 tok/s |
 | Cold start to first token | ~3 s |
-| Peak memory | 33 GB (auto-sized; you can cap it) |
+| Peak memory | 32 GB (auto-sized; you can cap it) |
 | Weights on disk | 104 GB |
 
 ## Will it run on my Mac
@@ -21,11 +21,11 @@ slow one (table [below](#the-104-gb-download)).
 
 | memory | expect |
 |---|---|
-| 8 GB | runs at the 6.2 GB floor, ~3 tok/s, and `doctor` warns you it will page |
-| 16 GB | ~6 tok/s |
-| 24 GB | ~8 tok/s |
-| 32 GB | ~10 tok/s |
-| 48 GB and up | ~12 tok/s — decode flattens here, so more memory buys headroom for your other apps, not speed |
+| 8 GB | below the 8.1 GB floor; `doctor` warns that it will page |
+| 16 GB | ~5 tok/s estimated |
+| 24 GB | ~8 tok/s estimated |
+| 32 GB | ~10 tok/s estimated |
+| 48 GB and up | ~12 tok/s — and auto stops at 33 GB here, so the rest of the machine stays yours |
 
 Only the 48 GB row is measured on real hardware; the rest come from the same
 measured curve, and smaller Macs also have slower SSDs. Run
@@ -89,16 +89,15 @@ throughput moved between sessions. The rows below it are arithmetic over
 103.8 GB at your full rated speed, so treat them as best cases.
 
 Interrupting is safe: it resumes at the exact byte it stopped on, and all
-103.78 GB of weights are checked against sha256 hashes compiled into the
-binary, so a truncated or corrupted download can never turn into garbage
-tokens. (The remaining 10 MB of config and tokenizer text is size-checked, then
-parsed on load.) `pull --verify` re-hashes an existing copy in under 10 s —
+all 24 files are checked against sha256 hashes compiled into the binary, so a
+truncated, same-size, or corrupted download cannot reach the engine.
+`pull --verify` re-hashes an existing copy in under 10 s —
 7.7 s here, hashed in parallel.
 
 ## Use it
 
-`serve` listens on port 11434 and speaks both the Ollama and OpenAI APIs, so
-point any existing client at it:
+`serve` listens on port 11434 and implements the chat/generate subset used by
+Ollama clients and OpenAI SDKs:
 
 ```bash
 curl localhost:11434/api/chat -d '{
@@ -111,10 +110,12 @@ curl localhost:11434/api/chat -d '{
 OLLAMA_HOST=http://localhost:11434 ollama run qwen3.8-flash-next:4bit
 ```
 
-Open WebUI, the Ollama CLI, and the OpenAI SDKs are tested and work unchanged.
+Open WebUI, the Ollama CLI, and the OpenAI SDKs are tested for this subset.
 Streaming, CORS, and the usual sampling options (`temperature`, `top_p`,
 `top_k`, `min_p`, `presence_penalty`, `seed`, `num_predict`, `stop`) are all
-supported on both surfaces.
+supported. Unsupported semantics such as tools, images, JSON-schema output,
+logprobs, and alternate model names return a clear 400 instead of being
+silently ignored.
 
 Follow-up turns in a conversation only prefill what is new, so time to first
 token stays flat as a chat grows — measured over eight turns, 6.0 s instead of
@@ -123,41 +124,57 @@ bit-identical to recomputing it, so a reply can occasionally differ where two
 tokens were nearly tied. `--no-prefix-cache` turns it off if you need exact
 reproducibility.
 
-Prompts are capped at 32,768 tokens (`--max-context`). Long prompts are the
+Prompt plus completion is capped at 32,768 tokens (`--max-context`). Long prompts are the
 slow axis: prefill runs at roughly 50 tok/s on a 16 GB Mac and 125 on a 48 GB
 one, so an 8,000-token prompt waits somewhere between about a minute and about
-three before its first token. Run one instance per machine.
+three before its first token. A per-user lock enforces one model process at a time.
 
 ## Memory
 
 With no flags slotstream sizes itself to your machine and tells you what it
-chose:
+chose. This is a 48 GB Mac — it reads 52 GB because everything here counts in
+decimal GB, while Apple markets the same memory as 48:
 
 ```
 slotstream memory plan (auto)
-  device: 48 GB RAM (36.0 GB reclaimable now), 36.0 GB Metal working set
-  target: 33.6 GB total for this process   (override: --memory-gb N | --experts-per-layer N)
-  cache:  ~173 of 512 experts per layer  (8307 global slots = 23.0 GB pool)
-  expect: ~33.1 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
+  device: 52 GB RAM (36.0 GB reclaimable now), 40.2 GB Metal working set
+  target: 33.0 GB total for this process   (override: --memory-gb N | --max-ram-percent P)
+  cache:  ~152 of 512 experts per layer  (7280 global slots = 20.1 GB pool)
+  expect: ~32.0 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
   prefill: 4096 tokens per pass (~125 tok/s here; costs ~5.3 GB of the target)
-  reuse:  up to 32768 tokens across 4 conversations (~0.9 GB), so a follow-up turn re-prefills only what is new
+  reuse:  up to 32768 tokens across 4 conversations (~1.2 GB), so a follow-up turn re-prefills only what is new
 ```
 
-It aims for 70% of RAM, stays under the Metal working-set limit, and sizes
-down if other apps are holding the machine rather than swapping them out. It
+It takes the lowest of three limits: **33 GB**, **70% of RAM**, and the Metal
+working-set limit, and it sizes down further when other apps are actually
+holding memory rather than swapping them out.
+
+33 GB is the interesting one. It is not politeness, it is the knee: the
+smallest target where the expert cache clears the decode plateau *and* the
+budget still affords the fast 4,096-token prefill pass. Swept a GB at a time,
+nothing between 34 and 84 GB improves either number. So a 64 GB or 128 GB Mac
+asks for the same 33 GB a 48 GB Mac does — the extra would buy nothing, and
+`doctor` says so rather than leaving you to wonder. It
 also **stays elastic while running**: it re-checks every 15 s and resizes the
 cache between requests, shrinking under pressure and growing back once things
 are calm. Output is byte-identical across resizes.
 
-Three flags override auto, first one wins:
+`--max-ram-percent P` moves the 70% share without you having to work out the
+GB. The other two limits still apply, so it can lower the target but not raise
+it past the knee.
 
-- `--memory-gb G` — total memory for the process. Minimum 6.2.
+Three flags replace auto outright, first one wins, and any of them will go past
+33 GB if you want to try it — full residency (all 512 per layer, no SSD reads
+at all) needs about 88 GB and has never been measured:
+
+- `--memory-gb G` — total memory for the process. Minimum 8.1.
 - `--experts-per-layer N` — cache size directly, of the model's 512. Each costs
   0.133 GB.
 - `--pool-gb G` — raw pool size.
 
-`slotstream doctor` prints the plan any of these would produce, and
-`--sim-ram` / `--sim-available` preview a different machine entirely.
+`slotstream doctor` prints the plan any of these would produce, `--sim-ram` /
+`--sim-available` preview a different machine entirely, and `--json` emits the
+plan for scripts with the estimates unrounded.
 
 ## How it works
 
