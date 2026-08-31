@@ -125,6 +125,13 @@ public struct ModelConfig {
         }
         if let e = t["eos_token_id"] as? Int { c.eosTokenId = e }
         if let e = (t["eos_token_id"] as? [Int])?.first { c.eosTokenId = e }
+        // These two values shape a Range and a modulo below. Validate them
+        // before using either; malformed custom config used to trap here before
+        // the comprehensive validation at the end of the loader could run.
+        guard c.numLayers > 0, c.numLayers <= 256, c.fullAttentionInterval > 0 else {
+            throw ModelError(
+                "unsupported or invalid text_config (layer count/attention interval) — check --model")
+        }
         if c.layerTypes.isEmpty {
             c.layerTypes = (0 ..< c.numLayers).map {
                 ($0 + 1) % c.fullAttentionInterval == 0 ? "full_attention" : "linear_attention"
@@ -143,7 +150,74 @@ public struct ModelConfig {
                 }
             }
         }
+        try c.validate()
         return c
+    }
+
+    /// Reject unsupported or internally inconsistent geometry before any
+    /// range construction, array indexing, or GPU allocation can trap. This
+    /// runner intentionally supports one architecture; silently accepting a
+    /// near-match only turns a useful `--model` error into a much later crash.
+    private func validate() throws {
+        func bad(_ detail: String) throws -> Never {
+            throw ModelError("unsupported or invalid text_config (\(detail)) — check --model")
+        }
+        guard hiddenSize == 2560, numLayers == 48,
+            numAttentionHeads == 24, numKVHeads == 2, headDim == 256,
+            vocabSize == 248_320, fullAttentionInterval == 4,
+            numExperts == 512, topK == 10, moeIntermediate == 640,
+            sharedExpertIntermediate == 640,
+            linearNumKHeads == 16, linearNumVHeads == 48,
+            linearKHeadDim == 128, linearVHeadDim == 128, convKernel == 4,
+            outputGateType == "sigmoid", hcCount == 4, hcLowrank == 320,
+            indexerNHeads == 4, indexerKVHeads == 1, indexerHeadDim == 128,
+            indexerBudget == 2048, indexerCompressRatio == 4,
+            ngramSize == 3, headsPerNgram == 8, ngramVocabBase == 20_000_000,
+            ngramDivisibleBy == 128, splitNgramParts == 128,
+            pleEmbedDim == 2560, pleLayerIds == [2], pleConvKernel == 4,
+            qBits == 4, qGroup == 64, ngramQGroup == 32
+        else {
+            try bad("checkpoint geometry does not match Qwen3.8-Flash-Next-MLX-4bit")
+        }
+        guard numAttentionHeads > 0, numKVHeads > 0, headDim > 0,
+            vocabSize > 0, fullAttentionInterval > 0,
+            topK > 0, topK <= numExperts, moeIntermediate > 0,
+            sharedExpertIntermediate > 0, linearNumKHeads > 0,
+            linearNumVHeads > 0, linearKHeadDim > 0, linearVHeadDim > 0,
+            convKernel > 0, hcCount > 0, hcLowrank > 0,
+            indexerNHeads > 0, indexerKVHeads > 0, indexerHeadDim > 0,
+            indexerBudget > 0, indexerCompressRatio > 0,
+            ngramSize >= 2, headsPerNgram > 0, ngramVocabBase > 0,
+            ngramDivisibleBy > 0, splitNgramParts > 0, pleEmbedDim > 0,
+            pleConvKernel > 0, !pleLayerIds.isEmpty,
+            qGroup > 0, ngramQGroup > 0,
+            rmsNormEps.isFinite, rmsNormEps > 0,
+            ropeTheta.isFinite, ropeTheta > 0,
+            partialRotaryFactor.isFinite, partialRotaryFactor > 0,
+            partialRotaryFactor <= 1
+        else { try bad("non-positive, non-finite, or unsupported dimensions") }
+        guard hiddenSize % 8 == 0, hiddenSize % qGroup == 0,
+            moeIntermediate % 8 == 0, moeIntermediate % qGroup == 0,
+            pleEmbedDim % ((ngramSize - 1) * headsPerNgram) == 0,
+            indexerBudget / indexerCompressRatio > 0
+        else { try bad("dimensions are not divisible by their packing/group sizes") }
+        guard pleLayerIds.allSatisfy({ $0 >= 1 && $0 <= numLayers }) else {
+            try bad("ple_layer_ids is outside the layer stack")
+        }
+        if !layerTypes.isEmpty {
+            let expected = (0 ..< numLayers).map {
+                ($0 + 1) % fullAttentionInterval == 0 ? "full_attention" : "linear_attention"
+            }
+            guard layerTypes.count == numLayers,
+                layerTypes == expected
+            else { try bad("layer_types must name all 48 supported attention layers") }
+            guard pleLayerIds.allSatisfy({ layerTypes[$0 - 1] == "linear_attention" }) else {
+                try bad("a PLE layer is not a linear_attention layer")
+            }
+        }
+        guard eosTokenId >= 0, eosTokenId < vocabSize else {
+            try bad("eos_token_id is outside the vocabulary")
+        }
     }
 }
 
@@ -161,13 +235,19 @@ public struct TensorRef {
         case "U32", "F32", "I32": return 4
         case "BF16", "F16", "U16": return 2
         case "I64", "U64", "F64": return 8
-        case "U8", "I8": return 1
+        case "U8", "I8", "BOOL": return 1
         default: return 0  // unknown dtype; callers reject it before use
         }
     }
     /// Bytes per leading-axis row (shape[1:] product × itemSize).
     public var rowBytes: Int {
-        shape.dropFirst().reduce(itemSize, *)
+        var bytes = itemSize
+        for dim in shape.dropFirst() {
+            let (next, overflow) = bytes.multipliedReportingOverflow(by: dim)
+            if overflow { return 0 }
+            bytes = next
+        }
+        return bytes
     }
 }
 
@@ -178,6 +258,13 @@ public final class CheckpointIndex {
     public private(set) var tensors: [String: TensorRef] = [:]
     private var fds: [URL: Int32] = [:]
     private let fdLock = NSLock()
+
+    deinit {
+        fdLock.withLock {
+            for fd in fds.values { close(fd) }
+            fds.removeAll()
+        }
+    }
 
     public init(dir: URL) throws {
         self.dir = dir
@@ -205,25 +292,74 @@ public final class CheckpointIndex {
         guard let lenData = try h.read(upToCount: 8), lenData.count == 8 else {
             throw corrupt("truncated header")
         }
+        guard let fileSize64 = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size]
+            as? Int64, fileSize64 >= 8, fileSize64 <= Int64(Int.max)
+        else { throw corrupt("file size is not representable") }
+        let fileSize = Int(fileSize64)
         // Data's buffer carries no alignment guarantee; `load` requires one.
         let n = lenData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
-        guard n > 0, n < 512 << 20, let hdrData = try h.read(upToCount: Int(n)),
+        // safetensors' reference parser caps headers at 100 MB to prevent a
+        // tiny length prefix from triggering an attacker-sized allocation.
+        guard n > 0, n <= 100_000_000, n <= UInt64(fileSize - 8),
+            let hdrData = try h.read(upToCount: Int(n)),
             hdrData.count == Int(n)
         else { throw corrupt("header length \(n) does not fit the file") }
         guard let obj = try? JSONSerialization.jsonObject(with: hdrData) as? [String: Any] else {
             throw corrupt("header is not valid JSON")
         }
         let dataStart = 8 + Int(n)
+        let dataBytes = fileSize - dataStart
+        var parsed: [(name: String, dtype: String, shape: [Int], start: Int, end: Int)] = []
         for (key, v) in obj {
-            guard key != "__metadata__", let d = v as? [String: Any] else { continue }
+            if key == "__metadata__" { continue }
+            guard let d = v as? [String: Any] else {
+                throw corrupt("malformed entry for \(key)")
+            }
             guard let offs = d["data_offsets"] as? [Int], offs.count == 2,
                 let dtype = d["dtype"] as? String, let shape = d["shape"] as? [Int]
             else { throw corrupt("malformed entry for \(key)") }
+            let itemSize: Int
+            switch dtype {
+            case "U32", "F32", "I32": itemSize = 4
+            case "BF16", "F16", "U16": itemSize = 2
+            case "I64", "U64", "F64": itemSize = 8
+            case "U8", "I8", "BOOL": itemSize = 1
+            default: throw corrupt("unsupported dtype \(dtype) for \(key)")
+            }
+            guard offs[0] >= 0, offs[1] >= offs[0], offs[1] <= dataBytes,
+                shape.allSatisfy({ $0 >= 0 })
+            else { throw corrupt("invalid shape or offsets for \(key)") }
+            var elements = 1
+            for dim in shape {
+                let (next, overflow) = elements.multipliedReportingOverflow(by: dim)
+                guard !overflow else { throw corrupt("shape overflows for \(key)") }
+                elements = next
+            }
+            let (expected, byteOverflow) = elements.multipliedReportingOverflow(by: itemSize)
+            guard !byteOverflow, offs[1] - offs[0] == expected else {
+                throw corrupt("byte count does not match dtype × shape for \(key)")
+            }
             var name = key
             if name.hasPrefix("language_model.") { name.removeFirst("language_model.".count) }
-            tensors[name] = TensorRef(
-                file: file, dtype: dtype, shape: shape,
-                byteOffset: dataStart + offs[0], byteCount: offs[1] - offs[0])
+            guard tensors[name] == nil, !parsed.contains(where: { $0.name == name }) else {
+                throw corrupt("duplicate tensor name \(name)")
+            }
+            parsed.append((name, dtype, shape, offs[0], offs[1]))
+        }
+        // The format requires the tensor ranges to cover the entire data
+        // buffer without holes or overlaps.
+        var cursor = 0
+        for p in parsed.sorted(by: { $0.start < $1.start }) {
+            guard p.start == cursor else {
+                throw corrupt("tensor data has a hole or overlap before \(p.name)")
+            }
+            cursor = p.end
+        }
+        guard cursor == dataBytes else { throw corrupt("tensor data does not cover the file") }
+        for p in parsed {
+            tensors[p.name] = TensorRef(
+                file: file, dtype: p.dtype, shape: p.shape,
+                byteOffset: dataStart + p.start, byteCount: p.end - p.start)
         }
     }
 
@@ -232,9 +368,82 @@ public final class CheckpointIndex {
     /// layer construction into one sentence naming the problem.
     private func requireExpectedTensors() throws {
         var required = ["model.embed_tokens.weight", "lm_head.weight"]
+        func linear(_ base: String) { required.append(base + ".weight") }
+        func hyper(_ base: String, inject: Bool) {
+            required.append(base + ".hc_norm.weight")
+            linear(base + ".input_mix_weight_down")
+            linear(base + ".input_mix_weight_up")
+            if inject { required.append(base + ".block_inject_weight.weight") }
+        }
+        hyper("model.hyper_connection_mixer", inject: false)
         for l in 0 ..< config.numLayers {
-            required.append("model.layers.\(l).mlp.gate.weight")
-            required.append("model.layers.\(l).mlp.switch_mlp.gate_proj.weight")
+            let layer = "model.layers.\(l)"
+            let mlp = layer + ".mlp"
+            required.append(mlp + ".gate.weight")
+            linear(mlp + ".shared_expert_gate")
+            linear(mlp + ".shared_expert.gate_proj")
+            linear(mlp + ".shared_expert.up_proj")
+            linear(mlp + ".shared_expert.down_proj")
+            for piece in ExpertStore.pieces {
+                required.append(mlp + ".switch_mlp." + piece)
+            }
+            hyper(layer + ".attn_hyper_connection", inject: true)
+            hyper(layer + ".mlp_hyper_connection", inject: true)
+
+            if config.layerTypes[l] == "linear_attention" {
+                let b = layer + ".linear_attn"
+                for name in ["in_proj_qkv", "in_proj_z", "in_proj_b", "in_proj_a", "out_proj"] {
+                    linear(b + "." + name)
+                }
+                for name in ["conv1d.weight", "dt_bias", "A_log", "norm.weight"] {
+                    required.append(b + "." + name)
+                }
+            } else {
+                let b = layer + ".self_attn"
+                for name in ["q_proj", "k_proj", "v_proj", "o_proj"] {
+                    linear(b + "." + name)
+                }
+                required.append(b + ".q_norm.weight")
+                required.append(b + ".k_norm.weight")
+                linear(b + ".indexer.index_qk_proj")
+                required.append(b + ".indexer.q_layernorm.weight")
+                required.append(b + ".indexer.k_layernorm.weight")
+            }
+
+            if config.pleLayerIndices.contains(l) {
+                let b = layer + ".ple"
+                linear(b + ".key_proj")
+                linear(b + ".value_proj")
+                for name in ["norm_key.weight", "norm_query.weight", "norm_conv.weight", "conv1d.weight"] {
+                    required.append(b + "." + name)
+                }
+                let emb = b + ".ple_embedding."
+                let metadata = ["layer_multipliers", "ngram_heads_vocab_sizes", "ngram_heads_offsets"]
+                let present = metadata.filter { tensors[emb + $0] != nil }
+                if !present.isEmpty, present.count != metadata.count {
+                    throw ModelError(
+                        "\(dir.path) has an incomplete PLE metadata set — re-run `slotstream pull`")
+                }
+                for s in 0 ..< config.splitNgramParts {
+                    for piece in ["weight", "scales", "biases"] {
+                        required.append(emb + "ngram_embedding.shard_\(s)." + piece)
+                    }
+                }
+            }
+        }
+        // Packed U32 weights without scales would be treated as ordinary
+        // matrices, while orphaned biases would be silently ignored.
+        for (name, ref) in tensors where name.hasSuffix(".weight") && ref.dtype == "U32" {
+            let base = String(name.dropLast(".weight".count))
+            if tensors[base + ".scales"] == nil {
+                throw ModelError("\(dir.path) has packed tensor `\(name)` without scales — re-run `slotstream pull`")
+            }
+        }
+        for name in tensors.keys where name.hasSuffix(".biases") {
+            let base = String(name.dropLast(".biases".count))
+            if tensors[base + ".weight"] == nil || tensors[base + ".scales"] == nil {
+                throw ModelError("\(dir.path) has orphaned quantization tensor `\(name)` — re-run `slotstream pull`")
+            }
         }
         if let missing = required.first(where: { tensors[$0] == nil }) {
             throw ModelError(
