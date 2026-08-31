@@ -19,7 +19,7 @@ public struct QLinear {
 
     public func callAsFunction(_ x: MLXArray) -> MLXArray {
         if let s = scales {
-            return quantizedMatmul(
+            return quantizedMM(
                 x, w, scales: s, biases: biases, transpose: true,
                 groupSize: groupSize, bits: bits)
         }
@@ -32,6 +32,10 @@ public final class ResidentWeights {
     public let config: ModelConfig
 
     public init(index: CheckpointIndex, includeLayerExperts: Set<Int> = []) throws {
+        // Golden/debug commands can load the multi-GB resident trunk without
+        // constructing Qwen4ExpModel. They need the same cross-process guard as
+        // run/serve or they can silently stack underneath another model.
+        try ModelProcessGuard.acquire()
         self.config = index.config
         var kept: [String: MLXArray] = [:]
         let files = Set(index.tensors.values.map { $0.file })

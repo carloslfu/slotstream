@@ -25,7 +25,21 @@ public final class Engine {
     /// prefill runs at tens of tokens a second, so a huge prompt is a long,
     /// memory-growing stall rather than a fast failure.
     public var maxContextTokens = 32_768 {
-        didSet { prefixCache.maxTokens = min(prefixCache.maxTokens, maxContextTokens) }
+        didSet {
+            let capped = min(prefixCache.maxTokens, maxContextTokens)
+            prefixCache.configure(maxTokens: capped)
+            // Keep /api/show's memory plan aligned with the allocation control
+            // that actually changed; otherwise --max-context 1024 reported the
+            // startup cache ceiling even though it had already been reduced.
+            if let p = currentPlan, p.prefixCacheTokens != capped {
+                updatePlan(MemoryPlan(
+                    source: p.source, slots: p.slots, targetGB: p.targetGB,
+                    ramGB: p.ramGB, workingSetGB: p.workingSetGB,
+                    ramPercent: p.ramPercent, availableGB: p.availableGB,
+                    clamped: p.clamped, prefillChunk: p.prefillChunk,
+                    prefixCacheTokens: capped, notes: p.notes))
+            }
+        }
     }
 
     /// Retained conversation state, so a follow-up turn re-prefills only what
@@ -71,6 +85,15 @@ public final class Engine {
         return try body()
     }
 
+    /// Metadata read under the same lock as generation and governor resizing.
+    /// Reading SlotPool's mutable Swift arrays concurrently with resize is a
+    /// data race even when the endpoint only wants their byte count.
+    public func poolSnapshot() -> (slots: Int, slotsPerLayer: Double, poolBytes: Int) {
+        withExclusive {
+            (model.pool.slots, model.pool.slotsPerLayer, model.pool.poolBytes)
+        }
+    }
+
     public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
         try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan)
     }
@@ -90,12 +113,12 @@ public final class Engine {
         // above the memory plan after a few dozen requests. 2 GB keeps
         // per-token reallocation churn away while making real process memory
         // track the announced plan.
-        MLX.GPU.set(cacheLimit: 2 << 30)
+        MLX.Memory.cacheLimit = 2 << 30
         self.modelName = "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index = try CheckpointIndex(dir: modelDir)
         self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots)
-        model.validate()
+        try model.validate()
         self.generator = Generator(model: model)
         if let p = plan, ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CHUNK"] == nil {
             generator.prefillChunk = p.prefillChunk
@@ -125,6 +148,22 @@ public final class Engine {
             additionalContext: ["enable_thinking": thinking])
     }
 
+    /// Render a template without constructing the multi-GB model. Installer
+    /// and API acceptance checks run this while a server is already live; the
+    /// old implementation built a second Engine merely to load the tokenizer,
+    /// so the singleton guard correctly rejected the check it was meant to run.
+    public static func encodeChatWithoutModel(
+        modelDir: URL, messages: [ChatMessage], thinking: Bool
+    ) async throws -> [Int] {
+        let tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
+        let msgs: [[String: String]] = messages.map {
+            ["role": $0.role, "content": $0.content]
+        }
+        return try tokenizer.applyChatTemplate(
+            messages: msgs, tools: nil,
+            additionalContext: ["enable_thinking": thinking])
+    }
+
     /// Earliest position at which any stop sequence occurs, or nil.
     private static func stopIndex(_ text: String, _ stops: [String]) -> String.Index? {
         var best: String.Index?
@@ -138,17 +177,12 @@ public final class Engine {
 
     /// Serialized generation (single-flight; callers queue on the lock).
     ///
-    /// Incremental detokenization keeps all of this generation's ids and diffs
-    /// the decoded text against what has already been sent. Three rules matter:
+    /// Incremental detokenization consumes bounded groups of token ids, keeping
+    /// incomplete UTF-8 bytes at the group boundary. Two rules matter:
     ///
-    /// - The id list is never cleared mid-generation. Clearing it whenever
-    ///   nothing had been emitted yet — exactly the state a response opening
-    ///   with an emoji is in while it waits for the token that completes the
-    ///   character — discarded those tokens and corrupted the start of the reply.
-    /// - The diff is by Unicode scalar, never by Character. A later token can
-    ///   contribute a scalar that merges into the grapheme cluster already sent
-    ///   (an emoji plus U+FE0F is still one Character), and a grapheme-count
-    ///   diff reports no new text and silently drops it.
+    /// - Emission and stop holdback are by Unicode scalar, never Character. A
+    ///   later token can contribute a scalar that merges into the grapheme
+    ///   already sent (an emoji plus U+FE0F is still one Character).
     /// - While stop sequences are active, the last `maxStopLength - 1` scalars
     ///   are withheld, so the prefix of a stop sequence that straddles a token
     ///   boundary is never emitted before the rest of it arrives. Whatever is
@@ -158,68 +192,104 @@ public final class Engine {
     /// reproduces the non-streamed text exactly.
     public func generate(
         promptIds: [Int], params: SampleParams,
+        shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int, String) -> Bool)? = nil
     ) -> (text: String, ids: [Int], stats: GenStats) {
         lock.lock()
         defer { lock.unlock() }
-        let params = params.sanitized()
+        var params = params.sanitized()
+        let room = max(0, maxContextTokens - promptIds.count)
+        if room == 0 {
+            var stats = GenStats()
+            stats.promptTokens = promptIds.count
+            stats.finishReason = "length"
+            stats.peakMemoryGB = ProcessMemory.peakResidentGB
+            return ("", [], stats)
+        }
+        // Context is prompt + completion, not two independent 32k allowances.
+        params.maxTokens = min(params.maxTokens, room)
         let stops = params.stop
         let holdBack = stops.isEmpty
             ? 0 : max(0, (stops.map { $0.unicodeScalars.count }.max() ?? 1) - 1)
-        var streamIds: [Int] = []
-        var sent = ""  // text already handed to the callback
+        var pendingIds: [Int] = []
+        var withheld = ""
+        var delivered = ""
         var lastTok = -1
         var clientGone = false
+        var stopFound = false
 
-        /// Emit everything in `target` past what has already been sent.
-        func emit(_ target: String, _ tok: Int) -> Bool {
-            let vs = target.unicodeScalars
-            let ss = sent.unicodeScalars
-            guard vs.count >= ss.count, vs.starts(with: ss) else {
-                // Detokenization revised text already sent (rare: byte-level BPE
-                // decoding is monotone). Resync rather than desync forever.
-                sent = target
-                return true
-            }
-            let delta = String(String.UnicodeScalarView(vs.dropFirst(ss.count)))
-            sent = target
+        func emit(_ delta: String, _ tok: Int) -> Bool {
             if delta.isEmpty { return true }
+            delivered += delta
             guard let cb = onToken else { return true }
             return cb(tok, delta)
         }
 
-        let (ids, stats) = generator.generate(
-            promptIds: promptIds, params: params, eosIds: eosIds, cache: prefixCache
-        ) { [weak self] tok in
-            guard let self else { return false }
-            // Nothing to detokenize for: skip the decode entirely.
-            if onToken == nil, stops.isEmpty { return true }
-            lastTok = tok
-            streamIds.append(tok)
-            var visible = self.tokenizer.decode(tokens: streamIds, skipSpecialTokens: true)
-            // A character whose UTF-8 spans several tokens is undecodable until
-            // the last of them lands; hold it rather than emitting U+FFFD.
-            while visible.hasSuffix("\u{FFFD}") { visible = String(visible.dropLast()) }
-            if !stops.isEmpty, let cut = Self.stopIndex(visible, stops) {
-                _ = emit(String(visible[visible.startIndex ..< cut]), tok)
+        /// Feed a stable decoded piece through the stop-sequence holdback.
+        func feed(_ piece: String, final: Bool, tok: Int) -> Bool {
+            withheld += piece
+            if !stops.isEmpty, let cut = Self.stopIndex(withheld, stops) {
+                _ = emit(String(withheld[..<cut]), tok)
+                withheld = ""
+                stopFound = true
                 return false
             }
-            let vs = visible.unicodeScalars
-            let safe = String(String.UnicodeScalarView(vs.prefix(max(0, vs.count - holdBack))))
-            if !emit(safe, tok) {
-                clientGone = true
-                return false
-            }
-            return true
+            let scalars = withheld.unicodeScalars
+            let n = final ? scalars.count : max(0, scalars.count - holdBack)
+            let delta = String(String.UnicodeScalarView(scalars.prefix(n)))
+            withheld = String(String.UnicodeScalarView(scalars.dropFirst(n)))
+            return emit(delta, tok)
         }
+
+        /// Qwen's ByteLevel decoder is concatenative once a UTF-8 scalar is
+        /// complete. Decode small bounded groups and retain four token bytes at
+        /// the boundary; if the candidate still ends in U+FFFD, retain more.
+        /// This makes streaming decode O(n), rather than decoding tokens 1...n
+        /// after every generated token.
+        func flushStablePrefix(_ tok: Int) -> Bool {
+            guard pendingIds.count >= 8 else { return true }
+            var n = pendingIds.count - 4
+            var piece = ""
+            while n > 0 {
+                piece = tokenizer.decode(
+                    tokens: Array(pendingIds.prefix(n)), skipSpecialTokens: true)
+                if !piece.hasSuffix("\u{FFFD}") { break }
+                n -= 1
+            }
+            guard n > 0 else { return true }
+            pendingIds.removeFirst(n)
+            return feed(piece, final: false, tok: tok)
+        }
+
+        let needsIncrementalDecode = onToken != nil || !stops.isEmpty
+        let tokenHandler: ((Int) -> Bool)? = needsIncrementalDecode ? { tok in
+            lastTok = tok
+            pendingIds.append(tok)
+            let ok = flushStablePrefix(tok)
+            if !ok, !stopFound { clientGone = true }
+            return ok
+        } : nil
+
+        let (ids, stats) = generator.generate(
+            promptIds: promptIds, params: params, eosIds: eosIds, cache: prefixCache,
+            shouldContinue: {
+                guard !clientGone, !stopFound else { return false }
+                return shouldContinue?() ?? true
+            }, onToken: tokenHandler)
 
         var text = tokenizer.decode(tokens: ids, skipSpecialTokens: true)
         if !stops.isEmpty, let cut = Self.stopIndex(text, stops) {
             text = String(text[text.startIndex ..< cut])
         }
-        // Flush the withheld tail (and any character held back for decoding) so
-        // the stream and the returned text agree exactly.
-        if !clientGone, onToken != nil, sent != text { _ = emit(text, lastTok) }
+        // The one full decode is both the non-streamed result and an exact final
+        // reconciliation for the bounded incremental decoder.
+        if !clientGone, onToken != nil {
+            let target = text.unicodeScalars
+            let sent = delivered.unicodeScalars
+            if target.count >= sent.count, target.starts(with: sent) {
+                _ = emit(String(String.UnicodeScalarView(target.dropFirst(sent.count))), lastTok)
+            }
+        }
         return (text, ids, stats)
     }
 }

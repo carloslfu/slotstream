@@ -68,6 +68,7 @@ public final class NgramStore {
     public let rowsPerShard: Int
     public let headDim: Int  // 160
     public let nHeads: Int  // 16
+    public var rowCapacity: Int { rowsPerShard * cfg.splitNgramParts }
     let eos: Int64
 
     // shard tensor refs

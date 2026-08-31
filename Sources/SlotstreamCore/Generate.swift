@@ -75,7 +75,11 @@ public struct GenStats {
     public var expertHitRate = 0.0
     public var ngramRowHits = 0
     public var ngramRowMisses = 0
+    /// Whole-process lifetime RSS high-water, including MLX, Swift, mmap pages,
+    /// allocator cache, and I/O staging. This is the number memory promises use.
     public var peakMemoryGB = 0.0
+    /// MLX-only high-water retained as a diagnostic, never as the RAM gate.
+    public var mlxPeakMemoryGB = 0.0
     /// Prefill time split: reading expert records, scattering them into the
     /// pool, and how many records were fetched. Everything else is compute.
     public var prefillIOSeconds = 0.0
@@ -185,6 +189,7 @@ public final class Generator {
     public func generate(
         promptIds: [Int], params: SampleParams, eosIds: Set<Int>,
         cache: PrefixCache? = nil,
+        shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int) -> Bool)? = nil
     ) -> ([Int], GenStats) {
         let params = params.sanitized()
@@ -195,14 +200,15 @@ public final class Generator {
         // the API boundary; this is the backstop.
         guard !promptIds.isEmpty else { return ([], stats) }
         // A hit hands over the state and the count of prompt tokens it already
-        // consumed; a miss releases the stale one before this allocation, so
-        // only ever one full state is live (see PrefixCache).
-        let hit = cache?.take(matching: promptIds)
+        // consumed; a miss evicts enough LRU state before this allocation to
+        // keep retained + active state inside the shared bounds (PrefixCache).
+        let hit = cache?.take(
+            matching: promptIds, reserveTokens: promptIds.count + params.maxTokens)
         let state = hit?.state ?? model.makeState()
         let reused = hit?.reused ?? 0
         stats.promptTokens = promptIds.count
         stats.reusedPrefixTokens = reused
-        MLX.GPU.resetPeakMemory()
+        MLX.Memory.peakMemory = 0
         // Zero before prefill, not only after: otherwise these carry the
         // previous request's decode phase into this request's prefill split.
         model.pool.resetStats()
@@ -213,6 +219,14 @@ public final class Generator {
         var logits: MLXArray = MLXArray(0)
         var i = reused
         while i < promptIds.count {
+            if let keepGoing = shouldContinue, !keepGoing() {
+                stats.finishReason = "stop"
+                stats.prefillTokens = i - reused
+                stats.prefillSeconds = -t0.timeIntervalSinceNow
+                stats.peakMemoryGB = ProcessMemory.peakResidentGB
+                stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
+                return ([], stats)
+            }
             let hi = min(i + prefillChunk, promptIds.count)
             let chunk = Array(promptIds[i ..< hi])
             if hi == promptIds.count {
@@ -242,6 +256,7 @@ public final class Generator {
         var consumed = promptIds
         t0 = Date()
         for _ in 0 ..< max(0, params.maxTokens) {
+            if let keepGoing = shouldContinue, !keepGoing() { reason = "stop"; break }
             let tok = sample(logits, params: params, generated: generated)
             if eosIds.contains(tok) { reason = "stop"; break }
             out.append(tok)
@@ -259,7 +274,8 @@ public final class Generator {
         stats.expertHitRate = model.pool.hitRate
         stats.ngramRowHits = model.ngram.rowHits
         stats.ngramRowMisses = model.ngram.rowMisses
-        stats.peakMemoryGB = Double(MLX.GPU.peakMemory) / 1e9
+        stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
+        stats.peakMemoryGB = ProcessMemory.peakResidentGB
         return (out, stats)
     }
 }

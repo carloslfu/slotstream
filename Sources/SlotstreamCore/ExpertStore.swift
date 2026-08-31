@@ -25,14 +25,48 @@ public final class ExpertStore {
     ]
     private var refs: [[TensorRef]] = []  // [layer][piece]
     public private(set) var pieceRowBytes: [Int] = []  // bytes per expert per piece
-    public var recordBytes: Int { pieceRowBytes.reduce(0, +) }
+    public var recordBytes: Int {
+        var total = 0
+        for bytes in pieceRowBytes {
+            let (next, overflow) = total.addingReportingOverflow(bytes)
+            if overflow { return 0 }
+            total = next
+        }
+        return total
+    }
 
-    public init(index: CheckpointIndex) {
+    public init(index: CheckpointIndex) throws {
         self.index = index
         self.cfg = index.config
+        let h = cfg.hiddenSize
+        let ff = cfg.moeIntermediate
+        let g = cfg.qGroup
+        let expected: [(shape: [Int], dtype: String)] = [
+            ([cfg.numExperts, ff, h / 8], "U32"),
+            ([cfg.numExperts, ff, h / g], "BF16"),
+            ([cfg.numExperts, ff, h / g], "BF16"),
+            ([cfg.numExperts, ff, h / 8], "U32"),
+            ([cfg.numExperts, ff, h / g], "BF16"),
+            ([cfg.numExperts, ff, h / g], "BF16"),
+            ([cfg.numExperts, h, ff / 8], "U32"),
+            ([cfg.numExperts, h, ff / g], "BF16"),
+            ([cfg.numExperts, h, ff / g], "BF16"),
+        ]
         for l in 0 ..< cfg.numLayers {
             let base = "model.layers.\(l).mlp.switch_mlp."
-            refs.append(Self.pieces.map { index.ref(base + $0) })
+            let layer = Self.pieces.map { index.ref(base + $0) }
+            for p in layer.indices {
+                guard layer[p].shape == expected[p].shape,
+                    layer[p].dtype == expected[p].dtype,
+                    layer[p].rowBytes > 0
+                else {
+                    throw ModelError(
+                        "tensor `\(base + Self.pieces[p])` has \(layer[p].dtype) "
+                            + "\(layer[p].shape), expected \(expected[p].dtype) "
+                            + "\(expected[p].shape) — check --model")
+                }
+            }
+            refs.append(layer)
         }
         pieceRowBytes = refs[0].map { $0.rowBytes }
     }
@@ -44,8 +78,26 @@ public final class ExpertStore {
     /// ~307 KB rather than N of 2.76 MB. Swept 2026-08-30: 12 and 32 tie at
     /// ~4.5 GB/s and 64 and 128 are worse, so this is not queue-depth-limited
     /// and raising it only oversubscribes.
-    public static let defaultQueueDepth =
-        ProcessInfo.processInfo.environment["SLOTSTREAM_IO_QUEUE_DEPTH"].flatMap(Int.init) ?? 12
+    public static let defaultQueueDepth: Int = {
+        guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_IO_QUEUE_DEPTH"],
+            let n = Int(raw)
+        else { return 12 }
+        // Zero used to launch no workers and copy uninitialized staging memory;
+        // a negative value could trap in concurrentPerform.
+        return min(max(n, 1), 128)
+    }()
+
+    /// Maximum expert records whose nine staging tensors coexist. A 256-token
+    /// prefill can route all 512 experts of a layer: loading that as one unit is
+    /// 1.4 GB before MLX materializes the scatter inputs, and was the unexplained
+    /// multi-GB RSS step on the first nontrivial prompt. Reads stay QD-parallel
+    /// inside each batch; only the peak working set is bounded here.
+    public static let defaultLoadBatch: Int = {
+        guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_EXPERT_LOAD_BATCH"],
+            let n = Int(raw)
+        else { return 32 }
+        return min(max(n, 1), Geometry.expertsPerLayer)
+    }()
 
     public func readBatch(_ keys: [ExpertKey], queueDepth: Int = ExpertStore.defaultQueueDepth)
         -> [MLXArray]
@@ -67,11 +119,9 @@ public final class ExpertStore {
             }
             buffers.append(p)
         }
-        defer { buffers.forEach { free($0) } }
-
         // 9n reads, spread across worker lanes
         let jobs: [(piece: Int, slot: Int)] = (0 ..< n).flatMap { s in (0 ..< 9).map { (piece: $0, slot: s) } }
-        let lanes = min(queueDepth, jobs.count)
+        let lanes = min(max(queueDepth, 1), jobs.count)
         DispatchQueue.concurrentPerform(iterations: lanes) { lane in
             var j = lane
             while j < jobs.count {
@@ -85,31 +135,23 @@ public final class ExpertStore {
             }
         }
 
-        // wrap buffers as MLXArrays
+        // Transfer each aligned staging buffer directly to MLX. The previous
+        // path copied every 1.4 GB batch into a Swift Array and then copied it
+        // again into MLX, so raw + Swift + MLX copies coexisted at peak and
+        // were invisible to MLX's allocator counter.
         var out: [MLXArray] = []
         for (p, r) in refs[0][0 ..< 9].enumerated() {
-            let pb = pieceRowBytes[p]
             let shape = [n] + Array(r.shape.dropFirst())
-            let arr: MLXArray
+            let dtype: DType
             switch r.dtype {
-            case "U32":
-                let count = n * pb / 4
-                let vals = [UInt32](unsafeUninitializedCapacity: count) { dst, initialized in
-                    memcpy(dst.baseAddress!, buffers[p], count * 4)
-                    initialized = count
-                }
-                arr = MLXArray(vals, shape)
-            case "BF16":
-                let count = n * pb / 2
-                let vals = [UInt16](unsafeUninitializedCapacity: count) { dst, initialized in
-                    memcpy(dst.baseAddress!, buffers[p], count * 2)
-                    initialized = count
-                }
-                arr = MLXArray(vals, shape).view(dtype: .bfloat16)
+            case "U32": dtype = .uint32
+            case "BF16": dtype = .bfloat16
             default:
+                for q in p ..< buffers.count { free(buffers[q]) }
                 fatalError("unexpected expert dtype \(r.dtype)")
             }
-            out.append(arr)
+            let owned = buffers[p]
+            out.append(MLXArray(rawPointer: owned, shape, dtype: dtype) { free(owned) })
         }
         eval(out)
         return out
@@ -271,16 +313,24 @@ public final class SlotPool {
                 pinned[s] = true
                 slotIdx.append(Int32(s))
             }
-            let tIO = Date()
-            let batch = store.readBatch(missKeys)
-            ioSeconds += -tIO.timeIntervalSinceNow
-            let tScatter = Date()
-            let idx = MLXArray(slotIdx)
-            for p in 0 ..< 9 {
-                pools[p][idx] = batch[p]
+            // Bound staging independently of how many unique experts this
+            // token batch routed. Evaluating each scatter before reading the
+            // next slice lets the prior raw buffers be released immediately.
+            var lo = 0
+            while lo < missKeys.count {
+                let hi = min(lo + ExpertStore.defaultLoadBatch, missKeys.count)
+                let tIO = Date()
+                let batch = store.readBatch(Array(missKeys[lo ..< hi]))
+                ioSeconds += -tIO.timeIntervalSinceNow
+                let tScatter = Date()
+                let idx = MLXArray(Array(slotIdx[lo ..< hi]))
+                for p in 0 ..< 9 {
+                    pools[p][idx] = batch[p]
+                }
+                eval(pools)
+                scatterSeconds += -tScatter.timeIntervalSinceNow
+                lo = hi
             }
-            eval(pools)
-            scatterSeconds += -tScatter.timeIntervalSinceNow
             recordsFetched += missKeys.count
             fillSeconds += -tMiss.timeIntervalSinceNow
             for (j, i) in missPos.enumerated() { result[i] = Int(slotIdx[j]) }

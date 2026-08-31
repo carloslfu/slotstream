@@ -161,6 +161,13 @@ public final class PrefixCache {
         defer { lock.unlock() }
         guard _enabled, !t.isEmpty, t.count <= _maxTokens else { return }
         clock += 1
+        // Repeating the same deterministic request produces the same consumed
+        // token history. Replace its state instead of filling all four entries
+        // with byte-identical conversations and evicting useful chats.
+        if let i = entries.firstIndex(where: { $0.tokens == t }) {
+            entries[i] = Entry(state: s, tokens: t, used: clock)
+            return
+        }
         entries.append(Entry(state: s, tokens: t, used: clock))
         while entries.count > Self.maxEntries
             || entries.reduce(0, { $0 + $1.tokens.count }) > _maxTokens

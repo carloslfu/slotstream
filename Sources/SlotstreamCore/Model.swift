@@ -32,11 +32,24 @@ public final class Qwen4ExpModel {
     }
 
     public init(index: CheckpointIndex, poolSlots: Int, runLayers: Int? = nil) throws {
+        try ModelProcessGuard.acquire()
         self.cfg = index.config
-        self.runLayers = runLayers ?? index.config.numLayers
+        let selectedLayers = runLayers ?? index.config.numLayers
+        guard selectedLayers >= 1, selectedLayers <= index.config.numLayers else {
+            throw ModelError(
+                "layer count must be between 1 and \(index.config.numLayers), got \(selectedLayers)")
+        }
+        guard poolSlots >= 1, poolSlots <= Geometry.totalRecords else {
+            throw ModelError(
+                "expert-pool slot count must be between 1 and \(Geometry.totalRecords), got \(poolSlots)")
+        }
+        self.runLayers = selectedLayers
+        let store = try ExpertStore(index: index)
+        // Reject a wrong/custom checkpoint before allocating the 3.8 GB
+        // resident trunk or the expert pool.
+        try Geometry.check(against: index.config, recordBytes: store.recordBytes)
         // parity rigs keep the truncated layers' experts resident? no — pool serves them
         self.resident = try ResidentWeights(index: index)
-        let store = ExpertStore(index: index)
         self.pool = SlotPool(slots: poolSlots, store: store)
         self.ngram = NgramStore(index: index, resident: resident)
         self.rope = Rope(dim: cfg.rotaryDim, base: cfg.ropeTheta)
@@ -146,15 +159,16 @@ public final class Qwen4ExpModel {
 }
 
 // PLE cache slot rides on the linear cache of its (linear-attention) layer; if
-// the PLE layer were ever a QSA layer this would need its own cache. Assert at
-// init time instead of failing silently.
+// the PLE layer were ever a QSA layer this would need its own cache. Reject it
+// at init time instead of failing silently.
 extension Qwen4ExpModel {
-    public func validate() {
-        Geometry.check(against: cfg, recordBytes: pool.recordBytes)
+    public func validate() throws {
+        try Geometry.check(against: cfg, recordBytes: pool.recordBytes)
         for l in cfg.pleLayerIndices where l < runLayers {
-            precondition(
-                cfg.layerTypes[l] == "linear_attention",
-                "PLE layer \(l) is not linear_attention; PLE conv cache needs a home")
+            guard cfg.layerTypes[l] == "linear_attention" else {
+                throw ModelError(
+                    "PLE layer \(l) is not linear_attention, so its recurrent cache has no home — check --model")
+            }
         }
     }
 }

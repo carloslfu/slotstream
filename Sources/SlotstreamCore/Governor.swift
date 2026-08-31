@@ -86,12 +86,35 @@ public enum GovernorPolicy {
     /// the pool AND the fixed footprint (the planner subtracts the fixed
     /// footprint again when deriving slots, so without this credit the steady
     /// state under contention double-reserves ~4 GB).
-    public static func desiredSlots(_ i: Inputs) -> Int? {
+    public static func desiredPlan(_ i: Inputs) -> MemoryPlan? {
         let credited = i.availableGB + Geometry.gb(i.currentSlots) + Planner.fixedFootprintGB
         return try? Planner.plan(
             expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
             ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited,
-            ramPercent: i.ramPercent).slots
+            ramPercent: i.ramPercent)
+    }
+
+    public static func desiredSlots(_ i: Inputs) -> Int? {
+        desiredPlan(i)?.slots
+    }
+
+    /// Live allocation controls for a resize. Availability-driven targets come
+    /// directly from a fresh planner result, so preserve that result's prefill
+    /// and prefix budgets. Deriving them again from the already-net expert pool
+    /// double-subtracts their cost: at the 33 GB knee it downgraded a recovered
+    /// server from the planned 4096-token pass to 2048. A pressure-event target
+    /// can be an arbitrary extra shed, so it deliberately uses the conservative
+    /// pool-only fallback.
+    public static func liveControls(
+        for targetSlots: Int, inputs i: Inputs
+    ) -> (prefillChunk: Int, prefixCacheTokens: Int) {
+        if let p = desiredPlan(i), p.slots == targetSlots {
+            return (p.prefillChunk, p.prefixCacheTokens)
+        }
+        let gb = Geometry.gb(targetSlots)
+        return (
+            Planner.prefillChunkFor(poolBudgetGB: gb),
+            Planner.prefixCacheTokensFor(poolBudgetGB: gb))
     }
 
     public static func decide(_ i: Inputs) -> Decision {
@@ -215,18 +238,26 @@ public final class MemoryGovernor {
     private func act(_ pressure: GovernorPolicy.Pressure?) {
         guard let i = inputs(pressure: pressure) else { return }
         if case let .resize(slots, reason) = GovernorPolicy.decide(i) {
-            apply(slots, plan: engine.currentPlan, reason: reason)
+            let controls = GovernorPolicy.liveControls(for: slots, inputs: i)
+            apply(
+                slots, plan: engine.currentPlan, reason: reason,
+                prefillChunk: controls.prefillChunk,
+                prefixCacheTokens: controls.prefixCacheTokens)
         }
     }
 
-    private func apply(_ slots: Int, plan: MemoryPlan?, reason: String) {
+    private func apply(
+        _ slots: Int, plan: MemoryPlan?, reason: String,
+        prefillChunk: Int, prefixCacheTokens: Int
+    ) {
         let target = slots  // already clamped by GovernorPolicy.decide
         let before = engine.withExclusive { engine.model.pool.slots }
         guard target != before else { return }
         let growing = target > before
-        let chunk = Planner.prefillChunkFor(poolBudgetGB: Geometry.gb(target))
-        let cacheTokens = Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(target))
         let ref = plan ?? engine.currentPlan
+        // --max-context is also a hard ceiling on any one retained history.
+        // A later governor resize must not undo the cap Serve applied at startup.
+        let livePrefixTokens = min(prefixCacheTokens, engine.maxContextTokens)
         var after = before
         engine.withExclusive {
             // Shrinking means memory is wanted elsewhere. The retained
@@ -240,15 +271,15 @@ public final class MemoryGovernor {
             // These are live allocation controls, not merely fields in the
             // reported plan. Leaving startup values here let a shrunken server
             // allocate the old large prefill and refill the old cache ceiling.
-            engine.generator.prefillChunk = chunk
-            engine.prefixCache.configure(maxTokens: cacheTokens)
+            engine.generator.prefillChunk = prefillChunk
+            engine.prefixCache.configure(maxTokens: livePrefixTokens)
             engine.updatePlan(MemoryPlan(
                 source: .auto, slots: after, targetGB: ref?.targetGB,
                 ramGB: ref?.ramGB ?? Planner.deviceRAMGB(),
                 workingSetGB: ref?.workingSetGB ?? Planner.deviceWorkingSetGB(),
                 ramPercent: ref?.ramPercent ?? Planner.defaultRAMPercent,
                 availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
-                prefillChunk: chunk, prefixCacheTokens: cacheTokens,
+                prefillChunk: prefillChunk, prefixCacheTokens: livePrefixTokens,
                 notes: [String(
                     format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
                     Geometry.perLayer(before), Geometry.perLayer(after), reason)]))

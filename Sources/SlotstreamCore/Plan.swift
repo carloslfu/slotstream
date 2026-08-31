@@ -10,7 +10,7 @@ import MLX
 
 /// Model geometry the cache math speaks in. The planner needs these before the
 /// checkpoint is opened, so they are constants — `check(against:recordBytes:)`
-/// asserts they still match the loaded config once the engine has it.
+/// rejects a checkpoint that does not match once the engine has it.
 public enum Geometry {
     public static let layers = 48
     public static let expertsPerLayer = 512
@@ -23,22 +23,30 @@ public enum Geometry {
 
     public static func gb(_ globalSlots: Int) -> Double { Double(globalSlots) * recordBytes / 1e9 }
     public static func perLayer(_ globalSlots: Int) -> Double { Double(globalSlots) / Double(layers) }
+    /// Convert a raw GB budget without ever converting an attacker-sized
+    /// Double directly to Int (which traps in Swift when it is out of range).
+    public static func slotsForPoolGB(_ poolGB: Double) -> Int {
+        guard poolGB.isFinite else { return poolGB > 0 ? totalRecords : floorSlots }
+        if poolGB >= gb(totalRecords) { return totalRecords }
+        if poolGB <= gb(floorSlots) { return floorSlots }
+        return Int(poolGB * 1e9 / recordBytes)
+    }
     /// GB of pool per expert-per-layer (N experts/layer costs N × this).
     public static var gbPerExpertPerLayer: Double { Double(layers) * recordBytes / 1e9 }
 
     /// The planner sizes memory from the constants above while the engine
     /// allocates from config.json. If they ever disagree, every memory number
     /// the user is shown is wrong, so fail loudly instead of drifting.
-    public static func check(against cfg: ModelConfig, recordBytes actual: Int) {
-        precondition(
-            cfg.numLayers == layers && cfg.numExperts == expertsPerLayer
-                && Double(actual) == recordBytes,
-            """
-            model geometry does not match the planner's constants: \
-            config has \(cfg.numLayers) layers x \(cfg.numExperts) experts \
-            x \(actual) B/record, planner assumes \(layers) x \(expertsPerLayer) \
-            x \(Int(recordBytes)) B. Rebuild with Geometry updated.
-            """)
+    public static func check(against cfg: ModelConfig, recordBytes actual: Int) throws {
+        guard cfg.numLayers == layers, cfg.numExperts == expertsPerLayer,
+            Double(actual) == recordBytes
+        else {
+            throw ModelError(
+                "model geometry does not match the supported checkpoint: config has "
+                    + "\(cfg.numLayers) layers x \(cfg.numExperts) experts x \(actual) "
+                    + "B/record, expected \(layers) x \(expertsPerLayer) x "
+                    + "\(Int(recordBytes)) B — check --model")
+        }
     }
 }
 
@@ -76,6 +84,25 @@ public struct MemoryPlan {
     /// charged from the same budget as the pool.
     public let prefixCacheTokens: Int
     public let notes: [String]
+
+    public init(
+        source: Source, slots: Int, targetGB: Double?,
+        ramGB: Double, workingSetGB: Double, ramPercent: Double,
+        availableGB: Double?, clamped: Bool,
+        prefillChunk: Int, prefixCacheTokens: Int, notes: [String]
+    ) {
+        self.source = source
+        self.slots = slots
+        self.targetGB = targetGB
+        self.ramGB = ramGB
+        self.workingSetGB = workingSetGB
+        self.ramPercent = ramPercent
+        self.availableGB = availableGB
+        self.clamped = clamped
+        self.prefillChunk = prefillChunk
+        self.prefixCacheTokens = prefixCacheTokens
+        self.notes = notes
+    }
 
     public var expertsPerLayerCached: Double { Geometry.perLayer(slots) }
     public var poolGB: Double { Geometry.gb(slots) }
@@ -133,14 +160,18 @@ public struct MemoryPlan {
 
     /// Machine-readable form for /api/show.
     public func json() -> [String: Any] {
+        func tenth(_ value: Double) -> Double {
+            let scaled = value * 10
+            return scaled.isFinite ? scaled.rounded() / 10 : value
+        }
         var d: [String: Any] = [
             "source": source.rawValue,
             "experts_per_layer_cached": Int(expertsPerLayerCached.rounded()),
             "pool_slots": slots,
-            "pool_gb": (poolGB * 10).rounded() / 10,
-            "expected_peak_gb": (expectedPeakGB * 10).rounded() / 10,
-            "device_ram_gb": (ramGB * 10).rounded() / 10,
-            "device_working_set_gb": (workingSetGB * 10).rounded() / 10,
+            "pool_gb": tenth(poolGB),
+            "expected_peak_gb": tenth(expectedPeakGB),
+            "device_ram_gb": tenth(ramGB),
+            "device_working_set_gb": tenth(workingSetGB),
             "max_ram_percent": ramPercent,
             "availability_clamped": clamped,
             "fully_resident": fullyResident,
@@ -153,8 +184,8 @@ public struct MemoryPlan {
             "est_warm_tok_s": estWarmTokS,
             "est_prefill_tok_s": Planner.estPrefillTokS(chunk: prefillChunk),
         ]
-        if let a = availableGB, a.isFinite { d["device_available_gb"] = (a * 10).rounded() / 10 }
-        if let t = targetGB { d["target_gb"] = (t * 10).rounded() / 10 }
+        if let a = availableGB, a.isFinite { d["device_available_gb"] = tenth(a) }
+        if let t = targetGB { d["target_gb"] = tenth(t) }
         if !notes.isEmpty { d["notes"] = notes }
         return d
     }
@@ -164,7 +195,9 @@ public enum Planner {
     /// Non-pool footprint: resident weights, the 256 MB n-gram payload plus
     /// collection overhead, Swift and MLX runtime allocations, one fixed GDN
     /// recurrent state, and a full 32k active context. Expert staging is now
-    /// transferred directly into MLX, avoiding separate raw + Swift copies.
+    /// transferred directly into MLX in batches of at most 32 records,
+    /// avoiding separate raw + Swift copies and the former multi-GB cold-fill
+    /// transient.
     public static let fixedFootprintGB = 5.3
     /// Extra slack when deriving a pool from a total-memory target, so the
     /// promise ("stays under G") survives transients.
@@ -248,9 +281,7 @@ public enum Planner {
         }
         func seconds(_ c: Int) -> Double {
             let pool = poolBudgetGB - prefillCostGB(c) - prefixCacheGB(poolBudgetGB: poolBudgetGB)
-            let slots = min(
-                Geometry.totalRecords,
-                max(Geometry.floorSlots, Int(max(0, pool) * 1e9 / Geometry.recordBytes)))
+            let slots = Geometry.slotsForPoolGB(max(0, pool))
             let decode = estWarmTokS(expertsPerLayer: Geometry.perLayer(slots))
             return tuningPromptTokens / estPrefillTokS(chunk: c) + tuningReplyTokens / decode
         }
@@ -279,6 +310,8 @@ public enum Planner {
     /// and a prompt that long is already refused).
     public static func prefixCacheTokensFor(poolBudgetGB: Double, contextCap: Int = 32_768) -> Int {
         let gb = 0.10 * max(0, poolBudgetGB)
+        let full = Double(contextCap) * Double(PrefixCache.bytesPerToken) / 1e9
+        if gb >= full { return max(0, contextCap) }
         let toks = Int(gb * 1e9 / Double(PrefixCache.bytesPerToken))
         return max(0, min(toks, contextCap))
     }
@@ -463,9 +496,7 @@ public enum Planner {
         let budget = poolBudgetGB(targetGB)
         let pool = budget - prefillCostGB(prefillChunkFor(poolBudgetGB: budget))
             - prefixCacheGB(poolBudgetGB: budget)
-        return min(
-            Geometry.totalRecords,
-            max(Geometry.floorSlots, Int(pool * 1e9 / Geometry.recordBytes)))
+        return Geometry.slotsForPoolGB(pool)
     }
 
     /// Resolve the knobs. Precedence: --experts-per-layer > --pool-gb >
@@ -553,7 +584,11 @@ public enum Planner {
                 throw PlanError("--pool-gb must be a finite number > 0")
             }
             if memoryGB != nil { notes.append("--memory-gb ignored (--pool-gb takes precedence)") }
-            return finish(.poolGB, Int(g * 1e9 / Geometry.recordBytes), target: nil)
+            // Preserve a below-floor request so `finish` can explain that it
+            // raised it; cap before Double->Int so huge finite input is safe.
+            let requested = g >= Geometry.gb(Geometry.totalRecords)
+                ? Geometry.totalRecords : Int(g * 1e9 / Geometry.recordBytes)
+            return finish(.poolGB, requested, target: nil)
         }
         if let m = memoryGB {
             guard m.isFinite else { throw PlanError("--memory-gb must be finite") }
