@@ -15,3 +15,16 @@ bench/parity*/
 Tools/lib/*.metallib
 .venv31/
 *.bin
+
+# The parity31 fixtures are small, version-matched acceptance goldens. They
+# must ship so Tools/verify.sh works from a fresh clone.
+!bench/parity31/
+!bench/parity31/README.md
+!bench/parity31/SHA256SUMS
+!bench/parity31/ngram_ids.txt
+!bench/parity31/dequant_row.txt
+!bench/parity31/tokens.txt
+!bench/parity31/layer_0.bin
+!bench/parity31/layer_1.bin
+!bench/parity31/layer_2.bin
+!bench/parity31/layer_3.bin

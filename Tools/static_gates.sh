@@ -9,6 +9,8 @@ done
 sh -n install.sh
 python3 -m py_compile Tools/*.py Tools/reference/*.py
 
+(cd bench/parity31 && shasum -a 256 -c SHA256SUMS)
+
 if grep -En 'File\(path: .*sha256: nil\)' Sources/slotstream/PinnedModel.swift; then
   echo "pinned manifest contains an unhashed file" >&2
   exit 1

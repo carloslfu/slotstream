@@ -15,7 +15,7 @@
 # that look like server bugs but are not — that cost a full debugging round.
 set -uo pipefail
 PORT="${1:-11530}"
-B="$HOME/.slotstream/bin/slotstream"
+B=${BIN:-"$HOME/.slotstream/bin/slotstream"}
 P=0; F=0
 ok()  { echo "PASS  $1"; P=$((P+1)); }
 bad() { echo "FAIL  $1"; F=$((F+1)); }
