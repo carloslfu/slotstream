@@ -1470,8 +1470,10 @@ Anything asserting on a plan should.
 
 ### The --memory-gb promise did not hold on real prompts (2026-08-31; resolved below)
 
-`--memory-gb 10` peaks at **12.4 GB** on a 7,960-token prompt. Characterised so
-the fix does not have to start from scratch. All runs are greedy, 8-16 tokens
+`--memory-gb 10` **peaked at 12.4 GB** on a 7,960-token prompt. Characterised
+so the fix would not have to start from scratch; the cause and fix are in the
+Resolution below, and a clean build of the committed tree now peaks at 8.6 GB
+on the same prompt with the full battery green. All runs greedy, 8-16 tokens
 out, RSS peak as the binary reports it.
 
 **It is not the expert pool.** At the 1.8 GB floor cache the same prompt still
