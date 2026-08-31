@@ -4,8 +4,9 @@
 import Foundation
 
 /// The one model slotstream v0 runs, pinned to an exact upstream revision.
-/// LFS files carry upstream sha256; small config files are size-checked and
-/// then structurally validated by the engine when it loads them.
+/// Every file carries the digest of the pinned revision. Small text files need
+/// content integrity too: a same-size tokenizer or template change can alter
+/// model semantics while still parsing successfully.
 enum PinnedModel {
     static let name = "qwen3.8-flash-next:4bit"
     static let dirName = "qwen38-flash-next-mlx-4bit"
@@ -23,12 +24,12 @@ enum PinnedModel {
     }
 
     static let files: [File] = [
-        File(path: "LICENSE", size: 3235, sha256: nil),
-        File(path: "README.md", size: 6139, sha256: nil),
-        File(path: "chat_template.jinja", size: 8952, sha256: nil),
-        File(path: "config.json", size: 33408, sha256: nil),
-        File(path: "generation_config.json", size: 202, sha256: nil),
-        File(path: "merges.txt", size: 3353259, sha256: nil),
+        File(path: "LICENSE", size: 3235, sha256: "a0dc422560841fd68e06d974907f8b4c709bca44a67daad2b528437bdf676c08"),
+        File(path: "README.md", size: 6139, sha256: "db1e0d8575543e7a8d324fd22afd2d596a002e9163ed1f971b6b8df0abbe65fd"),
+        File(path: "chat_template.jinja", size: 8952, sha256: "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"),
+        File(path: "config.json", size: 33408, sha256: "0da22a8ed4323fbe969bf982aeb054743b315206791f28ef74a309c707080ba5"),
+        File(path: "generation_config.json", size: 202, sha256: "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"),
+        File(path: "merges.txt", size: 3353259, sha256: "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d"),
         File(path: "model-00001.safetensors", size: 10039592993, sha256: "206c2e6ee138c902115f0686a43e0d56097518945bbcd6d3ab10bf916278f86c"),
         File(path: "model-00002.safetensors", size: 10000066971, sha256: "48f925c8652fd3210bd8593b41b9fbd66f02567e0e1e7abc28b75e2601f8af26"),
         File(path: "model-00003.safetensors", size: 10000066984, sha256: "cb0a951b9aed16ddad882a75c4c07b2615fa364db7c83cfcf7166dc481def85a"),
@@ -40,13 +41,13 @@ enum PinnedModel {
         File(path: "model-00009.safetensors", size: 10250305804, sha256: "0c77b22503b8e783cc345cd8afe63e007f9d0d0581cbda3f366250e38e096634"),
         File(path: "model-00010.safetensors", size: 10237786674, sha256: "115466ffb3e92a8e2a338d72395f7c32a176dadc791d2049ff9a8daadb347ed7"),
         File(path: "model-00011.safetensors", size: 2192353120, sha256: "9128a9cbf81cd25bc4cbebe8adeefa12fa36ee96fcccb6f5fe378343b45131f0"),
-        File(path: "model.safetensors.index.json", size: 317973, sha256: nil),
-        File(path: "preprocessor_config.json", size: 390, sha256: nil),
-        File(path: "qwen4_exp.py", size: 35046, sha256: nil),
+        File(path: "model.safetensors.index.json", size: 317973, sha256: "072cc2c60b8af6cce82a387f62e39ca88754c3a6fccae0816dd21bb89d27470d"),
+        File(path: "preprocessor_config.json", size: 390, sha256: "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"),
+        File(path: "qwen4_exp.py", size: 35046, sha256: "6fae4ec0decbf77ca4a4571de683bc5580ec75e84325ecb432dfcd2fc81df75e"),
         File(path: "tokenizer.json", size: 12809320, sha256: "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"),
-        File(path: "tokenizer_config.json", size: 17928, sha256: nil),
-        File(path: "video_preprocessor_config.json", size: 385, sha256: nil),
-        File(path: "vocab.json", size: 6722759, sha256: nil),
+        File(path: "tokenizer_config.json", size: 17928, sha256: "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"),
+        File(path: "video_preprocessor_config.json", size: 385, sha256: "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"),
+        File(path: "vocab.json", size: 6722759, sha256: "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"),
     ]
 
     static var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }  // 103793508077 = 103.8 GB
