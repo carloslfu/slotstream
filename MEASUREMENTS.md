@@ -702,8 +702,21 @@ configs, `merges.txt`, `vocab.json`, the index, 10.5 MB total, 0.01% — are
 size-checked and then structurally parsed on load. The user-facing promise (a
 corrupted download cannot become garbage tokens) survives, but the README now
 states the split. A full `pull --verify` re-measured at **7.7 s** wall for
-103.8 GB (13.4 GB/s across 24 concurrent readers, consistent with the 17.3 GB/s
+103.8 GB (13.4 GB/s, ~6 readers wide at 559% CPU — consistent with the 17.3 GB/s
 sequential SSD figure and unrelated to the 4.5 GB/s random-`pread` expert path).
+
+**Download time, stated honestly (2026-08-31).** The README quoted "35 to 45
+minutes on a fast link", which gets the cause wrong: the link is not the
+constraint. Hugging Face plateaus past four connections, and the two sessions
+above disagree about where — **50 to 57 MB/s** in the parallel-download work,
+**36.5 MB/s** in the R2 comparison — so 103.8 GB is a 30-to-47-minute job
+depending on Hugging Face's day, on a link that does 134 MB/s to a plain host.
+Past roughly 400 Mbps more bandwidth buys nothing; below it the user's link
+binds and the wait is ordinary arithmetic (200 Mbps 1h09, 100 2h18, 50 4h36,
+25 9h13). The README now carries that table, `doctor` reports whether the disk
+can hold the weights and the best-case time, and the first-run prompt quotes
+the same estimate before asking. Both new surfaces were tested against a real
+1 GB volume for the refusal path.
 
 ### Parallel weight download (2026-08-29): 8 connections, exact resume
 

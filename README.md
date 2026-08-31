@@ -16,8 +16,8 @@ existing client just works.
 
 **Disk is the gate that bites first.** You need ~110 GB free, so a 512 GB Mac
 is the realistic minimum however much memory it has. The weights are a one-time
-104 GB download: 35 minutes on a good connection, several hours on a slow one
-(table [below](#the-104-gb-download)).
+104 GB download: well under an hour on a fast connection, several hours on a
+slow one (table [below](#the-104-gb-download)).
 
 | memory | expect |
 |---|---|
@@ -29,8 +29,8 @@ is the realistic minimum however much memory it has. The weights are a one-time
 
 Only the 48 GB row is measured on real hardware; the rest come from the same
 measured curve, and smaller Macs also have slower SSDs. Run
-`slotstream doctor` to see what your machine would actually get **before**
-downloading anything.
+`slotstream doctor` to see what your machine would get, and whether you have
+the disk for the weights, **before** downloading anything.
 
 ## Install
 
@@ -70,28 +70,30 @@ Either way it prints the size, the destination and your free disk and waits for
 a yes before transferring anything, and it refuses outright if the disk cannot
 hold it.
 
-**Hugging Face caps this at about 50 MB/s however fast your link is** —
-measured at 1, 4, 8, 16 and 32 connections, and against `hf_xet`, Hugging
-Face's own fastest client, while the same link did 134 MB/s to an ordinary
-host. So gigabit buys you nothing here over 400 Mbit:
+**Hugging Face is the bottleneck, not your link.** Past four connections it
+plateaus: 4, 8, 16 and 32 all landed in the same 36 to 57 MB/s band, and so did
+`hf_xet`, Hugging Face's own fastest client, while the same link did 134 MB/s
+to an ordinary host. So past roughly 400 Mbps, more bandwidth
+buys nothing:
 
 | your connection | wait |
 |---|---|
-| 400 Mbps or faster | ~35 min — the cap, not your link |
+| 400 Mbps or faster | 30–50 min — Hugging Face's day, not your link |
 | 200 Mbps | ~1 h 10 |
 | 100 Mbps | ~2 h 20 |
 | 50 Mbps | ~4 h 40 |
 | 25 Mbps | ~9 h |
 
-The top row is measured on a real install. The rest is arithmetic over 103.8 GB
-assuming you get your full rated speed, so read them as best cases.
+A real install here took 35 min; the top row is wide because Hugging Face's own
+throughput moved between sessions. The rows below it are arithmetic over
+103.8 GB at your full rated speed, so treat them as best cases.
 
 Interrupting is safe: it resumes at the exact byte it stopped on, and all
 103.78 GB of weights are checked against sha256 hashes compiled into the
 binary, so a truncated or corrupted download can never turn into garbage
 tokens. (The remaining 10 MB of config and tokenizer text is size-checked, then
 parsed on load.) `pull --verify` re-hashes an existing copy in under 10 s —
-7.7 s here, all 24 files at once.
+7.7 s here, hashed in parallel.
 
 ## Use it
 

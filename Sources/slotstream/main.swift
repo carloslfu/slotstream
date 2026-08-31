@@ -99,6 +99,7 @@ struct ModelOptions: ParsableArguments {
             \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
               size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
                   have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
+              time:  \(Pull.etaHint(remaining)) at best — the mirror tops out near 50 MB/s, a slower link takes longer
               to:    \(url.path)
               disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
             """)
@@ -321,6 +322,34 @@ struct Doctor: ParsableCommand {
             help: "What-if: pretend this much memory is reclaimable right now (GB)")
     var simAvailable: Double?
 
+    /// One line on the 104 GB the plan above says nothing about: is it here,
+    /// is there room for it, and roughly how long it takes.
+    func weightsLine() -> String {
+        let url = model.modelURL
+        guard model.model == PinnedModel.name || model.model == PinnedModel.dirName else {
+            return "weights: \(url.path) (not the pinned model — size unknown)"
+        }
+        let fm = FileManager.default
+        let remaining = Pull.remainingBytes(at: url)
+        if remaining == 0 {
+            return String(format: "weights: present, %.1f GB at %@",
+                          Double(PinnedModel.totalBytes) / 1e9, url.path)
+        }
+        var probe = url
+        while !fm.fileExists(atPath: probe.path), probe.path != "/" {
+            probe.deleteLastPathComponent()
+        }
+        let free = (try? fm.attributesOfFileSystem(forPath: probe.path))?[
+            .systemFreeSize] as? Int64 ?? 0
+        let need = remaining + 2_000_000_000
+        let room = free >= need
+            ? String(format: "%.0f GB free is enough", Double(free) / 1e9)
+            : String(format: "ONLY %.0f GB free, needs %.0f GB",
+                     Double(free) / 1e9, Double(need) / 1e9)
+        return String(format: "weights: %.1f GB to download (%@ at best) — %@",
+                      Double(remaining) / 1e9, Pull.etaHint(remaining), room)
+    }
+
     func run() throws {
         let info = MLX.GPU.deviceInfo()
         print("device: \(info.architecture)  |  "
@@ -329,6 +358,9 @@ struct Doctor: ParsableCommand {
                      Planner.deviceAvailableGB() ?? .nan, Planner.deviceWorkingSetGB()))
         print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts x 2.76 MB "
             + "(\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
+        // Disk is the gate that bites before memory does, and the README sends
+        // people here *before* they download, so answer that question too.
+        print(weightsLine())
         print("")
         let simulating = simRAM != nil || simWorkingSet != nil || simAvailable != nil
         if simulating { print("what-if for a simulated machine (this device shown above):") }

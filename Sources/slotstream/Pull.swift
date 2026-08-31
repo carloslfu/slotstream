@@ -727,6 +727,18 @@ struct Pull: ParsableCommand {
         return max(0, min(PullTuning.chunkBytes, size - start))
     }
 
+    /// Best case wall time for `bytes`, quoted at the ceiling the mirror
+    /// actually delivers: 36 to 57 MB/s measured here across 4, 8, 16 and 32
+    /// connections and against `hf_xet`, so 50 is the middle of that. A slower
+    /// link is slower, which is why this is labelled a floor at the call site;
+    /// the progress line reports the real rate within two seconds.
+    static func etaHint(_ bytes: Int64) -> String {
+        let seconds = Double(bytes) / 50e6
+        if seconds < 120 { return "~\(max(1, Int((seconds / 60).rounded()))) min" }
+        if seconds < 3600 { return "~\(Int((seconds / 60).rounded())) min" }
+        return String(format: "~%.1f h", seconds / 3600)
+    }
+
     /// Bytes still to download at `dest` (counting chunk-map progress), by size
     /// only — hashes are verify's job. 0 means every file is present whole.
     static func remainingBytes(at dest: URL) -> Int64 {
@@ -778,6 +790,8 @@ struct Pull: ParsableCommand {
                 format: "not enough disk: need %.1f GB (%.1f GB to download + 2 GB margin), have %.1f GB free at %@",
                 Double(needed) / 1e9, Double(remaining) / 1e9, Double(free) / 1e9, dest.path))
         }
+        print("est. \(Self.etaHint(remaining)) at best — the mirror tops out near "
+            + "50 MB/s, a slower link takes longer")
         print(String(
             format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
             PinnedModel.repo, String(PinnedModel.revision.prefix(12)),
