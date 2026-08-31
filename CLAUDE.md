@@ -156,9 +156,18 @@ still quoted in commit history and both are wrong.
   first making reads contiguous. It was built, measured slower in every paired
   run, and removed: the reads already saturate, so a background reader steals
   CPU from the thread feeding the GPU and competes for the same unified memory.
-- **Compute is now the majority of a pass.** Closing it needs a grouped GEMM,
-  which needs a Metal kernel, which needs Xcode on the build machine (see the
-  risk register). Not doable from CLT alone.
+- **Compute is now the majority of a pass** (io 33.9 / scatter 10.3 / compute
+  50.3 s on an 8k prefill). Closing it means a grouped GEMM over the routed
+  experts instead of per-token gathers.
+- **That is NOT blocked on Xcode, despite what the risk register implies.**
+  The register's entry is about building *mlx-swift's own bundled shader
+  library* from source, which is worked around by vendoring `mlx.metallib`.
+  Writing a **new** kernel is a different thing: `MLXFast.metalKernel` JIT-
+  compiles Metal source at runtime through the Metal framework, needing no
+  offline toolchain. This repo already does it — `GatedDelta.swift` builds the
+  gated-DeltaNet kernel that way and it is the shipped fast path. Verified on
+  this CLT-only machine: a fresh kernel compiled and ran. Do not repeat the
+  "needs Xcode" claim about custom kernels.
 
 ## Sampler and governor
 

@@ -154,9 +154,13 @@ tiers are derived from its curve, not run on real 16 GB hardware.
 
 Known gaps:
 
-- **Long prompts are slow.** Prefill is a chunked sweep, not the dense sweep
-  the design calls for. Closing the rest needs a Metal kernel, which needs
-  Xcode on the build machine.
+- **Long prompts are slow to start.** Everything in the prompt is processed
+  before the first token appears. Prefill is ~10x faster per token than
+  generation (~113 tok/s against ~11), but you pay it for every prompt token up
+  front: a 15-token prompt starts in under 2 s, an 8,000-token one takes about
+  70. Within a conversation you only pay it once — follow-up turns reuse the
+  previous state. Compute is now the bulk of that time, and closing it means a
+  grouped-GEMM kernel.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
 
 [PLAN.md](PLAN.md) has the design and the milestone tracker;

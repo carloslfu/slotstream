@@ -153,7 +153,15 @@ The Swift slot-write figure (49.77 GB/s) independently reproduces the Python
 measurement (49.22 GB/s at the same 2,048-slot pool) — two languages, same kernel
 path, agreeing to 1%. **The SlotPool architecture is sound in the target language.**
 
-### ⚠️ Build blocker: Metal shaders require Xcode
+### ⚠️ Build blocker: mlx-swift's *bundled* Metal shaders require Xcode
+
+**Scope note added 2026-08-30, because this section was later misread as
+banning custom kernels.** What follows is about building the shader library
+mlx-swift ships with. It says nothing about writing a *new* kernel:
+`MLXFast.metalKernel` JIT-compiles Metal source at runtime through the Metal
+framework, `GatedDelta.swift` already uses it as the shipped fast path, and a
+fresh kernel was verified compiling and running on this CLT-only machine.
+
 
 mlx-swift's own README states: *"SwiftPM (command line) cannot build the Metal
 shaders so the ultimate build has to be done via Xcode."* Confirmed here — a
@@ -916,7 +924,11 @@ promises still hold with headroom: 8 -> 7.5 GB peak, 12 -> 11.5, 16 -> 15.1 on
 an 8k prompt. M5's ≥150 tok/s target is still not met; compute is now the
 majority of the pass and closing that needs a grouped-GEMM kernel, which cannot
 be built on this machine (mlx-swift Metal shaders need Xcode — see the risk
-register).
+register). **That was wrong, and corrected 2026-08-30**: the Xcode constraint
+covers building mlx-swift's *bundled* shader library, not writing a new kernel.
+`MLXFast.metalKernel` JIT-compiles Metal source at runtime, this repo already
+ships one for gated DeltaNet, and a fresh kernel was verified compiling and
+running on this CLT-only machine. The grouped-GEMM work is not blocked.
 
 **Cross-layer read-ahead was built, measured, and removed.** Since the phases are
 serialized and a pass above ~512 tokens routes to essentially every expert of

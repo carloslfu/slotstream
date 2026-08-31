@@ -30,7 +30,7 @@ design and the estimates it replaces.
 | M8 Matrix bench + tier validation | ◐ first data — **deprioritized 2026-08-29** | the bench rig and tier table are credibility artifacts, not adoption gates; moved behind N1–N5 |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
 | N1 Conversation prefix cache | ✅ **done 2026-08-29** (0.1.6) | TTFT flat in conversation length — 6.0 s at turn 8 against 25.8 s uncached. Gated by `prefix-check` against a prefill-rechunk control |
-| N2 Prefill, second pass | ◐ **partial 2026-08-30** | cost model was 2x over, recalibrated: 8k prefill 93.7 → 112.9 tok/s, peak down. Read-ahead built, measured worse, removed. ≥150 needs a Metal kernel (needs Xcode) |
+| N2 Prefill, second pass | ◐ **partial 2026-08-30** | cost model was 2x over, recalibrated: 8k prefill 93.7 → 112.9 tok/s, peak down. Read-ahead built, measured worse, removed. ≥150 needs a grouped-GEMM kernel — **not blocked**: `MLXFast.metalKernel` JIT-compiles at runtime and this repo already ships one |
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
 
@@ -837,7 +837,7 @@ lands (the whole point of targeting the preview architecture now).
 | GDN port numerics (fp32 state, chunked scan) | medium | §6.2 layerwise harness from day one; keep pure-MLX-op version as oracle for any later Metal kernel |
 | QSA indexer complexity (core path — dense is only exact ≤ 2048 tokens) | medium | port from reference impl; dense path as ≤2k test oracle; +1–2 d already in the M3 estimate |
 | ~~`gatherQMM`/slice-write perf in mlx-swift~~ | **RESOLVED** ✅ | `MLX.gatherQuantizedMM` exists and is bit-identical to `quantizedMatmul`; batched slot scatter measured 49.8 GB/s (Swift) / 74.9 GB/s (Python, 27 GB pool), in place. ~12× faster than the SSD can feed it |
-| **mlx-swift Metal shaders cannot be built by SwiftPM CLI — needs Xcode** | **CONFIRMED, unplanned** | mlx-swift's own README says so; this machine has CLT only, no Xcode. Workaround verified: colocate the prebuilt `mlx.metallib` from the Python mlx wheel next to the binary (must be named `mlx.metallib`). Version skew (0.32.2 lib vs 0.31.1 vendored) worked for every kernel probed but is not a shipping strategy. **Decide before M7**: install Xcode on the build machine, or vendor a metallib as a package resource |
+| **mlx-swift Metal shaders cannot be built by SwiftPM CLI — needs Xcode** | **CONFIRMED, resolved by vendoring** | mlx-swift's own README says so; this machine has CLT only. Workaround shipped: colocate the prebuilt `mlx.metallib` next to the binary. **Scope correction 2026-08-30 — this does not block writing new kernels.** It is about building mlx-swift's *bundled* library. A custom kernel goes through `MLXFast.metalKernel`, which JIT-compiles Metal source at runtime with no offline toolchain; `GatedDelta.swift` already ships one, and a fresh kernel was verified compiling and running on this CLT-only machine. The two were conflated and the grouped-GEMM work was wrongly called blocked |
 | F_NOCACHE semantics/perf on APFS | low-med | DiskBench A/Bs it at M0; pagecache mode as fallback |
 | Wired-limit ceilings on ≤16 GB Macs | high (known) | doctor measures + documents `iogpu.wired_limit_mb`; budgets sized under recommendedMaxWorkingSetSize; never auto-sudo |
 | Thermal throttling on fanless Airs | high (known) | W5 soak captures sustained numbers; publish sustained not burst |
@@ -913,8 +913,12 @@ macOS 26 (Darwin 25.6.0), Swift 6.3.3, page size 16 KiB.
 8. **NEW — the actual binding constraint.** How much of decode is kernel-launch
    overhead, and how far do MLX compiled graphs close it? Batch-1 matmul hits only
    20% of memory bandwidth. This displaced IO as the top performance risk (M4/M5).
-9. **NEW.** Metal shader build: Xcode on the build machine, or a vendored metallib
-   resource? (decide before M7 — see risk register)
+9. ✅**ANSWERED (M7).** Metal shader build: **vendored metallib**. CI builds the
+   release with Xcode on its runner and ships `mlx.metallib` beside the binary;
+   a CLT-only machine builds and runs fine against it. Separately — and this was
+   conflated for two releases — *writing a new kernel* needs neither, because
+   `MLXFast.metalKernel` JIT-compiles at runtime, which is how the gated-DeltaNet
+   kernel already ships.
 10. **NEW (2026-08-29), and the reason N1 exists.** How much of real-world latency is
    re-prefill rather than prefill? Found by inspection, not measurement: state is rebuilt
    per request, so for a conversation it is *all* of it after turn 1. Open sub-question
