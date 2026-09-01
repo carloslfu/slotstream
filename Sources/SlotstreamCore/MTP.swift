@@ -171,16 +171,16 @@ public final class MTPHead {
         residentBytes = w.totalBytes
     }
 
-    /// One step of the draft head over already-embedded tokens.
-    /// - embedded: (1,S,H) dequantized embedding rows of the input tokens
-    /// - hiddenMulti: (1,S,hc*H) pre-mixer multi stream (main model's on the
-    ///   first step, this head's own `multi` output on chained steps)
-    /// Returns (sample (1,S,H) for lm_head, multi (1,S,hc*H) for chaining).
     /// Stage-dump hook for parity debugging (set by mtp-parity --dump).
     public var debugSink: ((String, MLXArray) -> Void)? = nil {
         didSet { attn.debugSink = debugSink }
     }
 
+    /// One step of the draft head over already-embedded tokens.
+    /// - embedded: (1,S,H) dequantized embedding rows of the input tokens
+    /// - hiddenMulti: (1,S,hc*H) pre-mixer multi stream (main model's on the
+    ///   first step, this head's own `multi` output on chained steps)
+    /// Returns (sample (1,S,H) for lm_head, multi (1,S,hc*H) for chaining).
     public func callAsFunction(
         embedded: MLXArray, hiddenMulti: MLXArray, rope: Rope, state: MTPState
     ) -> (sample: MLXArray, multi: MLXArray) {

@@ -238,7 +238,12 @@ public final class Generator {
         // head so its attention cache covers the whole prompt: the entry for
         // token i fuses the previous position's multi stream with token i's
         // embedding, keeping the invariant mtp.offset == tokenCount - 1.
-        let mtpHead = speculationEnabled ? model.mtpHead : nil
+        // A state handed back by the cache that a plain-path request built
+        // has no draft cache to extend; finish that request plain rather than
+        // speculating over a misaligned head (unreachable in serve, where the
+        // mode is fixed per process; the A/B tools flip it per request).
+        let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
+        let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
         var t0 = Date()
         var logits: MLXArray = MLXArray(0)
