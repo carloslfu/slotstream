@@ -24,3 +24,11 @@ jobs:
         run: |
           python3 -m pip install --quiet --break-system-packages numpy
           Tools/sampler_gates.sh
+
+      - name: package custom binary
+        run: tar -czf slotstream-custom-arm64.tar.gz -C .build/release slotstream
+      - name: upload custom binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: slotstream-custom-arm64
+          path: slotstream-custom-arm64.tar.gz
