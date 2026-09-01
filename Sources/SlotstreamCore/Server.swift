@@ -501,15 +501,32 @@ public final class Server {
         return messages ? Self.messageError(json) : nil
     }
 
+    private static func openAIReasoning(
+        _ value: Any?
+    ) -> (enabled: Bool, effort: String?)? {
+        guard let value else { return (false, nil) }
+        guard let value = value as? String else { return nil }
+        switch value {
+        case "none": return (false, nil)
+        case "minimal", "low": return (true, "low")
+        case "medium": return (true, "medium")
+        case "high", "xhigh": return (true, "xhigh")
+        default: return nil
+        }
+    }
+
     private func openAIValidationError(_ json: [String: Any]) -> String? {
         if let e = modelError(json) { return e }
         let allowed: Set<String> = [
             "model", "messages", "stream", "temperature", "top_p", "top_k",
             "presence_penalty", "max_tokens", "max_completion_tokens", "seed",
-            "stop", "stream_options",
+            "stop", "stream_options", "reasoning_effort",
         ]
         if let e = Self.unsupportedKey(json, allowed: allowed) { return e }
         if let e = Self.messageError(json) { return e }
+        if Self.openAIReasoning(json["reasoning_effort"]) == nil {
+            return "reasoning_effort must be one of none, minimal, low, medium, high, or xhigh"
+        }
         for key in ["temperature", "top_p", "presence_penalty"]
         where json[key] != nil && Self.num(json[key]) == nil {
             return "\(key) must be a number"
@@ -739,7 +756,8 @@ public final class Server {
         }
         let msgs = Self.messages(json)
         let stream = Self.bool(json["stream"]) ?? false
-        var params = SampleParams.instruct
+        let reasoning = Self.openAIReasoning(json["reasoning_effort"])!
+        var params = reasoning.enabled ? SampleParams.thinking : .instruct
         if let v = Self.num(json["temperature"]) { params.temperature = Float(v) }
         if let v = Self.num(json["top_p"]) { params.topP = Float(v) }
         if let v = Self.int(json["top_k"]) { params.topK = v }
@@ -759,7 +777,9 @@ public final class Server {
                 status: "400 Bad Request", cors: cors)
             return
         }
-        guard let ids = try? engine.encodeChat(msgs, thinking: false) else {
+        guard let ids = try? engine.encodeChat(
+            msgs, thinking: reasoning.enabled, reasoningEffort: reasoning.effort)
+        else {
             respondJSON(
                 fd, ["error": ["message": "template failed"]],
                 status: "500 Internal Server Error", cors: cors)

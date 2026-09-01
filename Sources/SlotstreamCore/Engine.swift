@@ -145,11 +145,22 @@ public final class Engine {
         FileHandle.standardError.write(banner.data(using: .utf8)!)
     }
 
-    public func encodeChat(_ messages: [ChatMessage], thinking: Bool) throws -> [Int] {
+    private static func chatTemplateContext(
+        thinking: Bool, reasoningEffort: String?
+    ) -> [String: any Sendable] {
+        var context: [String: any Sendable] = ["enable_thinking": thinking]
+        if let reasoningEffort { context["reasoning_effort"] = reasoningEffort }
+        return context
+    }
+
+    public func encodeChat(
+        _ messages: [ChatMessage], thinking: Bool, reasoningEffort: String? = nil
+    ) throws -> [Int] {
         let msgs: [[String: String]] = messages.map { ["role": $0.role, "content": $0.content] }
         return try tokenizer.applyChatTemplate(
             messages: msgs, tools: nil,
-            additionalContext: ["enable_thinking": thinking])
+            additionalContext: Self.chatTemplateContext(
+                thinking: thinking, reasoningEffort: reasoningEffort))
     }
 
     /// Render a template without constructing the multi-GB model. Installer
@@ -157,7 +168,8 @@ public final class Engine {
     /// old implementation built a second Engine merely to load the tokenizer,
     /// so the singleton guard correctly rejected the check it was meant to run.
     public static func encodeChatWithoutModel(
-        modelDir: URL, messages: [ChatMessage], thinking: Bool
+        modelDir: URL, messages: [ChatMessage], thinking: Bool,
+        reasoningEffort: String? = nil
     ) async throws -> [Int] {
         let tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
         let msgs: [[String: String]] = messages.map {
@@ -165,7 +177,8 @@ public final class Engine {
         }
         return try tokenizer.applyChatTemplate(
             messages: msgs, tools: nil,
-            additionalContext: ["enable_thinking": thinking])
+            additionalContext: chatTemplateContext(
+                thinking: thinking, reasoningEffort: reasoningEffort))
     }
 
     /// Earliest position at which any stop sequence occurs, or nil.
