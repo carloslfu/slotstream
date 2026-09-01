@@ -185,13 +185,11 @@ are estimates from its curve, not runs on real hardware.
   per-user lock allows one model process at a time.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
 
-## In progress
+## Speculative decode
 
-On `main` but not in a release yet. `curl | sh` installs the latest release,
-so none of this is on your machine unless you build from source.
-[CHANGELOG.md](CHANGELOG.md) keeps the running list.
+New in 0.2.0 ([CHANGELOG.md](CHANGELOG.md) has the full list per release).
 
-- **Speculative decode (`--mtp`).** The model ships a draft head that
+- **`--mtp auto|on|off`.** The model ships a draft head that
   predicts the token after next; slotstream drafts a few tokens ahead and
   verifies them in one batched pass, and the first draft is right 86% of the
   time (measured). It only pays where the expert cache is already near its
@@ -199,7 +197,7 @@ so none of this is on your machine unless you build from source.
   ~26 GB of target, and the ×1.5–1.9 expected above that is arithmetic from
   the accept rate, not yet an A/B. The head costs 1.6 GB on top of the cache,
   so the auto ceiling becomes 34.6 GB. It needs a one-time conversion that
-  pulls ~6.3 GB from the official release and writes a 1.5 GB
+  pulls 4.9 GB from the official release and writes a 1.5 GB
   `mtp.safetensors` next to the weights (`Tools/mtp_convert.py`, run from a
   clone with the repo's Python environment); without the file, everything
   runs with it off.
@@ -213,8 +211,7 @@ so none of this is on your machine unless you build from source.
 - [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and
   their precedence, environment variables, where files live. (`slotstream
   <command> --help` carries the same text with more discussion.)
-- [CHANGELOG.md](CHANGELOG.md): what each release changed, and what is on
-  `main` but unreleased.
+- [CHANGELOG.md](CHANGELOG.md): what each release changed.
 - [PLAN.md](PLAN.md): the design and the milestone tracker.
 - [MEASUREMENTS.md](MEASUREMENTS.md): every number here with its method,
   including the experiments that failed.

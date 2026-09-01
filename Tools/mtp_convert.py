@@ -4,7 +4,7 @@ Qwen/Qwen3.8-Flash-Next release into slotstream's 4-bit MLX format.
 
 The pinned community conversion (pipenetwork/Qwen3.8-Flash-Next-MLX-4bit)
 drops all `mtp.*` tensors, so this script pulls exactly those 31 tensors from
-the official bf16 release via HTTP Range requests (~6.3 GB, not the full
+the official bf16 release via HTTP Range requests (4.9 GB, not the full
 250+ GB checkpoint), applies the same transforms the community conversion
 applied to the main model, quantizes to the same recipe, and writes
 `mtp.safetensors` + `mtp.provenance.json` next to the pinned files.

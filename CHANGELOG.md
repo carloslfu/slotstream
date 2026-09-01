@@ -3,7 +3,7 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased (main, versioned 0.2.0)
+## 0.2.0 — 2026-09-01
 
 - Speculative decode with the model's draft head: `--mtp auto|on|off` on
   `run` and `serve`. Auto enables it only at 120 or more experts per layer
