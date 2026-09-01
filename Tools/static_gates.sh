@@ -8,6 +8,7 @@ for f in install.sh Tools/*.sh; do
 done
 sh -n install.sh
 python3 -m py_compile Tools/*.py Tools/reference/*.py
+Tools/llms_full.sh --check
 
 (cd bench/parity31 && shasum -a 256 -c SHA256SUMS)
 

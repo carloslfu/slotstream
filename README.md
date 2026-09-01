@@ -216,7 +216,9 @@ New in 0.2.0 ([CHANGELOG.md](CHANGELOG.md) has the full list per release).
 - [PLAN.md](PLAN.md): the design and the milestone tracker.
 - [MEASUREMENTS.md](MEASUREMENTS.md): every number here with its method,
   including the experiments that failed.
-- [llms.txt](llms.txt): a map of all of this for AI agents.
+- [llms.txt](llms.txt): a map of all of this for AI agents, with the
+  commands, memory knobs, and API essentials inline;
+  [llms-full.txt](llms-full.txt) is every doc above in one file.
 
 ## Testing
 
