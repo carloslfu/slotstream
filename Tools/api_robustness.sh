@@ -63,6 +63,15 @@ C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
     "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"max_tokens":0}')
 [ "$C" = 400 ] && ok "OpenAI max_tokens 0 cannot become an unbounded generation" || bad "max_tokens 0 returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"reasoning_effort":"extreme"}')
+[ "$C" = 400 ] && ok "unknown OpenAI reasoning effort is rejected" || bad "unknown reasoning effort returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+    "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"reasoning_effort":1}')
+[ "$C" = 400 ] && ok "non-text OpenAI reasoning effort is rejected" || bad "numeric reasoning effort returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST \
+    "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"Say OK"}],"reasoning_effort":"high","max_tokens":2}')
+[ "$C" = 200 ] && ok "OpenAI high reasoning effort is accepted" || bad "high reasoning effort returned $C"
 
 # --- crashes: the process must survive each of these ---
 R=$(post /api/chat '{"stream":false,"messages":[{"role":"user","content":"Say OK"}],"options":{"seed":-1,"num_predict":4}}')
