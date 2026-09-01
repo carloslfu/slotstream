@@ -2,9 +2,9 @@
 
 > Local inference for Qwen3.8-Flash-Next (a 125B-parameter mixture-of-experts,
 > 104 GB on disk at 4-bit) on Apple Silicon Macs with far less RAM than the
-> model: 16 GB runs it, 48 GB runs it well. Experts stream from SSD through a
-> fixed slot cache; one Swift binary serves Ollama- and OpenAI-compatible chat
-> APIs on 127.0.0.1:11434.
+> model: measured at ~12 tok/s on 48 GB, estimated at ~4 tok/s on 16 GB.
+> Experts stream from SSD through a fixed slot cache; one Swift binary serves
+> Ollama- and OpenAI-compatible chat APIs on 127.0.0.1:11434.
 
 Facts to know first: the only model is `qwen3.8-flash-next:4bit`; requirements
 are Apple Silicon, macOS 14+, and ~110 GB of free disk; the weights (103.8 GB,
