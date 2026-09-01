@@ -280,6 +280,7 @@ public final class MemoryGovernor {
                 ramPercent: ref?.ramPercent ?? Planner.defaultRAMPercent,
                 availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
                 prefillChunk: prefillChunk, prefixCacheTokens: livePrefixTokens,
+                mtpEnabled: ref?.mtpEnabled ?? false,
                 notes: [String(
                     format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
                     Geometry.perLayer(before), Geometry.perLayer(after), reason)]))

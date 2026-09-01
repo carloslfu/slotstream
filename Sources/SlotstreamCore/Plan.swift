@@ -83,13 +83,17 @@ public struct MemoryPlan {
     /// Conversation state the prefix cache may retain, in tokens. Sized and
     /// charged from the same budget as the pool.
     public let prefixCacheTokens: Int
+    /// Whether the MTP draft head loads (self-speculative decode). Charged as
+    /// a fixed resident block; the pool is sized from what remains.
+    public let mtpEnabled: Bool
     public let notes: [String]
 
     public init(
         source: Source, slots: Int, targetGB: Double?,
         ramGB: Double, workingSetGB: Double, ramPercent: Double,
         availableGB: Double?, clamped: Bool,
-        prefillChunk: Int, prefixCacheTokens: Int, notes: [String]
+        prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
+        notes: [String]
     ) {
         self.source = source
         self.slots = slots
@@ -101,6 +105,7 @@ public struct MemoryPlan {
         self.clamped = clamped
         self.prefillChunk = prefillChunk
         self.prefixCacheTokens = prefixCacheTokens
+        self.mtpEnabled = mtpEnabled
         self.notes = notes
     }
 
@@ -109,6 +114,7 @@ public struct MemoryPlan {
     public var expectedPeakGB: Double {
         poolGB + Planner.fixedFootprintGB + Planner.prefillCostGB(prefillChunk)
             + Planner.prefixCacheCostGB(tokens: prefixCacheTokens)
+            + (mtpEnabled ? Planner.mtpResidentGB : 0)
     }
     public var estWarmTokS: Double { Planner.estWarmTokS(expertsPerLayer: expertsPerLayerCached) }
     public var fullyResident: Bool { slots >= Geometry.totalRecords }
@@ -147,6 +153,11 @@ public struct MemoryPlan {
             format: "  prefill: %d tokens per pass (~%.0f tok/s here; costs ~%.1f GB of the target)",
             prefillChunk, Planner.estPrefillTokS(chunk: prefillChunk),
             Planner.prefillCostGB(prefillChunk)))
+        if mtpEnabled {
+            l.append(String(
+                format: "  mtp:    draft head on — speculative decode (%.1f GB resident, charged above)",
+                Planner.mtpResidentGB))
+        }
         if prefixCacheTokens > 0 {
             l.append(String(
                 format: "  reuse:  up to %d tokens across %d conversations (~%.1f GB), so a "
@@ -177,6 +188,7 @@ public struct MemoryPlan {
             "fully_resident": fullyResident,
             "prefill_chunk": prefillChunk,
             "prefix_cache_max_tokens": prefixCacheTokens,
+            "mtp": mtpEnabled,
             // Unrounded on purpose: the banner rounds these to whole tok/s,
             // and a caller comparing two plans across a rounding boundary sees
             // a step that is not there. Anything asserting on the plan should
@@ -441,9 +453,10 @@ public enum Planner {
     /// RAM to the OS and the user's other apps, and stay 2 GB under the Metal
     /// recommended working set — whichever binds first.
     public static func autoTargetGB(
-        ramGB: Double, workingSetGB: Double, ramPercent: Double = defaultRAMPercent
+        ramGB: Double, workingSetGB: Double, ramPercent: Double = defaultRAMPercent,
+        ceilingGB: Double = usefulCeilingGB
     ) -> Double {
-        min(usefulCeilingGB, (ramPercent / 100) * ramGB, workingSetGB - 2.0)
+        min(ceilingGB, (ramPercent / 100) * ramGB, workingSetGB - 2.0)
     }
 
     /// Warm decode estimate, re-anchored 2026-08-30 on measured points.
@@ -487,6 +500,15 @@ public enum Planner {
         return r0 * pow(r1 / r0, t)
     }
 
+    /// Resident cost of the MTP draft head (mtp.safetensors is 1.47 GB;
+    /// activations and cache growth ride the existing margins).
+    public static let mtpResidentGB = 1.6
+    /// Auto enables the draft head only when the cache still affords this
+    /// many experts per layer AFTER paying for it (M9 design note: below
+    /// ~120/layer the displaced experts are worth more than the multiplier;
+    /// past the ~150/layer plateau they are worth nothing).
+    public static let mtpAutoFloorPerLayer = 120.0
+
     /// Pool budget before the prefill pass takes its share.
     public static func poolBudgetGB(_ targetGB: Double) -> Double {
         targetGB - fixedFootprintGB - planningMarginGB
@@ -506,10 +528,15 @@ public enum Planner {
     /// busy machine degrades gracefully instead of swap-storming — explicit
     /// knobs mean the user chose, so they only get an informational note. On a
     /// quiet machine the clamp never binds and auto stays deterministic.
+    public enum MTPMode: String {
+        case on, off, auto
+    }
+
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
-        availableGB: Double? = nil, ramPercent: Double? = nil
+        availableGB: Double? = nil, ramPercent: Double? = nil,
+        mtp: MTPMode = .off, mtpAvailable: Bool = false
     ) throws -> MemoryPlan {
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
@@ -537,12 +564,33 @@ public enum Planner {
         if ramPercent != nil, expertsPerLayer != nil || poolGB != nil || memoryGB != nil {
             notes.append("--max-ram-percent ignored (it only bounds auto; an explicit memory knob is already the target)")
         }
+        if mtp == .on, !mtpAvailable {
+            throw PlanError(
+                "--mtp on, but mtp.safetensors is not next to the model — the draft head "
+                    + "is a separate 1.5 GB artifact converted from the official release "
+                    + "(Tools/mtp_convert.py); convert it first or use --mtp auto/off")
+        }
 
-        func finish(_ source: MemoryPlan.Source, _ slots: Int, target: Double?) -> MemoryPlan {
+        /// The draft-head decision for a pool of `slots` when the head costs
+        /// pool budget (target-driven sources already shrank the pool).
+        func resolveMTP(slotsAfterCharge: Int) -> Bool {
+            switch mtp {
+            case .off: return false
+            case .on: return true
+            case .auto:
+                return mtpAvailable
+                    && Geometry.perLayer(slotsAfterCharge) >= mtpAutoFloorPerLayer
+            }
+        }
+
+        func finish(
+            _ source: MemoryPlan.Source, _ slots: Int, target: Double?, mtpOn: Bool
+        ) -> MemoryPlan {
             // An explicit pool knob states the cache size, not the whole budget,
             // so size the prefill pass from the pool the user asked for.
-            let chunk = prefillChunkFor(
-                poolBudgetGB: target.map(poolBudgetGB) ?? Geometry.gb(slots))
+            let mtpCharge = mtpOn ? mtpResidentGB : 0
+            let budgetForCaches = target.map { poolBudgetGB($0) - mtpCharge } ?? Geometry.gb(slots)
+            let chunk = prefillChunkFor(poolBudgetGB: budgetForCaches)
             let capped = min(slots, Geometry.totalRecords)
             let floored = max(capped, Geometry.floorSlots)
             if floored > capped {
@@ -550,9 +598,8 @@ public enum Planner {
                     format: "raised to the floor of %d slots (~%.0f/layer): below it a prefill chunk can pin every slot",
                     Geometry.floorSlots, Geometry.perLayer(Geometry.floorSlots)))
             }
-            let budgetForCaches = target.map(poolBudgetGB) ?? Geometry.gb(slots)
             let peak = Geometry.gb(floored) + fixedFootprintGB + prefillCostGB(chunk)
-                + prefixCacheGB(poolBudgetGB: budgetForCaches)
+                + prefixCacheGB(poolBudgetGB: budgetForCaches) + mtpCharge
             if peak > ws, source != .memoryGB {  // memoryGB branch words its own note
                 notes.append(String(
                     format: "expected peak %.1f GB exceeds the %.1f GB Metal working set — expect paging; close other apps or lower the knob",
@@ -570,6 +617,7 @@ public enum Planner {
                 availableGB: avail, clamped: clamped,
                 prefillChunk: chunk,
                 prefixCacheTokens: prefixCacheTokensFor(poolBudgetGB: budgetForCaches),
+                mtpEnabled: mtpOn,
                 notes: notes)
         }
 
@@ -577,7 +625,8 @@ public enum Planner {
             guard n >= 1 else { throw PlanError("--experts-per-layer must be ≥ 1") }
             if poolGB != nil { notes.append("--pool-gb ignored (--experts-per-layer takes precedence)") }
             if memoryGB != nil { notes.append("--memory-gb ignored (--experts-per-layer takes precedence)") }
-            return finish(.expertsPerLayer, min(n, Geometry.expertsPerLayer) * Geometry.layers, target: nil)
+            let slots = min(n, Geometry.expertsPerLayer) * Geometry.layers
+            return finish(.expertsPerLayer, slots, target: nil, mtpOn: resolveMTP(slotsAfterCharge: slots))
         }
         if let g = poolGB {
             guard g.isFinite, g > 0 else {
@@ -588,7 +637,7 @@ public enum Planner {
             // raised it; cap before Double->Int so huge finite input is safe.
             let requested = g >= Geometry.gb(Geometry.totalRecords)
                 ? Geometry.totalRecords : Int(g * 1e9 / Geometry.recordBytes)
-            return finish(.poolGB, requested, target: nil)
+            return finish(.poolGB, requested, target: nil, mtpOn: resolveMTP(slotsAfterCharge: requested))
         }
         if let m = memoryGB {
             guard m.isFinite else { throw PlanError("--memory-gb must be finite") }
@@ -609,17 +658,53 @@ public enum Planner {
                     format: "only %.1f GB is reclaimable right now — expect paging until other apps release memory",
                     a))
             }
-            return finish(.memoryGB, slotsForTarget(m), target: m)
+            var mtpOn = resolveMTP(slotsAfterCharge: slotsForTarget(max(m - mtpResidentGB, minMemoryGB)))
+            if mtpOn, m - mtpResidentGB < minMemoryGB {
+                if mtp == .on {
+                    throw PlanError(String(
+                        format: "--memory-gb %.1f cannot fit the %.1f GB draft head above the %.1f GB minimum — raise the target or drop --mtp on",
+                        m, mtpResidentGB, minMemoryGB))
+                }
+                mtpOn = false
+            }
+            let slots = mtpOn ? slotsForTarget(m - mtpResidentGB) : slotsForTarget(m)
+            return finish(.memoryGB, slots, target: m, mtpOn: mtpOn)
         }
 
-        // auto: the default
-        let ceiling = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct)
-        var raw = ceiling
-        if let a = avail, a - availabilitySlackGB(ramGB: ram) < raw {
-            raw = a - availabilitySlackGB(ramGB: ram)
-            clamped = true
+        // auto: the default. The draft head is worth its 1.6 GB only when the
+        // cache still reaches ~120+ experts/layer after paying for it, and
+        // past the decode knee that RAM buys nothing else — so when the head
+        // is on, the ceiling rises by exactly its cost.
+        let mtpWanted = mtp != .off && mtpAvailable
+        func autoRaw(ceilingGB: Double) -> (Double, Bool) {
+            let c = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: ceilingGB)
+            var raw = c
+            var didClamp = false
+            if let a = avail, a - availabilitySlackGB(ramGB: ram) < raw {
+                raw = a - availabilitySlackGB(ramGB: ram)
+                didClamp = true
+            }
+            return (raw, didClamp)
         }
+        var mtpOn = false
+        if mtpWanted {
+            let (rawM, _) = autoRaw(ceilingGB: usefulCeilingGB + mtpResidentGB)
+            let targetM = max(minMemoryGB, rawM)
+            let charged = targetM - mtpResidentGB
+            mtpOn = charged >= minMemoryGB
+                && (mtp == .on
+                    || Geometry.perLayer(slotsForTarget(charged)) >= mtpAutoFloorPerLayer)
+        }
+        // `ceiling` is what this machine's auto would pick unclamped (the
+        // notes below compare against it); the knee itself rises by the
+        // head's cost when the head is on.
+        let kneeGB = usefulCeilingGB + (mtpOn ? mtpResidentGB : 0)
+        let ceiling = autoTargetGB(
+            ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: kneeGB)
+        let raw: Double
+        (raw, clamped) = autoRaw(ceilingGB: kneeGB)
         let target = max(minMemoryGB, raw)
+        if mtpOn, target - mtpResidentGB < minMemoryGB { mtpOn = false }
         // Exactly one note tells the story of why the target is what it is.
         if raw < minMemoryGB, ceiling < minMemoryGB {
             notes.append(String(
@@ -633,8 +718,8 @@ public enum Planner {
             notes.append(String(
                 format: "only %.1f GB of %.0f GB RAM is reclaimable right now (other apps hold the rest) — sized down from the usual %.1f GB; close apps and restart for full speed, or force a size with --memory-gb",
                 avail ?? 0, ram, ceiling))
-        } else if ceiling >= usefulCeilingGB,
-            min((pct / 100) * ram, ws - 2.0) > 1.25 * usefulCeilingGB
+        } else if ceiling >= kneeGB,
+            min((pct / 100) * ram, ws - 2.0) > 1.25 * kneeGB
         {
             // This machine could hold more and auto declined. Say so, or it
             // reads as slotstream failing to use the hardware.
@@ -642,6 +727,7 @@ public enum Planner {
                 format: "this machine could hold more, but decode stops improving around here (measured 11.2 tok/s at 120 experts/layer, 11.6 at 150) — auto caps at %.1f GB rather than spend RAM for nothing; --memory-gb N to go further",
                 usefulCeilingGB))
         }
-        return finish(.auto, slotsForTarget(target), target: target)
+        let slots = mtpOn ? slotsForTarget(target - mtpResidentGB) : slotsForTarget(target)
+        return finish(.auto, slots, target: target, mtpOn: mtpOn)
     }
 }

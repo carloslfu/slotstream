@@ -85,6 +85,22 @@ esac
 echo "== conversation prefix cache: bounded, flat with depth, deterministic =="
 check "prefix reuse within the prefill-rechunk control (prefix-check)" "$BIN prefix-check"
 
+# The MTP draft head is a separately converted artifact (Tools/mtp_convert.py),
+# not part of `pull` — a fresh install legitimately lacks it, so these SKIP
+# rather than fail when it is absent.
+echo "== MTP draft head: parity with the Python reference + speculative gates =="
+MTPFILE="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit/mtp.safetensors"
+if [ -f "$MTPFILE" ]; then
+  check "mtp head bit-parity vs Python reference (mtp-parity)" "$BIN mtp-parity"
+  if $BIN mtp-check --memory-gb $BIG_MEMORY > /tmp/ssv_mtp.txt 2>&1; then
+    echo "PASS  speculative decode gates (determinism, state integrity, accept sanity)"; PASS=$((PASS+1))
+  else
+    echo "FAIL  speculative decode gates"; tail -5 /tmp/ssv_mtp.txt; FAIL=$((FAIL+1))
+  fi
+else
+  echo "SKIP  mtp gates (no mtp.safetensors — convert with Tools/mtp_convert.py)"
+fi
+
 echo "== memory target keeps its promise =="
 $BIN run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --memory-gb $BIG_MEMORY 2>/tmp/ssv_mem.err > /tmp/ssv_mem.txt
 PEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_mem.err | grep -o '[0-9.]*')

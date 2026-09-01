@@ -14,6 +14,7 @@ struct Slotstream: ParsableCommand {
             Run.self, Serve.self, Pull.self, Doctor.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
             PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
+            MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self,
         ]
     )
 }
@@ -113,7 +114,29 @@ struct ModelOptions: ParsableArguments {
                 """))
     var maxRAMPercent: Double?
 
+    @Option(
+        name: .customLong("mtp"),
+        help: ArgumentHelp(
+            "Speculative decode with the MTP draft head: auto | on | off (default auto).",
+            discussion: """
+                The model's own next-next-token head drafts a few tokens \
+                and the main model verifies them in one batched pass. Costs \
+                a fixed 1.6 GB of memory; auto enables it only when the \
+                expert cache still reaches ~120 experts/layer after paying, \
+                which is where the multiplier beats spending the same RAM on \
+                cache. Needs the separately converted mtp.safetensors next \
+                to the model (Tools/mtp_convert.py).
+                """))
+    var mtp: String = "auto"
+
     var modelURL: URL { ModelLocator.resolve(model) }
+
+    func mtpMode() throws -> Planner.MTPMode {
+        guard let m = Planner.MTPMode(rawValue: mtp) else {
+            throw PlanError("--mtp must be auto, on, or off (got \(mtp))")
+        }
+        return m
+    }
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
@@ -121,7 +144,8 @@ struct ModelOptions: ParsableArguments {
         try ensureWeights()
         let plan = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
-            ramPercent: maxRAMPercent)
+            ramPercent: maxRAMPercent,
+            mtp: mtpMode(), mtpAvailable: MTPWeights.present(modelDir: modelURL))
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
         return plan
     }
@@ -248,7 +272,7 @@ struct Run: ParsableCommand {
 
                     -- prefill \(stats.prefillTokens) tok in \(String(format: "%.2f", stats.prefillSeconds))s (\(String(format: "%.1f", stats.prefillTPS)) tok/s)\(stats.prefixHit ? " | \(stats.reusedPrefixTokens) of \(stats.promptTokens) reused from the previous turn" : "")
                     -- prefill split: io \(String(format: "%.2f", stats.prefillIOSeconds))s + scatter \(String(format: "%.2f", stats.prefillScatterSeconds))s + compute \(String(format: "%.2f", max(0, stats.prefillSeconds - stats.prefillIOSeconds - stats.prefillScatterSeconds)))s | \(stats.prefillRecords) records (\(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3)) GB, \(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3 / max(stats.prefillIOSeconds, 1e-9))) GB/s)
-                    -- decode \(stats.decodeTokens) tok in \(String(format: "%.2f", stats.decodeSeconds))s (\(String(format: "%.2f", stats.decodeTPS)) tok/s)
+                    -- decode \(stats.decodeTokens) tok in \(String(format: "%.2f", stats.decodeSeconds))s (\(String(format: "%.2f", stats.decodeTPS)) tok/s)\(stats.verifyPasses > 0 ? String(format: " | mtp %d/%d drafts accepted (%.0f%%), %d verify passes", stats.acceptedDrafts, stats.draftedTokens, 100 * stats.draftAcceptRate, stats.verifyPasses) : "")
                     -- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | peak \(String(format: "%.1f", stats.peakMemoryGB)) GB | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
 
                     """.data(using: .utf8)!)
@@ -470,7 +494,9 @@ struct Doctor: ParsableCommand {
             ramGB: simRAM,
             workingSetGB: simWorkingSet ?? simRAM.map { $0 * 0.75 },
             availableGB: simulatedAvailable,
-            ramPercent: model.maxRAMPercent)
+            ramPercent: model.maxRAMPercent,
+            mtp: try model.mtpMode(),
+            mtpAvailable: MTPWeights.present(modelDir: model.modelURL))
         if asJSON {
             let data = try JSONSerialization.data(
                 withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])

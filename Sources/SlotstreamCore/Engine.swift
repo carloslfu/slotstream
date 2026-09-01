@@ -37,7 +37,7 @@ public final class Engine {
                     ramGB: p.ramGB, workingSetGB: p.workingSetGB,
                     ramPercent: p.ramPercent, availableGB: p.availableGB,
                     clamped: p.clamped, prefillChunk: p.prefillChunk,
-                    prefixCacheTokens: capped, notes: p.notes))
+                    prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled, notes: p.notes))
             }
         }
     }
@@ -119,6 +119,9 @@ public final class Engine {
         let index = try CheckpointIndex(dir: modelDir)
         self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots)
         try model.validate()
+        if plan?.mtpEnabled == true {
+            try model.enableMTP(modelDir: modelDir)
+        }
         self.generator = Generator(model: model)
         if let p = plan, ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CHUNK"] == nil {
             generator.prefillChunk = p.prefillChunk
@@ -137,6 +140,7 @@ public final class Engine {
         let banner = "engine ready in \(String(format: "%.1f", -t0.timeIntervalSinceNow))s: "
             + "expert cache ~\(String(format: "%.0f", model.pool.slotsPerLayer))/\(model.cfg.numExperts) per layer "
             + "(\(model.pool.slots) global slots = \(String(format: "%.1f", Double(model.pool.poolBytes) / 1e9)) GB), "
+            + (model.mtpHead != nil ? "mtp draft head on, " : "")
             + "eos \(eos.sorted())\n"
         FileHandle.standardError.write(banner.data(using: .utf8)!)
     }

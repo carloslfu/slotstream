@@ -20,6 +20,9 @@ public final class Qwen4ExpModel {
     var ple: [Int: PLELayer] = [:]
     let mixer: GatedResidual
     let lmHead: QLinear
+    /// The optional MTP draft head for self-speculative decode; loaded from
+    /// mtp.safetensors on demand (`enableMTP`), everything resident.
+    public private(set) var mtpHead: MTPHead? = nil
     public let runLayers: Int  // truncated for parity rigs; numLayers normally
 
     public final class State {
@@ -28,6 +31,13 @@ public final class Qwen4ExpModel {
         var indexer: [Int: IndexerCache] = [:]
         var ngramCtx: [Int64] = []
         public var tokenCount = 0
+        /// Speculative-decode companions, created lazily by the MTP-aware
+        /// generate path: the draft head's own attention state, and the
+        /// pre-mixer multi stream at the last consumed position (the next
+        /// draft step's hidden input). They ride the prefix cache with the
+        /// rest of the state so conversations keep their draft context.
+        public var mtp: MTPState?
+        public var lastMulti: MLXArray?
         public init() {}
     }
 
@@ -71,6 +81,19 @@ public final class Qwen4ExpModel {
         if Self.debugDir != nil { attnHC[0].debugName = "hc0" }
         mixer = GatedResidual(resident, base: "model.hyper_connection_mixer", useCombine: false)
         lmHead = resident.linear("lm_head")
+    }
+
+    /// The model's rotary embedding (the MTP head shares it).
+    public var sharedRope: Rope { rope }
+
+    /// lm_head applied to a draft-head sample hidden — the draft's logits.
+    public func draftLogits(_ sample: MLXArray) -> MLXArray { lmHead(sample) }
+
+    /// Load the MTP draft head (1.5 GB resident). Idempotent; throws when
+    /// mtp.safetensors is absent.
+    public func enableMTP(modelDir: URL) throws {
+        guard mtpHead == nil else { return }
+        mtpHead = MTPHead(try MTPWeights(modelDir: modelDir, config: cfg))
     }
 
     public func makeState() -> State {
@@ -150,11 +173,79 @@ public final class Qwen4ExpModel {
         return mixed
     }
 
+    /// Like `hiddenStates`, but also returns the pre-final-mixer multi stream
+    /// (B,S,hc*H) — the hidden the MTP draft head consumes ("scheme A": the
+    /// main model truly emits the pre-mixer stream on the first draft step).
+    public func hiddenStatesWithMulti(_ ids: [Int], state: State) -> (mixed: MLXArray, multi: MLXArray) {
+        var multi = MLXArray(0)
+        let mixed = hiddenStates(ids, state: state) { l, h in
+            if l == self.runLayers - 1 { multi = h }
+        }
+        return (mixed, multi)
+    }
+
     /// Logits for the last position only.
     public func lastLogits(_ ids: [Int], state: State) -> MLXArray {
         let hidden = hiddenStates(ids, state: state)
         let last = hidden[0..., (hidden.dim(1) - 1)..., 0...]
         return lmHead(last)  // (1,1,vocab)
+    }
+
+    /// Logits at EVERY position plus the pre-mixer multi stream — the
+    /// speculative verify pass needs both. S stays small (draft length + 1).
+    public func allLogitsWithMulti(_ ids: [Int], state: State) -> (logits: MLXArray, multi: MLXArray) {
+        let (mixed, multi) = hiddenStatesWithMulti(ids, state: state)
+        return (lmHead(mixed), multi)
+    }
+}
+
+/// A zero-copy snapshot of a State, for speculative-decode rollback. The
+/// recurrent caches' arrays are REPLACED on every step (the GDN kernel emits
+/// a fresh state_out; conv windows are re-sliced), never mutated in place, so
+/// holding references is enough. KV/indexer buffers ARE written in place, but
+/// only at rows past their offset — rolling the offset back is a full undo.
+public struct StateCheckpoint {
+    var conv: [Int: MLXArray]
+    var ssm: [Int: MLXArray]
+    var pleConv: [Int: MLXArray]
+    var kvOffsets: [Int: Int]
+    var indexerOffsets: [Int: Int]
+    var ngramCtx: [Int64]
+    var tokenCount: Int
+    var mtpOffset: Int
+    var lastMulti: MLXArray?
+}
+
+extension Qwen4ExpModel.State {
+    public func checkpoint() -> StateCheckpoint {
+        var conv: [Int: MLXArray] = [:]
+        var ssm: [Int: MLXArray] = [:]
+        var pleConv: [Int: MLXArray] = [:]
+        for (l, c) in linear {
+            if let a = c.convState { conv[l] = a }
+            if let a = c.ssmState { ssm[l] = a }
+            if let a = c.pleConvState { pleConv[l] = a }
+        }
+        return StateCheckpoint(
+            conv: conv, ssm: ssm, pleConv: pleConv,
+            kvOffsets: kv.mapValues { $0.offset },
+            indexerOffsets: indexer.mapValues { $0.offset },
+            ngramCtx: ngramCtx, tokenCount: tokenCount,
+            mtpOffset: mtp?.offset ?? 0, lastMulti: lastMulti)
+    }
+
+    public func restore(_ c: StateCheckpoint) {
+        for (l, cache) in linear {
+            cache.convState = c.conv[l]
+            cache.ssmState = c.ssm[l]
+            cache.pleConvState = c.pleConv[l]
+        }
+        for (l, cache) in kv { cache.trim(to: c.kvOffsets[l] ?? 0) }
+        for (l, cache) in indexer { cache.trim(to: c.indexerOffsets[l] ?? 0) }
+        ngramCtx = c.ngramCtx
+        tokenCount = c.tokenCount
+        mtp?.trim(to: c.mtpOffset)
+        lastMulti = c.lastMulti
     }
 }
 

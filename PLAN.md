@@ -33,6 +33,7 @@ design and the estimates it replaces.
 | N2 Prefill, second pass | ◐ **partial 2026-08-30** | cost model was 2x over, recalibrated: 8k prefill 93.7 → 112.9 tok/s, peak down. Read-ahead built, measured worse, removed. ≥150 needs a grouped-GEMM kernel — **not blocked**: `MLXFast.metalKernel` JIT-compiles at runtime and this repo already ships one |
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
+| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB, per the design note. Gates: `mtp-parity`, `mtp-check` |
 
 **What is actually next: [§8.1](#81-next--the-ordered-queue-post-015).** M0–M8 are the
 build-out phases; §8.1 is the live queue, ordered by what decides whether a person keeps
@@ -371,7 +372,11 @@ slotstream run qwen3.8-flash-next:4bit     # REPL chat
 slotstream serve                           # ✅ zero-config: auto-tunes, announces the plan, resizes elastically
 slotstream serve --memory-gb 16            # ✅ total-process memory target (cache gets G − 4.4 GB; pinned)
 slotstream serve --no-elastic              # ✅ pin an auto size too
+slotstream serve --mtp on|off|auto         # ✅ MTP speculative decode (auto: only ≥120 experts/layer after its 1.6 GB)
 slotstream elastic-check                   # ✅ byte-identical output across live pool grow/shrink
+slotstream mtp-parity                      # ✅ draft head bit-exact vs the Python reference fixture
+slotstream mtp-accept                      # ✅ measure the draft accept curve on real greedy continuations
+slotstream mtp-check                       # ✅ speculative gates: determinism, state integrity, accept sanity
 slotstream install                         # LaunchAgent (com.slotstream.server), starts at login
 slotstream bench [--suite full|quick] [--sim-ram 16]
 ```
@@ -750,7 +755,7 @@ using slotstream; they are credibility artifacts and completeness for the milest
   Measured column, the presets freeze. Days of building a measurement rig whose output is
   a table. Do targeted measurements ad hoc instead.
 - **`lite16` on a real 16 GB Mac** — also blocked on someone else's hardware.
-- **M1 locality traces**, **LaunchAgent**, **M9 MTP**.
+- **M1 locality traces**, **LaunchAgent**. (M9 MTP left this list 2026-09-01 — built; see the M9 design note addendum.)
 - *Exception on the soak:* a leak that only appears after 30 minutes is a real bug, not a
   credibility item. Ordinary daily use covers it in the meantime; W5 does not have to be
   built to catch it.
@@ -815,10 +820,42 @@ representative text — nobody has published one; (b) whether draft-batched expe
 fetches actually raise queue depth enough to matter on fetch-bound tiers; (c)
 the true resident cost of the converted 4-bit MTP block (2.25 GB is an estimate).
 
+### M9 addendum — built and measured (2026-09-01)
+
+The analysis above survived contact with implementation almost intact; the
+corrections are recorded here and in MEASUREMENTS.md (M9 section).
+
+- **Weights**: converted from the official release via ranged downloads of
+  exactly the 31 `mtp.*` tensors (4.9 GB, 92 s) — `Tools/mtp_convert.py`,
+  provenance in `mtp.provenance.json`. Real resident cost **1.47 GB**, not
+  the 2.25 estimated. The +1 norm-centering convention was verified
+  tensor-by-tensor against the official raw checkpoint before conversion.
+- **Port**: the Swift head is **bit-exact** against the MLX Python reference
+  (`mtp-parity`, real captured inputs, reference run under mlx 0.31.x — the
+  kernel family mlx-swift pins). Semantics follow vLLM's scheme A: the
+  chained draft feeds the PRE-mixer multi stream forward.
+- **Accept curve (measured, previously unpublished)**: 85.8% at depth 1,
+  71.0/53.8/41.3% for 2/3/4-chains; E[tokens/round] 3.52 at depth 4.
+- **Enable policy shipped as designed**: `--mtp auto|on|off`; auto turns the
+  head on only when the cache still reaches **≥120 experts/layer after its
+  1.6 GB** (`mtpAutoFloorPerLayer`), and raises the auto ceiling to 34.6 GB
+  so the pool still reaches the knee. A/B at 54/layer measured **×0.96** —
+  the "tight memory keeps the experts" argument, confirmed with numbers.
+  The plateau-regime A/B (est. ×1.5–1.9) awaits a quiet machine:
+  `slotstream mtp-bench --memory-gb 26`.
+- **One claim corrected**: "byte-identical to plain greedy" was wrong for the
+  same reason prefix reuse isn't byte-identical — the verify pass re-batches
+  tokens and re-association moves near-tie logits. Gates (`mtp-check`):
+  determinism across runs, prefix-cache continuation of speculative
+  conversations, non-degenerate accept, divergence reported. Sampling
+  semantics are exact by construction (sequential draws off verified logits).
+- **Governor**: MTP is a startup decision; the elastic governor sizes the
+  pool around it (the head's 1.6 GB shows up in availability, so the pool
+  self-corrects). "Shed MTP before the pool" from the note is NOT built —
+  a live toggle would need golden-equivalence gating of the switch itself;
+  revisit only if pressure shedding proves insufficient in practice.
+
 ### M9+ — Later (each gated on v0.1 done)
-**MTP self-speculative decode** — see the M9 design note above for the memory
-tradeoff and enable policy (it is a big-memory feature; the earlier "biggest
-multiplier for the streaming tiers" framing was wrong).
 Vision input (mlx-vlm parity). Compact 3-bit-expert build with eval gate.
 fp8 KV. Memory-pressure dynamic resharding. JSON-schema constrained output. Upstreaming
 reusable pieces (GDN Swift kernel) to mlx-swift-lm. Multi-model residency. Qwen4 when it

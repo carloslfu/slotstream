@@ -75,6 +75,14 @@ public struct GenStats {
     public var expertHitRate = 0.0
     public var ngramRowHits = 0
     public var ngramRowMisses = 0
+    /// Speculative decode (MTP): drafts proposed, drafts accepted, and verify
+    /// passes run. Zero when the draft head is disabled.
+    public var draftedTokens = 0
+    public var acceptedDrafts = 0
+    public var verifyPasses = 0
+    public var draftAcceptRate: Double {
+        draftedTokens > 0 ? Double(acceptedDrafts) / Double(draftedTokens) : 0
+    }
     /// Whole-process lifetime RSS high-water, including MLX, Swift, mmap pages,
     /// allocator cache, and I/O staging. This is the number memory promises use.
     public var peakMemoryGB = 0.0
@@ -168,6 +176,17 @@ public final class Generator {
     /// bytes moved. It costs transient activation memory, which is why it is a
     /// knob rather than "as large as the prompt". Measured in MEASUREMENTS.md.
     public var prefillChunk = PrefillTuning.chunk
+    /// Draft tokens per speculative round when the MTP head is enabled.
+    /// The measured accept curve picks the default; SLOTSTREAM_DRAFT_DEPTH
+    /// overrides for experiments.
+    public var draftDepth: Int = {
+        if let s = ProcessInfo.processInfo.environment["SLOTSTREAM_DRAFT_DEPTH"],
+            let n = Int(s), n >= 1, n <= 16 { return n }
+        return 4
+    }()
+    /// Gate for the speculative path — `mtp-check` compares speculative
+    /// against plain decode on the same loaded model by flipping this.
+    public var speculationEnabled = true
     var sampler = Sampler()
     var rngState: UInt64 {
         get { sampler.rngState }
@@ -215,6 +234,12 @@ public final class Generator {
         model.ngram.resetStats()
 
         // ---- prefill in chunks (only the tokens the state has not consumed)
+        // With the MTP draft head enabled, every chunk also flows through the
+        // head so its attention cache covers the whole prompt: the entry for
+        // token i fuses the previous position's multi stream with token i's
+        // embedding, keeping the invariant mtp.offset == tokenCount - 1.
+        let mtpHead = speculationEnabled ? model.mtpHead : nil
+        if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
         var t0 = Date()
         var logits: MLXArray = MLXArray(0)
         var i = reused
@@ -229,7 +254,18 @@ public final class Generator {
             }
             let hi = min(i + prefillChunk, promptIds.count)
             let chunk = Array(promptIds[i ..< hi])
-            if hi == promptIds.count {
+            if let head = mtpHead {
+                let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state)
+                state.lastMulti = head.consume(
+                    chunk: chunk, chunkMulti: multi, prevMulti: state.lastMulti,
+                    resident: model.resident, rope: model.rope, state: state.mtp!)
+                if hi == promptIds.count {
+                    logits = model.lmHead(mixed[0..., (mixed.dim(1) - 1)..., 0...])
+                    eval(logits)
+                } else {
+                    eval(mixed)
+                }
+            } else if hi == promptIds.count {
                 logits = model.lastLogits(chunk, state: state)
                 eval(logits)
             } else {
@@ -255,17 +291,25 @@ public final class Generator {
         // the last one unconsumed and it must not be claimed.
         var consumed = promptIds
         t0 = Date()
-        for _ in 0 ..< max(0, params.maxTokens) {
-            if let keepGoing = shouldContinue, !keepGoing() { reason = "stop"; break }
-            let tok = sample(logits, params: params, generated: generated)
-            if eosIds.contains(tok) { reason = "stop"; break }
-            out.append(tok)
-            generated.insert(tok)
-            // The callback stops the run for a stop sequence or a gone client.
-            if let cb = onToken, !cb(tok) { reason = "stop"; break }
-            logits = model.lastLogits([tok], state: state)
-            consumed.append(tok)
-            eval(logits)
+        if let head = mtpHead, speculationEnabled, let mtpState = state.mtp {
+            speculativeDecode(
+                head: head, mtpState: mtpState, state: state, logits: logits,
+                params: params, eosIds: eosIds, shouldContinue: shouldContinue,
+                onToken: onToken, out: &out, generated: &generated,
+                reason: &reason, consumed: &consumed, stats: &stats)
+        } else {
+            for _ in 0 ..< max(0, params.maxTokens) {
+                if let keepGoing = shouldContinue, !keepGoing() { reason = "stop"; break }
+                let tok = sample(logits, params: params, generated: generated)
+                if eosIds.contains(tok) { reason = "stop"; break }
+                out.append(tok)
+                generated.insert(tok)
+                // The callback stops the run for a stop sequence or a gone client.
+                if let cb = onToken, !cb(tok) { reason = "stop"; break }
+                logits = model.lastLogits([tok], state: state)
+                consumed.append(tok)
+                eval(logits)
+            }
         }
         cache?.store(state: state, tokens: consumed)
         stats.finishReason = reason
@@ -277,6 +321,122 @@ public final class Generator {
         stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
         stats.peakMemoryGB = ProcessMemory.peakResidentGB
         return (out, stats)
+    }
+}
+
+extension Generator {
+    /// Self-speculative decode with the MTP draft head. One round:
+    ///
+    ///   1. draft `draftDepth` tokens greedily by chaining the head
+    ///      (each step fuses the previous multi stream with the previous
+    ///      token's embedding — "scheme A"),
+    ///   2. verify them in ONE batched main-model pass (decode is
+    ///      kernel-launch-bound at plateau cache sizes, so a k+1-token pass
+    ///      costs roughly one token's launches),
+    ///   3. sample sequentially from the verified logits with the plain
+    ///      loop's exact semantics — same rng draw order, same presence
+    ///      penalty evolution, drawing ONLY for tokens the plain loop would
+    ///      have sampled, so the sampler stream never desyncs,
+    ///   4. reconcile: the verify pass consumed all k+1 tokens; if some were
+    ///      rejected, roll the state back (zero-copy checkpoint — recurrent
+    ///      arrays are replaced, never mutated; KV rolls back by offset) and
+    ///      re-run just the kept tokens. The GDN state cannot be rewound, so
+    ///      this rebuild pass is the price of a rejection.
+    ///
+    /// Every emitted token's logits still come from the main model, so this
+    /// changes WHAT computes the logits (batched passes instead of
+    /// single-token passes), not the sampling rule. Batch shape changes move
+    /// logits within the same floating-point envelope as prefill re-chunking
+    /// (see MEASUREMENTS on the prefix cache); `mtp-check` gates on that.
+    func speculativeDecode(
+        head: MTPHead, mtpState: MTPState, state: Qwen4ExpModel.State,
+        logits: MLXArray, params: SampleParams, eosIds: Set<Int>,
+        shouldContinue: (() -> Bool)?, onToken: ((Int) -> Bool)?,
+        out: inout [Int], generated: inout Set<Int>, reason: inout String,
+        consumed: inout [Int], stats: inout GenStats
+    ) {
+        // The first token comes off the prefill logits exactly like the
+        // plain loop's first iteration.
+        var pending: Int? = nil
+        if params.maxTokens > 0 {
+            if let keepGoing = shouldContinue, !keepGoing() { reason = "stop"; return }
+            let tok = sample(logits, params: params, generated: generated)
+            if eosIds.contains(tok) { reason = "stop"; return }
+            out.append(tok)
+            generated.insert(tok)
+            if let cb = onToken, !cb(tok) { reason = "stop"; return }
+            pending = tok
+        }
+
+        while let p = pending, out.count < params.maxTokens {
+            if let keepGoing = shouldContinue, !keepGoing() { reason = "stop"; break }
+            let ck = state.checkpoint()
+
+            // ---- draft (greedy chain; provisional MTP cache entries)
+            var drafts: [Int] = []
+            var dMulti = state.lastMulti!
+            var dTok = p
+            for _ in 0 ..< max(1, draftDepth) {
+                let e = model.resident.embed(MLXArray([Int32(dTok)], [1, 1])).asType(.bfloat16)
+                let (s, m) = head(embedded: e, hiddenMulti: dMulti, rope: model.rope, state: mtpState)
+                let dl = model.lmHead(s)
+                dTok = argMax(dl.reshaped([-1]).asType(.float32)).item(Int.self)
+                drafts.append(dTok)
+                dMulti = m
+            }
+            stats.draftedTokens += drafts.count
+
+            // ---- one batched verify pass over pending + drafts
+            let verifyIds = [p] + drafts
+            let (vLogits, vMulti) = model.allLogitsWithMulti(verifyIds, state: state)
+            eval(vLogits, vMulti)
+            stats.verifyPasses += 1
+
+            // ---- sequential acceptance
+            var good = 0  // accepted drafts == generation tokens consumed beyond p
+            var nextPending: Int? = nil
+            for i in 0 ... drafts.count {
+                if out.count >= params.maxTokens { break }  // reason stays "length"
+                let tok = sample(
+                    vLogits[0..., i ..< (i + 1), 0...], params: params, generated: generated)
+                if eosIds.contains(tok) { reason = "stop"; break }
+                out.append(tok)
+                generated.insert(tok)
+                if let cb = onToken, !cb(tok) { reason = "stop"; break }
+                if i < drafts.count && tok == drafts[i] {
+                    good += 1
+                    continue
+                }
+                nextPending = tok  // the rejection correction, or the bonus token
+                break
+            }
+            stats.acceptedDrafts += good
+
+            // ---- reconcile the state with what was actually kept
+            let keep = [p] + Array(drafts[0 ..< good])
+            let passMulti: MLXArray
+            if keep.count != verifyIds.count {
+                state.restore(ck)
+                let (_, rMulti) = model.hiddenStatesWithMulti(keep, state: state)
+                eval(rMulti)
+                passMulti = rMulti
+            } else {
+                passMulti = vMulti
+            }
+            mtpState.trim(to: ck.mtpOffset)
+            state.lastMulti = head.consume(
+                chunk: keep, chunkMulti: passMulti, prevMulti: ck.lastMulti,
+                resident: model.resident, rope: model.rope, state: mtpState)
+            consumed.append(contentsOf: keep)
+            // The draft cache holds one entry per consumed token except the
+            // first. A drift here silently degrades every later draft, so
+            // fail loud instead.
+            precondition(
+                mtpState.offset == state.tokenCount - 1,
+                "mtp cache misaligned: \(mtpState.offset) entries at \(state.tokenCount) tokens")
+            pending = nextPending
+            if reason == "stop" { break }
+        }
     }
 }
 

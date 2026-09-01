@@ -1544,3 +1544,144 @@ That preserves the planner's conservative 40 tok/s estimate for a 256-token
 pass while removing 3.8 GB from the observed high-water mark. The answer
 remained `SEVENTEEN`, and the ordinary small-vs-large cache equivalence gate
 remains the correctness check. No fixed-footprint inflation is needed.
+
+## M9 — MTP self-speculative decode: conversion, parity, accept curve, and where it pays (2026-09-01)
+
+The design note said the multiplier only exists in the launch-bound regime and
+that memory decides. Everything measured this session agrees with that shape —
+including the one result that looks negative and isn't.
+
+### The head exists again (the pinned conversion had dropped it)
+
+The pinned community conversion strips all `mtp.*` tensors (`sanitize` drops
+them), so the draft head was rebuilt from the official release without
+downloading it: the 31 MTP tensors live in 28 of the official repo's 131
+shards, and safetensors headers give exact byte ranges, so `Tools/mtp_convert.py`
+range-requests precisely those tensors — **4.9 GB in 92 s** instead of ~250 GB —
+then applies the same transforms the community conversion applied to the main
+model and quantizes to the same recipe (4-bit, group 64, affine; router,
+gates, `index_qk_proj`, and norms stay bf16). Output: `mtp.safetensors`,
+**1.471 GB** (the design note estimated 2.25), sha256 in `mtp.provenance.json`.
+
+Two conversion facts were verified rather than assumed:
+
+- **The +1 norm centering is real and uniform.** For four main-model norms the
+  official raw tensors were fetched and compared against the pinned converted
+  ones: mixer hc_norm +2.7497 → +3.7498, attn hc_norm −0.2638 → +0.7362,
+  indexer q_layernorm −0.0372 → +0.9628, q_norm +0.2833 → +1.2833 — exactly
+  +1.0 each. The MTP-only `pre_fc_norm_*` weights (no main-model analog, not
+  in the reference's CENTERED list) follow the same convention: vLLM builds
+  them as GemmaRMSNorm (the 1+w form), and the raw embedding norm sits in a
+  tight band around −0.764 — sensible as 1+w ≈ +0.24, pathological as a bare
+  negative scale.
+- **The forward semantics come from the only public implementation.** vLLM's
+  `Qwen4ExpMultiTokenPredictor` ("scheme A"): fc_embedding on the normed token
+  embedding, a SHARED fc_hidden on each of the four normed hyper-connection
+  branches of the PRE-final-mixer multi stream, embedding added to every
+  branch, one full-attention decoder layer, the head's own mixer for the
+  lm_head path — and the pre-mixer stream, not the collapsed one, feeds the
+  next chained draft step.
+
+### Parity: bit-exact, after two false alarms worth recording
+
+`slotstream mtp-parity` compares the Swift head against the MLX Python
+reference (`Tools/reference/mtp_ref.py`) on a stored fixture. Final result:
+**max abs 0.00000 on all four outputs** — prefill sample/multi and cached
+decode sample/multi are bit-identical. Getting there surfaced two lessons:
+
+1. **Random fixture inputs are adversarial for THIS layer.** The MTP block's
+   norms run hot (raw q_norm mean 2.68 vs 0.28 on a main layer), and its
+   attention logits reached **680** with top-2 gaps as small as **0.5** on
+   random inputs. Sub-ulp cross-implementation noise flips near-tie argmax
+   keys and reads as a 20% output error. Feeding Python's sdpa the Swift-dumped
+   q/k/v byte-for-byte returned Swift's output exactly — the ops were never
+   wrong, the near-tie lottery was. The fixture now uses REAL captured inputs
+   (`slotstream mtp-fixture-inputs`).
+2. **The reference must run on the mlx the Swift build pins.** mlx-swift is
+   0.31.x; a fixture generated under Python mlx 0.32.2 disagreed at 5–15%
+   (kernel reduction orders moved between versions), regenerated under 0.31.1
+   it is bit-exact. Same lesson as the layer-parity work, now written down:
+   `make_mtp_fixture.py` runs under `.venv31` and says so.
+
+### The accept curve — measured, previously unpublished anywhere
+
+`slotstream mtp-accept` runs plain greedy decode and, at every position,
+chains the draft head then rolls it back, scoring drafts against the tokens
+the model actually produced. Four prompts (prose, code, list, arithmetic),
+96 tokens each, 380 scored positions:
+
+| chain depth | prefix accept | E[tokens/round] | est. speedup (launch-bound) |
+|---|---:|---:|---:|
+| 1 | **85.8%** | 1.86 | ×1.52 |
+| 2 | 71.0% | 2.57 | ×1.81 |
+| 3 | 53.8% | 3.11 | ×1.91 |
+| 4 | 41.3% | 3.52 | ×1.96 |
+
+The head predicts the model's next-next token at 85.8%. The speedup column is
+the round arithmetic (verify pass + rejection rebuild + ~2/48 head overhead)
+and applies ONLY where a 5-token pass costs about a 1-token pass.
+
+### Where it pays — the negative result that confirms the policy
+
+In-process A/B (`slotstream mtp-bench`, one engine, one warm pool, alternating
+paths) at `--memory-gb 16` → ~54 experts/layer:
+
+| | decode tok/s (median of 3) |
+|---|---:|
+| plain | 6.77 |
+| speculative (depth 4) | 6.52 → **×0.96** |
+
+Tokens/round measured 2.87 (192 tokens / 67 verify passes) — the machinery
+delivers exactly what the 46% observed accept predicts. The gain is eaten by
+the verify pass's expert fetches: at a small pool, five tokens' experts cost
+real SSD reads that one token's would not. Per-round timing puts verify+rebuild
+at ~2.8 single-pass equivalents here versus the ~1.9 the launch-bound
+arithmetic gives; the difference is the fetch bill. This is the design note's
+"tight memory keeps the experts" argument, now with numbers, and it is why
+auto only enables the head at **≥120 experts/layer after paying its 1.6 GB**
+(`Planner.mtpAutoFloorPerLayer`), raising the auto ceiling to 34.6 GB so the
+cache still reaches the decode knee.
+
+**Not yet measured: the plateau-regime A/B.** Machine state during this
+session left ~18 GB reclaimable — a 25+ GB target would not fit with the
+required headroom, and the memory rules forbid launching it. The ×1.5–1.9
+figure for ≥120/layer therefore remains an estimate from the measured accept
+curve plus the measured plateau flatness. Reproduce when quiet:
+`slotstream mtp-bench --memory-gb 26 --pairs 3` (needs mtp.safetensors).
+
+### Correctness story (a claim from the design note corrected)
+
+The note said greedy speculation is "byte-identical to plain greedy". With the
+prefix-cache result in hand that claim was corrected before shipping: every
+emitted token's logits still come from the main model, but the verify pass
+computes them in a k+1-token batch, and re-batching re-associates sums exactly
+the way prefill re-chunking does — near-tie argmax flips are possible and
+observed. The shipped gates (`mtp-check`) are: two speculative runs
+byte-identical (determinism), a follow-up turn continues a speculative
+conversation through the prefix cache, the accept rate is not degenerate, and
+plain-vs-spec divergence is REPORTED, not gated to zero. Sampling semantics
+are exact by construction: draws happen sequentially off the verified logits,
+only for tokens the plain loop would also have sampled, so the rng stream and
+presence-penalty evolution match the plain path token for token.
+
+One gate needed its own control to be honest. The cross-request check first
+asserted "a continuation of a speculative conversation produces tokens" and
+failed — not because the state was wrong, but because a 48-token turn-1 reply
+is usually cut mid-think, and the model legitimately answers some
+continuations of that context with an immediate EOS. The shipped gate runs
+the same two-turn token-level flow with speculation OFF as a control and
+asserts the speculative path is not the one that goes silent; on the
+deciding run the reused speculative state answered " Paris" to a fresh
+question through 65 reused tokens, the plain control " Paris." — same
+knowledge, one near-tie punctuation flip, exactly the accepted envelope.
+
+State rollback is O(1): the recurrent caches' arrays are REPLACED each step
+(the GDN kernel emits a fresh state_out), so a checkpoint holds references,
+and KV/indexer buffers roll back by offset. A rejection costs one re-run of
+the kept tokens (the GDN state cannot be rewound — same constraint the prefix
+cache lives with).
+
+RoPE positions: the head trains with entries at position i+1; the port keeps
+0-based cache positions. All rotations shift by the same constant and RoPE
+attention depends only on relative positions, so scores are mathematically
+identical — noted in MTP.swift rather than adding a shift parameter.

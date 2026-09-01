@@ -8,22 +8,22 @@ PASS=0; FAIL=0
 check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); else echo "FAIL  $1"; FAIL=$((FAIL+1)); fi }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 
-$BIN doctor --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/p48" 2>&1
+$BIN doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/p48" 2>&1
 check "48GB pristine: 33.0 GB target and starts quiet" "grep -q 'target: 33.0' $T/p48 && ! grep -q 'note:' $T/p48"
-$BIN doctor --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > "$T/b48" 2>&1
+$BIN doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > "$T/b48" 2>&1
 check "48GB busy: clamped to 15.4 GB, sized-down note" "grep -q 'target: 15.4' $T/b48 && grep -q 'sized down from the usual 33.0' $T/b48"
-$BIN doctor --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/p16" 2>&1
+$BIN doctor --mtp off --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/p16" 2>&1
 check "16GB pristine: 9.8 GB target, no notes"         "grep -q 'target: 9.8' $T/p16 && ! grep -q 'note:' $T/p16"
-$BIN doctor --sim-ram 17.2 --sim-working-set 11.8 --sim-available 6 > "$T/b16" 2>&1
+$BIN doctor --mtp off --sim-ram 17.2 --sim-working-set 11.8 --sim-available 6 > "$T/b16" 2>&1
 check "16GB busy: floor 8.1 GB + heavy-paging warning" "grep -q 'target: 8.1' $T/b16 && grep -q 'heavy paging' $T/b16"
-$BIN doctor --sim-ram 8.6 --sim-working-set 5.8 --sim-available 4.5 > "$T/m8" 2>&1
+$BIN doctor --mtp off --sim-ram 8.6 --sim-working-set 5.8 --sim-available 4.5 > "$T/m8" 2>&1
 check "8GB Mac: floor 8.1 GB + too-small warning"      "grep -q 'target: 8.1' $T/m8 && grep -q 'below the comfortable minimum' $T/m8"
 # A big machine stops at the knee, says why, and can still be sent past it.
 # Before this, a 128 GB Mac targeted 89.6 GB for the speed 33 GB reaches.
-$BIN doctor --sim-ram 137.4 > "$T/p128" 2>&1
+$BIN doctor --mtp off --sim-ram 137.4 > "$T/p128" 2>&1
 check "128GB auto stops at the knee, not at 70% of RAM" "grep -q 'target: 33.0' $T/p128"
 check "128GB explains the memory it left on the table"  "grep -q 'decode stops improving' $T/p128"
-$BIN doctor --sim-ram 137.4 --memory-gb 88 > "$T/f128" 2>&1
+$BIN doctor --mtp off --sim-ram 137.4 --memory-gb 88 > "$T/f128" 2>&1
 check "128GB: --memory-gb still reaches full residency" "grep -q 'all 512 experts per layer resident' $T/f128"
 # doctor says "availability is not a constraint" with +infinity; a
 # finite-only guard made --sim-ram without --sim-available fail outright.
@@ -31,20 +31,20 @@ check "--sim-ram alone plans instead of erroring"       "! grep -q 'available me
 
 # --max-ram-percent bounds auto, cannot raise it past the knee, and is never
 # silently dropped when a hard knob outranks it.
-$BIN doctor --sim-ram 137.4 --max-ram-percent 15 > "$T/pct" 2>&1
+$BIN doctor --mtp off --sim-ram 137.4 --max-ram-percent 15 > "$T/pct" 2>&1
 check "--max-ram-percent lowers the auto target"        "grep -q 'target: 20.6' $T/pct"
-$BIN doctor --sim-ram 137.4 --max-ram-percent 95 > "$T/pcthi" 2>&1
+$BIN doctor --mtp off --sim-ram 137.4 --max-ram-percent 95 > "$T/pcthi" 2>&1
 check "--max-ram-percent cannot exceed the knee"        "grep -q 'target: 33.0' $T/pcthi"
 check "--max-ram-percent 0 refused"                     "! $BIN doctor --max-ram-percent 0"
 check "--max-ram-percent 150 refused"                   "! $BIN doctor --max-ram-percent 150"
-$BIN doctor --sim-ram 137.4 --max-ram-percent 40 --memory-gb 20 > "$T/pctlose" 2>&1
+$BIN doctor --mtp off --sim-ram 137.4 --max-ram-percent 40 --memory-gb 20 > "$T/pctlose" 2>&1
 check "--max-ram-percent noted when outranked"          "grep -q 'max-ram-percent ignored' $T/pctlose"
 
 # The invariant behind all of it: more memory must never plan a slower machine.
 # --memory-gb 26 used to plan a smaller cache than 25 and a slower decode,
 # because crossing a quarter of the budget doubled the prefill pass.
 check "more memory never plans slower (7-90 GB sweep)"  "BIN=$BIN Tools/monotonic_plan.py"
-$BIN doctor --memory-gb 30 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > "$T/e48" 2>&1
+$BIN doctor --mtp off --memory-gb 30 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > "$T/e48" 2>&1
 check "explicit 30GB on busy 48: honored + info note"  "grep -q 'target: 30.0' $T/e48 && grep -q 'only 18.0 GB is reclaimable' $T/e48"
 
 # Knob validation: out-of-range values must be refused, not silently accepted.
@@ -73,6 +73,30 @@ MC='{"text_config":{"hidden_size":2560,"num_hidden_layers":48,"num_experts":512}
 mkdir -p "$T/nosafe" && printf '%s' "$MC" > "$T/nosafe/config.json"
 check "--model with no safetensors: clean error"   "! $BIN run --model $T/nosafe --prompt hi 2>&1 | grep -q 'Fatal error'"
 check "--model with no safetensors: names the fix" "$BIN run --model $T/nosafe --prompt hi 2>&1 | grep -q 'no .safetensors files'"
+
+# --- MTP draft-head policy (planning only; a dummy file flips availability) --
+mkdir -p "$T/mtpdir" && : > "$T/mtpdir/mtp.safetensors"
+M="--model $T/mtpdir"
+$BIN doctor $M --sim-ram 137.4 > "$T/mtp128" 2>&1
+check "MTP auto on a big quiet machine: knee + head = 34.6" "grep -q 'target: 34.6' $T/mtp128 && grep -q 'mtp:    draft head on' $T/mtp128"
+$BIN doctor $M --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/mtp16" 2>&1
+check "MTP auto stays off on a 16GB machine"            "! grep -q 'draft head on' $T/mtp16 && grep -q 'target: 9.8' $T/mtp16"
+$BIN doctor $M --sim-ram 137.4 --memory-gb 30 > "$T/mtp30" 2>&1
+check "MTP auto on at --memory-gb 30 (137/layer after the charge)" "grep -q 'draft head on' $T/mtp30"
+$BIN doctor $M --sim-ram 137.4 --memory-gb 20 > "$T/mtp20" 2>&1
+check "MTP auto off at --memory-gb 20 (below the 120/layer floor)" "! grep -q 'draft head on' $T/mtp20"
+$BIN doctor $M --mtp on --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/mtpforce" 2>&1
+check "--mtp on forces the head onto a small machine"   "grep -q 'draft head on' $T/mtpforce"
+$BIN doctor $M --mtp off --sim-ram 137.4 > "$T/mtpoff" 2>&1
+check "--mtp off suppresses it everywhere"              "! grep -q 'draft head on' $T/mtpoff && grep -q 'target: 33.0' $T/mtpoff"
+check "--mtp on without mtp.safetensors is a clean error" \
+      "$BIN doctor --model $T/nosafe --mtp on 2>&1 | grep -q 'mtp.safetensors is not next to the model'"
+check "--mtp on cannot squeeze under the minimum target" \
+      "! $BIN doctor $M --mtp on --memory-gb 8.5 2>&1 | grep -q 'target: 8.5'"
+check "--mtp gibberish refused"                         "! $BIN doctor --mtp sometimes"
+check "MTP charge visible in json peak" \
+      "$BIN doctor $M --sim-ram 137.4 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"mtp\"] and abs(d[\"expected_peak_gb\"]-d[\"target_gb\"]+1.0)<0.35, d'"
+
 
 mkdir -p "$T/badjson" && printf 'not json' > "$T/badjson/config.json"
 check "--model with unparseable config: clean error" "$BIN run --model $T/badjson --prompt hi 2>&1 | grep -qi 'json'"

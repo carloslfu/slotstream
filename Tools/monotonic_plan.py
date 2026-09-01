@@ -27,7 +27,7 @@ PROMPT, REPLY = 2000.0, 400.0
 
 def plan(mem):
     r = subprocess.run(
-        [BIN, "doctor", "--sim-ram", "137.4", "--sim-available", "130",
+        [BIN, "doctor", "--mtp", "off", "--sim-ram", "137.4", "--sim-available", "130",
          "--memory-gb", str(mem), "--json"],
         capture_output=True, text=True)
     return json.loads(r.stdout) if r.returncode == 0 else None

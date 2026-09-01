@@ -42,7 +42,11 @@ import Foundation
 /// answer.
 public final class PrefixCache {
     /// KV + indexer per token. The same figure the context-limit message and
-    /// the planner quote; measured in MEASUREMENTS.md.
+    /// the planner quote; measured in MEASUREMENTS.md. With the MTP draft head
+    /// on, its own KV/indexer adds ~2.3 KB/token (2 kv heads x 256 + one
+    /// 128-dim indexer key, bf16) that this figure does NOT include — the
+    /// accounting under-counts held state by ~8% in that mode, which the
+    /// 10%-of-pool cache budget and the planner margin absorb.
     public static let bytesPerToken = 27_648
 
     /// 36 linear-attention layers × 48 value heads × 128 × 128 float32.

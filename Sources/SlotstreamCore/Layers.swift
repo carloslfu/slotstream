@@ -49,11 +49,11 @@ struct RMSNormGated {
 
 // MARK: - rope
 
-struct Rope {
+public struct Rope {
     let invFreq: MLXArray  // (dim/2) f32
     let dim: Int
 
-    init(dim: Int, base: Float) {
+    public init(dim: Int, base: Float) {
         self.dim = dim
         let exps = MLXArray(stride(from: 0, to: Int32(dim), by: 2).map { Float($0) / Float(dim) })
         self.invFreq = pow(MLXArray(base), -exps)
@@ -111,6 +111,10 @@ final class KVCache {
         offset = prev + s
         return (keys![0..., 0..., 0 ..< offset, 0...], values![0..., 0..., 0 ..< offset, 0...])
     }
+
+    /// Roll back to `n` entries. Bytes past `n` stay in the buffer but are
+    /// dead: the next update writes over them, and fetches slice 0..<offset.
+    func trim(to n: Int) { offset = min(offset, max(0, n)) }
 }
 
 /// Grown in blocks like KVCache rather than re-concatenated per token: a
@@ -135,6 +139,13 @@ final class IndexerCache {
         offset += s
         return buf![0..., 0 ..< offset, 0...]
     }
+
+    /// Roll back to `n` entries (see KVCache.trim).
+    func trim(to n: Int) { offset = min(offset, max(0, n)) }
+
+    func materializeStorage() {
+        if let b = buf { eval(b) }
+    }
 }
 
 final class LinearCache {
@@ -153,9 +164,12 @@ final class QSAIndexer {
     let kNorm: RMSNorm
     let blockTopK: Int
 
-    init(_ w: ResidentWeights, layer: Int) {
+    convenience init(_ w: TensorSource, layer: Int) {
+        self.init(w, base: "model.layers.\(layer).self_attn.indexer")
+    }
+
+    init(_ w: TensorSource, base b: String) {
         cfg = w.config
-        let b = "model.layers.\(layer).self_attn.indexer"
         proj = w.linear(b + ".index_qk_proj")
         qNorm = RMSNorm(weight: w.tensor(b + ".q_layernorm.weight"), eps: cfg.rmsNormEps, groupSize: nil)
         kNorm = RMSNorm(weight: w.tensor(b + ".k_layernorm.weight"), eps: cfg.rmsNormEps, groupSize: nil)
@@ -218,6 +232,7 @@ final class QSAIndexer {
 }
 
 final class QSAAttention {
+    var debugSink: ((String, MLXArray) -> Void)? = nil
     let cfg: ModelConfig
     let qProj: QLinear
     let kProj: QLinear
@@ -228,16 +243,19 @@ final class QSAAttention {
     let indexer: QSAIndexer
     let scale: Float
 
-    init(_ w: ResidentWeights, layer: Int) {
+    convenience init(_ w: TensorSource, layer: Int) {
+        self.init(w, base: "model.layers.\(layer).self_attn")
+    }
+
+    init(_ w: TensorSource, base b: String) {
         cfg = w.config
-        let b = "model.layers.\(layer).self_attn"
         qProj = w.linear(b + ".q_proj")
         kProj = w.linear(b + ".k_proj")
         vProj = w.linear(b + ".v_proj")
         oProj = w.linear(b + ".o_proj")
         qNorm = RMSNorm(weight: w.tensor(b + ".q_norm.weight"), eps: cfg.rmsNormEps, groupSize: nil)
         kNorm = RMSNorm(weight: w.tensor(b + ".k_norm.weight"), eps: cfg.rmsNormEps, groupSize: nil)
-        indexer = QSAIndexer(w, layer: layer)
+        indexer = QSAIndexer(w, base: b + ".indexer")
         scale = 1.0 / sqrt(Float(cfg.headDim))
     }
 
@@ -254,9 +272,13 @@ final class QSAAttention {
         let qg = qProj(x).reshaped([B, S, H, 2 * D])
         var q = qg[.ellipsis, 0 ..< D]
         let gate = qg[.ellipsis, D...].reshaped([B, S, H * D])
+        debugSink?("qgRaw", qg)
         q = qNorm(q).transposed(0, 2, 1, 3)
         var k = kNorm(kProj(x).reshaped([B, S, cfg.numKVHeads, D])).transposed(0, 2, 1, 3)
         var v = vProj(x).reshaped([B, S, cfg.numKVHeads, D]).transposed(0, 2, 1, 3)
+        debugSink?("qNormed", q)
+        debugSink?("kNormed", k)
+        debugSink?("v", v)
 
         let pos = MLXArray((offset ..< (offset + S)).map { Int32($0) }).expandedDimensions(axis: 0)
         var (c, s) = rope(pos)
@@ -279,8 +301,11 @@ final class QSAAttention {
             maskMode = .none
         }
 
+        debugSink?("qRoped", q)
+        debugSink?("kRoped", k)
         var out = MLXFast.scaledDotProductAttention(
             queries: q, keys: k, values: v, scale: scale, mask: maskMode)
+        debugSink?("sdpaOut", out)
         out = out.transposed(0, 2, 1, 3).reshaped([B, S, H * D])
         return oProj(out * sigmoid(gate))
     }
@@ -436,7 +461,7 @@ final class GatedResidual {
     let inject: MLXArray?  // (hc, hcDim), bf16
     var debugName: String? = nil
 
-    init(_ w: ResidentWeights, base: String, useCombine: Bool) {
+    init(_ w: TensorSource, base: String, useCombine: Bool) {
         cfg = w.config
         hcNorm = RMSNorm(
             weight: w.tensor(base + ".hc_norm.weight"), eps: cfg.rmsNormEps,

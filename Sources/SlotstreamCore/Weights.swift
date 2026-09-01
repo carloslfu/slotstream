@@ -27,7 +27,33 @@ public struct QLinear {
     }
 }
 
-public final class ResidentWeights {
+/// Anything that can hand out named tensors from a checkpoint: the resident
+/// trunk (ResidentWeights) or the MTP block's own file (MTPWeights). Layer
+/// blocks are built against this so the MTP head can reuse them verbatim.
+public protocol TensorSource: AnyObject {
+    var config: ModelConfig { get }
+    func optionalTensor(_ name: String) -> MLXArray?
+}
+
+extension TensorSource {
+    public func has(_ name: String) -> Bool { optionalTensor(name) != nil }
+
+    public func tensor(_ name: String) -> MLXArray {
+        guard let a = optionalTensor(name) else { fatalError("missing tensor \(name)") }
+        return a
+    }
+
+    public func linear(_ base: String, groupSize: Int? = nil, bits: Int? = nil) -> QLinear {
+        let w = tensor(base + ".weight")
+        let s = optionalTensor(base + ".scales")
+        let b = optionalTensor(base + ".biases")
+        return QLinear(
+            w: w, scales: s, biases: b,
+            groupSize: groupSize ?? config.qGroup, bits: bits ?? config.qBits)
+    }
+}
+
+public final class ResidentWeights: TensorSource {
     public let arrays: [String: MLXArray]
     public let config: ModelConfig
 
@@ -61,21 +87,7 @@ public final class ResidentWeights {
         self.arrays = kept
     }
 
-    public func has(_ name: String) -> Bool { arrays[name] != nil }
-
-    public func tensor(_ name: String) -> MLXArray {
-        guard let a = arrays[name] else { fatalError("missing resident tensor \(name)") }
-        return a
-    }
-
-    public func linear(_ base: String, groupSize: Int? = nil, bits: Int? = nil) -> QLinear {
-        let w = tensor(base + ".weight")
-        let s = arrays[base + ".scales"]
-        let b = arrays[base + ".biases"]
-        return QLinear(
-            w: w, scales: s, biases: b,
-            groupSize: groupSize ?? config.qGroup, bits: bits ?? config.qBits)
-    }
+    public func optionalTensor(_ name: String) -> MLXArray? { arrays[name] }
 
     /// Dequantized embedding rows for token ids: (B, S) -> (B, S, hidden).
     public func embed(_ ids: MLXArray) -> MLXArray {
