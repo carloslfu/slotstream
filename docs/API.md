@@ -8,8 +8,8 @@ origins only, so a web page you happen to visit can't drive your model.
 
 Validation is strict on purpose. Unknown fields, unsupported features, and
 malformed values return a 400 that names the problem; nothing is silently
-ignored. A wrong model name is a 404. The only model name is
-`qwen3.8-flash-next:4bit`.
+ignored. A wrong model name is a 400 naming the only model (a 404 on
+`/api/show`). The only model name is `qwen3.8-flash-next:4bit`.
 
 ## Endpoints
 

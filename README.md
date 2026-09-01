@@ -103,15 +103,12 @@ curl localhost:11434/api/chat -d '{
 }'
 ```
 
-```bash
-OLLAMA_HOST=http://localhost:11434 ollama run qwen3.8-flash-next:4bit
-```
-
-Open WebUI, the Ollama CLI, and the OpenAI SDKs are tested against this
-subset. Streaming, CORS, and the usual sampling options all work. What isn't
-supported (tools, images, JSON-schema output, logprobs) returns a clear 400
-instead of being silently ignored. Every endpoint, field, default, and error
-is in [docs/API.md](docs/API.md).
+Open WebUI and the OpenAI SDKs are tested against this subset (the Ollama
+CLI is not there yet; see [Status](#status-and-limits)). Streaming, CORS, and
+the usual sampling options all work. What isn't supported (tools, images,
+JSON-schema output, logprobs) returns a clear 400 instead of being silently
+ignored. Every endpoint, field, default, and error is in
+[docs/API.md](docs/API.md).
 
 ## Speed
 
@@ -184,6 +181,10 @@ are estimates from its curve, not runs on real hardware.
   engine is built around its geometry, and `pull` knows no other name. A
   per-user lock allows one model process at a time.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
+- **The Ollama CLI can't connect yet.** `ollama run` (0.32) opens with an
+  `/api/show` request carrying fields the strict validator rejects, so it
+  stops before the first message. curl, Open WebUI, and the OpenAI SDKs
+  work; a fix is pending.
 
 ## Speculative decode
 

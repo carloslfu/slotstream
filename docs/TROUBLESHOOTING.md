@@ -7,6 +7,13 @@ Ollama defaults to the same port. Stop one of them, or run
 claims the port *before* loading the model, so this costs a second and one
 sentence, not a full load.
 
+### `ollama run` says "unsupported request field(s): name, options, system, template"
+
+Known gap: the Ollama CLI (0.32) opens with an `/api/show` request that
+carries fields slotstream's strict validator rejects, so it stops before the
+first message. Until that is fixed, use curl, Open WebUI, or an OpenAI SDK
+pointed at `http://localhost:11434/v1` ([docs/API.md](API.md)).
+
 ### "another Slotstream model process is already running for this user"
 
 One model process per user, by design: a 100 GB-class model doesn't share a
@@ -40,8 +47,10 @@ slotstream pull --dir /Volumes/big/qwen38
 slotstream serve --model /Volumes/big/qwen38
 ```
 
-Anything that takes `--model` accepts a directory path. Expect slower
-decode: external disks rarely match the internal SSD.
+Anything that takes `--model` accepts a directory path. Pass the real
+directory, not a symlink to it: `run` and `serve` refuse a symlinked weights
+folder ("couldn't be opened") even though `doctor` and `pull --verify` accept
+one. Expect slower decode: external disks rarely match the internal SSD.
 
 ### Reclaiming the disk
 

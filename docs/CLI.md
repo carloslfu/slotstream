@@ -55,7 +55,8 @@ name is `qwen3.8-flash-next:4bit`, which is also the default.
 | `--connections <n>` | Parallel connections (default 8; Hugging Face plateaus past 4). |
 | `--verify` | Re-hash an existing copy against the pinned sha256s and download nothing. |
 
-Weights placed elsewhere are used by passing that directory to `--model`.
+Weights placed elsewhere are used by passing that directory to `--model` (the
+real directory; a symlink to it fails to open).
 
 ### `slotstream doctor`
 
@@ -133,7 +134,7 @@ model, takes the lock, and allocates real memory, so give it a small target
 | `ngram-golden` | Prints n-gram row ids for a token sequence, for comparison with Python. `--tokens`. |
 | `dequant-golden` | CPU-dequantizes one n-gram row for comparison with `mx.dequantize`. `--gid` (12345). |
 
-## On `main`, not in a release
+## New in 0.2.0
 
 - `--mtp auto|on|off` on `run` and `serve`: speculative decode with the
   model's draft head. Needs `mtp.safetensors` next to the weights
