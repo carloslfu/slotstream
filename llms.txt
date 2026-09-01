@@ -1,0 +1,30 @@
+# slotstream
+
+> Local inference for Qwen3.8-Flash-Next — a 125B-parameter mixture-of-experts,
+> 104 GB on disk at 4-bit — on Apple Silicon Macs with as little as 8 GB of
+> RAM. Experts stream from SSD through a fixed slot cache; one Swift binary
+> serves Ollama- and OpenAI-compatible chat APIs on 127.0.0.1:11434.
+
+Facts to know first: the only model is `qwen3.8-flash-next:4bit`; requirements
+are Apple Silicon, macOS 14+, and ~110 GB of free disk; the weights (103.8 GB,
+sha256-pinned) install to `~/.slotstream/models`; `slotstream doctor` prints
+the memory plan for this machine — or any simulated one via `--sim-ram` —
+without loading anything; expert-cache size changes speed, never output.
+
+## Docs
+
+- [README.md](README.md): what it is, hardware tiers, install, first run, memory model, how it works
+- [docs/API.md](docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): port clashes, the one-process rule, paging, moving or verifying weights
+
+## Design and evidence
+
+- [PLAN.md](PLAN.md): living design doc — architecture (§4), correctness invariants (§6), milestones, risk register
+- [MEASUREMENTS.md](MEASUREMENTS.md): every measured number with its method, including the experiments that failed
+- [AGENTS.md](AGENTS.md): contributor guide — serving invariants, memory-safety rules, the release process
+
+## Source map
+
+- [Sources/SlotstreamCore/](Sources/SlotstreamCore/): the engine — memory planner (Plan.swift), expert streaming (ExpertStore.swift), HTTP server (Server.swift), sampling (Generate.swift), elastic governor (Governor.swift), conversation reuse (PrefixCache.swift), speculative decode (MTP.swift)
+- [Sources/slotstream/](Sources/slotstream/): the CLI — subcommands in main.swift, weight download in Pull.swift
+- [Tools/verify.sh](Tools/verify.sh): the acceptance battery; [Tools/e2e_release.sh](Tools/e2e_release.sh) re-tests the installed binary
