@@ -2,7 +2,7 @@
 
 `slotstream serve` listens on **127.0.0.1 only** (port 11434, `--port N`) and
 speaks two dialects of the same engine: Ollama-style under `/api/*` and
-OpenAI-style under `/v1/*`. There is no auth token — the server can't be
+OpenAI-style under `/v1/*`. There is no auth token: the server can't be
 reached from other machines, and browser requests are accepted from loopback
 origins only, so a web page you happen to visit can't drive your model.
 
@@ -45,9 +45,9 @@ curl localhost:11434/api/chat -d '{
 
 ## `/api/generate`
 
-Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, `options` —
-the same `options` as chat. `raw: true` sends your prompt with no chat
-template, and can't be combined with `system` or `think`.
+Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, and the same
+`options` as chat. `raw: true` sends your prompt with no chat template, and
+can't be combined with `system` or `think`.
 
 ## `/v1/chat/completions`
 
@@ -67,7 +67,7 @@ r = client.chat.completions.create(
 print(r.choices[0].message.content)
 ```
 
-`api_key` can be any string — nothing checks it.
+`api_key` can be any string; nothing checks it.
 
 ## Sampling defaults
 
@@ -78,7 +78,7 @@ print(r.choices[0].message.content)
 | `top_k` | 20 |
 | `min_p` | 0 |
 | `presence_penalty` | 1.5 |
-| `num_predict` / `max_tokens` | 512 — `<= 0` means "as many as the context allows" |
+| `num_predict` / `max_tokens` | 512; `<= 0` means "as many as the context allows" |
 | `seed` | random each request |
 | `stop` | none |
 
@@ -99,7 +99,8 @@ gated test (`Tools/api_robustness.sh`), not an intention.
 ## Errors
 
 Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
-`{"error": {"message": "...", "type": "invalid_request_error"}}`.
+`{"error": {"message": "..."}}`, with `"type": "invalid_request_error"` added
+on validation failures.
 
 Deliberately unsupported, and rejected with a clear 400 rather than ignored:
 tool calling, images, JSON-schema output, logprobs, embeddings, and named
@@ -109,5 +110,5 @@ reasoning levels for `think`.
 
 Prompt plus completion is capped at 32,768 tokens (`serve --max-context`);
 a request past the cap is refused rather than left to stall. Generation is
-serialized — a second completion request waits its turn — while the metadata
+serialized: a second completion request waits its turn, while the metadata
 endpoints answer immediately even mid-generation.
