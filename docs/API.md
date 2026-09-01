@@ -53,8 +53,13 @@ template, and can't be combined with `system` or `think`.
 
 Fields: `model`, `messages`, `stream`, `temperature`, `top_p`, `top_k`,
 `presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`, `stop`,
-and `stream_options` (`{"include_usage": true}`). `top_k` is an extension
-beyond the OpenAI schema; the rest is standard.
+`reasoning_effort`, and `stream_options` (`{"include_usage": true}`). `top_k`
+is an extension beyond the OpenAI schema; the rest is standard.
+
+`reasoning_effort` accepts `none`, `minimal`, `low`, `medium`, `high`, and
+`xhigh`. Omitting it or passing `none` disables thinking. `minimal` maps to
+Qwen's `low` level, while `high` maps to Qwen's `xhigh`; explicit sampling
+fields still override the thinking preset.
 
 ```python
 from openai import OpenAI
@@ -103,7 +108,7 @@ Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
 
 Deliberately unsupported, and rejected with a clear 400 rather than ignored:
 tool calling, images, JSON-schema output, logprobs, embeddings, and named
-reasoning levels for `think`.
+values for Ollama's Boolean `think` field.
 
 ## Limits
 
