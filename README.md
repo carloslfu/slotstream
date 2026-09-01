@@ -74,10 +74,12 @@ A real install took 35 minutes. Hugging Face caps the transfer at roughly
 Hugging Face's day, not your link. At 100 Mbps plan on ~2 h 20; at 25 Mbps,
 ~9 h.
 
-Interrupting is safe: `pull` resumes exactly where it left off, and all
-24 files are checked against sha256 hashes compiled into the binary, so a
-truncated or corrupted download can't reach the engine. `pull --verify`
-re-hashes an existing copy any time (8 s here).
+Interrupting is safe: `pull` picks up where it stopped, redoing at most the
+few chunks that were in flight, and all 24 files are checked against sha256
+hashes compiled into the binary, so a truncated or corrupted download can't
+reach the engine. The files come from a mirror of the pinned revision, with
+the original repo as fallback; the hashes are the same either way.
+`pull --verify` re-hashes an existing copy any time (8 s here).
 
 ## Use it
 
@@ -208,7 +210,9 @@ so none of this is on your machine unless you build from source.
   default, and deliberate 400.
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): port clashes, paging,
   moving or verifying the weights.
-- `slotstream <command> --help`: every flag, with the reasoning behind it.
+- [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and
+  their precedence, environment variables, where files live. (`slotstream
+  <command> --help` carries the same text with more discussion.)
 - [CHANGELOG.md](CHANGELOG.md): what each release changed, and what is on
   `main` but unreleased.
 - [PLAN.md](PLAN.md): the design and the milestone tracker.

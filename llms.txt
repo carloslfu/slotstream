@@ -15,6 +15,7 @@ without loading anything; expert-cache size changes speed, never output.
 ## Docs
 
 - [README.md](README.md): what it is, hardware tiers, install, first run, speed, memory model, how it works, what is in progress
+- [docs/CLI.md](docs/CLI.md): every command and flag, memory-knob precedence, environment variables, file locations, the diagnostic checks
 - [docs/API.md](docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): port clashes, the one-process rule, paging, moving or verifying weights
 - [CHANGELOG.md](CHANGELOG.md): what each release changed, and what is on main but not released yet
