@@ -1,7 +1,6 @@
 # slotstream
 
-[![release](https://github.com/carloslfu/slotstream/actions/workflows/release.yml/badge.svg)](https://github.com/carloslfu/slotstream/actions/workflows/release.yml)
-[![latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
+[![release](https://github.com/carloslfu/slotstream/actions/workflows/release.yml/badge.svg)](https://github.com/carloslfu/slotstream/actions/workflows/release.yml) [![latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
 
 Run **Qwen3.8-Flash-Next** on a Mac that can't hold it. The model is a
 125B-parameter mixture-of-experts, 104 GB on disk at 4-bit; slotstream streams
@@ -9,7 +8,7 @@ it from SSD and runs it in whatever memory you give it. It's one Swift binary,
 no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
 work unchanged.
 
-| on a 48 GB M5 Pro | measured |
+| on a 48 GB M5 Pro | |
 |---|---|
 | Warm decode | ~12 tok/s |
 | Engine start | ~2 s (only the 3.8 GB trunk loads) |
@@ -18,8 +17,8 @@ work unchanged.
 
 ## Will it run on my Mac?
 
-Apple Silicon, macOS 14+, and ~110 GB of free disk. Disk bites first: whatever
-your memory, a 512 GB Mac is the realistic minimum.
+You need Apple Silicon, macOS 14+, and ~110 GB of free disk. Disk bites
+first: whatever your memory, a 512 GB Mac is the realistic minimum.
 
 Auto-sizing never takes the whole machine. What each tier gets:
 
@@ -44,7 +43,9 @@ curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.s
 ```
 
 Installs the latest release to `~/.slotstream/bin` and puts it on your PATH.
-Re-run the same line to upgrade; uninstall with `rm -rf ~/.slotstream`.
+Re-run the same line to upgrade. To uninstall, `rm -rf ~/.slotstream` and
+remove the `/usr/local/bin/slotstream` wrapper or the PATH line the installer
+told you it added.
 
 Releases are built by CI from the tagged commit with signed provenance, so you
 can verify an asset instead of trusting the download:

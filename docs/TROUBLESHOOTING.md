@@ -47,7 +47,8 @@ decode: external disks rarely match the internal SSD.
 
 The weights live in `~/.slotstream/models` (104 GB). Delete that folder to
 get the space back and keep the binary, or `rm -rf ~/.slotstream` to remove
-everything.
+everything; a full uninstall also drops the `/usr/local/bin/slotstream`
+wrapper or the PATH line the installer said it added.
 
 ### `slotstream: command not found` right after installing
 
