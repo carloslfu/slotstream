@@ -297,6 +297,9 @@ struct MTPBench: ParsableCommand {
     @Option var maxTokens: Int = 192
     @Option(help: "A/B pairs to run") var pairs: Int = 3
     @Option var prompt: String = "Explain how a transistor works, in about 300 words."
+    @Flag(help: "Sample with the server's defaults (temperature 0.7, top-p 0.8, top-k 20, presence 1.5) instead of greedy; a fixed seed keeps both paths on one token stream")
+    var sample = false
+    @Option(help: "Seed for --sample") var seed: UInt64 = 1
 
     func run() throws {
         let plan = try model.announcedPlan()
@@ -306,7 +309,8 @@ struct MTPBench: ParsableCommand {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
                 try engine.model.enableMTP(modelDir: model.modelURL)
-                var params = SampleParams.greedy
+                var params = sample ? SampleParams() : SampleParams.greedy
+                if sample { params.seed = seed }
                 params.maxTokens = maxTokens
                 let ids = try engine.encodeChat(
                     [ChatMessage(role: "user", content: prompt)], thinking: false)
@@ -335,8 +339,9 @@ struct MTPBench: ParsableCommand {
                 let p = plainTPS.sorted()[plainTPS.count / 2]
                 let s = specTPS.sorted()[specTPS.count / 2]
                 print(String(
-                    format: "median: plain %.2f tok/s, speculative %.2f tok/s -> x%.2f at ~%.0f experts/layer",
-                    p, s, s / p, plan.expertsPerLayerCached))
+                    format: "median: plain %.2f tok/s, speculative %.2f tok/s -> x%.2f at ~%.0f experts/layer, depth %d, %@",
+                    p, s, s / p, plan.expertsPerLayerCached, engine.generator.draftDepth,
+                    sample ? "sampled (seed \(seed))" : "greedy"))
                 result = .success(())
             } catch { result = .failure(error) }
             sem.signal()
@@ -409,6 +414,76 @@ struct MTPCheck: ParsableCommand {
                 let rate = draftTotal > 0 ? Double(acceptTotal) / Double(draftTotal) : 0
                 print(String(format: "  info  overall accept rate %.1f%%", rate * 100))
                 check("accept rate is not degenerate (>5%)", rate > 0.05)
+
+                // The verify pass records per-position recurrent states by
+                // stepping the GDN recurrence one token at a time; the batched
+                // kernel is the reference for the pass itself, and the plain
+                // path stepping the same tokens is the reference for what a
+                // rollback leaves behind. Same two tokens from one prefix:
+                //   (1) recording pass vs batched pass: exact (the state is fp32
+                //       between steps exactly as inside the fused kernel);
+                //   (2) rollback to token 1 vs the plain path having stepped
+                //       token 1 alone: the recurrent tensors agree to within
+                //       re-association (the kept token's projections came out
+                //       of a two-row batch; a wrong window reads order one), and
+                //       one more step from each lands inside the prefill-rechunk
+                //       band, the same bound prefix-check uses.
+                do {
+                    let probe = try engine.encodeChat(
+                        [ChatMessage(role: "user", content: mtpProbePrompts[0])], thinking: false)
+                    let prefix = Array(probe.dropLast(2))
+                    let tail = Array(probe.suffix(2))
+                    func vec(_ a: MLXArray) -> [Float] { a.reshaped([-1]).asType(.float32).asArray(Float.self) }
+                    // plain path: prefix, then token 1 alone
+                    let stPlain = engine.model.makeState()
+                    eval(engine.model.hiddenStates(prefix, state: stPlain))
+                    eval(engine.model.hiddenStates([tail[0]], state: stPlain))
+                    // recording pass over both tokens from the same prefix, then rollback to token 1
+                    let st = engine.model.makeState()
+                    eval(engine.model.hiddenStates(prefix, state: st))
+                    let ck = st.checkpoint()
+                    let (batched, _) = engine.model.allLogitsWithMulti(tail, state: st)
+                    eval(batched)
+                    st.restore(ck)
+                    st.setRecording(true)
+                    let (stepped, _) = engine.model.allLogitsWithMulti(tail, state: st)
+                    eval(stepped)
+                    st.rollback(keeping: 1, of: tail, from: ck, ngramWindow: engine.model.cfg.ngramSize - 1)
+                    let d = st.recurrentDelta(vs: stPlain)
+                    // Control for the state deltas: the plain path built the same
+                    // way but with its prefix re-chunked (7 tokens at a time), the
+                    // accepted "same computation, summed differently" band.
+                    let stCtrl = engine.model.makeState()
+                    var i0 = 0
+                    while i0 < prefix.count {
+                        let hi = min(i0 + 7, prefix.count)
+                        eval(engine.model.hiddenStates(Array(prefix[i0 ..< hi]), state: stCtrl))
+                        i0 = hi
+                    }
+                    eval(engine.model.hiddenStates([tail[0]], state: stCtrl))
+                    let dc = stCtrl.recurrentDelta(vs: stPlain)
+                    let after = engine.model.lastLogits([tail[1]], state: st)
+                    let plainStep = engine.model.lastLogits([tail[1]], state: stPlain)
+                    eval(after, plainStep)
+                    let (rel, same) = PrefixCheck.compare(vec(batched), vec(stepped))
+                    let (relRoll, sameRoll) = PrefixCheck.compare(vec(plainStep), vec(after))
+                    let whole = PrefixCheck.logits(engine, ids: probe, .whole)
+                    let (ctrl, _) = PrefixCheck.compare(whole, PrefixCheck.logits(engine, ids: probe, .chunked(7)))
+                    let bound = max(ctrl * 3, 0.01)
+                    print(String(
+                        format: "  info  recording pass vs batched: %.4f%% of spread (top-1 %@); rollback state vs plain: "
+                            + "ssm %.2e, conv %.2e, ple %.2e relative (re-chunk control: ssm %.2e, conv %.2e, ple %.2e); "
+                            + "one more step: %.3f%% vs control %.3f%% (bound %.3f%%, top-1 %@)",
+                        rel * 100, same ? "same" : "differs", d.ssm, d.conv, d.ple, dc.ssm, dc.conv, dc.ple,
+                        relRoll * 100, ctrl * 100, bound * 100, sameRoll ? "same" : "differs"))
+                    check("recording verify pass matches the batched pass (<= 0.1% of spread)", rel <= 0.001)
+                    // A wrong window or a stale state reads order one; the band is
+                    // three times what re-chunking the plain path moves the same
+                    // tensors, never under 1e-2 (bf16 rounding), as in prefix-check.
+                    check("rollback state stays inside 3x the re-chunk band (ssm, conv, ple)",
+                          d.ssm <= max(3 * dc.ssm, 1e-2) && d.conv <= max(3 * dc.conv, 1e-2) && d.ple <= max(3 * dc.ple, 1e-2))
+                    check("rollback then one step stays inside the prefill-rechunk band", relRoll <= bound)
+                }
 
                 // Cross-request state integrity, at the logits level, by the
                 // prefix-check method: a state built by speculative decode and

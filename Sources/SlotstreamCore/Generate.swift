@@ -397,8 +397,11 @@ extension Generator {
             }
             stats.draftedTokens += drafts.count
 
-            // ---- one batched verify pass over pending + drafts
+            // ---- one batched verify pass over pending + drafts, recording
+            // the recurrent state after every position so a rejection can
+            // roll back to the kept prefix without re-running it.
             let verifyIds = [p] + drafts
+            state.setRecording(true)
             let (vLogits, vMulti) = model.allLogitsWithMulti(verifyIds, state: state)
             eval(vLogits, vMulti)
             stats.verifyPasses += 1
@@ -423,17 +426,16 @@ extension Generator {
             }
             stats.acceptedDrafts += good
 
-            // ---- reconcile the state with what was actually kept
+            // ---- reconcile the state with what was actually kept: roll the
+            // recurrent caches back to the recorded state at the last kept
+            // position, trim the attention caches, and slice the pass's own
+            // multi stream (causal, so its first keep.count positions are
+            // exactly the kept tokens' stream). No re-run.
             let keep = [p] + Array(drafts[0 ..< good])
-            let passMulti: MLXArray
-            if keep.count != verifyIds.count {
-                state.restore(ck)
-                let (_, rMulti) = model.hiddenStatesWithMulti(keep, state: state)
-                eval(rMulti)
-                passMulti = rMulti
-            } else {
-                passMulti = vMulti
-            }
+            state.rollback(
+                keeping: keep.count, of: verifyIds, from: ck, ngramWindow: model.cfg.ngramSize - 1)
+            let passMulti = keep.count == verifyIds.count
+                ? vMulti : vMulti[0..., 0 ..< keep.count, 0...]
             mtpState.trim(to: ck.mtpOffset)
             state.lastMulti = head.consume(
                 chunk: keep, chunkMulti: passMulti, prevMulti: ck.lastMulti,

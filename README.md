@@ -139,14 +139,15 @@ verifies it in one two-token pass, and the draft is right 86% of the time
 (measured). It only pays where the expert cache is already near
 its best. On the dev Mac the 0.2.0 build, which drafted four tokens, lost at
 every cache size that fit, from ×0.55 at 20 experts per layer to ×0.96 at
-57. One draft, the default now, reads ×1.13 at 57 and, at the 122 experts
-per layer a quiet 48 GB Mac runs with the head on, ×1.17 (10.1 → 11.8
-tok/s, five pairs; two drafts ×1.13 there, four ×0.88). So auto turns it
-on only at that size, where the 1.6 GB it takes would otherwise buy experts
-past the plateau and costs nothing, and keeps it off below a 28 GB target.
-The ceiling is measured too: with every expert resident a two-token verify
-pass costs 1.17 single passes, which caps one-draft speculation at about
-×1.4. The auto ceiling becomes 34.6 GB with the head on. The head is the
+57. One draft, the default now, reads ×1.20 at 57 and, at the 122 experts
+per layer a quiet 48 GB Mac runs with the head on, **×1.24** (10.30 → 12.77
+tok/s, five pairs; ×1.33 on a code prompt, ×1.19 on a list, ×1.18 with the
+server's default sampling). So auto turns it on only at that size, where
+the 1.6 GB it takes would otherwise buy experts past the plateau and costs
+nothing, and keeps it off below a 28 GB target. A rejected draft no longer
+re-runs the kept tokens: the verify pass records the recurrent state after
+every position, so rolling back is free. The auto ceiling becomes 34.6 GB
+with the head on. The head is the
 1.5 GB `mtp.safetensors` that `pull` fetches with the weights (converted
 from the official release by `Tools/mtp_convert.py`, hosted on the mirror
 only); without the file, everything runs with it off.

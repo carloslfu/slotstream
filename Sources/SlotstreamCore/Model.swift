@@ -234,6 +234,62 @@ extension Qwen4ExpModel.State {
             mtpOffset: mtp?.offset ?? 0, lastMulti: lastMulti)
     }
 
+    /// Start or stop recording per-position recurrent states in the linear
+    /// layers (speculative verify passes only).
+    public func setRecording(_ on: Bool) {
+        for (_, cache) in linear {
+            if on { cache.record = true } else { cache.clearRecording() }
+        }
+    }
+
+    /// After a recording pass over `ids` from checkpoint `c`, keep only its
+    /// first `n` tokens: recurrent states become the recorded ones at
+    /// position n-1, KV and indexer caches trim to the checkpoint offset
+    /// plus n, and the n-gram context is rebuilt from the ids. No model
+    /// compute. `n` must be at least 1 and at most ids.count; keeping all of
+    /// them only clears the recording.
+    public func rollback(keeping n: Int, of ids: [Int], from c: StateCheckpoint, ngramWindow: Int) {
+        precondition(n >= 1 && n <= ids.count, "rollback: keep \(n) of \(ids.count)")
+        if n < ids.count {
+            for (_, cache) in linear {
+                precondition(
+                    cache.ssmStates.count == ids.count || cache.ssmStates.isEmpty,
+                    "rollback: \(cache.ssmStates.count) recorded states for \(ids.count) tokens")
+                if !cache.ssmStates.isEmpty { cache.ssmState = cache.ssmStates[n - 1] }
+                if !cache.convStates.isEmpty { cache.convState = cache.convStates[n - 1] }
+                if !cache.pleConvStates.isEmpty { cache.pleConvState = cache.pleConvStates[n - 1] }
+            }
+            for (l, cache) in kv { cache.trim(to: (c.kvOffsets[l] ?? 0) + n) }
+            for (l, cache) in indexer { cache.trim(to: (c.indexerOffsets[l] ?? 0) + n) }
+            let history = c.ngramCtx + ids.prefix(n).map { Int64($0) }
+            ngramCtx = Array(history.suffix(ngramWindow))
+            tokenCount = c.tokenCount + n
+        }
+        setRecording(false)
+    }
+
+    /// Diagnostic for the rollback gate: the largest relative difference, over
+    /// all linear layers, between this state's recurrent tensors and another's
+    /// (max |a-b| / max |b|). A wrong window or a stale state reads order one;
+    /// re-association reads bf16-ulp small.
+    public func recurrentDelta(vs other: Qwen4ExpModel.State) -> (ssm: Double, conv: Double, ple: Double) {
+        func delta(_ a: MLXArray?, _ b: MLXArray?) -> Double {
+            guard let a, let b else { return (a == nil && b == nil) ? 0 : .infinity }
+            guard a.shape == b.shape else { return .infinity }
+            let d = abs(a.asType(.float32) - b.asType(.float32)).max().item(Float.self)
+            let m = abs(b.asType(.float32)).max().item(Float.self)
+            return Double(m > 0 ? d / m : d)
+        }
+        var s = 0.0, c = 0.0, p = 0.0
+        for (l, cache) in linear {
+            guard let o = other.linear[l] else { continue }
+            s = max(s, delta(cache.ssmState, o.ssmState))
+            c = max(c, delta(cache.convState, o.convState))
+            p = max(p, delta(cache.pleConvState, o.pleConvState))
+        }
+        return (s, c, p)
+    }
+
     public func restore(_ c: StateCheckpoint) {
         for (l, cache) in linear {
             cache.convState = c.conv[l]

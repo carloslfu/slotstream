@@ -33,7 +33,7 @@ design and the estimates it replaces.
 | N2 Prefill, second pass | ◐ **partial 2026-08-30** | cost model was 2x over, recalibrated: 8k prefill 93.7 → 112.9 tok/s, peak down. Read-ahead built, measured worse, removed. ≥150 needs a grouped-GEMM kernel — **not blocked**: `MLXFast.metalKernel` JIT-compiles at runtime and this repo already ships one |
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
-| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, so the default is now 1 and auto's floor stands; fetch-free ceiling ×1.4 (`mtp-passcost`). Gates: `mtp-parity`, `mtp-check` |
+| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, so the default is now 1 and auto's floor stands; with the rebuild eliminated (per-position recorded state) depth 1 reads ×1.24 there and ×1.18 sampled. Gates: `mtp-parity`, `mtp-check` |
 
 **What is actually next: [§8.1](#81-next--the-ordered-queue-post-015).** M0–M8 are the
 build-out phases; §8.1 is the live queue, ordered by what decides whether a person keeps
@@ -857,6 +857,14 @@ corrections are recorded here and in MEASUREMENTS.md (M9 section).
   (MEASUREMENTS M9). The default draft depth is now 1 (was 4): depth 4
   loses at every size measured, depths 1 and 2 pay 13–17% at auto's size,
   and the shortest chain wastes the least on a rejection.
+- **Rebuild eliminated (2026-09-02)**: the verify pass records the GDN /
+  conv state after every position (the recurrence stepped per token,
+  bit-identical to the fused kernel), so a rejection rolls back with no
+  model compute. At 57/layer depth 1 goes ×1.12 → ×1.20, depth 2 → ×1.20;
+  at 122/layer depth 1 reads ×1.24 (code ×1.33, list ×1.19, sampled
+  ×1.18), depth 2 ×1.27. Gated in `mtp-check` (recording pass exact vs
+  batched; rollback state inside 3x the plain re-chunk band; next step inside
+  the prefill-rechunk band).
 - **One claim corrected**: "byte-identical to plain greedy" was wrong for the
   same reason prefix reuse isn't byte-identical — the verify pass re-batches
   tokens and re-association moves near-tie logits. Gates (`mtp-check`):

@@ -153,6 +153,21 @@ final class LinearCache {
     var ssmState: MLXArray?  // (B, Hv, Dv, Dk) f32
     var pleConvState: MLXArray?  // (B, (k-1)*dilation, hcDim)
     var ngramCtx: [Int64] = []  // rolling last (ngramSize-1) token ids
+    /// While a speculative verify pass runs, the state after each of its
+    /// positions (index t = state after consuming t+1 of the pass's
+    /// tokens), so a rejection rolls back by position instead of re-running
+    /// the kept tokens. Empty outside a recording pass.
+    var record = false
+    var convStates: [MLXArray] = []
+    var ssmStates: [MLXArray] = []
+    var pleConvStates: [MLXArray] = []
+
+    func clearRecording() {
+        record = false
+        convStates = []
+        ssmStates = []
+        pleConvStates = []
+    }
 }
 
 // MARK: - QSA (sparse attention)
@@ -361,6 +376,10 @@ final class GDNLayer {
         let convInput = concatenated([convState, mixed], axis: 1)
         if let c = cache {
             c.convState = convInput[0..., (convInput.dim(1) - (K - 1))..., 0...]
+            if c.record {
+                // window of K-1 rows ending after position t
+                c.convStates = (0 ..< S).map { t in convInput[0..., (t + 1) ..< (t + K), 0...] }
+            }
         }
         let convOut = MLXNN.silu(conv1d(convInput, convWeight, groups: convDim))
 
@@ -374,11 +393,35 @@ final class GDNLayer {
         q = l2normQK(q) * Float(pow(Double(cfg.linearKHeadDim), -0.5))
         k = l2normQK(k)
 
-        let (y, newState) = gatedDeltaUpdate(
-            q: q, k: k, v: v, a: aProj, b: bProj,
-            aLog: aLog, dtBias: dtBias,
-            state: cache?.ssmState, mask: nil)
-        cache?.ssmState = newState
+        let y: MLXArray
+        if let c = cache, c.record, S > 1 {
+            // Step the recurrence one token at a time so every intermediate
+            // state is available for a speculative rollback. The state is
+            // fp32 between steps exactly as inside the fused kernel, so the
+            // outputs match the batched pass.
+            var st = c.ssmState
+            var ys: [MLXArray] = []
+            var states: [MLXArray] = []
+            for t in 0 ..< S {
+                let (yt, nt) = gatedDeltaUpdate(
+                    q: q[0..., t ..< (t + 1)], k: k[0..., t ..< (t + 1)], v: v[0..., t ..< (t + 1)],
+                    a: aProj[0..., t ..< (t + 1)], b: bProj[0..., t ..< (t + 1)],
+                    aLog: aLog, dtBias: dtBias, state: st, mask: nil)
+                ys.append(yt)
+                states.append(nt)
+                st = nt
+            }
+            y = concatenated(ys, axis: 1)
+            c.ssmStates = states
+            c.ssmState = st
+        } else {
+            let (yy, newState) = gatedDeltaUpdate(
+                q: q, k: k, v: v, a: aProj, b: bProj,
+                aLog: aLog, dtBias: dtBias,
+                state: cache?.ssmState, mask: nil)
+            cache?.ssmState = newState
+            y = yy
+        }
         return outProj(norm(y, gate: z).reshaped([B, S, valueDim]))
     }
 }
@@ -526,6 +569,9 @@ final class PLELayer {
         let full = concatenated([state, x], axis: 1)
         if let c = cache {
             c.pleConvState = full[0..., (full.dim(1) - stateLen)..., 0...]
+            if c.record {
+                c.pleConvStates = (0 ..< S).map { t in full[0..., (t + 1) ..< (t + 1 + stateLen), 0...] }
+            }
         }
         let window = full[0..., (full.dim(1) - (stateLen + S))..., 0...]
         return MLXNN.silu(conv1d(window, convWeight, dilation: dilation, groups: convWeight.dim(0)))

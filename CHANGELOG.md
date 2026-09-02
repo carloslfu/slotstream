@@ -5,6 +5,18 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- A rejected draft costs nothing to unwind. The verify pass now records the
+  recurrent state after every position (the GDN recurrence stepped one token
+  at a time, bit-identical to the fused kernel; conv windows sliced), so a
+  rejection rolls back to the kept prefix instead of re-running it through
+  the model. At 57 experts per layer one draft goes from ×1.12 to ×1.20, two
+  drafts to ×1.20; at the 122 per layer auto enables the head at, one draft
+  reads ×1.24 (×1.33 on a code prompt, ×1.19 on a list, ×1.18 with the
+  server's default sampling), two drafts ×1.27. `mtp-check` gates the
+  recording pass against the batched one (exact) and a rollback against the
+  plain path state by state, inside three times what re-chunking the plain
+  path moves the same tensors, with the next step inside the prefill-rechunk
+  band. `mtp-bench --sample` measures the sampled case.
 - `pull` fetches the draft head. `mtp.safetensors` (1.47 GB, sha256-pinned)
   is hosted on the weights mirror and pulled with everything else, so `--mtp
   auto` works out of the box on a large Mac. It is the manifest's one optional

@@ -147,14 +147,15 @@ verifies it in one two-token pass, and the draft is right 86% of the time
 (measured). It only pays where the expert cache is already near
 its best. On the dev Mac the 0.2.0 build, which drafted four tokens, lost at
 every cache size that fit, from ×0.55 at 20 experts per layer to ×0.96 at
-57. One draft, the default now, reads ×1.13 at 57 and, at the 122 experts
-per layer a quiet 48 GB Mac runs with the head on, ×1.17 (10.1 → 11.8
-tok/s, five pairs; two drafts ×1.13 there, four ×0.88). So auto turns it
-on only at that size, where the 1.6 GB it takes would otherwise buy experts
-past the plateau and costs nothing, and keeps it off below a 28 GB target.
-The ceiling is measured too: with every expert resident a two-token verify
-pass costs 1.17 single passes, which caps one-draft speculation at about
-×1.4. The auto ceiling becomes 34.6 GB with the head on. The head is the
+57. One draft, the default now, reads ×1.20 at 57 and, at the 122 experts
+per layer a quiet 48 GB Mac runs with the head on, **×1.24** (10.30 → 12.77
+tok/s, five pairs; ×1.33 on a code prompt, ×1.19 on a list, ×1.18 with the
+server's default sampling). So auto turns it on only at that size, where
+the 1.6 GB it takes would otherwise buy experts past the plateau and costs
+nothing, and keeps it off below a 28 GB target. A rejected draft no longer
+re-runs the kept tokens: the verify pass records the recurrent state after
+every position, so rolling back is free. The auto ceiling becomes 34.6 GB
+with the head on. The head is the
 1.5 GB `mtp.safetensors` that `pull` fetches with the weights (converted
 from the official release by `Tools/mtp_convert.py`, hosted on the mirror
 only); without the file, everything runs with it off.
@@ -407,7 +408,7 @@ model, takes the lock, and allocates real memory, so give it a small target
   120 experts per layer after the head's 1.6 GB. Measured on the dev Mac,
   the 0.2.0 build (four drafts) did not pay at any smaller cache (×0.55 to
   ×0.96 from 20 to 57 experts per layer, ×0.88 at 122); one draft, the
-  default now, reads ×1.13 at 57 and ×1.17 at 122, the size auto enables it
+  default now, reads ×1.20 at 57 and ×1.24 at 122, the size auto enables it
   at. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
@@ -642,6 +643,18 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- A rejected draft costs nothing to unwind. The verify pass now records the
+  recurrent state after every position (the GDN recurrence stepped one token
+  at a time, bit-identical to the fused kernel; conv windows sliced), so a
+  rejection rolls back to the kept prefix instead of re-running it through
+  the model. At 57 experts per layer one draft goes from ×1.12 to ×1.20, two
+  drafts to ×1.20; at the 122 per layer auto enables the head at, one draft
+  reads ×1.24 (×1.33 on a code prompt, ×1.19 on a list, ×1.18 with the
+  server's default sampling), two drafts ×1.27. `mtp-check` gates the
+  recording pass against the batched one (exact) and a rollback against the
+  plain path state by state, inside three times what re-chunking the plain
+  path moves the same tensors, with the next step inside the prefill-rechunk
+  band. `mtp-bench --sample` measures the sampled case.
 - `pull` fetches the draft head. `mtp.safetensors` (1.47 GB, sha256-pinned)
   is hosted on the weights mirror and pulled with everything else, so `--mtp
   auto` works out of the box on a large Mac. It is the manifest's one optional

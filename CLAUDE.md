@@ -269,12 +269,21 @@ still quoted in commit history and both are wrong.
   11.6 tok/s at 30 / 60 / 120 / 150 experts per layer, flat by 120. An older
   20.0 at 181/layer has never reproduced; the estimator holds flat above the
   verified points rather than extrapolating to it.
+- **A speculative rejection rolls back, it never re-runs.** The verify pass
+  records the linear layers' state after every position (`LinearCache.record`;
+  the GDN recurrence stepped per token, which `mtp-check` proves bit-identical
+  to the fused kernel), and `State.rollback(keeping:of:from:ngramWindow:)`
+  swaps to the recorded state, trims the attention caches, and rebuilds the
+  n-gram context from ids. Re-running the kept tokens cost most of a pass on
+  most rounds and was the single largest avoidable cost in speculation
+  (MEASUREMENTS M9). Do not reintroduce a rebuild; extend the recording.
 - **Speculative decode's multiplier is a measured ratio per cache size and
   depth.** `mtp-bench` on 0.2.0 (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96
   at 20 / 29 / 42 / 57 experts per layer and ×0.88 at 122, all below
   break-even; depths 1 and 2 read ×1.13 / ×1.12 at 57 and ×1.17 / ×1.13 at
   122, the size auto enables the head at, which is why the default is 1 and
-  the 120/layer floor stands. The "×1.5–1.9" once written here assumed a
+  the 120/layer floor stands; with the rebuild eliminated depth 1 reads
+  ×1.20 at 57 and ×1.24 at 122 (×1.18 sampled). The "×1.5–1.9" once written here assumed a
   five-token verify pass costs one token's pass; `mtp-passcost` measured
   1.65 with every expert resident (a sixth of a pass per extra token), so
   the ceiling is ×1.4 at depth 1 and the estimate is withdrawn. Quote the
