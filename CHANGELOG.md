@@ -5,6 +5,8 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+## 0.2.2 — 2026-09-02
+
 - A rejected draft costs nothing to unwind. The verify pass now records the
   recurrent state after every position (the GDN recurrence stepped one token
   at a time, bit-identical to the fused kernel; conv windows sliced), so a

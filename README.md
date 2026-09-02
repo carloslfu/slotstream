@@ -136,8 +136,8 @@ Decode has one more gear on machines with room to spare, and it is a small
 one. The model ships a draft head that predicts the token after next; with
 `--mtp` (default `auto`, new in 0.2.0) slotstream drafts the next token and
 verifies it in one two-token pass, and the draft is right 86% of the time
-(measured). It only pays where the expert cache is already near
-its best. On the dev Mac the 0.2.0 build, which drafted four tokens, lost at
+(measured). It only pays where the expert cache is already near its
+best. On the dev Mac the 0.2.0 build, which drafted four tokens, lost at
 every cache size that fit, from ×0.55 at 20 experts per layer to ×0.96 at
 57. One draft, the default now, reads ×1.20 at 57 and, at the 122 experts
 per layer a quiet 48 GB Mac runs with the head on, **×1.24** (10.30 → 12.77
@@ -147,10 +147,10 @@ the 1.6 GB it takes would otherwise buy experts past the plateau and costs
 nothing, and keeps it off below a 28 GB target. A rejected draft no longer
 re-runs the kept tokens: the verify pass records the recurrent state after
 every position, so rolling back is free. The auto ceiling becomes 34.6 GB
-with the head on. The head is the
-1.5 GB `mtp.safetensors` that `pull` fetches with the weights (converted
-from the official release by `Tools/mtp_convert.py`, hosted on the mirror
-only); without the file, everything runs with it off.
+with the head on. The head is the 1.5 GB `mtp.safetensors` that `pull`
+fetches with the weights (converted from the official release by
+`Tools/mtp_convert.py`, hosted on the mirror only); without the file,
+everything runs with it off.
 
 ## Memory
 
