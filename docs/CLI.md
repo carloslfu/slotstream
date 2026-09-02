@@ -11,7 +11,7 @@ process runs at a time.
 |---|---|
 | `~/.slotstream/bin/` | Symlink to the active release: the `slotstream` binary and its `mlx.metallib`. |
 | `~/.slotstream/releases/<sha256>-macos<NN>/` | Each installed release, content-addressed. The installer stages a release here, verifies it, then switches the `bin` symlink. |
-| `~/.slotstream/models/qwen38-flash-next-mlx-4bit/` | The weights: 24 files, 103.8 GB. `.partmap` files exist only while a download is in progress. |
+| `~/.slotstream/models/qwen38-flash-next-mlx-4bit/` | The weights: 25 files, 105.3 GB (the 1.5 GB draft head is optional). `.partmap` files exist only while a download is in progress. |
 | `/usr/local/bin/slotstream`, or a PATH line in `~/.zshrc` / `~/.bash_profile` | How the installer puts the command on your PATH (the wrapper when `/usr/local/bin` is writable, the profile line otherwise). |
 | `/tmp/slotstream-model-<uid>.lock` | The one-process lock, held while a model is loaded. |
 
@@ -138,8 +138,9 @@ model, takes the lock, and allocates real memory, so give it a small target
 ## New in 0.2.0
 
 - `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the
-  model's draft head. Needs `mtp.safetensors` next to the weights
-  (`Tools/mtp_convert.py`); `on` without the file is an error, `auto` is the
+  model's draft head, `mtp.safetensors`, which `pull` fetches with the
+  weights (optional: a source without it leaves the pull green); `on`
+  without the file is an error, `auto` is the
   default and stays off below a 28 GB target, where the cache still reaches
   120 experts per layer after the head's 1.6 GB. Measured on the dev Mac,
   the 0.2.0 build (four drafts) did not pay at any smaller cache (×0.55 to

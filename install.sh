@@ -141,7 +141,7 @@ case ":$PATH:" in
 esac
 
 if (exec < /dev/tty) 2>/dev/null; then
-    printf "start the server now? (it will ask before downloading the 104 GB model) [Y/n] " > /dev/tty
+    printf "start the server now? (it will ask before downloading the 105 GB model) [Y/n] " > /dev/tty
     read -r ANS < /dev/tty || ANS=n
     case "$ANS" in
     n | N | no | NO) echo "when you are ready:  $NOW serve" ;;

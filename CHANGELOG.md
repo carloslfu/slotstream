@@ -5,6 +5,12 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- `pull` fetches the draft head. `mtp.safetensors` (1.47 GB, sha256-pinned)
+  is hosted on the weights mirror and pulled with everything else, so `--mtp
+  auto` works out of the box on a large Mac. It is the manifest's one optional
+  file: a source without it leaves the pull green with a notice and
+  speculative decode off, `pull --verify` skips it when absent, and the
+  startup check never asks to repair it. The weights are 105.3 GB in 25 files.
 - Speculative decode drafts one token instead of four, and its numbers are
   measured rather than projected. On the 0.2.0 build the A/B read ×0.55 /
   0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer, ×0.65 at a

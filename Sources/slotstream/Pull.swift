@@ -188,6 +188,9 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
     private var failure: Error?
     private var hashFailure: Error?
     private var filesLeft = 0
+    /// Optional files no source carried (indices into PinnedModel.files).
+    private var skipped = Set<Int>()
+    private var skippedBytes: Int64 = 0
 
     private var grandDone: Int64 = 0
     private var lastPrint = Date()
@@ -385,8 +388,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
             }
             if ok {
                 completeChunk(chunk)
-            } else {
-                recordFailure(chunk, lastError)
+            } else if !recordFailure(chunk, lastError) {
                 return
             }
         }
@@ -395,10 +397,13 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
     private func nextWork() -> Chunk? {
         lock.lock()
         defer { lock.unlock() }
-        guard failure == nil, hashFailure == nil, nextChunk < queue.count else { return nil }
-        let c = queue[nextChunk]
-        nextChunk += 1
-        return c
+        while failure == nil, hashFailure == nil, nextChunk < queue.count {
+            let c = queue[nextChunk]
+            nextChunk += 1
+            if skipped.contains(c.file) { continue }  // an optional file no source carries
+            return c
+        }
+        return nil
     }
 
     private func currentSource(for file: Int) -> (String, Int) {
@@ -414,25 +419,60 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
             lock.unlock()
             return false
         }
-        if pf.sourceIdx == i { pf.sourceIdx += 1 }
+        let advanced = pf.sourceIdx == i
+        if advanced { pf.sourceIdx += 1 }
         let next = pf.sourceIdx
         let name = pf.file.path
         lock.unlock()
         guard next < bases.count else { return false }
-        FileHandle.standardError.write(
-            "  \(name): source failed — trying \(bases[next])\n".data(using: .utf8)!)
+        // Every worker on this file lands here; only the first to notice says so.
+        if advanced {
+            FileHandle.standardError.write(
+                "  \(name): source failed — trying \(bases[next])\n".data(using: .utf8)!)
+        }
         return true
     }
 
-    private func recordFailure(_ chunk: Chunk, _ error: Error?) {
+    /// Every source failed for this chunk. A required file fails the pull; an
+    /// optional one (the MTP draft head) is dropped: its part files go, its
+    /// remaining chunks are skipped, and the pull stays green with a notice.
+    /// Returns false when the worker should stop.
+    private func recordFailure(_ chunk: Chunk, _ error: Error?) -> Bool {
+        let f = PinnedModel.files[chunk.file]
         lock.lock()
+        if f.optional {
+            let firstTime = !skipped.contains(chunk.file)
+            skipped.insert(chunk.file)
+            if let pf = parts.removeValue(forKey: chunk.file) {
+                pf.ioLock.lock()
+                if pf.fd >= 0 {
+                    close(pf.fd)
+                    pf.fd = -1
+                }
+                pf.ioLock.unlock()
+                try? FileManager.default.removeItem(at: pf.part)
+                try? FileManager.default.removeItem(at: pf.mapURL)
+                filesLeft -= 1
+                skippedBytes += pf.file.size
+            }
+            lock.unlock()
+            if firstTime {
+                FileHandle.standardError.write(
+                    ("  skip  \(f.path): not available from any source "
+                        + "(\(error?.localizedDescription ?? "?")); optional — speculative "
+                        + "decode stays off until a later `slotstream pull` finds it\n")
+                        .data(using: .utf8)!)
+            }
+            return true
+        }
         if failure == nil {
             failure = ValidationError(
-                "\(PinnedModel.files[chunk.file].path): download failed from all "
+                "\(f.path): download failed from all "
                     + "\(bases.count) source(s) (\(error?.localizedDescription ?? "?")) — "
                     + "rerun `slotstream pull` to resume")
         }
         lock.unlock()
+        return false
     }
 
     // MARK: one chunk
@@ -691,7 +731,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
             pf.ioLock.unlock()
         }
         guard !quiet, rate > 0 else { return }
-        let total = PinnedModel.totalBytes
+        let total = PinnedModel.totalBytes - skippedBytes
         let eta = Double(total - done) / rate
         FileHandle.standardError.write(
             String(
@@ -743,6 +783,7 @@ struct Pull: ParsableCommand {
         print("verifying \(PinnedModel.files.count) files at \(dest.path) against "
             + "\(PinnedModel.repo) @ \(String(PinnedModel.revision.prefix(12)))")
         var failures: [String] = []
+        var absent: [String] = []  // optional files not downloaded
         let lock = NSLock()
         let files = PinnedModel.files
         guard files.allSatisfy({ $0.sha256 != nil }) else {
@@ -755,6 +796,7 @@ struct Pull: ParsableCommand {
             // and every file looked corrupt.
             let url = dest.appendingPathComponent(f.path).resolvingSymlinksInPath()
             var problem: String? = nil
+            var absentOptional = false
             if let attrs = try? fm.attributesOfItem(atPath: url.path),
                 let size = attrs[.size] as? Int64
             {
@@ -764,6 +806,8 @@ struct Pull: ParsableCommand {
                     let got = sha256(of: url)
                     if got != want { problem = "sha256 mismatch" }
                 }
+            } else if f.optional {
+                absentOptional = true
             } else {
                 problem = "missing"
             }
@@ -771,14 +815,20 @@ struct Pull: ParsableCommand {
             if let p = problem {
                 failures.append("\(f.path): \(p)")
                 print("  FAIL  \(f.path): \(p)")
+            } else if absentOptional {
+                absent.append(f.path)
+                print("  skip  \(f.path) (optional, not downloaded; `slotstream pull` fetches it)")
             } else {
                 print("  ok    \(f.path)")
             }
             lock.unlock()
         }
         if failures.isEmpty {
-            print("VERIFY PASS: all \(files.count) files match the pinned revision by sha256 "
-                + String(format: "(%.1f GB)", Double(PinnedModel.totalBytes) / 1e9))
+            let present = files.filter { !absent.contains($0.path) }
+            let bytes = present.reduce(Int64(0)) { $0 + $1.size }
+            print("VERIFY PASS: \(absent.isEmpty ? "all " : "")\(present.count) files match the pinned revision by sha256 "
+                + String(format: "(%.1f GB)", Double(bytes) / 1e9)
+                + (absent.isEmpty ? "" : "; optional not downloaded: \(absent.joined(separator: ", "))"))
         } else {
             print("VERIFY FAIL: \(failures.count) file(s) — run `slotstream pull` to repair")
             throw ExitCode(2)
@@ -795,6 +845,7 @@ struct Pull: ParsableCommand {
             let f = PinnedModel.files[i]
             let url = dest.appendingPathComponent(f.path).resolvingSymlinksInPath()
             let size = (try? fm.attributesOfItem(atPath: url.path))?[.size] as? Int64
+            if size == nil && f.optional { return }  // absent optional file: nothing to repair
             let good = size == f.size && f.sha256.map { sha256(of: url) == $0 } == true
             if !good { lock.withLock { invalid.append(f) } }
         }
@@ -976,6 +1027,14 @@ struct PullCheck: ParsableCommand {
         check("unknown range total is rejected", !Pull.validContentRange(
             "bytes 64-127/*", start: 64, length: 64, total: 256))
         check("every pinned file has a digest", PinnedModel.files.allSatisfy { $0.sha256 != nil })
+        check("the draft head is pinned as the one optional file",
+              PinnedModel.files.filter(\.optional).map(\.path) == ["mtp.safetensors"])
+        check("an absent optional file is not a repair; an absent required one is", {
+            let d = dir.appendingPathComponent("manifest")
+            try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+            let invalid = Pull.invalidFiles(at: d).map(\.path)
+            return !invalid.contains("mtp.safetensors") && invalid.contains("config.json")
+        }())
         if !failures.isEmpty { throw ExitCode(2) }
         print("PULL CHECK PASS")
     }

@@ -1,5 +1,7 @@
-// GENERATED from the Hugging Face API for the pinned revision — do not hand-edit.
-// Regenerate: curl the /tree/<revision>?recursive=true endpoint and rebuild this table.
+// GENERATED from the Hugging Face API for the pinned revision — do not hand-edit
+// the upstream rows. Regenerate: curl the /tree/<revision>?recursive=true endpoint
+// and rebuild this table. The one hand-added row is the MTP draft head at the
+// end, which exists only on the mirror (see its comment).
 
 import Foundation
 
@@ -15,12 +17,16 @@ enum PinnedModel {
     /// Byte-identical mirror (same file sha256s) under the author's account,
     /// tried first so the project does not depend on a third party staying up.
     static let mirrorRepo = "carloslfu/Qwen3.8-Flash-Next-MLX-4bit"
-    static let mirrorRevision = "852ebf6fdeb104dd078abe01cd4237c8a4c684fc"
+    static let mirrorRevision = "e9d552f83de4665d243d5c9cf73201a1ca6c16d7"
 
     struct File {
         let path: String
         let size: Int64
         let sha256: String?
+        /// An optional file is pinned like any other when present, but a
+        /// source that does not carry it leaves the pull green and the
+        /// startup manifest check quiet; the engine runs without it.
+        var optional: Bool = false
     }
 
     static let files: [File] = [
@@ -48,7 +54,15 @@ enum PinnedModel {
         File(path: "tokenizer_config.json", size: 17928, sha256: "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"),
         File(path: "video_preprocessor_config.json", size: 385, sha256: "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"),
         File(path: "vocab.json", size: 6722759, sha256: "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"),
+        // The MTP draft head for speculative decode. The upstream conversion
+        // drops the `mtp.*` tensors, so this file was converted from the
+        // official Qwen/Qwen3.8-Flash-Next release by Tools/mtp_convert.py
+        // (provenance in mtp.provenance.json next to it on the mirror) and is
+        // hosted on the mirror only. Optional: without it, `--mtp auto` stays
+        // off and everything else runs unchanged.
+        File(path: "mtp.safetensors", size: 1470955171, sha256: "c80b58faae46eeacb94dea49dd3453566ee05597fbd28c7c647eccb2862ab744", optional: true),
     ]
 
-    static var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }  // 103793508077 = 103.8 GB
+    static var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }  // 105264463248 = 105.3 GB, head included
+    static var requiredFiles: [File] { files.filter { !$0.optional } }
 }

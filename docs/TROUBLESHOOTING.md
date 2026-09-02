@@ -51,7 +51,8 @@ new.
 ### A download was interrupted, or looks suspect
 
 Re-run `slotstream pull`; it resumes where it stopped. `slotstream pull
---verify` re-hashes all 24 files against the pinned sha256s in seconds and
+--verify` re-hashes all 25 files against the pinned sha256s in seconds (the
+optional draft head is skipped when absent) and
 names the bad file, if there is one.
 
 ### Putting the weights on an external disk
@@ -69,7 +70,7 @@ match the internal SSD.
 
 ### Reclaiming the disk
 
-The weights live in `~/.slotstream/models` (104 GB). Delete that folder to
+The weights live in `~/.slotstream/models` (105 GB). Delete that folder to
 get the space back and keep the binary, or `rm -rf ~/.slotstream` to remove
 everything; a full uninstall also drops the `/usr/local/bin/slotstream`
 wrapper or the PATH line the installer said it added.

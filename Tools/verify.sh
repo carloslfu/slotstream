@@ -36,8 +36,8 @@ SMALL_MEMORY=8.1
 BIG_MEMORY=10
 ECBIG=960
 
-echo "== weights provenance (hashes all 103.8 GB vs the pinned upstream revision) =="
-check "pull --verify: 24/24 files match"     "$BIN pull --verify"
+echo "== weights provenance (hashes all 105.3 GB vs the pinned revisions; the draft head is optional) =="
+check "pull --verify: 25/25 files match"     "$BIN pull --verify"
 
 echo "== goldens (need bench/parity31 from Tools/parity_ref.py under mlx==0.31.1) =="
 $BIN ngram-golden --tokens "9707,11,1246,525,498,30" 2>/dev/null | sed 's/^pos[0-9]*: //' > /tmp/ssv_ngram.txt

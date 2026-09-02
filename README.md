@@ -3,7 +3,7 @@
 [![release](https://github.com/carloslfu/slotstream/actions/workflows/release.yml/badge.svg)](https://github.com/carloslfu/slotstream/actions/workflows/release.yml) [![latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
 
 Run **Qwen3.8-Flash-Next** on a Mac that can't hold it. The model is a
-125B-parameter mixture-of-experts, 104 GB on disk at 4-bit; slotstream streams
+125B-parameter mixture-of-experts, 105 GB on disk at 4-bit; slotstream streams
 it from SSD and runs it in whatever memory you give it. It's one Swift binary,
 no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
 work unchanged.
@@ -13,7 +13,7 @@ work unchanged.
 | Warm decode | ~12 tok/s |
 | Engine start | ~2 s (only the 3.8 GB trunk loads) |
 | Peak memory | 32 GB (auto-sized; you can cap it) |
-| Weights on disk | 104 GB |
+| Weights on disk | 105 GB |
 
 ## Will it run on my Mac?
 
@@ -63,9 +63,11 @@ git clone https://github.com/carloslfu/slotstream && cd slotstream
 make build
 ```
 
-### The 104 GB download
+### The 105 GB download
 
-The binary is small; the weights are not: 103.8 GB across 24 files, one time.
+The binary is small; the weights are not: 105.3 GB across 25 files, one time
+(the last, the 1.5 GB draft head, is optional: a source without it leaves the
+pull green and speculative decode off).
 `serve` and `run` offer the download on first use, or `slotstream pull` does
 it directly. Before transferring anything it prints the size, the destination,
 and your free disk, waits for a yes, and refuses outright if the disk can't
@@ -80,7 +82,7 @@ count matters and why `pull` prints how many it is actually using. (Through
 0.2.0 it ran on one connection whatever the flag said; see the changelog.)
 
 Interrupting is safe: `pull` picks up where it stopped, redoing at most the
-few chunks that were in flight, and all 24 files are checked against sha256
+few chunks that were in flight, and all 25 files are checked against sha256
 hashes compiled into the binary, so a truncated or corrupted download can't
 reach the engine. The files come from a mirror of the pinned revision, with
 the original repo as fallback; the hashes are the same either way.
@@ -144,11 +146,10 @@ on only at that size, where the 1.6 GB it takes would otherwise buy experts
 past the plateau and costs nothing, and keeps it off below a 28 GB target.
 The ceiling is measured too: with every expert resident a two-token verify
 pass costs 1.17 single passes, which caps one-draft speculation at about
-×1.4. The auto ceiling becomes 34.6 GB with the head on. It needs a
-one-time conversion that pulls 4.9 GB from the official
-release and writes a 1.5 GB `mtp.safetensors` next to the weights
-(`Tools/mtp_convert.py`, run from a clone with the repo's Python
-environment); without the file, everything runs with it off.
+×1.4. The auto ceiling becomes 34.6 GB with the head on. The head is the
+1.5 GB `mtp.safetensors` that `pull` fetches with the weights (converted
+from the official release by `Tools/mtp_convert.py`, hosted on the mirror
+only); without the file, everything runs with it off.
 
 ## Memory
 

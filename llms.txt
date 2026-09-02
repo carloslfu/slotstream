@@ -1,7 +1,7 @@
 # slotstream
 
 > Local inference for Qwen3.8-Flash-Next (a 125B-parameter mixture-of-experts,
-> 104 GB on disk at 4-bit) on Apple Silicon Macs with far less RAM than the
+> 105 GB on disk at 4-bit) on Apple Silicon Macs with far less RAM than the
 > model: measured at ~12 tok/s on 48 GB, estimated at ~4 tok/s on 16 GB.
 > Experts stream from SSD through a fixed slot cache; one Swift binary serves
 > Ollama- and OpenAI-compatible chat APIs on 127.0.0.1:11434.
@@ -12,7 +12,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 ## Facts
 
 - The only model is `qwen3.8-flash-next:4bit`; the engine is built around its geometry.
-- Requirements: Apple Silicon, macOS 14+, ~110 GB of free disk. Weights: 103.8 GB in 24 files, sha256-pinned, at `~/.slotstream/models/qwen38-flash-next-mlx-4bit`.
+- Requirements: Apple Silicon, macOS 14+, ~110 GB of free disk. Weights: 105.3 GB in 25 files (the 1.5 GB draft head is optional), sha256-pinned, at `~/.slotstream/models/qwen38-flash-next-mlx-4bit`.
 - Install: `curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh` puts the latest release in `~/.slotstream/bin` (binary plus `mlx.metallib`, no Python); rerun to upgrade.
 - Expert-cache size changes speed, never output: greedy decode is byte-identical across cache sizes and live resizes.
 - One model process per user (`/tmp/slotstream-model-<uid>.lock`). The server binds 127.0.0.1 only, accepts browser origins from loopback only, and has no auth.
@@ -25,7 +25,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 - `slotstream run --prompt "..." [--max-tokens N] [--greedy] [--raw] [--think]`: one generation, no server.
 - `slotstream serve [--port 11434] [--max-context 32768] [--no-elastic] [--no-prefix-cache]`: the API server.
 - Memory knobs on `run`, `serve`, `doctor`: `--memory-gb G` (total for the process, minimum 8.1; the knob to prefer), `--experts-per-layer N` (1–512; pool = N × 0.133 GB), `--pool-gb G`, `--max-ram-percent P` (auto only, default 70). Precedence: experts-per-layer beats pool-gb beats memory-gb. Explicit sizes are pinned and bypass auto's availability clamp. Auto takes the lowest of 33 GB, 70% of RAM, and the Metal working set minus 2 GB (34.6 GB with the draft head on), and resizes between requests every 15 s.
-- `--mtp auto|on|off` on `run`, `serve`, and `doctor` (0.2.0): speculative decode with the model's draft head; needs `mtp.safetensors` next to the weights (`Tools/mtp_convert.py`); auto stays off below a 28 GB target. Measured on the dev Mac (`mtp-bench`): the 0.2.0 build (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer, a loss that shrinks with the cache; one draft, the default now, reads ×1.13 at 57 and ×1.17 at 122 experts per layer, the size auto enables it at (two drafts ×1.13 there, four ×0.88); ceiling ×1.4 with every expert resident (a two-token verify pass costs 1.17 single passes, `mtp-passcost`).
+- `--mtp auto|on|off` on `run`, `serve`, and `doctor` (0.2.0): speculative decode with the model's draft head; uses `mtp.safetensors`, which `pull` fetches with the weights (optional, mirror-hosted, converted by `Tools/mtp_convert.py`); auto stays off below a 28 GB target. Measured on the dev Mac (`mtp-bench`): the 0.2.0 build (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer, a loss that shrinks with the cache; one draft, the default now, reads ×1.13 at 57 and ×1.17 at 122 experts per layer, the size auto enables it at (two drafts ×1.13 there, four ×0.88); ceiling ×1.4 with every expert resident (a two-token verify pass costs 1.17 single passes, `mtp-passcost`).
 - Checks that need no weights: `runtime-check`, `governor-check`, `sampler-golden`, `pull-check`. Checks that load the model (give them `--memory-gb 8.1` to `10`): `elastic-check`, `elastic-drill`, `prefix-check`, `parity`, `template-check`, `ngram-golden`, `dequant-golden`, `mtp-parity`, `mtp-accept`, `mtp-check`. The battery is `Tools/verify.sh`; release acceptance is `Tools/e2e_release.sh`.
 - Environment: `SLOTSTREAM_WEIGHTS_SOURCES`, `SLOTSTREAM_PULL_CONNECTIONS`, `SLOTSTREAM_PREFIX_CACHE=0`, `SLOTSTREAM_PREFILL_CHUNK`, `SLOTSTREAM_IO_QUEUE_DEPTH`, `SLOTSTREAM_EXPERT_LOAD_BATCH`, `SLOTSTREAM_DRAFT_DEPTH`; installer: `SLOTSTREAM_ROOT_DIR`, `SLOTSTREAM_RELEASE_BASE`.
 
