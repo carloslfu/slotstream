@@ -269,6 +269,15 @@ still quoted in commit history and both are wrong.
   11.6 tok/s at 30 / 60 / 120 / 150 experts per layer, flat by 120. An older
   20.0 at 181/layer has never reproduced; the estimator holds flat above the
   verified points rather than extrapolating to it.
+- **Speculative decode's multiplier is a measured ratio per cache size and
+  depth.** `mtp-bench` on 0.2.0 (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96
+  at 20 / 29 / 42 / 57 experts per layer, all below break-even; depths 1 and
+  2 read ×1.13 / ×1.12 at 57, which is why the default is 2; ≥120/layer is
+  unmeasured. The "×1.5–1.9" once written here assumed a five-token verify
+  pass costs one token's pass; `mtp-passcost` measured 1.65 with every
+  expert resident (a sixth of a pass per extra token), so the ceiling is
+  ×1.5 at depth 2 and the estimate is withdrawn. Quote the ladder and the
+  ceiling, never the launch-bound arithmetic.
 
 ## Repo facts
 

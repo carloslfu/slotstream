@@ -3,6 +3,21 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- Speculative decode drafts two tokens instead of four, and its numbers are
+  measured rather than projected. On the 0.2.0 build the A/B read ×0.55 /
+  0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer and ×0.65 at a
+  fixed 14 GB target, all below break-even; at 57 per layer depths 1 and 2
+  read ×1.13 and ×1.12 by pair medians, so the default is now 2. The ceiling
+  is measured too: with every expert resident a verify pass costs about a
+  sixth of a pass per extra token (new hidden `mtp-passcost`), which caps
+  the gain at ×1.5 at depth 2. The ×1.5–1.9 estimate for large caches is
+  withdrawn, and auto's threshold reads 28 GB, not ~26. The `mtp-check`
+  continuation gate now bounds the reused state's logits by the plain
+  re-chunking band instead of comparing liveness, which was a near-tie coin
+  toss that the depth change flipped.
+
 ## 0.2.1 — 2026-09-01
 
 - `pull` opens the connections it claimed. Each of its eight connections is

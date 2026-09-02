@@ -351,7 +351,8 @@ struct MTPBench: ParsableCommand {
 /// Standing gate for speculative decode:
 ///   1. determinism — two speculative greedy runs are byte-identical;
 ///   2. cross-request state integrity — a follow-up turn through the prefix
-///      cache continues a speculative conversation and stays deterministic;
+///      cache extends a state built by speculative decode, and its logits stay
+///      inside the band re-chunking a plain prefill moves them (prefix-check);
 ///   3. sanity — drafts are actually being accepted (a broken head or a
 ///      misaligned cache shows up as ~0%);
 ///   4. plain-vs-speculative divergence is REPORTED, not gated to zero:
@@ -409,47 +410,218 @@ struct MTPCheck: ParsableCommand {
                 print(String(format: "  info  overall accept rate %.1f%%", rate * 100))
                 check("accept rate is not degenerate (>5%)", rate > 0.05)
 
-                // Cross-request continuation through the prefix cache, extended
-                // at the TOKEN level: turn 2's prompt is turn 1's exact ids
-                // plus its generation plus a suffix, so this gates the
-                // speculative state/consumed-token bookkeeping — not the chat
-                // template's decode->re-encode round-trip, which can
-                // legitimately differ around think blocks. The suffix asks a
-                // fresh self-contained question because the reply is usually
-                // cut mid-think at this small cap, and both paths must
-                // produce the same continuation to compare.
-                func twoTurn(spec: Bool, prompt: String) throws -> (GenStats, GenStats, [Int], [Int]) {
-                    engine.dropPrefixCache()
-                    engine.generator.speculationEnabled = spec
-                    defer { engine.generator.speculationEnabled = true }
-                    let ids1 = try engine.encodeChat(
-                        [ChatMessage(role: "user", content: prompt)], thinking: false)
-                    let (o1, s1) = engine.generator.generate(
-                        promptIds: ids1, params: params, eosIds: engine.eosIds,
-                        cache: engine.prefixCache)
-                    let cont = engine.tokenizer.encode(text: "\n\nThe capital of France is")
-                    let ids2 = ids1 + o1 + cont
-                    let (o2, s2) = engine.generator.generate(
-                        promptIds: ids2, params: params, eosIds: engine.eosIds,
-                        cache: engine.prefixCache)
-                    return (s1, s2, o1, o2)
+                // Cross-request state integrity, at the logits level, by the
+                // prefix-check method: a state built by speculative decode and
+                // handed on through the prefix cache must move the next turn's
+                // logits no more than re-chunking a plain prefill already does
+                // (bound = 3x that control, floor 1% of spread), the band that
+                // separates re-association from a corrupted or misaligned
+                // state. Turn 2 is turn 1's exact ids plus its generation plus a
+                // token suffix, so this gates the speculative bookkeeping, not
+                // the chat template's decode->re-encode round-trip. Text or
+                // liveness comparisons were a near-tie lottery here: a 48-token
+                // turn-1 reply is cut mid-think, and whether the model answers
+                // the suffix or stops is decided by tenths of a logit (the
+                // previous form of this gate flipped when the draft depth
+                // changed from 4 to 2, with the logits inside the band).
+                func vec(_ a: MLXArray) -> [Float] {
+                    a.reshaped([-1]).asType(.float32).asArray(Float.self)
                 }
+                engine.dropPrefixCache()
+                engine.generator.speculationEnabled = true
                 let q = "Name three primary colors."
-                let (s1, s2, _, o2a) = try twoTurn(spec: true, prompt: q)
-                let (_, c2s, _, c2o) = try twoTurn(spec: false, prompt: q)
-                check("turn-2 reused the speculative turn-1 state", s2.reusedPrefixTokens > 0)
-                print("  info  spec  turn-2: \(o2a.count) tokens, reason \(s2.finishReason), "
-                    + "reused \(s2.reusedPrefixTokens); text: \(engine.tokenizer.decode(tokens: Array(o2a.prefix(8))).debugDescription)")
-                print("  info  plain turn-2: \(c2o.count) tokens, reason \(c2s.finishReason), "
-                    + "reused \(c2s.reusedPrefixTokens); text: \(engine.tokenizer.decode(tokens: Array(c2o.prefix(8))).debugDescription)")
-                // The control: whatever the model does with this continuation,
-                // the speculative path must not be the one that goes silent.
-                check("turn-2 speculative continuation matches the plain control's liveness",
-                      o2a.isEmpty == c2o.isEmpty)
+                let ids1 = try engine.encodeChat(
+                    [ChatMessage(role: "user", content: q)], thinking: false)
+                let (o1, s1) = engine.generator.generate(
+                    promptIds: ids1, params: params, eosIds: engine.eosIds,
+                    cache: engine.prefixCache)
+                let cont = engine.tokenizer.encode(text: "\n\nThe capital of France is")
+                let ids2 = ids1 + o1 + cont
+                let hit = engine.prefixCache.take(matching: ids2, reserveTokens: ids2.count + 8)
+                check("turn-2 reused the speculative turn-1 state", (hit?.reused ?? 0) > 0)
+                if let hit = hit, hit.reused > 0 {
+                    let rest = Array(ids2[hit.reused...])
+                    let spec = vec(engine.model.lastLogits(rest, state: hit.state))
+                    let whole = PrefixCheck.logits(engine, ids: ids2, .whole)
+                    let (ctrl, _) = PrefixCheck.compare(
+                        whole, PrefixCheck.logits(engine, ids: ids2, .chunked(7)))
+                    let (rel, sameTop1) = PrefixCheck.compare(whole, spec)
+                    let bound = max(ctrl * 3, 0.01)
+                    print(String(
+                        format: "  info  turn-2 logits from the reused speculative state: %.3f%% of "
+                            + "spread vs a cold rebuild (prefill-rechunk control %.3f%%, bound %.3f%%), "
+                            + "top-1 %@; reused %d of %d tokens after a %d-token turn 1 (%d verify passes)",
+                        rel * 100, ctrl * 100, bound * 100, sameTop1 ? "same" : "differs",
+                        hit.reused, ids2.count, o1.count, s1.verifyPasses))
+                    check("reused speculative state stays inside the prefill-rechunk band", rel <= bound)
+                }
                 check("turn-1 speculation ran", s1.verifyPasses > 0)
 
                 print(failures.isEmpty ? "MTP CHECK PASS" : "MTP CHECK FAIL: \(failures.joined(separator: ", "))")
                 if !failures.isEmpty { throw ExitCode(2) }
+                result = .success(())
+            } catch { result = .failure(error) }
+            sem.signal()
+        }
+        sem.wait()
+        try result.get()
+    }
+}
+
+// MARK: mtp-passcost
+
+/// What a k-token pass costs relative to a 1-token pass when NOTHING has to
+/// be fetched — the number the plateau-regime speculative arithmetic rests on
+/// ("verifying k drafted tokens costs roughly the launches of one"). The
+/// plateau itself needs a ~27 GB target this Mac cannot always spare; the
+/// fetch-free cost fits in any pool that holds five tokens' experts: run the
+/// same pass twice from one checkpoint and time the second, when every expert
+/// it needs is already resident (the miss counter proves it). Positions come
+/// from a real greedy continuation so routing is realistic.
+struct MTPPassCost: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "mtp-passcost",
+        abstract: "Fetch-free cost of a k-token verify pass relative to one token",
+        shouldDisplay: false)
+    @OptionGroup var model: ModelOptions
+    @Option(help: "Tokens of plain greedy continuation to draw positions from") var maxTokens: Int = 64
+    @Option(help: "Measurement positions (after one warm-up position)") var positions: Int = 8
+    @Option(help: "Largest pass to time (the verify pass is draft depth + 1)") var maxBatch: Int = 5
+    @Option var prompt: String = "Explain how a transistor works, in about 300 words."
+
+    func run() throws {
+        let plan = try model.announcedPlan()
+        let sem = DispatchSemaphore(value: 0)
+        var result: Result<Void, Error> = .success(())
+        Task {
+            do {
+                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                try engine.model.enableMTP(modelDir: model.modelURL)
+                let m = engine.model
+                guard let head = m.mtpHead else { throw ModelError("draft head not loaded") }
+                var params = SampleParams.greedy
+                params.maxTokens = maxTokens
+                let ids = try engine.encodeChat(
+                    [ChatMessage(role: "user", content: prompt)], thinking: false)
+                engine.generator.speculationEnabled = false
+                let (out, _) = engine.generator.generate(
+                    promptIds: ids, params: params, eosIds: engine.eosIds)
+                let seq = ids + out
+                let need = ids.count + maxBatch * (positions + 1) + 1
+                guard seq.count >= need else {
+                    throw ModelError(
+                        "continuation too short: \(out.count) tokens; lower --positions or raise --max-tokens")
+                }
+
+                // A fresh state over the prompt, with the draft head's cache aligned.
+                let state = m.makeState()
+                let mtpState = MTPState()
+                state.mtp = mtpState
+                let prefix = Array(seq[0 ..< ids.count])
+                let (_, pm) = m.hiddenStatesWithMulti(prefix, state: state)
+                eval(pm)
+                state.lastMulti = head.consume(
+                    chunk: prefix, chunkMulti: pm, prevMulti: nil,
+                    resident: m.resident, rope: m.sharedRope, state: mtpState)
+
+                func timed(_ body: () -> Void) -> Double {
+                    let t0 = DispatchTime.now().uptimeNanoseconds
+                    body()
+                    return Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6
+                }
+                func median(_ a: [Double]) -> Double {
+                    let s = a.sorted()
+                    return s.isEmpty ? 0 : s[s.count / 2]
+                }
+                // per k: (coldMs, coldMisses, warmMs, warmMisses)
+                var verify: [Int: [(Double, Int, Double, Int)]] = [:]
+                var rebuild: [Int: [(Double, Int)]] = [:]
+                var draft: [Double] = []
+
+                var p = ids.count
+                for pos in 0 ... positions {  // position 0 is the warm-up (kernel compiles)
+                    let record = pos > 0
+                    for k in 1 ... maxBatch {
+                        let chunk = Array(seq[p ..< p + k])
+                        let ck = state.checkpoint()
+                        m.pool.resetStats()
+                        let cold = timed {
+                            let (l, mu) = m.allLogitsWithMulti(chunk, state: state)
+                            eval(l, mu)
+                        }
+                        let coldMiss = m.pool.misses
+                        state.restore(ck)
+                        m.pool.resetStats()
+                        let warm = timed {
+                            let (l, mu) = m.allLogitsWithMulti(chunk, state: state)
+                            eval(l, mu)
+                        }
+                        let warmMiss = m.pool.misses
+                        state.restore(ck)
+                        if record { verify[k, default: []].append((cold, coldMiss, warm, warmMiss)) }
+                        if k < maxBatch {
+                            // The rebuild after a rejection re-runs the kept tokens without logits.
+                            _ = timed {
+                                let (_, mu) = m.hiddenStatesWithMulti(chunk, state: state)
+                                eval(mu)
+                            }
+                            state.restore(ck)
+                            m.pool.resetStats()
+                            let rw = timed {
+                                let (_, mu) = m.hiddenStatesWithMulti(chunk, state: state)
+                                eval(mu)
+                            }
+                            let rm = m.pool.misses
+                            state.restore(ck)
+                            if record { rebuild[k, default: []].append((rw, rm)) }
+                        }
+                    }
+                    // One draft-head step (everything resident: it never fetches).
+                    let e = m.resident.embed(MLXArray([Int32(seq[p])], [1, 1])).asType(.bfloat16)
+                    let off = mtpState.offset
+                    for i in 0 ..< 2 {
+                        let d = timed {
+                            let (s, _) = head(
+                                embedded: e, hiddenMulti: state.lastMulti!, rope: m.sharedRope,
+                                state: mtpState)
+                            let dl = m.draftLogits(s)
+                            eval(dl)
+                        }
+                        mtpState.trim(to: off)
+                        if record && i == 1 { draft.append(d) }
+                    }
+                    // Advance for real by maxBatch tokens so the next position is fresh.
+                    let step = Array(seq[p ..< p + maxBatch])
+                    let (_, mu) = m.hiddenStatesWithMulti(step, state: state)
+                    eval(mu)
+                    state.lastMulti = head.consume(
+                        chunk: step, chunkMulti: mu, prevMulti: state.lastMulti,
+                        resident: m.resident, rope: m.sharedRope, state: mtpState)
+                    p += maxBatch
+                }
+
+                let t1 = median(verify[1]!.map { $0.2 })
+                print(String(
+                    format: "fetch-free pass cost at ~%.0f experts/layer, median of %d positions (ms; ratio to the 1-token pass):",
+                    plan.expertsPerLayerCached, positions))
+                for k in 1 ... maxBatch {
+                    let w = verify[k]!
+                    print(String(
+                        format: "  verify  k=%d: %7.1f ms  x%.2f   [warm misses %d | first run %7.1f ms, %d misses]",
+                        k, median(w.map { $0.2 }), median(w.map { $0.2 }) / t1,
+                        Int(median(w.map { Double($0.3) })), median(w.map { $0.0 }),
+                        Int(median(w.map { Double($0.1) }))))
+                }
+                for k in 1 ..< maxBatch {
+                    let r = rebuild[k]!
+                    print(String(
+                        format: "  rebuild k=%d: %7.1f ms  x%.2f   [warm misses %d]",
+                        k, median(r.map { $0.0 }), median(r.map { $0.0 }) / t1,
+                        Int(median(r.map { Double($0.1) }))))
+                }
+                print(String(
+                    format: "  draft step:   %7.1f ms  x%.2f   (one head step + lm_head, resident)",
+                    median(draft), median(draft) / t1))
                 result = .success(())
             } catch { result = .failure(error) }
             sem.signal()

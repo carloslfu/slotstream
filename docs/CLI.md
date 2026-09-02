@@ -140,9 +140,14 @@ model, takes the lock, and allocates real memory, so give it a small target
 - `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the
   model's draft head. Needs `mtp.safetensors` next to the weights
   (`Tools/mtp_convert.py`); `on` without the file is an error, `auto` is the
-  default and stays off below ~26 GB of target.
+  default and stays off below a 28 GB target, where the cache still reaches
+  120 experts per layer after the head's 1.6 GB. Measured on the dev Mac,
+  the 0.2.0 build (four drafts) did not pay at any smaller cache (×0.55 to
+  ×0.96 from 20 to 57 experts per layer); two drafts, the default now, reach
+  ×1.12 at 57. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
-- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 4, picked from
-  the measured accept curve). Experiments only.
+- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 2, by
+  measurement: a verify pass costs about a sixth of a pass per extra token,
+  so short chains win; MEASUREMENTS.md M9). Experiments only.

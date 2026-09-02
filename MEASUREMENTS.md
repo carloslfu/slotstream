@@ -1610,44 +1610,115 @@ chains the draft head then rolls it back, scoring drafts against the tokens
 the model actually produced. Four prompts (prose, code, list, arithmetic),
 96 tokens each, 380 scored positions:
 
-| chain depth | prefix accept | E[tokens/round] | est. speedup (launch-bound) |
+| chain depth | prefix accept | E[tokens/round] | fetch-free ceiling |
 |---|---:|---:|---:|
-| 1 | **85.8%** | 1.86 | ×1.52 |
-| 2 | 71.0% | 2.57 | ×1.81 |
-| 3 | 53.8% | 3.11 | ×1.91 |
-| 4 | 41.3% | 3.52 | ×1.96 |
+| 1 | **85.8%** | 1.86 | ×1.37 |
+| 2 | 71.0% | 2.57 | **×1.48** |
+| 3 | 53.8% | 3.11 | ×1.43 |
+| 4 | 41.3% | 3.52 | ×1.38 |
 
-The head predicts the model's next-next token at 85.8%. The speedup column is
-the round arithmetic (verify pass + rejection rebuild + ~2/48 head overhead)
-and applies ONLY where a 5-token pass costs about a 1-token pass.
+The head predicts the model's next-next token at 85.8%. The last column is
+the round arithmetic with the pass costs `mtp-passcost` measured (below): a
+k-token verify costs about 1 + 0.16k single passes, a rebuild likewise, a
+draft step 0.05, so it is the speedup with every expert resident, and no
+real cache reaches it. The 0.2.0 version of this table assumed the verify
+pass was free and read ×1.52–1.96.
 
-### Where it pays — the negative result that confirms the policy
+### Where it pays — measured at every cache size that fit (2026-09-01, redone 2026-09-02 on the release)
 
-In-process A/B (`slotstream mtp-bench`, one engine, one warm pool, alternating
-paths) at `--memory-gb 16` → ~54 experts/layer:
+In-process A/B (`slotstream mtp-bench`: one engine, one warm pool, the two
+decode paths alternated, greedy, one 300-word prompt, 192 tokens, medians of
+interleaved pairs) on the released 0.2.0 binary at its draft depth of 4, at
+every cache size the machine could hold with headroom that evening:
 
-| | decode tok/s (median of 3) |
-|---|---:|
-| plain | 6.77 |
-| speculative (depth 4) | 6.52 → **×0.96** |
+| target | experts/layer | plain tok/s | speculative tok/s | ratio | round cost, in plain tokens |
+|---|---:|---:|---:|---:|---:|
+| 10 GB | 20 | 5.80 | 3.21 | **×0.55** | 5.2 |
+| 14 GB | 29 | 5.92 | 4.07 | **×0.69** | 4.2 |
+| 16 GB | 42 | 6.35 | 5.59 | **×0.88** | 3.3 |
+| 18 GB | 57 | 7.48 | 7.20 | **×0.96** | 3.0 |
 
-Tokens/round measured 2.87 (192 tokens / 67 verify passes) — the machinery
-delivers exactly what the 46% observed accept predicts. The gain is eaten by
-the verify pass's expert fetches: at a small pool, five tokens' experts cost
-real SSD reads that one token's would not. Per-round timing puts verify+rebuild
-at ~2.8 single-pass equivalents here versus the ~1.9 the launch-bound
-arithmetic gives; the difference is the fetch bill. This is the design note's
-"tight memory keeps the experts" argument, now with numbers, and it is why
-auto only enables the head at **≥120 experts/layer after paying its 1.6 GB**
-(`Planner.mtpAutoFloorPerLayer`), raising the auto ceiling to 34.6 GB so the
-cache still reaches the decode knee.
+Every run drafts the same 268 tokens and keeps 124 (46.3%): 67 verify passes
+for 192 tokens, 2.87 tokens per round. The last column is 2.87 × plain/spec,
+what one round costs in units of the plain path's per-token time, and it is
+the number to watch: it falls from 5.2 to 3.0 as the cache grows, because the
+verify pass's five tokens fetch fewer experts, and the paths break even when
+it reaches 2.87. The 18 GB row is five pairs at 0.91–0.99 each; a first
+three-pair run at that size overlapped another session's build and threw a
+4.5 tok/s pair on both arms, discarded per the discipline above. The dev-build
+figure from the day before (×0.96 at 54/layer, 6.77 → 6.52) reproduces.
 
-**Not yet measured: the plateau-regime A/B.** Machine state during this
-session left ~18 GB reclaimable — a 25+ GB target would not fit with the
-required headroom, and the memory rules forbid launching it. The ×1.5–1.9
-figure for ≥120/layer therefore remains an estimate from the measured accept
-curve plus the measured plateau flatness. Reproduce when quiet:
-`slotstream mtp-bench --memory-gb 26 --pairs 3` (needs mtp.safetensors).
+At a fixed target, which is what the flag does for a user, the loss is
+larger, because the head's 1.6 GB comes out of the cache. `run --memory-gb 14
+--greedy` on a cold process, two rounds each: `--mtp off` plans 40
+experts/layer and decodes at 6.97 / 7.18 tok/s (hit rate 0.606); `--mtp on`
+plans 29/layer and decodes at 4.69 / 4.55 (hit rate 0.391, 124/268 drafts
+accepted): **×0.65**. Auto keeps the head off until the cache still reaches
+120/layer after the charge, which on this Mac is a **28 GB** target (27 GB
+plans 127/layer, 115 after the charge; the "~26 GB" the 0.2.0 docs said was
+never read off `doctor`, and is corrected).
+
+### The plateau: still unmeasured, and its ceiling measured (2026-09-02)
+
+The A/B at ≥120/layer, where auto turns the head on, needs a 26.7 GB peak and
+about 32 GB reclaimable; Carlos's apps left 20 to 28 GB through both
+sessions, so it has still not run (`slotstream mtp-bench --memory-gb 28
+--pairs 5`, the day the machine is that quiet). What could be measured is the
+premise the ×1.5–1.9 arithmetic stood on: that verifying five tokens in one
+pass costs about one token's pass once nothing has to be fetched.
+`slotstream mtp-passcost` runs a pass twice from one checkpoint at eight real
+positions of a greedy continuation and times the second run, when the pool's
+miss counter reads zero (it did, at every position):
+
+| pass, every expert it needs resident (57/layer) | ms | × one token |
+|---|---:|---:|
+| verify 1 token | 48.3 | 1.00 |
+| verify 2 / 3 / 4 tokens | 56.7 / 64.2 / 72.1 | 1.17 / 1.33 / 1.49 |
+| verify 5 tokens (depth 4) | 79.8 | **1.65** |
+| rebuild 1 / 2 / 3 / 4 kept tokens | 47.1 / 54.8 / 62.7 / 69.1 | 0.97 / 1.13 / 1.30 / 1.43 |
+| one draft step (head + lm_head) | 2.3 | 0.05 |
+
+**The premise was false.** Each token in the batch adds ~8 ms, a sixth of a
+single pass, linearly: a five-token pass gathers up to five times the expert
+weights of a one-token pass, and that does not ride free on launch overhead
+the way a dense batch-1 matmul suggested. With the measured accept curve
+(85.8 / 71.0 / 53.8 / 41.3% for chains of 1 to 4, so 3.52 tokens per round
+at depth 4) a fetch-free round costs 4 × 0.05 + 1.65 + 0.71 (the expected
+rebuild) = 2.55 plain tokens, and the speedup with **every expert resident**
+is capped at **×1.38** at depth 4, ×1.43 at depth 3, **×1.48 at depth 2**,
+×1.37 at depth 1: the linear cost favours short chains. These are ceilings.
+On the real plateau the plain path is far from fetch-free (11.6 tok/s at
+150/layer against the 20.7 tok/s a 48 ms pass implies, so some 40% of every
+token is still fetch; the never-reproduced 20.0 at 181/layer looks like this
+fetch-free rate glimpsed once) and the verify pass fetches for several
+tokens. **The "×1.5–1.9" in the 0.2.0 docs was arithmetic on this premise
+and is withdrawn.**
+
+### Depth: the sweep that moved the default from 4 to 2 (2026-09-02)
+
+Same A/B at 57/layer, five pairs per depth (`SLOTSTREAM_DRAFT_DEPTH`):
+
+| depth | tokens/round | drafts accepted | plain → spec (column medians) | ratio | pair ratios |
+|---|---:|---:|---|---:|---|
+| 4 (0.2.0) | 2.87 | 46.3% | 7.48 → 7.20 | **×0.96** | 0.91–0.99 |
+| 2 | 2.34 | 66.5% | 7.32 → 7.38 | ×1.01 (pair median **×1.12**) | 0.85–1.27, two pairs disturbed |
+| 1 | 1.81 | 80.2% | 7.36 → 8.34 | **×1.13** | 0.96–1.27 |
+
+Depth 4 loses consistently; depths 1 and 2 are indistinguishable at this
+size and both ahead of plain. Calibrated on these rounds, the verify pass's
+fetch grows to about 1.7× / 2.6× / 3.1× a single token's for 2 / 3 / 5
+tokens (consecutive tokens share experts, so it is not 5×), and projecting
+those onto the plateau (38 ms of fetch in an 86 ms token) puts every depth
+near ×1.2 for the average prompt, with depth 4 at break-even on this one.
+The default is now **2**: the best fetch-free ceiling, and no worse than
+depth 1 where it could be measured. Nothing about the head's cache, the
+gates, or the parity fixture depends on the depth.
+
+What this means for the policy: auto's 120/layer floor stands, because the
+twelve experts per layer the head displaces there are past the plateau and
+worth nothing while every measured point below the floor is a loss at the
+old depth; but the head is an opt-in artifact with a modest, unmeasured
+upside, not a promised multiplier, and the docs now say so.
 
 ### Correctness story (a claim from the design note corrected)
 
@@ -1664,16 +1735,23 @@ are exact by construction: draws happen sequentially off the verified logits,
 only for tokens the plain loop would also have sampled, so the rng stream and
 presence-penalty evolution match the plain path token for token.
 
-One gate needed its own control to be honest. The cross-request check first
+One gate had to be rebuilt twice to be honest. The cross-request check first
 asserted "a continuation of a speculative conversation produces tokens" and
 failed — not because the state was wrong, but because a 48-token turn-1 reply
 is usually cut mid-think, and the model legitimately answers some
-continuations of that context with an immediate EOS. The shipped gate runs
-the same two-turn token-level flow with speculation OFF as a control and
-asserts the speculative path is not the one that goes silent; on the
-deciding run the reused speculative state answered " Paris" to a fresh
-question through 65 reused tokens, the plain control " Paris." — same
-knowledge, one near-tie punctuation flip, exactly the accepted envelope.
+continuations of that context with an immediate EOS. 0.2.0 shipped it with a
+plain-path control ("the speculative path must not be the one that goes
+silent"), which passed on its deciding run: reused state " Paris", control
+" Paris.". Moving the draft depth to 2 flipped it the other way — reused
+state EOS, control " Paris." — with turn-1 text that differed between the
+paths by a near-tie flip, so the control was comparing two different
+contexts and the assertion was a coin toss either way. The gate now measures
+what it means: the next turn's logits from the reused speculative state
+against a cold rebuild of the same ids, bounded by three times what
+re-chunking a plain prefill moves them (the `prefix-check` method). On the
+deciding run it read 7.36% of the logit spread against a 6.16%
+control at depth 2 (top-1 differs) and 5.77% against 6.16% at
+depth 4 (top-1 same); a misaligned state reads tens of percent.
 
 State rollback is O(1): the recurrent caches' arrays are REPLACED each step
 (the GDN kernel emits a fresh state_out), so a checkpoint holds references,

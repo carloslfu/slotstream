@@ -177,12 +177,15 @@ public final class Generator {
     /// knob rather than "as large as the prompt". Measured in MEASUREMENTS.md.
     public var prefillChunk = PrefillTuning.chunk
     /// Draft tokens per speculative round when the MTP head is enabled.
-    /// The measured accept curve picks the default; SLOTSTREAM_DRAFT_DEPTH
-    /// overrides for experiments.
+    /// Depth 2 by measurement (MEASUREMENTS M9): a k-token verify pass costs
+    /// about 1 + 0.16k single passes with every expert resident, so the
+    /// fetch-free ceiling peaks at depth 2 (×1.48 against ×1.38 at depth 4),
+    /// and at 57 experts/layer depths 1 and 2 read ×1.13 / ×1.12 where depth
+    /// 4 reads ×0.96. SLOTSTREAM_DRAFT_DEPTH overrides for experiments.
     public var draftDepth: Int = {
         if let s = ProcessInfo.processInfo.environment["SLOTSTREAM_DRAFT_DEPTH"],
             let n = Int(s), n >= 1, n <= 16 { return n }
-        return 4
+        return 2
     }()
     /// Gate for the speculative path — `mtp-check` compares speculative
     /// against plain decode on the same loaded model by flipping this.

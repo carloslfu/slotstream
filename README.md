@@ -130,15 +130,21 @@ state isn't bit-identical to recomputing it, so a reply can occasionally
 differ where two tokens were nearly tied; `--no-prefix-cache` turns it off if
 you need exact reproducibility.
 
-Decode has one more gear on machines with room to spare. The model ships a
-draft head that predicts the token after next; with `--mtp` (default `auto`,
-new in 0.2.0) slotstream drafts a few tokens ahead and verifies them in one
-batched pass, and the first draft is right 86% of the time (measured). It
-only pays where the expert cache is already near its best: at small caches
-the A/B says ×0.96, so auto keeps it off below ~26 GB of target, and the
-×1.5–1.9 expected above that is arithmetic from the accept rate, not yet an
-A/B. The head costs 1.6 GB on top of the cache, so the auto ceiling becomes
-34.6 GB. It needs a one-time conversion that pulls 4.9 GB from the official
+Decode has one more gear on machines with room to spare, and it is a small
+one. The model ships a draft head that predicts the token after next; with
+`--mtp` (default `auto`, new in 0.2.0) slotstream drafts two tokens ahead
+and verifies them in one batched pass, and the first draft is right 86% of
+the time (measured). It only pays where the expert cache is already near
+its best. On the dev Mac the 0.2.0 build, which drafted four tokens, lost at
+every cache size that fit, from ×0.55 at 20 experts per layer to ×0.96 at
+57; two drafts, the default now, reach ×1.12 at 57, and auto keeps the head
+off below a 28 GB target either way. Past 120 per layer, where auto turns
+it on, nothing has been measured yet, but the ceiling is: with every expert
+resident a three-token verify pass costs 1.33 single passes (measured),
+which caps the gain at about ×1.5 in the best case and, projecting the
+measured fetch costs onto the plateau, nearer ×1.2 there. The head costs
+1.6 GB on top of the cache, so the auto ceiling becomes 34.6 GB. It needs a
+one-time conversion that pulls 4.9 GB from the official
 release and writes a 1.5 GB `mtp.safetensors` next to the weights
 (`Tools/mtp_convert.py`, run from a clone with the repo's Python
 environment); without the file, everything runs with it off.
