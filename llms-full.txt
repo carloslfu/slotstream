@@ -634,6 +634,9 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- CI runs the full build only when something other than prose changes; a
+  docs-only push runs a twenty-second `docs` job (the llms-full.txt staleness
+  check) instead.
 ## 0.2.2 — 2026-09-02
 
 - Speculative decode pays, and ships. The draft head, `mtp.safetensors`
