@@ -1229,6 +1229,37 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- slotstream is a Swift package as well as a binary. `Package.swift` declared
+  no products, so nothing outside the repository could import it even by path:
+  SwiftPM refused at graph resolution. There are now two library products —
+  `Slotstream` (weights, planning, generation, serving) and
+  `SlotstreamDiagnostics` (checks, goldens, benches) — beside the unchanged
+  `slotstream` executable. `docs/LIBRARY.md` is the guide, including the part
+  nobody guesses: MLX looks for its Metal shaders beside whichever executable
+  is running.
+- The weights are an addressable thing. `WeightStore.status()` answers ready /
+  missing / incomplete / corrupt with the bytes still needed and the free disk
+  where they land, so an app can ask before it tries to load, and a
+  complete-looking copy is still hashed because size cannot see same-size
+  corruption. `PinnedModel` is a public value; the download engine moved with
+  it and no longer throws ArgumentParser's errors.
+- The machine is a value, and a simulated one cannot allocate. `Machine`
+  carries RAM, working set, availability and whether any of it was invented;
+  a plan made for a simulated machine is marked and `Engine.load` refuses it.
+  The global `Planner.availabilityOverride` is gone from the planning path.
+  (Named `Machine`, not `Device`, because MLX exports its own `Device`.)
+- Checks are library functions, not subcommand bodies. `runtime-check`,
+  `governor-check`, `pull-check` and `sampler-golden` are `Diagnostics` and
+  `Goldens` calls that return a report; the subcommands render it and print
+  exactly what they always printed. New `slotstream-checks` runs the whole
+  catalogue — 121 assertions across 9 checks, none needing weights — and CI
+  runs it on every push alongside a coverage ratchet that holds a per-file
+  floor.
+- The serving layer's framing and routing rules are testable without a server:
+  head parsing, the 411/413/431/400 decisions, absolute-form and query-string
+  routing, and the loopback-only CORS policy. All of it previously needed a
+  live server with 105 GB loaded.
+
 - The repository carries its brain. `db/` is a public db.md store: every
   MEASUREMENTS.md and PLAN.md section is a record, every number on the README
   and the docs is a claim naming the measurement behind it and the surfaces
