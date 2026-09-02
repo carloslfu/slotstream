@@ -252,15 +252,30 @@ public final class Server {
         case ("GET", "/api/ps"):
             respondJSON(fd, ["models": [modelCard(loaded: true)]], cors: cors)
         case ("POST", "/api/show"):
-            if let e = modelError(json) {
+            // The Ollama CLI's ShowRequest serializes every field, so a plain
+            // `ollama run` opens with empty name/system/template/options.
+            // Accept the deprecated `name` alias and empty overrides; a
+            // non-empty override asks for modelfile semantics this server
+            // does not have and stays a 400 (showOverrideError).
+            var show = json
+            if show["model"] == nil, let alias = show["name"] as? String, !alias.isEmpty {
+                show["model"] = alias
+            }
+            if let e = modelError(show) {
                 respondJSON(fd, ["error": e], status: "404 Not Found", cors: cors)
                 return
             }
-            if let e = Self.unsupportedKey(json, allowed: ["model", "verbose"]) {
+            if let e = Self.unsupportedKey(
+                show, allowed: ["model", "name", "verbose", "system", "template", "options"])
+            {
                 respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
                 return
             }
-            if json["verbose"] != nil, Self.bool(json["verbose"]) == nil {
+            if let e = Self.showOverrideError(show) {
+                respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
+                return
+            }
+            if show["verbose"] != nil, Self.bool(show["verbose"]) == nil {
                 respondJSON(
                     fd, ["error": "verbose must be true or false"],
                     status: "400 Bad Request", cors: cors)
@@ -271,6 +286,7 @@ public final class Server {
                 [
                     "modelfile": "# slotstream: SSD-streamed qwen4_exp",
                     "parameters": "",
+                    "capabilities": ["completion"],
                     "template": "{{ .Prompt }}",
                     "details": modelDetails(live: true),
                     "model_info": [
@@ -461,8 +477,26 @@ public final class Server {
         return nil
     }
 
+    /// Ollama's ShowRequest carries `system`, `template`, and `options` as
+    /// modelfile overrides. Empty ones are what every client sends by default
+    /// and mean nothing; a non-empty one would have to be silently ignored
+    /// here, so it is refused instead.
+    private static func showOverrideError(_ json: [String: Any]) -> String? {
+        for key in ["system", "template"] {
+            guard let v = json[key], !(v is NSNull) else { continue }
+            guard let s = v as? String else { return "\(key) must be text" }
+            if !s.isEmpty { return "\(key) overrides are not supported on this server" }
+        }
+        if let v = json["options"], !(v is NSNull) {
+            guard let o = v as? [String: Any] else { return "options must be an object" }
+            if !o.isEmpty { return "options overrides are not supported on /api/show" }
+        }
+        return nil
+    }
+
     private static func optionsError(_ json: [String: Any]) -> String? {
-        guard let options = json["options"] else { return nil }
+        // The Ollama CLI sends `"options": null` when none are set.
+        guard let options = json["options"], !(options is NSNull) else { return nil }
         guard let o = options as? [String: Any] else { return "options must be an object" }
         let allowed: Set<String> = [
             "temperature", "top_p", "top_k", "min_p", "presence_penalty",
@@ -567,7 +601,7 @@ public final class Server {
 
     private func apiChat(_ fd: Int32, _ json: [String: Any], cors: String) {
         if let e = ollamaValidationError(
-            json, allowed: ["model", "messages", "stream", "think", "options"],
+            json, allowed: ["model", "messages", "stream", "think", "options", "keep_alive"],
             messages: true)
         {
             respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
@@ -577,10 +611,17 @@ public final class Server {
         let stream = Self.bool(json["stream"]) ?? true
         let thinking = Self.bool(json["think"]) ?? false
         let params = sampleParams(json)
+        // Ollama's documented "load" request (see apiGenerate): no messages
+        // means load the model and return. Acknowledged without touching the
+        // engine.
         guard !msgs.isEmpty else {
             respondJSON(
-                fd, ["error": "messages must not be empty"],
-                status: "400 Bad Request", cors: cors)
+                fd,
+                [
+                    "model": engine.modelName, "created_at": iso(Date()),
+                    "message": ["role": "assistant", "content": ""],
+                    "done": true, "done_reason": "load",
+                ], cors: cors)
             return
         }
         guard let ids = try? engine.encodeChat(msgs, thinking: thinking) else {
@@ -632,10 +673,31 @@ public final class Server {
     private func apiGenerate(_ fd: Int32, _ json: [String: Any], cors: String) {
         if let e = ollamaValidationError(
             json,
-            allowed: ["model", "prompt", "system", "raw", "stream", "think", "options"])
+            allowed: [
+                "model", "prompt", "system", "raw", "stream", "think", "options", "keep_alive",
+                "suffix", "template",
+            ])
         {
             respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
             return
+        }
+        // The Ollama CLI's one-shot `ollama run model "prompt"` uses this
+        // endpoint and serializes empty suffix/template. A non-empty suffix
+        // asks for fill-in-the-middle and a non-empty template for a modelfile
+        // override; neither exists here, so those stay a 400.
+        for key in ["suffix", "template"] {
+            guard let v = json[key], !(v is NSNull) else { continue }
+            guard let s = v as? String else {
+                respondJSON(fd, ["error": "\(key) must be text"], status: "400 Bad Request", cors: cors)
+                return
+            }
+            if !s.isEmpty {
+                let why = key == "suffix"
+                    ? "fill-in-the-middle (suffix) is not supported"
+                    : "template overrides are not supported on this server"
+                respondJSON(fd, ["error": why], status: "400 Bad Request", cors: cors)
+                return
+            }
         }
         if json["prompt"] != nil, json["prompt"] as? String == nil {
             respondJSON(
@@ -659,10 +721,18 @@ public final class Server {
         let raw = Self.bool(json["raw"]) ?? false
         let stream = Self.bool(json["stream"]) ?? true
         let thinking = Self.bool(json["think"]) ?? false
+        // Ollama's documented "load" request: an empty prompt asks the server
+        // to load the model and return at once, and the CLI sends one when an
+        // interactive session opens. The model is always loaded here, so this
+        // is an acknowledgment; nothing reaches the engine (an empty prompt
+        // would leave the first logits uninitialized).
         guard !prompt.isEmpty else {
             respondJSON(
-                fd, ["error": "prompt must not be empty"],
-                status: "400 Bad Request", cors: cors)
+                fd,
+                [
+                    "model": engine.modelName, "created_at": iso(Date()),
+                    "response": "", "done": true, "done_reason": "load",
+                ], cors: cors)
             return
         }
         if raw, thinking || json["system"] != nil {

@@ -21,7 +21,7 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 | `GET /v1/models` | The one model, OpenAI list format. |
 | `GET /api/tags` | The one model, Ollama list format. |
 | `GET /api/ps` | The loaded model and its memory. |
-| `POST /api/show` | Model metadata. Fields: `model`, optional `verbose`. |
+| `POST /api/show` | Model metadata, including `capabilities`. Fields: `model` (or Ollama's deprecated `name`), optional `verbose`; empty `system`, `template`, and `options` are accepted because the Ollama CLI always sends them, non-empty ones are a 400. |
 | `GET /api/version` | `{"version": "..."}` |
 | `POST /api/embed`, `/api/embeddings` | 400 — the model does not do embeddings. |
 | `POST /api/pull`, `/api/create` | 501 — run `slotstream pull` on the host instead. |
@@ -29,7 +29,8 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 ## `/api/chat`
 
 Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`.
+(`true`/`false`), `options`, and `keep_alive`, which is accepted and has no
+effect because the model never unloads.
 
 Messages are `{"role", "content"}` with text content; images and `tool_calls`
 are rejected. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
@@ -45,8 +46,13 @@ curl localhost:11434/api/chat -d '{
 
 ## `/api/generate`
 
-Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, and the same
-`options` as chat. `raw: true` sends your prompt with no chat template, and
+Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, `keep_alive`,
+and the same `options` as chat (`null` counts as none). Empty `suffix` and
+`template` are accepted because the Ollama CLI's one-shot mode sends them;
+a non-empty suffix (fill-in-the-middle) or template override is a 400. An
+empty prompt is Ollama's "load the model" request and is acknowledged with
+`done: true, done_reason: "load"` (the same for `/api/chat` with no
+messages); the model is always loaded here, so nothing else happens. `raw: true` sends your prompt with no chat template, and
 can't be combined with `system` or `think`.
 
 ## `/v1/chat/completions`

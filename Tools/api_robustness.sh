@@ -135,9 +135,15 @@ for BADP in '"top_p":0' '"top_p":-1' '"min_p":1.5'; do
   esac
 done
 
+# An empty prompt is Ollama's documented "load" request (the CLI sends one when
+# an interactive session opens). It must be acknowledged with no text and
+# without touching the engine: generating from it would read an uninitialized
+# tensor, which is what this gate originally guarded against.
 R=$(post /api/generate '{"raw":true,"prompt":"","stream":false,"options":{"num_predict":8}}')
-case "$R" in *'must not be empty'*) ok "empty prompt is refused, not answered from an uninitialized tensor" ;;
-  *) bad "empty prompt was answered" "$R" ;; esac
+case "$R" in
+  *'"done_reason":"load"'*) case "$R" in *'"response":""'*) ok "empty prompt is the load request: acknowledged, never answered from an uninitialized tensor" ;;
+    *) bad "load acknowledgment carried text" "$R" ;; esac ;;
+  *) bad "empty prompt was answered or refused instead of acknowledged" "$R" ;; esac
 
 R=$(post /v1/chat/completions '{"messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: ARRAYOK"}]}],"max_tokens":8,"temperature":0}' \
     | python3 -c 'import json,sys;print(json.load(sys.stdin)["choices"][0]["message"]["content"])')
@@ -169,6 +175,40 @@ B=$($BIN --version)
 
 S=$(curl -s --max-time 20 "http://127.0.0.1:$PORT/api/tags" | python3 -c 'import json,sys;print(json.load(sys.stdin)["models"][0]["size"])')
 [ "$S" = "$TOTAL_WEIGHT_BYTES" ] && ok "/api/tags size matches the pinned manifest" || bad "/api/tags size wrong" "$S != $TOTAL_WEIGHT_BYTES"
+
+# --- the Ollama CLI's wire format ---
+# Its ShowRequest serializes every field, so `ollama run` opens with empty
+# name/system/template/options, and its chat may carry keep_alive and a null
+# options. Rejecting those broke the CLI in 0.1.8 without any gate noticing.
+R=$(post /api/show '{"model":"qwen3.8-flash-next:4bit","name":"","system":"","template":"","options":{},"verbose":false}')
+case "$R" in *'"capabilities"'*) ok "/api/show accepts the Ollama CLI request shape and advertises capabilities" ;;
+  *) bad "/api/show rejects the Ollama CLI request shape" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/show '{"name":"qwen3.8-flash-next:4bit"}')
+case "$R" in *'"capabilities"'*) ok "/api/show accepts the deprecated name alias" ;;
+  *) bad "/api/show rejects the name alias" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/show '{"model":"qwen3.8-flash-next:4bit","system":"You are a pirate"}')
+case "$R" in *"not supported"*) ok "/api/show refuses a non-empty system override instead of ignoring it" ;;
+  *) bad "/api/show silently accepted a system override" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/show '{"model":"qwen3.8-flash-next:4bit","foo":1}')
+case "$R" in *"unsupported request field"*) ok "/api/show still rejects unknown fields" ;;
+  *) bad "/api/show accepted an unknown field" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"keep_alive":"5m","options":null,"messages":[{"role":"user","content":"Reply with exactly: pong"}]}' | content)
+case "$R" in ""|*"unsupported"*|*"must be"*) bad "/api/chat rejects keep_alive or null options" "$(printf %.90s "$R")" ;;
+  *) ok "/api/chat accepts keep_alive and null options (the CLI's defaults)" ;; esac
+# One-shot `ollama run model "prompt"` uses /api/generate with empty suffix/system/template.
+R=$(post /api/generate '{"model":"qwen3.8-flash-next:4bit","prompt":"Reply with exactly: pong","suffix":"","system":"","template":"","options":{},"stream":false}' | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("response", d.get("error","")))')
+case "$R" in ""|*"unsupported"*|*"must be"*) bad "/api/generate rejects the Ollama CLI one-shot shape" "$(printf %.90s "$R")" ;;
+  *) ok "/api/generate accepts the Ollama CLI one-shot shape (empty suffix/system/template)" ;; esac
+R=$(post /api/generate '{"model":"qwen3.8-flash-next:4bit","prompt":"def f(","suffix":"return 1","stream":false}')
+case "$R" in *"not supported"*) ok "/api/generate refuses a non-empty suffix instead of ignoring it" ;;
+  *) bad "/api/generate silently accepted a suffix" "$(printf %.90s "$R")" ;; esac
+# Interactive `ollama run` opens with Ollama's documented "load" request: an empty prompt.
+R=$(post /api/generate '{"model":"qwen3.8-flash-next:4bit","prompt":"","suffix":"","system":"","template":"","options":{}}')
+case "$R" in *'"done_reason":"load"'*) ok "/api/generate with an empty prompt is the Ollama load request, acknowledged" ;;
+  *) bad "/api/generate rejects the empty-prompt load request" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","messages":[]}')
+case "$R" in *'"done_reason":"load"'*) ok "/api/chat with no messages is the Ollama load request, acknowledged" ;;
+  *) bad "/api/chat rejects the empty-messages load request" "$(printf %.90s "$R")" ;; esac
 
 L=$(curl -s -I --max-time 20 "http://127.0.0.1:$PORT/api/tags" | tr -d '\r' | awk -F': ' '/^Content-Length/{print $2}')
 [ "${L:-x}" = "0" ] && ok "HEAD returns no body" || bad "HEAD returned a body" "Content-Length=$L"

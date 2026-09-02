@@ -55,8 +55,9 @@ name is `qwen3.8-flash-next:4bit`, which is also the default.
 | `--connections <n>` | Parallel connections (default 8; Hugging Face plateaus past 4). |
 | `--verify` | Re-hash an existing copy against the pinned sha256s and download nothing. |
 
-Weights placed elsewhere are used by passing that directory to `--model` (the
-real directory; a symlink to it fails to open).
+Weights placed elsewhere are used by passing that directory to `--model`, or
+by symlinking it into the default location so the model keeps its name (a
+symlinked directory fails to open in 0.2.0; fixed on `main`).
 
 ### `slotstream doctor`
 

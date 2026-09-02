@@ -204,10 +204,12 @@ are estimates from its curve, not runs on real hardware.
   engine is built around its geometry, and `pull` knows no other name. A
   per-user lock allows one model process at a time.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
-- **The Ollama CLI can't connect yet.** `ollama run` (0.32) opens with an
-  `/api/show` request carrying fields the strict validator rejects, so it
-  stops before the first message. curl, Open WebUI, and the OpenAI SDKs
-  work; a fix is pending.
+- **The Ollama CLI can't connect in 0.2.0.** Its requests carry fields the
+  release's strict validator rejects (empty `name`, `system`, `template`,
+  `options`, and Ollama's empty-prompt "load" request), so `ollama run` stops
+  before the first message. Fixed on `main` and verified with a real
+  `ollama run` in both modes; it ships in the next release. curl, Open WebUI,
+  and the OpenAI SDKs work today.
 
 ## Docs
 
@@ -304,8 +306,9 @@ name is `qwen3.8-flash-next:4bit`, which is also the default.
 | `--connections <n>` | Parallel connections (default 8; Hugging Face plateaus past 4). |
 | `--verify` | Re-hash an existing copy against the pinned sha256s and download nothing. |
 
-Weights placed elsewhere are used by passing that directory to `--model` (the
-real directory; a symlink to it fails to open).
+Weights placed elsewhere are used by passing that directory to `--model`, or
+by symlinking it into the default location so the model keeps its name (a
+symlinked directory fails to open in 0.2.0; fixed on `main`).
 
 ### `slotstream doctor`
 
@@ -421,7 +424,7 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 | `GET /v1/models` | The one model, OpenAI list format. |
 | `GET /api/tags` | The one model, Ollama list format. |
 | `GET /api/ps` | The loaded model and its memory. |
-| `POST /api/show` | Model metadata. Fields: `model`, optional `verbose`. |
+| `POST /api/show` | Model metadata, including `capabilities`. Fields: `model` (or Ollama's deprecated `name`), optional `verbose`; empty `system`, `template`, and `options` are accepted because the Ollama CLI always sends them, non-empty ones are a 400. |
 | `GET /api/version` | `{"version": "..."}` |
 | `POST /api/embed`, `/api/embeddings` | 400 — the model does not do embeddings. |
 | `POST /api/pull`, `/api/create` | 501 — run `slotstream pull` on the host instead. |
@@ -429,7 +432,8 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 ## `/api/chat`
 
 Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`.
+(`true`/`false`), `options`, and `keep_alive`, which is accepted and has no
+effect because the model never unloads.
 
 Messages are `{"role", "content"}` with text content; images and `tool_calls`
 are rejected. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
@@ -445,8 +449,13 @@ curl localhost:11434/api/chat -d '{
 
 ## `/api/generate`
 
-Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, and the same
-`options` as chat. `raw: true` sends your prompt with no chat template, and
+Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, `keep_alive`,
+and the same `options` as chat (`null` counts as none). Empty `suffix` and
+`template` are accepted because the Ollama CLI's one-shot mode sends them;
+a non-empty suffix (fill-in-the-middle) or template override is a 400. An
+empty prompt is Ollama's "load the model" request and is acknowledged with
+`done: true, done_reason: "load"` (the same for `/api/chat` with no
+messages); the model is always loaded here, so nothing else happens. `raw: true` sends your prompt with no chat template, and
 can't be combined with `system` or `think`.
 
 ## `/v1/chat/completions`
@@ -527,10 +536,10 @@ sentence, not a full load.
 
 ### `ollama run` says "unsupported request field(s): name, options, system, template"
 
-Known gap: the Ollama CLI (0.32) opens with an `/api/show` request that
-carries fields slotstream's strict validator rejects, so it stops before the
-first message. Until that is fixed, use curl, Open WebUI, or an OpenAI SDK
-pointed at `http://localhost:11434/v1` ([docs/API.md](API.md)).
+0.2.0 refuses the empty fields the Ollama CLI always sends, so `ollama run`
+stops before the first message. Fixed on `main` and in the next release;
+until you upgrade, use curl, Open WebUI, or an OpenAI SDK pointed at
+`http://localhost:11434/v1` ([docs/API.md](API.md)).
 
 ### "another Slotstream model process is already running for this user"
 
@@ -579,10 +588,11 @@ slotstream pull --dir /Volumes/big/qwen38
 slotstream serve --model /Volumes/big/qwen38
 ```
 
-Anything that takes `--model` accepts a directory path. Pass the real
-directory, not a symlink to it: `run` and `serve` refuse a symlinked weights
-folder ("couldn't be opened") even though `doctor` and `pull --verify` accept
-one. Expect slower decode: external disks rarely match the internal SSD.
+Anything that takes `--model` accepts a directory path. In 0.2.0 pass the
+real directory, not a symlink to it: `run` and `serve` refuse a symlinked
+weights folder ("couldn't be opened") even though `doctor` and `pull --verify`
+accept one; fixed on `main`. Expect slower decode: external disks rarely
+match the internal SSD.
 
 ### Reclaiming the disk
 
@@ -609,6 +619,26 @@ open an issue with your `slotstream doctor` output.
 
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
+
+## Unreleased
+
+- The Ollama CLI works again. 0.1.8's strict validator rejected the empty
+  `name`/`system`/`template`/`options` the CLI's `/api/show` request always
+  carries, so `ollama run` stopped before its first message. `/api/show` now
+  accepts the deprecated `name` alias and empty overrides (non-empty ones stay
+  a 400), advertises `capabilities`, chat/generate accept `keep_alive` and a
+  null `options`, and generate accepts the empty `suffix`/`template` the
+  CLI's one-shot mode sends (a non-empty suffix or template is still a 400).
+  Ollama's documented "load" request (an empty prompt, or no messages), which
+  the CLI sends when an interactive session opens, is acknowledged with
+  `done_reason: "load"` instead of refused. Gated by `Tools/api_robustness.sh`
+  with the CLI's exact request shapes.
+- A weights directory reached through a symlink loads. Foundation refuses to
+  list a symlinked directory, so `run` and `serve` failed with "couldn't be
+  opened" while `doctor` and `pull --verify` worked; paths are now resolved
+  once at the CLI boundary and in the shard index. Gated by `runtime-check`
+  (weights-free) and a `verify.sh` run through a symlink.
+
 
 ## 0.2.0 — 2026-09-01
 

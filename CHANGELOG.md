@@ -3,6 +3,26 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- The Ollama CLI works again. 0.1.8's strict validator rejected the empty
+  `name`/`system`/`template`/`options` the CLI's `/api/show` request always
+  carries, so `ollama run` stopped before its first message. `/api/show` now
+  accepts the deprecated `name` alias and empty overrides (non-empty ones stay
+  a 400), advertises `capabilities`, chat/generate accept `keep_alive` and a
+  null `options`, and generate accepts the empty `suffix`/`template` the
+  CLI's one-shot mode sends (a non-empty suffix or template is still a 400).
+  Ollama's documented "load" request (an empty prompt, or no messages), which
+  the CLI sends when an interactive session opens, is acknowledged with
+  `done_reason: "load"` instead of refused. Gated by `Tools/api_robustness.sh`
+  with the CLI's exact request shapes.
+- A weights directory reached through a symlink loads. Foundation refuses to
+  list a symlinked directory, so `run` and `serve` failed with "couldn't be
+  opened" while `doctor` and `pull --verify` worked; paths are now resolved
+  once at the CLI boundary and in the shard index. Gated by `runtime-check`
+  (weights-free) and a `verify.sh` run through a symlink.
+
+
 ## 0.2.0 — 2026-09-01
 
 - Speculative decode with the model's draft head: `--mtp auto|on|off` on

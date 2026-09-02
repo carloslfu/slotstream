@@ -51,6 +51,20 @@ struct RuntimeCheck: ParsableCommand {
         check("held GB includes fixed recurrent state", cache.heldGB > 0.1)
 
         for target in [Planner.minMemoryGB, 10, 16, 30] where target >= Planner.minMemoryGB {
+        // Weights behind a symlink: Foundation refuses to list the link itself,
+        // so the index must resolve it first (it did not, before 0.2.1).
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("slotstream-runtime-check-\(getpid())")
+        let real = tmp.appendingPathComponent("real")
+        let link = tmp.appendingPathComponent("link")
+        try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: real.appendingPathComponent("model-00001-of-00001.safetensors").path, contents: Data())
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        check("shard listing works through a symlinked model dir",
+              (try? CheckpointIndex.shardFiles(in: link))?.count == 1)
+
             let p = try Planner.plan(
                 expertsPerLayer: nil, poolGB: nil, memoryGB: target,
                 ramGB: 64, workingSetGB: 64, availableGB: 64)
@@ -129,7 +143,9 @@ struct ModelOptions: ParsableArguments {
                 """))
     var mtp: String = "auto"
 
-    var modelURL: URL { ModelLocator.resolve(model) }
+    // Resolved once here so the tokenizer, the draft-head probe, and the index
+    // all see the real directory; Foundation will not list a symlinked one.
+    var modelURL: URL { ModelLocator.resolve(model).resolvingSymlinksInPath() }
 
     func mtpMode() throws -> Planner.MTPMode {
         guard let m = Planner.MTPMode(rawValue: mtp) else {

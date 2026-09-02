@@ -266,12 +266,22 @@ public final class CheckpointIndex {
         }
     }
 
-    public init(dir: URL) throws {
-        self.dir = dir
-        self.config = try ModelConfig.load(from: dir)
-        let files = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+    /// The `model-*.safetensors` shards in `dir`, symlink-resolved first:
+    /// Foundation's `contentsOfDirectory(at:)` refuses a symlink to a
+    /// directory ("couldn't be opened") even though every file read through
+    /// it works, which broke weights relocated behind a symlink.
+    public static func shardFiles(in dir: URL) throws -> [URL] {
+        let resolved = dir.resolvingSymlinksInPath()
+        return try FileManager.default.contentsOfDirectory(at: resolved, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("model") && $0.pathExtension == "safetensors" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    public init(dir: URL) throws {
+        let resolved = dir.resolvingSymlinksInPath()
+        self.dir = resolved
+        self.config = try ModelConfig.load(from: resolved)
+        let files = try Self.shardFiles(in: resolved)
         guard !files.isEmpty else {
             throw ModelError("no .safetensors files in \(dir.path) — run `slotstream pull`")
         }

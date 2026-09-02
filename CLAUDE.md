@@ -145,6 +145,20 @@ These were all real bugs found by adversarial probing. Each is now gated by
   matching — there is nothing to rewind to.
 - **The held id list is tracked, never inferred.** A token is sampled *before*
   it is fed, so both break paths in the decode loop leave the last token
+- **The Ollama CLI's wire format is a gate, not an assumption.** Its
+  `ShowRequest` serializes every field, so `ollama run` opens `/api/show`
+  with empty `name`/`system`/`template`/`options`, its one-shot mode uses
+  `/api/generate` with empty `suffix`/`system`/`template`, its interactive
+  mode opens with Ollama's documented "load" request (an empty prompt,
+  answered `done_reason: "load"` without touching the engine), and its chat
+  can carry `keep_alive` and `options: null`. 0.1.8's strict validator rejected them
+  and the CLI could not start; nothing noticed for two releases because the
+  claim lived in PLAN.md, not in a test (found 2026-09-01). Accept the
+  deprecated `name` alias, empty overrides, `keep_alive`, and null `options`;
+  keep refusing unknown fields and non-empty overrides. `api_robustness.sh`
+  gates the CLI's exact request shapes; a client claim in the README needs a
+  gate like it.
+
   unconsumed. `Generator.generate` records exactly what the state consumed; a
   caller that recomputes this from the returned ids will be off by one and the
   next request will silently reuse a state that does not match its prompt.

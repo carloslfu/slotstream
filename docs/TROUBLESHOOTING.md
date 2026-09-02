@@ -9,10 +9,10 @@ sentence, not a full load.
 
 ### `ollama run` says "unsupported request field(s): name, options, system, template"
 
-Known gap: the Ollama CLI (0.32) opens with an `/api/show` request that
-carries fields slotstream's strict validator rejects, so it stops before the
-first message. Until that is fixed, use curl, Open WebUI, or an OpenAI SDK
-pointed at `http://localhost:11434/v1` ([docs/API.md](API.md)).
+0.2.0 refuses the empty fields the Ollama CLI always sends, so `ollama run`
+stops before the first message. Fixed on `main` and in the next release;
+until you upgrade, use curl, Open WebUI, or an OpenAI SDK pointed at
+`http://localhost:11434/v1` ([docs/API.md](API.md)).
 
 ### "another Slotstream model process is already running for this user"
 
@@ -61,10 +61,11 @@ slotstream pull --dir /Volumes/big/qwen38
 slotstream serve --model /Volumes/big/qwen38
 ```
 
-Anything that takes `--model` accepts a directory path. Pass the real
-directory, not a symlink to it: `run` and `serve` refuse a symlinked weights
-folder ("couldn't be opened") even though `doctor` and `pull --verify` accept
-one. Expect slower decode: external disks rarely match the internal SSD.
+Anything that takes `--model` accepts a directory path. In 0.2.0 pass the
+real directory, not a symlink to it: `run` and `serve` refuse a symlinked
+weights folder ("couldn't be opened") even though `doctor` and `pull --verify`
+accept one; fixed on `main`. Expect slower decode: external disks rarely
+match the internal SSD.
 
 ### Reclaiming the disk
 

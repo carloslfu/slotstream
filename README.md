@@ -196,10 +196,12 @@ are estimates from its curve, not runs on real hardware.
   engine is built around its geometry, and `pull` knows no other name. A
   per-user lock allows one model process at a time.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
-- **The Ollama CLI can't connect yet.** `ollama run` (0.32) opens with an
-  `/api/show` request carrying fields the strict validator rejects, so it
-  stops before the first message. curl, Open WebUI, and the OpenAI SDKs
-  work; a fix is pending.
+- **The Ollama CLI can't connect in 0.2.0.** Its requests carry fields the
+  release's strict validator rejects (empty `name`, `system`, `template`,
+  `options`, and Ollama's empty-prompt "load" request), so `ollama run` stops
+  before the first message. Fixed on `main` and verified with a real
+  `ollama run` in both modes; it ships in the next release. curl, Open WebUI,
+  and the OpenAI SDKs work today.
 
 ## Docs
 

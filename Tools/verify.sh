@@ -161,5 +161,13 @@ else
 fi
 
 echo
+echo "== weights behind a symlink (Foundation will not list a symlinked dir) =="
+MODEL_DIR=models/qwen38-flash-next-mlx-4bit
+[ -d "$MODEL_DIR" ] || MODEL_DIR="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit"
+SYM=/tmp/ssv_symlink_model
+rm -f "$SYM"; ln -s "$(cd "$MODEL_DIR" && pwd)" "$SYM"
+check "run through a symlinked model dir"  "$BIN run --model $SYM --memory-gb $SMALL_MEMORY --max-tokens 1 --greedy --prompt hi"
+rm -f "$SYM"
+
 echo "passed $PASS, failed $FAIL"
 [ $FAIL -eq 0 ]
