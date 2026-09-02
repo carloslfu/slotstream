@@ -40,6 +40,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 - [docs/CLI.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLI.md): every command and flag, memory-knob precedence, environment variables, file locations, the diagnostic checks
 - [docs/API.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
 - [docs/TROUBLESHOOTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TROUBLESHOOTING.md): port clashes, the one-process rule, paging, slow decode, moving or verifying weights, the Ollama CLI gap
+- [docs/HARDWARE.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HARDWARE.md): rows measured on real Macs (one so far, the 48 GB M5 Pro) and the ten-minute procedure to add yours
 - [CHANGELOG.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/CHANGELOG.md): what each release changed
 
 ## Design and evidence
@@ -47,6 +48,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 - [PLAN.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/PLAN.md): living design doc: architecture (§4), correctness invariants (§6), milestones, risk register
 - [MEASUREMENTS.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/MEASUREMENTS.md): every measured number with its method, including the experiments that failed
 - [AGENTS.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/AGENTS.md): contributor guide: serving invariants, memory-safety rules, the release process
+- [CONTRIBUTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/CONTRIBUTING.md): how to build, test, measure, and send a change; [SECURITY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/SECURITY.md): what runs where, supply chain, how to report
 
 ## Source map
 

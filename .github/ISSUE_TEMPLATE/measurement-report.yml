@@ -1,0 +1,89 @@
+name: Measurement report
+description: Add your Mac to docs/HARDWARE.md. Ten minutes once the weights are on disk.
+title: "Measured: <Mac model>, <memory> GB"
+labels: ["measurement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. The procedure is in [docs/HARDWARE.md](https://github.com/carloslfu/slotstream/blob/main/docs/HARDWARE.md).
+        Paste raw output rather than summaries: the raw lines carry the plan and the peak, which is what makes rows comparable.
+  - type: input
+    id: mac
+    attributes:
+      label: Mac
+      description: Model, chip, and year if you know it.
+      placeholder: MacBook Air M2, 2022
+    validations:
+      required: true
+  - type: input
+    id: memory
+    attributes:
+      label: Unified memory
+      placeholder: 16 GB
+    validations:
+      required: true
+  - type: input
+    id: ssd
+    attributes:
+      label: SSD
+      description: Internal or external, size, and the interface if external.
+      placeholder: internal, 512 GB
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.6.2"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: slotstream --version
+      placeholder: "0.2.2"
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Memory plan
+      description: The whole block `slotstream doctor` prints.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: cold
+    attributes:
+      label: Cold generation
+      description: The `--` lines `slotstream run --greedy --max-tokens 128` prints (prefill, decode, expert cache and peak).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: warm
+    attributes:
+      label: Warm decode
+      description: All three results from the server loop in step 4. The third is the warm number.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: long
+    attributes:
+      label: Long prompt
+      description: Output of `slotstream context-check --tokens 8192` (or 4096 on a small Mac).
+      render: text
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What else was open, fans or throttling, anything odd, anything that disagreed between runs.
+  - type: checkboxes
+    id: listing
+    attributes:
+      label: Listing
+      options:
+        - label: You may add this row to docs/HARDWARE.md credited to my GitHub handle.
+          required: true

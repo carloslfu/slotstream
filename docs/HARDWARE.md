@@ -1,0 +1,102 @@
+# Measured on real Macs
+
+The README's tier table has one row measured on real hardware and four
+estimated from its curve. This page is where estimates get replaced by
+measurements. To add your Mac, follow the procedure below and open a
+[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml);
+rows are copied in as they arrive, credited to the reporter.
+
+## Rows
+
+| Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
+|---|---|---|---|---|---|---|---|---|---|
+| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.2 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~125 tok/s at a 4096-token pass | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
+
+Not yet measured on real hardware: the 8, 16, 24, and 32 GB tiers. A row that
+contradicts the estimate is the most useful kind. So is one from an older
+chip, a fanless Air, or an external SSD, since those are exactly the
+conditions the 48 GB curve cannot see.
+
+The 48 GB row's full method and history are in
+[MEASUREMENTS.md](../MEASUREMENTS.md).
+
+## What the columns mean
+
+- **Plan**: the target and cache size `slotstream doctor` prints with nothing
+  else running. Auto sizes down while other apps hold memory, so say what was
+  open.
+- **Warm decode**: tokens per second on the third identical request to a
+  running server, once the expert cache has warmed up. The first generation
+  in a fresh process is colder and slower; report it too.
+- **Long prompt**: prefill tokens per second from `context-check`, which
+  reads a synthetic prompt through the real engine and stops before the
+  machine swaps.
+- **Peak**: the process RSS high-water that `run` and `context-check` print,
+  not the plan's estimate.
+
+## How to measure
+
+About ten minutes once the weights are on disk. Measure on a machine that is
+otherwise quiet and not swapping.
+
+1. Install or upgrade, then record the version:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+   slotstream --version
+   ```
+
+2. Print the plan. Copy the whole `slotstream memory plan` block; it carries
+   the device line, the target, and the cache size:
+
+   ```bash
+   slotstream doctor
+   ```
+
+3. One cold generation. This offers the download on first use. When it
+   finishes, `run` prints `--` lines to stderr: prefill, decode, and the
+   expert-cache line that ends with the peak. Copy all of them.
+
+   ```bash
+   slotstream run --greedy --max-tokens 128 --prompt "Explain how a hash map works, in about 200 words."
+   ```
+
+4. Warm decode. Start the server in one terminal:
+
+   ```bash
+   slotstream serve
+   ```
+
+   In another, send the same request three times and keep all three
+   results. The third is the warm number. If you would rather not run the
+   Python one-liner, the JSON carries `eval_count` and `eval_duration` in
+   nanoseconds; decode tok/s is the first divided by the second, times a
+   billion.
+
+   ```bash
+   for i in 1 2 3; do
+     curl -s localhost:11434/api/generate -d '{
+       "model": "qwen3.8-flash-next:4bit",
+       "prompt": "Explain how a hash map works, in about 200 words.",
+       "stream": false,
+       "options": {"temperature": 0, "num_predict": 128}
+     }' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("decode %.2f tok/s, prefill %.1f tok/s" % (d["eval_count"]/d["eval_duration"]*1e9, d["prompt_eval_count"]/d["prompt_eval_duration"]*1e9))'
+   done
+   ```
+
+   Stop the server before the next step; one model process runs at a time.
+
+5. A long prompt. It prints seconds, tok/s, and peak memory against the plan,
+   and stops before swapping. On a small Mac, 4096 is fine.
+
+   ```bash
+   slotstream context-check --tokens 8192
+   ```
+
+6. Open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
+   and paste the raw output from steps 1 to 5, plus the Mac model, the SSD,
+   the macOS version, what else was open, and whether the fans ran or the
+   machine throttled.
+
+Single runs vary by 15% or more on a loaded machine. If two runs disagree by
+that much, say so rather than picking the better one.

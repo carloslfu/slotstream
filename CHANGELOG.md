@@ -5,6 +5,10 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- Docs: a Related projects section that names the peer engines and what each
+  does differently, a Support section, `docs/HARDWARE.md` for rows measured
+  on other Macs with an issue template to submit one, SECURITY.md, and
+  CONTRIBUTING.md.
 - CI runs the full build only when something other than prose changes; a
   docs-only push runs a twenty-second `docs` job (the llms-full.txt staleness
   check) instead.

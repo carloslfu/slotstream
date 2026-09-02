@@ -15,6 +15,17 @@ work unchanged.
 | Peak memory | 32 GB (auto-sized; you can cap it) |
 | Weights on disk | 105 GB |
 
+## Why this exists
+
+I have a 48 GB MacBook Pro and wanted this model on it. The stock loader took
+the machine into 48 GB of swap before the first token, and the fix was a
+memory design rather than a faster kernel: keep the 3.8 GB trunk resident,
+stream experts through a fixed pool of slots, size that pool to what the
+machine really has, and give memory back when other apps want it. Every
+number in this README ships with its measurement, including the experiments
+that failed; [MEASUREMENTS.md](MEASUREMENTS.md#m07--the-naive-path-fails-why-slotstream-exists)
+starts where this did.
+
 ## Will it run on my Mac?
 
 You need Apple Silicon, macOS 14+, and ~110 GB of free disk. Disk bites
@@ -32,8 +43,10 @@ Auto-sizing never takes the whole machine. What each tier gets:
 
 These rows come straight from `slotstream doctor --sim-ram N`, so you can
 reproduce them. Only the 48 GB row is measured on real hardware; the others
-are estimates from its curve, and smaller Macs also have slower SSDs. The
-middle column assumes nothing else is holding memory: with a browser open,
+are estimates from its curve, and smaller Macs also have slower SSDs. If you
+have one of those Macs, [docs/HARDWARE.md](docs/HARDWARE.md) is a ten-minute
+procedure to measure it and get your row into the table. The middle column
+assumes nothing else is holding memory: with a browser open,
 auto takes less and says so in the plan it prints at startup (see
 [Memory](#memory)). Run `slotstream doctor` before downloading anything: it
 prints your machine's plan and whether the disk can hold the weights.
@@ -195,7 +208,8 @@ route took this 48 GB machine into 48 GB of swap without producing a token.
 ## Status and limits
 
 Working, and measured on one machine, an M5 Pro with 48 GB. The smaller tiers
-are estimates from its curve, not runs on real hardware.
+are estimates from its curve, not runs on real hardware; rows measured on
+other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
 
 - **One model, one process.** v0 runs exactly `qwen3.8-flash-next:4bit`; the
   engine is built around its geometry, and `pull` knows no other name. A
@@ -214,6 +228,8 @@ are estimates from its curve, not runs on real hardware.
   default, and deliberate 400.
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): port clashes, paging,
   slow decode, moving or verifying the weights.
+- [docs/HARDWARE.md](docs/HARDWARE.md): rows measured on real Macs, and how
+  to add yours.
 - [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and
   their precedence, environment variables, where files live. (`slotstream
   <command> --help` carries the same text with more discussion.)
@@ -233,6 +249,76 @@ and live resizes, the speculative-decode gates, and a serving-robustness
 suite of inputs that used to crash the server. `Tools/e2e_release.sh` tests the other thing users actually
 touch: the `curl | sh` install and the binary it leaves behind. The parts
 that need no weights run in CI on every release build.
+
+## Related projects
+
+Streaming a mixture-of-experts model from SSD on Apple Silicon is an active
+corner, and several people got there before this repo or in parallel. If one
+of these fits your machine or your model better, use it.
+
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) runs this model, with
+  the n-gram table read lazily from disk since late August 2026, and is the
+  mature choice when the routed experts fit in memory; community hardware
+  guides put its floor for this model at 64 GB.
+- [Rapid-MLX](https://github.com/raullenchai/Rapid-MLX) and
+  [oMLX](https://github.com/jundot/omlx) serve it fully resident with
+  speculative decoding and are several times faster than slotstream when the
+  whole model fits, which today means a 128 GB Mac.
+- [Whallm](https://github.com/yanun0323/Whallm) streams routed experts for
+  DeepSeek-V4-Flash and the FP8 checkpoint of this model, with a native Mac
+  app; its README reports 15 to 19 GiB peak and 8 to 9 tok/s on a 64 GB Mac.
+- [SwiftLM](https://github.com/SharpAI/SwiftLM) is a multi-model MLX Swift
+  server with an expert-streaming mode for 100B+ MoE models, KV-cache
+  compression, and an iPhone app.
+- [Mference](https://github.com/NeelM0906/Mference) is a Swift and Metal
+  engine with its own kernels that runs several MoE families in a few GB
+  through per-layer slot profiles, down to 8 GB Macs.
+- [mlx-flash](https://github.com/matt-k-wong/mlx-flash) streams weights for
+  any MLX model at native precision, dense models included, by wrapping the
+  model's own layers.
+- [samosa-chat](https://github.com/deepanwadhwa/samosa-chat) aims a smaller
+  MoE at 16 GB machines and takes thermals seriously.
+- Earlier experiments in the same direction:
+  [deepseek-v4-flash-mlx](https://github.com/ssd-moe/deepseek-v4-flash-mlx),
+  [streamlx](https://github.com/srcterm/streamlx),
+  [mlx-moe-offload](https://github.com/huckiyang/mlx-moe-offload).
+
+What slotstream adds is narrower than any of them: one model, one binary, a
+planner that sizes the cache to the machine and resizes it while running, an
+exact-prefix conversation cache, byte-identical output across cache sizes as
+a standing test, and every number published with its method. A side-by-side
+on the same Mac is in progress; until it lands, the numbers above are each
+project's own, not mine.
+
+## Support
+
+Three ways to help, in the order that helps most.
+
+**Report a measured row.** Only the 48 GB row in the tier table is measured
+on real hardware. If you have a 16, 24, or 32 GB Mac, an older chip, or an
+external SSD, [docs/HARDWARE.md](docs/HARDWARE.md) has a ten-minute
+procedure; open a
+[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
+and your row goes into the table with your name on it. A row that
+contradicts the estimate is the most useful kind.
+
+**Sponsor the hardware.** GitHub Sponsors for this project is being set up.
+Once it is live, sponsorship pays for renting or buying the smaller Macs
+those rows need, so they get measured instead of estimated, and the ledger of
+what it bought will live in this repo.
+
+**Hire the author.** If your team needs this model, or a different one,
+running on hardware you already own, with numbers you can hold me to, that
+is work I do. Details below.
+
+## Who made this
+
+slotstream is written by [Carlos Galarza](https://www.carlosgalarza.com). I
+work on efficient AI and on Executable Rationality, making machine cognition
+explicit, runnable, and efficient. I also help teams run open models on
+their own machines, and fix production agent workflows that fail in ways
+nobody can reproduce. If you want a hand with either, or want your Mac
+measured, write to carloslfu@gmail.com.
 
 ## License
 

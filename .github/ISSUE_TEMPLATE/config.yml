@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Post your numbers, ask a question
+    url: https://github.com/carloslfu/slotstream/discussions
+    about: Discussions is for numbers, questions, and ideas. Issues are for bugs and measurement reports.
