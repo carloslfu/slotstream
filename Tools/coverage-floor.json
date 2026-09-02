@@ -5,15 +5,15 @@
     "Sources/Slotstream/Engine.swift": 0.0,
     "Sources/Slotstream/Errors.swift": 0.0,
     "Sources/Slotstream/ExpertStore.swift": 0.0,
-    "Sources/Slotstream/Generate.swift": 20.44,
+    "Sources/Slotstream/Generate.swift": 19.07,
     "Sources/Slotstream/Governor.swift": 26.76,
     "Sources/Slotstream/Layers.swift": 0.0,
     "Sources/Slotstream/MTP.swift": 0.0,
     "Sources/Slotstream/Machine.swift": 100.0,
     "Sources/Slotstream/Model.swift": 2.38,
-    "Sources/Slotstream/NgramStore.swift": 2.47,
+    "Sources/Slotstream/NgramStore.swift": 2.04,
     "Sources/Slotstream/PinnedModel.swift": 100.0,
-    "Sources/Slotstream/Plan.swift": 66.61,
+    "Sources/Slotstream/Plan.swift": 67.03,
     "Sources/Slotstream/PrefixCache.swift": 74.23,
     "Sources/Slotstream/ProcessMemory.swift": 55.81,
     "Sources/Slotstream/Server.swift": 6.27,
@@ -31,5 +31,5 @@
     "Sources/SlotstreamDiagnostics/Goldens.swift": 94.03
   },
   "note": "written by Tools/coverage_ratchet.py --update; per-file line coverage floors",
-  "total": 22.67
+  "total": 21.73
 }

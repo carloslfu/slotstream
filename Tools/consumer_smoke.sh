@@ -54,5 +54,8 @@ print("consumer ok: \(Int(plan.expertsPerLayerCached))/layer, "
 SWIFT
 
 cd "$WORK"
-swift build 2>&1 | grep -E 'error:|warning: .*deprecated' && exit 1
+# Only a compiler diagnostic fails this ("path:line:col: error: ..."); SwiftPM's
+# own cache chatter can contain the word too ("skipping cache due to an
+# error: ...") and took a green build down once.
+swift build 2>&1 | grep -E '(^|: )error: |warning: .*deprecated' && exit 1
 .build/debug/Consumer
