@@ -111,17 +111,18 @@ public final class Server {
 
     // MARK: connection handling
 
-    struct Request {
-        var method = ""
-        var path = ""
-        var body = Data()
-        var headers: [String: String] = [:]
+    package struct Request {
+        package init() {}
+        package var method = ""
+        package var path = ""
+        package var body = Data()
+        package var headers: [String: String] = [:]
     }
 
     /// Largest request body accepted. Prompts are text; anything past this is
     /// a mistake or an attack, and reading it unbounded is how a local process
     /// gets OOM-killed.
-    static let maxBodyBytes = 4 << 20
+    package static let maxBodyBytes = 4 << 20
 
     /// Why a request could not be read. `.closed` means the peer went away or
     /// timed out, so there is nobody left to tell; everything else gets a real
@@ -149,6 +150,35 @@ public final class Server {
         }
         let headData = buf[..<headerEnd!.lowerBound]
         let head = String(data: headData, encoding: .utf8) ?? ""
+        let req: Request
+        let contentLength: Int
+        switch Self.parseHead(head) {
+        case let .fail(status, message): return .fail(status: status, message: message)
+        case let .ok(parsed, length):
+            req = parsed
+            contentLength = length
+        }
+        var body = Data(buf[headerEnd!.upperBound...].prefix(contentLength))
+        while body.count < contentLength {
+            let n = read(fd, &tmp, min(tmp.count, contentLength - body.count))
+            if n <= 0 { break }
+            body.append(contentsOf: tmp[0 ..< n])
+        }
+        guard body.count == contentLength else { return .closed }
+        var complete = req
+        complete.body = body
+        return .ok(complete)
+    }
+
+    /// What the head said, or why the request cannot be served. Split out of
+    /// the socket read so every framing rule below is reachable from a test
+    /// with a string instead of a live server and a real client.
+    package enum HeadOutcome {
+        case ok(Request, contentLength: Int)
+        case fail(status: String, message: String)
+    }
+
+    package static func parseHead(_ head: String) -> HeadOutcome {
         var req = Request()
         let lines = head.split(separator: "\r\n", omittingEmptySubsequences: false)
         let parts = lines.first?.split(separator: " ") ?? []
@@ -180,26 +210,18 @@ public final class Server {
         if sawContentLength, contentLength < 0 {
             return .fail(status: "400 Bad Request", message: "Content-Length is not a number")
         }
-        if contentLength > Self.maxBodyBytes {
+        if contentLength > maxBodyBytes {
             return .fail(
                 status: "413 Content Too Large",
-                message: "request body is larger than \(Self.maxBodyBytes >> 20) MiB")
+                message: "request body is larger than \(maxBodyBytes >> 20) MiB")
         }
-        var body = Data(buf[headerEnd!.upperBound...].prefix(contentLength))
-        while body.count < contentLength {
-            let n = read(fd, &tmp, min(tmp.count, contentLength - body.count))
-            if n <= 0 { break }
-            body.append(contentsOf: tmp[0 ..< n])
-        }
-        guard body.count == contentLength else { return .closed }
-        req.body = body
-        return .ok(req)
+        return .ok(req, contentLength: contentLength)
     }
 
     /// The path a request routes on: no query string, and no scheme or
     /// authority from the absolute-form target proxies send. Both are legal
     /// HTTP and both used to 404.
-    static func routePath(_ raw: String) -> String {
+    package static func routePath(_ raw: String) -> String {
         var p = raw
         if let q = p.firstIndex(of: "?") { p = String(p[..<q]) }
         for scheme in ["http://", "https://"] where p.lowercased().hasPrefix(scheme) {
@@ -229,7 +251,7 @@ public final class Server {
     /// Browser clients need CORS, but a wildcard turns any website the user
     /// visits into an unauthenticated caller of this expensive local service.
     /// Echo only loopback origins, including their arbitrary development port.
-    private static func corsHeaders(origin: String?) -> String? {
+    package static func corsHeaders(origin: String?) -> String? {
         guard let origin, !origin.isEmpty else { return "" }
         guard let u = URL(string: origin), let host = u.host?.lowercased(),
             u.scheme == "http" || u.scheme == "https",
