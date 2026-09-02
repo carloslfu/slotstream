@@ -13,6 +13,7 @@ extension Catalogue {
             Check("runtime-check", tier: .t0) { try Diagnostics.runtime() },
             Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
             Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
+            Check("machine-planning", tier: .t0) { try Diagnostics.machinePlanning() },
         ]
     }
 

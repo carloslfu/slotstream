@@ -426,7 +426,7 @@ struct Parity: ParsableCommand {
 
 struct Doctor: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Device report, the plan your flags produce, and what each memory target buys")
+        abstract: "Machine report, the plan your flags produce, and what each memory target buys")
     @OptionGroup var model: ModelOptions
 
     @Option(name: .customLong("sim-ram"),
@@ -497,15 +497,21 @@ struct Doctor: ParsableCommand {
         if simulating, !quiet { print("what-if for a simulated machine (this device shown above):") }
         let simulatedAvailable = simulating
             ? (simAvailable ?? simRAM ?? Planner.deviceRAMGB()) : nil
+        // A what-if plans against a Machine that says it is simulated, so the
+        // plan it produces is marked and can never be handed to Engine.load.
+        let device: Machine = simulating
+            ? Machine(
+                ramGB: simRAM ?? Planner.deviceRAMGB(),
+                workingSetGB: simWorkingSet ?? (simRAM.map { $0 * 0.75 } ?? Planner.deviceWorkingSetGB()),
+                availableGB: simulatedAvailable, isSimulated: true)
+            : .current()
         let plan = try Planner.plan(
-            expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB, memoryGB: model.memoryGB,
-            ramGB: simRAM,
-            workingSetGB: simWorkingSet ?? simRAM.map { $0 * 0.75 },
-            availableGB: simulatedAvailable,
-            ramPercent: model.maxRAMPercent,
-            mtp: try model.mtpMode(),
-            mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
-            maxContextTokens: maxContext)
+            PlanRequest(
+                expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
+                memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
+                mtp: try model.mtpMode(), maxContextTokens: maxContext),
+            on: device,
+            mtpAvailable: MTPWeights.present(modelDir: model.modelURL))
         if asJSON {
             let data = try JSONSerialization.data(
                 withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])

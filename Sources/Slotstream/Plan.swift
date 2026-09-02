@@ -86,6 +86,10 @@ public struct MemoryPlan {
     /// Whether the MTP draft head loads (self-speculative decode). Charged as
     /// a fixed resident block; the pool is sized from what remains.
     public let mtpEnabled: Bool
+    /// True when this plan was made for a simulated device (`doctor --sim-*`).
+    /// Such a plan may be printed and compared, never loaded: a simulated
+    /// availability figure still produces a real allocation.
+    public var simulated = false
     /// Longest prompt plus reply a request may hold (`--max-context`). State
     /// for the first `ContextPolicy.tokensInFixedFootprint` tokens is inside
     /// the fixed footprint; anything above is charged separately.
@@ -98,7 +102,7 @@ public struct MemoryPlan {
         availableGB: Double?, clamped: Bool,
         prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
         maxContextTokens: Int = ContextPolicy.maxTokens,
-        notes: [String]
+        notes: [String], simulated: Bool = false
     ) {
         self.source = source
         self.slots = slots
@@ -113,6 +117,7 @@ public struct MemoryPlan {
         self.mtpEnabled = mtpEnabled
         self.maxContextTokens = maxContextTokens
         self.notes = notes
+        self.simulated = simulated
     }
 
     public var expertsPerLayerCached: Double { Geometry.perLayer(slots) }
@@ -560,7 +565,7 @@ public enum Planner {
     /// busy machine degrades gracefully instead of swap-storming — explicit
     /// knobs mean the user chose, so they only get an informational note. On a
     /// quiet machine the clamp never binds and auto stays deterministic.
-    public enum MTPMode: String {
+    public enum MTPMode: String, Sendable, Codable {
         case on, off, auto
     }
 
@@ -569,7 +574,8 @@ public enum Planner {
         ramGB: Double? = nil, workingSetGB: Double? = nil,
         availableGB: Double? = nil, ramPercent: Double? = nil,
         mtp: MTPMode = .off, mtpAvailable: Bool = false,
-        maxContextTokens: Int = ContextPolicy.maxTokens
+        maxContextTokens: Int = ContextPolicy.maxTokens,
+        simulated: Bool = false
     ) throws -> MemoryPlan {
         if let why = ContextPolicy.validationError(maxContextTokens) { throw PlanError(why) }
         // Zero at today's ceiling (Context.swift); charged the day it moves.
@@ -657,7 +663,8 @@ public enum Planner {
                     poolBudgetGB: budgetForCaches, contextCap: maxContextTokens),
                 mtpEnabled: mtpOn,
                 maxContextTokens: maxContextTokens,
-                notes: notes)
+                notes: notes,
+                simulated: simulated)
         }
 
         if let n = expertsPerLayer {

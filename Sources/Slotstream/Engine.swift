@@ -128,6 +128,12 @@ public final class Engine {
     }
 
     public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+        // A plan made for a simulated machine may be printed and compared,
+        // never loaded. Simulating memory the machine does not have still
+        // allocates for real: on 2026-08-30 a simulated 60 GB drove a 25.4 GB
+        // allocation and 39 GB of swap. The flag travels on the plan so this
+        // cannot be forgotten at a call site.
+        if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
         self.modelDir = modelDir
         self._plan = plan
         // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
