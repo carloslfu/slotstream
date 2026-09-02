@@ -15,6 +15,7 @@ struct Slotstream: ParsableCommand {
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
             PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
+            ContextCheck.self, PrefillScheduleCommand.self,
         ]
     )
 }
@@ -50,7 +51,6 @@ struct RuntimeCheck: ParsableCommand {
         check("a smaller live token ceiling evicts immediately", cache.heldTokens <= 2)
         check("held GB includes fixed recurrent state", cache.heldGB > 0.1)
 
-        for target in [Planner.minMemoryGB, 10, 16, 30] where target >= Planner.minMemoryGB {
         // Weights behind a symlink: Foundation refuses to list the link itself,
         // so the index must resolve it first (it did not, before 0.2.1).
         let tmp = FileManager.default.temporaryDirectory
@@ -65,6 +65,7 @@ struct RuntimeCheck: ParsableCommand {
         check("shard listing works through a symlinked model dir",
               (try? CheckpointIndex.shardFiles(in: link))?.count == 1)
 
+        for target in [Planner.minMemoryGB, 10, 16, 30] where target >= Planner.minMemoryGB {
             let p = try Planner.plan(
                 expertsPerLayer: nil, poolGB: nil, memoryGB: target,
                 ramGB: 64, workingSetGB: 64, availableGB: 64)
@@ -156,12 +157,13 @@ struct ModelOptions: ParsableArguments {
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
-    func announcedPlan() throws -> MemoryPlan {
+    func announcedPlan(maxContext: Int = ContextPolicy.maxTokens) throws -> MemoryPlan {
         try ensureWeights()
         let plan = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
             ramPercent: maxRAMPercent,
-            mtp: mtpMode(), mtpAvailable: MTPWeights.present(modelDir: modelURL))
+            mtp: mtpMode(), mtpAvailable: MTPWeights.present(modelDir: modelURL),
+            maxContextTokens: maxContext)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
         return plan
     }
@@ -269,8 +271,18 @@ struct Run: ParsableCommand {
                 } else {
                     ids = try engine.encodeChat([ChatMessage(role: "user", content: prompt)], thinking: think)
                 }
-                FileHandle.standardError.write("prompt tokens: \(ids.count)\n".data(using: .utf8)!)
                 if let e = engine.contextError(promptTokens: ids.count) { throw PlanError(e) }
+                let wait = PrefillSchedule.estSeconds(tokens: ids.count, maxChunk: engine.generator.prefillChunk)
+                FileHandle.standardError.write(
+                    "prompt tokens: \(ids.count) (~\(PrefillSchedule.describe(seconds: wait)) to the first token at this plan)\n"
+                        .data(using: .utf8)!)
+                // A long prompt reports its progress so minutes of silence do
+                // not read as a hang; short prompts stay quiet.
+                let progress = PrefillProgressReporter(
+                    quietBelowTokens: 2048, maxChunk: engine.generator.prefillChunk) { line in
+                    FileHandle.standardError.write("  \(line)\n".data(using: .utf8)!)
+                }
+                engine.generator.onPrefillProgress = progress.report
                 var params: SampleParams = greedy ? .greedy : (think ? .thinking : .instruct)
                 params.maxTokens = maxTokens
                 let t0 = Date()
@@ -309,9 +321,20 @@ struct Serve: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Ollama-compatible API server")
     @OptionGroup var model: ModelOptions
     @Option var port: UInt16 = 11434
-    @Option(name: .customLong("max-context"),
-            help: "Longest prompt accepted, in tokens. Beyond it a request is refused rather than stalling: KV plus indexer state costs ~27 KiB per token on top of the memory plan, and prefill runs at tens of tokens a second.")
-    var maxContext: Int = 32_768
+    @Option(
+        name: .customLong("max-context"),
+        help: ArgumentHelp(
+            "Longest prompt plus reply accepted per request, in tokens (default and ceiling \(ContextPolicy.maxTokens)).",
+            discussion: """
+                Past it a request is refused with a 400 that says why, instead \
+                of stalling. The ceiling is the largest context slotstream has \
+                measured on real hardware, not a memory limit: the model is \
+                trained for 262,144 tokens and context state costs ~27 KiB per \
+                token. What a long prompt really costs is time, since all of it \
+                is read before the first token; `doctor` prints the wait for \
+                this machine and `context-check` measures a longer prompt.
+                """))
+    var maxContext: Int = ContextPolicy.maxTokens
     @Flag(name: .customLong("no-elastic"),
           help: "Pin the cache at its startup size. Default: an auto-sized cache resizes itself between requests as memory pressure and availability change (explicit size flags are always pinned).")
     var noElastic = false
@@ -320,10 +343,8 @@ struct Serve: ParsableCommand {
     var noPrefixCache = false
 
     func run() throws {
-        guard maxContext > 0, maxContext <= SampleParams.maxTokenCeiling else {
-            throw PlanError("--max-context must be between 1 and \(SampleParams.maxTokenCeiling)")
-        }
-        let plan = try model.announcedPlan()
+        if let why = ContextPolicy.validationError(maxContext) { throw PlanError(why) }
+        let plan = try model.announcedPlan(maxContext: maxContext)
         // Claim the port first: failing here after a full model load wastes
         // half a minute and used to be a fatalError.
         let listenFD = try Server.bindPort(port)
@@ -337,6 +358,15 @@ struct Serve: ParsableCommand {
         sem.wait()
         if let e = err { throw e }
         engine.maxContextTokens = maxContext
+        // Long prompts announce themselves in the server log with the wait to
+        // expect, then report by quarters; anything under 2k tokens is quiet.
+        let progress = PrefillProgressReporter(
+            quietBelowTokens: 2048, maxChunk: engine.generator.prefillChunk) { line in
+            let stamp = DateFormatter.localizedString(
+                from: Date(), dateStyle: .none, timeStyle: .medium)
+            FileHandle.standardError.write("[\(stamp)] \(line)\n".data(using: .utf8)!)
+        }
+        engine.generator.onPrefillProgress = progress.report
         if noPrefixCache {
             engine.prefixCache.enabled = false
             engine.prefixCache.drop()
@@ -455,6 +485,10 @@ struct Doctor: ParsableCommand {
           help: "Print the resolved plan as JSON instead of the report. Estimates are unrounded here; the report rounds them.")
     var asJSON = false
 
+    @Option(name: .customLong("max-context"),
+            help: "Preview the plan `serve --max-context N` would announce (default and ceiling \(ContextPolicy.maxTokens)).")
+    var maxContext: Int = ContextPolicy.maxTokens
+
     /// One line on the 104 GB the plan above says nothing about: is it here,
     /// is there room for it, and roughly how long it takes.
     func weightsLine() -> String {
@@ -512,7 +546,8 @@ struct Doctor: ParsableCommand {
             availableGB: simulatedAvailable,
             ramPercent: model.maxRAMPercent,
             mtp: try model.mtpMode(),
-            mtpAvailable: MTPWeights.present(modelDir: model.modelURL))
+            mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
+            maxContextTokens: maxContext)
         if asJSON {
             let data = try JSONSerialization.data(
                 withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])
@@ -535,8 +570,10 @@ struct Doctor: ParsableCommand {
             of its 512 per layer), not a quota: hot layers borrow slots from cold.
 
             what a memory target buys (conservative warm-decode estimate from
-            measured M5 Pro anchors: 30/layer = 6.0, 150/layer = 11.6):
-              target     experts/layer  est. warm decode
+            measured M5 Pro anchors: 30/layer = 6.0, 150/layer = 11.6; the last
+            column is the wait before the first token of a prompt filling the
+            whole context, follow-up turns read only what is new):
+              target     experts/layer  est. warm decode   pass    full \(maxContext)-token prompt
             """)
         for t in [Planner.minMemoryGB, 10, 12, 16, 24, 28, 36, 48, 73]
         where t >= Planner.minMemoryGB
@@ -545,10 +582,32 @@ struct Doctor: ParsableCommand {
             let e = Geometry.perLayer(s)
             let est = Planner.estWarmTokS(expertsPerLayer: e)
             let full = s >= Geometry.totalRecords
+            let chunk = Planner.prefillChunkFor(poolBudgetGB: Planner.poolBudgetGB(t))
+            let wait = PrefillSchedule.estSeconds(tokens: maxContext, maxChunk: chunk)
             print(String(
-                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@",
-                t, e, est, full ? "  (fully resident)" : ""))
+                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@   %5d   ~%@",
+                t, e, est, full ? " (resident)" : "", chunk,
+                PrefillSchedule.describe(seconds: wait)))
         }
+        print("""
+
+        time to first token at this plan, by prompt length (the pass shrinks past ~4k
+        tokens so its transient memory stays inside what was measured):
+        """)
+        let chunk = plan.prefillChunk
+        var lengths = [2048, 8192, 16384].filter { $0 < maxContext }
+        lengths.append(maxContext)
+        let row = lengths.map { n -> String in
+                let secs = PrefillSchedule.estSeconds(tokens: n, maxChunk: chunk)
+                let label = n % 1024 == 0 ? "\(n / 1024)k" : "\(n)"
+                return "\(label) ~\(PrefillSchedule.describe(seconds: secs))"
+            }
+        print("  " + row.joined(separator: " · ") + " (the cap)")
+        print("""
+          context state is ~27 KiB per token; the cap of \(ContextPolicy.maxTokens) is the largest context
+          measured so far, not a memory limit. `slotstream context-check --tokens N` measures a
+          longer prompt on this Mac and stops before it swaps.
+        """)
     }
 }
 
@@ -586,11 +645,11 @@ struct ElasticCheck: ParsableCommand {
                     return out
                 }
                 let a = gen("baseline    ")
-                engine.withExclusive { engine.model.pool.resize(to: big) }
+                engine.withExclusive { engine.model.pool.resize(to: big); engine.publishPoolSnapshot() }
                 let b = gen("after grow  ")
-                engine.withExclusive { engine.model.pool.resize(to: smallSlots) }
+                engine.withExclusive { engine.model.pool.resize(to: smallSlots); engine.publishPoolSnapshot() }
                 let c = gen("after shrink")
-                engine.withExclusive { engine.model.pool.resize(to: 800) }
+                engine.withExclusive { engine.model.pool.resize(to: 800); engine.publishPoolSnapshot() }
                 let d = gen("after regrow")
                 if a == b, b == c, c == d {
                     print("ELASTIC CHECK PASS: 4 generations byte-identical across "

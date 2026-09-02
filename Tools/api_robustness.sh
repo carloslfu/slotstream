@@ -216,6 +216,171 @@ L=$(curl -s -I --max-time 20 "http://127.0.0.1:$PORT/api/tags" | tr -d '\r' | aw
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST "http://127.0.0.1:$PORT/api/chat" -d '{not json')
 [ "$C" = "400" ] && ok "malformed JSON returns 400" || bad "malformed JSON returned $C"
 
+# --- metadata must not block behind a running generation --------------------
+# /api/tags and /api/ps read pool numbers. Taking the generation lock to do it
+# made them hang for the length of a request, and because the accept loop also
+# waited on the connection semaphore, enough blocked metadata calls stopped the
+# server answering anything at all. A polling GUI saw a working server as dead.
+if python3 - "$PORT" <<'PYEOF'
+import http.client, json, socket, sys, threading, time
+P = int(sys.argv[1]); M = "qwen3.8-flash-next:4bit"
+def gen():
+    c = http.client.HTTPConnection("127.0.0.1", P, timeout=600)
+    c.request("POST", "/api/chat", json.dumps({"model": M, "stream": False,
+        "messages": [{"role": "user", "content": "Write a long poem about the sea."}],
+        "options": {"num_predict": 60, "temperature": 0}}), {"Content-Type": "application/json"})
+    c.getresponse().read(); c.close()
+t = threading.Thread(target=gen); t.start(); time.sleep(2.5)
+problems = []
+def timed(method, path, body=None):
+    t0 = time.time()
+    try:
+        c = http.client.HTTPConnection("127.0.0.1", P, timeout=8)
+        c.request(method, path, json.dumps(body) if body else None,
+                  {"Content-Type": "application/json"})
+        r = c.getresponse(); r.read(); c.close()
+        return r.status, time.time() - t0
+    except Exception as e:
+        return type(e).__name__, time.time() - t0
+for method, path, body in [("GET", "/api/version", None), ("GET", "/api/tags", None),
+                           ("GET", "/api/ps", None), ("GET", "/v1/models", None),
+                           ("POST", "/api/show", {"model": M})]:
+    st, el = timed(method, path, body)
+    if st != 200 or el > 2.0:
+        problems.append("%s %s -> %s in %.1fs" % (method, path, st, el))
+hold = []
+for _ in range(34):   # more than maxConcurrentConnections
+    try:
+        k = socket.create_connection(("127.0.0.1", P), timeout=5)
+        k.sendall(b"GET /api/tags HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+        hold.append(k)
+    except Exception:
+        pass
+st, el = timed("GET", "/api/version")
+if st != 200:
+    problems.append("/api/version under connection load -> %s in %.1fs" % (st, el))
+for k in hold:
+    k.close()
+t.join()
+for line in problems:
+    print(line, file=sys.stderr)
+sys.exit(1 if problems else 0)
+PYEOF
+then ok "metadata endpoints answer during a generation, and the accept loop keeps accepting"
+else bad "metadata endpoints block behind generation"; fi
+
+# --- `ollama show` sends the name in `name` and an EMPTY `model` ------------
+R=$(post /api/show '{"model":"","system":"","template":"","verbose":false,"options":null,"name":"qwen3.8-flash-next:4bit"}')
+case "$R" in *'"capabilities"'*) ok "/api/show accepts an empty model with the name in the alias (ollama show)" ;;
+  *) bad "/api/show rejects the ollama show shape" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/chat '{"model":"qwen3.8-flash-next","stream":false,"messages":[{"role":"user","content":"Say OK"}],"options":{"num_predict":4}}')
+case "$R" in *'"message"'*) ok "an untagged model name resolves to the only model" ;;
+  *) bad "untagged model name rejected" "$(printf %.90s "$R")" ;; esac
+R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"hi"}],"options":{"num_ctx":4096}}')
+case "$R" in *"unsupported options field"*) ok "a semantic Ollama knob (num_ctx) is still refused, never silently dropped" ;;
+  *) bad "num_ctx was silently accepted" "$(printf %.90s "$R")" ;; esac
+
+# --- OpenAI clients send null for "unset", and defaults on every call -------
+for F in '"max_tokens":null' '"stop":null' '"temperature":null' '"seed":null' '"stream_options":null'; do
+  C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+      -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"max_tokens\":4,$F}")
+  [ "$C" = 200 ] && ok "/v1 treats $F as unset" || bad "/v1 rejected $F" "$C"
+done
+for F in '"n":1' '"frequency_penalty":0' '"user":"u1"' '"logprobs":false' '"logit_bias":{}' '"tools":[]' '"response_format":{"type":"text"}'; do
+  C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+      -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"max_tokens\":4,$F}")
+  [ "$C" = 200 ] && ok "/v1 accepts the no-op default $F" || bad "/v1 rejected the no-op default $F" "$C"
+done
+for F in '"n":2' '"frequency_penalty":0.5' '"logprobs":true' '"tools":[{"type":"function"}]' '"response_format":{"type":"json_object"}'; do
+  C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+      -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],$F}")
+  [ "$C" = 400 ] && ok "/v1 still refuses the real feature $F" || bad "/v1 accepted $F" "$C"
+done
+
+# --- think: reasoning belongs in `thinking`, not in the answer --------------
+R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"think":true,"messages":[{"role":"user","content":"What is 2+2?"}],"options":{"num_predict":80,"temperature":0}}')
+if printf '%s' "$R" | python3 -c '
+import json, sys
+m = json.load(sys.stdin)["message"]
+c, t = m.get("content", ""), m.get("thinking", "")
+sys.exit(0 if t.strip() and c.strip() and "</think>" not in c and "</think>" not in t else 1)'; then
+  ok "think:true splits reasoning into message.thinking and leaves the answer clean"
+else bad "think:true leaked reasoning into content" "$(printf %.120s "$R")"; fi
+
+# --- a short reply streams token by token -----------------------------------
+if python3 - "$PORT" <<'PYEOF'
+import http.client, json, sys
+P = int(sys.argv[1])
+c = http.client.HTTPConnection("127.0.0.1", P, timeout=600)
+c.request("POST", "/api/chat", json.dumps({"model": "qwen3.8-flash-next:4bit", "stream": True,
+    "messages": [{"role": "user", "content": "Count from 1 to 8, digits only, comma separated."}],
+    "options": {"num_predict": 16, "temperature": 0}}), {"Content-Type": "application/json"})
+objs = [json.loads(l) for l in c.getresponse().read().decode().splitlines() if l.strip()]
+c.close()
+deltas = [o for o in objs if not o["done"] and o["message"]["content"]]
+evals = objs[-1]["eval_count"]
+print("%d content deltas for %d tokens" % (len(deltas), evals), file=sys.stderr)
+sys.exit(0 if len(deltas) >= max(3, evals // 2) else 1)
+PYEOF
+then ok "a short reply arrives as per-token deltas, not one batched chunk"
+else bad "streaming is still batched into multi-token bursts"; fi
+
+# --- an unseeded request is not one fixed stream ----------------------------
+FUN='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0}}'
+A=$(post /api/chat "$FUN" | content); B=$(post /api/chat "$FUN" | content); D=$(post /api/chat "$FUN" | content)
+if [ "$A" = "$B" ] && [ "$B" = "$D" ]; then bad "unseeded requests replay one fixed stream" "$(printf %.60s "$A")"
+else ok "unseeded requests vary, as the API documents"; fi
+SEEDED='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0,"seed":7}}'
+S1=$(post /api/chat "$SEEDED" | content); S2=$(post /api/chat "$SEEDED" | content)
+[ "$S1" = "$S2" ] && ok "an explicit seed still reproduces exactly" || bad "seeded requests are not reproducible"
+
+# --- HTTP: routing, framing, and honest status codes ------------------------
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://127.0.0.1:$PORT/api/tags?x=1")
+[ "$C" = 200 ] && ok "a query string does not 404 the route" || bad "query string returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -I "http://127.0.0.1:$PORT/api/version")
+[ "$C" = 200 ] && ok "HEAD on a real path is 200" || bad "HEAD /api/version returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -I "http://127.0.0.1:$PORT/nope")
+[ "$C" = 404 ] && ok "HEAD on an unknown path is 404, not a blanket 200" || bad "HEAD /nope returned $C"
+R=$(python3 - "$PORT" <<'PYEOF'
+import socket, sys
+P = int(sys.argv[1])
+def raw(payload):
+    s = socket.create_connection(("127.0.0.1", P), timeout=10)
+    try:
+        s.sendall(payload)
+    except OSError:
+        return "send failed"
+    out = b""
+    try:
+        while True:
+            d = s.recv(65536)
+            if not d: break
+            out += d
+    except Exception:
+        pass
+    s.close()
+    return out.split(b"\r\n", 1)[0].decode(errors="replace") if out else "no response"
+body = b'{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"hi"}]}'
+print("chunked:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n"
+                      + b"%x\r\n" % len(body) + body + b"\r\n0\r\n\r\n"))
+print("oversize:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nContent-Length: 9999999\r\n\r\n" + body))
+print("badlen:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\n\r\n"))
+PYEOF
+)
+case "$R" in *"chunked: HTTP/1.1 411"*) ok "a chunked body is refused with 411, not read as empty" ;;
+  *) bad "chunked body mishandled" "$(printf %s "$R" | tr '\n' ' ')" ;; esac
+case "$R" in *"oversize: HTTP/1.1 413"*) ok "an oversized body gets 413, not a bare connection reset" ;;
+  *) bad "oversize body mishandled" "$(printf %s "$R" | tr '\n' ' ')" ;; esac
+case "$R" in *"badlen: HTTP/1.1 400"*) ok "a malformed Content-Length gets 400" ;;
+  *) bad "bad Content-Length mishandled" "$(printf %s "$R" | tr '\n' ' ')" ;; esac
+curl -s --max-time 20 "http://127.0.0.1:$PORT/v1/models" | grep -q '"created"' \
+  && ok "/v1/models carries created" || bad "/v1/models has no created field"
+R=$(curl -s --max-time 120 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d '{"model":"qwen3.8-flash-next:4bit","stream":true,"max_tokens":6,"temperature":0,"messages":[{"role":"user","content":"Say HI"}]}' \
+    | sed -n 's/^data: //p' | head -1)
+printf '%s' "$R" | grep -q '"role":"assistant"' && ok "the first SSE delta announces the role" \
+  || bad "first SSE delta has no role" "$(printf %.90s "$R")"
+
 alive && ok "server still up after every probe" || bad "server died during the run"
 say ""
 say "robustness: passed $PASS, failed $FAIL"

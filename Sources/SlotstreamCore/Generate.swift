@@ -193,6 +193,11 @@ public final class Generator {
     /// Gate for the speculative path — `mtp-check` compares speculative
     /// against plain decode on the same loaded model by flipping this.
     public var speculationEnabled = true
+    /// Called after every prefill pass with (tokens read this request, tokens
+    /// this request will read, seconds elapsed). `run` and `serve` hang a
+    /// PrefillProgressReporter here so a five-minute prompt does not look
+    /// like a hang.
+    public var onPrefillProgress: ((Int, Int, Double) -> Void)?
     var sampler = Sampler()
     var rngState: UInt64 {
         get { sampler.rngState }
@@ -254,6 +259,7 @@ public final class Generator {
         var t0 = Date()
         var logits: MLXArray = MLXArray(0)
         var i = reused
+        if i < promptIds.count { onPrefillProgress?(0, promptIds.count - reused, 0) }
         while i < promptIds.count {
             if let keepGoing = shouldContinue, !keepGoing() {
                 stats.finishReason = "stop"
@@ -263,7 +269,10 @@ public final class Generator {
                 stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
                 return ([], stats)
             }
-            let hi = min(i + prefillChunk, promptIds.count)
+            // The pass shrinks as the context grows so its transient memory
+            // stays inside the measured envelope (PrefillSchedule); output is
+            // byte-identical at every pass size, so this is never correctness.
+            let hi = min(i + PrefillSchedule.chunk(at: i, maxChunk: prefillChunk), promptIds.count)
             let chunk = Array(promptIds[i ..< hi])
             if let head = mtpHead {
                 let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state)
@@ -284,6 +293,7 @@ public final class Generator {
                 eval(h)
             }
             i = hi
+            onPrefillProgress?(i - reused, promptIds.count - reused, -t0.timeIntervalSinceNow)
         }
         stats.prefillTokens = promptIds.count - reused
         stats.prefillSeconds = -t0.timeIntervalSinceNow

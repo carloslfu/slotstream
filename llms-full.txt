@@ -144,7 +144,8 @@ Decode is the easy part: ~12 tok/s warm on a 48 GB Mac, and the tier table
 above says what smaller ones get. The slow axis is the prompt. All of it is
 processed before the first token appears, so 8,000 tokens wait about a minute
 on a 48 GB Mac and over three on a 16 GB one. Prompt plus completion is
-capped at 32,768 tokens (`--max-context`).
+capped at 32,768 tokens; [Context](#context) below says what that cap is and
+what a long prompt costs.
 
 Within a conversation you only pay that once. Follow-up turns prefill just
 what's new, so time to first token stays flat as the chat grows: over eight
@@ -166,6 +167,37 @@ it on. The head is the 1.5 GB `mtp.safetensors` that `pull` fetches with the
 weights; without it, everything runs as before. [MEASUREMENTS.md](MEASUREMENTS.md)
 has the ladder below the threshold, the ceiling, and the method.
 
+## Context
+
+Prompt plus reply is capped at 32,768 tokens per request (`serve
+--max-context`, which can only lower it). The cap is the largest context
+slotstream has measured, not a memory limit: the model is trained for
+262,144 tokens, and context state costs ~27 KiB per token, so a full 32k
+context is under 1 GB. What makes a long prompt expensive is time, because
+every token is read before the first one comes out. On a 48 GB Mac the wait
+is about 16 s for a 2k prompt, 1.2 min for 8k, 2.4 min for 16k, and 5.5 min
+for the full 32k; a 16 GB Mac takes about 13.7 min for 32k. `slotstream
+doctor` prints these for your machine and its tier table has a column for
+the full-context wait, and `run` and `serve` print progress while a long
+prompt is being read. Within a conversation you pay once: follow-up turns
+read only what is new.
+
+Past ~4k tokens the prefill pass shrinks as the context grows (4096, then
+2048, 1024, 512), which keeps the pass's temporary memory inside what has
+been measured at the cost of some speed on the tail of a long prompt;
+`slotstream prefill-schedule --chunk 4096 --tokens 32768` shows the ladder.
+
+To see what a longer prompt costs on your Mac:
+
+```bash
+slotstream context-check --tokens 16384
+```
+
+It reads a synthetic prompt of that size through the real engine, reports
+seconds, tok/s, and peak memory against the plan, and stops before the
+machine swaps. Raising the cap is a two-step job, measure then charge, and
+those measurements are what will move it; 128k is the first target.
+
 ## Memory
 
 With no flags, slotstream sizes itself to your machine and tells you what it
@@ -179,6 +211,7 @@ slotstream memory plan (auto)
   cache:  ~152 of 512 experts per layer  (7280 global slots = 20.1 GB pool)
   expect: ~32.0 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
   prefill: 4096 tokens per pass (~125 tok/s here; costs ~5.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~5.5 min before its first token here, follow-up turns read only what is new
   reuse:  up to 32768 tokens across 4 conversations (~1.2 GB), so a follow-up turn re-prefills only what is new
 ```
 
@@ -380,7 +413,7 @@ The Ollama- and OpenAI-compatible server ([docs/API.md](API.md)).
 | Flag | Meaning |
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
-| `--max-context <n>` | Longest prompt-plus-completion accepted, in tokens; past it a request is refused rather than left to stall (default 32768). |
+| `--max-context <n>` | Longest prompt-plus-completion accepted, in tokens; past it a request is refused with a 400 that says why. Default and ceiling 32768: the largest context measured so far, not a memory limit (context state is ~27 KiB per token). The flag can only lower it; `context-check` is how a higher ceiling gets earned. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Re-prefill every request from scratch instead of extending the previous request's state. |
 
@@ -412,10 +445,32 @@ any time.
 | `--sim-ram <gb>` | Preview the plan for a machine with this much RAM (pristine unless `--sim-available` is also given; working set defaults to 75% of RAM). |
 | `--sim-working-set <gb>` | Pretend this Metal working-set limit. |
 | `--sim-available <gb>` | Pretend this much memory is reclaimable right now. |
-| `--json` | The resolved plan as JSON, with estimates unrounded. |
+| `--max-context <n>` | Preview the plan `serve --max-context n` would announce. |
+| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
 
 Plus the memory options, so `doctor --memory-gb 16` shows exactly what
-`serve --memory-gb 16` would do.
+`serve --memory-gb 16` would do. The report ends with the wait before the
+first token by prompt length at that plan, and the tier table carries the
+wait for a prompt filling the whole context.
+
+### `slotstream context-check`
+
+Measure what reading an N-token prompt costs on this Mac. Loads the model
+(takes the lock), reads a synthetic prompt through the real engine with the
+prefix cache off, and prints seconds, tok/s, and the process peak memory
+against the plan's expected peak. Between passes it watches reclaimable
+memory and stops before the machine swaps. It writes nothing: a number it
+prints becomes a MEASUREMENTS.md entry by hand, which is the step that can
+move the 32k ceiling.
+
+| Flag | Meaning |
+|---|---|
+| `--tokens <n>` | Prompt length (default 8192; at most 262144). |
+| `--ladder` | Run 2048, 4096, … up to `--tokens`, stopping at the first rung that leaves the plan. |
+| `--min-free-gb <gb>` | Abort a pass when reclaimable memory falls below this (default: the planner's slack, 5% of RAM, at least 1.5 GB). |
+| `--json` | One JSON object per rung. |
+
+Plus the memory options; give it the same target you would give `serve`.
 
 ## Memory options
 
@@ -443,7 +498,7 @@ can drive a Mac into swap: prefer `--memory-gb` and check `doctor` first.
 | `SLOTSTREAM_WEIGHTS_SOURCES` | `pull` | Comma-separated download bases tried in order (a private mirror, a local cache). Every file must still match the compiled-in hashes. |
 | `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Parallel connections, capped at 32; same as `--connections`. |
 | `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
-| `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the prefill pass size in tokens instead of taking it from the memory plan. Measurement work only. |
+| `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
 | `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12; measured flat from 12 to 32, worse above). |
 | `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32; bounds peak memory on long prompts). |
 | `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
@@ -464,6 +519,7 @@ model, takes the lock, and allocates real memory, so give it a small target
 | `governor-check` | The elastic resize policy across pressure, availability, and cooldowns. |
 | `sampler-golden` | Sampling from reproducible synthetic logits, compared against `Tools/sampler_ref.py`. Flags: `--vocab`, `--draws`, `--seed`, `--logit-seed`, `--temperature`, `--top-p`, `--top-k`, `--min-p`, `--presence-penalty`, `--accumulate`. |
 | `pull-check` | Same-size corruption detection and HTTP range validation in the downloader. |
+| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same arithmetic `doctor` and the 400 message use. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
 
 **Load the model**
 
@@ -520,7 +576,7 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 | `POST /v1/chat/completions` | Chat completion, OpenAI format. `stream: false` by default. |
 | `GET /v1/models` | The one model, OpenAI list format. |
 | `GET /api/tags` | The one model, Ollama list format. |
-| `GET /api/ps` | The loaded model and its memory. |
+| `GET /api/ps` | The loaded model and what it is costing in memory right now. |
 | `POST /api/show` | Model metadata, including `capabilities`. Fields: `model` (or Ollama's deprecated `name`), optional `verbose`; empty `system`, `template`, and `options` are accepted because the Ollama CLI always sends them, non-empty ones are a 400. |
 | `GET /api/version` | `{"version": "..."}` |
 | `POST /api/embed`, `/api/embeddings` | 400 — the model does not do embeddings. |
@@ -535,6 +591,13 @@ effect because the model never unloads.
 Messages are `{"role", "content"}` with text content; images and `tool_calls`
 are rejected. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
 `presence_penalty`, `num_predict`, `seed`, and `stop` (a string or an array).
+A JSON `null` means "not set" for any field, which is what client SDKs send for
+one they are not using.
+
+With `think: true` the model reasons before it answers. The reasoning comes
+back in `message.thinking` and the answer in `message.content`, streamed and
+non-streamed alike; it is never mixed into the answer. A reply that runs out of
+tokens mid-reasoning has an empty `content`.
 
 ```bash
 curl localhost:11434/api/chat -d '{
@@ -550,7 +613,8 @@ Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, `keep_alive`,
 and the same `options` as chat (`null` counts as none). Empty `suffix` and
 `template` are accepted because the Ollama CLI's one-shot mode sends them;
 a non-empty suffix (fill-in-the-middle) or template override is a 400. An
-empty prompt is Ollama's "load the model" request and is acknowledged with
+`think: true` puts the reasoning in a `thinking` field, separate from
+`response`. An empty prompt is Ollama's "load the model" request and is acknowledged with
 `done: true, done_reason: "load"` (the same for `/api/chat` with no
 messages); the model is always loaded here, so nothing else happens. `raw: true` sends your prompt with no chat template, and
 can't be combined with `system` or `think`.
@@ -560,7 +624,15 @@ can't be combined with `system` or `think`.
 Fields: `model`, `messages`, `stream`, `temperature`, `top_p`, `top_k`,
 `presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`, `stop`,
 and `stream_options` (`{"include_usage": true}`). `top_k` is an extension
-beyond the OpenAI schema; the rest is standard.
+beyond the OpenAI schema; the rest is standard. `null` means "not set" for
+every field, which is how the OpenAI client serializes an unset `max_tokens`.
+
+Stock SDKs put a few more fields on every call. Each is accepted at the single
+value this server already implements and refused at any other, so nothing is
+silently dropped: `n: 1`, `frequency_penalty: 0`, `logprobs: false`,
+`logit_bias: {}`, `tools: []`, `tool_choice: "none"`,
+`parallel_tool_calls: false`, `response_format: {"type": "text"}`, and `user`
+(any string; it has no effect here).
 
 ```python
 from openai import OpenAI
@@ -588,6 +660,11 @@ print(r.choices[0].message.content)
 | `seed` | random each request |
 | `stop` | none |
 
+A request that names no `seed` gets a fresh one, so repeated calls differ;
+pass a `seed` to reproduce a reply exactly. An unseeded request used to replay
+one fixed stream from the moment the process started, which is why this is
+spelled out.
+
 Out-of-range values are clamped into the range the sampler is defined on
 rather than erroring: a `top_p` of 0 or a `min_p` above 1 used to empty the
 candidate set and make the old sampler emit token 0 forever.
@@ -597,7 +674,9 @@ candidate set and make the old sampler emit token 0 forever.
 Ollama endpoints stream newline-delimited JSON objects and finish with a
 `done: true` object carrying `done_reason` and the token counts
 (`prompt_eval_count`, `eval_count`). `/v1` streams SSE `data:` lines ending
-with `[DONE]`. Either way, concatenating every delta reproduces the
+with `[DONE]`, and its first delta carries `"role": "assistant"`. A delta is
+sent per token, withheld only while a UTF-8 scalar or a stop sequence is still
+incomplete. Either way, concatenating every delta reproduces the
 non-streamed text exactly — including multi-byte graphemes that merge across
 tokens and stop sequences that straddle a token boundary. That equality is a
 gated test (`Tools/api_robustness.sh`), not an intention.
@@ -612,12 +691,23 @@ Deliberately unsupported, and rejected with a clear 400 rather than ignored:
 tool calling, images, JSON-schema output, logprobs, embeddings, and named
 reasoning levels for `think`.
 
+A malformed request gets a status line, never a dropped connection: 411 for a
+chunked body (send `Content-Length`), 413 for a body over 4 MiB, 431 for
+headers over 64 KiB, 503 when too many connections are already open. A query
+string does not affect routing, and `HEAD` answers 200 or 404 for the path
+actually asked for.
+
 ## Limits
 
-Prompt plus completion is capped at 32,768 tokens (`serve --max-context`);
-a request past the cap is refused rather than left to stall. Generation is
-serialized: a second completion request waits its turn, while the metadata
-endpoints answer immediately even mid-generation.
+Prompt plus completion is capped at 32,768 tokens (`serve --max-context`,
+which can only lower it); a request past the cap is refused with a 400 that
+names the cap, what it is (the largest context measured so far, not a memory
+limit), and the wait that prompt would have cost. Generation is
+serialized: a second completion request waits its turn. The metadata
+endpoints never take that lock — they read a published snapshot — so
+`/api/version`, `/api/tags`, `/api/ps`, `/api/show`, and `/v1/models` answer in
+milliseconds while a request is running, and the listener keeps accepting new
+connections throughout.
 
 
 <!-- ===== docs/TROUBLESHOOTING.md ===== -->
@@ -667,10 +757,13 @@ the README table.
 
 ### The first token takes forever
 
-Expected on long prompts: the whole prompt is processed before the first
-token appears, about a minute for 8,000 tokens on a 48 GB Mac and over three
-on a 16 GB one. Follow-up turns in the same conversation only pay for what's
-new.
+The whole prompt is read before the first token. `slotstream doctor` ends
+with the wait to expect by prompt length at your plan (about 5.5 min for a
+full 32k prompt on a 48 GB Mac, 13.7 min on a 16 GB one), and `run` and
+`serve` print progress lines for any prompt over 2k tokens, so silence past
+a few seconds is not a hang. Follow-up turns in the same conversation read
+only what is new. `slotstream context-check --tokens N` measures a prompt of
+any length on your Mac.
 
 ### A download was interrupted, or looks suspect
 
@@ -833,6 +926,73 @@ release; anything under **Unreleased** is on `main` only.
 - CI runs the full build only when something other than prose changes; a
   docs-only push runs a twenty-second `docs` job (the llms-full.txt staleness
   check) instead.
+- The serving layer answers while it is working. `/api/tags` and `/api/ps` read
+  pool numbers through the *generation* lock, so both blocked for the length of
+  a running request; with the accept loop also waiting on the connection
+  semaphore, enough blocked metadata calls stopped the server answering
+  anything at all, and a client polling either one saw a working server as a
+  dead one. Pool numbers are published at each resize and read from a snapshot,
+  and the accept loop never waits: a full pool answers 503.
+- Reasoning no longer leaks into the answer. `think: true` returns the model's
+  reasoning in `message.thinking` (`thinking` on `/api/generate`) and the reply
+  in `content`; it used to hand clients the reasoning, a stray `</think>`, and
+  the answer in one string.
+- Deltas arrive per token. The incremental decoder waited for eight tokens
+  before its first flush and held four back after it, so a client saw one delta
+  per four tokens and nothing at all for a reply shorter than eight.
+- An unseeded request is genuinely random. The sampler's default seed is a
+  constant, so an unseeded request replayed the same text after every restart
+  while the API documented the opposite. The seed is drawn at the HTTP boundary,
+  leaving every offline gate deterministic.
+- Stock clients work unchanged. JSON `null` means "not set" (the OpenAI client
+  sends it for an unset `max_tokens`); `n: 1`, `frequency_penalty: 0`,
+  `logprobs: false`, `logit_bias: {}`, `tools: []`, `response_format` text, and
+  `user` are accepted at the value this server already implements and still
+  refused at any other; `ollama show`'s empty `model` falls back to its `name`;
+  and an untagged or `:latest` model name resolves to the only model. Knobs
+  that would change the reply, such as `num_ctx` and `repeat_penalty`, are
+  still refused rather than dropped.
+- `ollama ps` reads correctly. It reported 104 GB of weights against a small
+  pool and rendered "98% CPU" for a model running on the GPU; it now reports
+  resident memory.
+- HTTP framing is honest: 411 for a chunked body instead of reading it as
+  empty, 413 for an oversized one instead of a bare connection reset, 431 for
+  huge headers, 400 for a malformed `Content-Length`. A query string no longer
+  404s the route, `HEAD` answers for the path actually asked for instead of a
+  blanket 200, `/v1/models` carries `created`, and the first SSE delta carries
+  the role. All of it is gated in `Tools/api_robustness.sh` (68 checks).
+
+- Context length is documented and priced, and the cap is named for what it
+  is. The 400 for a long prompt used to say "raise it with --max-context",
+  a flag that could not go past the ceiling the server was already at; it
+  now says the cap is the largest context measured so far (not a memory
+  limit; context state is ~27 KiB per token) and what reading that prompt
+  would have cost in time. `--max-context` above the ceiling is refused with
+  the same explanation, on `serve` and `doctor`. The memory plan has a
+  `context:` line and `/api/show` carries `max_context_tokens` and
+  `est_prefill_s_at_max_context`; `doctor` ends with the wait before the
+  first token by prompt length, and its tier table has a full-context column.
+- Long prompts report progress: `run` and `serve` print the wait to expect
+  and then one line per quarter for any prompt over 2k tokens.
+- The prefill pass shrinks as the context grows (4096, 2048, 1024, 512 at
+  about 4k, 14k, and 31k tokens), so a pass's query-by-key product never
+  exceeds the largest one measured (a 4096-token pass finishing an 8,016-token
+  prompt). Output is byte-identical at every pass size; the cost is some
+  speed on the tail of a long prompt, and the plan's wait estimates include
+  it. The never-measured 8192 pass is no longer a candidate.
+- New `context-check` reads an N-token synthetic prompt through the real
+  engine, reports seconds, tok/s, and peak memory against the plan, and stops
+  before the machine swaps. New weights-free `prefill-schedule` prints the
+  pass ladder and wait for any pass size. Gated in `planner_gates.sh`
+  (bounded, floored, monotone, and equal to the doctor's wait) and one 2k rung
+  in `verify.sh`.
+- `pull`'s connection report counts the connections in use at once, one per
+  session, instead of every distinct connection since the start; 0.2.1 could
+  print "10 connections in use" for eight workers after two reconnects.
+- `Tools/e2e_release.sh` expects the Ollama load acknowledgment for a chat
+  with no messages, the 0.2.1 behaviour, instead of the 400 it asserted
+  before; it was the one failing check of 31 against the installed 0.2.1.
+
 ## 0.2.2 — 2026-09-02
 
 - Speculative decode pays, and ships. The draft head, `mtp.safetensors`
@@ -861,12 +1021,6 @@ release; anything under **Unreleased** is on `main` only.
   comparing liveness, proves the recording pass exact against the batched
   one, and checks a rollback state by state against the plain path.
   `mtp-bench --sample` measures the sampled case.
-- `pull`'s connection report counts the connections in use at once, one per
-  session, instead of every distinct connection since the start; 0.2.1 could
-  print "10 connections in use" for eight workers after two reconnects.
-- `Tools/e2e_release.sh` expects the Ollama load acknowledgment for a chat
-  with no messages, the 0.2.1 behaviour, instead of the 400 it asserted
-  before; it was the one failing check of 31 against the installed 0.2.1.
 
 ## 0.2.1 — 2026-09-01
 
@@ -896,7 +1050,6 @@ release; anything under **Unreleased** is on `main` only.
   opened" while `doctor` and `pull --verify` worked; paths are now resolved
   once at the CLI boundary and in the shard index. Gated by `runtime-check`
   (weights-free) and a `verify.sh` run through a symlink.
-
 
 ## 0.2.0 — 2026-09-01
 

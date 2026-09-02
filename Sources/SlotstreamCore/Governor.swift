@@ -268,6 +268,7 @@ public final class MemoryGovernor {
             if !growing { engine.prefixCache.drop() }
             engine.model.pool.resize(to: target)
             after = engine.model.pool.slots
+            engine.publishPoolSnapshot()
             // These are live allocation controls, not merely fields in the
             // reported plan. Leaving startup values here let a shrunken server
             // allocate the old large prefill and refill the old cache ceiling.

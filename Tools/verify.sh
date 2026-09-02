@@ -130,6 +130,13 @@ check "--memory-gb $BIG_MEMORY RSS peak ($LPEAK GB) under target on a 7,960-toke
 check "long-context answer still correct (sparse indexer active)" \
       "grep -q SEVENTEEN /tmp/ssv_longmem.txt"
 
+# context-check is the tool that earns any future move of the 32k ceiling; the
+# battery runs one small rung so the command itself stays proven (a 2k prompt
+# at the small target reads in about a minute).
+$BIN context-check --tokens 2048 --memory-gb $BIG_MEMORY --json 2>/dev/null > /tmp/ssv_ctx.json
+check "context-check: 2k rung reads inside the plan and reports it" \
+      "python3 -c 'import json; d=json.loads(open(\"/tmp/ssv_ctx.json\").read().strip().splitlines()[-1]); assert d[\"fits\"] and d[\"aborted\"] is None and d[\"prefill_tokens\"]==2048 and d[\"peak_rss_gb\"] < $BIG_MEMORY, d'"
+
 echo "== serving robustness (inputs that used to crash or corrupt output) =="
 echo "== behavioural sanity: has the conversion lost anything obvious? =="
 # NOT the FP8 comparison the plan calls for (see N4) — that needs an inference
@@ -154,13 +161,6 @@ kill $QPID 2>/dev/null || true
 wait $QPID 2>/dev/null || true
 QPID=""
 
-if Tools/api_robustness.sh 11466 13; then
-  echo "PASS  serving robustness suite"; PASS=$((PASS+1))
-else
-  echo "FAIL  serving robustness suite"; FAIL=$((FAIL+1))
-fi
-
-echo
 echo "== weights behind a symlink (Foundation will not list a symlinked dir) =="
 MODEL_DIR=models/qwen38-flash-next-mlx-4bit
 [ -d "$MODEL_DIR" ] || MODEL_DIR="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit"
@@ -169,5 +169,12 @@ rm -f "$SYM"; ln -s "$(cd "$MODEL_DIR" && pwd)" "$SYM"
 check "run through a symlinked model dir"  "$BIN run --model $SYM --memory-gb $SMALL_MEMORY --max-tokens 1 --greedy --prompt hi"
 rm -f "$SYM"
 
+if Tools/api_robustness.sh 11466 13; then
+  echo "PASS  serving robustness suite"; PASS=$((PASS+1))
+else
+  echo "FAIL  serving robustness suite"; FAIL=$((FAIL+1))
+fi
+
+echo
 echo "passed $PASS, failed $FAIL"
 [ $FAIL -eq 0 ]

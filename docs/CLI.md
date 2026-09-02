@@ -38,7 +38,7 @@ The Ollama- and OpenAI-compatible server ([docs/API.md](API.md)).
 | Flag | Meaning |
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
-| `--max-context <n>` | Longest prompt-plus-completion accepted, in tokens; past it a request is refused rather than left to stall (default 32768). |
+| `--max-context <n>` | Longest prompt-plus-completion accepted, in tokens; past it a request is refused with a 400 that says why. Default and ceiling 32768: the largest context measured so far, not a memory limit (context state is ~27 KiB per token). The flag can only lower it; `context-check` is how a higher ceiling gets earned. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Re-prefill every request from scratch instead of extending the previous request's state. |
 
@@ -70,10 +70,32 @@ any time.
 | `--sim-ram <gb>` | Preview the plan for a machine with this much RAM (pristine unless `--sim-available` is also given; working set defaults to 75% of RAM). |
 | `--sim-working-set <gb>` | Pretend this Metal working-set limit. |
 | `--sim-available <gb>` | Pretend this much memory is reclaimable right now. |
-| `--json` | The resolved plan as JSON, with estimates unrounded. |
+| `--max-context <n>` | Preview the plan `serve --max-context n` would announce. |
+| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
 
 Plus the memory options, so `doctor --memory-gb 16` shows exactly what
-`serve --memory-gb 16` would do.
+`serve --memory-gb 16` would do. The report ends with the wait before the
+first token by prompt length at that plan, and the tier table carries the
+wait for a prompt filling the whole context.
+
+### `slotstream context-check`
+
+Measure what reading an N-token prompt costs on this Mac. Loads the model
+(takes the lock), reads a synthetic prompt through the real engine with the
+prefix cache off, and prints seconds, tok/s, and the process peak memory
+against the plan's expected peak. Between passes it watches reclaimable
+memory and stops before the machine swaps. It writes nothing: a number it
+prints becomes a MEASUREMENTS.md entry by hand, which is the step that can
+move the 32k ceiling.
+
+| Flag | Meaning |
+|---|---|
+| `--tokens <n>` | Prompt length (default 8192; at most 262144). |
+| `--ladder` | Run 2048, 4096, … up to `--tokens`, stopping at the first rung that leaves the plan. |
+| `--min-free-gb <gb>` | Abort a pass when reclaimable memory falls below this (default: the planner's slack, 5% of RAM, at least 1.5 GB). |
+| `--json` | One JSON object per rung. |
+
+Plus the memory options; give it the same target you would give `serve`.
 
 ## Memory options
 
@@ -101,7 +123,7 @@ can drive a Mac into swap: prefer `--memory-gb` and check `doctor` first.
 | `SLOTSTREAM_WEIGHTS_SOURCES` | `pull` | Comma-separated download bases tried in order (a private mirror, a local cache). Every file must still match the compiled-in hashes. |
 | `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Parallel connections, capped at 32; same as `--connections`. |
 | `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
-| `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the prefill pass size in tokens instead of taking it from the memory plan. Measurement work only. |
+| `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
 | `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12; measured flat from 12 to 32, worse above). |
 | `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32; bounds peak memory on long prompts). |
 | `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
@@ -122,6 +144,7 @@ model, takes the lock, and allocates real memory, so give it a small target
 | `governor-check` | The elastic resize policy across pressure, availability, and cooldowns. |
 | `sampler-golden` | Sampling from reproducible synthetic logits, compared against `Tools/sampler_ref.py`. Flags: `--vocab`, `--draws`, `--seed`, `--logit-seed`, `--temperature`, `--top-p`, `--top-k`, `--min-p`, `--presence-penalty`, `--accumulate`. |
 | `pull-check` | Same-size corruption detection and HTTP range validation in the downloader. |
+| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same arithmetic `doctor` and the 400 message use. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
 
 **Load the model**
 

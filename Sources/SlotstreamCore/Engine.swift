@@ -20,24 +20,26 @@ public final class Engine {
     public let tokenizer: any Tokenizers.Tokenizer
     public let eosIds: Set<Int>
     public let modelName: String
-    /// Longest prompt accepted. Unbounded prompts are not free: KV plus indexer
-    /// state costs ~27 KiB per token beyond the announced memory plan, and
-    /// prefill runs at tens of tokens a second, so a huge prompt is a long,
-    /// memory-growing stall rather than a fast failure.
-    public var maxContextTokens = 32_768 {
+    /// Longest prompt accepted, at most `ContextPolicy.maxTokens` (the largest
+    /// context that has been measured, see Context.swift). Unbounded prompts
+    /// are not free: KV plus indexer state costs ~27 KiB per token, and a
+    /// prompt is read in full before the first token, so a huge prompt is a
+    /// long, memory-growing stall rather than a fast failure.
+    public var maxContextTokens = ContextPolicy.maxTokens {
         didSet {
             let capped = min(prefixCache.maxTokens, maxContextTokens)
             prefixCache.configure(maxTokens: capped)
             // Keep /api/show's memory plan aligned with the allocation control
             // that actually changed; otherwise --max-context 1024 reported the
             // startup cache ceiling even though it had already been reduced.
-            if let p = currentPlan, p.prefixCacheTokens != capped {
+            if let p = currentPlan, p.prefixCacheTokens != capped || p.maxContextTokens != maxContextTokens {
                 updatePlan(MemoryPlan(
                     source: p.source, slots: p.slots, targetGB: p.targetGB,
                     ramGB: p.ramGB, workingSetGB: p.workingSetGB,
                     ramPercent: p.ramPercent, availableGB: p.availableGB,
                     clamped: p.clamped, prefillChunk: p.prefillChunk,
-                    prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled, notes: p.notes))
+                    prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled,
+                    maxContextTokens: maxContextTokens, notes: p.notes))
             }
         }
     }
@@ -53,11 +55,24 @@ public final class Engine {
     }
 
     /// nil when `promptTokens` fits, otherwise the message to return to the client.
+    ///
+    /// The message names the cap for what it is. It used to tell people to
+    /// raise --max-context, which cannot go past the ceiling the server was
+    /// already at.
     public func contextError(promptTokens: Int) -> String? {
         guard promptTokens > maxContextTokens else { return nil }
+        let wait = PrefillSchedule.describe(seconds: PrefillSchedule.estSeconds(
+            tokens: promptTokens, maxChunk: generator.prefillChunk))
+        let ceiling = maxContextTokens < ContextPolicy.maxTokens
+            ? "this server was started with --max-context \(maxContextTokens); "
+                + "the ceiling is \(ContextPolicy.maxTokens)"
+            : "\(ContextPolicy.maxTokens) is the largest context slotstream has measured, "
+                + "not a memory limit (context state costs ~27 KiB per token)"
         return "prompt is \(promptTokens) tokens, over this server's limit of "
-            + "\(maxContextTokens) (raise it with --max-context, at ~27 KiB of "
-            + "extra memory per token and tens of seconds of prefill per 1k tokens)"
+            + "\(maxContextTokens) for prompt plus reply. \(ceiling). Reading a prompt "
+            + "this long would take ~\(wait) before the first token here. Send less, or "
+            + "split the material across turns of one conversation so each follow-up "
+            + "reads only what is new."
     }
     /// The live memory plan (updated by the elastic governor on resize; nil
     /// for internal fixed-size uses). Guarded by its own lock so /api reads
@@ -85,13 +100,27 @@ public final class Engine {
         return try body()
     }
 
-    /// Metadata read under the same lock as generation and governor resizing.
-    /// Reading SlotPool's mutable Swift arrays concurrently with resize is a
-    /// data race even when the endpoint only wants their byte count.
+    /// Pool numbers for the metadata endpoints, published rather than read
+    /// live. Reading SlotPool's mutable Swift arrays while the governor
+    /// resizes is a data race, but taking the *generation* lock to avoid it
+    /// made /api/tags and /api/ps block for the whole of a running request, so
+    /// a client that polls either one saw a generating server as a hung one.
+    private var _poolSnapshot: (slots: Int, slotsPerLayer: Double, poolBytes: Int) = (0, 0, 0)
+    private let poolSnapshotLock = NSLock()
+
     public func poolSnapshot() -> (slots: Int, slotsPerLayer: Double, poolBytes: Int) {
-        withExclusive {
-            (model.pool.slots, model.pool.slotsPerLayer, model.pool.poolBytes)
-        }
+        poolSnapshotLock.lock()
+        defer { poolSnapshotLock.unlock() }
+        return _poolSnapshot
+    }
+
+    /// Re-read the pool and publish it. **Call with the generation lock held**
+    /// (inside `withExclusive`), which is where every resize already happens.
+    public func publishPoolSnapshot() {
+        let s = (model.pool.slots, model.pool.slotsPerLayer, model.pool.poolBytes)
+        poolSnapshotLock.lock()
+        _poolSnapshot = s
+        poolSnapshotLock.unlock()
     }
 
     public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
@@ -137,6 +166,7 @@ public final class Engine {
             if let one = o["eos_token_id"] as? Int { eos.insert(one) }
         }
         self.eosIds = eos
+        publishPoolSnapshot()
         let banner = "engine ready in \(String(format: "%.1f", -t0.timeIntervalSinceNow))s: "
             + "expert cache ~\(String(format: "%.0f", model.pool.slotsPerLayer))/\(model.cfg.numExperts) per layer "
             + "(\(model.pool.slots) global slots = \(String(format: "%.1f", Double(model.pool.poolBytes) / 1e9)) GB), "
@@ -251,8 +281,14 @@ public final class Engine {
         /// This makes streaming decode O(n), rather than decoding tokens 1...n
         /// after every generated token.
         func flushStablePrefix(_ tok: Int) -> Bool {
-            guard pendingIds.count >= 8 else { return true }
-            var n = pendingIds.count - 4
+            guard !pendingIds.isEmpty else { return true }
+            // Start from everything buffered and hand back one token at a time
+            // while the decode still ends mid-scalar. Waiting for eight tokens
+            // before the first flush and holding four back after it gave
+            // clients one delta per four tokens, and no delta at all for a
+            // reply shorter than eight; the byte-exactness this protects rests
+            // on the replacement-character check below, not on the backlog.
+            var n = pendingIds.count
             var piece = ""
             while n > 0 {
                 piece = tokenizer.decode(

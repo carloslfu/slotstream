@@ -136,7 +136,8 @@ Decode is the easy part: ~12 tok/s warm on a 48 GB Mac, and the tier table
 above says what smaller ones get. The slow axis is the prompt. All of it is
 processed before the first token appears, so 8,000 tokens wait about a minute
 on a 48 GB Mac and over three on a 16 GB one. Prompt plus completion is
-capped at 32,768 tokens (`--max-context`).
+capped at 32,768 tokens; [Context](#context) below says what that cap is and
+what a long prompt costs.
 
 Within a conversation you only pay that once. Follow-up turns prefill just
 what's new, so time to first token stays flat as the chat grows: over eight
@@ -158,6 +159,37 @@ it on. The head is the 1.5 GB `mtp.safetensors` that `pull` fetches with the
 weights; without it, everything runs as before. [MEASUREMENTS.md](MEASUREMENTS.md)
 has the ladder below the threshold, the ceiling, and the method.
 
+## Context
+
+Prompt plus reply is capped at 32,768 tokens per request (`serve
+--max-context`, which can only lower it). The cap is the largest context
+slotstream has measured, not a memory limit: the model is trained for
+262,144 tokens, and context state costs ~27 KiB per token, so a full 32k
+context is under 1 GB. What makes a long prompt expensive is time, because
+every token is read before the first one comes out. On a 48 GB Mac the wait
+is about 16 s for a 2k prompt, 1.2 min for 8k, 2.4 min for 16k, and 5.5 min
+for the full 32k; a 16 GB Mac takes about 13.7 min for 32k. `slotstream
+doctor` prints these for your machine and its tier table has a column for
+the full-context wait, and `run` and `serve` print progress while a long
+prompt is being read. Within a conversation you pay once: follow-up turns
+read only what is new.
+
+Past ~4k tokens the prefill pass shrinks as the context grows (4096, then
+2048, 1024, 512), which keeps the pass's temporary memory inside what has
+been measured at the cost of some speed on the tail of a long prompt;
+`slotstream prefill-schedule --chunk 4096 --tokens 32768` shows the ladder.
+
+To see what a longer prompt costs on your Mac:
+
+```bash
+slotstream context-check --tokens 16384
+```
+
+It reads a synthetic prompt of that size through the real engine, reports
+seconds, tok/s, and peak memory against the plan, and stops before the
+machine swaps. Raising the cap is a two-step job, measure then charge, and
+those measurements are what will move it; 128k is the first target.
+
 ## Memory
 
 With no flags, slotstream sizes itself to your machine and tells you what it
@@ -171,6 +203,7 @@ slotstream memory plan (auto)
   cache:  ~152 of 512 experts per layer  (7280 global slots = 20.1 GB pool)
   expect: ~32.0 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
   prefill: 4096 tokens per pass (~125 tok/s here; costs ~5.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~5.5 min before its first token here, follow-up turns read only what is new
   reuse:  up to 32768 tokens across 4 conversations (~1.2 GB), so a follow-up turn re-prefills only what is new
 ```
 

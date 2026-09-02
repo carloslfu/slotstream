@@ -109,6 +109,23 @@ speed; only more connections or a shorter round trip do (MEASUREMENTS.md,
 2026-09-01). `Tools/pull_bench_linux.sh` runs the exact pull code on a Linux
 box in Docker for a gigabit measurement.
 
+Hosting is not a speed lever below about 3 Gbit/s per client, and the default
+is the physical best up to 1 Gbit/s: from Helsinki, Hugging Face, R2 direct and
+Cloudflare's edge all fill the port at 8 connections, and every home link caps
+all of them alike. What the default leaves: about 20% on a gigabit link 250 to
+300 ms from the bridge, and about 2× on 5 to 10 Gbit/s links, where each
+connection is bounded by the 4 MiB window over round trip and every chunk
+idles two round trips on the `resolve` redirect. The client-side fixes, if that
+audience ever matters: adaptive concurrency (8 up to 64 while the aggregate
+rate still rises), two chunks in flight per connection, and one `resolve` per
+file (the signed bridge URL lasts about an hour). Do not move the weights to R2,
+Vercel Blob or a CDN for speed: none caches a 10 GB shard on a non-enterprise
+plan, and Hugging Face already serves these bytes from CloudFront through its
+Xet protocol (64 MiB xorbs), which `resolve` bypasses in favour of the EC2
+bridge; speaking Xet is the edge path. Anything above 1 Gbit/s is unmeasured
+and needs a billed 10 Gbit host, which needs Carlos's go (MEASUREMENTS.md M11,
+2026-09-02).
+
 To exercise the whole pull path without spending 104 GB of network, serve the
 existing `models/` copy over a Range-capable local HTTP server and point
 `SLOTSTREAM_WEIGHTS_SOURCES` at it; a full 24-file pull then runs at SSD speed
@@ -135,25 +152,57 @@ These were all real bugs found by adversarial probing. Each is now gated by
   decoder is run over small stable token groups while incomplete UTF-8 bytes
   and stop-sequence prefixes remain buffered. Non-streaming requests do one
   final decode only; never restore full-prefix decoding after every token.
+- **The pass shrinks as the context grows, and the bound is measured, not
+  chosen.** `PrefillSchedule.chunk(at:maxChunk:)` halves the pass until
+  pass × context is under 4096 × 8016, the largest query-by-key product any
+  prefill measurement covered, because the sparse-attention layers score every
+  query of the pass against every key of the context (a chunk × context
+  transient the pool math never modelled). Every `--memory-gb` peak number
+  in MEASUREMENTS.md comes from prompts of at most 7,960 tokens; do not raise
+  `measuredQueryKeyProduct` or `ContextPolicy.maxTokens` without a
+  `context-check` measurement recorded in MEASUREMENTS.md, and never quote a
+  context number the tool did not print (`doctor`, `prefill-schedule`).
 - **Prompt plus completion is capped (`--max-context`, default 32,768).** The
   planner charges a full active context, and `Engine.generate` clamps new
   tokens to the remaining room. If you raise the cap, update the memory model
   and re-measure process RSS.
+- **A metadata endpoint must never take the generation lock.** `/api/tags` and
+  `/api/ps` want pool numbers, and reading them through `withExclusive` made
+  both block for the whole of a running request. Worse, the accept loop waited
+  on the connection semaphore, so enough blocked metadata calls stopped the
+  process answering anything — a client polling either endpoint could not tell
+  a generating server from a crashed one. `Engine.publishPoolSnapshot`
+  republishes under its own lock at every resize; the endpoints read that.
+- **The accept loop must never block.** `connSlots.wait()` on the accept thread
+  turned a full connection pool into a dead server. It takes the slot with a
+  zero timeout now and answers 503 when there is none.
+- **JSON `null` means "not set".** The OpenAI client serializes an unset
+  `max_tokens` as null and the Ollama CLI sends a null `options`; treating
+  either as a present-but-wrong value turned a stock default request into a
+  400. `Server.withoutNulls` strips them before validation.
+- **A no-op value is not a feature request.** Refusing `n: 1` or
+  `frequency_penalty: 0` broke stock SDKs while protecting nothing: those name
+  the behaviour this server already has. Accept the exact default, refuse every
+  other value. This does not license accepting a knob that would change the
+  reply — `num_ctx` and `repeat_penalty` are still refused, never dropped.
+- **An unseeded request gets its seed at the API boundary.** `Sampler`'s own
+  default is a constant, so an unseeded request replayed one fixed stream from
+  process start while the docs promised otherwise. The draw lives in
+  `Server.sampleParams` and `v1Chat`, never in `Sampler`, so every offline gate
+  stays deterministic.
+- **Reasoning goes in `thinking`, never in the answer.** `ThinkSplitter` routes
+  everything before `</think>` to `message.thinking` in both streamed and
+  non-streamed replies, withholding the last few characters so a tag split
+  across two deltas is never emitted as text.
+- **The incremental decoder holds back as little as it can.** Eight tokens
+  before the first flush and four after it meant one delta per four tokens, and
+  no streaming at all below eight. Byte-exactness rests on the U+FFFD check,
+  not on the size of the backlog.
 - **`Geometry` constants are checked against config.json** in
   `Qwen4ExpModel.validate`. The planner sizes memory from the constants while
   the engine allocates from the config; if they drift, every memory number the
   user sees is wrong.
 
-## Conversation prefix cache
-
-- **A reused state is extend-only and can never be rewound.** `LinearCache`
-  holds the GDN recurrent state, a fold over every token with no inverse, and
-  `ngramCtx` is carried forward the same way. So reuse requires
-  `prompt.starts(with: heldIds)` and `prompt.count > heldIds.count`; anything
-  else is a full rebuild. Do not add "partial rewind" or longest-common-prefix
-  matching — there is nothing to rewind to.
-- **The held id list is tracked, never inferred.** A token is sampled *before*
-  it is fed, so both break paths in the decode loop leave the last token
 - **The Ollama CLI's wire format is a gate, not an assumption.** Its
   `ShowRequest` serializes every field, so `ollama run` opens `/api/show`
   with empty `name`/`system`/`template`/`options`, its one-shot mode uses
@@ -168,6 +217,16 @@ These were all real bugs found by adversarial probing. Each is now gated by
   gates the CLI's exact request shapes; a client claim in the README needs a
   gate like it.
 
+## Conversation prefix cache
+
+- **A reused state is extend-only and can never be rewound.** `LinearCache`
+  holds the GDN recurrent state, a fold over every token with no inverse, and
+  `ngramCtx` is carried forward the same way. So reuse requires
+  `prompt.starts(with: heldIds)` and `prompt.count > heldIds.count`; anything
+  else is a full rebuild. Do not add "partial rewind" or longest-common-prefix
+  matching — there is nothing to rewind to.
+- **The held id list is tracked, never inferred.** A token is sampled *before*
+  it is fed, so both break paths in the decode loop leave the last token
   unconsumed. `Generator.generate` records exactly what the state consumed; a
   caller that recomputes this from the returned ids will be off by one and the
   next request will silently reuse a state that does not match its prompt.

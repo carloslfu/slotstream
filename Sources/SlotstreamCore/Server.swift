@@ -58,9 +58,14 @@ public final class Server {
     }
 
     /// Bounded so a client that opens sockets and never speaks cannot exhaust
-    /// the thread pool (each connection costs one thread).
-    static let maxConcurrentConnections = 8
+    /// the thread pool (each connection costs one thread). The accept loop
+    /// never waits on this: a full pool answers 503 at once, because blocking
+    /// the loop stops the server answering *anything* — a health check
+    /// included — which a client cannot tell apart from a crash.
+    static let maxConcurrentConnections = 32
     private let connSlots = DispatchSemaphore(value: maxConcurrentConnections)
+    /// Unix time this process started serving; /v1/models reports it.
+    private let startedAt = Int(Date().timeIntervalSince1970)
 
     public func run() throws -> Never {
         // A client that disappears mid-stream makes write() raise SIGPIPE, whose
@@ -87,7 +92,16 @@ public final class Server {
             setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &st, socklen_t(MemoryLayout<timeval>.size))
             var one: Int32 = 1
             setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
-            connSlots.wait()
+            // Never block the accept loop; see maxConcurrentConnections.
+            guard connSlots.wait(timeout: .now()) == .success else {
+                let body = Data(#"{"error":"server busy: too many open connections"}"#.utf8)
+                let head = "HTTP/1.1 503 Service Unavailable\r\n"
+                    + "Content-Type: application/json\r\nRetry-After: 1\r\n"
+                    + "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+                _ = self.send(fd, Data(head.utf8) + body)
+                close(fd)
+                continue
+            }
             Thread.detachNewThread { [weak self] in
                 defer { self?.connSlots.signal() }
                 self?.handle(fd)
@@ -109,16 +123,29 @@ public final class Server {
     /// gets OOM-killed.
     static let maxBodyBytes = 4 << 20
 
-    private func readRequest(_ fd: Int32) -> Request? {
+    /// Why a request could not be read. `.closed` means the peer went away or
+    /// timed out, so there is nobody left to tell; everything else gets a real
+    /// status line, because dropping the connection reads as a crash.
+    enum ReadOutcome {
+        case ok(Request)
+        case closed
+        case fail(status: String, message: String)
+    }
+
+    private func readRequest(_ fd: Int32) -> ReadOutcome {
         var buf = Data()
         var tmp = [UInt8](repeating: 0, count: 65536)
         var headerEnd: Range<Data.Index>? = nil
         while headerEnd == nil {
             let n = read(fd, &tmp, tmp.count)
-            if n <= 0 { return nil }
+            if n <= 0 { return .closed }
             buf.append(contentsOf: tmp[0 ..< n])
             headerEnd = buf.range(of: Data("\r\n\r\n".utf8))
-            if headerEnd == nil, buf.count > 64 << 10 { return nil }
+            if headerEnd == nil, buf.count > 64 << 10 {
+                return .fail(
+                    status: "431 Request Header Fields Too Large",
+                    message: "request headers are larger than 64 KiB")
+            }
         }
         let headData = buf[..<headerEnd!.lowerBound]
         let head = String(data: headData, encoding: .utf8) ?? ""
@@ -130,26 +157,60 @@ public final class Server {
             req.path = String(parts[1])
         }
         var contentLength = 0
+        var sawContentLength = false
         for l in lines.dropFirst() {
             let kv = l.split(separator: ":", maxSplits: 1)
             if kv.count == 2 {
                 let key = kv[0].trimmingCharacters(in: .whitespaces).lowercased()
                 let value = kv[1].trimmingCharacters(in: .whitespaces)
                 req.headers[key] = value
-                if key == "content-length" { contentLength = Int(value) ?? -1 }
+                if key == "content-length" {
+                    sawContentLength = true
+                    contentLength = Int(value) ?? -1
+                }
             }
         }
-        if contentLength < 0 || contentLength > Self.maxBodyBytes { return nil }
+        // A chunked body carries no Content-Length, so it used to be read as
+        // zero bytes and failed further in as "messages must be an array".
+        if let te = req.headers["transfer-encoding"], te.lowercased().contains("chunked") {
+            return .fail(
+                status: "411 Length Required",
+                message: "chunked request bodies are not supported; send Content-Length")
+        }
+        if sawContentLength, contentLength < 0 {
+            return .fail(status: "400 Bad Request", message: "Content-Length is not a number")
+        }
+        if contentLength > Self.maxBodyBytes {
+            return .fail(
+                status: "413 Content Too Large",
+                message: "request body is larger than \(Self.maxBodyBytes >> 20) MiB")
+        }
         var body = Data(buf[headerEnd!.upperBound...].prefix(contentLength))
         while body.count < contentLength {
             let n = read(fd, &tmp, min(tmp.count, contentLength - body.count))
             if n <= 0 { break }
             body.append(contentsOf: tmp[0 ..< n])
-            if body.count > Self.maxBodyBytes { return nil }
         }
-        guard body.count == contentLength else { return nil }
+        guard body.count == contentLength else { return .closed }
         req.body = body
-        return req
+        return .ok(req)
+    }
+
+    /// The path a request routes on: no query string, and no scheme or
+    /// authority from the absolute-form target proxies send. Both are legal
+    /// HTTP and both used to 404.
+    static func routePath(_ raw: String) -> String {
+        var p = raw
+        if let q = p.firstIndex(of: "?") { p = String(p[..<q]) }
+        for scheme in ["http://", "https://"] where p.lowercased().hasPrefix(scheme) {
+            let afterScheme = p.index(p.startIndex, offsetBy: scheme.count)
+            if let slash = p[afterScheme...].firstIndex(of: "/") {
+                p = String(p[slash...])
+            } else {
+                p = "/"
+            }
+        }
+        return p.count > 1 && p.hasSuffix("/") ? String(p.dropLast()) : p
     }
 
     private func send(_ fd: Int32, _ data: Data) -> Bool {
@@ -220,7 +281,14 @@ public final class Server {
 
     private func handle(_ fd: Int32) {
         defer { close(fd) }
-        guard let req = readRequest(fd) else { return }
+        let req: Request
+        switch readRequest(fd) {
+        case .ok(let r): req = r
+        case .closed: return
+        case .fail(let status, let message):
+            respondJSON(fd, ["error": message], status: status)
+            return
+        }
         let origin = req.headers["origin"]
         guard let cors = Self.corsHeaders(origin: origin) else {
             respondJSON(
@@ -244,7 +312,8 @@ public final class Server {
             return
         }
         let json = parsed ?? [:]
-        switch (req.method, req.path) {
+        let path = Self.routePath(req.path)
+        switch (req.method, path) {
         case ("GET", "/api/version"):
             respondJSON(fd, ["version": SlotstreamBuild.version], cors: cors)
         case ("GET", "/api/tags"), ("GET", "/api/tags/"):
@@ -258,7 +327,12 @@ public final class Server {
             // non-empty override asks for modelfile semantics this server
             // does not have and stays a 400 (showOverrideError).
             var show = json
-            if show["model"] == nil, let alias = show["name"] as? String, !alias.isEmpty {
+            // `ollama run` puts the name in `model` and sends an empty `name`;
+            // `ollama show` does the exact reverse, so an empty `model` has to
+            // fall back to the alias too, not merely a missing one.
+            let modelBlank = show["model"] == nil || show["model"] is NSNull
+                || (show["model"] as? String)?.isEmpty == true
+            if modelBlank, let alias = show["name"] as? String, !alias.isEmpty {
                 show["model"] = alias
             }
             if let e = modelError(show) {
@@ -305,7 +379,10 @@ public final class Server {
                 fd,
                 [
                     "object": "list",
-                    "data": [["id": engine.modelName, "object": "model", "owned_by": "slotstream"]],
+                    "data": [[
+                        "id": engine.modelName, "object": "model",
+                        "created": startedAt, "owned_by": "slotstream",
+                    ]],
                 ], cors: cors)
         case ("POST", "/api/embed"), ("POST", "/api/embeddings"):
             respondJSON(
@@ -316,8 +393,12 @@ public final class Server {
                 fd, ["error": "use `slotstream pull` on the host"],
                 status: "501 Not Implemented", cors: cors)
         case ("HEAD", _):
-            // A HEAD response carries headers only; sending a body is a protocol error.
-            let head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" + cors
+            // A HEAD response carries headers only; sending a body is a
+            // protocol error. It still has to answer for the resource asked
+            // for — a blanket 200 told every client that every path existed.
+            let known: Set<String> = ["/", "/api/version", "/api/tags", "/api/ps", "/v1/models"]
+            let status = known.contains(path) ? "200 OK" : "404 Not Found"
+            let head = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\n" + cors
                 + "Content-Length: 0\r\nConnection: close\r\n\r\n"
             _ = send(fd, Data(head.utf8))
         case ("GET", "/"):
@@ -346,7 +427,6 @@ public final class Server {
     }
 
     private func modelCard(loaded: Bool = false) -> [String: Any] {
-        let pool = engine.poolSnapshot()
         var c: [String: Any] = [
             "name": engine.modelName, "model": engine.modelName,
             "modified_at": iso(Date()), "size": weightsBytes,
@@ -354,8 +434,15 @@ public final class Server {
             "details": modelDetails(),
         ]
         if loaded {
+            // Ollama reads these as "what this model costs right now" and
+            // renders (size - size_vram) as a CPU share. Reporting 104 GB of
+            // weights against a small pool made `ollama ps` claim ~98% CPU for
+            // a model that runs on the GPU; resident memory is the honest
+            // answer for a runtime that streams the rest from disk.
+            let resident = Int(ProcessMemory.residentBytes())
+            c["size"] = resident
+            c["size_vram"] = resident
             c["expires_at"] = iso(Date().addingTimeInterval(3600))
-            c["size_vram"] = pool.poolBytes
         }
         return c
     }
@@ -426,9 +513,22 @@ public final class Server {
         guard let raw = json["model"] else { return nil }
         guard let requested = raw as? String else { return "model must be text" }
         guard !requested.isEmpty else { return "model must not be empty" }
-        let accepted = [engine.modelName, "qwen3.8-flash-next:4bit", "qwen38-flash-next-mlx-4bit"]
+        // Ollama clients routinely drop the tag or ask for ":latest". Both name
+        // the only model here, and a name is not a semantic knob.
+        let accepted = [
+            engine.modelName, "qwen3.8-flash-next:4bit", "qwen38-flash-next-mlx-4bit",
+            "qwen3.8-flash-next", "qwen3.8-flash-next:latest",
+        ]
         return accepted.contains(requested)
             ? nil : "model '\(requested)' is not loaded; this server has only '\(engine.modelName)'"
+    }
+
+    /// JSON `null` means "not set" to every client SDK worth supporting: the
+    /// OpenAI client serializes an unset `max_tokens` as null and the Ollama
+    /// CLI sends a null `options`. Reading it as a present-but-wrong value
+    /// turned a stock default request into a 400.
+    static func withoutNulls(_ json: [String: Any]) -> [String: Any] {
+        json.filter { !($0.value is NSNull) }
     }
 
     private static func unsupportedKey(
@@ -535,14 +635,61 @@ public final class Server {
         return messages ? Self.messageError(json) : nil
     }
 
+    /// Fields whose only supported value is the behaviour this server already
+    /// has. A client sending the default is asking for exactly what it gets, so
+    /// refusing it breaks stock SDKs for no semantic reason; any other value is
+    /// a real feature and stays a 400. Nothing is silently dropped either way.
+    private static func openAINoOpError(_ json: [String: Any]) -> String? {
+        if json["n"] != nil, int(json["n"]) != 1 {
+            return "n must be 1; this server returns a single choice"
+        }
+        if json["frequency_penalty"] != nil, num(json["frequency_penalty"]) != 0 {
+            return "frequency_penalty is not supported (0 only); use presence_penalty"
+        }
+        if json["logprobs"] != nil, bool(json["logprobs"]) != false {
+            return "logprobs are not supported"
+        }
+        if json["top_logprobs"] != nil { return "top_logprobs are not supported" }
+        if let v = json["logit_bias"] {
+            guard let map = v as? [String: Any], map.isEmpty else {
+                return "logit_bias is not supported"
+            }
+        }
+        if let v = json["response_format"] {
+            guard let o = v as? [String: Any], (o["type"] as? String) == "text" else {
+                return "only response_format {\"type\": \"text\"} is supported"
+            }
+        }
+        if let v = json["tools"] {
+            guard let list = v as? [Any], list.isEmpty else {
+                return "tool calling is not supported"
+            }
+        }
+        if json["tool_choice"] != nil, (json["tool_choice"] as? String) != "none" {
+            return "tool calling is not supported"
+        }
+        if json["parallel_tool_calls"] != nil, bool(json["parallel_tool_calls"]) != false {
+            return "tool calling is not supported"
+        }
+        if json["user"] != nil, json["user"] as? String == nil {
+            return "user must be text"
+        }
+        return nil
+    }
+
     private func openAIValidationError(_ json: [String: Any]) -> String? {
         if let e = modelError(json) { return e }
         let allowed: Set<String> = [
             "model", "messages", "stream", "temperature", "top_p", "top_k",
             "presence_penalty", "max_tokens", "max_completion_tokens", "seed",
             "stop", "stream_options",
+            // Accepted only at the value this server already implements; see
+            // openAINoOpError. Stock SDKs send these on every call.
+            "n", "frequency_penalty", "logprobs", "top_logprobs", "logit_bias",
+            "response_format", "tools", "tool_choice", "parallel_tool_calls", "user",
         ]
         if let e = Self.unsupportedKey(json, allowed: allowed) { return e }
+        if let e = Self.openAINoOpError(json) { return e }
         if let e = Self.messageError(json) { return e }
         for key in ["temperature", "top_p", "presence_penalty"]
         where json[key] != nil && Self.num(json[key]) == nil {
@@ -594,12 +741,21 @@ public final class Server {
             if let v = Self.int(o["seed"]) { p.seed = v < 0 ? nil : UInt64(v) }
             if let s = Self.stopList(o["stop"]) { p.stop = s }
         }
+        // No seed means a different reply every time, which is what the API
+        // documents and what clients expect. The sampler's own default is a
+        // fixed constant, so without this an unseeded request replayed the
+        // same text after every restart.
+        if p.seed == nil { p.seed = Self.randomSeed() }
         return p.sanitized()
     }
 
+    /// A fresh seed for a request that did not name one.
+    static func randomSeed() -> UInt64 { UInt64.random(in: 1 ... UInt64.max) }
+
     // MARK: /api/chat
 
-    private func apiChat(_ fd: Int32, _ json: [String: Any], cors: String) {
+    private func apiChat(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
+        let json = Self.withoutNulls(rawJSON)
         if let e = ollamaValidationError(
             json, allowed: ["model", "messages", "stream", "think", "options", "keep_alive"],
             messages: true)
@@ -636,12 +792,25 @@ public final class Server {
         }
         let t0 = Date()
         if stream, !startChunked(fd, contentType: "application/x-ndjson", cors: cors) { return }
+        // With think on, the model reasons first and closes with `</think>`.
+        // Ollama carries that in message.thinking; leaving it in the answer
+        // handed clients the reasoning and a stray closing tag.
+        let splitter = thinking ? ThinkSplitter() : nil
         var alive = true
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
+            var message: [String: Any] = ["role": "assistant"]
+            if let sp = splitter {
+                let (think, content) = sp.push(delta)
+                if think.isEmpty, content.isEmpty { return alive }
+                if !think.isEmpty { message["thinking"] = think }
+                message["content"] = content
+            } else {
+                message["content"] = delta
+            }
             let obj: [String: Any] = [
                 "model": self.engine.modelName, "created_at": self.iso(Date()),
-                "message": ["role": "assistant", "content": delta], "done": false,
+                "message": message, "done": false,
             ]
             alive = self.chunk(
                 fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
@@ -650,9 +819,17 @@ public final class Server {
         let (text, _, stats) = engine.generate(
             promptIds: ids, params: params,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
+        var finalMessage: [String: Any] = ["role": "assistant"]
+        if let sp = splitter {
+            let (think, content) = stream ? sp.flush() : ThinkSplitter.split(text)
+            if !think.isEmpty { finalMessage["thinking"] = think }
+            finalMessage["content"] = content
+        } else {
+            finalMessage["content"] = stream ? "" : text
+        }
         let final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
-            "message": ["role": "assistant", "content": stream ? "" : text],
+            "message": finalMessage,
             "done": true, "done_reason": stats.finishReason,
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
             "prompt_eval_count": stats.promptTokens,
@@ -670,7 +847,8 @@ public final class Server {
 
     // MARK: /api/generate
 
-    private func apiGenerate(_ fd: Int32, _ json: [String: Any], cors: String) {
+    private func apiGenerate(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
+        let json = Self.withoutNulls(rawJSON)
         if let e = ollamaValidationError(
             json,
             allowed: [
@@ -767,13 +945,22 @@ public final class Server {
         }
         let t0 = Date()
         if stream, !startChunked(fd, contentType: "application/x-ndjson", cors: cors) { return }
+        let splitter = thinking ? ThinkSplitter() : nil
         var alive = true
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
-            let obj: [String: Any] = [
+            var obj: [String: Any] = [
                 "model": self.engine.modelName, "created_at": self.iso(Date()),
-                "response": delta, "done": false,
+                "done": false,
             ]
+            if let sp = splitter {
+                let (think, content) = sp.push(delta)
+                if think.isEmpty, content.isEmpty { return alive }
+                if !think.isEmpty { obj["thinking"] = think }
+                obj["response"] = content
+            } else {
+                obj["response"] = delta
+            }
             alive = self.chunk(
                 fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
             return alive
@@ -781,15 +968,23 @@ public final class Server {
         let (text, _, stats) = engine.generate(
             promptIds: ids, params: params,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
-        let final: [String: Any] = [
+        var finalResponse = stream ? "" : text
+        var finalThinking = ""
+        if let sp = splitter {
+            let (think, content) = stream ? sp.flush() : ThinkSplitter.split(text)
+            finalThinking = think
+            finalResponse = content
+        }
+        var final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
-            "response": stream ? "" : text, "done": true, "done_reason": stats.finishReason,
+            "response": finalResponse, "done": true, "done_reason": stats.finishReason,
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
             "prompt_eval_count": stats.promptTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
             "eval_count": stats.decodeTokens,
             "eval_duration": Int(stats.decodeSeconds * 1e9),
         ]
+        if !finalThinking.isEmpty { final["thinking"] = finalThinking }
         if stream, alive {
             chunk(fd, (try! JSONSerialization.data(withJSONObject: final)) + Data("\n".utf8))
             endChunked(fd)
@@ -800,7 +995,8 @@ public final class Server {
 
     // MARK: /v1/chat/completions (OpenAI, SSE streaming)
 
-    private func v1Chat(_ fd: Int32, _ json: [String: Any], cors: String) {
+    private func v1Chat(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
+        let json = Self.withoutNulls(rawJSON)
         if let e = openAIValidationError(json) {
             respondJSON(
                 fd, ["error": ["message": e, "type": "invalid_request_error"]],
@@ -820,6 +1016,7 @@ public final class Server {
             params.seed = UInt64(bitPattern: Int64(v))
         }
         if let v = Self.stopList(json["stop"]) { params.stop = v }
+        if params.seed == nil { params.seed = Self.randomSeed() }
         params = params.sanitized()
         let wantUsage = Self.bool(
             (json["stream_options"] as? [String: Any])?["include_usage"]) ?? false
@@ -843,12 +1040,19 @@ public final class Server {
         let rid = "chatcmpl-\(UUID().uuidString.prefix(8))"
         if stream, !startChunked(fd, contentType: "text/event-stream", cors: cors) { return }
         var alive = true
+        var sentRole = false
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
+            // OpenAI's first delta carries the role; clients look for it.
+            var d: [String: Any] = ["content": delta]
+            if !sentRole {
+                d["role"] = "assistant"
+                sentRole = true
+            }
             let obj: [String: Any] = [
                 "id": rid, "object": "chat.completion.chunk",
                 "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
-                "choices": [["index": 0, "delta": ["content": delta], "finish_reason": NSNull()]],
+                "choices": [["index": 0, "delta": d, "finish_reason": NSNull()]],
             ]
             let data = try! JSONSerialization.data(withJSONObject: obj)
             alive = self.chunk(fd, Data("data: ".utf8) + data + Data("\n\n".utf8))
@@ -892,5 +1096,51 @@ public final class Server {
                     ],
                 ], cors: cors)
         }
+    }
+}
+
+
+/// Qwen emits its reasoning first and closes it with `</think>`. Ollama's
+/// protocol carries that in `message.thinking` (`thinking` on /api/generate),
+/// never in the answer. One instance follows one response.
+final class ThinkSplitter {
+    private static let tag = "</think>"
+    private var buf = ""
+    private var closed = false
+
+    /// Splits one delta into (thinking, content). Until the tag arrives the
+    /// last few characters are withheld, so a tag straddling two deltas is
+    /// never emitted as reasoning text.
+    func push(_ s: String) -> (String, String) {
+        if closed { return ("", s) }
+        buf += s
+        if let r = buf.range(of: Self.tag) {
+            let think = String(buf[..<r.lowerBound])
+            var rest = String(buf[r.upperBound...])
+            while rest.hasPrefix("\n") { rest.removeFirst() }
+            buf = ""
+            closed = true
+            return (think, rest)
+        }
+        let keep = min(buf.count, Self.tag.count - 1)
+        let emit = String(buf.dropLast(keep))
+        buf = String(buf.suffix(keep))
+        return (emit, "")
+    }
+
+    /// Whatever is still withheld when generation ends. A response that never
+    /// closed its reasoning is all thinking and no answer, and says so.
+    func flush() -> (String, String) {
+        let rest = buf
+        buf = ""
+        return closed ? ("", rest) : (rest, "")
+    }
+
+    /// The same split over a whole non-streamed response.
+    static func split(_ text: String) -> (String, String) {
+        guard let r = text.range(of: tag) else { return (text, "") }
+        var content = String(text[r.upperBound...])
+        while content.hasPrefix("\n") { content.removeFirst() }
+        return (String(text[..<r.lowerBound]), content)
     }
 }

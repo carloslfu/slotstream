@@ -12,6 +12,73 @@ release; anything under **Unreleased** is on `main` only.
 - CI runs the full build only when something other than prose changes; a
   docs-only push runs a twenty-second `docs` job (the llms-full.txt staleness
   check) instead.
+- The serving layer answers while it is working. `/api/tags` and `/api/ps` read
+  pool numbers through the *generation* lock, so both blocked for the length of
+  a running request; with the accept loop also waiting on the connection
+  semaphore, enough blocked metadata calls stopped the server answering
+  anything at all, and a client polling either one saw a working server as a
+  dead one. Pool numbers are published at each resize and read from a snapshot,
+  and the accept loop never waits: a full pool answers 503.
+- Reasoning no longer leaks into the answer. `think: true` returns the model's
+  reasoning in `message.thinking` (`thinking` on `/api/generate`) and the reply
+  in `content`; it used to hand clients the reasoning, a stray `</think>`, and
+  the answer in one string.
+- Deltas arrive per token. The incremental decoder waited for eight tokens
+  before its first flush and held four back after it, so a client saw one delta
+  per four tokens and nothing at all for a reply shorter than eight.
+- An unseeded request is genuinely random. The sampler's default seed is a
+  constant, so an unseeded request replayed the same text after every restart
+  while the API documented the opposite. The seed is drawn at the HTTP boundary,
+  leaving every offline gate deterministic.
+- Stock clients work unchanged. JSON `null` means "not set" (the OpenAI client
+  sends it for an unset `max_tokens`); `n: 1`, `frequency_penalty: 0`,
+  `logprobs: false`, `logit_bias: {}`, `tools: []`, `response_format` text, and
+  `user` are accepted at the value this server already implements and still
+  refused at any other; `ollama show`'s empty `model` falls back to its `name`;
+  and an untagged or `:latest` model name resolves to the only model. Knobs
+  that would change the reply, such as `num_ctx` and `repeat_penalty`, are
+  still refused rather than dropped.
+- `ollama ps` reads correctly. It reported 104 GB of weights against a small
+  pool and rendered "98% CPU" for a model running on the GPU; it now reports
+  resident memory.
+- HTTP framing is honest: 411 for a chunked body instead of reading it as
+  empty, 413 for an oversized one instead of a bare connection reset, 431 for
+  huge headers, 400 for a malformed `Content-Length`. A query string no longer
+  404s the route, `HEAD` answers for the path actually asked for instead of a
+  blanket 200, `/v1/models` carries `created`, and the first SSE delta carries
+  the role. All of it is gated in `Tools/api_robustness.sh` (68 checks).
+
+- Context length is documented and priced, and the cap is named for what it
+  is. The 400 for a long prompt used to say "raise it with --max-context",
+  a flag that could not go past the ceiling the server was already at; it
+  now says the cap is the largest context measured so far (not a memory
+  limit; context state is ~27 KiB per token) and what reading that prompt
+  would have cost in time. `--max-context` above the ceiling is refused with
+  the same explanation, on `serve` and `doctor`. The memory plan has a
+  `context:` line and `/api/show` carries `max_context_tokens` and
+  `est_prefill_s_at_max_context`; `doctor` ends with the wait before the
+  first token by prompt length, and its tier table has a full-context column.
+- Long prompts report progress: `run` and `serve` print the wait to expect
+  and then one line per quarter for any prompt over 2k tokens.
+- The prefill pass shrinks as the context grows (4096, 2048, 1024, 512 at
+  about 4k, 14k, and 31k tokens), so a pass's query-by-key product never
+  exceeds the largest one measured (a 4096-token pass finishing an 8,016-token
+  prompt). Output is byte-identical at every pass size; the cost is some
+  speed on the tail of a long prompt, and the plan's wait estimates include
+  it. The never-measured 8192 pass is no longer a candidate.
+- New `context-check` reads an N-token synthetic prompt through the real
+  engine, reports seconds, tok/s, and peak memory against the plan, and stops
+  before the machine swaps. New weights-free `prefill-schedule` prints the
+  pass ladder and wait for any pass size. Gated in `planner_gates.sh`
+  (bounded, floored, monotone, and equal to the doctor's wait) and one 2k rung
+  in `verify.sh`.
+- `pull`'s connection report counts the connections in use at once, one per
+  session, instead of every distinct connection since the start; 0.2.1 could
+  print "10 connections in use" for eight workers after two reconnects.
+- `Tools/e2e_release.sh` expects the Ollama load acknowledgment for a chat
+  with no messages, the 0.2.1 behaviour, instead of the 400 it asserted
+  before; it was the one failing check of 31 against the installed 0.2.1.
+
 ## 0.2.2 — 2026-09-02
 
 - Speculative decode pays, and ships. The draft head, `mtp.safetensors`
@@ -40,12 +107,6 @@ release; anything under **Unreleased** is on `main` only.
   comparing liveness, proves the recording pass exact against the batched
   one, and checks a rollback state by state against the plain path.
   `mtp-bench --sample` measures the sampled case.
-- `pull`'s connection report counts the connections in use at once, one per
-  session, instead of every distinct connection since the start; 0.2.1 could
-  print "10 connections in use" for eight workers after two reconnects.
-- `Tools/e2e_release.sh` expects the Ollama load acknowledgment for a chat
-  with no messages, the 0.2.1 behaviour, instead of the 400 it asserted
-  before; it was the one failing check of 31 against the installed 0.2.1.
 
 ## 0.2.1 — 2026-09-01
 
@@ -75,7 +136,6 @@ release; anything under **Unreleased** is on `main` only.
   opened" while `doctor` and `pull --verify` worked; paths are now resolved
   once at the CLI boundary and in the shard index. Gated by `runtime-check`
   (weights-free) and a `verify.sh` run through a symlink.
-
 
 ## 0.2.0 — 2026-09-01
 

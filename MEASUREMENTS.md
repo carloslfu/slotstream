@@ -1957,3 +1957,134 @@ early reconnects made it say "10 connections in use" for eight workers. It now
 keeps one entry per session, the connection that session most recently carried
 a body on, and reports the distinct count once every session has one: "8
 connections in use" with 8 flows in `nettop`.
+
+## M11 — Hosting is not the lever below ~3 Gbit/s (2026-09-02): the bound per link speed, the bridge versus Hugging Face's own edge, and what the default leaves on the table
+
+M10 fixed the client and left one question open: could any hosting (R2, Vercel
+Blob, a CDN at the edge) make the 103.8 GB pull faster than Hugging Face does?
+This section answers it from the transfer chain, vendor documentation, and
+live DNS/HTTP checks made on 2026-09-02. No new transfer was measured; every
+throughput number below is from M10 or is derived, and is labelled as such.
+
+### The chain
+
+Wall time is bytes over the slowest of four terms: the client's link, the
+source's per-client rate, connections × TCP window over round trip, and disk
+plus hashing. The bytes are fixed (4-bit weights do not compress). Per term:
+
+- **Client link.** The binding term at every vantage M10 measured. From
+  Popayán, Hugging Face, R2 direct, Cloudflare's edge and a Cloudflare cache
+  hit all landed at 47 to 62 MB/s over 8 connections; from Helsinki all four
+  landed at 106 to 114, the 1 Gbit/s port.
+- **Window over round trip.** macOS caps the receive window at 4 MiB
+  (`net.inet.tcp.autorcvbufmax`), so one connection tops out near 42 MB/s at
+  99 ms (Popayán to the Virginia bridge), near 60 at 70 ms (San Francisco to
+  Virginia), near 140 at 30 ms. Eight connections cover a gigabit link up to
+  roughly 300 ms of round trip; past that the default falls short.
+- **Per-stream at the origin.** Object-store read paths cap near 70 MB/s per
+  connection: from Helsinki one connection got 71 from Hugging Face and 68
+  from R2 direct, while one connection to Cloudflare's edge got 103 and to a
+  cache hit 100, which is the port. An edge cache has no per-stream cap that
+  a gigabit link can see; an origin read path does.
+- **Per node.** The `resolve` redirect lands on
+  `us.aws.cdn.hf.co/xet-bridge-us/…` (checked 2026-09-02: HTTP/2, `206` with a
+  correct `Content-Range` on a 10,039,592,993-byte shard, signed URL valid for
+  about an hour). That hostname resolves to eleven A records, all EC2 and none
+  inside CloudFront's published ranges (`ip-ranges.json`, service
+  `CLOUDFRONT`). AWS documents 5 Gbps per single flow and 5 Gbps of internet
+  egress per instance under 32 vCPUs (50% of the NIC above), so one bridge
+  node is at most about 625 MB/s shared by every client on it, and the
+  client's eight sessions almost certainly land on the same node.
+- **Disk and hash.** Chunks stream to disk with `pwrite` as they arrive and
+  files hash on completion; neither binds below several GB/s.
+
+### The bound per client link
+
+| Client link (round trip to the bridge) | Today's client, 8 connections | Best possible | Gap |
+|---|---|---|---|
+| 10 to 100 Mbit/s, any distance | link-bound | link-bound | none |
+| 100 Mbit/s to 1 Gbit/s, up to ~150 ms | 95 to 100% of link (Helsinki: 106 at 8, 110 at 16) | 100% | 0 to 5% |
+| 1 Gbit/s at 250 to 300 ms | ~80% of link, derived from the window term | 100% | ~20% |
+| 2.5 Gbit/s at 70 ms | link-bound: 8 × ~60 MB/s covers ~290 MB/s | link-bound | none |
+| 5 to 10 Gbit/s at 70 ms | ~480 MB/s at 8; ~625 at 32 if on one node | ~1.1 GB/s, the Mac's 10 GbE NIC | ~2×, unmeasured |
+
+In time: 1 Gbit/s is 15.5 min measured (M10); 2.5 Gbit/s is about 6 min and
+10 Gbit/s about 1.6 min by the link alone, neither measured.
+
+### Hosting, from first principles and the vendors' own documentation
+
+| Path | What the documentation and checks say | Verdict for speed |
+|---|---|---|
+| Hugging Face `resolve` bridge (today) | EC2 fleet, one region per continent seen (us-east-1, eu-west-3); anonymous `resolve` limited to 3,000 requests per 5 minutes per IP; signed bridge URL lasts about an hour | Equal to everything else at ≤ 1 Gbit/s; per-stream ~70 and per-node caps above that |
+| Hugging Face Xet edge | `transfer.xethub.hf.co`, `cas-bridge.xethub.hf.co` and `cdn-lfs*.hf.co` resolve inside CloudFront's published ranges; xorbs are ≤ 64 MiB objects; CloudFront caches responses up to 50 GB; the protocol is public (token from the Hub, `GET /v2/reconstructions/{file_id}`, signed multi-range xorb fetches, LZ4 and byte-grouping chunk compression) with Rust and TypeScript reference clients | The only edge path that exists today for these exact bytes, free; the plain `resolve` client cannot use it; unmeasured |
+| Cloudflare R2 + custom domain | No throughput limit documented on a custom domain (`r2.dev` is throttled); cacheable object limit 512 MB on Free/Pro/Business and 5 GB on Enterprise, `.safetensors` not a default-cached extension, so every 10 GB shard is served from R2 origin; zero egress, about US$1.60 a month of storage | Equal at gigabit (108 at 8 from Helsinki); an edge only if the shards are re-chunked below 512 MB; buys independence from Hugging Face, not speed |
+| Own mirror on CloudFront + S3 | Caches the 10 GB shards whole; city-level POPs; about US$9 of egress per install | Faster only above ~3 Gbit/s per client |
+| Vercel Blob | Amazon S3 underneath; served from 20 regional hubs on the network Vercel describes as cost-optimised "where ultra-low latency isn't essential"; cache cap 512 MB per blob, so every shard is origin on every request; US$0.05/GB transfer plus US$0.06/GB Fast Origin Transfer on each miss, about US$11.4 per install; simple-operation limits of 20/s (Hobby) and 120/s (Pro), and each 64 MB range on a >512 MB blob is one operation | No physics advantage over the bridge; a bill for the same speed |
+
+Verdict: for every client at or below about 3 Gbit/s, which is every home
+link and every 1 Gbit/s datacenter port, hosting cannot move the number, and
+the default already sits at the physical ceiling. Above that, an edge with the
+chunks hot a few milliseconds away is faster than the bridge, and the edge
+that already exists for these bytes is Hugging Face's own Xet path through
+CloudFront, which our HTTP `resolve` client bypasses.
+
+### What the default leaves on the table, from the code
+
+`PullTuning` in `Pull.swift`: 8 connections by default, cap 32
+(`SLOTSTREAM_PULL_CONNECTIONS`, `--connections`), 64 MB chunks, one chunk in
+flight per session, and every chunk is a fresh request to
+`huggingface.co/…/resolve/…` that follows the 302 to the bridge. Consequences:
+
+- More connections cost no memory: bodies stream to disk through `pwrite`.
+- Each chunk idles two round trips (resolve, then redirect) before its body
+  starts: 0.14 to 0.2 s per 64 MB chunk that takes 1.1 to 1.5 s per connection
+  at 60 to 42 MB/s, 10 to 15% per connection. Hidden while the link is the
+  limit; paid in full when the connections are the limit (far gigabit,
+  multi-gigabit).
+- About 1,620 `resolve` calls per install count against the 3,000 per 5
+  minutes anonymous limit; fine at gigabit (1.75/s), still under it at 10 Gbit
+  because the whole install is 1,622 chunks, but with no margin for retries.
+
+Three client-only changes would make the default the physical best on every
+link up to what one bridge node can push, with no hosting change:
+
+1. **Adaptive concurrency.** Start at 8, add connections while the aggregate
+   rate still rises by a real margin, stop when it flattens, cap 64. A slow
+   link stops at 8 on its own; a 10 Gbit/s link climbs. Hugging Face's own
+   `xet-core` client does this.
+2. **Two chunks in flight per connection**, so the redirect gap never empties
+   the pipe (a second stream on the same HTTP/2 connection is exactly what
+   the per-worker session allows).
+3. **Resolve once per file** and reuse the signed bridge URL until it expires,
+   about an hour later (fall back to `resolve` on 403). Removes a round trip per chunk and takes
+   the pull off the anonymous rate limit entirely.
+
+Past that, at 5 to 10 Gbit/s, the per-node cap and the ~70 MB/s per-stream
+origin limit remain, and only the Xet edge path or a spread across bridge
+nodes (URLSession cannot pin a session to an IP) gets the rest.
+
+### The fastest path is not the WAN at all
+
+For a second Mac or a team: a peer copy over 10 GbE takes about 1.5 minutes,
+over a Thunderbolt bridge about 1 minute, and an external SSD is faster than
+any link. A `pull --from <peer>` mode would beat every hosting change for
+repeat installs; nothing here is implemented.
+
+### Open, each needing an explicit go
+
+- **One hour on a rented 10 Gbit/s host** (billed): the current client at 8,
+  32 and 64 connections against Hugging Face, next to `hf_xet` on the same
+  model. Decides between client tuning and implementing Xet.
+- **A Xet download path in Swift**, roughly a week: token endpoint,
+  reconstruction call, signed multi-range fetches, LZ4 and byte-grouping
+  decompression, reassembly, then the existing sha256 gate.
+- **Pull from a LAN peer.**
+
+### What this does not settle
+
+Nothing above 1 Gbit/s has been measured by this project; CloudFront's
+per-client rate on a cold xorb set; whether a public repo issues an anonymous
+Xet read token (the bridge URL carries `user_id=public`, which suggests yes);
+whether Hugging Face's GeoDNS ever hands a West Coast client a West Coast
+bridge (only us-east-1 and eu-west-3 were seen); and the cause of Popayán's
+62 MB/s band (M10).

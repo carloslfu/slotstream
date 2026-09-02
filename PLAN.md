@@ -352,6 +352,14 @@ IO stays trivial; only disk grows).
   `/api/generate`, `/api/pull` (streamed progress), `/api/delete`; `/api/embed` → clean
   400 (not an embedder); `/api/create` → 501 with message.
 - OpenAI: `/v1/chat/completions` (incl. SSE streaming), `/v1/models`, `/v1/completions`.
+
+**What actually shipped is narrower than this section**, which is the v0 design and
+not a description of the server. `/v1/completions`, `/api/delete`, `/api/pull` progress,
+and `tools` passthrough do not exist; `keep_alive` is accepted and ignored because the
+model never unloads; and of the Ollama options only `temperature`, `top_p`, `top_k`,
+`min_p`, `presence_penalty`, `seed`, `num_predict`, and `stop` are honoured — `num_ctx`
+and the rest are refused rather than silently dropped. `docs/API.md` is the description
+of the shipped surface; read it, not this list.
 - Semantics matched to Ollama: `keep_alive` (default 5m; model unload = free slots+KV,
   keep fd/manifest), options mapping (`num_ctx`, `temperature`, `top_p`, `top_k`,
   `min_p`, `presence_penalty`, `seed`, `num_predict`, `stop`), request cancellation on
@@ -742,9 +750,17 @@ in MEASUREMENTS.md.
 ### N5 — Real GUI and editor clients
 
 Open WebUI and one editor client (Zed or Continue via the OpenAI path) — the remaining
-M6 exit criteria. The Ollama CLI and the OpenAI Python SDK are both proven end to end as
-of 0.1.5, so the wire protocol is not in doubt; this is cheap insurance against a client
-that disagrees anyway. Low risk, binary outcome.
+M6 exit criteria.
+
+The claim that used to stand here — that the Ollama CLI and the OpenAI Python SDK were
+both "proven end to end as of 0.1.5, so the wire protocol is not in doubt" — was wrong,
+and it is exactly the mistake the claims discipline in `CLAUDE.md` is about: it was
+asserted from this document rather than checked against the system. 0.1.8's strict
+validator broke `ollama run` and `ollama show`, and no gate noticed for three releases,
+because nothing here ran the real CLI. Both clients are now genuinely exercised —
+`ollama list`, `ollama ps`, `ollama show`, one-shot and interactive `ollama run`, and
+the OpenAI SDK's streamed and non-streamed paths — and the request shapes they send are
+gated in `Tools/api_robustness.sh`. An editor client and Open WebUI remain untested.
 
 ### Deprioritized (decision 2026-08-29)
 

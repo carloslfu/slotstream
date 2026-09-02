@@ -43,10 +43,13 @@ the README table.
 
 ### The first token takes forever
 
-Expected on long prompts: the whole prompt is processed before the first
-token appears, about a minute for 8,000 tokens on a 48 GB Mac and over three
-on a 16 GB one. Follow-up turns in the same conversation only pay for what's
-new.
+The whole prompt is read before the first token. `slotstream doctor` ends
+with the wait to expect by prompt length at your plan (about 5.5 min for a
+full 32k prompt on a 48 GB Mac, 13.7 min on a 16 GB one), and `run` and
+`serve` print progress lines for any prompt over 2k tokens, so silence past
+a few seconds is not a hang. Follow-up turns in the same conversation read
+only what is new. `slotstream context-check --tokens N` measures a prompt of
+any length on your Mac.
 
 ### A download was interrupted, or looks suspect
 

@@ -86,6 +86,10 @@ public struct MemoryPlan {
     /// Whether the MTP draft head loads (self-speculative decode). Charged as
     /// a fixed resident block; the pool is sized from what remains.
     public let mtpEnabled: Bool
+    /// Longest prompt plus reply a request may hold (`--max-context`). State
+    /// for the first `ContextPolicy.tokensInFixedFootprint` tokens is inside
+    /// the fixed footprint; anything above is charged separately.
+    public let maxContextTokens: Int
     public let notes: [String]
 
     public init(
@@ -93,6 +97,7 @@ public struct MemoryPlan {
         ramGB: Double, workingSetGB: Double, ramPercent: Double,
         availableGB: Double?, clamped: Bool,
         prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
+        maxContextTokens: Int = ContextPolicy.maxTokens,
         notes: [String]
     ) {
         self.source = source
@@ -106,6 +111,7 @@ public struct MemoryPlan {
         self.prefillChunk = prefillChunk
         self.prefixCacheTokens = prefixCacheTokens
         self.mtpEnabled = mtpEnabled
+        self.maxContextTokens = maxContextTokens
         self.notes = notes
     }
 
@@ -115,6 +121,12 @@ public struct MemoryPlan {
         poolGB + Planner.fixedFootprintGB + Planner.prefillCostGB(prefillChunk)
             + Planner.prefixCacheCostGB(tokens: prefixCacheTokens)
             + (mtpEnabled ? Planner.mtpResidentGB : 0)
+            + Planner.extraContextStateGB(maxContextTokens: maxContextTokens)
+    }
+    /// Seconds a prompt filling the whole context takes before its first
+    /// token, priced through the prefill schedule this plan runs.
+    public var estPrefillSecondsAtMaxContext: Double {
+        PrefillSchedule.estSeconds(tokens: maxContextTokens, maxChunk: prefillChunk)
     }
     public var estWarmTokS: Double { Planner.estWarmTokS(expertsPerLayer: expertsPerLayerCached) }
     public var fullyResident: Bool { slots >= Geometry.totalRecords }
@@ -158,6 +170,13 @@ public struct MemoryPlan {
                 format: "  mtp:    draft head on — speculative decode (%.1f GB resident, charged above)",
                 Planner.mtpResidentGB))
         }
+        let extra = Planner.extraContextStateGB(maxContextTokens: maxContextTokens)
+        l.append(String(
+            format: "  context: up to %d tokens per request (prompt + reply%@); a full-length prompt "
+                + "takes ~%@ before its first token here, follow-up turns read only what is new",
+            maxContextTokens,
+            extra > 0 ? String(format: ", +%.1f GB state charged above", extra) : "",
+            PrefillSchedule.describe(seconds: estPrefillSecondsAtMaxContext)))
         if prefixCacheTokens > 0 {
             l.append(String(
                 format: "  reuse:  up to %d tokens across %d conversations (~%.1f GB), so a "
@@ -189,6 +208,8 @@ public struct MemoryPlan {
             "prefill_chunk": prefillChunk,
             "prefix_cache_max_tokens": prefixCacheTokens,
             "mtp": mtpEnabled,
+            "max_context_tokens": maxContextTokens,
+            "est_prefill_s_at_max_context": estPrefillSecondsAtMaxContext,
             // Unrounded on purpose: the banner rounds these to whole tok/s,
             // and a caller comparing two plans across a rounding boundary sees
             // a step that is not there. Anything asserting on the plan should
@@ -242,6 +263,13 @@ public enum Planner {
         Double(tokens) * Double(PrefixCache.bytesPerToken) / 1e9
     }
 
+    /// Context state above what the fixed footprint already covers. Zero at
+    /// today's ceiling; the term exists so a raised --max-context is priced
+    /// the day the ceiling moves, instead of riding on the margin.
+    public static func extraContextStateGB(maxContextTokens: Int) -> Double {
+        contextStateGB(max(0, maxContextTokens - ContextPolicy.tokensInFixedFootprint))
+    }
+
     /// Sizes the prefill pass from the same budget as the pool.
     ///
     /// Prefill is expert-stream-bound: a pass touches nearly every expert of
@@ -288,7 +316,11 @@ public enum Planner {
     /// Swept a GB at a time from 7 to 90 GB, the estimate never gets worse as
     /// the target grows.
     public static func prefillChunkFor(poolBudgetGB: Double) -> Int {
-        let candidates = [256] + [512, 1024, 2048, 4096, 8192].filter {
+        // 8192 is not a candidate: nothing has measured it, and the prefill
+        // schedule would cut it to 4096 on the first pass anyway
+        // (PrefillSchedule.measuredQueryKeyProduct), so offering it only
+        // charged 10.6 GB for a pass that never ran.
+        let candidates = [256] + [512, 1024, 2048, 4096].filter {
             prefillCostGB($0) <= 0.25 * poolBudgetGB
         }
         func seconds(_ c: Int) -> Double {
@@ -536,8 +568,12 @@ public enum Planner {
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
         availableGB: Double? = nil, ramPercent: Double? = nil,
-        mtp: MTPMode = .off, mtpAvailable: Bool = false
+        mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        maxContextTokens: Int = ContextPolicy.maxTokens
     ) throws -> MemoryPlan {
+        if let why = ContextPolicy.validationError(maxContextTokens) { throw PlanError(why) }
+        // Zero at today's ceiling (Context.swift); charged the day it moves.
+        let contextCharge = extraContextStateGB(maxContextTokens: maxContextTokens)
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
         let avail = availableGB ?? deviceAvailableGB()
@@ -589,7 +625,8 @@ public enum Planner {
             // An explicit pool knob states the cache size, not the whole budget,
             // so size the prefill pass from the pool the user asked for.
             let mtpCharge = mtpOn ? mtpResidentGB : 0
-            let budgetForCaches = target.map { poolBudgetGB($0) - mtpCharge } ?? Geometry.gb(slots)
+            let budgetForCaches = target.map { poolBudgetGB($0) - mtpCharge - contextCharge }
+                ?? Geometry.gb(slots)
             let chunk = prefillChunkFor(poolBudgetGB: budgetForCaches)
             let capped = min(slots, Geometry.totalRecords)
             let floored = max(capped, Geometry.floorSlots)
@@ -599,7 +636,7 @@ public enum Planner {
                     Geometry.floorSlots, Geometry.perLayer(Geometry.floorSlots)))
             }
             let peak = Geometry.gb(floored) + fixedFootprintGB + prefillCostGB(chunk)
-                + prefixCacheGB(poolBudgetGB: budgetForCaches) + mtpCharge
+                + prefixCacheGB(poolBudgetGB: budgetForCaches) + mtpCharge + contextCharge
             if peak > ws, source != .memoryGB {  // memoryGB branch words its own note
                 notes.append(String(
                     format: "expected peak %.1f GB exceeds the %.1f GB Metal working set — expect paging; close other apps or lower the knob",
@@ -616,8 +653,10 @@ public enum Planner {
                 ramGB: ram, workingSetGB: ws, ramPercent: pct,
                 availableGB: avail, clamped: clamped,
                 prefillChunk: chunk,
-                prefixCacheTokens: prefixCacheTokensFor(poolBudgetGB: budgetForCaches),
+                prefixCacheTokens: prefixCacheTokensFor(
+                    poolBudgetGB: budgetForCaches, contextCap: maxContextTokens),
                 mtpEnabled: mtpOn,
+                maxContextTokens: maxContextTokens,
                 notes: notes)
         }
 
@@ -658,8 +697,9 @@ public enum Planner {
                     format: "only %.1f GB is reclaimable right now — expect paging until other apps release memory",
                     a))
             }
-            var mtpOn = resolveMTP(slotsAfterCharge: slotsForTarget(max(m - mtpResidentGB, minMemoryGB)))
-            if mtpOn, m - mtpResidentGB < minMemoryGB {
+            var mtpOn = resolveMTP(
+                slotsAfterCharge: slotsForTarget(max(m - mtpResidentGB - contextCharge, minMemoryGB)))
+            if mtpOn, m - mtpResidentGB - contextCharge < minMemoryGB {
                 if mtp == .on {
                     throw PlanError(String(
                         format: "--memory-gb %.1f cannot fit the %.1f GB draft head above the %.1f GB minimum — raise the target or drop --mtp on",
@@ -667,7 +707,7 @@ public enum Planner {
                 }
                 mtpOn = false
             }
-            let slots = mtpOn ? slotsForTarget(m - mtpResidentGB) : slotsForTarget(m)
+            let slots = slotsForTarget(m - (mtpOn ? mtpResidentGB : 0) - contextCharge)
             return finish(.memoryGB, slots, target: m, mtpOn: mtpOn)
         }
 
@@ -690,7 +730,7 @@ public enum Planner {
         if mtpWanted {
             let (rawM, _) = autoRaw(ceilingGB: usefulCeilingGB + mtpResidentGB)
             let targetM = max(minMemoryGB, rawM)
-            let charged = targetM - mtpResidentGB
+            let charged = targetM - mtpResidentGB - contextCharge
             mtpOn = charged >= minMemoryGB
                 && (mtp == .on
                     || Geometry.perLayer(slotsForTarget(charged)) >= mtpAutoFloorPerLayer)
@@ -704,7 +744,7 @@ public enum Planner {
         let raw: Double
         (raw, clamped) = autoRaw(ceilingGB: kneeGB)
         let target = max(minMemoryGB, raw)
-        if mtpOn, target - mtpResidentGB < minMemoryGB { mtpOn = false }
+        if mtpOn, target - mtpResidentGB - contextCharge < minMemoryGB { mtpOn = false }
         // Exactly one note tells the story of why the target is what it is.
         if raw < minMemoryGB, ceiling < minMemoryGB {
             notes.append(String(
@@ -727,7 +767,7 @@ public enum Planner {
                 format: "this machine could hold more, but decode stops improving around here (measured 11.2 tok/s at 120 experts/layer, 11.6 at 150) — auto caps at %.1f GB rather than spend RAM for nothing; --memory-gb N to go further",
                 usefulCeilingGB))
         }
-        let slots = mtpOn ? slotsForTarget(target - mtpResidentGB) : slotsForTarget(target)
+        let slots = slotsForTarget(target - (mtpOn ? mtpResidentGB : 0) - contextCharge)
         return finish(.auto, slots, target: target, mtpOn: mtpOn)
     }
 }

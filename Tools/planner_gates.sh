@@ -131,6 +131,42 @@ open('$T/other/model-00001.safetensors','wb').write(struct.pack('<Q',len(h))+h+b
 check "--model with a different model's tensors"   "$BIN run --model $T/other --prompt hi 2>&1 | grep -q 'does not look like'"
 
 check "serve --max-context 0 refused before load"  "! $BIN serve --max-context 0 2>&1 | grep -q 'engine ready'"
+
+# --- context length: the cap is announced, priced, and refused honestly ------
+# The plan says what a full prompt costs in time, and the JSON carries the same
+# number unrounded so nothing here asserts on a rounded banner.
+check "plan announces the context cap and the wait"  "grep -q 'context: up to 32768 tokens per request' $T/p48 && grep -q 'before its first token' $T/p48"
+check "doctor --json carries max_context_tokens + wait" \
+      "$BIN doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"max_context_tokens\"]==32768 and 60 < d[\"est_prefill_s_at_max_context\"] < 3600, d'"
+# The old 400 told users to raise a flag that could not go higher.
+check "serve --max-context above the ceiling names the ceiling, not a knob" \
+      "$BIN serve --max-context 40000 --port 11498 2>&1 | grep -q 'largest context slotstream has measured'"
+check "doctor --max-context above the ceiling is the same clean error" \
+      "$BIN doctor --max-context 40000 2>&1 | grep -q 'largest context slotstream has measured' && ! $BIN doctor --max-context 40000 2>&1 | grep -q 'Fatal error'"
+$BIN doctor --mtp off --max-context 8192 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/ctx8k" 2>&1
+check "a lower --max-context caps the reuse ceiling too"  "grep -q 'context: up to 8192 tokens' $T/ctx8k && grep -q 'reuse:  up to 8192 tokens' $T/ctx8k"
+# The prefill schedule: never past the measured query x key product, never
+# below the 256 floor, monotone as the context grows, and the doctor's wait
+# is exactly the schedule's wait for the plan's pass size.
+check "prefill-schedule: bounded, floored, monotone" \
+      "$BIN prefill-schedule --chunk 4096 --tokens 131072 --json | python3 -c '
+import json,sys; d=json.load(sys.stdin); p=d[\"passes\"]; pos=0
+assert p[0]==4096 and p[-1]==256 and sum(p)==131072, p
+for c in p:
+    assert c>=d[\"min_chunk\"] and (c*(pos+c)<=d[\"measured_query_key_product\"] or c==d[\"min_chunk\"]), (c,pos)
+    pos+=c
+assert all(p[i]>=p[i+1] for i in range(len(p)-1))'"
+check "prefill-schedule agrees with the doctor wait for the same pass" \
+      "python3 -c '
+import json,subprocess as sp
+B=\"$BIN\"
+d=json.loads(sp.check_output([B,\"doctor\",\"--mtp\",\"off\",\"--sim-ram\",\"51.5\",\"--sim-working-set\",\"40.2\",\"--sim-available\",\"44\",\"--json\"]))
+s=json.loads(sp.check_output([B,\"prefill-schedule\",\"--chunk\",str(d[\"prefill_chunk\"]),\"--tokens\",str(d[\"max_context_tokens\"]),\"--json\"]))
+assert abs(s[\"est_seconds\"]-d[\"est_prefill_s_at_max_context\"])<1e-6, (s[\"est_seconds\"], d[\"est_prefill_s_at_max_context\"])'"
+check "prefill-schedule: a prefix hit reads only what is new" \
+      "$BIN prefill-schedule --chunk 4096 --tokens 100 --from 30000 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"passes\"]==[100], d'"
+check "prefill-schedule --chunk 0 refused"                  "! $BIN prefill-schedule --chunk 0"
+check "context-check --tokens 4 refused before load"        "$BIN context-check --tokens 4 2>&1 | grep -q 'at least 16'"
 check "parity rejects an invalid layer count before model load" \
       "$BIN parity --layers 0 --tokens 1 2>&1 | grep -q -- '--layers must be between'"
 check "parity rejects malformed token ids without trapping" \
