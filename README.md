@@ -31,6 +31,15 @@ starts where this did.
 You need Apple Silicon, macOS 14+, and ~110 GB of free disk. Disk bites
 first: whatever your memory, a 512 GB Mac is the realistic minimum.
 
+**Apple Silicon only, and not by accident.** The engine is MLX and Metal, and
+the memory design assumes unified memory: experts are read from SSD straight
+into memory the GPU already addresses, and the pool is sized against the one
+memory the OS, your apps, and the GPU all share. A discrete card has two
+separate budgets with a bus between them, so a Linux or Windows build would be
+a second engine with a second cache tier, not a port. It isn't on the roadmap.
+On another platform, or after a different model, start with llama.cpp in
+[Related projects](#related-projects).
+
 Auto-sizing never takes the whole machine. What each tier gets:
 
 | your Mac | slotstream takes | warm decode |
@@ -238,6 +247,23 @@ of a memory-mapped tensor: a top-10 expert gather evaluates all 512 experts of
 that layer, so an mmap path loads ~100 GB and dies. The stock `mlx_lm.load()`
 route took this 48 GB machine into 48 GB of swap without producing a token.
 
+## FAQ
+
+**Can I run it on Linux or Windows? On an NVIDIA, AMD, or Intel GPU?**
+No. slotstream is Apple Silicon only, for the reason above: it is built on MLX
+and Metal, and the cache design assumes unified memory. On a discrete card with
+its own VRAM, streaming experts means copying every miss across PCIe and sizing
+two budgets instead of one. That is a different engine, not a port, and it is
+not on the roadmap. llama.cpp runs this model on CUDA, ROCm, and Vulkan.
+
+**Can I run a different model? Qwen3.8-27B, Llama, DeepSeek?**
+No. slotstream runs exactly `qwen3.8-flash-next:4bit` and the engine is built
+around its geometry. Qwen3.8-27B in particular is a *different* model despite
+the shared family name: it is dense, so every weight is used on every token and
+there is nothing to stream selectively. Expert streaming only pays off for
+mixture-of-experts models, where each token touches a small fraction of the
+weights. For any other model, use llama.cpp or Ollama.
+
 ## Status and limits
 
 Working, and measured on one machine, an M5 Pro with 48 GB. The smaller tiers
@@ -255,6 +281,28 @@ other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
   `ollama run` in both modes; it ships in the next release. curl, Open WebUI,
   and the OpenAI SDKs work today.
 
+## Use it from Swift
+
+slotstream is also a Swift package, so a Mac app can plan, fetch weights, and
+serve without shelling out to the binary:
+
+```swift
+.package(url: "https://github.com/carloslfu/slotstream.git", .upToNextMinor(from: "0.3.0"))
+```
+
+```swift
+import Slotstream
+
+let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.current())
+print(plan.banner())                      // what this Mac would do
+print(WeightStore.default.status())       // ready, or how much is left to fetch
+```
+
+Planning, the weight manifest and the context arithmetic need no model and no
+Metal, so an app can show what slotstream would do on this Mac before
+downloading 105 GB. [docs/LIBRARY.md](docs/LIBRARY.md) has the rest, including
+the one thing a command-line build has to do about Metal shaders.
+
 ## Docs
 
 - [docs/API.md](docs/API.md): every endpoint, accepted field, sampling
@@ -263,6 +311,10 @@ other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
   slow decode, moving or verifying the weights.
 - [docs/HARDWARE.md](docs/HARDWARE.md): rows measured on real Macs, and how
   to add yours.
+- [docs/LIBRARY.md](docs/LIBRARY.md): using slotstream as a Swift package —
+  weights, planning, serving, and the Metal library requirement.
+- [docs/TESTING.md](docs/TESTING.md): the check catalogue, the tiers, what runs
+  in CI against what runs on the dev Mac, and where the coverage is not.
 - [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and
   their precedence, environment variables, where files live. (`slotstream
   <command> --help` carries the same text with more discussion.)
@@ -282,12 +334,20 @@ other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
 
 ## Testing
 
-`Tools/verify.sh` is the acceptance battery: weight provenance, goldens
-against a version-matched Python reference, byte-equality across cache sizes
-and live resizes, the speculative-decode gates, and a serving-robustness
-suite of inputs that used to crash the server. `Tools/e2e_release.sh` tests the other thing users actually
-touch: the `curl | sh` install and the binary it leaves behind. The parts
-that need no weights run in CI on every release build.
+`make checks` runs the check catalogue: the prefill schedule, the context
+policy, cache and process bounds, the governor's branches, pull integrity,
+memory planning, HTTP framing and routing, and the sampler — 112 assertions
+that need no weights, no network and no GPU beyond the sampler.
+
+`Tools/verify.sh` is the acceptance battery against the real model: weight
+provenance, goldens against a version-matched Python reference, byte-equality
+across cache sizes and live resizes, the speculative-decode gates, and a
+serving-robustness suite of inputs that used to crash the server.
+`Tools/e2e_release.sh` tests the other thing users actually touch: the
+`curl | sh` install and the binary it leaves behind. Everything that needs no
+weights runs in CI on every push, with a coverage ratchet.
+[docs/TESTING.md](docs/TESTING.md) says which is which, and where the coverage
+is not.
 
 ## Related projects
 

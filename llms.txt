@@ -12,6 +12,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 ## Facts
 
 - The only model is `qwen3.8-flash-next:4bit`; the engine is built around its geometry.
+- Apple Silicon only. No Linux or Windows build exists or is planned: the cache design assumes unified memory, so a discrete-VRAM version would be a second engine, not a port. Qwen3.8-27B is a different, dense model and is not supported; for other platforms or models, llama.cpp.
 - Requirements: Apple Silicon, macOS 14+, ~110 GB of free disk. Weights: 105.3 GB in 25 files (the 1.5 GB draft head is optional), sha256-pinned, at `~/.slotstream/models/qwen38-flash-next-mlx-4bit`.
 - Install: `curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh` puts the latest release in `~/.slotstream/bin` (binary plus `mlx.metallib`, no Python); rerun to upgrade.
 - Expert-cache size changes speed, never output: greedy decode is byte-identical across cache sizes and live resizes.
@@ -40,6 +41,8 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 - [README.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/README.md): what it is, hardware tiers, install, first run, speed, memory model, how it works, speculative decode
 - [docs/CLI.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLI.md): every command and flag, memory-knob precedence, environment variables, file locations, the diagnostic checks
 - [docs/API.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
+- [docs/LIBRARY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/LIBRARY.md): using slotstream as a Swift package — the two products, the Metal library requirement, weights, planning, serving
+- [docs/TESTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TESTING.md): the check catalogue and its tiers, what runs in CI against what needs the real weights, coverage and its ratchet
 - [docs/TROUBLESHOOTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TROUBLESHOOTING.md): port clashes, the one-process rule, paging, slow decode, moving or verifying weights, the Ollama CLI gap
 - [docs/HARDWARE.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HARDWARE.md): rows measured on real Macs (one so far, the 48 GB M5 Pro) and the ten-minute procedure to add yours
 - [CHANGELOG.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/CHANGELOG.md): what each release changed
