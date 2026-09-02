@@ -10,6 +10,8 @@ extension Catalogue {
         [
             Check("prefill-schedule", tier: .t0) { Diagnostics.prefillSchedule() },
             Check("context-policy", tier: .t0) { contextPolicy() },
+            Check("runtime-check", tier: .t0) { try Diagnostics.runtime() },
+            Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
         ]
     }
 
