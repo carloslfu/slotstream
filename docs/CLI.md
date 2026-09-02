@@ -143,11 +143,13 @@ model, takes the lock, and allocates real memory, so give it a small target
   default and stays off below a 28 GB target, where the cache still reaches
   120 experts per layer after the head's 1.6 GB. Measured on the dev Mac,
   the 0.2.0 build (four drafts) did not pay at any smaller cache (×0.55 to
-  ×0.96 from 20 to 57 experts per layer); two drafts, the default now, reach
-  ×1.12 at 57. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
+  ×0.96 from 20 to 57 experts per layer, ×0.88 at 122); one draft, the
+  default now, reads ×1.13 at 57 and ×1.17 at 122, the size auto enables it
+  at. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
-- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 2, by
-  measurement: a verify pass costs about a sixth of a pass per extra token,
-  so short chains win; MEASUREMENTS.md M9). Experiments only.
+- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 1, by
+  measurement: a verify pass costs about a sixth of a pass per extra token
+  and a rejection re-runs the kept tokens, so the shortest chain wins;
+  MEASUREMENTS.md M9). Experiments only.

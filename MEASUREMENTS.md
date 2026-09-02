@@ -1658,13 +1658,12 @@ accepted): **×0.65**. Auto keeps the head off until the cache still reaches
 plans 127/layer, 115 after the charge; the "~26 GB" the 0.2.0 docs said was
 never read off `doctor`, and is corrected).
 
-### The plateau: still unmeasured, and its ceiling measured (2026-09-02)
+### The plateau: its ceiling measured, then the A/B itself (2026-09-02)
 
-The A/B at ≥120/layer, where auto turns the head on, needs a 26.7 GB peak and
-about 32 GB reclaimable; Carlos's apps left 20 to 28 GB through both
-sessions, so it has still not run (`slotstream mtp-bench --memory-gb 28
---pairs 5`, the day the machine is that quiet). What could be measured is the
-premise the ×1.5–1.9 arithmetic stood on: that verifying five tokens in one
+The A/B at ≥120/layer, where auto turns the head on, waited most of the day
+behind Carlos's apps: the plan's conservative 27 GB peak against 20 to 28 GB
+reclaimable. It ran late in the evening (below; the real footprint was
+20 GB). First, the premise the ×1.5–1.9 arithmetic stood on: that verifying five tokens in one
 pass costs about one token's pass once nothing has to be fetched.
 `slotstream mtp-passcost` runs a pass twice from one checkpoint at eight real
 positions of a greedy continuation and times the second run, when the pool's
@@ -1694,7 +1693,7 @@ fetch-free rate glimpsed once) and the verify pass fetches for several
 tokens. **The "×1.5–1.9" in the 0.2.0 docs was arithmetic on this premise
 and is withdrawn.**
 
-### Depth: the sweep that moved the default from 4 to 2 (2026-09-02)
+### Depth, and the plateau A/B that moved the default from 4 to 1 (2026-09-02)
 
 Same A/B at 57/layer, five pairs per depth (`SLOTSTREAM_DRAFT_DEPTH`):
 
@@ -1708,17 +1707,38 @@ Depth 4 loses consistently; depths 1 and 2 are indistinguishable at this
 size and both ahead of plain. Calibrated on these rounds, the verify pass's
 fetch grows to about 1.7× / 2.6× / 3.1× a single token's for 2 / 3 / 5
 tokens (consecutive tokens share experts, so it is not 5×), and projecting
-those onto the plateau (38 ms of fetch in an 86 ms token) puts every depth
-near ×1.2 for the average prompt, with depth 4 at break-even on this one.
-The default is now **2**: the best fetch-free ceiling, and no worse than
-depth 1 where it could be measured. Nothing about the head's cache, the
-gates, or the parity fixture depends on the depth.
+those onto the plateau (38 ms of fetch in an 86 ms token) put every depth
+near ×1.2. Then the plateau itself, once the machine had the room: the
+same A/B at `--memory-gb 28` with `--mtp auto`, which is the configuration
+auto ships (122 experts/layer after the head's charge), five pairs per
+depth, nothing else running, 20 GB real footprint:
 
-What this means for the policy: auto's 120/layer floor stands, because the
-twelve experts per layer the head displaces there are past the plateau and
-worth nothing while every measured point below the floor is a loss at the
-old depth; but the head is an opt-in artifact with a modest, unmeasured
-upside, not a promised multiplier, and the docs now say so.
+| depth | plain → spec tok/s (column medians) | ratio | pair ratios |
+|---|---|---:|---|
+| 4 (0.2.0, 0.2.1) | 10.41 → 9.15 | **×0.88** | 0.82–1.02 |
+| 2 | 10.33 → 11.63 | **×1.13** | 1.10–1.17 |
+| 1 | 10.09 → 11.79 | **×1.17** | 1.04–1.20 |
+
+The projection held for depths 1 and 2 and was optimistic for depth 4, which
+pays more rebuild and wasted fetch than the calibration allowed: the depth
+0.2.0 and 0.2.1 ship loses even where auto turns it on. The default is now
+**1**: the best measured at the size that matters, the least wasted work on
+a rejection, and the most robust to a prompt the head reads badly. Depth 2
+would win only once the rebuild goes away (its fetch-free ceiling is ×1.48
+against ×1.37). Plain decode here reads 10.1–10.4 tok/s against the 11.2
+anchor at 120/layer: the bench's pool is warmed by one repeated generation,
+and the anchor was taken on a different prompt; the ratio, not the level,
+is the measurement. Nothing about the head's cache, the gates, or the
+parity fixture depends on the depth.
+
+What this means for the policy: auto's 120/layer floor stands, now on
+measurement rather than argument. At that size the head returns +17% at
+depth 1 for 1.6 GB that would otherwise buy experts past the plateau
+(decode is flat from 120 to 150), so it is free; below the floor every
+point is a loss at depth 4, and the few percent depth 1 would gain there
+the displaced cache would eat. The head is still an opt-in artifact
+(`Tools/mtp_convert.py`), so the gain reaches nobody until it ships with
+`pull`; that is the next product decision, not an engineering one.
 
 ### Correctness story (a claim from the design note corrected)
 

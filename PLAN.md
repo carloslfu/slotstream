@@ -33,7 +33,7 @@ design and the estimates it replaces.
 | N2 Prefill, second pass | ◐ **partial 2026-08-30** | cost model was 2x over, recalibrated: 8k prefill 93.7 → 112.9 tok/s, peak down. Read-ahead built, measured worse, removed. ≥150 needs a grouped-GEMM kernel — **not blocked**: `MLXFast.metalKernel` JIT-compiles at runtime and this repo already ships one |
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
-| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; depths 1–2 read ×1.12 at 57, so the default is now 2; the plateau is unmeasured and its fetch-free ceiling is ×1.5 (`mtp-passcost`). Gates: `mtp-parity`, `mtp-check` |
+| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, so the default is now 1 and auto's floor stands; fetch-free ceiling ×1.4 (`mtp-passcost`). Gates: `mtp-parity`, `mtp-check` |
 
 **What is actually next: [§8.1](#81-next--the-ordered-queue-post-015).** M0–M8 are the
 build-out phases; §8.1 is the live queue, ordered by what decides whether a person keeps
@@ -849,13 +849,14 @@ corrections are recorded here and in MEASUREMENTS.md (M9 section).
   (round cost 5.2 → 3.0 plain tokens against a 2.87 break-even), and ×0.65
   at a fixed 14 GB target — the "tight memory keeps the experts" argument
   with numbers. The plateau A/B (`slotstream mtp-bench --memory-gb 28
-  --pairs 5`, needs ~32 GB reclaimable) is still unmeasured; `mtp-passcost`
-  measured its ceiling instead: a verify pass costs about a sixth of a pass
-  per extra token with every expert resident, so the multiplier is at most
-  ×1.5 (depth 2) or ×1.4 (depth 4). The ×1.5–1.9 estimate is withdrawn
-  (MEASUREMENTS M9). The default draft depth is now 2 (was 4): at 57
-  experts per layer depth 4 reads ×0.96 while depths 1 and 2 read ×1.13
-  and ×1.12 by pair medians, and the fetch-free ceiling peaks at depth 2.
+  --pairs 5`, 122/layer with the head on, 20 GB real footprint) measured
+  **×0.88 at depth 4, ×1.13 at depth 2, ×1.17 at depth 1**; `mtp-passcost`
+  measured the ceiling: a verify pass costs about a sixth of a pass per
+  extra token with every expert resident, so the multiplier is at most
+  ×1.4 (depth 1) or ×1.5 (depth 2). The ×1.5–1.9 estimate is withdrawn
+  (MEASUREMENTS M9). The default draft depth is now 1 (was 4): depth 4
+  loses at every size measured, depths 1 and 2 pay 13–17% at auto's size,
+  and the shortest chain wastes the least on a rejection.
 - **One claim corrected**: "byte-identical to plain greedy" was wrong for the
   same reason prefix reuse isn't byte-identical — the verify pass re-batches
   tokens and re-association moves near-tie logits. Gates (`mtp-check`):

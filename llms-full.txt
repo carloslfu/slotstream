@@ -140,18 +140,19 @@ you need exact reproducibility.
 
 Decode has one more gear on machines with room to spare, and it is a small
 one. The model ships a draft head that predicts the token after next; with
-`--mtp` (default `auto`, new in 0.2.0) slotstream drafts two tokens ahead
-and verifies them in one batched pass, and the first draft is right 86% of
-the time (measured). It only pays where the expert cache is already near
+`--mtp` (default `auto`, new in 0.2.0) slotstream drafts the next token and
+verifies it in one two-token pass, and the draft is right 86% of the time
+(measured). It only pays where the expert cache is already near
 its best. On the dev Mac the 0.2.0 build, which drafted four tokens, lost at
 every cache size that fit, from ×0.55 at 20 experts per layer to ×0.96 at
-57; two drafts, the default now, reach ×1.12 at 57, and auto keeps the head
-off below a 28 GB target either way. Past 120 per layer, where auto turns
-it on, nothing has been measured yet, but the ceiling is: with every expert
-resident a three-token verify pass costs 1.33 single passes (measured),
-which caps the gain at about ×1.5 in the best case and, projecting the
-measured fetch costs onto the plateau, nearer ×1.2 there. The head costs
-1.6 GB on top of the cache, so the auto ceiling becomes 34.6 GB. It needs a
+57. One draft, the default now, reads ×1.13 at 57 and, at the 122 experts
+per layer a quiet 48 GB Mac runs with the head on, ×1.17 (10.1 → 11.8
+tok/s, five pairs; two drafts ×1.13 there, four ×0.88). So auto turns it
+on only at that size, where the 1.6 GB it takes would otherwise buy experts
+past the plateau and costs nothing, and keeps it off below a 28 GB target.
+The ceiling is measured too: with every expert resident a two-token verify
+pass costs 1.17 single passes, which caps one-draft speculation at about
+×1.4. The auto ceiling becomes 34.6 GB with the head on. It needs a
 one-time conversion that pulls 4.9 GB from the official
 release and writes a 1.5 GB `mtp.safetensors` next to the weights
 (`Tools/mtp_convert.py`, run from a clone with the repo's Python
@@ -403,14 +404,16 @@ model, takes the lock, and allocates real memory, so give it a small target
   default and stays off below a 28 GB target, where the cache still reaches
   120 experts per layer after the head's 1.6 GB. Measured on the dev Mac,
   the 0.2.0 build (four drafts) did not pay at any smaller cache (×0.55 to
-  ×0.96 from 20 to 57 experts per layer); two drafts, the default now, reach
-  ×1.12 at 57. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
+  ×0.96 from 20 to 57 experts per layer, ×0.88 at 122); one draft, the
+  default now, reads ×1.13 at 57 and ×1.17 at 122, the size auto enables it
+  at. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
-- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 2, by
-  measurement: a verify pass costs about a sixth of a pass per extra token,
-  so short chains win; MEASUREMENTS.md M9). Experiments only.
+- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 1, by
+  measurement: a verify pass costs about a sixth of a pass per extra token
+  and a rejection re-runs the kept tokens, so the shortest chain wins;
+  MEASUREMENTS.md M9). Experiments only.
 
 
 <!-- ===== docs/API.md ===== -->
@@ -636,15 +639,17 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
-- Speculative decode drafts two tokens instead of four, and its numbers are
+- Speculative decode drafts one token instead of four, and its numbers are
   measured rather than projected. On the 0.2.0 build the A/B read ×0.55 /
-  0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer and ×0.65 at a
-  fixed 14 GB target, all below break-even; at 57 per layer depths 1 and 2
-  read ×1.13 and ×1.12 by pair medians, so the default is now 2. The ceiling
-  is measured too: with every expert resident a verify pass costs about a
-  sixth of a pass per extra token (new hidden `mtp-passcost`), which caps
-  the gain at ×1.5 at depth 2. The ×1.5–1.9 estimate for large caches is
-  withdrawn, and auto's threshold reads 28 GB, not ~26. The `mtp-check`
+  0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer, ×0.65 at a
+  fixed 14 GB target, and ×0.88 at the 122 per layer auto enables it at: a
+  loss everywhere. One draft reads ×1.13 at 57 and ×1.17 at 122 (two drafts
+  ×1.13), so the default is now 1 and auto's 120-per-layer threshold stands,
+  measured. The ceiling is measured too: with every expert resident a verify
+  pass costs about a sixth of a pass per extra token (new hidden
+  `mtp-passcost`), which caps one-draft speculation at about ×1.4. The
+  ×1.5–1.9 estimate for large caches is withdrawn, and auto's threshold
+  reads 28 GB, not ~26. The `mtp-check`
   continuation gate now bounds the reused state's logits by the plain
   re-chunking band instead of comparing liveness, which was a near-tie coin
   toss that the depth change flipped.

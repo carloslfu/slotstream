@@ -271,13 +271,14 @@ still quoted in commit history and both are wrong.
   verified points rather than extrapolating to it.
 - **Speculative decode's multiplier is a measured ratio per cache size and
   depth.** `mtp-bench` on 0.2.0 (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96
-  at 20 / 29 / 42 / 57 experts per layer, all below break-even; depths 1 and
-  2 read ×1.13 / ×1.12 at 57, which is why the default is 2; ≥120/layer is
-  unmeasured. The "×1.5–1.9" once written here assumed a five-token verify
-  pass costs one token's pass; `mtp-passcost` measured 1.65 with every
-  expert resident (a sixth of a pass per extra token), so the ceiling is
-  ×1.5 at depth 2 and the estimate is withdrawn. Quote the ladder and the
-  ceiling, never the launch-bound arithmetic.
+  at 20 / 29 / 42 / 57 experts per layer and ×0.88 at 122, all below
+  break-even; depths 1 and 2 read ×1.13 / ×1.12 at 57 and ×1.17 / ×1.13 at
+  122, the size auto enables the head at, which is why the default is 1 and
+  the 120/layer floor stands. The "×1.5–1.9" once written here assumed a
+  five-token verify pass costs one token's pass; `mtp-passcost` measured
+  1.65 with every expert resident (a sixth of a pass per extra token), so
+  the ceiling is ×1.4 at depth 1 and the estimate is withdrawn. Quote the
+  ladder and the ceiling, never the launch-bound arithmetic.
 
 ## Repo facts
 

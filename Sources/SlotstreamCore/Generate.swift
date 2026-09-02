@@ -177,15 +177,18 @@ public final class Generator {
     /// knob rather than "as large as the prompt". Measured in MEASUREMENTS.md.
     public var prefillChunk = PrefillTuning.chunk
     /// Draft tokens per speculative round when the MTP head is enabled.
-    /// Depth 2 by measurement (MEASUREMENTS M9): a k-token verify pass costs
-    /// about 1 + 0.16k single passes with every expert resident, so the
-    /// fetch-free ceiling peaks at depth 2 (×1.48 against ×1.38 at depth 4),
-    /// and at 57 experts/layer depths 1 and 2 read ×1.13 / ×1.12 where depth
-    /// 4 reads ×0.96. SLOTSTREAM_DRAFT_DEPTH overrides for experiments.
+    /// Depth 1 by measurement (MEASUREMENTS M9). At 122 experts/layer, the
+    /// size auto enables the head at, depth 1 reads ×1.17, depth 2 ×1.13 and
+    /// depth 4 ×0.88; at 57/layer ×1.13 / ×1.12 / ×0.96. A k-token verify
+    /// pass costs about 1 + 0.16k single passes with every expert resident
+    /// and a rejection re-runs the kept tokens (the GDN state cannot rewind),
+    /// so the shortest chain wins; if the rebuild ever goes away, depth 2's
+    /// higher ceiling (×1.48 against ×1.37) would. SLOTSTREAM_DRAFT_DEPTH
+    /// overrides for experiments.
     public var draftDepth: Int = {
         if let s = ProcessInfo.processInfo.environment["SLOTSTREAM_DRAFT_DEPTH"],
             let n = Int(s), n >= 1, n <= 16 { return n }
-        return 2
+        return 1
     }()
     /// Gate for the speculative path — `mtp-check` compares speculative
     /// against plain decode on the same loaded model by flipping this.

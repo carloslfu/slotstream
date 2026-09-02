@@ -5,15 +5,17 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
-- Speculative decode drafts two tokens instead of four, and its numbers are
+- Speculative decode drafts one token instead of four, and its numbers are
   measured rather than projected. On the 0.2.0 build the A/B read ×0.55 /
-  0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer and ×0.65 at a
-  fixed 14 GB target, all below break-even; at 57 per layer depths 1 and 2
-  read ×1.13 and ×1.12 by pair medians, so the default is now 2. The ceiling
-  is measured too: with every expert resident a verify pass costs about a
-  sixth of a pass per extra token (new hidden `mtp-passcost`), which caps
-  the gain at ×1.5 at depth 2. The ×1.5–1.9 estimate for large caches is
-  withdrawn, and auto's threshold reads 28 GB, not ~26. The `mtp-check`
+  0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer, ×0.65 at a
+  fixed 14 GB target, and ×0.88 at the 122 per layer auto enables it at: a
+  loss everywhere. One draft reads ×1.13 at 57 and ×1.17 at 122 (two drafts
+  ×1.13), so the default is now 1 and auto's 120-per-layer threshold stands,
+  measured. The ceiling is measured too: with every expert resident a verify
+  pass costs about a sixth of a pass per extra token (new hidden
+  `mtp-passcost`), which caps one-draft speculation at about ×1.4. The
+  ×1.5–1.9 estimate for large caches is withdrawn, and auto's threshold
+  reads 28 GB, not ~26. The `mtp-check`
   continuation gate now bounds the reused state's logits by the plain
   re-chunking band instead of comparing liveness, which was a near-tie coin
   toss that the depth change flipped.
