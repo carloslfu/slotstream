@@ -1,8 +1,14 @@
 name: ci
+# The full run: a macOS release build plus the static and runtime gates,
+# about eight minutes. A push that touches only prose skips it and runs
+# docs.yml instead (the two path lists are the same, so every push runs
+# exactly one of them); a push that mixes code and prose still runs this.
 on:
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "llms.txt", "llms-full.txt", "LICENSE"]
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", "llms.txt", "llms-full.txt", "LICENSE"]
 permissions:
   contents: read
 jobs:

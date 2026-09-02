@@ -1,0 +1,20 @@
+name: docs
+# The docs-only run: the one gate prose can break is a stale llms-full.txt
+# (Tools/llms_full.sh regenerates it from the docs; static_gates.sh runs the
+# same check inside the full build). Twenty seconds on Linux, no toolchain.
+# Path list mirrors ci.yml's paths-ignore so every push runs exactly one.
+on:
+  pull_request:
+    paths: ["**.md", "docs/**", "llms.txt", "llms-full.txt", "LICENSE"]
+  push:
+    branches: [main]
+    paths: ["**.md", "docs/**", "llms.txt", "llms-full.txt", "LICENSE"]
+permissions:
+  contents: read
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: llms-full.txt is regenerated from the docs
+        run: Tools/llms_full.sh --check
