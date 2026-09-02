@@ -3,7 +3,7 @@
 import ArgumentParser
 import Foundation
 import MLX
-import SlotstreamCore
+import Slotstream
 
 struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(

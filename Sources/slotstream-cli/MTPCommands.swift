@@ -5,7 +5,7 @@
 import ArgumentParser
 import Foundation
 import MLX
-import SlotstreamCore
+import Slotstream
 
 // MARK: mtp-parity
 
