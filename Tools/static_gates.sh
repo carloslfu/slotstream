@@ -16,7 +16,7 @@ Tools/brain_gates.sh
 
 (cd bench/parity31 && shasum -a 256 -c SHA256SUMS)
 
-if grep -En 'File\(path: .*sha256: nil\)' Sources/slotstream/PinnedModel.swift; then
+if grep -En 'File\(path: .*sha256: nil\)' Sources/Slotstream/PinnedModel.swift; then
   echo "pinned manifest contains an unhashed file" >&2
   exit 1
 fi

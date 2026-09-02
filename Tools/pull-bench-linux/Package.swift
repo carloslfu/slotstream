@@ -1,5 +1,5 @@
 // swift-tools-version: 6.0
-// Linux bench harness: the exact Pull.swift + PinnedModel.swift from the repo,
+// Linux bench harness: the library's exact download engine from the repo,
 // with swift-crypto standing in for CryptoKit. Not a supported platform; this
 // exists to measure the download code from a gigabit datacenter link.
 import PackageDescription

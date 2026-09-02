@@ -141,13 +141,13 @@ struct ModelOptions: ParsableArguments {
         }
         // pinned model: every manifest file must be present whole (a partial
         // first download must resume here, not die later in the engine)
-        var remaining = Pull.remainingBytes(at: url)
+        var remaining = WeightStore.remainingBytes(at: url)
         var corrupt: [PinnedModel.File] = []
         if remaining == 0 {
             // Size alone cannot distinguish a valid file from same-size
             // corruption. Hash before loading; this takes seconds and prevents
             // a damaged tokenizer/config/weight from reaching the engine.
-            corrupt = Pull.invalidFiles(at: url)
+            corrupt = WeightStore.invalidFiles(at: url)
             if corrupt.isEmpty { return }
             remaining = corrupt.reduce(0) { $0 + $1.size }
             print("found \(corrupt.count) same-size file(s) that fail the pinned sha256: "
@@ -165,15 +165,15 @@ struct ModelOptions: ParsableArguments {
             \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
               size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
                   have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
-              time:  \(Pull.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower link takes longer
+              time:  \(WeightStore.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower link takes longer
               to:    \(url.path)
               disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
             """)
         fflush(stdout)
         switch askYesNo("download now? [Y/n] ") {
         case .some(true):
-            try Pull.download(to: url)
-            try Pull.verify(at: url)
+            try WeightStore.download(to: url, log: { print($0) })
+            try WeightStore.verify(at: url, log: { print($0) })
         case .some(false):
             throw PlanError("not downloading — when you are ready:  slotstream pull")
         case .none:  // no terminal to ask on
@@ -455,7 +455,7 @@ struct Doctor: ParsableCommand {
             return "weights: \(url.path) (not the pinned model — size unknown)"
         }
         let fm = FileManager.default
-        let remaining = Pull.remainingBytes(at: url)
+        let remaining = WeightStore.remainingBytes(at: url)
         if remaining == 0 {
             return String(format: "weights: present by size, %.1f GB at %@ (run pull --verify for hashes)",
                           Double(PinnedModel.totalBytes) / 1e9, url.path)
@@ -472,7 +472,7 @@ struct Doctor: ParsableCommand {
             : String(format: "ONLY %.0f GB free, needs %.0f GB",
                      Double(free) / 1e9, Double(need) / 1e9)
         return String(format: "weights: %.1f GB to download (%@ at best) — %@",
-                      Double(remaining) / 1e9, Pull.etaHint(remaining), room)
+                      Double(remaining) / 1e9, WeightStore.etaHint(remaining), room)
     }
 
     func run() throws {

@@ -12,6 +12,7 @@ extension Catalogue {
             Check("context-policy", tier: .t0) { contextPolicy() },
             Check("runtime-check", tier: .t0) { try Diagnostics.runtime() },
             Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
+            Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
         ]
     }
 
