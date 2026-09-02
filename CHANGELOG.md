@@ -17,6 +17,12 @@ release; anything under **Unreleased** is on `main` only.
   continuation gate now bounds the reused state's logits by the plain
   re-chunking band instead of comparing liveness, which was a near-tie coin
   toss that the depth change flipped.
+- `pull`'s connection report counts the connections in use at once, one per
+  session, instead of every distinct connection since the start; 0.2.1 could
+  print "10 connections in use" for eight workers after two reconnects.
+- `Tools/e2e_release.sh` expects the Ollama load acknowledgment for a chat
+  with no messages, the 0.2.1 behaviour, instead of the 400 it asserted
+  before; it was the one failing check of 31 against the installed 0.2.1.
 
 ## 0.2.1 — 2026-09-01
 

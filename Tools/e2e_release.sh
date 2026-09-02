@@ -87,7 +87,9 @@ echo "== sampling knobs and hostile inputs =="
 chk "seed -1 (Ollama default) survives"     "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false,\"options\":{\"seed\":-1,\"num_predict\":4}}' | grep -q message"
 chk "num_predict -1 generates"               "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"stream\":false,\"options\":{\"num_predict\":-1,\"temperature\":0,\"stop\":[\"\\n\"]}}' | grep -q message"
 chk "top_p 0 clamped, not divide-by-zero"   "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"stream\":false,\"options\":{\"top_p\":0,\"num_predict\":4}}' | grep -q message"
-chk "empty prompt refused"                   "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -d '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[],\"stream\":false}' http://127.0.0.1:$PORT/api/chat)\" = 400 ]"
+# A chat with no messages is Ollama's documented "load" request (0.2.1): it is
+# acknowledged with done_reason "load" and no text, never refused or answered.
+chk "no-messages chat is the load request"  "curl -s --max-time 60 -d '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[],\"stream\":false}' http://127.0.0.1:$PORT/api/chat | grep -q '\"done_reason\":\"load\"'"
 python3 -c "import json;print(json.dumps({'model':'qwen3.8-flash-next:4bit','messages':[{'role':'user','content':'x '*90000}],'stream':False}))" > /tmp/ss_big.json
 chk "over-length prompt refused with 400"    "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -H 'Content-Type: application/json' --data-binary @/tmp/ss_big.json http://127.0.0.1:$PORT/api/chat)\" = 400 ]"
 

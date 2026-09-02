@@ -1880,3 +1880,18 @@ client, once eight real connections exist); anything above 1 Gbit/s (public
 reports put Hugging Face at 500 MB/s to 1 GB/s with `hf_transfer` on 10 Gbit
 links, unmeasured here); whether Popayán's 62 MB/s band is the ISP or CDN
 peering; and the R2 custom-domain path.
+
+### Post-release: 0.2.1 installed through `install.sh` (2026-09-01)
+
+| check | result |
+|---|---|
+| `install.sh` one-liner | installed 0.2.1 to `~/.slotstream/bin`; asset sha256 matches; `gh attestation verify` exits 0 |
+| installed `pull --verify` | VERIFY PASS, 24/24 |
+| installed `pull`, default 8 connections, 50 s | 8 flows in `nettop`, 44 to 47 MB/s cumulative on the home link |
+| `Tools/e2e_release.sh` against `serve --memory-gb 8.1` | 30 of 31; the one failure, "empty prompt refused", asserted the pre-0.2.1 400 for a chat with no messages, which 0.2.1 answers with `done_reason: "load"` as its changelog and `api_robustness.sh` say — the check is now aligned and passes |
+
+The 0.2.1 report line counted every distinct connection since start, so two
+early reconnects made it say "10 connections in use" for eight workers. It now
+keeps one entry per session, the connection that session most recently carried
+a body on, and reports the distinct count once every session has one: "8
+connections in use" with 8 flows in `nettop`.

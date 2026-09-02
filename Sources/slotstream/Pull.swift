@@ -206,10 +206,11 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
     // them had in-flight state collide across sessions.
     private var sessions: [URLSession] = []
     private var nextRequestID = 1
-    /// Distinct TCP connections seen carrying chunk bodies (from task metrics),
-    /// so the connection count is measured on every pull rather than assumed.
-    private var connectionKeys = Set<String>()
-    private var sessionsSeen = Set<ObjectIdentifier>()
+    /// The TCP connection each session most recently carried a chunk body on
+    /// (from task metrics), so the connection count is measured on every pull
+    /// rather than assumed. Keyed by session: a reconnect replaces that
+    /// session's entry instead of inflating the count.
+    private var connectionBySession: [ObjectIdentifier: String] = [:]
     private var connectionsReported = false
 
     init(dest: URL, bases: [String], connections: Int) {
@@ -577,11 +578,10 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         guard let tx = metrics.transactionMetrics.last else { return }
         let key = "\(tx.remoteAddress ?? "?"):\(tx.remotePort ?? 0)<-\(tx.localPort ?? 0)"
         lock.lock()
-        connectionKeys.insert(key)
-        sessionsSeen.insert(ObjectIdentifier(s))
-        let report = !connectionsReported && sessionsSeen.count == connections
+        connectionBySession[ObjectIdentifier(s)] = key
+        let report = !connectionsReported && connectionBySession.count == connections
         if report { connectionsReported = true }
-        let n = connectionKeys.count
+        let n = Set(connectionBySession.values).count
         lock.unlock()
         guard report else { return }
         var line = "  \(n) connection\(n == 1 ? "" : "s") in use"
