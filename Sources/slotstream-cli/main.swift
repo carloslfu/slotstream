@@ -1198,35 +1198,16 @@ struct SamplerGolden: ParsableCommand {
     @Flag(help: "Feed each pick back as 'already generated' (exercises the penalty)")
     var accumulate = false
 
-    static func logits(vocab: Int, seed: UInt64) -> [Float] {
-        var st = seed
-        return (0 ..< vocab).map { _ in
-            st = Splitmix.mix(st)
-            // 24 bits / 2^24 is exact in f32; x8 and -4 are exact scalings.
-            return Float(st >> 40) / Float(1 << 24) * 8.0 - 4.0
-        }
-    }
-
     func run() throws {
-        guard vocab > 0 else { throw ValidationError("--vocab must be greater than zero") }
-        guard draws >= 0 else { throw ValidationError("--draws must not be negative") }
         var p = SampleParams()
         p.temperature = temperature
         p.topP = topP
         p.topK = topK
         p.minP = minP
         p.presencePenalty = presencePenalty
-        p = p.sanitized()
-        let vals = Self.logits(vocab: vocab, seed: logitSeed)
-        let arr = MLXArray(vals)
-        var sampler = Sampler(seed: seed)
-        var generated = Set<Int>()
-        var picks: [Int] = []
-        for _ in 0 ..< draws {
-            let t = sampler.next(arr, params: p, generated: generated)
-            picks.append(t)
-            if accumulate { generated.insert(t) }
-        }
+        let picks = try Goldens.sampler(
+            vocab: vocab, draws: draws, seed: seed, logitSeed: logitSeed, params: p,
+            accumulate: accumulate)
         print(picks.map(String.init).joined(separator: ","))
     }
 }

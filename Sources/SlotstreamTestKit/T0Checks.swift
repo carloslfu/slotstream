@@ -14,6 +14,8 @@ extension Catalogue {
             Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
             Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
             Check("machine-planning", tier: .t0) { try Diagnostics.machinePlanning() },
+            // T1: touches MLX, so it needs the Metal library beside the runner.
+            Check("sampler-behaviour", tier: .t1) { try Diagnostics.samplerBehaviour() },
         ]
     }
 
