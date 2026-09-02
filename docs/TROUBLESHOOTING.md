@@ -27,6 +27,20 @@ it says so; that means paging. Close the big apps (browsers hold gigabytes),
 or lower the target with `--memory-gb`. On an 8 GB Mac the floor itself
 pages; that tier is for the curious.
 
+### Decode is slower than the tier table says
+
+Compare the `target:` line of the plan printed at startup with your row in
+the README table.
+
+- Lower than the row, with a `note:` about reclaimable memory: other apps
+  were holding memory at startup, so auto took less. Close them and restart,
+  or pin the row's target, e.g. `slotstream serve --memory-gb 22` on a 32 GB
+  Mac. A pinned size skips the availability check, so it pages if that
+  memory is not actually free.
+- Same as the row: the cache is full size and the disk is the limit. Only
+  the 48 GB row is measured; the rest are estimated from a 48 GB M5 Pro, and
+  base-storage Macs have slower SSDs. No memory flag changes that.
+
 ### The first token takes forever
 
 Expected on long prompts: the whole prompt is processed before the first
