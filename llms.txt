@@ -49,6 +49,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 - [PLAN.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/PLAN.md): living design doc: architecture (§4), correctness invariants (§6), milestones, risk register
 - [MEASUREMENTS.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/MEASUREMENTS.md): every measured number with its method, including the experiments that failed
 - [AGENTS.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/AGENTS.md): contributor guide: serving invariants, memory-safety rules, the release process
+- [db/DB.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/db/DB.md): the public brain, a db.md store: every measurement, design and plan section, public claim, decision, machine, and raw run as a record with frontmatter and wiki-links; PLAN.md and MEASUREMENTS.md are generated from it by Tools/projections.py, and a number on any surface has a claim record naming the measurement behind it
 - [CONTRIBUTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/CONTRIBUTING.md): how to build, test, measure, and send a change; [SECURITY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/SECURITY.md): what runs where, supply chain, how to report
 
 ## Source map

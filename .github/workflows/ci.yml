@@ -5,10 +5,10 @@ name: ci
 # exactly one of them); a push that mixes code and prose still runs this.
 on:
   pull_request:
-    paths-ignore: ["**.md", "docs/**", "llms.txt", "llms-full.txt", "LICENSE"]
+    paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE"]
   push:
     branches: [main]
-    paths-ignore: ["**.md", "docs/**", "llms.txt", "llms-full.txt", "LICENSE"]
+    paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE"]
 permissions:
   contents: read
 jobs:
@@ -24,6 +24,8 @@ jobs:
         # `make build` also colocates the pinned metallib with the binary;
         # sampler-golden executes MLX kernels and a bare SwiftPM build does not.
         run: make build
+      - name: pinned dbmd (the brain gates inside static_gates.sh need it)
+        run: Tools/dbmd_install.sh
       - name: static and runtime safety gates
         run: Tools/static_gates.sh
       - name: sampler and governor goldens

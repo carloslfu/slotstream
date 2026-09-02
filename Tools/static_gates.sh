@@ -10,6 +10,10 @@ sh -n install.sh
 python3 -m py_compile Tools/*.py Tools/reference/*.py
 Tools/llms_full.sh --check
 
+# The brain: the store validates, MEASUREMENTS.md and PLAN.md match their
+# records, and every public number still has its needle on its surfaces.
+Tools/brain_gates.sh
+
 (cd bench/parity31 && shasum -a 256 -c SHA256SUMS)
 
 if grep -En 'File\(path: .*sha256: nil\)' Sources/slotstream/PinnedModel.swift; then

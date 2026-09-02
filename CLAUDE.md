@@ -5,6 +5,31 @@ experts and a slot cache. Read [PLAN.md](PLAN.md) for design, [MEASUREMENTS.md](
 for every measured number and its method, `Tools/verify.sh` for the acceptance
 battery. Work lands directly on `main`.
 
+## The brain (`db/`) — read before touching MEASUREMENTS.md or PLAN.md
+
+`db/` is a public db.md store and the authority for what this project knows:
+one record per MEASUREMENTS.md section (`db/records/measurements/`), one per
+PLAN.md section (`db/records/design/`, `db/records/plan/`), plus every public
+number as a claim, the decisions, the machines, and raw runs. **MEASUREMENTS.md
+and PLAN.md are generated from those records by `Tools/projections.py`; never
+edit them directly.** Edit the record, rerun the script, commit both. The
+session loop is `dbmd spec` once, read `db/DB.md`, `dbmd log tail 20 --dir db`,
+operate through `dbmd`, `dbmd validate --all db`, then `dbmd log`. The three
+rules from `db/DB.md` that matter most here:
+
+- **Capture before you transcribe.** Raw tool output lands in
+  `db/sources/runs/` first; the measurement record links it.
+- **Every public number is a claim.** A number on README, `docs/`, or
+  `llms.txt` needs a `db/records/claims/` record whose `needle` appears on
+  every surface it lists; `Tools/claims_gate.py` fails otherwise, and a
+  superseded measurement moves its claims in the same change.
+- **Never delete a superseded or withdrawn record.** Set its status and link
+  the correction; the retraction is evidence.
+
+`Tools/brain_gates.sh` runs all three checks (it needs `dbmd`;
+`Tools/dbmd_install.sh` pins the version CI uses) and is part of
+`Tools/static_gates.sh`.
+
 ## Claims and measurement discipline (mistakes made 2026-08-29/30)
 
 Every rule here is one this project already got wrong. They share a root:

@@ -1,0 +1,75 @@
+---
+type: index
+scope: type-folder
+folder: records/measurements
+updated: 2026-09-02T17:15:26.902794Z
+---
+
+# records/measurements
+
+- [[records/measurements/what-this-does-not-settle]] — What this does not settle
+- [[records/measurements/open-each-needing-an-explicit-go]] — Open, each needing an explicit go
+- [[records/measurements/the-fastest-path-is-not-the-wan-at-all]] — The fastest path is not the WAN at all
+- [[records/measurements/what-the-default-leaves-on-the-table-from-the-code]] — What the default leaves on the table, from the code
+- [[records/measurements/hosting-from-first-principles-and-the-vendors-own-documentation]] — Hosting, from first principles and the vendors' own documentation
+- [[records/measurements/the-bound-per-client-link]] — The bound per client link
+- [[records/measurements/the-chain]] — The chain
+- [[records/measurements/m11-hosting-is-not-the-lever-below-3-gbit-s-2026-09-02-the-bound-per]] — M11 — Hosting is not the lever below ~3 Gbit/s (2026-09-02): the bound per link speed, the bridge versus Hugging Face's own edge, and what the default leaves on the table
+- [[records/measurements/post-release-0-2-1-installed-through-install-sh-2026-09-01]] — Post-release: 0.2.1 installed through install.sh (2026-09-01)
+- [[records/measurements/the-fix-and-its-gates]] — The fix and its gates
+- [[records/measurements/corrections-to-earlier-sections]] — Corrections to earlier sections
+- [[records/measurements/hugging-face-has-no-per-client-cap-the-home-link-has-one]] — Hugging Face has no per-client cap; the home link has one
+- [[records/measurements/why-one-connection-is-slow-window-over-round-trip]] — Why one connection is slow: window over round trip
+- [[records/measurements/the-finding-eight-requests-one-connection]] — The finding: eight requests, one connection
+- [[records/measurements/m10-the-pull-ran-on-one-tcp-connection-2026-09-01-http-2-coalescing]] — M10 — The pull ran on one TCP connection (2026-09-01): HTTP/2 coalescing, measured and fixed
+- [[records/measurements/correctness-story-a-claim-from-the-design-note-corrected]] — Correctness story (a claim from the design note corrected)
+- [[records/measurements/the-rebuild-eliminated-and-the-numbers-that-ship-2026-09-02]] — The rebuild eliminated, and the numbers that ship (2026-09-02)
+- [[records/measurements/depth-and-the-plateau-a-b-that-moved-the-default-from-4-to-1-2026-09-02]] — Depth, and the plateau A/B that moved the default from 4 to 1 (2026-09-02)
+- [[records/measurements/the-plateau-its-ceiling-measured-then-the-a-b-itself-2026-09-02]] — The plateau: its ceiling measured, then the A/B itself (2026-09-02)
+- [[records/measurements/where-it-pays-measured-at-every-cache-size-that-fit-2026-09-01-redone]] — Where it pays — measured at every cache size that fit (2026-09-01, redone 2026-09-02 on the release)
+- [[records/measurements/the-accept-curve-measured-previously-unpublished-anywhere]] — The accept curve — measured, previously unpublished anywhere
+- [[records/measurements/parity-bit-exact-after-two-false-alarms-worth-recording]] — Parity: bit-exact, after two false alarms worth recording
+- [[records/measurements/the-head-exists-again-the-pinned-conversion-had-dropped-it]] — The head exists again (the pinned conversion had dropped it)
+- [[records/measurements/m9-mtp-self-speculative-decode-conversion-parity-accept-curve-and-where]] — M9 — MTP self-speculative decode: conversion, parity, accept curve, and where it pays (2026-09-01)
+- [[records/measurements/resolution-bound-expert-load-staging-2026-08-31]] — Resolution: bound expert-load staging (2026-08-31)
+- [[records/measurements/the-memory-gb-promise-did-not-hold-on-real-prompts-2026-08-31-resolved]] — The --memory-gb promise did not hold on real prompts (2026-08-31; resolved below)
+- [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
+- [[records/measurements/one-more-toolchain-constraint-found-the-hard-way]] — One more toolchain constraint (found the hard way)
+- [[records/measurements/summary-what-m0-settled]] — Summary — what M0 settled
+- [[records/measurements/reference-implementation]] — Reference implementation
+- [[records/measurements/honest-gaps-not-yet-done]] — Honest gaps (not yet done)
+- [[records/measurements/closing-the-three-deferred-gaps-2026-08-29-0-1-5]] — Closing the three deferred gaps (2026-08-29): 0.1.5
+- [[records/measurements/adversarial-review-of-the-serving-layer-2026-08-29-0-1-5]] — Adversarial review of the serving layer (2026-08-29): 0.1.5
+- [[records/measurements/weights-hosting-cloudflare-r2-tested-and-rejected-2026-08-29]] — Weights hosting: Cloudflare R2 tested and rejected (2026-08-29)
+- [[records/measurements/the-equivalence-question-and-why-the-answer-is-not-byte-identical]] — The equivalence question, and why the answer is not "byte-identical"
+- [[records/measurements/one-slot-was-not-enough-what-a-real-client-did-to-the-cache-2026-08-30]] — One slot was not enough: what a real client did to the cache (2026-08-30)
+- [[records/measurements/the-conversation-prefix-cache-2026-08-29-flat-time-to-first-token]] — The conversation prefix cache (2026-08-29): flat time-to-first-token
+- [[records/measurements/behavioural-quality-probe-2026-08-30-and-what-it-is-not]] — Behavioural quality probe (2026-08-30), and what it is not
+- [[records/measurements/prefill-second-pass-2026-08-30-the-cost-model-was-wrong-read-ahead-does]] — Prefill, second pass (2026-08-30): the cost model was wrong, read-ahead does not work
+- [[records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08]] — Warm decode re-anchored, and the live governor finally observed (2026-08-30)
+- [[records/measurements/prefill-a-bigger-pass-really-is-faster-measured-at-a-matched-pool-2026]] — Prefill: a bigger pass really is faster, measured at a matched pool (2026-08-30)
+- [[records/measurements/parallel-weight-download-2026-08-29-8-connections-exact-resume]] — Parallel weight download (2026-08-29): 8 connections, exact resume
+- [[records/measurements/one-command-install-2026-08-28-v0-1-0-release-installer-proven-end-to]] — One-command install (2026-08-28): v0.1.0 release + installer, proven end to end
+- [[records/measurements/first-run-closure-2026-08-28-pull-browser-clients-small-mac-stress]] — First-run closure (2026-08-28): pull, browser clients, small-Mac stress
+- [[records/measurements/the-elastic-pool-2026-08-28-serve-resizes-itself-while-running]] — The elastic pool (2026-08-28): serve resizes itself while running
+- [[records/measurements/the-availability-clamp-2026-08-28-auto-respects-what-other-apps-hold]] — The availability clamp (2026-08-28): auto respects what other apps hold
+- [[records/measurements/the-memory-planner-and-its-promise-2026-08-28]] — The memory planner and its promise (2026-08-28)
+- [[records/measurements/ollama-api-surface]] — Ollama API surface
+- [[records/measurements/the-headline-the-full-125b-51b-model-generates-on-this-48-gb-machine]] — The headline: the full 125B+51B model generates on this 48 GB machine
+- [[records/measurements/m4-m5-m6-end-to-end-results-2026-08-28-this-mac-zero-tuning]] — M4/M5/M6 — End-to-end results (2026-08-28, this Mac, zero tuning)
+- [[records/measurements/the-parity-method-finding-pin-the-mlx-version-or-you-measure-the-wrong]] — The parity method finding: pin the MLX version or you measure the wrong thing
+- [[records/measurements/verification-results-all-against-the-python-reference-implementation]] — Verification results (all against the Python reference implementation)
+- [[records/measurements/m3-m4-the-swift-engine-exists-and-its-correctness-is-measured-2026-08-28]] — M3/M4 — The Swift engine exists and its correctness is measured (2026-08-28)
+- [[records/measurements/m0-8-the-decisive-finding-mlx-cannot-sparsely-materialise-a-mmap-d]] — M0.8 — The decisive finding: MLX cannot sparsely materialise a mmap'd tensor
+- [[records/measurements/lazy-true-fixes-loading-and-then-fails-for-a-second-deeper-reason]] — lazy=True fixes loading — and then fails for a second, deeper reason
+- [[records/measurements/m0-7-the-naive-path-fails-why-slotstream-exists]] — M0.7 — The naive path fails (why slotstream exists)
+- [[records/measurements/m0-6-compute]] — M0.6 — Compute
+- [[records/measurements/m0-5-disk-the-number-the-whole-io-model-rests-on]] — M0.5 — Disk (the number the whole IO model rests on)
+- [[records/measurements/build-blocker-mlx-swift-s-bundled-metal-shaders-require-xcode]] — ⚠️ Build blocker: mlx-swift's bundled Metal shaders require Xcode
+- [[records/measurements/swift-probe-the-mechanism-actually-runs-swift-probe]] — Swift probe — the mechanism actually runs (swift-probe/)
+- [[records/measurements/m0-4-swift-feasibility-mlx-swift-0-31-6-mlx-swift-lm-main]] — M0.4 — Swift feasibility (mlx-swift 0.31.6, mlx-swift-lm main)
+- [[records/measurements/m0-3-mlx-slot-pool-capability-the-m3-entry-gate]] — M0.3 — MLX slot-pool capability (the M3 entry gate)
+- [[records/measurements/n-gram-store-plan-was-structurally-wrong]] — N-gram store — plan was structurally wrong
+- [[records/measurements/m0-2-model-ground-truth-byte-exact-from-safetensors-headers]] — M0.2 — Model ground truth (byte-exact, from safetensors headers)
+- [[records/measurements/m0-1-metal-memory-limits-mlx-device-info-2026-08-28]] — M0.1 — Metal / memory limits (mlx device_info, 2026-08-28)
+- [[records/measurements/measured-facts]] — Measured facts

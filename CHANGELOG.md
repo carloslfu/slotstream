@@ -5,6 +5,13 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- The repository carries its brain. `db/` is a public db.md store: every
+  MEASUREMENTS.md and PLAN.md section is a record, every number on the README
+  and the docs is a claim naming the measurement behind it and the surfaces
+  it appears on, and decisions record what would reverse them. Both long
+  documents are now generated from the records by `Tools/projections.py`,
+  and `Tools/brain_gates.sh` (store validation, generated-document parity,
+  the claims gate) runs in CI on every push.
 - Docs: a Related projects section that names the peer engines and what each
   does differently, a Support section, `docs/HARDWARE.md` for rows measured
   on other Macs with an issue template to submit one, SECURITY.md, and

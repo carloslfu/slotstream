@@ -270,6 +270,12 @@ other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
 - [PLAN.md](PLAN.md): the design and the milestone tracker.
 - [MEASUREMENTS.md](MEASUREMENTS.md): every number here with its method,
   including the experiments that failed.
+- [db/](db/DB.md): the public brain those two are generated from: one
+  record per measurement and plan section, every number in this README and
+  the docs as a claim naming the measurement behind it, the decisions and
+  what would reverse them, the machines, and the raw runs. It is a
+  [db.md](https://github.com/carloslfu/db.md) store: `dbmd` queries it, and
+  `Tools/projections.py` regenerates the two documents from it.
 - [llms.txt](llms.txt): a map of all of this for AI agents, with the
   commands, memory knobs, and API essentials inline;
   [llms-full.txt](llms-full.txt) is every doc above in one file.

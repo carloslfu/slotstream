@@ -28,3 +28,11 @@ Tools/lib/*.metallib
 !bench/parity31/layer_1.bin
 !bench/parity31/layer_2.bin
 !bench/parity31/layer_3.bin
+
+# dbmd transient runtime locks and local state inside the brain (db/). The
+# glob covers every lock dbmd takes (.index.lock, .dbmd.transaction.lock,
+# log.md.lock, and any future one); the store's content and its derived
+# index.md / index.jsonl catalogs are committed.
+db/**/*.lock
+db/*.lock
+db/.dbmd/

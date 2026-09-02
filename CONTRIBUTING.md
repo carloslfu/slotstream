@@ -11,6 +11,12 @@ a change moves a number, re-measure it on a quiet machine (interleaved A/B
 rounds, medians, never a best-of) and update the measurement before the
 claim. An estimator may not return a value outside the range it has measured.
 
+The measurement itself is a record in `db/records/measurements/`, and the
+number's appearance on the README or the docs is a claim in `db/records/claims/`
+that names the surfaces it is on. `MEASUREMENTS.md` and `PLAN.md` are generated
+from those records by `Tools/projections.py`, so edit the record, not the
+document; `Tools/brain_gates.sh` runs the checks and `db/DB.md` has the rules.
+
 ## Memory safety
 
 Every model process here is many GB, and the machine it runs on is somebody's
