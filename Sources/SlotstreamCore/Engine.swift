@@ -7,9 +7,20 @@ import Tokenizers
 public struct ChatMessage {
     public var role: String
     public var content: String
-    public init(role: String, content: String) {
+    /// OpenAI-style function tool calls attached to an assistant message, e.g.
+    /// [{"function": {"name": ..., "arguments": {"k": v}}}]. The chat template
+    /// renders these back into the model's <tool_call> XML shape.
+    public var toolCalls: [[String: Any]]?
+    /// role=tool messages: the id of the tool call this result answers.
+    public var toolCallId: String?
+    public init(
+        role: String, content: String,
+        toolCalls: [[String: Any]]? = nil, toolCallId: String? = nil
+    ) {
         self.role = role
         self.content = content
+        self.toolCalls = toolCalls
+        self.toolCallId = toolCallId
     }
 }
 
@@ -145,11 +156,46 @@ public final class Engine {
         FileHandle.standardError.write(banner.data(using: .utf8)!)
     }
 
-    public func encodeChat(_ messages: [ChatMessage], thinking: Bool) throws -> [Int] {
-        let msgs: [[String: String]] = messages.map { ["role": $0.role, "content": $0.content] }
+    public func encodeChat(
+        _ messages: [ChatMessage], thinking: Bool, tools: [[String: Any]]? = nil
+    ) throws -> [Int] {
+        let msgs: [Message] = messages.map { m in
+            var d: [String: any Sendable] = ["role": m.role, "content": m.content]
+            if let tc = m.toolCalls {
+                d["tool_calls"] = tc.map { Self.sendableDict($0) }
+            }
+            if let id = m.toolCallId {
+                d["tool_call_id"] = id
+            }
+            return d
+        }
         return try tokenizer.applyChatTemplate(
-            messages: msgs, tools: nil,
+            messages: msgs,
+            tools: tools?.map { Self.sendableDict($0) },
             additionalContext: ["enable_thinking": thinking])
+    }
+
+    /// Deep-convert JSON-ish [String: Any] into [String: any Sendable] so the
+    /// chat template can see tool schemas and tool_calls verbatim.
+    private static func sendableDict(_ d: [String: Any]) -> [String: any Sendable] {
+        var out: [String: any Sendable] = [:]
+        for (k, v) in d { out[k] = sendableValue(v) }
+        return out
+    }
+
+    private static func sendableValue(_ v: Any) -> any Sendable {
+        switch v {
+        case let s as String: return s
+        case let i as Int: return i
+        case let d as Double: return d
+        case let b as Bool: return b
+        case let arr as [Any]: return arr.map { sendableValue($0) }
+        case let dict as [String: Any]:
+            var out: [String: any Sendable] = [:]
+            for (k, val) in dict { out[k] = sendableValue(val) }
+            return out
+        default: return String(describing: v)
+        }
     }
 
     /// Render a template without constructing the multi-GB model. Installer
@@ -157,14 +203,23 @@ public final class Engine {
     /// old implementation built a second Engine merely to load the tokenizer,
     /// so the singleton guard correctly rejected the check it was meant to run.
     public static func encodeChatWithoutModel(
-        modelDir: URL, messages: [ChatMessage], thinking: Bool
+        modelDir: URL, messages: [ChatMessage], thinking: Bool,
+        tools: [[String: Any]]? = nil
     ) async throws -> [Int] {
         let tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
-        let msgs: [[String: String]] = messages.map {
-            ["role": $0.role, "content": $0.content]
+        let msgs: [Message] = messages.map { m in
+            var d: [String: any Sendable] = ["role": m.role, "content": m.content]
+            if let tc = m.toolCalls {
+                d["tool_calls"] = tc.map { sendableDict($0) }
+            }
+            if let id = m.toolCallId {
+                d["tool_call_id"] = id
+            }
+            return d
         }
         return try tokenizer.applyChatTemplate(
-            messages: msgs, tools: nil,
+            messages: msgs,
+            tools: tools?.map { sendableDict($0) },
             additionalContext: ["enable_thinking": thinking])
     }
 

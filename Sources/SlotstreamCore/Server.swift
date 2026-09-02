@@ -380,10 +380,38 @@ public final class Server {
         return ""
     }
 
+    /// Parse request messages into ChatMessages, carrying tool_calls on
+    /// assistant messages and tool_call_id on role=tool results. OpenAI's
+    /// arguments arrive as a JSON string; the chat template wants a dict, so
+    /// decode it here.
     private static func messages(_ json: [String: Any]) -> [ChatMessage] {
-        (json["messages"] as? [[String: Any]] ?? []).map {
-            ChatMessage(role: $0["role"] as? String ?? "user", content: contentText($0["content"]))
+        (json["messages"] as? [[String: Any]] ?? []).map { m in
+            let role = m["role"] as? String ?? "user"
+            var toolCalls: [[String: Any]]? = nil
+            if let tcs = m["tool_calls"] as? [[String: Any]], !tcs.isEmpty {
+                toolCalls = tcs.compactMap { tc in
+                    guard var f = tc["function"] as? [String: Any] else { return nil }
+                    if let args = f["arguments"] as? String,
+                        let parsed = parseToolCallArgs(args)
+                    {
+                        f["arguments"] = parsed
+                    }
+                    var out = tc
+                    out["function"] = f
+                    return out
+                }
+            }
+            return ChatMessage(
+                role: role, content: contentText(m["content"]),
+                toolCalls: toolCalls, toolCallId: m["tool_call_id"] as? String)
         }
+    }
+
+    private static func parseToolCallArgs(_ s: String) -> [String: Any]? {
+        guard let data = s.data(using: .utf8),
+            let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return o
     }
 
     /// JSON numbers arrive as NSNumber; accept ints where a float is expected.
@@ -444,34 +472,60 @@ public final class Server {
             return "messages must be an array"
         }
         for (i, m) in raw.enumerated() {
-            let extra = Set(m.keys).subtracting(["role", "content"])
+            let extra = Set(m.keys).subtracting([
+                "role", "content", "tool_calls", "tool_call_id",
+            ])
             if !extra.isEmpty {
                 return "messages[\(i)] has unsupported field(s): "
                     + extra.sorted().joined(separator: ", ")
             }
-            if m["tool_calls"] != nil || m["tool_call_id"] != nil || m["images"] != nil {
-                return "messages[\(i)] uses tools or images, which this server does not support"
+            if m["images"] != nil {
+                return "messages[\(i)] uses images, which this server does not support"
             }
             guard let role = m["role"] as? String,
-                ["system", "user", "assistant"].contains(role)
-            else { return "messages[\(i)].role must be system, user, or assistant" }
-            if let parts = m["content"] as? [[String: Any]] {
-                for (j, part) in parts.enumerated() {
-                    let extra = Set(part.keys).subtracting(["type", "text"])
-                    if !extra.isEmpty {
-                        return "messages[\(i)].content[\(j)] has unsupported field(s): "
-                            + extra.sorted().joined(separator: ", ")
-                    }
-                    let kind = (part["type"] as? String) ?? "text"
-                    if kind != "text" && kind != "input_text" {
-                        return "messages[\(i)] contains unsupported content type '\(kind)'"
-                    }
-                    if part["text"] as? String == nil {
-                        return "messages[\(i)] has a text part without text"
+                ["system", "user", "assistant", "tool"].contains(role)
+            else {
+                return "messages[\(i)].role must be system, user, assistant, or tool"
+            }
+            if let tcs = m["tool_calls"] {
+                guard role == "assistant" else {
+                    return "messages[\(i)].tool_calls is only valid on assistant messages"
+                }
+                guard let arr = tcs as? [[String: Any]], !arr.isEmpty else {
+                    return "messages[\(i)].tool_calls must be a non-empty array"
+                }
+                for (j, tc) in arr.enumerated() {
+                    guard let f = tc["function"] as? [String: Any],
+                        let name = f["name"] as? String, !name.isEmpty
+                    else {
+                        return "messages[\(i)].tool_calls[\(j)] must have a function with a name"
                     }
                 }
-            } else if m["content"] as? String == nil {
-                return "messages[\(i)].content must be text"
+            }
+            if role == "tool" && m["tool_call_id"] as? String == nil {
+                return "messages[\(i)] with role tool must have tool_call_id"
+            }
+            // Tool-call announcements may carry content: null (OpenAI's shape);
+            // everything else must be text.
+            if m["tool_calls"] == nil {
+                if let parts = m["content"] as? [[String: Any]] {
+                    for (j, part) in parts.enumerated() {
+                        let extra = Set(part.keys).subtracting(["type", "text"])
+                        if !extra.isEmpty {
+                            return "messages[\(i)].content[\(j)] has unsupported field(s): "
+                                + extra.sorted().joined(separator: ", ")
+                        }
+                        let kind = (part["type"] as? String) ?? "text"
+                        if kind != "text" && kind != "input_text" {
+                            return "messages[\(i)] contains unsupported content type '\(kind)'"
+                        }
+                        if part["text"] as? String == nil {
+                            return "messages[\(i)] has a text part without text"
+                        }
+                    }
+                } else if m["content"] as? String == nil {
+                    return "messages[\(i)].content must be text"
+                }
             }
         }
         return nil
@@ -540,7 +594,7 @@ public final class Server {
         let allowed: Set<String> = [
             "model", "messages", "stream", "temperature", "top_p", "top_k",
             "presence_penalty", "max_tokens", "max_completion_tokens", "seed",
-            "stop", "stream_options",
+            "stop", "stream_options", "tools",
         ]
         if let e = Self.unsupportedKey(json, allowed: allowed) { return e }
         if let e = Self.messageError(json) { return e }
@@ -597,11 +651,84 @@ public final class Server {
         return p.sanitized()
     }
 
+    // MARK: tool calling
+
+    /// Streaming tool-call state machine: splits generated text into plain
+    /// content and <tool_call> XML, emitting each finished call through
+    /// `onCall`. Content bytes are streamed verbatim up to the first
+    /// <tool_call>; from there everything is buffered until blocks close.
+    private final class ToolStream {
+        var text = ""        // full generated text so far
+        var emitted = 0      // chars of text already streamed as content
+        var inTool = false
+        var toolBuffer = ""
+        var toolCalls: [ParsedToolCall] = []
+
+        func append(
+            _ delta: String,
+            onContent: (String) -> Bool,
+            onCall: (ParsedToolCall) -> Bool
+        ) -> Bool {
+            text += delta
+            if inTool {
+                toolBuffer += delta
+                return flush(onCall: onCall)
+            }
+            if let r = text.range(of: "<tool_call>") {
+                let cut = text.distance(from: text.startIndex, to: r.lowerBound)
+                if emitted < cut {
+                    let start = text.index(text.startIndex, offsetBy: emitted)
+                    let end = text.index(text.startIndex, offsetBy: cut)
+                    let part = String(text[start ..< end])
+                    if !part.isEmpty, !onContent(part) { return false }
+                }
+                emitted = cut
+                inTool = true
+                toolBuffer = String(text[text.index(text.startIndex, offsetBy: cut)...])
+                return flush(onCall: onCall)
+            }
+            let start = text.index(text.startIndex, offsetBy: emitted)
+            let part = String(text[start...])
+            if !part.isEmpty, !onContent(part) { return false }
+            emitted = text.count
+            return true
+        }
+
+        private func flush(onCall: (ParsedToolCall) -> Bool) -> Bool {
+            while let close = toolBuffer.range(of: "</tool_call>") {
+                let block = String(toolBuffer[..<close.upperBound])
+                toolBuffer = String(toolBuffer[close.upperBound...])
+                if let call = parseToolCalls(block).first {
+                    toolCalls.append(call)
+                    if !onCall(call) { return false }
+                }
+            }
+            return true
+        }
+    }
+
+    /// Ollama /api/chat expects tool_calls with arguments as an object.
+    private func ollamaToolCalls(_ calls: [ParsedToolCall]) -> [[String: Any]] {
+        calls.map { c in
+            let args = (try? JSONSerialization.jsonObject(
+                with: toolArgumentsJSON(c.params).data(using: .utf8)!)) ?? [:]
+            return ["function": ["name": c.name, "arguments": args]]
+        }
+    }
+
+    /// Strip the <tool_call> XML tail from a generated answer so the wire
+    /// message carries only the natural-language preamble.
+    private func cleanContent(_ text: String, calls: [ParsedToolCall]) -> String {
+        guard !calls.isEmpty, let r = text.range(of: "<tool_call>") else { return text }
+        return String(text[..<r.lowerBound]).trimmingCharacters(in: .newlines)
+    }
+
     // MARK: /api/chat
 
     private func apiChat(_ fd: Int32, _ json: [String: Any], cors: String) {
         if let e = ollamaValidationError(
-            json, allowed: ["model", "messages", "stream", "think", "options", "keep_alive"],
+            json,
+            allowed: ["model", "messages", "stream", "think", "options", "tools", "keep_alive"],
             messages: true)
         {
             respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
@@ -610,6 +737,7 @@ public final class Server {
         let msgs = Self.messages(json)
         let stream = Self.bool(json["stream"]) ?? true
         let thinking = Self.bool(json["think"]) ?? false
+        let tools = json["tools"] as? [[String: Any]]
         let params = sampleParams(json)
         // Ollama's documented "load" request (see apiGenerate): no messages
         // means load the model and return. Acknowledged without touching the
@@ -624,7 +752,7 @@ public final class Server {
                 ], cors: cors)
             return
         }
-        guard let ids = try? engine.encodeChat(msgs, thinking: thinking) else {
+        guard let ids = try? engine.encodeChat(msgs, thinking: thinking, tools: tools) else {
             respondJSON(
                 fd, ["error": "chat template failed"],
                 status: "500 Internal Server Error", cors: cors)
@@ -637,23 +765,48 @@ public final class Server {
         let t0 = Date()
         if stream, !startChunked(fd, contentType: "application/x-ndjson", cors: cors) { return }
         var alive = true
+        let ts = ToolStream()
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
-            let obj: [String: Any] = [
-                "model": self.engine.modelName, "created_at": self.iso(Date()),
-                "message": ["role": "assistant", "content": delta], "done": false,
-            ]
-            alive = self.chunk(
-                fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
-            return alive
+            return ts.append(
+                delta,
+                onContent: { part in
+                    let obj: [String: Any] = [
+                        "model": self.engine.modelName, "created_at": self.iso(Date()),
+                        "message": ["role": "assistant", "content": part], "done": false,
+                    ]
+                    alive = self.chunk(
+                        fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
+                    return alive
+                },
+                onCall: { call in
+                    let obj: [String: Any] = [
+                        "model": self.engine.modelName, "created_at": self.iso(Date()),
+                        "message": [
+                            "role": "assistant", "content": "",
+                            "tool_calls": self.ollamaToolCalls([call]),
+                        ],
+                        "done": false,
+                    ]
+                    alive = self.chunk(
+                        fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
+                    return alive
+                })
         } : nil
         let (text, _, stats) = engine.generate(
             promptIds: ids, params: params,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
+        let calls = stream ? ts.toolCalls : parseToolCalls(text)
+        var finalMsg: [String: Any] = [
+            "role": "assistant", "content": stream ? "" : cleanContent(text, calls: calls),
+        ]
+        if !calls.isEmpty {
+            finalMsg["tool_calls"] = ollamaToolCalls(calls)
+        }
         let final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
-            "message": ["role": "assistant", "content": stream ? "" : text],
-            "done": true, "done_reason": stats.finishReason,
+            "message": finalMsg,
+            "done": true, "done_reason": calls.isEmpty ? stats.finishReason : "tool_calls",
             "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
             "prompt_eval_count": stats.promptTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
@@ -809,6 +962,7 @@ public final class Server {
         }
         let msgs = Self.messages(json)
         let stream = Self.bool(json["stream"]) ?? false
+        let tools = json["tools"] as? [[String: Any]]
         var params = SampleParams.instruct
         if let v = Self.num(json["temperature"]) { params.temperature = Float(v) }
         if let v = Self.num(json["top_p"]) { params.topP = Float(v) }
@@ -829,7 +983,7 @@ public final class Server {
                 status: "400 Bad Request", cors: cors)
             return
         }
-        guard let ids = try? engine.encodeChat(msgs, thinking: false) else {
+        guard let ids = try? engine.encodeChat(msgs, thinking: false, tools: tools) else {
             respondJSON(
                 fd, ["error": ["message": "template failed"]],
                 status: "500 Internal Server Error", cors: cors)
@@ -843,48 +997,87 @@ public final class Server {
         let rid = "chatcmpl-\(UUID().uuidString.prefix(8))"
         if stream, !startChunked(fd, contentType: "text/event-stream", cors: cors) { return }
         var alive = true
+        let ts = ToolStream()
+        var toolIndex = 0
+        func sse(_ obj: [String: Any]) -> Bool {
+            guard stream, alive else { return true }
+            let data = (try? JSONSerialization.data(withJSONObject: obj)) ?? Data()
+            alive = chunk(fd, Data("data: ".utf8) + data + Data("\n\n".utf8))
+            return alive
+        }
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
-            let obj: [String: Any] = [
-                "id": rid, "object": "chat.completion.chunk",
-                "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
-                "choices": [["index": 0, "delta": ["content": delta], "finish_reason": NSNull()]],
-            ]
-            let data = try! JSONSerialization.data(withJSONObject: obj)
-            alive = self.chunk(fd, Data("data: ".utf8) + data + Data("\n\n".utf8))
-            return alive
+            return ts.append(
+                delta,
+                onContent: { part in
+                    sse([
+                        "id": rid, "object": "chat.completion.chunk",
+                        "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
+                        "choices": [["index": 0, "delta": ["content": part], "finish_reason": NSNull()]],
+                    ])
+                },
+                onCall: { call in
+                    let idx = toolIndex
+                    toolIndex += 1
+                    let tc = openAIToolCall(call, id: "call_\(rid)_\(idx)")
+                    return sse([
+                        "id": rid, "object": "chat.completion.chunk",
+                        "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
+                        "choices": [[
+                            "index": 0,
+                            "delta": ["tool_calls": [[
+                                "index": idx, "id": tc["id"] ?? "", "type": "function",
+                                "function": tc["function"] ?? [:],
+                            ]]],
+                            "finish_reason": NSNull(),
+                        ]],
+                    ])
+                })
         } : nil
         let (text, _, stats) = engine.generate(
             promptIds: ids, params: params,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
+        let calls = stream ? ts.toolCalls : parseToolCalls(text)
         if stream, alive {
-            var fin: [String: Any] = [
+            _ = sse([
                 "id": rid, "object": "chat.completion.chunk",
                 "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
-                "choices": [["index": 0, "delta": [:], "finish_reason": stats.finishReason]],
-            ]
+                "choices": [["index": 0, "delta": [:],
+                    "finish_reason": calls.isEmpty ? stats.finishReason : "tool_calls"]],
+            ])
             if wantUsage {
-                fin["usage"] = [
-                    "prompt_tokens": stats.promptTokens,
-                    "completion_tokens": stats.decodeTokens,
-                    "total_tokens": stats.promptTokens + stats.decodeTokens,
-                ]
+                _ = sse([
+                    "id": rid, "object": "chat.completion.chunk",
+                    "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
+                    "choices": [],
+                    "usage": [
+                        "prompt_tokens": stats.promptTokens,
+                        "completion_tokens": stats.decodeTokens,
+                        "total_tokens": stats.promptTokens + stats.decodeTokens,
+                    ],
+                ])
             }
-            chunk(fd, Data("data: ".utf8) + (try! JSONSerialization.data(withJSONObject: fin)) + Data("\n\n".utf8))
             chunk(fd, Data("data: [DONE]\n\n".utf8))
             endChunked(fd)
         } else {
+            var msg: [String: Any] = [
+                "role": "assistant", "content": cleanContent(text, calls: calls),
+            ]
+            if !calls.isEmpty {
+                msg["tool_calls"] = calls.enumerated().map {
+                    openAIToolCall($0.element, id: "call_\(rid)_\($0.offset)")
+                }
+            }
             respondJSON(
                 fd,
                 [
                     "id": rid, "object": "chat.completion",
                     "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
-                    "choices": [
-                        [
-                            "index": 0, "finish_reason": stats.finishReason,
-                            "message": ["role": "assistant", "content": text],
-                        ]
-                    ],
+                    "choices": [[
+                        "index": 0,
+                        "finish_reason": calls.isEmpty ? stats.finishReason : "tool_calls",
+                        "message": msg,
+                    ]],
                     "usage": [
                         "prompt_tokens": stats.promptTokens,
                         "completion_tokens": stats.decodeTokens,
