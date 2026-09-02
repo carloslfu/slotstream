@@ -16,3 +16,6 @@ type: log
 ## [2026-09-02 17:21] validate
 store validates clean; brain gates (validate, projection parity, 46 claim-needle checks) pass inside Tools/static_gates.sh
 
+## [2026-09-02 22:30] measurement | tool-calling-branch-first-build-and-live-gates-2026-09-02
+tools branch: first build, live gates, costs
+

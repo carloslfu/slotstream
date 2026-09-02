@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-02T17:15:26.902794Z
+updated: 2026-09-02T22:21:19Z
 ---
 
 # records/measurements
 
+- [[records/measurements/tool-calling-branch-first-build-and-live-gates-2026-09-02]] — Tool-calling branch (PR #2) first build and live gates on a second machine: batteries green but the machine-dependent mtp-parity gate; the 4-bit MoE emits well-formed tool calls and loops.
 - [[records/measurements/what-this-does-not-settle]] — What this does not settle
 - [[records/measurements/open-each-needing-an-explicit-go]] — Open, each needing an explicit go
 - [[records/measurements/the-fastest-path-is-not-the-wan-at-all]] — The fastest path is not the WAN at all
