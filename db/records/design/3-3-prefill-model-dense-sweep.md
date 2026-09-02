@@ -40,3 +40,37 @@ Cold start: resident load (**3.822 GB** ✅measured) + optional hot-set preload,
 measured 17.3 GB/s → **first token in seconds, not minutes** — no full-model load ever
 happens. ✅Confirmed on the real checkpoint: lazy `load()` of all 97 GB returns in
 **0.4 s with 0 GB resident**.
+
+**Built 2026-09-02, as N2.** The sweep above is what ships, with three
+departures from this note, each decided by measurement (MEASUREMENTS.md,
+"N2 — the prefill sweep").
+
+- **The threshold is 256 tokens, not ~512, and it is the only input to the
+  decision.** A pass of 256 tokens or more takes the sweep; anything shorter
+  (decode, speculative verify passes, a short follow-up turn) gathers over the
+  slot pool exactly as before. The choice is a function of the token count
+  alone so that the pool's size and contents cannot change the math — the
+  golden-equivalence invariant of §6 — and `sweep-check` proves the sweep
+  bit-identical on a cold and a warm pool.
+- **Groups are 32 experts, not 64, and each group is one grouped GEMM per
+  projection.** Sorting a pass's rows by expert is what reaches MLX's
+  `gather_qmm_rhs` kernel, which reads an expert's weights once per tile of
+  tokens instead of once per token; the old per-(token, expert) gather never
+  could. MLX takes that kernel only for a call with at least 16 rows and four
+  per expert of the weight array it is handed, so a group that is short of
+  that is padded up to it: the kernel a row meets depends on the routing
+  alone. 16 and 32 tied at the top and used the least memory; 64 and 128 were
+  slower and peaked higher.
+- **Reads are contiguous runs.** Experts are read in ascending id order, and
+  consecutive ids are one `pread` per piece rather than nine ~307 KB pieces
+  per record, which is what the 2026-08-30 measurement identified as the cap
+  on prefill IO. Resident experts are copied out of the pool instead, so a
+  warm cache still saves reads. The GPU works on one group while the CPU
+  reads the next; at most two groups of staging exist at once, so the peak
+  is bounded the way the 32-record slices bounded it.
+- **Scan resistance is the absence of writes.** The sweep never writes the
+  pool, so a long prompt cannot flush what decode was using. Frequency
+  admission runs on the final pass only: each layer's most-used experts, its
+  fair share of the pool, are written in so decode starts warm. The batch
+  n-gram fetch this note asked for landed in the same change, as a parallel
+  read of every row a pass needs before its embedding is assembled.

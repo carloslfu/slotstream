@@ -151,10 +151,20 @@ ignored. Every endpoint, field, default, and error is in
 
 Decode is the easy part: ~12 tok/s warm on a 48 GB Mac, and the tier table
 above says what smaller ones get. The slow axis is the prompt. All of it is
-processed before the first token appears, so 8,000 tokens wait about a minute
-on a 48 GB Mac and over three on a 16 GB one. Prompt plus completion is
-capped at 32,768 tokens; [Context](#context) below says what that cap is and
-what a long prompt costs.
+processed before the first token appears, so 8,000 tokens wait about half a
+minute on a 48 GB Mac and about a minute and a half on a 16 GB one. Prompt
+plus completion is capped at 32,768 tokens; [Context](#context) below says
+what that cap is and what a long prompt costs.
+
+A prompt is read by a sweep: a pass of 256 tokens or more streams
+each layer's experts through staging in contiguous reads and runs the expert
+math as grouped matrix multiplies, instead of one small matvec per token over
+the cache. Measured on the dev Mac against the previous release, at a 16 GB
+target: an 8k prompt 91 → 184 tok/s, ordinary prose 66 → 140, and at the
+8.1 GB floor 51 → 93, at a peak 1.5 GB lower. The sweep never writes the expert cache, so a long
+paste no longer evicts what the conversation was using. Prose reads slower
+than repeated text at every size; the numbers in `doctor` are for the
+acceptance prompt, and [MEASUREMENTS.md](MEASUREMENTS.md) has both.
 
 Within a conversation you only pay that once. Follow-up turns prefill just
 what's new, so time to first token stays flat as the chat grows: over eight
@@ -184,8 +194,8 @@ slotstream has measured, not a memory limit: the model is trained for
 262,144 tokens, and context state costs ~27 KiB per token, so a full 32k
 context is under 1 GB. What makes a long prompt expensive is time, because
 every token is read before the first one comes out. On a 48 GB Mac the wait
-is about 16 s for a 2k prompt, 1.2 min for 8k, 2.4 min for 16k, and 5.5 min
-for the full 32k; a 16 GB Mac takes about 13.7 min for 32k. `slotstream
+is about 9 s for a 2k prompt, 39 s for 8k, 1.4 min for 16k, and 3.0 min
+for the full 32k; a 16 GB Mac takes about 6.4 min for 32k. `slotstream
 doctor` prints these for your machine and its tier table has a column for
 the full-context wait, and `run` and `serve` print progress while a long
 prompt is being read. Within a conversation you pay once: follow-up turns
@@ -219,8 +229,8 @@ slotstream memory plan (auto)
   target: 33.0 GB total for this process   (override: --memory-gb N | --max-ram-percent P)
   cache:  ~152 of 512 experts per layer  (7280 global slots = 20.1 GB pool)
   expect: ~32.0 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
-  prefill: 4096 tokens per pass (~125 tok/s here; costs ~5.3 GB of the target)
-  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~5.5 min before its first token here, follow-up turns read only what is new
+  prefill: 4096 tokens per pass (~220 tok/s here; costs ~5.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~3.0 min before its first token here, follow-up turns read only what is new
   reuse:  up to 32768 tokens across 4 conversations (~1.2 GB), so a follow-up turn re-prefills only what is new
 ```
 
@@ -566,7 +576,11 @@ can drive a Mac into swap: prefer `--memory-gb` and check `doctor` first.
 | `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
 | `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
 | `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12; measured flat from 12 to 32, worse above). |
-| `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32; bounds peak memory on long prompts). |
+| `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32): the sweep's group size on a pass of 256 tokens or more, the pool's load slice below that. Bounds peak memory on long prompts. |
+| `SLOTSTREAM_SWEEP` | engine | `0` runs every prefill pass through the slot pool the way 0.2.2 and earlier did, instead of the sweep. A/B work only; slower. |
+| `SLOTSTREAM_SWEEP_ADMIT` | engine | `0` stops the last pass of a prompt from admitting the prompt's hottest experts into the pool, so decode starts cold. A/B work only. |
+| `SLOTSTREAM_SWEEP_TRACE` | engine | `1` prints, after each prefill, where the sweep's time went: reads, waiting for the GPU, sorting rows, copies out of the pool, and MLX's peak and cache. |
+| `SLOTSTREAM_PREFILL_CACHE_MB` | engine | MLX buffer-cache cap while a prompt is read. The plan sets 512 at targets of 12 GB and under (the sweep's varying array sizes otherwise fill the 2 GB cache, 1.7 GB of peak at the floor) and no cap above, where it costs ~6% of prefill; this forces a value at any target. |
 | `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
 | `SLOTSTREAM_RELEASE_BASE` | installer | Fetch the release from another base URL (CI uses it to test unpublished builds). |
 
@@ -594,6 +608,7 @@ model, takes the lock, and allocates real memory, so give it a small target
 | `elastic-check` | Greedy output is byte-identical across a live pool grow and shrink. `--max-tokens` (24), `--big-slots` (960; lower it on small machines). |
 | `elastic-drill` | The live governor shrinks under pressure, honors the grow cooldown, grows back, and output never changes. `--slots` (4000), `--quick` skips the 60 s cooldown wait. |
 | `prefix-check` | Conversation prefix reuse is equivalent, bounded, and deterministic. `--slots` (640), `--max-tokens` (24). |
+| `sweep-check` | The prefill sweep (passes of 256 tokens or more) stays inside the prefill-rechunk band against the pool path, is deterministic, gives bit-identical logits on a cold and a warm pool, and leaves the pool consistent after admission. `--slots` (640). |
 | `parity` | N truncated layers match the Python reference dumps. `--layers` (4), `--tokens`, `--compare <dir>`, `--out <dir>`. |
 | `template-check` | Renders the chat template for a canned conversation and prints token ids. `--think`. |
 | `ngram-golden` | Prints n-gram row ids for a token sequence, for comparison with Python. `--tokens`. |
@@ -1068,8 +1083,8 @@ the README table.
 ### The first token takes forever
 
 The whole prompt is read before the first token. `slotstream doctor` ends
-with the wait to expect by prompt length at your plan (about 5.5 min for a
-full 32k prompt on a 48 GB Mac, 13.7 min on a 16 GB one), and `run` and
+with the wait to expect by prompt length at your plan (about 3.0 min for a
+full 32k prompt on a 48 GB Mac, 6.4 min on a 16 GB one), and `run` and
 `serve` print progress lines for any prompt over 2k tokens, so silence past
 a few seconds is not a hang. Follow-up turns in the same conversation read
 only what is new. `slotstream context-check --tokens N` measures a prompt of
@@ -1128,7 +1143,7 @@ rows are copied in as they arrive, credited to the reporter.
 
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
-| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.2 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~125 tok/s at a 4096-token pass | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
+| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.2 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
 
 Not yet measured on real hardware: the 8, 16, 24, and 32 GB tiers. A row that
 contradicts the estimate is the most useful kind. So is one from an older
@@ -1229,6 +1244,23 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- Reading a prompt is about twice as fast. A prefill pass of 256 tokens or
+  more now sweeps each layer's experts through staging groups and MLX's
+  grouped GEMM instead of gathering one matvec per token over the slot pool,
+  reads consecutive experts as one contiguous `pread` per piece instead of
+  nine ~307 KB pieces per record, and never writes the pool, so a long prompt
+  no longer flushes what decode was using; the last pass admits the prompt's
+  hottest experts so decode starts warm. Measured on the dev Mac, interleaved
+  against 0.2.2's code: an 8k prompt at a 16 GB target 91 → 184 tok/s, ordinary
+  prose 66 → 140, the 8.1 GB floor 51 → 93, `context-check --tokens 8192` 64 →
+  152; at a matched 60-experts-per-layer pool a 4096-token pass reads 222
+  tok/s (was 103). The n-gram rows a pass needs are now read in parallel
+  rather than one at a time, which is where prose was paying ~35 s per 10k
+  tokens. Peak memory is unchanged within 0.3 GB at 16 GB and 1.5 GB lower at the 8.1 GB floor, where MLX's buffer cache is now capped while a prompt is read.
+  New gate `sweep-check`; `SLOTSTREAM_SWEEP=0`, `SLOTSTREAM_SWEEP_ADMIT=0`,
+  `SLOTSTREAM_SWEEP_TRACE=1`, and `SLOTSTREAM_PREFILL_CACHE_MB` for A/B work.
+  The planner's prefill estimates and the full-context waits on the README
+  and in `doctor` moved with the measurements.
 - slotstream is a Swift package as well as a binary. `Package.swift` declared
   no products, so nothing outside the repository could import it even by path:
   SwiftPM refused at graph resolution. There are now two library products —

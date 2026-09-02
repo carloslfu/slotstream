@@ -104,21 +104,7 @@ public final class ExpertStore {
     {
         let n = keys.count
         precondition(n > 0)
-        // one staging buffer per piece
-        var buffers: [UnsafeMutableRawPointer] = []
-        for pb in pieceRowBytes {
-            var p: UnsafeMutableRawPointer? = nil
-            let rc = posix_memalign(&p, 16384, n * pb)
-            guard rc == 0, let p else {
-                buffers.forEach { free($0) }
-                // Nothing above can recover a partial expert batch, but the
-                // message should say what ran out rather than trapping on nil.
-                fatalError(
-                    "out of memory staging \(n) expert records (\(n * pb) B): "
-                        + "lower --experts-per-layer or --memory-gb")
-            }
-            buffers.append(p)
-        }
+        let buffers = allocateStaging(rows: n)
         // 9n reads, spread across worker lanes
         let jobs: [(piece: Int, slot: Int)] = (0 ..< n).flatMap { s in (0 ..< 9).map { (piece: $0, slot: s) } }
         let lanes = min(max(queueDepth, 1), jobs.count)
@@ -135,10 +121,80 @@ public final class ExpertStore {
             }
         }
 
-        // Transfer each aligned staging buffer directly to MLX. The previous
-        // path copied every 1.4 GB batch into a Swift Array and then copied it
-        // again into MLX, so raw + Swift + MLX copies coexisted at peak and
-        // were invisible to MLX's allocator counter.
+        return stagingArrays(buffers, rows: n)
+    }
+
+    /// Read one layer's experts, ascending ids, into fresh staging arrays
+    /// (one per piece; row j holds experts[j]) for the prefill sweep. They
+    /// never enter the slot pool. Consecutive ids are one pread per piece: a
+    /// pass of a few hundred tokens routes nearly every expert of a layer, so
+    /// the reads are long contiguous runs rather than the nine ~307 KB pieces
+    /// per record `readBatch` issues, which is what held the old pass at
+    /// 4.5 GB/s against an SSD that delivers 17 (MEASUREMENTS, "Prefill,
+    /// second pass").
+    public func readRuns(
+        layer: Int, experts: [Int], queueDepth: Int = ExpertStore.defaultQueueDepth
+    ) -> [MLXArray] {
+        let n = experts.count
+        precondition(n > 0)
+        let buffers = allocateStaging(rows: n)
+        var runs: [(row: Int, len: Int)] = []
+        var j = 0
+        while j < n {
+            var k = j + 1
+            while k < n, experts[k] == experts[k - 1] + 1 { k += 1 }
+            runs.append((j, k - j))
+            j = k
+        }
+        // One job per (run, piece), largest first so the lanes finish together.
+        var jobs: [(piece: Int, row: Int, len: Int)] = []
+        jobs.reserveCapacity(runs.count * 9)
+        for r in runs { for p in 0 ..< 9 { jobs.append((p, r.row, r.len)) } }
+        jobs.sort { $0.len * pieceRowBytes[$0.piece] > $1.len * pieceRowBytes[$1.piece] }
+        let lanes = min(max(queueDepth, 1), jobs.count)
+        let lock = NSLock()
+        var next = 0
+        DispatchQueue.concurrentPerform(iterations: lanes) { _ in
+            while true {
+                lock.lock()
+                let j = next
+                next += 1
+                lock.unlock()
+                if j >= jobs.count { return }
+                let (p, row, len) = jobs[j]
+                let pb = pieceRowBytes[p]
+                index.pread(
+                    into: buffers[p] + row * pb, refs[layer][p], offset: experts[row] * pb,
+                    count: len * pb)
+            }
+        }
+        return stagingArrays(buffers, rows: n)
+    }
+
+    /// One 16 KiB-aligned staging buffer per piece, `rows` records each.
+    private func allocateStaging(rows n: Int) -> [UnsafeMutableRawPointer] {
+        var buffers: [UnsafeMutableRawPointer] = []
+        for pb in pieceRowBytes {
+            var p: UnsafeMutableRawPointer? = nil
+            let rc = posix_memalign(&p, 16384, n * pb)
+            guard rc == 0, let p else {
+                buffers.forEach { free($0) }
+                // Nothing above can recover a partial expert batch, but the
+                // message should say what ran out rather than trapping on nil.
+                fatalError(
+                    "out of memory staging \(n) expert records (\(n * pb) B): "
+                        + "lower --experts-per-layer or --memory-gb")
+            }
+            buffers.append(p)
+        }
+        return buffers
+    }
+
+    /// Transfer each aligned staging buffer directly to MLX. The previous
+    /// path copied every 1.4 GB batch into a Swift Array and then copied it
+    /// again into MLX, so raw + Swift + MLX copies coexisted at peak and
+    /// were invisible to MLX's allocator counter.
+    private func stagingArrays(_ buffers: [UnsafeMutableRawPointer], rows n: Int) -> [MLXArray] {
         var out: [MLXArray] = []
         for (p, r) in refs[0][0 ..< 9].enumerated() {
             let shape = [n] + Array(r.shape.dropFirst())
@@ -342,6 +398,82 @@ public final class SlotPool {
         for i in 0 ..< slots where pinned[i] { pinned[i] = false }
     }
 
+    // MARK: sweep (prefill passes of SweepTuning.minTokens tokens or more)
+
+    /// Set by the generator around the last pass of a prompt: that sweep
+    /// admits each layer's most-used experts into the pool, so the decode
+    /// that follows starts on the prompt's hot set instead of cold. Off for
+    /// every other pass, so a long prompt never evicts what decode was using
+    /// (scan resistance, PLAN §3.3).
+    public var admitOnSweep = false
+    /// Sweep admission can be switched off for an A/B (`SLOTSTREAM_SWEEP_ADMIT=0`).
+    static let sweepAdmitEnabled: Bool =
+        ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP_ADMIT"] != "0"
+
+    public func isResident(_ key: ExpertKey) -> Bool { map[key] != nil }
+
+    /// Copies of resident experts' nine pieces, in key order, materialized.
+    /// CLOCK bits are left alone: a sweep says nothing about decode locality.
+    public func gatherResident(_ keys: [ExpertKey]) -> [MLXArray] {
+        let t = Date()
+        let idx = MLXArray(keys.map { Int32(map[$0]!) })
+        let out = pools.map { $0[idx] }
+        eval(out)
+        scatterSeconds += -t.timeIntervalSinceNow
+        hits += keys.count
+        return out
+    }
+
+    /// Experts not in the pool, read straight from the checkpoint into
+    /// staging (`ExpertStore.readRuns`); the pool is not written.
+    public func readStaged(layer: Int, experts: [Int]) -> [MLXArray] {
+        let t = Date()
+        let out = store.readRuns(layer: layer, experts: experts)
+        ioSeconds += -t.timeIntervalSinceNow
+        misses += experts.count
+        recordsFetched += experts.count
+        return out
+    }
+
+    /// Admit staged experts (experts[i] is row rows[i] of `staged`) into the
+    /// pool, evicting by CLOCK; a resident one is marked referenced instead.
+    /// The copy out of `staged` is issued now, so the staging arrays can go;
+    /// the pool writes stay lazy until `commitAdmissions`.
+    public func admit(layer: Int, experts: [Int], rows: [Int], from staged: [MLXArray]) {
+        var victims: [Int32] = []
+        var src: [Int32] = []
+        for (e, row) in zip(experts, rows) {
+            let key = ExpertKey(layer, e)
+            if let s = map[key] {
+                refBit[s] = true
+                continue
+            }
+            let s = victim()
+            if let old = keyOf[s] { map.removeValue(forKey: old) }
+            keyOf[s] = key
+            map[key] = s
+            refBit[s] = true
+            victims.append(Int32(s))
+            src.append(Int32(row))
+        }
+        guard !victims.isEmpty else { return }
+        let from = MLXArray(src)
+        let picked = staged.map { $0[from] }
+        asyncEval(picked)
+        let dst = MLXArray(victims)
+        for p in 0 ..< 9 { pools[p][dst] = picked[p] }
+        pendingAdmissions += victims.count
+    }
+    private var pendingAdmissions = 0
+    /// Materialize the pool writes queued by `admit` (once per layer).
+    public func commitAdmissions() {
+        guard pendingAdmissions > 0 else { return }
+        let t = Date()
+        eval(pools)
+        scatterSeconds += -t.timeIntervalSinceNow
+        pendingAdmissions = 0
+    }
+
     /// Where prefill time actually goes. Split out because "prefill is slow"
     /// is not actionable: reading the records, scattering them into the pool,
     /// and the compute over them are three different problems with three
@@ -351,6 +483,11 @@ public final class SlotPool {
     public private(set) var scatterSeconds = 0.0
     public private(set) var fillSeconds = 0.0
     public private(set) var recordsFetched = 0
+
+    /// Sweep diagnostics (`SLOTSTREAM_SWEEP_TRACE=1`): time spent waiting for
+    /// the GPU to finish a staging group, and sorting rows on the CPU.
+    public var sweepWaitSeconds = 0.0
+    public var sweepSortSeconds = 0.0
 
     public var hitRate: Double {
         let t = hits + misses
@@ -364,5 +501,7 @@ public final class SlotPool {
         scatterSeconds = 0
         fillSeconds = 0
         recordsFetched = 0
+        sweepWaitSeconds = 0
+        sweepSortSeconds = 0
     }
 }

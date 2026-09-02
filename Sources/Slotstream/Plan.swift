@@ -399,12 +399,19 @@ public enum Planner {
     /// 88 tok/s at 60 experts/layer and 113 at 67, so treat these as typical
     /// for a machine that would *choose* that chunk, not as a pure function.
     public static func estPrefillTokS(chunk: Int) -> Double {
+        // The sweep's ladder on the 8k acceptance prompt at a matched pool of
+        // 60 experts per layer (MEASUREMENTS.md, "N2 — the prefill sweep"):
+        // 88 / 128 / 169 / 211 / 222 tok/s from 256 to 4096, rounded down.
+        // The floor's 256-token pass read 88 at 13 per layer too: below 1024
+        // the pass is read-bound and the pool barely matters. Ordinary prose
+        // reads about 40% slower than this prompt at every size; these are the
+        // acceptance prompt's numbers, as the previous ladder's were.
         switch chunk {
-        case ..<512: return 40
-        case ..<1024: return 50
-        case ..<2048: return 94
-        case ..<4096: return 113
-        default: return 125
+        case ..<512: return 85
+        case ..<1024: return 125
+        case ..<2048: return 165
+        case ..<4096: return 205
+        default: return 220
         }
     }
     /// Smallest honest total-memory target: floor pool + footprint + margin.

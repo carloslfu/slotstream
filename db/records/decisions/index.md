@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-02T17:15:28.750454Z
+updated: 2026-09-02T19:29:55.181495Z
 ---
 
 # records/decisions
 
+- [[records/decisions/staging-buffer-recycling-rejected]] — Staging buffer recycling was built, measured no faster and 6% slower with a higher peak, and dropped
+- [[records/decisions/prefill-passes-of-256-tokens-sweep-and-never-load-the-pool]] — Prefill passes of 256 tokens or more sweep through staging and grouped GEMM; only the last pass writes the pool
 - [[records/decisions/bench-rig-m8-deprioritized-behind-retention-work]] — The M8 bench rig and full tier validation are deprioritized behind what decides whether a person keeps using slotstream
 - [[records/decisions/custom-metal-kernels-are-not-blocked-on-xcode]] — Writing a new Metal kernel is not blocked on Xcode; only mlx-swift's bundled shader library is, and it is vendored
 - [[records/decisions/prefix-cache-holds-four-conversations-extend-only]] — The conversation prefix cache holds four states and only ever extends, never rewinds

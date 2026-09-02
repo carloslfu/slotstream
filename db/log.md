@@ -16,3 +16,21 @@ type: log
 ## [2026-09-02 17:21] validate
 store validates clean; brain gates (validate, projection parity, 46 claim-needle checks) pass inside Tools/static_gates.sh
 
+## [2026-09-02 19:44] create | records/measurements
+N2 — the prefill sweep: one level-2 section and four level-3 records (the numbers, the gates, the knobs, what it does not settle), every number from an interleaved A/B on 2026-09-02
+
+## [2026-09-02 19:44] create | sources/runs
+seven raw runs behind the sweep section: the 8k and prose A/Bs, the floor and 10 GB runs, the pass-size ladder, the tuning arms, sweep-check transcripts, context-check JSON; captured before any number was transcribed
+
+## [2026-09-02 19:44] update | records/claims
+prefill claims moved with the measurements: 125 tok/s, 5.5 min, 13.7 min withdrawn; 220 tok/s, 3.0 min, 6.4 min, 91 → 184 tok/s, 66 → 140, 51 → 93 added
+
+## [2026-09-02 19:44] create | records/decisions
+two decisions: passes of 256+ tokens sweep and never load the pool; staging buffer recycling rejected by measurement
+
+## [2026-09-02 19:44] update | records/plan
+N2 and M5 marked done in the tracker and the N2 queue item; the §3.3 design record carries the built-as addendum
+
+## [2026-09-02 19:45] validate | store
+store validates clean; brain gates pass (validate, projection parity, 55 claim-needle checks)
+

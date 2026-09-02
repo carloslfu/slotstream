@@ -24,7 +24,7 @@ design and the estimates it replaces.
 | M2 `.ssmodel` container + repack | **skipped, by measurement** | engine streams from original shards (9 preads/expert); repack is now a measured-optimization backlog item |
 | M3 Swift engine, resident correctness (incl. QSA indexer) | ✅ **done 2026-08-28** | layers 0–1 **bit-exact** vs mlx-0.31.1 reference; template/ngram/dequant goldens exact; deeper layers ≤2.4% RMS (vendored-kernel ulp skew, documented) |
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |
-| M5 Prefill/prefetch perf | ◐ partial → **queued as N2** | prefill ~113 tok/s @8k, short of the ≥150 target. The 20.0 tok/s warm-decode figure has not reproduced on 0.1.6 — re-anchored to 11.2 at 120/layer |
+| M5 Prefill/prefetch perf | ✅ **done 2026-09-02** (as N2) | prefill target met: 8k prompt 184 tok/s at a 16 GB target (was 91), 222 at a 4096-token pass on a matched pool; the cross-token prefetcher stays deprioritized (a decode lever). The 20.0 tok/s warm-decode figure has not reproduced on 0.1.6 — re-anchored to 11.2 at 120/layer |
 | M6 Ollama-compatible server | ✅ **done 2026-08-28** | /api/version·tags·show·ps·chat·generate + /v1/chat/completions·models, NDJSON + SSE streaming, all passing `Tools/api_test.sh`; GUI-client validation pending (sandbox blocks local HTTP clients) |
 | M7 CLI, install, packaging | ✅ **done 2026-08-28** (LaunchAgent deferred) | full CLI + Makefile; resumable sha256-verified parallel `pull`; one-line installer to a CI-built, provenance-signed release |
 | M7.5 Serving hardening | ✅ **done 2026-08-29** (v0.1.5) | adversarial pass over the whole system: three process-killing inputs, streaming corruption, and a sampler 0/0 fixed. `Tools/api_robustness.sh` is the standing gate |
@@ -32,7 +32,7 @@ design and the estimates it replaces.
 | M8 Matrix bench + tier validation | ◐ first data — **deprioritized 2026-08-29** | the bench rig and tier table are credibility artifacts, not adoption gates; moved behind N1–N5 |
 | v0.1 Definition of Done (§11) | ◐ | see updated checklist |
 | N1 Conversation prefix cache | ✅ **done 2026-08-29** (0.1.6) | TTFT flat in conversation length — 6.0 s at turn 8 against 25.8 s uncached. Gated by `prefix-check` against a prefill-rechunk control |
-| N2 Prefill, second pass | ◐ **partial 2026-08-30** | cost model was 2x over, recalibrated: 8k prefill 93.7 → 112.9 tok/s, peak down. Read-ahead built, measured worse, removed. ≥150 needs a grouped-GEMM kernel — **not blocked**: `MLXFast.metalKernel` JIT-compiles at runtime and this repo already ships one |
+| N2 Prefill sweep | ✅ **done 2026-09-02** | passes of 256+ tokens sweep each layer's experts through staging groups and MLX's grouped GEMM (sorted indices), read consecutive experts as one `pread` per piece, never write the pool, and admit the prompt's hot experts on the last pass; n-gram rows read in parallel. 8k prompt 91 → 184 tok/s at 16 GB, prose 66 → 140, floor 51 → 93 at a 1.5 GB lower peak, `context-check` 64 → 152. Gated by `sweep-check` (3.3% of logit spread vs a 5.1% rechunk control; bit-identical cold and warm pool) |
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
 | M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, so the default is now 1 and auto's floor stands; with the rebuild eliminated (per-position recorded state) depth 1 reads ×1.24 there and ×1.18 sampled. Gates: `mtp-parity`, `mtp-check` |
@@ -215,6 +215,40 @@ Cold start: resident load (**3.822 GB** ✅measured) + optional hot-set preload,
 measured 17.3 GB/s → **first token in seconds, not minutes** — no full-model load ever
 happens. ✅Confirmed on the real checkpoint: lazy `load()` of all 97 GB returns in
 **0.4 s with 0 GB resident**.
+
+**Built 2026-09-02, as N2.** The sweep above is what ships, with three
+departures from this note, each decided by measurement (MEASUREMENTS.md,
+"N2 — the prefill sweep").
+
+- **The threshold is 256 tokens, not ~512, and it is the only input to the
+  decision.** A pass of 256 tokens or more takes the sweep; anything shorter
+  (decode, speculative verify passes, a short follow-up turn) gathers over the
+  slot pool exactly as before. The choice is a function of the token count
+  alone so that the pool's size and contents cannot change the math — the
+  golden-equivalence invariant of §6 — and `sweep-check` proves the sweep
+  bit-identical on a cold and a warm pool.
+- **Groups are 32 experts, not 64, and each group is one grouped GEMM per
+  projection.** Sorting a pass's rows by expert is what reaches MLX's
+  `gather_qmm_rhs` kernel, which reads an expert's weights once per tile of
+  tokens instead of once per token; the old per-(token, expert) gather never
+  could. MLX takes that kernel only for a call with at least 16 rows and four
+  per expert of the weight array it is handed, so a group that is short of
+  that is padded up to it: the kernel a row meets depends on the routing
+  alone. 16 and 32 tied at the top and used the least memory; 64 and 128 were
+  slower and peaked higher.
+- **Reads are contiguous runs.** Experts are read in ascending id order, and
+  consecutive ids are one `pread` per piece rather than nine ~307 KB pieces
+  per record, which is what the 2026-08-30 measurement identified as the cap
+  on prefill IO. Resident experts are copied out of the pool instead, so a
+  warm cache still saves reads. The GPU works on one group while the CPU
+  reads the next; at most two groups of staging exist at once, so the peak
+  is bounded the way the 32-record slices bounded it.
+- **Scan resistance is the absence of writes.** The sweep never writes the
+  pool, so a long prompt cannot flush what decode was using. Frequency
+  admission runs on the final pass only: each layer's most-used experts, its
+  fair share of the pool, are written in so decode starts warm. The batch
+  n-gram fetch this note asked for landed in the same change, as a parallel
+  read of every row a pass needs before its embedding is assembled.
 
 ### 3.4 Why explicit slots instead of mmap-and-pray
 
@@ -725,6 +759,20 @@ is genuinely unavoidable.
 
 **Exit:** ≥150 tok/s @8k on the dev Mac; byte-identical output at every pass size (the
 existing standing gate).
+
+**Done 2026-09-02.** The sweep shipped as designed in §3.3 with the departures the
+design note's addendum records, and the exit is met: the 8k acceptance prompt reads
+**184 tok/s at a 16 GB target** against 91 on the same code base the day before
+(three interleaved rounds), 222 at a 4096-token pass on a matched 60-per-layer pool,
+247 at 4096 by override at 16 GB, and 152 by `context-check --tokens 8192` at 16 GB
+against 64. The second half of the exit was written wrong and is replaced by the gate
+that N1 already uses: output is inside the prefill-rechunk band at every pass size
+(`sweep-check`: 3.3% of logit spread against a 5.1% control), bit-identical on a cold
+and a warm pool, not byte-identical across pass sizes, which re-batching never was.
+The cross-token prefetcher was not built; it is a decode lever, not a prefill one, and
+stays with the deprioritized list. What N2 leaves open is in MEASUREMENTS.md, "N2 — the
+prefill sweep": the auto plan on this Mac, the prose-versus-acceptance-prompt gap, the
+serial router-and-attention time between groups, and the read rate against the SSD.
 
 ### N3 and N4 — removed from the queue (2026-08-30)
 

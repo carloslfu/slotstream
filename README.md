@@ -143,10 +143,20 @@ ignored. Every endpoint, field, default, and error is in
 
 Decode is the easy part: ~12 tok/s warm on a 48 GB Mac, and the tier table
 above says what smaller ones get. The slow axis is the prompt. All of it is
-processed before the first token appears, so 8,000 tokens wait about a minute
-on a 48 GB Mac and over three on a 16 GB one. Prompt plus completion is
-capped at 32,768 tokens; [Context](#context) below says what that cap is and
-what a long prompt costs.
+processed before the first token appears, so 8,000 tokens wait about half a
+minute on a 48 GB Mac and about a minute and a half on a 16 GB one. Prompt
+plus completion is capped at 32,768 tokens; [Context](#context) below says
+what that cap is and what a long prompt costs.
+
+A prompt is read by a sweep: a pass of 256 tokens or more streams
+each layer's experts through staging in contiguous reads and runs the expert
+math as grouped matrix multiplies, instead of one small matvec per token over
+the cache. Measured on the dev Mac against the previous release, at a 16 GB
+target: an 8k prompt 91 → 184 tok/s, ordinary prose 66 → 140, and at the
+8.1 GB floor 51 → 93, at a peak 1.5 GB lower. The sweep never writes the expert cache, so a long
+paste no longer evicts what the conversation was using. Prose reads slower
+than repeated text at every size; the numbers in `doctor` are for the
+acceptance prompt, and [MEASUREMENTS.md](MEASUREMENTS.md) has both.
 
 Within a conversation you only pay that once. Follow-up turns prefill just
 what's new, so time to first token stays flat as the chat grows: over eight
@@ -176,8 +186,8 @@ slotstream has measured, not a memory limit: the model is trained for
 262,144 tokens, and context state costs ~27 KiB per token, so a full 32k
 context is under 1 GB. What makes a long prompt expensive is time, because
 every token is read before the first one comes out. On a 48 GB Mac the wait
-is about 16 s for a 2k prompt, 1.2 min for 8k, 2.4 min for 16k, and 5.5 min
-for the full 32k; a 16 GB Mac takes about 13.7 min for 32k. `slotstream
+is about 9 s for a 2k prompt, 39 s for 8k, 1.4 min for 16k, and 3.0 min
+for the full 32k; a 16 GB Mac takes about 6.4 min for 32k. `slotstream
 doctor` prints these for your machine and its tier table has a column for
 the full-context wait, and `run` and `serve` print progress while a long
 prompt is being read. Within a conversation you pay once: follow-up turns
@@ -211,8 +221,8 @@ slotstream memory plan (auto)
   target: 33.0 GB total for this process   (override: --memory-gb N | --max-ram-percent P)
   cache:  ~152 of 512 experts per layer  (7280 global slots = 20.1 GB pool)
   expect: ~32.0 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
-  prefill: 4096 tokens per pass (~125 tok/s here; costs ~5.3 GB of the target)
-  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~5.5 min before its first token here, follow-up turns read only what is new
+  prefill: 4096 tokens per pass (~220 tok/s here; costs ~5.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~3.0 min before its first token here, follow-up turns read only what is new
   reuse:  up to 32768 tokens across 4 conversations (~1.2 GB), so a follow-up turn re-prefills only what is new
 ```
 

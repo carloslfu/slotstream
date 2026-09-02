@@ -2091,3 +2091,285 @@ Xet read token (the bridge URL carries `user_id=public`, which suggests yes);
 whether Hugging Face's GeoDNS ever hands a West Coast client a West Coast
 bridge (only us-east-1 and eu-west-3 were seen); and the cause of Popayán's
 62 MB/s band (M10).
+
+## N2 — the prefill sweep: grouped GEMM over staging, contiguous reads, no pool writes (2026-09-02)
+Prefill was the last unmet target: the plan asked for ≥150 tok/s on an 8k
+prompt and 0.2.2 read 113 at best. Splitting the old pass had already said
+where the time went (io 33.9 / scatter 10.3 / compute 50.3 s on 8k) and what
+would close it: a grouped GEMM over the routed experts instead of one gather
+per token, and contiguous reads instead of nine ~307 KB pieces per record.
+Both landed on 2026-09-02, with the scan-resistant sweep §3.3 designed, and
+this section is the record: what the old pass was actually doing, what the
+sweep does instead, the gates that say it computes the same thing, and the
+numbers, every one an interleaved A/B on the dev Mac between the 0.2.2 code
+(`e09bcac`, the commit before this work) and the sweep, same prompt, same
+target, one model process at a time.
+
+**What the old pass was doing.** `MoELayer` already called MLX's
+`gatherQuantizedMM` over the pool, but with one row per (token, expert) and
+unsorted indices. That reaches MLX's per-row matvec kernel, which re-reads
+an expert's weights once per token that routes to it — about forty times
+per 2048-token pass. MLX has a grouped kernel (`gather_qmm_rhs`) that reads
+the weights once per tile of tokens, but it takes it only for sorted indices
+and only when a call has at least 16 rows and four rows per expert of the
+weight array it is handed. Handed the pool, `E` is the slot count: a
+2048-token pass has 20,480 rows and would reach the kernel only below 5,120
+slots (106 experts per layer), so the kernel — and the arithmetic — would
+have switched with the cache size, which is exactly what the golden-
+equivalence invariant forbids. Every miss also went through the pool: 32
+records at a time, nine preads per record, a scatter into the slots, and a
+CLOCK state flushed by every long prompt.
+
+**What the sweep does.** A pass of 256 tokens or more (`SweepTuning.minTokens`)
+sorts its rows by expert (a counting sort on the CPU, 20 ms per prompt) and
+walks the layer's experts in groups of 32: experts already resident are
+copied out of the pool, the rest are read from the checkpoint with one
+`pread` per piece per run of consecutive ids, and each group is one grouped
+GEMM per projection over that group's rows, `sortedIndices: true`. A group
+short of MLX's rule is padded up to it with repeats of its last row, so the
+kernel a row meets depends on the routing alone. The GPU works on one group
+while the CPU reads the next; at most two groups of staging exist at once.
+The pool is never written by a sweep. On the final pass of a prompt, each
+layer's most-used experts — its fair share of the pool — are admitted, so
+decode starts on the prompt's hot set instead of cold. Passes shorter than
+256 tokens, decode, and speculative verify passes gather over the pool as
+before, so nothing below the threshold changed.
+
+### The numbers: 8k, prose, the floor, the ladder, and decode after a long prompt
+Every row is an interleaved A/B on the dev Mac between the commit before the
+sweep (`e09bcac`, the 0.2.2 code) and the sweep, same prompt, same flags, one
+model process at a time, real footprint sampled from `top` with a watchdog
+that kills a run under 2.5 GB reclaimable. Single runs here vary by 10 to 15%,
+so the headline is three rounds and the rest are one or two.
+
+**The 8k acceptance prompt** (the 7,960/8,073-token `verify.sh` prompt, three
+sentences repeated) at `--memory-gb 16`, which plans a 1024-token pass and 54
+experts per layer:
+
+| round | 0.2.2 code | sweep |
+|---|---|---|
+| 1 | 100.5 tok/s | 191.8 |
+| 2 | 83.8 | 165.5 |
+| 3 | 89.7 | 195.0 |
+| **mean** | **91.3** | **184.1 (×2.02)** |
+| shipped build, two more rounds | 94.6 / 90.1 | 209.5 / 161.8 |
+| peak RSS | 13.0 GB | 13.2 |
+
+The split says where the ×2 came from: reads 30.4 → 25.7 s, the pool scatter
+10.4 → 1.2 s (that is the copies of resident experts; the pool is never
+written), and compute 49.2 → 21.9 s, on the same 98,000 records read either
+way.
+
+**Ordinary prose** — a 34,000-character excerpt of PLAN.md, 10,490 tokens,
+at `--memory-gb 16`:
+
+| build | prefill |
+|---|---|
+| 0.2.2 code | 66.1 / 66.6 / 67.3 / 67.6 tok/s |
+| sweep, rows one at a time | 107.9 / 106.5 |
+| **shipped: sweep + parallel n-gram rows** | **140.1 / 139.2 (×2.1)** |
+
+Prose routes to nearly every expert of every layer (181,475 records against
+98,872 for the same pass size on the acceptance prompt) and is the honest
+number for a pasted document.
+
+**Small targets**, the 7,960-token prompt, one round each:
+
+| target | 0.2.2 code | shipped build |
+|---|---|---|
+| 8.1 GB floor (13/layer, 256-token pass) | 50.8 tok/s, peak 7.7 GB | **93.1 tok/s, peak 6.2 GB** |
+| 10 GB (20/layer) | 41.3 tok/s, peak 8.6 GB (2026-08-31 record) | **87.7 tok/s, peak 7.2 GB** |
+
+At the floor the pass reads 826 GB of records in 31 passes; the reads went
+83.4 → 56.3 s and the scatter 26.3 → 0.7, and the peak fell because the MLX
+buffer cache is capped while a small target reads a prompt (the knobs
+section). Both memory promises hold with more headroom than before.
+
+**`context-check --tokens 8192` at `--memory-gb 16`**, the dense synthetic
+prompt the tool reads: 0.2.2 code 64.2 tok/s (127.7 s, peak 13.1 GB); sweep
+152.4 tok/s (53.7 s, peak 13.2), the shipped build 154.8, ×2.4.
+
+**The pass-size ladder** at a matched pool of 60 experts per layer
+(`--experts-per-layer 60`, the 8,073-token prompt), which is what the
+planner's estimator now carries:
+
+| pass | 0.2.2 code | sweep | sweep, peak |
+|---|---|---|---|
+| 256 | 45.6 tok/s | 87.5 | 14.1 GB |
+| 512 | — | 128.2 | 14.1 |
+| 1024 | 87.0 | 169.2 | 14.0 |
+| 2048 | — | 210.8 | 13.7 |
+| 4096 | 103.2 | 222.3 | 13.8 |
+
+And 4096 at the 16 GB target by `SLOTSTREAM_PREFILL_CHUNK` override: 246.7
+tok/s at a 12.8 GB peak against 107.9 at 14.6. The estimator reads 85 / 125 /
+165 / 205 / 220, rounded down; with it the planner now picks a 2048-token pass
+from a 20 GB target where it picked 1024, and the request-time scoring and
+`Tools/monotonic_plan.py` still hold across the 7 to 90 GB sweep. The
+full-context waits in `doctor` moved accordingly: 3.0 min for 32k on the 48 GB
+plan (was 5.5), 6.4 on the 16 GB tier (was 13.7).
+
+**Decode after a long prompt**, 48 tokens after the 8k prompt at 16 GB, three
+rounds: 5.62 / 6.00 / 5.52 tok/s with the final pass admitting the prompt's
+hot experts, 5.28 / 4.31 / 4.94 without.
+
+The N2 exit was ≥150 tok/s at 8k on the dev Mac. It is met at a 16 GB target,
+and by every pass size of 1024 tokens and up on a 60-per-layer pool; the auto
+plan itself is the one row still missing (next section).
+
+### The gates: the sweep is the same computation
+The sweep computes the same thing the pool path computes, and the claim is
+gated the way prefix reuse is: not by byte identity, which re-batching the
+same tokens cannot give (MLX picks kernels and reduction orders by shape),
+but by the band that re-chunking a plain prefill already moves the logits
+by. `slotstream sweep-check` loads the model at the floor pool, reads a
+549-token prose prompt, and requires five things. Its reading on the shipped
+code:
+
+| gate | reading |
+|---|---|
+| deterministic: the sweep twice on an empty pool | identical logits |
+| inside the band: sweep vs the pool path, one pass | **3.32%** of logit spread, against a prefill-rechunk control of 5.09% (pool path whole vs in 7-token passes) and a bound of 3× the control; top-1 same |
+| re-chunked: the sweep whole vs in 256-token passes | 3.15% |
+| blind to the pool: the sweep after the pool path loaded the prompt's experts (638 copied out of the pool instead of read) | **bit-identical** to the cold sweep |
+| admission leaves the pool consistent: after a generate whose last pass admitted the prompt's hot experts | pool path identical, sweep identical |
+
+The sweep moves the logits *less* than re-chunking the plain prefill does.
+The bit-identity on a warm pool is the invariant PLAN §6 asks for, restated
+for the sweep: whether an expert was copied out of the pool or read from the
+checkpoint, the same bytes reach the same kernel. That needed one deliberate
+piece of engineering. MLX takes its grouped kernel only when a call has at
+least 16 rows and four per expert of the weight array it is handed; with the
+pool as that array the rule would have flipped with the cache size, and with
+groups it would have flipped with how many of a group's experts were
+resident. So the sweep hands the kernel one group of at most 32 experts at a
+time and pads a short group up to the rule with repeats of its last row,
+dropped from the output. The kernel a row meets is then a function of the
+routing alone.
+
+What the band means for greedy text: on the 8,073-token acceptance prompt
+at a 1024-token pass the pool path answers `<think></think>SEVENTEEN` and the
+sweep opens a reasoning chain — a near tie at the second token that the
+3.3% moved. That is the same class of effect the prefill-rechunk control
+produces on its own: at a 256-token pass both paths answer with an empty
+line instead, on the same prompt, in the same session. `sweep-check` is in
+`Tools/verify.sh` next to `prefix-check`; the rest of the battery — the
+0–1 layer parity gate, golden equivalence across cache sizes, `elastic-check`,
+`prefix-check`, `mtp-check`, the memory promises on the 7,960-token prompt,
+and `context-check` — runs unchanged, since decode, speculative verify
+passes, and any pass under 256 tokens still take the pool path exactly as
+before.
+
+### What set the knobs: group size, lanes, recycling, the cache cap, admission, and the n-gram rows
+Every knob was set by an A/B on the 8,073-token acceptance prompt at a 16 GB
+target (a 1024-token pass, 54 experts per layer), one round per arm unless
+stated, interleaved, `SLOTSTREAM_SWEEP_TRACE=1` splitting the pass into reads,
+time spent waiting for the GPU, the CPU row sort, copies out of the pool, and
+the rest.
+
+**Where the time goes.** Reads 22.4 s, waiting for the GPU 1.6 s, sorting
+0.02 s, copies out of the pool 1.0 s, everything else 20.1 s, for 43.5 s in
+all. The group loop is bound by the reads: the GPU finishes a group before
+the next one is in, so the sweep waits for it 4% of the time. The 20 s that
+are neither is serial by construction — the router, attention, and the
+layer's tail run while no read is outstanding, because the next layer's
+experts are not known until its router has run. Reads move at 11–13 GB/s
+against the 17.3 the SSD delivers on 2.7 MB records; runs are cut by the
+resident experts between them and by the six small scale/bias pieces per
+record.
+
+**Group size** (`SLOTSTREAM_EXPERT_LOAD_BATCH`, the experts per staging group):
+
+| group | prefill | peak RSS |
+|---|---|---|
+| 16 | 183.3 tok/s | 13.0 GB |
+| **32** | 169.9 | 13.2 |
+| 64 | 158.5 | 13.7 |
+| 128 | 160.6 | 14.1 |
+
+Reads are flat (22.9–24.1 s) at every size; the rest grows with the group,
+and so does the peak. 16 and 32 tie inside the run-to-run band (the 32 default
+read 174–195 in the paired rounds); the documented default stays at 32.
+
+**Read parallelism** (`SLOTSTREAM_IO_QUEUE_DEPTH`): 4 lanes read 39.1 s for
+120.6 tok/s, 12 read 23.5 s for 179.3, 32 read 24.4 s for 162.5. The default
+of 12 stands, on contiguous runs as it did on the nine-piece reads.
+
+**Staging buffer recycling was built, measured, and dropped.** The hypothesis
+was that a fresh 88 MB set per group paid a page fault per 16 KiB and an unmap
+on release, some 270 GB of both per prompt. Recycling the sets through the
+arrays' finalizers changed the read time not at all (23.6 s against 22.7) and
+cost 6% of prefill (163.6 / 166.1 tok/s against 177.5 / 174.2 in two paired
+rounds) plus 0.3 GB of peak from the sets it held. Whatever the reads are
+waiting on, it is not page faults.
+
+**The MLX buffer cache is capped while a small target reads a prompt.** The
+sweep allocates arrays whose sizes vary from group to group, and MLX's cache
+keeps every freed size up to its 2 GB limit: the trace read the cache at
+2.16 GB by the end of every long prompt, which is where the sweep's higher
+peak came from (13.2 against 13.0 GB at 16 GB; 7.9 against 7.7 at the floor).
+Capping it at 512 MB for the duration of the prompt costs 6% of prefill at
+16 GB, where the memory does not matter, and nothing at the 8.1 GB floor,
+where the pass is read-bound — and there it took the 7,960-token prompt's
+peak from 7.9 GB to **6.2** on the shipped build (93.1 against 88.3 tok/s), and
+from 8.8 to 7.2 at a 10 GB target (87.7 tok/s). The engine therefore caps it only when the plan's
+expected peak is 12 GB or under; `SLOTSTREAM_PREFILL_CACHE_MB` forces a value
+at any target.
+
+**Admission warms decode, measured.** The last pass of a prompt writes each
+layer's most-used experts, its fair share of the pool, so decode starts on the
+prompt's hot set. Three interleaved rounds of 48 decode tokens after the 8k
+prompt: 5.62 / 6.00 / 5.52 tok/s with admission against 5.28 / 4.31 / 4.94
+without — **5.7 against 4.8**, every round in the same direction, for about
+0.2 s of copies on the final pass. It only ever touches the pool on that
+pass; every earlier pass of a long prompt leaves it alone, which is the scan
+resistance §3.3 asked for.
+
+**Prose was paying for its n-gram rows, one at a time.** The trace on a
+10,490-token excerpt of PLAN.md read the same 54 s of "everything else" at a
+1024-token pass and at a 4096-token pass, so it scaled with tokens, not
+passes; the acceptance prompt, three sentences repeated, read 20 s. A token
+needs sixteen ~100 B n-gram rows, three `pread`s each at the SSD's ~55 µs
+latency, and `NgramStore` fetched them one at a time on the calling thread;
+repeated text hid that behind the row cache and prose could not. Reading
+every missing row of a pass on 32 lanes before its embedding is assembled
+took the excerpt from 103.7 s to 80.1 s (101 → 131 tok/s); the rows are the
+same bytes in the same cache order, so nothing else moved. This cost was in
+the old path too — its 89 s of "compute" on the excerpt against 49 on the
+acceptance prompt was the same 35 s.
+
+### What the sweep does not settle
+- **The auto plan on this Mac is not measured.** Every number above ran at a
+  16 GB target or below, because the 33 GB auto plan (a 4096-token pass, 152
+  experts per layer) needs ~32 GB reclaimable and the machine had 24–27 while
+  this was measured. The closest runs are the 4096-token pass at a matched
+  60-per-layer pool (222 tok/s) and at the 16 GB target by override (247);
+  the planner's 220 for 4096 is taken from the lower one. A quiet-machine
+  `context-check --tokens 8192` at auto is the run that turns it into a
+  measurement.
+- **Prose is the honest number and the planner's is the acceptance prompt's.**
+  The estimator's ladder, like the one it replaced, is measured on three
+  sentences repeated; ordinary prose routed to nearly every expert of every
+  layer, read 4% more bytes at the same pass size, and came out ~30% slower
+  even after the n-gram fix (131 against 184 tok/s at 16 GB). The tier rows
+  and the full-context waits inherit that.
+- **The rest of the pass is serial, and the one lever left costs a layer of
+  staging.** With the group loop read-bound and the GPU waiting on reads, the
+  remaining time is the router, attention, and the layer tail, which run
+  while nothing is being read because the next layer's experts are unknown
+  until its router runs. A pass of 256 tokens or more routes to nearly all
+  512 experts of a layer, so reading layer L+1's whole set during layer L
+  would be exact rather than speculative — the 2026-08-30 read-ahead, whose
+  premise (spare IO capacity) the contiguous reads have now created. It would
+  cost a layer of staging, 1.4 GB, which small targets do not have. Not built;
+  the read-ahead decision stands until it is measured.
+- **Reads stop at 11–13 GB/s.** The SSD reads 17.3 on 2.7 MB records at
+  queue depth 8 and up; the runs here average a few records between resident
+  experts, and six of the nine pieces per record are 51 KB scale and bias
+  rows. Recycling the staging buffers did nothing, so the gap is not page
+  faults. An on-disk repack that put a record's nine pieces together (the
+  skipped M2 container) is the other thing that would move it.
+- **Decode after a long prompt** is measured once, at 16 GB, on 48 tokens:
+  5.7 against 4.8 tok/s with and without admission. Whether the admitted set
+  is the right one further into a reply, and what it does to a second long
+  paste in the same conversation, is not measured.

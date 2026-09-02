@@ -285,13 +285,54 @@ Each of these cost a measured experiment. Do not re-derive them, and do not
 revert the constants to their older values — two of those older values are
 still quoted in commit history and both are wrong.
 
-- **The pass size is part of the memory plan, not a constant.** Prefill is
-  expert-stream-bound: a pass touches nearly every expert of every layer, so a
-  bigger pass is strictly faster and strictly more memory-hungry. Measured
-  40 → 113 tok/s from 256 → 2048, and 4096 beat 2048 in all three paired rounds
-  at a matched pool (1.15x). Output is byte-identical at every size, verified
-  at 2,980 and 7,960 tokens with the sparse indexer active — the size does not
-  affect correctness, and it must not be hard-coded back to 256.
+- **A pass of 256 tokens or more is a sweep, never a pool load** (`MoELayer.sweep`,
+  `SweepTuning.minTokens`). Rows are sorted by expert, the layer's experts go
+  through staging groups of 32 — resident ones copied out of the pool, the rest
+  read from the checkpoint in contiguous runs — and each group is one grouped
+  GEMM per projection with `sortedIndices: true`. That flag is the whole
+  point: it is what reaches MLX's `gather_qmm_rhs` kernel, which reads an
+  expert's weights once per tile of tokens instead of once per token. The old
+  per-(token, expert) gather over the pool never could, and re-read every
+  expert about forty times per 2048-token pass. Measured on 0.2.2's code: an
+  8k prompt at a 16 GB target went 91 → 184 tok/s (three interleaved rounds),
+  prose 66 → 107, the 8.1 GB floor 51 → 88.
+- **The kernel a row meets must depend on the routing alone.** MLX takes the
+  grouped kernel only when a call has at least 16 rows and four per expert of
+  the weight array it is handed. With the pool as that array the rule would
+  have switched kernels with the cache size, so the sweep hands it a group of
+  at most 32 experts and pads a short group up to the rule. This is what keeps
+  the golden-equivalence invariant (§6: pool size and contents never change
+  the math); `sweep-check` proves the sweep bit-identical on a cold pool and
+  on one holding 638 of the prompt's experts. Do not let a group's composition
+  depend on residency in a way that changes row counts per call, and do not
+  drop the padding.
+- **The sweep never writes the pool.** That is the scan resistance PLAN §3.3
+  asked for: a long prompt cannot evict what decode was using. Only the final
+  pass admits, and only each layer's fair share of the pool by frequency
+  (`SlotPool.admit`, `admitOnSweep` set by the generator). Resident groups go
+  first within a layer, so admission can never evict a resident expert that
+  layer has not copied yet.
+- **The sweep is read-bound, not compute-bound, and the GPU is idle waiting
+  for reads.** `SLOTSTREAM_SWEEP_TRACE=1` on the 8k prompt at 16 GB: reads 22 s,
+  waiting for the GPU 1.6 s, everything else 20 s. Reads run at 11–13 GB/s
+  against the SSD's 17.3 on 2.7 MB records; queue depth 12 stays right (4 loses
+  a third, 32 gains nothing). What is left is serial: the router, attention,
+  and the layer tail run while no read is outstanding, because the next layer's
+  experts are unknown until its router runs.
+- **Prose costs more than repeated text, and the n-gram rows were why.** A
+  token needs sixteen ~100 B rows, three `pread`s each at ~55 µs SSD latency;
+  fetched one at a time on the calling thread, a 10k-token prompt of ordinary
+  prose spent ~35 s there (in the old path and the sweep alike), while the
+  acceptance prompt's repeated sentences hid it behind the row cache. The rows
+  of a pass are known from its ids, so `NgramStore.prefetch` reads every
+  missing row on 32 lanes before the embedding is assembled. Do not go back to
+  one row at a time.
+- **The pass size is part of the memory plan, not a constant.** A pass touches
+  nearly every expert of every layer, so a bigger pass is strictly faster and
+  strictly more memory-hungry. Measured at a matched pool of 60/layer with the
+  sweep: 88 → 128 → 169 → 211 → 222 tok/s from 256 → 4096. Output is inside the
+  prefill-rechunk band at every size (the `prefix-check` method); it is not
+  byte-identical, and the docs must not say it is.
 - **`prefillCostGB` charges ~1.30 MB per chunk token, linear from zero.**
   It previously charged `(chunk - 256) x 1.8 MB`, which conflated two different
   things — pass activations, which scale with the chunk, and KV plus indexer
@@ -303,32 +344,28 @@ still quoted in commit history and both are wrong.
   a fifth once the cost above was honest. The deciding experiment held total
   memory fixed and traded pool for pass size: 2048 dominated 1024 on every axis
   — faster prefill, faster decode, *lower* peak.
-- **Prefill IO runs at ~4.5 GB/s, not the SSD's 17.3, and queue depth is not
-  why.** An expert is nine ~307 KB pieces, not one 2.76 MB block. QD 12 and 32
-  tie; 64 and 128 are worse. Making it faster means a contiguous on-disk repack
-  (the skipped M2 container) — this is the evidence that would un-skip it.
-- **Expert-load staging is capped at 32 records.** A 256-token layer can route
-  all 512 experts; loading them as one 1.415 GB record batch, then
-  materializing its MLX scatter while the source buffers were live, made a
-  `--memory-gb 10` long prompt peak at 12.4 GB. Thirty-two-record slices cut
-  the same 7,960-token run to 8.6 GB while retaining 41.3 tok/s prefill. Do not
-  coalesce those slices without re-running the real process-RSS gate.
-- **Cross-layer read-ahead does not work here. Do not rebuild it** without
-  first making reads contiguous. It was built, measured slower in every paired
-  run, and removed: the reads already saturate, so a background reader steals
-  CPU from the thread feeding the GPU and competes for the same unified memory.
-- **Compute is now the majority of a pass** (io 33.9 / scatter 10.3 / compute
-  50.3 s on an 8k prefill). Closing it means a grouped GEMM over the routed
-  experts instead of per-token gathers.
+- **Staging is bounded at 32 records** (`SLOTSTREAM_EXPERT_LOAD_BATCH`), the
+  sweep's group size and the pool path's load slice. A 256-token layer can
+  route all 512 experts; loading them as one 1.415 GB record batch made a
+  `--memory-gb 10` long prompt peak at 12.4 GB in 0.1.x. The sweep keeps at most
+  two groups alive and caps MLX's buffer cache while a prompt is read
+  (`SLOTSTREAM_PREFILL_CACHE_MB`), because its varying array sizes otherwise
+  fill the whole 2 GB cache. Re-run the real process-RSS gate before touching
+  either.
+- **Cross-layer read-ahead does not work here as a background thread.** It was
+  built, measured slower in every paired run, and removed (2026-08-30). The
+  sweep overlaps reads with the GPU inside a layer instead, on the main thread,
+  which is a different thing. Reading layer L+1's experts during layer L is
+  still the one lever left for the serial part above, and it costs a layer of
+  staging; measure before building it.
 - **That is NOT blocked on Xcode, despite what the risk register implies.**
   The register's entry is about building *mlx-swift's own bundled shader
   library* from source, which is worked around by vendoring `mlx.metallib`.
   Writing a **new** kernel is a different thing: `MLXFast.metalKernel` JIT-
   compiles Metal source at runtime through the Metal framework, needing no
   offline toolchain. This repo already does it — `GatedDelta.swift` builds the
-  gated-DeltaNet kernel that way and it is the shipped fast path. Verified on
-  this CLT-only machine: a fresh kernel compiled and ran. Do not repeat the
-  "needs Xcode" claim about custom kernels.
+  gated-DeltaNet kernel that way and it is the shipped fast path. The grouped
+  GEMM turned out not to need one: MLX ships it, behind a sorted-index flag.
 
 ## Sampler and governor
 

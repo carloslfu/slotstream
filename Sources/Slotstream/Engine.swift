@@ -161,6 +161,11 @@ public final class Engine {
         if let p = plan, ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CHUNK"] == nil {
             generator.prefillChunk = p.prefillChunk
         }
+        if let mb = Int(ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CACHE_MB"] ?? "") {
+            generator.prefillCacheLimit = max(0, mb) << 20
+        } else if let p = plan, p.expectedPeakGB <= 12 {
+            generator.prefillCacheLimit = 512 << 20
+        }
         self.tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
         var eos: Set<Int> = [index.config.eosTokenId]
         if let e = tokenizer.eosTokenId { eos.insert(e) }

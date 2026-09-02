@@ -2,11 +2,17 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-02T17:21:44.796685Z
+updated: 2026-09-02T19:42:06.744799Z
 ---
 
 # records/claims
 
+- [[records/claims/prefill-floor-51-to-93-tok-s-at-8-1-gb]] — The sweep reads the 7,960-token prompt at 93 tok/s at the 8.1 GB floor, against 51 for the 0.2.2 code, at a lower peak
+- [[records/claims/prefill-prose-66-to-140-tok-s-at-16-gb]] — The sweep reads a 10,490-token prose prompt at 140 tok/s at a 16 GB target, against 66 for the 0.2.2 code
+- [[records/claims/prefill-8k-prompt-91-to-184-tok-s-at-16-gb]] — The sweep reads the 8k acceptance prompt at 184 tok/s at a 16 GB target, against 91 for the 0.2.2 code
+- [[records/claims/full-context-wait-6-4-min-on-16-gb]] — A full 32k prompt waits about 6.4 min on a 16 GB Mac
+- [[records/claims/full-context-wait-3-0-min-on-48-gb]] — A full 32k prompt waits about 3.0 min before its first token on a 48 GB Mac
+- [[records/claims/prefill-220-tok-s-at-a-4096-pass]] — Prefill at a 4096-token pass is about 220 tok/s on the dev Mac (estimated from the sweep's ladder)
 - [[records/claims/only-the-48-gb-row-is-measured-on-real-hardware]] — Only the 48 GB row is measured on real hardware
 - [[records/claims/pull-verify-re-hashes-in-8-s]] — pull --verify re-hashes the whole copy in about 8 s on the dev Mac
 - [[records/claims/prefill-125-tok-s-at-a-4096-pass]] — Prefill at a 4096-token pass is about 125 tok/s on the dev Mac

@@ -194,6 +194,14 @@ public final class NgramStore {
             return r
         }
         rowMisses += 1
+        let out = readRow(gid)
+        insert(gid, out)
+        return out
+    }
+
+    /// Three preads and the dequant for one row. Pure: touches no shared
+    /// state, so `prefetch` can run it on many lanes at once.
+    private func readRow(_ gid: Int64) -> [Float] {
         let shard = Int(gid) / rowsPerShard
         let row = Int(gid) % rowsPerShard
         var wRaw = [UInt8](repeating: 0, count: wRowBytes)
@@ -220,15 +228,52 @@ public final class NgramStore {
                 }
             }
         }
+        return out
+    }
+
+    private func insert(_ gid: Int64, _ row: [Float]) {
         if cache.count >= cacheCap {
             // FIFO eviction of oldest 10%
             let n = cacheCap / 10
             for k in cacheOrder.prefix(n) { cache.removeValue(forKey: k) }
             cacheOrder.removeFirst(n)
         }
-        cache[gid] = out
+        cache[gid] = row
         cacheOrder.append(gid)
-        return out
+    }
+
+    /// Read every row of a pass that the cache lacks, in parallel, before the
+    /// embedding is assembled. Each row is three ~100-byte preads at an SSD
+    /// latency of ~55 µs, and a token needs sixteen rows: fetched one at a
+    /// time on the calling thread, ordinary prose cost about 3 ms per token
+    /// (35 s of a 10k-token prompt, in both the pool path and the sweep),
+    /// while repeated text hid it behind the row cache. The rows of the whole
+    /// pass are known from the ids alone (PLAN §3.3), so nothing is
+    /// speculative here; the cache is filled in first-appearance order, so it
+    /// holds exactly what the serial path would have held.
+    static let prefetchLanes = 32
+    private func prefetch(_ gids: [Int64]) {
+        var missing: [Int64] = []
+        var seen = Set<Int64>()
+        for g in gids where cache[g] == nil && seen.insert(g).inserted { missing.append(g) }
+        rowHits += gids.count - missing.count  // the rest were already resident, or repeats of a missing one
+        rowMisses += missing.count
+        guard missing.count > 1 else {
+            if let g = missing.first { insert(g, readRow(g)) }
+            return
+        }
+        var rows = [[Float]](repeating: [], count: missing.count)
+        let lanes = min(Self.prefetchLanes, missing.count)
+        rows.withUnsafeMutableBufferPointer { buf in
+            DispatchQueue.concurrentPerform(iterations: lanes) { lane in
+                var j = lane
+                while j < missing.count {
+                    buf[j] = self.readRow(missing[j])
+                    j += lanes
+                }
+            }
+        }
+        for (j, g) in missing.enumerated() { insert(g, rows[j]) }
     }
 
     /// Row-cache counters are per generation, like the expert pool's.
@@ -245,11 +290,13 @@ public final class NgramStore {
     /// Embedding for the last nNew positions: returns (1, nNew, pleEmbedDim) bf16.
     public func embedding(history: [Int64], nNew: Int) -> MLXArray {
         let gids = rowIds(history: history, nNew: nNew)
+        prefetch(gids.flatMap { $0 })
         var flat = [Float]()
         flat.reserveCapacity(nNew * cfg.pleEmbedDim)
         for pos in gids {
             for gid in pos {
-                flat.append(contentsOf: fetchRow(gid))
+                // Every row is resident after the prefetch; counted there.
+                flat.append(contentsOf: cache[gid] ?? fetchRow(gid))
             }
         }
         return MLXArray(flat, [1, nNew, cfg.pleEmbedDim]).asType(.bfloat16)

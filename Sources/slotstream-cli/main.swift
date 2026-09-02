@@ -16,7 +16,7 @@ struct Slotstream: ParsableCommand {
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
             PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
-            ContextCheck.self, PrefillScheduleCommand.self,
+            ContextCheck.self, PrefillScheduleCommand.self, SweepCheck.self,
         ]
     )
 }

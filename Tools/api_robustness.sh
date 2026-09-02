@@ -10,7 +10,12 @@ BIN=.build/release/slotstream
 PORT=${1:-11466}
 EPL=${2:-13}
 PASS=0; FAIL=0
+# The 24 required files; the optional draft head (1,470,955,171 bytes, pulled
+# with the weights since 0.2.2) counts when it is present, since /api/tags
+# reports what is on disk.
 TOTAL_WEIGHT_BYTES=103793508077
+MTPFILE="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit/mtp.safetensors"
+[ -f "$MTPFILE" ] && TOTAL_WEIGHT_BYTES=$((TOTAL_WEIGHT_BYTES + $(stat -f%z "$MTPFILE")))
 
 say() { printf '%s\n' "$*"; }
 ok()  { say "PASS  $1"; PASS=$((PASS+1)); }
