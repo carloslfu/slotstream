@@ -10,7 +10,11 @@ BIN=.build/release/slotstream
 PORT=${1:-11466}
 EPL=${2:-13}
 PASS=0; FAIL=0
+# The pinned manifest covers the 24 required files; the optional MTP draft
+# head (mtp.safetensors) adds its own bytes when installed.
 TOTAL_WEIGHT_BYTES=103793508077
+MTP_FILE="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit/mtp.safetensors"
+[ -f "$MTP_FILE" ] && TOTAL_WEIGHT_BYTES=$((TOTAL_WEIGHT_BYTES + $(stat -f %z "$MTP_FILE")))
 
 say() { printf '%s\n' "$*"; }
 ok()  { say "PASS  $1"; PASS=$((PASS+1)); }
@@ -43,8 +47,8 @@ C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
     "http://127.0.0.1:$PORT/api/chat" -d '{"model":"some-other-model","messages":[{"role":"user","content":"hi"}]}')
 [ "$C" = 400 ] && ok "wrong model is rejected instead of silently relabeled" || bad "wrong model returned $C"
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
-    "http://127.0.0.1:$PORT/api/chat" -d '{"messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function"}]}')
-[ "$C" = 400 ] && ok "unsupported Ollama tools are rejected explicitly" || bad "tools returned $C"
+    "http://127.0.0.1:$PORT/api/chat" -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function"}]}')
+[ "$C" = 400 ] && ok "Ollama rejects a tool entry without a function name" || bad "nameless tool returned $C"
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
     "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}')
 [ "$C" = 400 ] && ok "unsupported OpenAI response_format is rejected explicitly" || bad "response_format returned $C"
@@ -296,6 +300,24 @@ for F in '"n":2' '"frequency_penalty":0.5' '"logprobs":true' '"tools":[{"type":"
       -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],$F}")
   [ "$C" = 400 ] && ok "/v1 still refuses the real feature $F" || bad "/v1 accepted $F" "$C"
 done
+
+# --- tools: the feature works; garbage still refuses -------------------------
+OT='{"type":"function","function":{"name":"get_time","description":"Current time","parameters":{"type":"object","properties":{"tz":{"type":"string"}},"required":[]}}}'
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/api/chat" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"options\":{\"num_predict\":4},\"tools\":[$OT]}")
+[ "$C" = 200 ] && ok "Ollama accepts a well-formed tools array" || bad "Ollama tools returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"max_tokens\":4,\"tools\":[$OT]}")
+[ "$C" = 200 ] && ok "/v1 accepts a well-formed tools array" || bad "/v1 tools returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":4,\"tools\":[$OT],\"tool_choice\":\"none\"}")
+[ "$C" = 200 ] && ok "/v1 tool_choice none renders without schemas" || bad "/v1 tool_choice none returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"tools\":[$OT],\"tool_choice\":\"get_time\"}")
+[ "$C" = 400 ] && ok "/v1 refuses forced tool_choice" || bad "/v1 forced tool_choice returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_time","arguments":"{}"}}]},{"role":"tool","tool_call_id":"c1","content":"12:00"},{"role":"user","content":"thanks"}],"max_tokens":4}')
+[ "$C" = 200 ] && ok "tool result roundtrip is accepted on /v1" || bad "tool roundtrip returned $C"
 
 # --- think: reasoning belongs in `thinking`, not in the answer --------------
 R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"think":true,"messages":[{"role":"user","content":"What is 2+2?"}],"options":{"num_predict":80,"temperature":0}}')
