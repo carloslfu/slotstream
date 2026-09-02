@@ -79,10 +79,13 @@ it directly. Before transferring anything it prints the size, the destination,
 and your free disk, waits for a yes, and refuses outright if the disk can't
 hold it.
 
-A real install took 35 minutes. Hugging Face caps the transfer at roughly
-36–57 MB/s however many connections you open, so past ~400 Mbps the wait is
-Hugging Face's day, not your link. At 100 Mbps plan on ~2 h 20; at 25 Mbps,
-~9 h.
+Your link sets the pace. `pull` opens eight TCP connections; a full install
+from a 1 Gbit/s datacenter link measured 112 MB/s, 16 minutes for the whole
+thing, which is the port. At 100 Mbps plan on ~2 h 20; at 25 Mbps, ~9 h. One
+connection alone is bounded by the round trip to Hugging Face — about 70 MB/s
+from a datacenter, 25 to 40 from a home link 100 ms away — which is why the
+count matters and why `pull` prints how many it is actually using. (Through
+0.2.0 it ran on one connection whatever the flag said; see the changelog.)
 
 Interrupting is safe: `pull` picks up where it stopped, redoing at most the
 few chunks that were in flight, and all 24 files are checked against sha256
@@ -303,7 +306,7 @@ name is `qwen3.8-flash-next:4bit`, which is also the default.
 | Flag | Meaning |
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
-| `--connections <n>` | Parallel connections (default 8; Hugging Face plateaus past 4). |
+| `--connections <n>` | TCP connections, one URLSession each (default 8, cap 32). Eight fill a 1 Gbit/s link (112 MB/s on a full install); more buys nothing there or on slower links. `pull` prints the count it measures. |
 | `--verify` | Re-hash an existing copy against the pinned sha256s and download nothing. |
 
 Weights placed elsewhere are used by passing that directory to `--model`, or
@@ -620,8 +623,18 @@ open an issue with your `slotstream doctor` output.
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.1 — 2026-09-01
 
+- `pull` opens the connections it claimed. Each of its eight connections is
+  now its own URLSession: HTTP/2 multiplexes every request in a session over
+  one TCP connection and ignores `httpMaximumConnectionsPerHost`, so every
+  pull through 0.2.0 ran at one connection's speed — 25 to 40 MB/s from a home
+  link 100 ms from Hugging Face, 72 from a gigabit datacenter link. Eight real
+  connections measured 112 MB/s over a full install on that link (16 minutes)
+  and 50 to 63 at home, and `pull` now prints the count it actually measured. The
+  README's claim that Hugging Face caps the transfer near 55 MB/s was this bug
+  seen from one link; it is withdrawn, as is the "R2 tested and rejected"
+  verdict that rested on the same link (MEASUREMENTS.md, 2026-09-01).
 - The Ollama CLI works again. 0.1.8's strict validator rejected the empty
   `name`/`system`/`template`/`options` the CLI's `/api/show` request always
   carries, so `ollama run` stopped before its first message. `/api/show` now

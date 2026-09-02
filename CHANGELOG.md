@@ -3,8 +3,18 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.1 — 2026-09-01
 
+- `pull` opens the connections it claimed. Each of its eight connections is
+  now its own URLSession: HTTP/2 multiplexes every request in a session over
+  one TCP connection and ignores `httpMaximumConnectionsPerHost`, so every
+  pull through 0.2.0 ran at one connection's speed — 25 to 40 MB/s from a home
+  link 100 ms from Hugging Face, 72 from a gigabit datacenter link. Eight real
+  connections measured 112 MB/s over a full install on that link (16 minutes)
+  and 50 to 63 at home, and `pull` now prints the count it actually measured. The
+  README's claim that Hugging Face caps the transfer near 55 MB/s was this bug
+  seen from one link; it is withdrawn, as is the "R2 tested and rejected"
+  verdict that rested on the same link (MEASUREMENTS.md, 2026-09-01).
 - The Ollama CLI works again. 0.1.8's strict validator rejected the empty
   `name`/`system`/`template`/`options` the CLI's `/api/show` request always
   carries, so `ollama run` stopped before its first message. `/api/show` now

@@ -52,7 +52,7 @@ name is `qwen3.8-flash-next:4bit`, which is also the default.
 | Flag | Meaning |
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
-| `--connections <n>` | Parallel connections (default 8; Hugging Face plateaus past 4). |
+| `--connections <n>` | TCP connections, one URLSession each (default 8, cap 32). Eight fill a 1 Gbit/s link (112 MB/s on a full install); more buys nothing there or on slower links. `pull` prints the count it measures. |
 | `--verify` | Re-hash an existing copy against the pinned sha256s and download nothing. |
 
 Weights placed elsewhere are used by passing that directory to `--model`, or

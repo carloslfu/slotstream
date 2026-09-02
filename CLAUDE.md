@@ -93,12 +93,21 @@ multi-GB. These rules are mandatory:
 ## Weight download
 
 `pull` runs 8 parallel connections over 64 MB chunks with a per-file
-`.partmap` (one byte per chunk) for exact resume. Hugging Face caps this
-client at about 55 MB/s no matter what: 4 through 32 connections all plateau
-there, `hf_xet` gets the same 55.7, and splitting across two mirror repos
-gains nothing (the cap is per-IP, not per-repo). The link itself does 144 MB/s
-against Hetzner, so more speed means hosting the weights off Hugging Face, not
-tuning the client. Do not "optimize" the connection count without re-measuring.
+`.partmap` (one byte per chunk) for exact resume. Each connection is its own
+URLSession, and that is not optional: HTTP/2 multiplexes every request in a
+session over one TCP connection and ignores `httpMaximumConnectionsPerHost`
+(Apple documents this), so through 0.2.0 the "8 connections" were 8 streams on
+one connection and every pull ran at single-connection speed. The 2026-08-29
+finding that "Hugging Face caps this client at 55 MB/s" was that one
+connection, measured from a home link that caps every host near 55; from a
+1 Gbit/s datacenter link Hugging Face gives 72 MB/s on one connection and 103
+to 112 on 8 to 32 (the port; a full install took 16 minutes). `pull` prints the
+connection count it measures
+from task metrics; if it ever reports fewer than requested, measure before
+tuning anything. Hosting the weights elsewhere does not raise one connection's
+speed; only more connections or a shorter round trip do (MEASUREMENTS.md,
+2026-09-01). `Tools/pull_bench_linux.sh` runs the exact pull code on a Linux
+box in Docker for a gigabit measurement.
 
 To exercise the whole pull path without spending 104 GB of network, serve the
 existing `models/` copy over a Range-capable local HTTP server and point

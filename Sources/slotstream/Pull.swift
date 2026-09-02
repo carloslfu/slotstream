@@ -8,8 +8,24 @@
 // before any bytes move. A stranger runs: `slotstream pull` → `slotstream serve`.
 
 import ArgumentParser
-import CryptoKit
 import Foundation
+#if canImport(CryptoKit)
+import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(Glibc)
+import Glibc
+#endif
+#if !canImport(ObjectiveC)
+/// Darwin's autoreleasepool has no Linux counterpart; the body simply runs.
+/// (Linux is not a supported platform; this lets `Tools/pull_bench_linux.sh`
+/// exercise the exact download code from a gigabit datacenter link.)
+func autoreleasepool<T>(invoking body: () throws -> T) rethrows -> T { try body() }
+#endif
 
 private struct PullIntegrityError: Error, LocalizedError {
     let file: String
@@ -79,11 +95,17 @@ enum WeightSources {
     ]
 }
 
-/// Fetch shape. One connection to Hugging Face measured 28 to 40 MB/s; eight
-/// measured 50 to 57, which is also what `hf_xet`, Hugging Face's own fastest
-/// client, gets. Past eight the CDN gives nothing back, so this is the plateau
-/// rather than a guess. 64 MB chunks keep the retry unit small without making
-/// the chunk map big (about 1,600 chunks for the whole 103.8 GB).
+/// Fetch shape. Eight TCP connections by default, each owned by its own
+/// URLSession: HTTP/2 multiplexes every request in a session over one
+/// connection and ignores `httpMaximumConnectionsPerHost` (Apple documents
+/// this), so until 0.2.1 a single session pulled at one connection's speed
+/// whatever the flag said. One connection is bounded by TCP window over
+/// round-trip time: ~72 MB/s from a 1 Gbit/s datacenter link 35 ms from the
+/// Hugging Face bridge, 25 to 40 from a home link 100 ms away. Eight real
+/// connections measured 112 MB/s over a full install from that datacenter
+/// link (the port), and 50 to 63 at home, where the path caps every host in
+/// that band (MEASUREMENTS.md, 2026-09-01). 64 MB chunks keep the retry unit small
+/// without making the chunk map big (about 1,600 chunks for the whole 103.8 GB).
 enum PullTuning {
     static let chunkBytes: Int64 = 64 << 20
     static var connections: Int {
@@ -176,24 +198,32 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
     private let hashQueue = DispatchQueue(label: "slotstream.pull.hash")
     private let hashGroup = DispatchGroup()
 
-    // Built once in init, never lazily: a `lazy var` touched by 8 worker
-    // threads at once builds several sessions, and task identifiers are only
-    // unique within a session, so their in-flight state collides and requests
-    // are never completed. Requests are keyed by our own id for the same
-    // reason — nothing depends on URLSession's numbering.
-    private var session: URLSession!
+    // One URLSession per worker, all built in init. A session multiplexes
+    // every request to a host over a single HTTP/2 connection and ignores
+    // `httpMaximumConnectionsPerHost`, so N connections take N sessions.
+    // Requests are keyed by our own id (`taskDescription`): task identifiers
+    // are only unique within a session, and an earlier build that keyed on
+    // them had in-flight state collide across sessions.
+    private var sessions: [URLSession] = []
     private var nextRequestID = 1
+    /// Distinct TCP connections seen carrying chunk bodies (from task metrics),
+    /// so the connection count is measured on every pull rather than assumed.
+    private var connectionKeys = Set<String>()
+    private var sessionsSeen = Set<ObjectIdentifier>()
+    private var connectionsReported = false
 
     init(dest: URL, bases: [String], connections: Int) {
         self.dest = dest
         self.bases = bases
         self.connections = connections
         super.init()
-        let cfg = URLSessionConfiguration.ephemeral
-        cfg.timeoutIntervalForRequest = 60
-        cfg.timeoutIntervalForResource = 7 * 24 * 3600
-        cfg.httpMaximumConnectionsPerHost = connections
-        session = URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
+        for _ in 0 ..< connections {
+            let cfg = URLSessionConfiguration.ephemeral
+            cfg.timeoutIntervalForRequest = 60
+            cfg.timeoutIntervalForResource = 7 * 24 * 3600
+            cfg.httpMaximumConnectionsPerHost = 1
+            sessions.append(URLSession(configuration: cfg, delegate: self, delegateQueue: nil))
+        }
     }
 
     // MARK: plan
@@ -284,17 +314,18 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
     func run() throws {
         guard !queue.isEmpty else {
             hashGroup.wait()
-            session.invalidateAndCancel()
+            sessions.forEach { $0.invalidateAndCancel() }
             if let e = hashFailure { throw e }
             return
         }
         startTime = Date()
         lastPrint = startTime
         let group = DispatchGroup()
-        for _ in 0 ..< connections {
+        for i in 0 ..< connections {
             group.enter()
+            let session = sessions[i]
             let t = Thread { [weak self] in
-                self?.workerLoop()
+                self?.workerLoop(session: session)
                 group.leave()
             }
             t.stackSize = 512 << 10
@@ -302,7 +333,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         }
         group.wait()
         hashGroup.wait()
-        session.invalidateAndCancel()
+        sessions.forEach { $0.invalidateAndCancel() }
         flushMaps(force: true)
         // whatever is still incomplete keeps its map and its fd until here;
         // serve calls this in-process, so the fds must not outlive the pull
@@ -321,7 +352,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         if let err { throw err }
     }
 
-    private func workerLoop() {
+    private func workerLoop(session: URLSession) {
         while let chunk = nextWork() {
             var lastError: Error?
             var attempt = 0
@@ -330,7 +361,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
                 attempt += 1
                 let (base, srcIdx) = currentSource(for: chunk.file)
                 do {
-                    try fetch(chunk, base: base)
+                    try fetch(chunk, base: base, session: session)
                     ok = true
                     break
                 } catch {
@@ -405,7 +436,7 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
 
     // MARK: one chunk
 
-    private func fetch(_ chunk: Chunk, base: String) throws {
+    private func fetch(_ chunk: Chunk, base: String, session: URLSession) throws {
         let f = PinnedModel.files[chunk.file]
         lock.lock()
         let fd = parts[chunk.file]?.fd ?? -1
@@ -533,6 +564,31 @@ private final class PullJob: NSObject, URLSessionDataDelegate {
         if st.error == nil, let e { st.error = e }
         st.sem.signal()
     }
+
+    #if canImport(Darwin)
+    /// Count the TCP connections that actually carry chunk bodies and say so
+    /// once, as soon as every worker's session has completed a chunk. "8
+    /// connections" was a claim this code did not keep for four releases; now
+    /// it is a number it measures.
+    func urlSession(
+        _ s: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics
+    ) {
+        // The last transaction carried the body; earlier ones are the redirect.
+        guard let tx = metrics.transactionMetrics.last else { return }
+        let key = "\(tx.remoteAddress ?? "?"):\(tx.remotePort ?? 0)<-\(tx.localPort ?? 0)"
+        lock.lock()
+        connectionKeys.insert(key)
+        sessionsSeen.insert(ObjectIdentifier(s))
+        let report = !connectionsReported && sessionsSeen.count == connections
+        if report { connectionsReported = true }
+        let n = connectionKeys.count
+        lock.unlock()
+        guard report else { return }
+        var line = "  \(n) connection\(n == 1 ? "" : "s") in use"
+        if n < connections { line += " — expected \(connections); URLSession coalesced some" }
+        FileHandle.standardError.write((line + "\n").data(using: .utf8)!)
+    }
+    #endif
 
     // MARK: bookkeeping
 
@@ -796,13 +852,14 @@ struct Pull: ParsableCommand {
         return max(0, min(PullTuning.chunkBytes, size - start))
     }
 
-    /// Best case wall time for `bytes`, quoted at the ceiling the mirror
-    /// actually delivers: 36 to 57 MB/s measured here across 4, 8, 16 and 32
-    /// connections and against `hf_xet`, so 50 is the middle of that. A slower
-    /// link is slower, which is why this is labelled a floor at the call site;
-    /// the progress line reports the real rate within two seconds.
+    /// Best case wall time for `bytes`, quoted at the fastest rate measured for
+    /// this client: 112 MB/s over eight connections on a 1 Gbit/s datacenter
+    /// link, a full install, where the port, not Hugging Face, was the limit
+    /// (MEASUREMENTS.md, 2026-09-01). Anything slower is the user's link, which
+    /// is why the call site labels this a floor; the progress line reports the
+    /// real rate within two seconds.
     static func etaHint(_ bytes: Int64) -> String {
-        let seconds = Double(bytes) / 50e6
+        let seconds = Double(bytes) / 100e6
         if seconds < 120 { return "~\(max(1, Int((seconds / 60).rounded()))) min" }
         if seconds < 3600 { return "~\(Int((seconds / 60).rounded())) min" }
         return String(format: "~%.1f h", seconds / 3600)
@@ -862,8 +919,8 @@ struct Pull: ParsableCommand {
                     format: "not enough disk: need %.1f GB (%.1f GB to download + 2 GB margin), have %.1f GB free at %@",
                     Double(needed) / 1e9, Double(remaining) / 1e9, Double(free) / 1e9, dest.path))
             }
-            print("est. \(Self.etaHint(remaining)) at best — the mirror tops out near "
-                + "50 MB/s, a slower link takes longer")
+            print("est. \(Self.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower "
+                + "link takes longer")
             print(String(
                 format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
                 PinnedModel.repo, String(PinnedModel.revision.prefix(12)),

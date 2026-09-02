@@ -205,7 +205,7 @@ struct ModelOptions: ParsableArguments {
             \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
               size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
                   have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
-              time:  \(Pull.etaHint(remaining)) at best — the mirror tops out near 50 MB/s, a slower link takes longer
+              time:  \(Pull.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower link takes longer
               to:    \(url.path)
               disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
             """)

@@ -71,10 +71,13 @@ it directly. Before transferring anything it prints the size, the destination,
 and your free disk, waits for a yes, and refuses outright if the disk can't
 hold it.
 
-A real install took 35 minutes. Hugging Face caps the transfer at roughly
-36–57 MB/s however many connections you open, so past ~400 Mbps the wait is
-Hugging Face's day, not your link. At 100 Mbps plan on ~2 h 20; at 25 Mbps,
-~9 h.
+Your link sets the pace. `pull` opens eight TCP connections; a full install
+from a 1 Gbit/s datacenter link measured 112 MB/s, 16 minutes for the whole
+thing, which is the port. At 100 Mbps plan on ~2 h 20; at 25 Mbps, ~9 h. One
+connection alone is bounded by the round trip to Hugging Face — about 70 MB/s
+from a datacenter, 25 to 40 from a home link 100 ms away — which is why the
+count matters and why `pull` prints how many it is actually using. (Through
+0.2.0 it ran on one connection whatever the flag said; see the changelog.)
 
 Interrupting is safe: `pull` picks up where it stopped, redoing at most the
 few chunks that were in flight, and all 24 files are checked against sha256
