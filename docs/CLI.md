@@ -139,14 +139,12 @@ model, takes the lock, and allocates real memory, so give it a small target
 
 - `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the
   model's draft head, `mtp.safetensors`, which `pull` fetches with the
-  weights (optional: a source without it leaves the pull green); `on`
-  without the file is an error, `auto` is the
-  default and stays off below a 28 GB target, where the cache still reaches
-  120 experts per layer after the head's 1.6 GB. Measured on the dev Mac,
-  the 0.2.0 build (four drafts) did not pay at any smaller cache (×0.55 to
-  ×0.96 from 20 to 57 experts per layer, ×0.88 at 122); one draft, the
-  default now, reads ×1.20 at 57 and ×1.24 at 122, the size auto enables it
-  at. MEASUREMENTS.md M9 has the ladder and the measured ceiling.
+  weights (optional: a source without it leaves the pull green). `on`
+  without the file is an error; `auto`, the default, turns it on when the
+  cache still reaches 120 experts per layer after the head's 1.6 GB (a 28 GB
+  target) and stays off below that, where it measured a loss. At that size
+  it measured ×1.24 decode; MEASUREMENTS.md M9 has the ladder and the
+  ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.

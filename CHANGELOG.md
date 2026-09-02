@@ -7,38 +7,32 @@ release; anything under **Unreleased** is on `main` only.
 
 ## 0.2.2 — 2026-09-02
 
-- A rejected draft costs nothing to unwind. The verify pass now records the
-  recurrent state after every position (the GDN recurrence stepped one token
-  at a time, bit-identical to the fused kernel; conv windows sliced), so a
-  rejection rolls back to the kept prefix instead of re-running it through
-  the model. At 57 experts per layer one draft goes from ×1.12 to ×1.20, two
-  drafts to ×1.20; at the 122 per layer auto enables the head at, one draft
-  reads ×1.24 (×1.33 on a code prompt, ×1.19 on a list, ×1.18 with the
-  server's default sampling), two drafts ×1.27. `mtp-check` gates the
-  recording pass against the batched one (exact) and a rollback against the
-  plain path state by state, inside three times what re-chunking the plain
-  path moves the same tensors, with the next step inside the prefill-rechunk
-  band. `mtp-bench --sample` measures the sampled case.
-- `pull` fetches the draft head. `mtp.safetensors` (1.47 GB, sha256-pinned)
-  is hosted on the weights mirror and pulled with everything else, so `--mtp
-  auto` works out of the box on a large Mac. It is the manifest's one optional
-  file: a source without it leaves the pull green with a notice and
-  speculative decode off, `pull --verify` skips it when absent, and the
-  startup check never asks to repair it. The weights are 105.3 GB in 25 files.
-- Speculative decode drafts one token instead of four, and its numbers are
-  measured rather than projected. On the 0.2.0 build the A/B read ×0.55 /
-  0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts per layer, ×0.65 at a
-  fixed 14 GB target, and ×0.88 at the 122 per layer auto enables it at: a
-  loss everywhere. One draft reads ×1.13 at 57 and ×1.17 at 122 (two drafts
-  ×1.13), so the default is now 1 and auto's 120-per-layer threshold stands,
-  measured. The ceiling is measured too: with every expert resident a verify
-  pass costs about a sixth of a pass per extra token (new hidden
-  `mtp-passcost`), which caps one-draft speculation at about ×1.4. The
-  ×1.5–1.9 estimate for large caches is withdrawn, and auto's threshold
-  reads 28 GB, not ~26. The `mtp-check`
-  continuation gate now bounds the reused state's logits by the plain
-  re-chunking band instead of comparing liveness, which was a near-tie coin
-  toss that the depth change flipped.
+- Speculative decode pays, and ships. The draft head, `mtp.safetensors`
+  (1.47 GB, sha256-pinned), is hosted on the weights mirror and pulled with
+  everything else, so `--mtp auto` works out of the box on a large Mac. It is
+  the manifest's one optional file: a source without it leaves the pull green
+  with a notice and speculative decode off, `pull --verify` skips it when
+  absent, and the startup check never asks to repair it. The weights are
+  105.3 GB in 25 files.
+- A rejected draft rolls back instead of re-running. The verify pass records
+  the recurrent state after every position (the GDN recurrence stepped one
+  token at a time, bit-identical to the fused kernel; conv windows sliced),
+  so a rejection costs no model compute. Measured where auto enables the head
+  (122 experts per layer, a quiet 48 GB Mac): ×1.24 decode with one draft
+  (10.3 → 12.8 tok/s; ×1.33 on a code prompt, ×1.19 on a list, ×1.18 with the
+  server's default sampling), up from ×1.17; ×1.20 at 57 per layer, up from
+  ×1.12.
+- One draft by default (was four). Four drafts lose at every size measured,
+  ×0.88 even where auto turns the head on; one is best or tied everywhere and
+  wastes the least on a rejection. `SLOTSTREAM_DRAFT_DEPTH` still overrides.
+- The numbers are measured, not projected. The ×1.5–1.9 the 0.2.0 docs gave
+  large caches assumed a five-token verify pass costs one token's pass; new
+  hidden `mtp-passcost` measured 1.65 (a sixth of a pass per extra token),
+  and auto's threshold reads 28 GB, not ~26. `mtp-check` bounds the reused
+  speculative state's logits by the plain re-chunking band instead of
+  comparing liveness, proves the recording pass exact against the batched
+  one, and checks a rollback state by state against the plain path.
+  `mtp-bench --sample` measures the sampled case.
 - `pull`'s connection report counts the connections in use at once, one per
   session, instead of every distinct connection since the start; 0.2.1 could
   print "10 connections in use" for eight workers after two reconnects.
