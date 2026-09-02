@@ -136,7 +136,7 @@ model, takes the lock, and allocates real memory, so give it a small target
 
 ## New in 0.2.0
 
-- `--mtp auto|on|off` on `run` and `serve`: speculative decode with the
+- `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the
   model's draft head. Needs `mtp.safetensors` next to the weights
   (`Tools/mtp_convert.py`); `on` without the file is an error, `auto` is the
   default and stays off below ~26 GB of target.

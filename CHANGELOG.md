@@ -6,7 +6,7 @@ release; anything under **Unreleased** is on `main` only.
 ## 0.2.0 — 2026-09-01
 
 - Speculative decode with the model's draft head: `--mtp auto|on|off` on
-  `run` and `serve`. Auto enables it only at 120 or more experts per layer
+  `run`, `serve`, and `doctor`. Auto enables it only at 120 or more experts per layer
   after its 1.6 GB charge, which raises the auto ceiling to 34.6 GB. Measured
   depth-1 accept rate 85.8%; ×0.96 at a 16 GB target, so it stays off there;
   the large-cache A/B is still pending.

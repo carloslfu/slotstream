@@ -32,9 +32,11 @@ Auto-sizing never takes the whole machine. What each tier gets:
 
 These rows come straight from `slotstream doctor --sim-ram N`, so you can
 reproduce them. Only the 48 GB row is measured on real hardware; the others
-are estimates from its curve, and smaller Macs also have slower SSDs. Run
-`slotstream doctor` before downloading anything: it prints your machine's
-plan and whether the disk can hold the weights.
+are estimates from its curve, and smaller Macs also have slower SSDs. The
+middle column assumes nothing else is holding memory: with a browser open,
+auto takes less and says so in the plan it prints at startup (see
+[Memory](#memory)). Run `slotstream doctor` before downloading anything: it
+prints your machine's plan and whether the disk can hold the weights.
 
 ## Install
 
@@ -125,6 +127,19 @@ state isn't bit-identical to recomputing it, so a reply can occasionally
 differ where two tokens were nearly tied; `--no-prefix-cache` turns it off if
 you need exact reproducibility.
 
+Decode has one more gear on machines with room to spare. The model ships a
+draft head that predicts the token after next; with `--mtp` (default `auto`,
+new in 0.2.0) slotstream drafts a few tokens ahead and verifies them in one
+batched pass, and the first draft is right 86% of the time (measured). It
+only pays where the expert cache is already near its best: at small caches
+the A/B says ×0.96, so auto keeps it off below ~26 GB of target, and the
+×1.5–1.9 expected above that is arithmetic from the accept rate, not yet an
+A/B. The head costs 1.6 GB on top of the cache, so the auto ceiling becomes
+34.6 GB. It needs a one-time conversion that pulls 4.9 GB from the official
+release and writes a 1.5 GB `mtp.safetensors` next to the weights
+(`Tools/mtp_convert.py`, run from a clone with the repo's Python
+environment); without the file, everything runs with it off.
+
 ## Memory
 
 With no flags, slotstream sizes itself to your machine and tells you what it
@@ -186,29 +201,12 @@ are estimates from its curve, not runs on real hardware.
   stops before the first message. curl, Open WebUI, and the OpenAI SDKs
   work; a fix is pending.
 
-## Speculative decode
-
-New in 0.2.0 ([CHANGELOG.md](CHANGELOG.md) has the full list per release).
-
-- **`--mtp auto|on|off`.** The model ships a draft head that
-  predicts the token after next; slotstream drafts a few tokens ahead and
-  verifies them in one batched pass, and the first draft is right 86% of the
-  time (measured). It only pays where the expert cache is already near its
-  best: at small caches the A/B says ×0.96, so auto keeps it off below
-  ~26 GB of target, and the ×1.5–1.9 expected above that is arithmetic from
-  the accept rate, not yet an A/B. The head costs 1.6 GB on top of the cache,
-  so the auto ceiling becomes 34.6 GB. It needs a one-time conversion that
-  pulls 4.9 GB from the official release and writes a 1.5 GB
-  `mtp.safetensors` next to the weights (`Tools/mtp_convert.py`, run from a
-  clone with the repo's Python environment); without the file, everything
-  runs with it off.
-
 ## Docs
 
 - [docs/API.md](docs/API.md): every endpoint, accepted field, sampling
   default, and deliberate 400.
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): port clashes, paging,
-  moving or verifying the weights.
+  slow decode, moving or verifying the weights.
 - [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and
   their precedence, environment variables, where files live. (`slotstream
   <command> --help` carries the same text with more discussion.)
@@ -224,8 +222,8 @@ New in 0.2.0 ([CHANGELOG.md](CHANGELOG.md) has the full list per release).
 
 `Tools/verify.sh` is the acceptance battery: weight provenance, goldens
 against a version-matched Python reference, byte-equality across cache sizes
-and live resizes, and a serving-robustness suite of inputs that used to crash
-the server. `Tools/e2e_release.sh` tests the other thing users actually
+and live resizes, the speculative-decode gates, and a serving-robustness
+suite of inputs that used to crash the server. `Tools/e2e_release.sh` tests the other thing users actually
 touch: the `curl | sh` install and the binary it leaves behind. The parts
 that need no weights run in CI on every release build.
 
