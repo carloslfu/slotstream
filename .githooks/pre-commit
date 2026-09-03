@@ -1,0 +1,64 @@
+#!/bin/bash
+# Three files in this repo are generated, and a commit that moves a source
+# without its projection is red in CI: llms-full.txt comes from the docs
+# (Tools/llms_full.sh), MEASUREMENTS.md and PLAN.md come from the brain's
+# records (Tools/projections.py). On 2026-09-03 a six-line README edit shipped
+# without the regenerate and failed the docs job. This hook regenerates them
+# and stages the result, so that commit cannot be made in the first place.
+#
+# Install with `make hooks`; bypass a single commit with `git commit --no-verify`.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# A checkout that predates the generators (a bisect, an old commit) has
+# nothing to regenerate; do not block its commits.
+[ -x Tools/llms_full.sh ] && [ -f Tools/projections.py ] || exit 0
+
+# Tools/llms_full.sh --sources is the one place the doc list lives.
+inputs=(db/records)
+while IFS= read -r f; do inputs+=("$f"); done < <(Tools/llms_full.sh --sources)
+outputs=(llms-full.txt MEASUREMENTS.md PLAN.md)
+
+# Nothing staged that feeds a projection: nothing for this hook to do.
+[ -n "$(git diff --cached --name-only -- "${inputs[@]}" "${outputs[@]}")" ] || exit 0
+
+partial=$(git diff --name-only -- "${inputs[@]}" "${outputs[@]}")
+if [ -z "$partial" ]; then
+  # The working tree is what is being committed, so regenerating here and
+  # staging the result commits exactly the projection of the staged sources.
+  Tools/llms_full.sh >/dev/null
+  python3 Tools/projections.py >/dev/null
+  changed=$(git diff --name-only -- "${outputs[@]}")
+  [ -n "$changed" ] || exit 0
+  echo "$changed" | while IFS= read -r f; do
+    git add -- "$f"
+    echo "pre-commit: regenerated and staged $f"
+  done
+  # `git commit -a` and `git commit <path>` build a temporary index. Git points
+  # hooks at it, so the `git add` above lands in this commit — but verify it
+  # rather than trust it, because the whole point is to not ship a stale file.
+  for f in $changed; do
+    git diff --cached --quiet -- "$f" || continue
+    echo "pre-commit: regenerated $f, but this commit did not pick it up." >&2
+    echo "pre-commit: run \`git add $f\` and commit again." >&2
+    exit 1
+  done
+  exit 0
+fi
+
+# Something is staged partially (git add -p, or an edit made after `git add`),
+# so the working tree is not what is being committed and regenerating from it
+# would commit prose that was deliberately held back. Check the commit itself
+# instead: materialize the staged blobs into a scratch tree and run the
+# generators there, so the question asked is exactly "do the staged sources
+# generate the staged projections?".
+echo "pre-commit: staged partially, so checking the commit instead of regenerating:" >&2
+echo "$partial" | sed 's/^/  worktree differs from index: /' >&2
+scratch=$(mktemp -d)
+trap 'rm -rf "$scratch"' EXIT
+git ls-files -- Tools db/records docs README.md CHANGELOG.md \
+  llms-full.txt MEASUREMENTS.md PLAN.md |
+  git checkout-index --prefix="$scratch/" --stdin
+cd "$scratch"
+Tools/llms_full.sh --check
+python3 Tools/projections.py --check

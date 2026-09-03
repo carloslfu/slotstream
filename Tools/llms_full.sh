@@ -2,6 +2,8 @@
 # Build llms-full.txt: every user-facing doc in one file, for agents that want
 # a single fetch (llms.txt is the index). --check fails when the committed
 # file is stale, so the static gates catch a doc edit without a regenerate.
+# --sources prints the input list; the pre-commit hook reads it, so the set of
+# docs that make llms-full.txt stale is written down exactly once.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -22,13 +24,38 @@ render() {
   done
 }
 
-if [ "${1:-}" = "--check" ]; then
-  if ! diff -q <(render) llms-full.txt >/dev/null 2>&1; then
+case "${1:-}" in
+--sources)
+  printf '%s\n' "${SOURCES[@]}"
+  ;;
+--check)
+  # Render to a file, never into a pipe. `diff -q <(render)` stopped reading at
+  # the first difference and left render writing into a closed pipe; the Actions
+  # runner passes SIGPIPE on as ignored, so instead of dying quietly every echo
+  # printed "write error: Broken pipe" and buried the one line that mattered.
+  # A file also keeps `set -e` live inside render: errexit is disabled for the
+  # condition of an `if`, and that suppression is inherited, so a missing source
+  # used to truncate the render and be reported as "stale" rather than as itself.
+  tmp=$(mktemp) && trap 'rm -f "$tmp" "$tmp.diff"' EXIT
+  render >"$tmp"
+  if ! cmp -s "$tmp" llms-full.txt; then
     echo "llms-full.txt is stale: run Tools/llms_full.sh and commit the result" >&2
+    diff -u -L "llms-full.txt (committed)" -L "llms-full.txt (regenerated)" \
+      llms-full.txt "$tmp" >"$tmp.diff" || true
+    # head from the file, not through a pipe, for the same reason as above.
+    head -40 "$tmp.diff" >&2
+    lines=$(wc -l <"$tmp.diff" | tr -d ' ')
+    [ "$lines" -le 40 ] || echo "... $((lines - 40)) more diff lines" >&2
     exit 1
   fi
   echo "llms-full.txt is current"
-else
-  render > llms-full.txt
-  echo "wrote llms-full.txt ($(wc -l < llms-full.txt | tr -d ' ') lines)"
-fi
+  ;;
+"")
+  render >llms-full.txt
+  echo "wrote llms-full.txt ($(wc -l <llms-full.txt | tr -d ' ') lines)"
+  ;;
+*)
+  echo "usage: ${0##*/} [--check|--sources]" >&2
+  exit 2
+  ;;
+esac

@@ -67,6 +67,12 @@ release; anything under **Unreleased** is on `main` only.
   repeated tokens, and the call format is obliged to repeat `</parameter>` and
   `</function>`, so the penalty pushed the model off the grammar exactly where
   it had to stay on it.
+- The generated files cannot be committed stale. `llms-full.txt` comes from
+  the docs and `MEASUREMENTS.md` / `PLAN.md` from the brain's records; a
+  README edit that skipped the regenerate turned the docs job red, so
+  `make hooks` now installs a pre-commit hook that regenerates them with
+  the commit that moves their sources. The staleness check prints the drift
+  it found instead of a bare verdict.
 
 ## 0.2.3 — 2026-09-02
 

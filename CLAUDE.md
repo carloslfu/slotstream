@@ -30,6 +30,23 @@ rules from `db/DB.md` that matter most here:
 `Tools/dbmd_install.sh` pins the version CI uses) and is part of
 `Tools/static_gates.sh`.
 
+## Generated files — regenerate in the commit that moves their source
+
+Three files in the tree are projections, and CI fails on a commit that moves a
+source without them:
+
+| generated | from | regenerate with |
+| --- | --- | --- |
+| `llms-full.txt` | `README.md`, `docs/*.md`, `CHANGELOG.md` | `Tools/llms_full.sh` |
+| `MEASUREMENTS.md` | `db/records/measurements/` | `Tools/projections.py` |
+| `PLAN.md` | `db/records/design/`, `db/records/plan/` | `Tools/projections.py` |
+
+`make docs` runs both; `Tools/llms_full.sh --sources` prints the doc list, which
+lives nowhere else. **Never hand-edit a generated file** — edit the source and
+rerun. `make hooks`, once per clone, installs `.githooks/pre-commit`, which
+regenerates them and stages the result with the commit; a six-line README FAQ
+that landed without the regenerate on 2026-09-03 is why it exists.
+
 ## Claims and measurement discipline (mistakes made 2026-08-29/30)
 
 Every rule here is one this project already got wrong. They share a root:

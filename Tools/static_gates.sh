@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-for f in install.sh Tools/*.sh; do
+for f in install.sh Tools/*.sh .githooks/*; do
   bash -n "$f"
 done
 sh -n install.sh

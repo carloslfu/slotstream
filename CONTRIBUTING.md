@@ -31,8 +31,14 @@ produced it.
 `make build` needs only the Command Line Tools. `Tools/verify.sh` is the
 acceptance battery; the weight-free checks run in CI. Parity goldens are
 generated under mlx 0.31.1 with `Tools/parity_ref.py`; do not regenerate them
-under a newer mlx. After a docs change, run `Tools/llms_full.sh` and commit
-the regenerated `llms-full.txt`, or the docs job fails.
+under a newer mlx.
+
+Three files are generated and must never be committed stale: `llms-full.txt`
+from the docs (`Tools/llms_full.sh`), `MEASUREMENTS.md` and `PLAN.md` from the
+brain's records (`Tools/projections.py`). Run `make hooks` once per clone and
+the pre-commit hook regenerates them with the commit that moves their sources;
+`make docs` does it by hand. CI checks both, and a commit that moves a source
+without its projection fails.
 
 ## Scope
 
