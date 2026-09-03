@@ -1,14 +1,14 @@
 ---
 type: index
 scope: root
-updated: 2026-09-02T22:21:19Z
+updated: 2026-09-03T02:29:18Z
 ---
 
 # Knowledge base index
 
-## Sources (6)
+## Sources (7)
 - [[sources/docs/index|Docs]] (2) — frozen snapshots of the documents the records were lifted from
-- [[sources/runs/index|Runs]] (4) — raw tool output captured before a number was transcribed
+- [[sources/runs/index|Runs]] (5) — raw tool output captured before a number was transcribed
 
 ## Records (146)
 - [[records/claims/index|Claims]] (24) — every number on a public surface, with the measurement that supports it and the gate that guards it
