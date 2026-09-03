@@ -11,7 +11,7 @@ so the reuse per request is visible (the "reading N prompt tokens" line shows
 how much was NOT reused).
 
 Usage:
-  Tools/vision_prefix_reuse_test.py [--thinking] [port] [model-dir]
+  Tools/vision_prefix_reuse_test.py [--thinking] [--mtp auto|on|off] [port] [model-dir]
 """
 import argparse
 import base64
@@ -72,6 +72,14 @@ def main():
                     help="set think=true on every request. serve has no "
                          "--thinking flag of its own; thinking is a per-request "
                          "field on /api/chat.")
+    ap.add_argument("--mtp", choices=["auto", "on", "off"], default="auto",
+                    help="speculative decode mode passed to serve (--mtp). "
+                         "auto enables the draft head only when the expert "
+                         "cache still reaches its ~120/layer floor after the "
+                         "1.6 GB charge, which a 10 GB target does not — so "
+                         "--mtp on is what forces it, and the script then "
+                         "fails unless the server log confirms the draft head "
+                         "is actually on.")
     ap.add_argument("port", nargs="?", default=11469)
     ap.add_argument("model", nargs="?", default="/opt/common/models/text/"
                     "pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/")
@@ -102,7 +110,8 @@ def main():
     log = f"/tmp/slotstream-vision-reuse-{os.getpid()}.log"
     srv = subprocess.Popen(
         [BIN, "serve", "--model", args.model, "--port", str(port),
-         "--memory-gb", os.environ.get("MEMORY_GB", "10")],
+         "--memory-gb", os.environ.get("MEMORY_GB", "10"),
+         "--mtp", args.mtp],
         cwd=ROOT, stdout=open(log, "w"), stderr=subprocess.STDOUT)
     say(f"server pid: {srv.pid}")
     say(f"capture file: {log}")
@@ -110,6 +119,21 @@ def main():
         if not wait_up(port, srv, log):
             return 1
         say(f"thinking: {args.thinking}")
+
+        # The engine banner is the only per-request-free place serve names the
+        # draft head: serve does not log per-request MTP stats, but the startup
+        # line "mtp draft head on" is written to stderr before the accept loop
+        # answers /api/version, so once the server is up the log already says
+        # definitively whether speculation can run. --mtp on must engage it —
+        # otherwise every "request" below runs plain and the whole run is
+        # measuring the wrong thing — so that is a hard failure, not a warning.
+        mtp_on_in_log = "mtp draft head on" in open(log).read()
+        say(f"mtp: --mtp {args.mtp}, draft head {'confirmed ON by the log banner' if mtp_on_in_log else 'off in the log banner'}")
+        if args.mtp == "on" and not mtp_on_in_log:
+            say("  ERROR: --mtp on did not enable the draft head "
+                "(no 'mtp draft head on' banner in the server log)")
+            say(open(log).read())
+            return 1
 
         think = args.thinking
         msgs = []
