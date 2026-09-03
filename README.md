@@ -8,6 +8,8 @@ it from SSD and runs it in whatever memory you give it. It's one Swift binary,
 no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
 work unchanged.
 
+[Discussed on Hacker News](https://news.ycombinator.com/item?id=49524447).
+
 | on a 48 GB M5 Pro | |
 |---|---|
 | Warm decode | ~12 tok/s |
