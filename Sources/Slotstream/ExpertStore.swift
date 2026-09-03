@@ -71,19 +71,29 @@ public final class ExpertStore {
         pieceRowBytes = refs[0].map { $0.rowBytes }
     }
 
-    /// Read a batch of experts (QD-parallel pread) and return the 9 stacked
-    /// MLXArrays shaped [n, ...piece shape...] ready to scatter into the pool.
-    /// Reads outstanding at once. An expert record is nine separate pieces
-    /// (gate/up/down x weight/scales/biases), so this issues 9N preads of
-    /// ~307 KB rather than N of 2.76 MB. Swept 2026-08-30: 12 and 32 tie at
-    /// ~4.5 GB/s and 64 and 128 are worse, so this is not queue-depth-limited
-    /// and raising it only oversubscribes.
+    /// Read lanes for the sweep's long contiguous runs. Swept 2026-08-30 and
+    /// again on the sweep: 4 lanes lose a third, 12 reads 179 tok/s, 32 reads
+    /// 162 — the runs are throughput-bound, so more lanes only oversubscribe.
     public static let defaultQueueDepth: Int = {
         guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_IO_QUEUE_DEPTH"],
             let n = Int(raw)
         else { return 12 }
         // Zero used to launch no workers and copy uninitialized staging memory;
         // a negative value could trap in concurrentPerform.
+        return min(max(n, 1), 128)
+    }()
+
+    /// Read lanes for the pool path (`readBatch`), which is decode and any
+    /// pass under the sweep threshold. This one is **latency**-bound, not
+    /// throughput-bound: a layer's handful of misses is nine ~307 KB pieces per
+    /// record, so 12 lanes leave the queue empty between waves. Measured on 48
+    /// decode tokens at 30 experts/layer: 12 lanes 6.82 tok/s, 32 lanes 7.14,
+    /// 64 lanes 7.16, output identical. 32 takes the gain without
+    /// oversubscribing the sweep, which is why the two are separate numbers.
+    public static let poolQueueDepth: Int = {
+        guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_POOL_QUEUE_DEPTH"],
+            let n = Int(raw)
+        else { return 32 }
         return min(max(n, 1), 128)
     }()
 
@@ -99,7 +109,7 @@ public final class ExpertStore {
         return min(max(n, 1), Geometry.expertsPerLayer)
     }()
 
-    public func readBatch(_ keys: [ExpertKey], queueDepth: Int = ExpertStore.defaultQueueDepth)
+    public func readBatch(_ keys: [ExpertKey], queueDepth: Int = ExpertStore.poolQueueDepth)
         -> [MLXArray]
     {
         let n = keys.count
@@ -383,7 +393,20 @@ public final class SlotPool {
                 for p in 0 ..< 9 {
                     pools[p][idx] = batch[p]
                 }
-                eval(pools)
+                // Decode issues one of these per layer per token, and the
+                // decode split measured the scatter at 20% of decode time
+                // (30.6 ms/token at 30 experts/layer) against a microbenchmark
+                // that writes slots at 49-75 GB/s — the gap is 48 full syncs
+                // per token, not the copy. The gather that follows in the same
+                // layer depends on these arrays, so MLX orders it correctly
+                // without a sync here; the only thing the sync buys is
+                // releasing the staging buffers a layer earlier, which is at
+                // most one layer's misses (~27 MB).
+                switch Self.scatterMode {
+                case .sync: eval(pools)
+                case .async: asyncEval(pools)
+                case .none: break
+                }
                 scatterSeconds += -tScatter.timeIntervalSinceNow
                 lo = hi
             }
@@ -405,6 +428,16 @@ public final class SlotPool {
     /// that follows starts on the prompt's hot set instead of cold. Off for
     /// every other pass, so a long prompt never evicts what decode was using
     /// (scan resistance, PLAN §3.3).
+    /// How `ensure` finishes its pool writes. `sync` blocks the CPU until the
+    /// scatter has run (what shipped through 0.2.3), `async` queues it and
+    /// carries on, `none` leaves it to whatever evaluates the pool next.
+    /// `SLOTSTREAM_SCATTER_MODE` selects for an A/B.
+    enum ScatterMode: String { case sync, async, none }
+    static let scatterMode: ScatterMode = {
+        let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_SCATTER_MODE"] ?? "none"
+        return ScatterMode(rawValue: raw) ?? .async
+    }()
+
     public var admitOnSweep = false
     /// Sweep admission can be switched off for an A/B (`SLOTSTREAM_SWEEP_ADMIT=0`).
     static let sweepAdmitEnabled: Bool =

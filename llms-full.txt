@@ -1431,6 +1431,34 @@ release; anything under **Unreleased** is on `main` only.
 
 ## Unreleased
 
+- **Decode is about 10% faster at small cache sizes, and the output is
+  byte-identical.** `run` now prints a decode split beside the prefill one, and
+  it found two things. The pool scatter was 20% of decode time and running at
+  about 18 GB/s against a microbenchmark that writes slots at 49 to 75, because
+  `SlotPool.ensure` ended every batch with a full GPU sync — 48 per token — that
+  the gather in the same layer did not need. And the pool path was reading on
+  the sweep's 12 lanes, tuned for long contiguous runs, where a layer's handful
+  of nine-piece misses is latency-bound and wants more. Five interleaved rounds
+  at 30 experts per layer: 6.93 to 7.63 tok/s, peak 7.5 to 7.8 GB, identical
+  text. `SLOTSTREAM_SCATTER_MODE` and `SLOTSTREAM_POOL_QUEUE_DEPTH` are the A/B
+  knobs; the sweep keeps its own `SLOTSTREAM_IO_QUEUE_DEPTH` of 12, because
+  raising that one measured slower.
+- **A pass can be read in query blocks, which bounds the attention transient
+  without changing a number.** MLX 0.31.1 runs head dim 256 on its unfused
+  attention path, materialising the whole `[24, pass, context]` score matrix;
+  splitting the queries bounds it and is bit-identical at blocks of 256 and up.
+  It is **off at every size the planner produces today** and engages only above
+  the largest query-by-key product any prefill measurement covers — where the
+  schedule already shrinks the pass — because measured end to end it lowers peak
+  memory by 0.00 GB. The phase trace behind `SLOTSTREAM_MEM_TRACE=1` says why:
+  attention, the PLE layer and the MoE sweep peak within 0.6 GB of each other,
+  so bounding one alone can never lower the process. Recorded as a null result
+  with its mechanism, not as an improvement.
+- The prefill sweep gathers each staging group's rows as it needs them instead
+  of building one replicated copy of the whole pass up front (105 MB at a
+  2048-token pass, 210 at 4096). Bit-identical; `sweep-check` reads the same
+  3.320% of logit spread against the same control.
+
 - **fx runs against slotstream.** A second HTTP dialect speaks the Vercel AI SDK
   Language Model Specification v4 over AI Gateway protocol 0.0.1, which is the
   wire [fx](https://fx.sh) uses. fx ships no plugin point, but its gateway client

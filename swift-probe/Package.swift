@@ -12,5 +12,10 @@ let package = Package(
             .product(name: "MLXNN", package: "mlx-swift"),
             .product(name: "MLXRandom", package: "mlx-swift"),
         ]),
+        .executableTarget(name: "AttnProbe", dependencies: [
+            .product(name: "MLX", package: "mlx-swift"),
+            .product(name: "MLXFast", package: "mlx-swift"),
+            .product(name: "MLXRandom", package: "mlx-swift"),
+        ]),
     ]
 )

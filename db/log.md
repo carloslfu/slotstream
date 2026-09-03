@@ -52,3 +52,15 @@ M0.5 keeps status measured — its 17.3 GB/s stands — and gains a note that it
 ## [2026-09-03 04:04] validate | store
 store validates clean; brain gates pass 59 needle checks; static gates pass including planner 64/64
 
+## [2026-09-03 06:26] create | records/measurements
+decode split lands: pool scatter was 20% of decode at 18 GB/s against a 49-75 GB/s microbenchmark, and the pool path read on the sweep's lanes; lazy scatter plus 32 lanes reads 6.93 to 7.63 tok/s byte-identically
+
+## [2026-09-03 06:26] create | records/measurements
+query-blocked attention is exact and bounds the score matrix, and lowers peak by 0.00 GB: the phase trace shows attention, PLE and the MoE sweep peaking within 0.6 GB of each other
+
+## [2026-09-03 06:26] create | records/decisions
+pool path scatters lazily on 32 lanes; query blocking ships as a bound above the measured product, not an optimisation
+
+## [2026-09-03 06:26] validate | store
+store validates clean; brain gates pass 59 needle checks; static gates pass including planner 64/64; verify.sh 21/21 with 184 assertions
+

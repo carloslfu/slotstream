@@ -139,18 +139,22 @@ public final class Qwen4ExpModel {
         state.ngramCtx = Array(history.suffix(cfg.ngramSize - 1))
 
         for l in 0 ..< runLayers {
+            if MemTrace.on { MemTrace.enterLayer(l, kind: gdn[l] != nil ? "gdn" : "qsa") }
             if let p = ple[l] {
                 h = h + p(h, history: history, nNew: S, cache: state.linear[l] ?? nil)
+                MemTrace.mark("ple", h)
             }
             let dbgLayer = Self.debugLayer
             let (x1, inj1) = attnHC[l](h)
             if l == dbgLayer { Self.debugDump("x1", x1); Self.debugDump("inj1", inj1!) }
+            MemTrace.mark("hc1", x1)
             let attnOut: MLXArray
             if let g = gdn[l] {
                 attnOut = g(x1, cache: state.linear[l])
             } else {
                 attnOut = qsa[l]!(x1, rope: rope, cache: state.kv[l]!, idxCache: state.indexer[l]!)
             }
+            MemTrace.mark("attn", attnOut)
             if l == dbgLayer { Self.debugDump("attn", attnOut) }
             h = h + (attnOut.expandedDimensions(axis: -2) * inj1!.expandedDimensions(axis: -1))
                 .reshaped(h.shape)
@@ -158,14 +162,17 @@ public final class Qwen4ExpModel {
 
             let (x2, inj2) = mlpHC[l](h)
             if l == dbgLayer { Self.debugDump("x2", x2) }
+            MemTrace.mark("hc2", x2)
             let moeOut = moe[l]!(x2)
             if l == dbgLayer { Self.debugDump("moe", moeOut) }
+            MemTrace.mark("moe", moeOut)
             h = h + (moeOut.expandedDimensions(axis: -2) * inj2!.expandedDimensions(axis: -1))
                 .reshaped(h.shape)
 
             // synchronize the layer so pool references release before the next
             // layer's ensure() scatters (keeps slot writes in place, see PLAN §4.2)
             eval(h)
+            MemTrace.mark("layer-end", h)
             perLayerHook?(l, h)
         }
         state.tokenCount += S

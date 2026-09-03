@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-02T19:43:56.255116Z
+updated: 2026-09-03T06:23:50.732825Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-03-pass-memory-phase-trace]] — Where a 2048-token pass peaks: phase memory trace with and without query-blocked attention, dev Mac, 2026-09-03
+- [[sources/runs/2026/09/2026-09-03-decode-scatter-mode-and-read-lanes-ab]] — Decode A/B: pool scatter completion mode and pool read lanes, 30 experts/layer, dev Mac, 2026-09-03
+- [[sources/runs/2026/09/2026-09-03-pass-cost-and-attention-block-ab]] — Pass cost by chunk with and without query-blocked attention, pinned 20 experts/layer, dev Mac, 2026-09-03
+- [[sources/runs/2026/09/2026-09-03-attention-query-block-probe]] — AttnProbe: query-blocked QSA attention, exactness and transient by shape, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-context-check-8192-16gb]] — context-check --tokens 8192 --memory-gb 16 --json, sweep and 0.2.2 code, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-check]] — sweep-check transcripts on the final code, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-tuning]] — prefill sweep tuning: group size, read lanes, admission on/off, 8k prompt at 16 GB, dev Mac, 2026-09-02

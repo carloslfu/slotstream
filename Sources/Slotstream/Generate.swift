@@ -119,6 +119,14 @@ public struct GenStats {
     public var prefillIOSeconds = 0.0
     public var prefillScatterSeconds = 0.0
     public var prefillRecords = 0
+    /// The same split for decode. Prefill's was what showed the chunk size was
+    /// the lever and read-ahead was not; decode had no equivalent, so "decode
+    /// is slow" could not be attributed to the miss path, to the scatter, or
+    /// to per-token dispatch without guessing. Everything not counted here is
+    /// compute plus dispatch.
+    public var decodeIOSeconds = 0.0
+    public var decodeScatterSeconds = 0.0
+    public var decodeRecords = 0
     /// "stop" (EOS, a stop sequence, or a cancelled stream) or "length".
     public var finishReason = "stop"
 
@@ -398,6 +406,11 @@ public final class Generator {
         stats.decodeTokens = out.count
         stats.decodeSeconds = -t0.timeIntervalSinceNow
         stats.expertHitRate = model.pool.hitRate
+        // The pool's counters were reset after prefill, so these cover decode
+        // only.
+        stats.decodeIOSeconds = model.pool.ioSeconds
+        stats.decodeScatterSeconds = model.pool.scatterSeconds
+        stats.decodeRecords = model.pool.recordsFetched
         stats.ngramRowHits = model.ngram.rowHits
         stats.ngramRowMisses = model.ngram.rowMisses
         stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9

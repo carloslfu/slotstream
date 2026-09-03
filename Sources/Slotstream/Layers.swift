@@ -304,25 +304,132 @@ final class QSAAttention {
 
         (k, v) = cache.updateAndFetch(k, v)
 
-        // Mask semantics mirror the reference: fused-causal sdpa when the
-        // indexer is inactive (bit-parity with mlx-lm's "causal" string mask),
-        // and the boolean keep-set (already causal) when it is.
-        let maskMode: MLXFast.ScaledDotProductAttentionMaskMode
-        if let sp = sparse {
-            maskMode = .array(sp)
-        } else if S > 1 {
-            maskMode = .causal
-        } else {
-            maskMode = .none
-        }
-
         debugSink?("qRoped", q)
         debugSink?("kRoped", k)
-        var out = MLXFast.scaledDotProductAttention(
-            queries: q, keys: k, values: v, scale: scale, mask: maskMode)
+        var out = Self.attend(
+            q: q, k: k, v: v, sparse: sparse, base: offset, scale: scale,
+            block: AttentionTuning.queryBlock(pass: S, context: k.dim(2)))
         debugSink?("sdpaOut", out)
         out = out.transposed(0, 2, 1, 3).reshaped([B, S, H * D])
         return oProj(out * sigmoid(gate))
+    }
+
+    /// Attention over a pass, in blocks of queries.
+    ///
+    /// Mask semantics mirror the reference: fused-causal sdpa when the indexer
+    /// is inactive (bit-parity with mlx-lm's "causal" string mask), and the
+    /// boolean keep-set (already causal) when it is.
+    ///
+    /// **Why the pass is split.** MLX 0.31.1 admits the fused prefill kernel
+    /// only for head dims 64, 80 and 128 (`sdpa_full_supported_head_dim` in
+    /// `scaled_dot_product_attention.cpp`). These layers run at head dim 256,
+    /// so every pass longer than 8 tokens takes the unfused path in
+    /// `fast.cpp`, which materialises the whole `[24, pass, context]` score
+    /// matrix — a transient that grows with pass x context, which is what
+    /// `PrefillSchedule` shrinks the pass to stay ahead of. Splitting the
+    /// queries bounds it to `[24, block, context]`.
+    ///
+    /// **Why it is exact.** The fallback builds its causal mask as
+    /// `arange(kL - qL, qL + (kL - qL)) >= arange(0, kL)`, so queries align to
+    /// the END of the keys: a block `[lo, hi)` of a pass that starts at
+    /// context position `base` sees exactly keys `[0, base + hi)`, which
+    /// reproduces the same mask rows. Every output row depends only on its own
+    /// query and all keys, so nothing is re-associated. Measured
+    /// bit-identical at blocks of 256 and up and 1.3x faster
+    /// (`swift-probe/Sources/AttnProbe`); a block of 128 measured 1.6e-3 of
+    /// logit spread at one shape, which is why 256 is the floor.
+    ///
+    /// **The per-block `eval` is load-bearing, not tidiness.** Without it MLX
+    /// builds the whole graph before evaluating anything and holds every
+    /// block's score matrix at once: measured 6.5 GB at a 4096-token pass over
+    /// a 32k context, exactly what not blocking costs. With it, 0.76 GB.
+    static func attend(
+        q: MLXArray, k: MLXArray, v: MLXArray, sparse: MLXArray?, base: Int,
+        scale: Float, block: Int
+    ) -> MLXArray {
+        let S = q.dim(2)
+        func mask(_ sp: MLXArray?, queries: Int) -> MLXFast.ScaledDotProductAttentionMaskMode {
+            if let sp { return .array(sp) }
+            // A single query sits at the last key position, so every key it is
+            // handed is already visible to it and no mask is needed.
+            return queries > 1 ? .causal : .none
+        }
+        if block >= S {
+            return MLXFast.scaledDotProductAttention(
+                queries: q, keys: k, values: v, scale: scale, mask: mask(sparse, queries: S))
+        }
+        var outs: [MLXArray] = []
+        outs.reserveCapacity((S + block - 1) / block)
+        var lo = 0
+        while lo < S {
+            let hi = Swift.min(lo + block, S)
+            let kEnd = base + hi
+            let o = MLXFast.scaledDotProductAttention(
+                queries: q[0..., 0..., lo ..< hi, 0...],
+                keys: k[0..., 0..., 0 ..< kEnd, 0...],
+                values: v[0..., 0..., 0 ..< kEnd, 0...],
+                scale: scale,
+                mask: mask(sparse?[0..., 0..., lo ..< hi, 0 ..< kEnd], queries: hi - lo))
+            eval(o)
+            outs.append(o)
+            lo = hi
+        }
+        return concatenated(outs, axis: 2)
+    }
+}
+
+/// How a pass is split across the sparse-attention layers.
+///
+/// **This is a bound, not an optimisation, and the measurements say so.**
+/// Splitting the queries was built expecting it to cut peak memory; measured
+/// end to end it does not, because the score matrix is not where the pass
+/// peaks. Interleaved A/B on the 7,960-token acceptance prompt at a pinned
+/// 20-experts-per-layer pool: peak 7.35/7.70/8.50 GB whole against
+/// 7.40/7.75/8.50 blocked at passes of 512/1024/2048, and a 16,384-token
+/// `context-check` read 8.58 GB whole against 8.64 GB blocked. The high-water
+/// mark sits in the MoE sweep's activations, so bounding attention lowers
+/// something that was never the maximum. Output was byte-identical throughout.
+///
+/// So the default threshold is set to make blocking a **no-op at every
+/// configuration the planner produces today**: it engages only above
+/// `PrefillSchedule.measuredQueryKeyProduct`, which is exactly where the
+/// schedule currently shrinks the pass instead. That keeps the measured
+/// envelope unchanged while capping a transient that would otherwise grow
+/// without limit as the context cap rises, and it is what would let the pass
+/// stay large at a long context rather than halving. Do not turn it on below
+/// the threshold expecting memory back; it costs a few percent and returns
+/// nothing.
+///
+/// The block is a function of the pass and the context alone, never of the
+/// pool or of what is resident, so it cannot touch the golden-equivalence
+/// invariant (§6.1).
+public enum AttentionTuning {
+    /// Below this a block stops being exact: 128 measured 1.6e-3 of logit
+    /// spread against the whole pass, where 256 and up measured 0.0.
+    public static let minQueryBlock = 256
+    /// Query-by-key elements one call may score before the pass is split. The
+    /// same product the prefill schedule treats as measured-safe, so blocking
+    /// never engages inside the envelope the measurements cover.
+    public static var queryKeyBudget: Int { PrefillSchedule.measuredQueryKeyProduct }
+
+    /// `SLOTSTREAM_ATTN_BLOCK=0` forces the single-call pass at any size (the
+    /// A/B arm); any other positive value pins the block.
+    static let override: Int? = {
+        guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_ATTN_BLOCK"],
+            let n = Int(raw)
+        else { return nil }
+        return n
+    }()
+
+    /// The query block for a pass of `pass` tokens ending at `context`, or
+    /// `Int.max` for "do not split".
+    public static func queryBlock(pass: Int, context: Int) -> Int {
+        if let o = override { return o <= 0 ? Int.max : o }
+        let ctx = Swift.max(1, context)
+        if pass * ctx <= queryKeyBudget { return Int.max }
+        var b = pass
+        while b > minQueryBlock, b * ctx > queryKeyBudget { b /= 2 }
+        return b
     }
 }
 
@@ -535,8 +642,18 @@ final class MoELayer {
         var invOrder = [Int32](repeating: 0, count: rows)
         for (s, r) in order.enumerated() { invOrder[Int(r)] = Int32(s) }
         pool.sweepSortSeconds += -tSort.timeIntervalSinceNow
-        let xs = x.reshaped([B * S, H])[MLXArray(order.map { $0 / Int32(K) })]
-            .expandedDimensions(axis: 1)  // (rows, 1, H), sorted
+        // The token each sorted row belongs to. Gathering the rows for the
+        // whole pass up front materialised one replicated copy of it —
+        // rows x hidden, so K=10 times the hidden state, 105 MB at a
+        // 2048-token pass and 210 at 4096 — and held it for the whole layer
+        // while each group used a 32-expert slice. The gather happens per
+        // group instead; the kernel is handed exactly the same rows in the
+        // same order, so the arithmetic is untouched.
+        let flat = x.reshaped([B * S, H])
+        let tokenOf = order.map { $0 / Int32(K) }
+        // SLOTSTREAM_SWEEP_ROWS=all restores the up-front gather for an A/B.
+        let xsAll: MLXArray? = SweepTuning.gatherAllRows
+            ? flat[MLXArray(tokenOf)].expandedDimensions(axis: 1) : nil
 
         // The final pass of a prompt admits each layer's hottest experts, its
         // fair share of the pool, so decode starts warm.
@@ -577,10 +694,13 @@ final class MoELayer {
                     local.append(contentsOf: repeatElement(Int32(j), count: count[e]))
                 }
                 local.append(contentsOf: repeatElement(Int32(group.count - 1), count: pad))
-                var xg = xs[rowLo ..< rowHi]
+                var xg =
+                    xsAll.map { $0[rowLo ..< rowHi] }
+                    ?? flat[MLXArray(Array(tokenOf[rowLo ..< rowHi]))]
+                        .expandedDimensions(axis: 1)  // (rowsG, 1, H), sorted
                 if pad > 0 {
                     xg = concatenated(
-                        [xg, broadcast(xs[(rowHi - 1) ..< rowHi], to: [pad, 1, H])], axis: 0)
+                        [xg, broadcast(xg[(rowsG - 1) ..< rowsG], to: [pad, 1, H])], axis: 0)
                 }
                 let ridx = MLXArray(local)
                 let g = gatherQuantizedMM(
@@ -631,6 +751,13 @@ public enum SweepTuning {
     /// never of the pool, so pool size and contents still cannot change the
     /// math (the golden-equivalence invariant). `Int.max` forces the pool path
     /// at every size.
+    /// Whether the sweep gathers every sorted row up front (what shipped
+    /// through 0.2.3) instead of per staging group. `SLOTSTREAM_SWEEP_ROWS=all`
+    /// restores it for an A/B; the rows the kernel sees are identical either
+    /// way, only how long the replicated copy is held changes.
+    public static let gatherAllRows: Bool =
+        ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP_ROWS"] == "all"
+
     public static var minTokens: Int =
         ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP"] == "0" ? Int.max : 256
 }

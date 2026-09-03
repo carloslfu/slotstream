@@ -2454,3 +2454,146 @@ roughly doubled prefill on the dev Mac, but it did so by turning nine 307 KB
 sequential ceiling has far less of that to give. The prediction on record is
 that this machine gains from the grouped GEMM's share of the pass and little
 from the reads — well under the dev Mac's 2x.
+
+## Decode: where the time goes, and the two knobs that moved it (2026-09-03)
+Decode had no equivalent of the prefill split, so "decode is slow" could not be
+attributed without guessing. `run` now prints one, and it says decode at a small
+cache is not mostly compute. On 48 tokens at 30 experts per layer, hit rate
+0.576:
+
+| part | seconds | share |
+|---|---|---|
+| reading expert records | 3.24 | 44% |
+| scattering them into the pool | 1.47 | 20% |
+| everything else (compute and dispatch) | 2.66 | 36% |
+
+The scatter is the surprise. It moves 203 records per token, 561 MB, in 30.6 ms
+— about 18 GB/s, against the 49 to 75 GB/s the slot-write microbenchmark
+measured in both Python and Swift (§M0.3). The gap is not the copy: it is one
+full GPU sync per layer, 48 per token, because `SlotPool.ensure` finished every
+batch with `eval(pools)`. The gather that follows in the same layer already
+depends on those arrays, so MLX orders it correctly without the sync; all the
+sync bought was releasing the staging buffers a layer earlier.
+
+**Two knobs, measured separately, then together.** Interleaved rounds, greedy,
+one prompt, output compared byte for byte.
+
+*Read lanes for the pool path.* The 12 lanes the sweep uses were tuned on its
+long contiguous runs, which are throughput-bound. A layer's handful of decode
+misses is nine ~307 KB pieces per record, which is latency-bound, so 12 lanes
+leave the queue empty between waves. Three rounds at 30 experts per layer:
+12 lanes 6.82 tok/s, 32 lanes 7.14, 64 lanes 7.16. The two paths now carry
+separate numbers (`SLOTSTREAM_IO_QUEUE_DEPTH` stays 12 for the sweep,
+`SLOTSTREAM_POOL_QUEUE_DEPTH` is 32) rather than one compromise: raising the
+sweep's lanes to 32 measured *slower* on 2026-09-02 (179 → 162 tok/s).
+
+*Finishing the scatter.* Three modes, three rounds each: `sync` (the shipped
+behaviour) 6.17 tok/s at a 7.5 GB peak, `async` 7.11 at 8.9 GB, `none` 7.06 at
+7.8 GB. `async` buys nothing over `none` and costs 1.1 GB more, so the default
+is `none`.
+
+*Together*, five interleaved rounds, 96 tokens, on a quiet machine:
+
+| | decode | peak RSS |
+|---|---|---|
+| sync scatter, 12 lanes | 6.93 tok/s | 7.5 GB |
+| lazy scatter, 32 lanes | **7.63 tok/s** | 7.8 GB |
+
+**×1.10, and the output is byte-identical across all ten runs.** The same pair
+measured ×1.14 earlier in the day while the machine was building; ×1.10 on a
+quiet machine is the number to quote. The 0.3 GB is real and is the honest
+price: staging buffers and their allocator-cache churn live until the layer's
+`eval(h)` instead of being released mid-layer. `--memory-gb 10` still peaks at
+7.3 GB on the 7,960-token prompt, so the promise holds with the same headroom
+it had.
+
+One caveat the split itself carries: with the lazy default the `scatter` column
+no longer measures the scatter, only the cost of issuing it. The work reappears
+in `compute`, which is why that column rises from 5.87 s to 8.45 s while the
+total falls from 16.37 s to 14.65 s in the same pair.
+
+Not measured: whether the same two knobs help at the 120-to-150-experts-per-layer
+sizes auto reaches, where the miss path is a smaller share of the token. Those
+configurations need ~26 GB reclaimable and the memory-safety rules keep test
+runs between 8.1 and 10 GB, so this is a small-cache result.
+
+## The pass peaks on a plateau, not on one transient (2026-09-03)
+Two changes that should each have taken a few hundred MB off a prefill pass
+moved the measured peak by **0.00 GB**. Both were built, measured, and kept only
+where they cost nothing. The reason they failed is the useful part, and it was
+found by measuring rather than by a third guess.
+
+**Why the attention transient looked like the target.** MLX 0.31.1 admits the
+fused prefill kernel only for head dims 64, 80 and 128
+(`sdpa_full_supported_head_dim` in `scaled_dot_product_attention.cpp`). The QSA
+layers run at head dim 256, so every pass longer than 8 tokens takes the
+unfused path in `fast.cpp`, which materialises the whole `[24, pass, context]`
+score matrix. That transient grows with pass × context, which is exactly what
+`PrefillSchedule` halves the pass to stay ahead of.
+
+**Query blocking is exact, and faster in isolation.** The fallback aligns
+queries to the end of the keys (`arange(kL - qL, qL + (kL - qL)) >= arange(0,
+kL)`), so a block `[lo, hi)` of a pass starting at context `base` sees exactly
+keys `[0, base + hi)` and reproduces the same mask rows. `AttnProbe` on the real
+shapes, no weights:
+
+| pass over context | whole | blocked 512, eval per block | difference |
+|---|---|---|---|
+| 4096 over 8,016 | 55.4 ms, 1.83 GB | 42.4 ms, 0.40 GB | 0.00e+00 |
+| 4096 over 32,768 | not built (6.4 GB) | 226.7 ms, 1.16 GB | 0.00e+00 |
+
+Bit-identical at every block of 256 and up; a block of 128 measured 1.6e-3 of
+logit spread, which is why 256 is the floor. **The per-block `eval` is
+load-bearing**: without it MLX builds the whole graph before evaluating and
+holds every block's score matrix at once — 6.5 GB at 4096 over 32,768, exactly
+what not blocking costs.
+
+**End to end it bought nothing.** Interleaved rounds on the 7,960-token prompt
+at a pinned 20-experts-per-layer pool, peak RSS:
+
+| pass | whole | blocked |
+|---|---|---|
+| 512 | 7.35 GB | 7.40 GB |
+| 1024 | 7.70 GB | 7.75 GB |
+| 2048 | 8.50 GB | 8.50 GB |
+
+and a 16,384-token `context-check` read 8.58 GB whole against 8.64 GB blocked,
+200.7 tok/s against 208.7. Output byte-identical throughout.
+
+**The phase trace says why: the pass peaks on a plateau, not on one transient.**
+`SLOTSTREAM_MEM_TRACE=1` evaluates each phase of each layer and records the
+high-water active memory. At a 2048-token pass, against a 7.60 GB layer-end
+baseline:
+
+| phase | high-water | with attention blocked |
+|---|---|---|
+| QSA attention | 8.57 GB | **7.99 GB** |
+| PLE (layer 1) | 8.57 GB | 8.57 GB |
+| MoE sweep | 8.25–8.32 GB | 8.25–8.30 GB |
+| hyper-connections | 7.82–7.93 GB | unchanged |
+
+Blocking removes 0.58 GB from attention exactly as the probe predicts, and the
+process peak does not move because the PLE layer holds the same 8.57 GB. Four
+transients sit within 0.6 GB of each other, so **no single one of them is the
+peak, and lowering one alone can never lower the process**. The same reasoning
+explains the second null: not gathering the sweep's replicated rows up front
+(rows × hidden, 105 MB at a 2048-token pass) measured 8.50 GB against 8.50 GB.
+
+**What shipped, and why.** Query blocking is kept but its threshold is set so it
+is a **no-op at every configuration the planner produces today**: it engages
+only above `PrefillSchedule.measuredQueryKeyProduct`, which is where the
+schedule already shrinks the pass. That keeps the measured envelope unchanged
+while capping a transient that would otherwise grow without limit as the
+context cap rises. The per-group row gather is kept because it holds less for
+the same result and is bit-identical (`sweep-check` reads 3.320% against the
+same 5.089% control, unchanged). Neither is an optimisation and neither should
+be quoted as one.
+
+**What this says about the next attempt.** Lowering the pass's peak means
+bounding attention, PLE and the MoE sweep together; any one of them alone is
+wasted work. The phase trace is the tool for checking that, and it should be run
+before, not after. The measured marginal cost of a pass is also lower than the
+planner charges — the peak rose 0.35 GB from a 512 to a 1024-token pass and
+1.15 GB from 512 to 2048, about 0.78 MB per chunk token against the 1.30 MB the
+planner charges — but that is a target-driven number and re-anchoring it needs
+its own runs at 8.1, 10 and 16 GB before the constant moves.

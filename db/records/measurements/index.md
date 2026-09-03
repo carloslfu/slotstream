@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-03T04:02:54.343600Z
+updated: 2026-09-03T06:24:54.313156Z
 ---
 
 # records/measurements
 
+- [[records/measurements/the-pass-peaks-on-a-plateau-not-one-transient-2026-09-03]] — The pass peaks on a plateau, not on one transient (2026-09-03)
+- [[records/measurements/decode-where-the-time-goes-and-two-knobs-2026-09-03]] — Decode: where the time goes, and the two knobs that moved it (2026-09-03)
 - [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]] — C1 — Mac mini M2, 16 GB, base storage (community, 2026-09-02): 1.41 tok/s warm decode against a ~4 tok/s estimate, because a 1.5 GB/s SSD puts the IO ceiling at 2.00 tok/s.
 - [[records/measurements/m0-5-disk-the-number-the-whole-io-model-rests-on]] — M0.5 — Disk (the number the whole IO model rests on)
 - [[records/measurements/the-numbers-8k-prose-the-floor-the-ladder-and-decode-after-a-long-prompt]] — The numbers: 8k, prose, the floor, the ladder, and decode after a long prompt
