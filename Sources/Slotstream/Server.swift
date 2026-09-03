@@ -4,6 +4,7 @@
 
 import CoreFoundation
 import Foundation
+import MLX
 
 public struct ServerError: Error, CustomStringConvertible {
     public let description: String
@@ -119,10 +120,11 @@ public final class Server {
         package var headers: [String: String] = [:]
     }
 
-    /// Largest request body accepted. Prompts are text; anything past this is
-    /// a mistake or an attack, and reading it unbounded is how a local process
-    /// gets OOM-killed.
-    package static let maxBodyBytes = 4 << 20
+    /// Largest request body accepted. Text prompts are tiny, but vision inputs
+    /// (base64-encoded images) commonly reach several MB and must be served.
+    /// The cap still exists to keep the read bounded against an unbounded
+    /// attacker; requests past it get a 413 instead of a dropped connection.
+    package static let maxBodyBytes = 32 << 20
 
     /// Why a request could not be read. `.closed` means the peer went away or
     /// timed out, so there is nobody left to tell; everything else gets a real
@@ -509,6 +511,47 @@ public final class Server {
         }
     }
 
+    /// Messages reshaped for the Jinja template with vision content intact.
+    /// OpenAI clients send content as an array of typed parts (text plus
+    /// image_url); the tokenizer's render_content turns each image part into
+    /// <|vision_start|><|image_pad|><|vision_end|>, so the array must reach it
+    /// verbatim. Text-only part arrays are flattened back to a string, keeping
+    /// the two paths behavior-identical. Ollama clients send base64 in the
+    /// `images` field; it is synthesized into image_url parts here.
+    static func templateMessages(_ json: [String: Any]) -> [[String: Any]] {
+        guard let raw = json["messages"] as? [[String: Any]] else { return [] }
+        return raw.map { m in
+            var out: [String: Any] = [:]
+            out["role"] = m["role"] as? String ?? "user"
+            if let c = m["content"] {
+                if c is NSNull { out["content"] = "" }
+                else if let s = c as? String { out["content"] = s }
+                else if let parts = c as? [[String: Any]] {
+                    let hasImage = parts.contains {
+                        $0["image_url"] != nil || $0["image"] != nil
+                            || ($0["type"] as? String) == "image_url"
+                            || ($0["type"] as? String) == "image"
+                    }
+                    out["content"] = hasImage ? parts : contentText(parts as Any?)
+                } else { out["content"] = "" }
+            } else { out["content"] = "" }
+            if let images = m["images"] as? [String], !images.isEmpty {
+                var existing: [[String: Any]] = []
+                if let s = out["content"] as? String, !s.isEmpty {
+                    existing.append(["type": "text", "text": s])
+                } else if let arr = out["content"] as? [[String: Any]] {
+                    existing = arr
+                }
+                for b64 in images {
+                    let url = b64.hasPrefix("data:") ? b64 : "data:image/jpeg;base64,\(b64)"
+                    existing.append(["type": "image_url", "image_url": ["url": url]])
+                }
+                out["content"] = existing
+            }
+            return out
+        }
+    }
+
     /// JSON numbers arrive as NSNumber; accept ints where a float is expected.
     private static func num(_ v: Any?) -> Double? {
         guard let n = v as? NSNumber,
@@ -580,34 +623,44 @@ public final class Server {
             return "messages must be an array"
         }
         for (i, m) in raw.enumerated() {
-            let extra = Set(m.keys).subtracting(["role", "content"])
+            let extra = Set(m.keys).subtracting(["role", "content", "images", "tool_calls", "tool_call_id"])
             if !extra.isEmpty {
                 return "messages[\(i)] has unsupported field(s): "
                     + extra.sorted().joined(separator: ", ")
             }
-            if m["tool_calls"] != nil || m["tool_call_id"] != nil || m["images"] != nil {
-                return "messages[\(i)] uses tools or images, which this server does not support"
+            if m["tool_calls"] != nil || m["tool_call_id"] != nil {
+                return "messages[\(i)] uses tools, which this server does not support"
+            }
+            if let images = m["images"] {
+                guard images is [String] || images is [Any] else {
+                    return "messages[\(i)].images must be an array of base64 strings"
+                }
             }
             guard let role = m["role"] as? String,
                 ["system", "user", "assistant"].contains(role)
             else { return "messages[\(i)].role must be system, user, or assistant" }
             if let parts = m["content"] as? [[String: Any]] {
                 for (j, part) in parts.enumerated() {
-                    let extra = Set(part.keys).subtracting(["type", "text"])
+                    let extra = Set(part.keys).subtracting(["type", "text", "image_url", "image"])
                     if !extra.isEmpty {
                         return "messages[\(i)].content[\(j)] has unsupported field(s): "
                             + extra.sorted().joined(separator: ", ")
                     }
                     let kind = (part["type"] as? String) ?? "text"
-                    if kind != "text" && kind != "input_text" {
+                    if kind == "text" || kind == "input_text" {
+                        if part["text"] as? String == nil {
+                            return "messages[\(i)] has a text part without text"
+                        }
+                    } else if kind == "image_url" || kind == "image" {
+                        continue
+                    } else if part["image_url"] != nil || part["image"] != nil {
+                        continue
+                    } else {
                         return "messages[\(i)] contains unsupported content type '\(kind)'"
-                    }
-                    if part["text"] as? String == nil {
-                        return "messages[\(i)] has a text part without text"
                     }
                 }
             } else if m["content"] as? String == nil {
-                return "messages[\(i)].content must be text"
+                return "messages[\(i)].content must be text or a content array"
             }
         }
         return nil
@@ -816,10 +869,18 @@ public final class Server {
                 ], cors: cors)
             return
         }
-        guard let ids = try? engine.encodeChat(msgs, thinking: thinking) else {
-            respondJSON(
-                fd, ["error": "chat template failed"],
-                status: "500 Internal Server Error", cors: cors)
+        // Vision content (image_url parts, or Ollama's `images` field) must
+        // reach the Jinja template as structured parts, so render via
+        // templateMessages + encodeWithVision; text-only requests take the
+        // same path and come back with a nil vision embed.
+        let templateMsgs = Self.templateMessages(json)
+        let ids: [Int]
+        let visionEmbeds: MLXArray?
+        do {
+            (ids, visionEmbeds) = try engine.encodeWithVision(
+                messages: templateMsgs, tools: nil, thinking: thinking)
+        } catch {
+            respondJSON(fd, ["error": "\(error)"], status: "400 Bad Request", cors: cors)
             return
         }
         if let e = engine.contextError(promptTokens: ids.count) {
@@ -853,7 +914,7 @@ public final class Server {
             return alive
         } : nil
         let (text, _, stats) = engine.generate(
-            promptIds: ids, params: params,
+            promptIds: ids, params: params, visionEmbeds: visionEmbeds,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
         var finalMessage: [String: Any] = ["role": "assistant"]
         if let sp = splitter {
@@ -1294,10 +1355,18 @@ public final class Server {
                 status: "400 Bad Request", cors: cors)
             return
         }
-        guard let ids = try? engine.encodeChat(msgs, thinking: false) else {
+        // Vision content arrives as typed parts in `content` (image_url); the
+        // template renders them to image_pad tokens, and encodeWithVision
+        // expands those to the tower's per-image tokens.
+        let templateMsgs = Self.templateMessages(json)
+        let ids: [Int]
+        let visionEmbeds: MLXArray?
+        do {
+            (ids, visionEmbeds) = try engine.encodeWithVision(
+                messages: templateMsgs, tools: nil, thinking: false)
+        } catch {
             respondJSON(
-                fd, ["error": ["message": "template failed"]],
-                status: "500 Internal Server Error", cors: cors)
+                fd, ["error": ["message": "\(error)"]], status: "400 Bad Request", cors: cors)
             return
         }
         if let e = engine.contextError(promptTokens: ids.count) {
@@ -1327,7 +1396,7 @@ public final class Server {
             return alive
         } : nil
         let (text, _, stats) = engine.generate(
-            promptIds: ids, params: params,
+            promptIds: ids, params: params, visionEmbeds: visionEmbeds,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
         if stream, alive {
             var fin: [String: Any] = [

@@ -126,13 +126,47 @@ public final class Qwen4ExpModel {
     }
 
     public func hiddenStates(
-        _ ids: [Int], state: State, perLayerHook: ((Int, MLXArray) -> Void)? = nil
+        _ ids: [Int], state: State, visionEmbeds: MLXArray? = nil,
+        perLayerHook: ((Int, MLXArray) -> Void)? = nil
     ) -> MLXArray {
         let S = ids.count
         let idArr = MLXArray(ids.map { Int32($0) }, [1, S])
-        var h = resident.embed(idArr).asType(.bfloat16)
-        Self.debugDump("embed", h)
-        h = tiled(h, repetitions: [1, 1, cfg.hcCount])
+        var h0 = resident.embed(idArr).asType(.bfloat16)
+        // Vision splice: the template expands one image_pad per image to
+        // N_merged placeholder tokens, and the tower's embeddings are
+        // concatenated in that same order, so the replacement is one-to-one.
+        if let vEmb = visionEmbeds {
+            let vFlat: MLXArray
+            if vEmb.ndim == 3 {
+                vFlat = vEmb.reshaped([vEmb.dim(1), cfg.hiddenSize])
+            } else {
+                vFlat = vEmb
+            }
+            let totalVision = vFlat.dim(0)
+            let placeholderCount = ids.filter { $0 == cfg.imageTokenId }.count
+            if totalVision == placeholderCount && totalVision > 0 {
+                // CPU-side splice for determinism (S*H up to ~10M floats)
+                let hF32 = h0.asType(.float32)
+                var hArr = hF32.asArray(Float.self) // flat [S*H]
+                let vArr = vFlat.asType(.float32).asArray(Float.self) // [N*H]
+                var vIdx = 0
+                for i in 0..<S where ids[i] == cfg.imageTokenId {
+                    let dstOff = i * cfg.hiddenSize
+                    let srcOff = vIdx * cfg.hiddenSize
+                    for j in 0..<cfg.hiddenSize {
+                        hArr[dstOff + j] = vArr[srcOff + j]
+                    }
+                    vIdx += 1
+                }
+                h0 = MLXArray(hArr, [1, S, cfg.hiddenSize]).asType(.bfloat16)
+            } else if totalVision > 0 {
+                let msg = "[vision] token count mismatch: ids has \(placeholderCount) "
+                    + "placeholders but vision has \(totalVision) rows — skipping splice\n"
+                FileHandle.standardError.write(msg.data(using: .utf8)!)
+            }
+        }
+        Self.debugDump("embed", h0)
+        var h = tiled(h0, repetitions: [1, 1, cfg.hcCount])
 
         // n-gram history: rolling context + new ids
         let history = state.ngramCtx + ids.map { Int64($0) }
@@ -183,25 +217,29 @@ public final class Qwen4ExpModel {
     /// Like `hiddenStates`, but also returns the pre-final-mixer multi stream
     /// (B,S,hc*H) — the hidden the MTP draft head consumes ("scheme A": the
     /// main model truly emits the pre-mixer stream on the first draft step).
-    public func hiddenStatesWithMulti(_ ids: [Int], state: State) -> (mixed: MLXArray, multi: MLXArray) {
+    public func hiddenStatesWithMulti(
+        _ ids: [Int], state: State, visionEmbeds: MLXArray? = nil
+    ) -> (mixed: MLXArray, multi: MLXArray) {
         var multi = MLXArray(0)
-        let mixed = hiddenStates(ids, state: state) { l, h in
+        let mixed = hiddenStates(ids, state: state, visionEmbeds: visionEmbeds) { l, h in
             if l == self.runLayers - 1 { multi = h }
         }
         return (mixed, multi)
     }
 
     /// Logits for the last position only.
-    public func lastLogits(_ ids: [Int], state: State) -> MLXArray {
-        let hidden = hiddenStates(ids, state: state)
+    public func lastLogits(_ ids: [Int], state: State, visionEmbeds: MLXArray? = nil) -> MLXArray {
+        let hidden = hiddenStates(ids, state: state, visionEmbeds: visionEmbeds)
         let last = hidden[0..., (hidden.dim(1) - 1)..., 0...]
         return lmHead(last)  // (1,1,vocab)
     }
 
     /// Logits at EVERY position plus the pre-mixer multi stream — the
     /// speculative verify pass needs both. S stays small (draft length + 1).
-    public func allLogitsWithMulti(_ ids: [Int], state: State) -> (logits: MLXArray, multi: MLXArray) {
-        let (mixed, multi) = hiddenStatesWithMulti(ids, state: state)
+    public func allLogitsWithMulti(
+        _ ids: [Int], state: State, visionEmbeds: MLXArray? = nil
+    ) -> (logits: MLXArray, multi: MLXArray) {
+        let (mixed, multi) = hiddenStatesWithMulti(ids, state: state, visionEmbeds: visionEmbeds)
         return (lmHead(mixed), multi)
     }
 }

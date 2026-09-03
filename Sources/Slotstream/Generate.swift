@@ -262,7 +262,7 @@ public final class Generator {
     /// receives the state back at the end, holding exactly the ids it consumed.
     public func generate(
         promptIds: [Int], params: SampleParams, eosIds: Set<Int>,
-        cache: PrefixCache? = nil,
+        cache: PrefixCache? = nil, visionEmbeds: MLXArray? = nil,
         shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int) -> Bool)? = nil
     ) -> ([Int], GenStats) {
@@ -273,10 +273,15 @@ public final class Generator {
         // the sampler invent a first token from nothing. Callers reject this at
         // the API boundary; this is the backstop.
         guard !promptIds.isEmpty else { return ([], stats) }
+        // Vision prompts are not prefix-cacheable: the embeddings (and so the
+        // KV state alongside them) depend on the image pixels, not on the ids.
+        // A state keyed on ids would hand a follow-up turn the wrong image in
+        // the promised prefix, so a vision prompt always starts cold.
+        let isVision = visionEmbeds != nil
         // A hit hands over the state and the count of prompt tokens it already
         // consumed; a miss evicts enough LRU state before this allocation to
         // keep retained + active state inside the shared bounds (PrefixCache).
-        let hit = cache?.take(
+        let hit = isVision ? nil : cache?.take(
             matching: promptIds, reserveTokens: promptIds.count + params.maxTokens)
         let state = hit?.state ?? model.makeState()
         let reused = hit?.reused ?? 0
@@ -298,8 +303,19 @@ public final class Generator {
         // speculating over a misaligned head (unreachable in serve, where the
         // mode is fixed per process; the A/B tools flip it per request).
         let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
-        let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
+        let mtpHead = isVision ? nil
+            : (speculationEnabled && stateKnowsMTP ? model.mtpHead : nil)
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
+        // Vision helpers: map the expanded prompt's placeholder positions to
+        // rows of the concatenated vision embeddings, so each prefill chunk
+        // splices the slice it actually contains.
+        let visionPositions: [Int] = isVision
+            ? promptIds.enumerated().filter { $0.element == model.cfg.imageTokenId }.map { $0.offset }
+            : []
+        let visionFlat: MLXArray? = {
+            guard let v = visionEmbeds else { return nil }
+            return v.ndim == 3 ? v.reshaped([v.dim(1), model.cfg.hiddenSize]) : v
+        }()
         // A sweep allocates arrays whose sizes vary from group to group, and
         // MLX's buffer cache keeps every freed size up to its limit, so by the
         // end of a long prompt the cache alone held its whole 2 GB (measured
@@ -332,8 +348,19 @@ public final class Generator {
             // (sweep admission); no other pass may evict what decode was using.
             model.pool.admitOnSweep = hi == promptIds.count
             let chunk = Array(promptIds[i ..< hi])
+            let chunkVision: MLXArray? = {
+                guard let vf = visionFlat, !visionPositions.isEmpty else { return nil }
+                var startIdx: Int? = nil, endIdx: Int? = nil
+                for (idx, pos) in visionPositions.enumerated() where pos >= i && pos < hi {
+                    if startIdx == nil { startIdx = idx }
+                    endIdx = idx
+                }
+                guard let s = startIdx, let e = endIdx else { return nil }
+                let n = e - s + 1
+                return n == vf.dim(0) ? vf : vf[s..<(e + 1), 0...]
+            }()
             if let head = mtpHead {
-                let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state)
+                let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state, visionEmbeds: chunkVision)
                 state.lastMulti = head.consume(
                     chunk: chunk, chunkMulti: multi, prevMulti: state.lastMulti,
                     resident: model.resident, rope: model.rope, state: state.mtp!)
@@ -344,10 +371,10 @@ public final class Generator {
                     eval(mixed)
                 }
             } else if hi == promptIds.count {
-                logits = model.lastLogits(chunk, state: state)
+                logits = model.lastLogits(chunk, state: state, visionEmbeds: chunkVision)
                 eval(logits)
             } else {
-                let h = model.hiddenStates(chunk, state: state)
+                let h = model.hiddenStates(chunk, state: state, visionEmbeds: chunkVision)
                 eval(h)
             }
             i = hi
@@ -401,7 +428,7 @@ public final class Generator {
                 eval(logits)
             }
         }
-        cache?.store(state: state, tokens: consumed)
+        if !isVision { cache?.store(state: state, tokens: consumed) }
         stats.finishReason = reason
         stats.decodeTokens = out.count
         stats.decodeSeconds = -t0.timeIntervalSinceNow
