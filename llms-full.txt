@@ -1334,16 +1334,20 @@ rows are copied in as they arrive, credited to the reporter.
 |---|---|---|---|---|---|---|---|---|---|
 | MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
 | Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
+| MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.1 | auto: 34.6 GB target, ~152 experts/layer | ~19–21 tok/s with `--mtp` | not measured — `context-check` postdates 0.2.1 | not measured — server path only | [@waterliu1981](https://github.com/waterliu1981), 2026-09-02 |
 
 Not yet measured: the 8, 24, and 32 GB tiers. A row that contradicts the
 estimate is the most useful kind — the 16 GB row above is exactly that, and it
-cost the tier curve a claim. The most valuable single report available now is
-a 16 GB Mac with a *fast* SSD: the two measured rows differ in both memory and
-disk speed, so nothing yet separates the two axes. After that, an older chip,
-a fanless Air, or an external SSD, since those are exactly the conditions the
-48 GB curve cannot see.
+cost the tier curve a claim. The 128 GB row contradicts it from the other
+side: on the same ~152 experts/layer plan the M5 Max decodes at ~19–21 tok/s
+where the M5 Pro anchor gives ~12, so `48 GB and up` reads low on a Max chip,
+and the plateau tracks the chip and not the memory alone. The most valuable
+single report available now is a 16 GB Mac with a *fast* SSD: the 48 and 16 GB
+rows differ in both memory and disk speed, so nothing yet separates the two
+axes. After that, an older chip, a fanless Air, or an external SSD, since
+those are exactly the conditions the 48 GB curve cannot see.
 
-Both rows' full method and history are in
+The 48 GB and 16 GB rows' full method and history are in
 [MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
 16 GB machine in "C1", which is also where the bandwidth arithmetic behind
 its 1.41 tok/s is worked out.
