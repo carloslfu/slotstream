@@ -600,6 +600,20 @@ public final class Server {
                     else {
                         return "messages[\(i)].tool_calls[\(j)] must have a function with a name"
                     }
+                    // OpenAI sends arguments as a JSON-object string; anything
+                    // else would render garbage into the prompt. An empty
+                    // string is OpenAI's no-args convention and is allowed.
+                    if let args = f["arguments"] as? String {
+                        let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty {
+                            guard let data = trimmed.data(using: .utf8),
+                                let obj = try? JSONSerialization.jsonObject(
+                                    with: data) as? [String: Any]
+                            else {
+                                return "messages[\(i)].tool_calls[\(j)].function.arguments must be a JSON object as text"
+                            }
+                        }
+                    }
                 }
             }
             if role == "tool" && m["tool_call_id"] as? String == nil {
@@ -928,11 +942,22 @@ public final class Server {
         }
     }
 
-    /// Strip the <tool_call> XML tail from a generated answer so the wire
-    /// message carries only the natural-language preamble.
-    private func cleanContent(_ text: String, calls: [ParsedToolCall]) -> String {
-        guard !calls.isEmpty, let r = text.range(of: "<tool_call>") else { return text }
-        return String(text[..<r.lowerBound]).trimmingCharacters(in: .newlines)
+    /// Remove the model's <tool_call> XML blocks from a generated answer so
+    /// the wire message carries only the natural-language text, mirroring the
+    /// stream path (which emits content only outside tool blocks). Closed
+    /// blocks are deleted; a trailing unterminated block is dropped, matching
+    /// ToolStream.finish(), which never releases in-tool content at EOS.
+    private func cleanContent(_ text: String) -> String {
+        var t = text
+        while let open = t.range(of: "<tool_call>"),
+            let close = t[open.upperBound...].range(of: "</tool_call>")
+        {
+            t.removeSubrange(open.lowerBound ..< close.upperBound)
+        }
+        if let open = t.range(of: "<tool_call>") {
+            t = String(t[..<open.lowerBound])
+        }
+        return t
     }
 
     // MARK: /api/chat
@@ -1044,10 +1069,10 @@ public final class Server {
             // Parse the answer, not the reasoning: a thinking region may draft
             // example calls, and reasoning is not an action.
             calls = parseToolCalls(content)
-            finalMessage["content"] = cleanContent(content, calls: calls)
+            finalMessage["content"] = cleanContent(content)
         } else {
             calls = parseToolCalls(text)
-            finalMessage["content"] = cleanContent(text, calls: calls)
+            finalMessage["content"] = cleanContent(text)
         }
         if !calls.isEmpty {
             finalMessage["tool_calls"] = ollamaToolCalls(calls)
@@ -1351,7 +1376,7 @@ public final class Server {
             endChunked(fd)
         } else {
             var msg: [String: Any] = [
-                "role": "assistant", "content": cleanContent(text, calls: calls),
+                "role": "assistant", "content": cleanContent(text),
             ]
             if !calls.isEmpty {
                 msg["tool_calls"] = calls.enumerated().map {

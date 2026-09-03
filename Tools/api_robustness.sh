@@ -320,6 +320,9 @@ C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
     -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_time","arguments":"{}"}}]},{"role":"tool","tool_call_id":"c1","content":"12:00"},{"role":"user","content":"thanks"}],"max_tokens":4}')
 [ "$C" = 200 ] && ok "tool result roundtrip is accepted on /v1" || bad "tool roundtrip returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_time","arguments":"not json{"}}]},{"role":"user","content":"hi"}],"max_tokens":4}')
+[ "$C" = 400 ] && ok "malformed tool_calls arguments are rejected with a field-naming 400" || bad "malformed arguments returned $C"
 
 # --- think: reasoning belongs in `thinking`, not in the answer --------------
 R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"think":true,"messages":[{"role":"user","content":"What is 2+2?"}],"options":{"num_predict":80,"temperature":0}}')
