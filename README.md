@@ -284,6 +284,12 @@ route took this 48 GB machine into 48 GB of swap without producing a token.
 
 ## FAQ
 
+**Will this wear out my SSD?**
+Not in normal use. After the one-time model download, slotstream reads the
+weights but does not rewrite them while generating. The main write risk is
+macOS swap, so slotstream automatically sizes its memory cache to the RAM your
+machine can spare. An 8 GB Mac—or forcing a larger cache—can still swap heavily.
+
 **Can I run it on Linux or Windows? On an NVIDIA, AMD, or Intel GPU?**
 No. slotstream is Apple Silicon only, for the reason above: it is built on MLX
 and Metal, and the cache design assumes unified memory. On a discrete card with
