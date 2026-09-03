@@ -458,9 +458,23 @@ final class MoELayer {
         let idx = argPartition(-logits, kth: cfg.topK - 1, axis: -1)[.ellipsis, ..<cfg.topK]
         let weights = softmax(takeAlong(logits, idx, axis: -1), axis: -1, precise: true)
 
-        // routing decision to CPU -> slots
+        // routing decision to CPU
         let expertIds = idx.asType(.int32).asArray(Int32.self)  // B*S*topK
         pool.unpinAll()
+        let experts =
+            B * S >= SweepTuning.minTokens
+            ? sweep(x, expertIds: expertIds) : cached(x, expertIds: expertIds)  // (B,S,topK,H)
+        let routed = (experts * weights.expandedDimensions(axis: -1)).sum(axis: -2).asType(x.dtype)
+
+        let shared = sharedDownProj(MLXNN.silu(sharedGateProj(x)) * sharedUpProj(x))
+        return routed + sigmoid(sharedGate(x)) * shared
+    }
+
+    /// The pool path: pin the routed experts in the slot pool and gather over
+    /// it, one matvec per (token, expert). Returns every expert's output,
+    /// (B,S,topK,H).
+    private func cached(_ x: MLXArray, expertIds: [Int32]) -> MLXArray {
+        let (B, S) = (x.dim(0), x.dim(1))
         var uniq: [ExpertKey] = []
         var seen: [ExpertKey: Int] = [:]
         for e in expertIds {
@@ -486,12 +500,139 @@ final class MoELayer {
         let d = gatherQuantizedMM(
             hidden, pool.pools[6], scales: pool.pools[7], biases: pool.pools[8],
             rhsIndices: slotIdx, transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits)
-        let experts = d.squeezed(axis: -2)  // (B,S,topK,H)
-        let routed = (experts * weights.expandedDimensions(axis: -1)).sum(axis: -2).asType(x.dtype)
-
-        let shared = sharedDownProj(MLXNN.silu(sharedGateProj(x)) * sharedUpProj(x))
-        return routed + sigmoid(sharedGate(x)) * shared
+        return d.squeezed(axis: -2)  // (B,S,topK,H)
     }
+
+    /// The sweep (PLAN §3.3): rows sorted by expert; the layer's experts in
+    /// groups of `ExpertStore.defaultLoadBatch`, resident ones copied out of
+    /// the pool and the rest read from the checkpoint in contiguous runs; one
+    /// grouped GEMM per projection and group over that group's rows. Sorting
+    /// the rows is what reaches MLX's `gather_qmm_rhs` kernel, which reads an
+    /// expert's weights once per tile of tokens instead of once per token —
+    /// where the old pass spent most of its compute. Resident groups go first
+    /// so that admission (final pass only) can never evict a resident expert
+    /// this layer has not copied yet.
+    private func sweep(_ x: MLXArray, expertIds: [Int32]) -> MLXArray {
+        let (B, S, K, H, E) = (x.dim(0), x.dim(1), cfg.topK, cfg.hiddenSize, cfg.numExperts)
+        let rows = B * S * K
+        let tSort = Date()
+        var count = [Int](repeating: 0, count: E)
+        for e in expertIds { count[Int(e)] += 1 }
+        let resident = (0 ..< E).map { count[$0] > 0 && pool.isResident(ExpertKey(layer, $0)) }
+        // Counting sort of the rows by (resident first, then expert id):
+        // stable, linear, and a function of the routing alone.
+        func bucket(_ e: Int) -> Int { (resident[e] ? 0 : E) + e }
+        var start = [Int](repeating: 0, count: 2 * E + 1)
+        for e in 0 ..< E where count[e] > 0 { start[bucket(e) + 1] = count[e] }
+        for b in 0 ..< 2 * E { start[b + 1] += start[b] }
+        var fill = start
+        var order = [Int32](repeating: 0, count: rows)
+        for (r, e) in expertIds.enumerated() {
+            let b = bucket(Int(e))
+            order[fill[b]] = Int32(r)
+            fill[b] += 1
+        }
+        var invOrder = [Int32](repeating: 0, count: rows)
+        for (s, r) in order.enumerated() { invOrder[Int(r)] = Int32(s) }
+        pool.sweepSortSeconds += -tSort.timeIntervalSinceNow
+        let xs = x.reshaped([B * S, H])[MLXArray(order.map { $0 / Int32(K) })]
+            .expandedDimensions(axis: 1)  // (rows, 1, H), sorted
+
+        // The final pass of a prompt admits each layer's hottest experts, its
+        // fair share of the pool, so decode starts warm.
+        var admitSet = Set<Int>()
+        if pool.admitOnSweep, SlotPool.sweepAdmitEnabled {
+            let quota = max(1, pool.slots / cfg.numLayers)
+            let hot = (0 ..< E).filter { count[$0] > 0 }
+                .sorted { count[$0] != count[$1] ? count[$0] > count[$1] : $0 < $1 }
+            admitSet = Set(hot.prefix(quota))
+        }
+
+        let groupSize = ExpertStore.defaultLoadBatch
+        var outs: [MLXArray] = []
+        var inFlight: MLXArray? = nil
+        for source in 0 ..< 2 {  // 0: resident (out of the pool), 1: from the checkpoint
+            let ids = (0 ..< E).filter { count[$0] > 0 && resident[$0] == (source == 0) }
+            var lo = 0
+            while lo < ids.count {
+                let hi = min(lo + groupSize, ids.count)
+                let group = Array(ids[lo ..< hi])
+                let w =
+                    source == 0
+                    ? pool.gatherResident(group.map { ExpertKey(layer, $0) })
+                    : pool.readStaged(layer: layer, experts: group)
+                let rowLo = start[bucket(group[0])]
+                let rowHi = start[bucket(group[group.count - 1]) + 1]
+                let rowsG = rowHi - rowLo
+                // MLX takes the grouped kernel only for a call with at least
+                // 16 rows and four per expert; pad a small group up to that,
+                // so the kernel a row meets depends on the routing alone and
+                // never on how many rows share its group or on what the pool
+                // holds. Padding rows repeat the group's last row and are
+                // dropped from the output.
+                let pad = max(0, max(16, 4 * group.count) - rowsG)
+                var local: [Int32] = []
+                local.reserveCapacity(rowsG + pad)
+                for (j, e) in group.enumerated() {
+                    local.append(contentsOf: repeatElement(Int32(j), count: count[e]))
+                }
+                local.append(contentsOf: repeatElement(Int32(group.count - 1), count: pad))
+                var xg = xs[rowLo ..< rowHi]
+                if pad > 0 {
+                    xg = concatenated(
+                        [xg, broadcast(xs[(rowHi - 1) ..< rowHi], to: [pad, 1, H])], axis: 0)
+                }
+                let ridx = MLXArray(local)
+                let g = gatherQuantizedMM(
+                    xg, w[0], scales: w[1], biases: w[2], rhsIndices: ridx, transpose: true,
+                    groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                let u = gatherQuantizedMM(
+                    xg, w[3], scales: w[4], biases: w[5], rhsIndices: ridx, transpose: true,
+                    groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                let dAll = gatherQuantizedMM(
+                    MLXNN.silu(g) * u, w[6], scales: w[7], biases: w[8], rhsIndices: ridx,
+                    transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                let d = pad > 0 ? dAll[0 ..< rowsG] : dAll
+                if !admitSet.isEmpty {
+                    let picks = group.enumerated().filter { admitSet.contains($0.element) }
+                    if !picks.isEmpty {
+                        pool.admit(
+                            layer: layer, experts: picks.map { $0.element },
+                            rows: picks.map { $0.offset }, from: w)
+                    }
+                }
+                // The GPU works on this group while the next one is read; at
+                // most two groups of staging are alive at once.
+                asyncEval(d)
+                if let prev = inFlight {
+                    let tWait = Date()
+                    eval(prev)
+                    pool.sweepWaitSeconds += -tWait.timeIntervalSinceNow
+                }
+                inFlight = d
+                outs.append(d)
+                lo = hi
+            }
+        }
+        pool.commitAdmissions()
+        let all = concatenated(outs, axis: 0).squeezed(axis: 1)  // (rows, H), sorted
+        return all[MLXArray(invOrder)].reshaped([B, S, K, H])
+    }
+}
+
+/// The prefill sweep's one knob, public so `sweep-check` can flip it in
+/// process and measurements can A/B it (`SLOTSTREAM_SWEEP=0`).
+public enum SweepTuning {
+    /// Inputs of this many tokens or more, which only a prefill pass is, take
+    /// the sweep: each layer's routed experts stream through staging groups
+    /// and MLX's grouped GEMM and never touch the slot pool. Shorter inputs
+    /// (decode, speculative verify passes, short follow-up turns) gather over
+    /// the pool as before. The choice is a function of the token count alone,
+    /// never of the pool, so pool size and contents still cannot change the
+    /// math (the golden-equivalence invariant). `Int.max` forces the pool path
+    /// at every size.
+    public static var minTokens: Int =
+        ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP"] == "0" ? Int.max : 256
 }
 
 // MARK: - hyper-connections

@@ -3,7 +3,55 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.3 — 2026-09-02
+
+- Reading a prompt is about twice as fast. A prefill pass of 256 tokens or
+  more now sweeps each layer's experts through staging groups and MLX's
+  grouped GEMM instead of gathering one matvec per token over the slot pool,
+  reads consecutive experts as one contiguous `pread` per piece instead of
+  nine ~307 KB pieces per record, and never writes the pool, so a long prompt
+  no longer flushes what decode was using; the last pass admits the prompt's
+  hottest experts so decode starts warm. Measured on the dev Mac, interleaved
+  against 0.2.2's code: an 8k prompt at a 16 GB target 91 → 184 tok/s, ordinary
+  prose 66 → 140, the 8.1 GB floor 51 → 93, `context-check --tokens 8192` 64 →
+  152; at a matched 60-experts-per-layer pool a 4096-token pass reads 222
+  tok/s (was 103). The n-gram rows a pass needs are now read in parallel
+  rather than one at a time, which is where prose was paying ~35 s per 10k
+  tokens. Peak memory is unchanged within 0.3 GB at 16 GB and 1.5 GB lower at the 8.1 GB floor, where MLX's buffer cache is now capped while a prompt is read.
+  New gate `sweep-check`; `SLOTSTREAM_SWEEP=0`, `SLOTSTREAM_SWEEP_ADMIT=0`,
+  `SLOTSTREAM_SWEEP_TRACE=1`, and `SLOTSTREAM_PREFILL_CACHE_MB` for A/B work.
+  The planner's prefill estimates and the full-context waits on the README
+  and in `doctor` moved with the measurements.
+- slotstream is a Swift package as well as a binary. `Package.swift` declared
+  no products, so nothing outside the repository could import it even by path:
+  SwiftPM refused at graph resolution. There are now two library products —
+  `Slotstream` (weights, planning, generation, serving) and
+  `SlotstreamDiagnostics` (checks, goldens, benches) — beside the unchanged
+  `slotstream` executable. `docs/LIBRARY.md` is the guide, including the part
+  nobody guesses: MLX looks for its Metal shaders beside whichever executable
+  is running.
+- The weights are an addressable thing. `WeightStore.status()` answers ready /
+  missing / incomplete / corrupt with the bytes still needed and the free disk
+  where they land, so an app can ask before it tries to load, and a
+  complete-looking copy is still hashed because size cannot see same-size
+  corruption. `PinnedModel` is a public value; the download engine moved with
+  it and no longer throws ArgumentParser's errors.
+- The machine is a value, and a simulated one cannot allocate. `Machine`
+  carries RAM, working set, availability and whether any of it was invented;
+  a plan made for a simulated machine is marked and `Engine.load` refuses it.
+  The global `Planner.availabilityOverride` is gone from the planning path.
+  (Named `Machine`, not `Device`, because MLX exports its own `Device`.)
+- Checks are library functions, not subcommand bodies. `runtime-check`,
+  `governor-check`, `pull-check` and `sampler-golden` are `Diagnostics` and
+  `Goldens` calls that return a report; the subcommands render it and print
+  exactly what they always printed. New `slotstream-checks` runs the whole
+  catalogue — 121 assertions across 9 checks, none needing weights — and CI
+  runs it on every push alongside a coverage ratchet that holds a per-file
+  floor.
+- The serving layer's framing and routing rules are testable without a server:
+  head parsing, the 411/413/431/400 decisions, absolute-form and query-string
+  routing, and the loopback-only CORS policy. All of it previously needed a
+  live server with 105 GB loaded.
 
 - The repository carries its brain. `db/` is a public db.md store: every
   MEASUREMENTS.md and PLAN.md section is a record, every number on the README

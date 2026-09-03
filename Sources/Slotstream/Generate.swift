@@ -193,6 +193,16 @@ public final class Generator {
     /// Gate for the speculative path — `mtp-check` compares speculative
     /// against plain decode on the same loaded model by flipping this.
     public var speculationEnabled = true
+    /// `SLOTSTREAM_SWEEP_TRACE=1` prints where a sweep's prefill time went.
+    static let sweepTrace = ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP_TRACE"] == "1"
+    /// MLX buffer-cache cap in bytes while a prompt of `SweepTuning.minTokens`
+    /// or more is read, nil for no cap. The engine sets it from the memory
+    /// plan: 512 MB at targets of 12 GB and under, where the sweep's varying
+    /// array sizes filling the 2 GB cache cost a 7,960-token prompt 1.7 GB of
+    /// peak at the 8.1 GB floor (measured 7.4 against 9.1 GB); nothing above,
+    /// where the cache is cheap and the cap costs about 6% of prefill.
+    /// `SLOTSTREAM_PREFILL_CACHE_MB` overrides at any target.
+    public var prefillCacheLimit: Int? = nil
     /// Called after every prefill pass with (tokens read this request, tokens
     /// this request will read, seconds elapsed). `run` and `serve` hang a
     /// PrefillProgressReporter here so a five-minute prompt does not look
@@ -256,12 +266,23 @@ public final class Generator {
         let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
         let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
+        // A sweep allocates arrays whose sizes vary from group to group, and
+        // MLX's buffer cache keeps every freed size up to its limit, so by the
+        // end of a long prompt the cache alone held its whole 2 GB (measured
+        // 2.16 GB) on top of the pass. Where memory is tight the engine caps
+        // it while the prompt is read (`prefillCacheLimit`); decode's small,
+        // uniform working set gets the full cache back.
+        let savedCacheLimit = MLX.Memory.cacheLimit
+        if let cap = prefillCacheLimit, promptIds.count - reused >= SweepTuning.minTokens {
+            MLX.Memory.cacheLimit = min(savedCacheLimit, cap)
+        }
         var t0 = Date()
         var logits: MLXArray = MLXArray(0)
         var i = reused
         if i < promptIds.count { onPrefillProgress?(0, promptIds.count - reused, 0) }
         while i < promptIds.count {
             if let keepGoing = shouldContinue, !keepGoing() {
+                MLX.Memory.cacheLimit = savedCacheLimit
                 stats.finishReason = "stop"
                 stats.prefillTokens = i - reused
                 stats.prefillSeconds = -t0.timeIntervalSinceNow
@@ -273,6 +294,9 @@ public final class Generator {
             // stays inside the measured envelope (PrefillSchedule); output is
             // byte-identical at every pass size, so this is never correctness.
             let hi = min(i + PrefillSchedule.chunk(at: i, maxChunk: prefillChunk), promptIds.count)
+            // Only the last pass warms the pool with the prompt's hot experts
+            // (sweep admission); no other pass may evict what decode was using.
+            model.pool.admitOnSweep = hi == promptIds.count
             let chunk = Array(promptIds[i ..< hi])
             if let head = mtpHead {
                 let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state)
@@ -295,11 +319,22 @@ public final class Generator {
             i = hi
             onPrefillProgress?(i - reused, promptIds.count - reused, -t0.timeIntervalSinceNow)
         }
+        MLX.Memory.cacheLimit = savedCacheLimit
+        model.pool.admitOnSweep = false
         stats.prefillTokens = promptIds.count - reused
         stats.prefillSeconds = -t0.timeIntervalSinceNow
         stats.prefillIOSeconds = model.pool.ioSeconds
         stats.prefillScatterSeconds = model.pool.scatterSeconds
         stats.prefillRecords = model.pool.recordsFetched
+        if Self.sweepTrace {
+            let line = String(
+                format: "sweep trace: io %.2fs, gpu wait %.2fs, row sort %.2fs, pool copies %.2fs, "
+                    + "mlx peak %.2f GB, mlx cache %.2f GB\n",
+                model.pool.ioSeconds, model.pool.sweepWaitSeconds, model.pool.sweepSortSeconds,
+                model.pool.scatterSeconds, Double(MLX.Memory.peakMemory) / 1e9,
+                Double(MLX.Memory.cacheMemory) / 1e9)
+            FileHandle.standardError.write(line.data(using: .utf8)!)
+        }
         model.pool.resetStats()
         model.ngram.resetStats()
 

@@ -27,4 +27,21 @@ MTP parity gate fixed (regen-at-gate, bit-exact stage forensics) and the tools-v
 
 ## [2026-09-03 06:49] create | sources/runs/2026/09/2026-09-03-verify-tools-v1-clean-macbook-pro-m3-max
 first fully green battery on this machine: 190/0 (robustness 75/0) after the unseeded-gate determinism fix b9c712c
+## [2026-09-02 19:44] create | records/measurements
+N2 — the prefill sweep: one level-2 section and four level-3 records (the numbers, the gates, the knobs, what it does not settle), every number from an interleaved A/B on 2026-09-02
+
+## [2026-09-02 19:44] create | sources/runs
+seven raw runs behind the sweep section: the 8k and prose A/Bs, the floor and 10 GB runs, the pass-size ladder, the tuning arms, sweep-check transcripts, context-check JSON; captured before any number was transcribed
+
+## [2026-09-02 19:44] update | records/claims
+prefill claims moved with the measurements: 125 tok/s, 5.5 min, 13.7 min withdrawn; 220 tok/s, 3.0 min, 6.4 min, 91 → 184 tok/s, 66 → 140, 51 → 93 added
+
+## [2026-09-02 19:44] create | records/decisions
+two decisions: passes of 256+ tokens sweep and never load the pool; staging buffer recycling rejected by measurement
+
+## [2026-09-02 19:44] update | records/plan
+N2 and M5 marked done in the tracker and the N2 queue item; the §3.3 design record carries the built-as addendum
+
+## [2026-09-02 19:45] validate | store
+store validates clean; brain gates pass (validate, projection parity, 55 claim-needle checks)
 

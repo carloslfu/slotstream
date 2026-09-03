@@ -3,7 +3,8 @@
 import ArgumentParser
 import Foundation
 import MLX
-import SlotstreamCore
+import Slotstream
+import SlotstreamDiagnostics
 
 struct Slotstream: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -15,64 +16,21 @@ struct Slotstream: ParsableCommand {
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
             PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
-            ContextCheck.self, PrefillScheduleCommand.self,
+            ContextCheck.self, PrefillScheduleCommand.self, SweepCheck.self,
         ]
     )
 }
 
 /// Weights-free regressions for process and cache safety invariants that are
-/// otherwise only observable during a 100+ GB model run.
+/// otherwise only observable during a 100+ GB model run. The checks themselves
+/// live in SlotstreamDiagnostics; this is the adapter that prints them.
 struct RuntimeCheck: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "runtime-check",
         abstract: "Check process RSS accounting and prefix-cache bounds without loading weights")
 
     func run() throws {
-        var failures: [String] = []
-        func check(_ name: String, _ condition: @autoclosure () -> Bool) {
-            if condition() { print("PASS  \(name)") }
-            else { print("FAIL  \(name)"); failures.append(name) }
-        }
-
-        check("process physical footprint is readable", ProcessMemory.residentBytes() > 0)
-        check("process RSS high-water is readable", ProcessMemory.peakResidentBytes() > 0)
-
-        let cache = PrefixCache(maxTokens: 100)
-        for token in 1 ... PrefixCache.maxEntries {
-            cache.store(state: Qwen4ExpModel.State(), tokens: [token])
-        }
-        check("prefix cache reaches its four-entry bound", cache.json()["conversations"] as? Int == 4)
-        cache.store(state: Qwen4ExpModel.State(), tokens: [PrefixCache.maxEntries])
-        check("an identical history replaces instead of duplicating an entry",
-              cache.json()["conversations"] as? Int == 4)
-        _ = cache.take(matching: [999], reserveTokens: 1)
-        check("a miss evicts before allocating a fifth state", cache.json()["conversations"] as? Int == 3)
-        cache.configure(maxTokens: 2)
-        check("a smaller live token ceiling evicts immediately", cache.heldTokens <= 2)
-        check("held GB includes fixed recurrent state", cache.heldGB > 0.1)
-
-        // Weights behind a symlink: Foundation refuses to list the link itself,
-        // so the index must resolve it first (it did not, before 0.2.1).
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("slotstream-runtime-check-\(getpid())")
-        let real = tmp.appendingPathComponent("real")
-        let link = tmp.appendingPathComponent("link")
-        try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
-        FileManager.default.createFile(
-            atPath: real.appendingPathComponent("model-00001-of-00001.safetensors").path, contents: Data())
-        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        check("shard listing works through a symlinked model dir",
-              (try? CheckpointIndex.shardFiles(in: link))?.count == 1)
-
-        for target in [Planner.minMemoryGB, 10, 16, 30] where target >= Planner.minMemoryGB {
-            let p = try Planner.plan(
-                expertsPerLayer: nil, poolGB: nil, memoryGB: target,
-                ramGB: 64, workingSetGB: 64, availableGB: 64)
-            check("\(target) GB plan stays inside its target", p.expectedPeakGB <= target + 0.01)
-        }
-        if !failures.isEmpty { throw ExitCode(2) }
-        print("RUNTIME CHECK PASS")
+        try CheckRendering.emit(Diagnostics.runtime(), banner: "RUNTIME CHECK PASS")
     }
 }
 
@@ -183,13 +141,13 @@ struct ModelOptions: ParsableArguments {
         }
         // pinned model: every manifest file must be present whole (a partial
         // first download must resume here, not die later in the engine)
-        var remaining = Pull.remainingBytes(at: url)
+        var remaining = WeightStore.remainingBytes(at: url)
         var corrupt: [PinnedModel.File] = []
         if remaining == 0 {
             // Size alone cannot distinguish a valid file from same-size
             // corruption. Hash before loading; this takes seconds and prevents
             // a damaged tokenizer/config/weight from reaching the engine.
-            corrupt = Pull.invalidFiles(at: url)
+            corrupt = WeightStore.invalidFiles(at: url)
             if corrupt.isEmpty { return }
             remaining = corrupt.reduce(0) { $0 + $1.size }
             print("found \(corrupt.count) same-size file(s) that fail the pinned sha256: "
@@ -207,15 +165,15 @@ struct ModelOptions: ParsableArguments {
             \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
               size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
                   have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
-              time:  \(Pull.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower link takes longer
+              time:  \(WeightStore.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower link takes longer
               to:    \(url.path)
               disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
             """)
         fflush(stdout)
         switch askYesNo("download now? [Y/n] ") {
         case .some(true):
-            try Pull.download(to: url)
-            try Pull.verify(at: url)
+            try WeightStore.download(to: url, log: { print($0) })
+            try WeightStore.verify(at: url, log: { print($0) })
         case .some(false):
             throw PlanError("not downloading — when you are ready:  slotstream pull")
         case .none:  // no terminal to ask on
@@ -468,7 +426,7 @@ struct Parity: ParsableCommand {
 
 struct Doctor: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Device report, the plan your flags produce, and what each memory target buys")
+        abstract: "Machine report, the plan your flags produce, and what each memory target buys")
     @OptionGroup var model: ModelOptions
 
     @Option(name: .customLong("sim-ram"),
@@ -497,7 +455,7 @@ struct Doctor: ParsableCommand {
             return "weights: \(url.path) (not the pinned model — size unknown)"
         }
         let fm = FileManager.default
-        let remaining = Pull.remainingBytes(at: url)
+        let remaining = WeightStore.remainingBytes(at: url)
         if remaining == 0 {
             return String(format: "weights: present by size, %.1f GB at %@ (run pull --verify for hashes)",
                           Double(PinnedModel.totalBytes) / 1e9, url.path)
@@ -514,7 +472,7 @@ struct Doctor: ParsableCommand {
             : String(format: "ONLY %.0f GB free, needs %.0f GB",
                      Double(free) / 1e9, Double(need) / 1e9)
         return String(format: "weights: %.1f GB to download (%@ at best) — %@",
-                      Double(remaining) / 1e9, Pull.etaHint(remaining), room)
+                      Double(remaining) / 1e9, WeightStore.etaHint(remaining), room)
     }
 
     func run() throws {
@@ -539,15 +497,21 @@ struct Doctor: ParsableCommand {
         if simulating, !quiet { print("what-if for a simulated machine (this device shown above):") }
         let simulatedAvailable = simulating
             ? (simAvailable ?? simRAM ?? Planner.deviceRAMGB()) : nil
+        // A what-if plans against a Machine that says it is simulated, so the
+        // plan it produces is marked and can never be handed to Engine.load.
+        let device: Machine = simulating
+            ? Machine(
+                ramGB: simRAM ?? Planner.deviceRAMGB(),
+                workingSetGB: simWorkingSet ?? (simRAM.map { $0 * 0.75 } ?? Planner.deviceWorkingSetGB()),
+                availableGB: simulatedAvailable, isSimulated: true)
+            : .current()
         let plan = try Planner.plan(
-            expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB, memoryGB: model.memoryGB,
-            ramGB: simRAM,
-            workingSetGB: simWorkingSet ?? simRAM.map { $0 * 0.75 },
-            availableGB: simulatedAvailable,
-            ramPercent: model.maxRAMPercent,
-            mtp: try model.mtpMode(),
-            mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
-            maxContextTokens: maxContext)
+            PlanRequest(
+                expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
+                memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
+                mtp: try model.mtpMode(), maxContextTokens: maxContext),
+            on: device,
+            mtpAvailable: MTPWeights.present(modelDir: model.modelURL))
         if asJSON {
             let data = try JSONSerialization.data(
                 withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])
@@ -1209,135 +1173,8 @@ struct GovernorCheck: ParsableCommand {
         commandName: "governor-check",
         abstract: "Prove the elastic resize policy behaves across pressure, availability and cooldowns")
 
-    typealias P = GovernorPolicy
-    // A 48 GB Mac sitting at what auto picks when nothing else is running.
-    static let ram = 51.5
-    static let ws = 40.2
-
-    static func inputs(
-        slots: Int, avail: Double, sincePressure: Double? = nil,
-        sinceResize: Double? = nil, pressure: P.Pressure? = nil
-    ) -> P.Inputs {
-        P.Inputs(
-            currentSlots: slots, availableGB: avail, ramGB: ram, workingSetGB: ws,
-            secondsSincePressure: sincePressure, secondsSinceResize: sinceResize,
-            pressure: pressure)
-    }
-
     func run() throws {
-        var pass = 0, fail = 0
-        func check(_ name: String, _ cond: Bool, _ detail: @autoclosure () -> String = "") {
-            if cond { print("PASS  \(name)"); pass += 1 }
-            else { print("FAIL  \(name)  \(detail())"); fail += 1 }
-        }
-        func slots(_ d: P.Decision) -> Int? {
-            if case let .resize(s, _) = d { return s }
-            return nil
-        }
-        func reason(_ d: P.Decision) -> String {
-            if case let .resize(_, r) = d { return r }
-            return "hold"
-        }
-
-        // Steady state: a quiet machine holding what auto would pick.
-        let steady = Planner.slotsForTarget(Planner.autoTargetGB(ramGB: Self.ram, workingSetGB: Self.ws))
-        let steadyAvail = Geometry.gb(steady) + Planner.fixedFootprintGB + 6.0
-        let d0 = P.decide(Self.inputs(slots: steady, avail: steadyAvail))
-        check("quiet machine at target: hold", d0 == .hold, "got \(d0)")
-
-        // Availability collapses: shrink, in one step, to what a restart would pick.
-        let d1 = P.decide(Self.inputs(slots: steady, avail: 2.0))
-        check("availability collapses: shrinks", (slots(d1) ?? steady) < steady, "got \(d1)")
-        check("  ...and says why", reason(d1) == "availability dropped")
-        // Shrinking the pool releases that memory, so availability must rise by
-        // exactly what the pool gave up. Holding it fixed is not a reachable
-        // state, and the credit in desiredSlots exists precisely so the answer
-        // does not depend on how much we happen to hold right now.
-        let after = slots(d1)!
-        let freed = Geometry.gb(steady) - Geometry.gb(after)
-        let once = P.decide(Self.inputs(slots: after, avail: 2.0 + freed))
-        check("  ...converges in one step (no ratcheting)", once == .hold, "got \(once)")
-
-        // The invariant behind that: only (availability + pool) matters, so two
-        // states holding the same total memory must want the same size.
-        // Compare the desired target, not the decision: whether a resize is
-        // emitted also depends on dead-bands and cooldowns, and a machine
-        // already at the desired size correctly holds.
-        let small = Geometry.floorSlots * 3
-        let wantA = P.desiredSlots(Self.inputs(slots: steady, avail: 12.0))
-        let wantB = P.desiredSlots(
-            Self.inputs(slots: small, avail: 12.0 + Geometry.gb(steady) - Geometry.gb(small)))
-        check("target depends on (available + pool), not on either alone",
-              wantA != nil && wantA == wantB,
-              "\(String(describing: wantA)) vs \(String(describing: wantB))")
-
-        // Dead-bands: a small change must not churn the pool.
-        let smallDrop = Geometry.gb(steady) + Planner.fixedFootprintGB + 5.4
-        check("small drop inside the shrink dead-band: hold",
-              P.decide(Self.inputs(slots: steady, avail: smallDrop)) == .hold)
-        let tinyGain = steadyAvail + 1.0
-        check("small gain inside the grow dead-band: hold",
-              P.decide(Self.inputs(slots: steady, avail: tinyGain)) == .hold)
-
-        // Growth is gated on calm and on cooldown.
-        let roomy = 30.0
-        check("grow blocked while a resize is recent",
-              P.decide(Self.inputs(slots: small, avail: roomy, sinceResize: 10)) == .hold)
-        check("grow blocked while pressure is recent",
-              P.decide(Self.inputs(slots: small, avail: roomy, sincePressure: 10, sinceResize: 999)) == .hold)
-        let grow = P.decide(Self.inputs(slots: small, avail: roomy, sincePressure: 999, sinceResize: 999))
-        check("grow allowed once calm and cooled", (slots(grow) ?? 0) > small, "got \(grow)")
-        if let target = slots(grow), let desired = P.desiredPlan(
-            Self.inputs(slots: small, avail: roomy, sincePressure: 999, sinceResize: 999))
-        {
-            let controls = P.liveControls(
-                for: target,
-                inputs: Self.inputs(
-                    slots: small, avail: roomy,
-                    sincePressure: 999, sinceResize: 999))
-            check("grow restores the planner's prefill and prefix budgets",
-                  controls.prefillChunk == desired.prefillChunk
-                    && controls.prefixCacheTokens == desired.prefixCacheTokens,
-                  "got \(controls), expected \((desired.prefillChunk, desired.prefixCacheTokens))")
-        } else {
-            check("grow restores the planner's prefill and prefix budgets", false)
-        }
-        check("  ...and says why", reason(grow) == "memory freed")
-
-        // OS pressure events shed immediately, regardless of cooldown.
-        let warn = P.decide(Self.inputs(slots: steady, avail: steadyAvail, sinceResize: 0, pressure: .warning))
-        let warnShed = Geometry.gb(steady) - Geometry.gb(slots(warn) ?? steady)
-        check("warning pressure sheds >= max(2 GB, 15%)",
-              warnShed >= min(2.0, Geometry.gb(steady)) - 0.01, "shed \(warnShed) GB")
-        check("  ...ignores the resize cooldown", slots(warn) != nil)
-        let crit = P.decide(Self.inputs(slots: steady, avail: steadyAvail, sinceResize: 0, pressure: .critical))
-        let critShed = Geometry.gb(steady) - Geometry.gb(slots(crit) ?? steady)
-        check("critical pressure sheds >= max(4 GB, 50%)",
-              critShed >= min(4.0, Geometry.gb(steady)) - 0.01, "shed \(critShed) GB")
-        check("critical sheds strictly more than warning", critShed > warnShed)
-
-        // Repeated pressure keeps shedding, but never past the floor.
-        var cur = steady
-        for _ in 0 ..< 20 {
-            guard let n = slots(P.decide(Self.inputs(slots: cur, avail: 1.0, pressure: .critical))) else { break }
-            cur = n
-        }
-        check("repeated critical pressure converges to the floor", cur == Geometry.floorSlots, "ended at \(cur)")
-        check("floor is never breached", cur >= Geometry.floorSlots)
-        check("at the floor, more pressure is a no-op",
-              P.decide(Self.inputs(slots: Geometry.floorSlots, avail: 0.5, pressure: .critical)) == .hold)
-
-        // The cap holds on a machine with more memory than the model needs.
-        let huge = P.Inputs(
-            currentSlots: Geometry.floorSlots, availableGB: 400, ramGB: 512, workingSetGB: 400,
-            secondsSincePressure: nil, secondsSinceResize: nil, pressure: nil)
-        check("never asks for more slots than the model has",
-              (slots(P.decide(huge)) ?? 0) <= Geometry.totalRecords,
-              "got \(String(describing: slots(P.decide(huge))))")
-
-        print("")
-        print("governor policy: passed \(pass), failed \(fail)")
-        if fail > 0 { throw ExitCode(2) }
+        try CheckRendering.emitTally(Diagnostics.governorPolicy(), label: "governor policy")
     }
 }
 
@@ -1361,35 +1198,16 @@ struct SamplerGolden: ParsableCommand {
     @Flag(help: "Feed each pick back as 'already generated' (exercises the penalty)")
     var accumulate = false
 
-    static func logits(vocab: Int, seed: UInt64) -> [Float] {
-        var st = seed
-        return (0 ..< vocab).map { _ in
-            st = Splitmix.mix(st)
-            // 24 bits / 2^24 is exact in f32; x8 and -4 are exact scalings.
-            return Float(st >> 40) / Float(1 << 24) * 8.0 - 4.0
-        }
-    }
-
     func run() throws {
-        guard vocab > 0 else { throw ValidationError("--vocab must be greater than zero") }
-        guard draws >= 0 else { throw ValidationError("--draws must not be negative") }
         var p = SampleParams()
         p.temperature = temperature
         p.topP = topP
         p.topK = topK
         p.minP = minP
         p.presencePenalty = presencePenalty
-        p = p.sanitized()
-        let vals = Self.logits(vocab: vocab, seed: logitSeed)
-        let arr = MLXArray(vals)
-        var sampler = Sampler(seed: seed)
-        var generated = Set<Int>()
-        var picks: [Int] = []
-        for _ in 0 ..< draws {
-            let t = sampler.next(arr, params: p, generated: generated)
-            picks.append(t)
-            if accumulate { generated.insert(t) }
-        }
+        let picks = try Goldens.sampler(
+            vocab: vocab, draws: draws, seed: seed, logitSeed: logitSeed, params: p,
+            accumulate: accumulate)
         print(picks.map(String.init).joined(separator: ","))
     }
 }

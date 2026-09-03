@@ -5,7 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SOURCES=(README.md docs/CLI.md docs/API.md docs/TROUBLESHOOTING.md docs/HARDWARE.md CHANGELOG.md)
+SOURCES=(README.md docs/CLI.md docs/API.md docs/LIBRARY.md docs/TESTING.md \
+         docs/TROUBLESHOOTING.md docs/HARDWARE.md CHANGELOG.md)
 
 render() {
   echo "# slotstream: full documentation"

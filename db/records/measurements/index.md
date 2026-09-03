@@ -2,12 +2,16 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-02T22:21:19Z
+updated: 2026-09-02T19:43:56.037621Z
 ---
 
 # records/measurements
 
-- [[records/measurements/tool-calling-branch-first-build-and-live-gates-2026-09-02]] — Tool-calling branch (PR #2) first build and live gates on a second machine: batteries green but the machine-dependent mtp-parity gate; the 4-bit MoE emits well-formed tool calls and loops.
+- [[records/measurements/the-numbers-8k-prose-the-floor-the-ladder-and-decode-after-a-long-prompt]] — The numbers: 8k, prose, the floor, the ladder, and decode after a long prompt
+- [[records/measurements/what-the-sweep-does-not-settle]] — What the sweep does not settle
+- [[records/measurements/what-set-the-knobs-group-size-lanes-recycling-the-cache-cap-admission-and-the-n-gram-rows]] — What set the knobs: group size, lanes, recycling, the cache cap, admission, and the n-gram rows
+- [[records/measurements/the-gates-the-sweep-is-the-same-computation]] — The gates: the sweep is the same computation
+- [[records/measurements/n2-the-prefill-sweep-grouped-gemm-over-staging-contiguous-reads-no-pool-writes-2026-09-02]] — N2 — the prefill sweep: grouped GEMM over staging, contiguous reads, no pool writes (2026-09-02)
 - [[records/measurements/what-this-does-not-settle]] — What this does not settle
 - [[records/measurements/open-each-needing-an-explicit-go]] — Open, each needing an explicit go
 - [[records/measurements/the-fastest-path-is-not-the-wan-at-all]] — The fastest path is not the WAN at all

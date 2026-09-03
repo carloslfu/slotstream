@@ -23,3 +23,17 @@ is genuinely unavoidable.
 
 **Exit:** ≥150 tok/s @8k on the dev Mac; byte-identical output at every pass size (the
 existing standing gate).
+
+**Done 2026-09-02.** The sweep shipped as designed in §3.3 with the departures the
+design note's addendum records, and the exit is met: the 8k acceptance prompt reads
+**184 tok/s at a 16 GB target** against 91 on the same code base the day before
+(three interleaved rounds), 222 at a 4096-token pass on a matched 60-per-layer pool,
+247 at 4096 by override at 16 GB, and 152 by `context-check --tokens 8192` at 16 GB
+against 64. The second half of the exit was written wrong and is replaced by the gate
+that N1 already uses: output is inside the prefill-rechunk band at every pass size
+(`sweep-check`: 3.3% of logit spread against a 5.1% control), bit-identical on a cold
+and a warm pool, not byte-identical across pass sizes, which re-batching never was.
+The cross-token prefetcher was not built; it is a decode lever, not a prefill one, and
+stays with the deprioritized list. What N2 leaves open is in MEASUREMENTS.md, "N2 — the
+prefill sweep": the auto plan on this Mac, the prose-versus-acceptance-prompt gap, the
+serial router-and-attention time between groups, and the read rate against the SSD.

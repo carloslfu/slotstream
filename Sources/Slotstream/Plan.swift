@@ -86,6 +86,10 @@ public struct MemoryPlan {
     /// Whether the MTP draft head loads (self-speculative decode). Charged as
     /// a fixed resident block; the pool is sized from what remains.
     public let mtpEnabled: Bool
+    /// True when this plan was made for a simulated device (`doctor --sim-*`).
+    /// Such a plan may be printed and compared, never loaded: a simulated
+    /// availability figure still produces a real allocation.
+    public var simulated = false
     /// Longest prompt plus reply a request may hold (`--max-context`). State
     /// for the first `ContextPolicy.tokensInFixedFootprint` tokens is inside
     /// the fixed footprint; anything above is charged separately.
@@ -98,7 +102,7 @@ public struct MemoryPlan {
         availableGB: Double?, clamped: Bool,
         prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
         maxContextTokens: Int = ContextPolicy.maxTokens,
-        notes: [String]
+        notes: [String], simulated: Bool = false
     ) {
         self.source = source
         self.slots = slots
@@ -113,6 +117,7 @@ public struct MemoryPlan {
         self.mtpEnabled = mtpEnabled
         self.maxContextTokens = maxContextTokens
         self.notes = notes
+        self.simulated = simulated
     }
 
     public var expertsPerLayerCached: Double { Geometry.perLayer(slots) }
@@ -394,12 +399,19 @@ public enum Planner {
     /// 88 tok/s at 60 experts/layer and 113 at 67, so treat these as typical
     /// for a machine that would *choose* that chunk, not as a pure function.
     public static func estPrefillTokS(chunk: Int) -> Double {
+        // The sweep's ladder on the 8k acceptance prompt at a matched pool of
+        // 60 experts per layer (MEASUREMENTS.md, "N2 — the prefill sweep"):
+        // 88 / 128 / 169 / 211 / 222 tok/s from 256 to 4096, rounded down.
+        // The floor's 256-token pass read 88 at 13 per layer too: below 1024
+        // the pass is read-bound and the pool barely matters. Ordinary prose
+        // reads about 40% slower than this prompt at every size; these are the
+        // acceptance prompt's numbers, as the previous ladder's were.
         switch chunk {
-        case ..<512: return 40
-        case ..<1024: return 50
-        case ..<2048: return 94
-        case ..<4096: return 113
-        default: return 125
+        case ..<512: return 85
+        case ..<1024: return 125
+        case ..<2048: return 165
+        case ..<4096: return 205
+        default: return 220
         }
     }
     /// Smallest honest total-memory target: floor pool + footprint + margin.
@@ -560,7 +572,7 @@ public enum Planner {
     /// busy machine degrades gracefully instead of swap-storming — explicit
     /// knobs mean the user chose, so they only get an informational note. On a
     /// quiet machine the clamp never binds and auto stays deterministic.
-    public enum MTPMode: String {
+    public enum MTPMode: String, Sendable, Codable {
         case on, off, auto
     }
 
@@ -569,7 +581,8 @@ public enum Planner {
         ramGB: Double? = nil, workingSetGB: Double? = nil,
         availableGB: Double? = nil, ramPercent: Double? = nil,
         mtp: MTPMode = .off, mtpAvailable: Bool = false,
-        maxContextTokens: Int = ContextPolicy.maxTokens
+        maxContextTokens: Int = ContextPolicy.maxTokens,
+        simulated: Bool = false
     ) throws -> MemoryPlan {
         if let why = ContextPolicy.validationError(maxContextTokens) { throw PlanError(why) }
         // Zero at today's ceiling (Context.swift); charged the day it moves.
@@ -657,7 +670,8 @@ public enum Planner {
                     poolBudgetGB: budgetForCaches, contextCap: maxContextTokens),
                 mtpEnabled: mtpOn,
                 maxContextTokens: maxContextTokens,
-                notes: notes)
+                notes: notes,
+                simulated: simulated)
         }
 
         if let n = expertsPerLayer {

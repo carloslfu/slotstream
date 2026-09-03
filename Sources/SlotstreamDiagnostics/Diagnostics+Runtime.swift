@@ -1,0 +1,65 @@
+// Process and cache safety invariants that are otherwise only observable
+// during a 100+ GB model run. Weights-free on purpose: these are the rules a
+// long run depends on, checked in milliseconds on every push.
+
+import Foundation
+import Slotstream
+
+extension Diagnostics {
+    public static func runtime() throws -> CheckReport {
+        var c = CheckBuilder("runtime-check")
+
+        c.expect("process physical footprint is readable", ProcessMemory.residentBytes() > 0)
+        c.expect("process RSS high-water is readable", ProcessMemory.peakResidentBytes() > 0)
+
+        // The prefix cache holds four conversations, not one: Open WebUI's
+        // interleaved title request defeated a single slot.
+        let cache = PrefixCache(maxTokens: 100)
+        for token in 1 ... PrefixCache.maxEntries {
+            cache.store(state: Qwen4ExpModel.State(), tokens: [token])
+        }
+        c.equal(
+            "prefix cache reaches its four-entry bound",
+            cache.json()["conversations"] as? Int, PrefixCache.maxEntries)
+        cache.store(state: Qwen4ExpModel.State(), tokens: [PrefixCache.maxEntries])
+        c.equal(
+            "an identical history replaces instead of duplicating an entry",
+            cache.json()["conversations"] as? Int, PrefixCache.maxEntries)
+        _ = cache.take(matching: [999], reserveTokens: 1)
+        c.equal(
+            "a miss evicts before allocating a fifth state",
+            cache.json()["conversations"] as? Int, PrefixCache.maxEntries - 1)
+        cache.configure(maxTokens: 2)
+        c.expect("a smaller live token ceiling evicts immediately", cache.heldTokens <= 2)
+        c.expect("held GB includes fixed recurrent state", cache.heldGB > 0.1)
+
+        // Weights behind a symlink: Foundation refuses to list the link itself,
+        // so the index must resolve it first (it did not, before 0.2.1).
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("slotstream-runtime-check-\(getpid())")
+        let real = tmp.appendingPathComponent("real")
+        let link = tmp.appendingPathComponent("link")
+        try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: real.appendingPathComponent("model-00001-of-00001.safetensors").path,
+            contents: Data())
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        c.equal(
+            "shard listing works through a symlinked model dir",
+            (try? CheckpointIndex.shardFiles(in: link))?.count, 1)
+
+        // The memory promise: a plan never expects to peak past its target.
+        for target in [Planner.minMemoryGB, 10, 16, 30] where target >= Planner.minMemoryGB {
+            let p = try Planner.plan(
+                expertsPerLayer: nil, poolGB: nil, memoryGB: target,
+                ramGB: 64, workingSetGB: 64, availableGB: 64)
+            c.expect(
+                "\(target) GB plan stays inside its target",
+                p.expectedPeakGB <= target + 0.01,
+                "expected peak \(p.expectedPeakGB) GB")
+            c.measure("peak_gb_at_\(Int(target))", p.expectedPeakGB)
+        }
+        return c.report()
+    }
+}

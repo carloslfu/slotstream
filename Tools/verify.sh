@@ -85,6 +85,9 @@ esac
 echo "== conversation prefix cache: bounded, flat with depth, deterministic =="
 check "prefix reuse within the prefill-rechunk control (prefix-check)" "$BIN prefix-check"
 
+echo "== prefill sweep: matches the pool path, deterministic, blind to the pool =="
+check "sweep within the prefill-rechunk control, identical cold and warm (sweep-check)" "$BIN sweep-check"
+
 # The MTP draft head is a separately converted artifact (Tools/mtp_convert.py),
 # not part of `pull` — a fresh install legitimately lacks it, so these SKIP
 # rather than fail when it is absent.

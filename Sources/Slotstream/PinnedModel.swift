@@ -9,27 +9,38 @@ import Foundation
 /// Every file carries the digest of the pinned revision. Small text files need
 /// content integrity too: a same-size tokenizer or template change can alter
 /// model semantics while still parsing successfully.
-enum PinnedModel {
-    static let name = "qwen3.8-flash-next:4bit"
-    static let dirName = "qwen38-flash-next-mlx-4bit"
-    static let repo = "pipenetwork/Qwen3.8-Flash-Next-MLX-4bit"
-    static let revision = "aa7c790e804bbf9d491ddb109c3d61bc4a555f7c"
+public enum PinnedModel {
+    public static let name = "qwen3.8-flash-next:4bit"
+    public static let dirName = "qwen38-flash-next-mlx-4bit"
+    public static let repo = "pipenetwork/Qwen3.8-Flash-Next-MLX-4bit"
+    public static let revision = "aa7c790e804bbf9d491ddb109c3d61bc4a555f7c"
     /// Byte-identical mirror (same file sha256s) under the author's account,
     /// tried first so the project does not depend on a third party staying up.
-    static let mirrorRepo = "carloslfu/Qwen3.8-Flash-Next-MLX-4bit"
-    static let mirrorRevision = "e9d552f83de4665d243d5c9cf73201a1ca6c16d7"
+    public static let mirrorRepo = "carloslfu/Qwen3.8-Flash-Next-MLX-4bit"
+    public static let mirrorRevision = "e9d552f83de4665d243d5c9cf73201a1ca6c16d7"
 
-    struct File {
-        let path: String
-        let size: Int64
-        let sha256: String?
+    public struct File: Sendable, Codable {
+        public let path: String
+        public let size: Int64
+        public let sha256: String?
         /// An optional file is pinned like any other when present, but a
         /// source that does not carry it leaves the pull green and the
         /// startup manifest check quiet; the engine runs without it.
-        var optional: Bool = false
+        public var optional: Bool = false
+
+        public init(path: String, size: Int64, sha256: String?, optional: Bool = false) {
+            self.path = path
+            self.size = size
+            self.sha256 = sha256
+            self.optional = optional
+        }
     }
 
-    static let files: [File] = [
+    /// Bytes that must be present for the engine to run: the manifest without
+    /// its one optional file, the draft head.
+    public static var requiredBytes: Int64 { requiredFiles.reduce(0) { $0 + $1.size } }
+
+    public static let files: [File] = [
         File(path: "LICENSE", size: 3235, sha256: "a0dc422560841fd68e06d974907f8b4c709bca44a67daad2b528437bdf676c08"),
         File(path: "README.md", size: 6139, sha256: "db1e0d8575543e7a8d324fd22afd2d596a002e9163ed1f971b6b8df0abbe65fd"),
         File(path: "chat_template.jinja", size: 8952, sha256: "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"),
@@ -63,6 +74,6 @@ enum PinnedModel {
         File(path: "mtp.safetensors", size: 1470955171, sha256: "c80b58faae46eeacb94dea49dd3453566ee05597fbd28c7c647eccb2862ab744", optional: true),
     ]
 
-    static var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }  // 105264463248 = 105.3 GB, head included
-    static var requiredFiles: [File] { files.filter { !$0.optional } }
+    public static var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }  // 105264463248 = 105.3 GB, head included
+    public static var requiredFiles: [File] { files.filter { !$0.optional } }
 }

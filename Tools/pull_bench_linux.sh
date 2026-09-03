@@ -1,6 +1,7 @@
 #!/bin/bash
 # Measure `slotstream pull` from a Linux box with a fast port, in Docker.
-# Builds the exact Sources/slotstream/Pull.swift + PinnedModel.swift (swift-crypto
+# Builds the library's exact download engine (Sources/Slotstream/WeightDownload.swift,
+# WeightStore.swift, PinnedModel.swift, Errors.swift; swift-crypto
 # stands in for CryptoKit; the Darwin-only connection report is compiled out)
 # and runs a real pull of the pinned weights. Linux is not a supported platform;
 # this is a bandwidth instrument. 2026-09-01 on a 1 Gbit/s Hetzner port: 8
@@ -16,7 +17,8 @@ WORK="${1:-/tmp/slotstream-bench}"
 CONNS="${2:-8}"
 IMAGE=swift:6.1-noble
 mkdir -p "$WORK/pullbench/Sources" "$WORK/model"
-cp Sources/slotstream/Pull.swift Sources/slotstream/PinnedModel.swift "$WORK/pullbench/Sources/"
+cp Sources/Slotstream/WeightDownload.swift Sources/Slotstream/WeightStore.swift \
+   Sources/Slotstream/PinnedModel.swift Sources/Slotstream/Errors.swift "$WORK/pullbench/Sources/"
 cp Tools/pull-bench-linux/main.swift "$WORK/pullbench/Sources/main.swift"
 cp Tools/pull-bench-linux/Package.swift "$WORK/pullbench/Package.swift"
 echo "== build ($IMAGE) =="

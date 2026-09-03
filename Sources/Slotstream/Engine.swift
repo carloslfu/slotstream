@@ -139,6 +139,12 @@ public final class Engine {
     }
 
     public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+        // A plan made for a simulated machine may be printed and compared,
+        // never loaded. Simulating memory the machine does not have still
+        // allocates for real: on 2026-08-30 a simulated 60 GB drove a 25.4 GB
+        // allocation and 39 GB of swap. The flag travels on the plan so this
+        // cannot be forgotten at a call site.
+        if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
         self.modelDir = modelDir
         self._plan = plan
         // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
@@ -165,6 +171,11 @@ public final class Engine {
         self.generator = Generator(model: model)
         if let p = plan, ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CHUNK"] == nil {
             generator.prefillChunk = p.prefillChunk
+        }
+        if let mb = Int(ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CACHE_MB"] ?? "") {
+            generator.prefillCacheLimit = max(0, mb) << 20
+        } else if let p = plan, p.expectedPeakGB <= 12 {
+            generator.prefillCacheLimit = 512 << 20
         }
         self.tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
         var eos: Set<Int> = [index.config.eosTokenId]

@@ -3,7 +3,7 @@
 
 import ArgumentParser
 import Foundation
-import SlotstreamCore
+import Slotstream
 
 // MARK: prefill-schedule
 
