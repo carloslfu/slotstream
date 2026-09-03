@@ -138,9 +138,14 @@ for i in range(700):
     b += f[i % 3]
 print(b + "\n\nQuestion: what is the vault combination? Answer with one word.")
 PYEOF
-# 16 tokens: the reply opens with an empty <think> block, and 8 cut the answer
-# off mid-word.
-$BIN run --raw --prompt "$(cat /tmp/ssv_long.txt)" --max-tokens 16 --greedy --memory-gb $BIG_MEMORY \
+# 96 tokens: the reply opens with a <think> block that quotes the answer
+# before closing. 16 fit the pre-sweep token stream, where <think> stayed
+# empty; the sweep changed that stream (its output is inside the
+# prefill-rechunk band, not byte-identical), and the model now reasons out
+# loud for ~90 tokens before "SEVENTEEN". The gate tests recall through
+# the sparse indexer, not how far the model reasons, so the budget moves
+# with the stream.
+$BIN run --raw --prompt "$(cat /tmp/ssv_long.txt)" --max-tokens 96 --greedy --memory-gb $BIG_MEMORY \
   2>/tmp/ssv_longmem.err > /tmp/ssv_longmem.txt
 LPEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_longmem.err | grep -o '[0-9.]*')
 check "--memory-gb $BIG_MEMORY RSS peak ($LPEAK GB) under target on a 7,960-token prompt" \
