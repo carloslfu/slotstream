@@ -16,7 +16,9 @@ it from SSD and runs it in whatever memory you give it. It's one Swift binary,
 no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
 work unchanged.
 
-[Discussed on Hacker News](https://news.ycombinator.com/item?id=49524447).
+[Discussed on Hacker News](https://news.ycombinator.com/item?id=49524447) —
+227 points and 114 comments. On 2026-09-01 it peaked at #1 on Show HN and
+#8 on the front page.
 
 | on a 48 GB M5 Pro | |
 |---|---|
