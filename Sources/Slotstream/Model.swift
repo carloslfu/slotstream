@@ -123,6 +123,13 @@ public final class Qwen4ExpModel {
         var linear: [Int: LinearCache] = [:]
         var kv: [Int: KVCache] = [:]
         var indexer: [Int: IndexerCache] = [:]
+        var expectedPLELayers: Set<Int> = []
+        var expectedConvShape: [Int] = []
+        var expectedSSMShape: [Int] = []
+        var expectedPLEShape: [Int] = []
+        var expectedKVHeads = 0
+        var expectedKVHeadDim = 0
+        var expectedIndexerDim = 0
         var ngramCtx: [Int64] = []
         public var tokenCount = 0
         // A failed low-level forward can change early layers while tokenCount
@@ -162,6 +169,10 @@ public final class Qwen4ExpModel {
         self.optimizations = try InferenceOptimizations.environment()
         try ModelProcessGuard.acquire()
         self.cfg = index.config
+        // Namespace the disk KV cache to this checkout before anything can
+        // save or load: a same-shape weight swap must never serve stale KV
+        // built by different weights (see ChunkIndex.vault).
+        ChunkIndex.setVault(modelDir: index.dir)
         let selectedLayers = runLayers ?? index.config.numLayers
         guard selectedLayers >= 1, selectedLayers <= index.config.numLayers else {
             throw ModelError(
@@ -285,7 +296,19 @@ public final class Qwen4ExpModel {
 
     public func makeState() -> State {
         let s = State()
-        s.modelIdentity = promptCheckpointIdentity
+        s.expectedPLELayers = Set(ple.keys)
+        s.expectedConvShape = [
+            1, cfg.convKernel - 1,
+            2 * cfg.linearNumKHeads * cfg.linearKHeadDim
+                + cfg.linearNumVHeads * cfg.linearVHeadDim]
+        s.expectedSSMShape = [
+            1, cfg.linearNumVHeads, cfg.linearVHeadDim, cfg.linearKHeadDim]
+        s.expectedPLEShape = [
+            1, (cfg.pleConvKernel - 1) * cfg.ngramSize,
+            cfg.hcCount * cfg.hiddenSize]
+        s.expectedKVHeads = cfg.numKVHeads
+        s.expectedKVHeadDim = cfg.headDim
+        s.expectedIndexerDim = cfg.indexerKVHeads * cfg.indexerHeadDim
         s.ngramCtx = Array(repeating: Int64(cfg.eosTokenId), count: cfg.ngramSize - 1)
         for l in 0 ..< runLayers {
             if cfg.layerTypes[l] == "linear_attention" {
@@ -829,6 +852,8 @@ public struct StateCheckpoint {
     var conv: [Int: MLXArray]
     var ssm: [Int: MLXArray]
     var pleConv: [Int: MLXArray]
+    var kv: [Int: (keys: MLXArray, values: MLXArray)]
+    var indexer: [Int: MLXArray]
     var kvOffsets: [Int: Int]
     var indexerOffsets: [Int: Int]
     var indexerSnapshots: [Int: IndexerCache.Snapshot]
@@ -838,6 +863,10 @@ public struct StateCheckpoint {
     var mtpBoundaryValid: Bool
     var mtpOffset: Int
     var lastMulti: MLXArray?
+    var mtpKV: (MLXArray, MLXArray)?
+    var mtpIndexer: MLXArray?
+
+    var linearLayers: [Int] { conv.keys.sorted() }
 }
 
 extension Qwen4ExpModel.State {
@@ -879,25 +908,37 @@ extension Qwen4ExpModel.State {
         var conv: [Int: MLXArray] = [:]
         var ssm: [Int: MLXArray] = [:]
         var pleConv: [Int: MLXArray] = [:]
+        var kvArrays: [Int: (keys: MLXArray, values: MLXArray)] = [:]
+        var indexerArrays: [Int: MLXArray] = [:]
         for (l, c) in linear {
             if let a = c.convState { conv[l] = a }
             if let a = c.ssmState { ssm[l] = a }
             if let a = c.pleConvState { pleConv[l] = a }
         }
-        checkpointLifetimes.removeAll { $0.value == nil }
-        let lifetime = StateCheckpointLifetime(owner: checkpointIdentity, tokens: tokenCount,
-            mtpOffset: mtp?.offset ?? 0)
-        checkpointLifetimes.append(WeakStateCheckpointLifetime(lifetime))
+        for (l, c) in kv {
+            if let k = c.keys, let v = c.values { kvArrays[l] = (k, v) }
+        }
+        for (l, c) in indexer {
+            if let b = c.snapshot() { indexerArrays[l] = b }
+        }
+        // MTP draft head KV/indexer carry the same persistent-state role as
+        // the main model's caches: their offsets are derived from the
+        // number of consumed positions, so save the buffers alongside.
+        var mtpKV: (MLXArray, MLXArray)? = nil
+        var mtpIdx: MLXArray? = nil
+        if let m = mtp, let k = m.kv.keys, let v = m.kv.values {
+            mtpKV = (k, v)
+            mtpIdx = m.indexer.snapshot()
+        }
         return StateCheckpoint(
-            lifetime: lifetime, conv: conv, ssm: ssm, pleConv: pleConv,
+            conv: conv, ssm: ssm, pleConv: pleConv,
+            kv: kvArrays, indexer: indexerArrays,
             kvOffsets: kv.mapValues { $0.offset },
             indexerOffsets: indexer.mapValues { $0.offset },
             indexerSnapshots: indexer.compactMapValues { $0.snapshot() },
             ngramCtx: ngramCtx, tokenCount: tokenCount,
-            committedBoundaryValid: committedBoundaryValid,
-            mtpBoundaryValid: mtp == nil || hasValidMTP
-                || (tokenCount == 0 && mtp?.offset == 0 && lastMulti == nil),
-            mtpOffset: mtp?.offset ?? 0, lastMulti: lastMulti)
+            mtpOffset: mtp?.offset ?? 0, lastMulti: lastMulti,
+            mtpKV: mtpKV, mtpIndexer: mtpIdx)
     }
 
     /// Start or stop recording per-position recurrent states in the linear
@@ -998,8 +1039,13 @@ extension Qwen4ExpModel.State {
         mtp?.trim(to: c.mtpOffset)
         mtp?.materialize()
         lastMulti = c.lastMulti
-        invalidateCheckpoints(after: tokenCount, mtpOffset: c.mtpOffset)
-        setRecording(false)
+        // Restore the MTP draft head's KV/indexer in lockstep with its offset,
+        // otherwise the next consume() writes at row 0 while rope expects
+        // position tokenCount-1 — exactly the trap that segfaulted before.
+        if let m = mtp, let (k, v) = c.mtpKV {
+            m.kv.restoreFromArrays(keys: k, values: v, offset: c.mtpOffset)
+            if let b = c.mtpIndexer { m.indexer.restore(from: b, offset: c.mtpOffset) }
+        }
     }
 }
 
