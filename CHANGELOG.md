@@ -3,7 +3,7 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.4 — 2026-09-03
 
 - **Decode is about 10% faster at small cache sizes, and the output is
   byte-identical.** `run` now prints a decode split beside the prefill one, and
@@ -42,7 +42,6 @@ release; anything under **Unreleased** is on `main` only.
   of building one replicated copy of the whole pass up front (105 MB at a
   2048-token pass, 210 at 4096). Bit-identical; `sweep-check` reads the same
   3.320% of logit spread against the same control.
-
 - **fx runs against slotstream.** A second HTTP dialect speaks the Vercel AI SDK
   Language Model Specification v4 over AI Gateway protocol 0.0.1, which is the
   wire [fx](https://fx.sh) uses. fx ships no plugin point, but its gateway client
