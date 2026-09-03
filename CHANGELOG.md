@@ -3,7 +3,7 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.3 — 2026-09-02
 
 - Reading a prompt is about twice as fast. A prefill pass of 256 tokens or
   more now sweeps each layer's experts through staging groups and MLX's
