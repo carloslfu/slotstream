@@ -10,7 +10,7 @@ level: '3'
 machines:
 - '[[records/machines/macbook-pro-m3-max-48gb]]'
 milestone: tools
-order: '660'
+order: '720'
 runs:
 - '[[sources/runs/2026/09/2026-09-02-verify-tools-branch-macbook-pro-m3-max]]'
 - '[[sources/runs/2026/09/2026-09-02-live-tool-gates-macbook-pro-m3-max]]'

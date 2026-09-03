@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-02T19:43:56.037621Z
+updated: 2026-09-02T22:21:19Z
 ---
 
 # records/measurements
 
+- [[records/measurements/tool-calling-branch-first-build-and-live-gates-2026-09-02]] — Tool-calling branch (PR #2) first build and live gates on a second machine: batteries green but the machine-dependent mtp-parity gate; the 4-bit MoE emits well-formed tool calls and loops.
 - [[records/measurements/the-numbers-8k-prose-the-floor-the-ladder-and-decode-after-a-long-prompt]] — The numbers: 8k, prose, the floor, the ladder, and decode after a long prompt
 - [[records/measurements/what-the-sweep-does-not-settle]] — What the sweep does not settle
 - [[records/measurements/what-set-the-knobs-group-size-lanes-recycling-the-cache-cap-admission-and-the-n-gram-rows]] — What set the knobs: group size, lanes, recycling, the cache cap, admission, and the n-gram rows
