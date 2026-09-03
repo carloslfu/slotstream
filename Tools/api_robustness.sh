@@ -108,6 +108,8 @@ def call(body, stream):
 cases = [
  ("plain",           "Say exactly: hello world", {}),
  ("emoji only",      "Reply with exactly these five emoji and nothing else: rocket, fire, star, heart, tree", {}),
+ ("lt symbol",       "Reply with exactly: 1 < 2", {}),
+ ("trailing lt",     "Reply with exactly these two characters and nothing else: 1 <", {}),
  ("emoji + text",    "Write one short sentence about space with exactly one rocket emoji.", {}),
  ("CJK",             "Write the word for cat in Japanese, Chinese and Russian. Just the three words.", {}),
  ("mixed scripts",   "Reply with exactly: caf\u00e9 na\u00efve \u4e2d\u6587 \U0001f600", {}),

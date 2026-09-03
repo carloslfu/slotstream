@@ -895,6 +895,17 @@ public final class Server {
             if !part.isEmpty { _ = onContent(part) }
         }
 
+        /// End of generation: the withheld partial-tag tail can no longer
+        /// grow into `<tool_call>`, so it is plain content. Release it —
+        /// otherwise streamed output silently loses up to 10 trailing bytes
+        /// ("roll", "call it", a partial tag) that the non-streamed path
+        /// keeps. In-tool state is left alone: its buffer holds an unterminated
+        /// block, which parseToolCalls ignores by design.
+        func finish(onContent: (String) -> Bool) {
+            guard !inTool, emittedBytes < text.utf8.count else { return }
+            emitUpTo(text.utf8.count, onContent)
+        }
+
         private func flush(onCall: (ParsedToolCall) -> Bool) -> Bool {
             while let close = toolBuffer.range(of: "</tool_call>") {
                 let block = String(toolBuffer[..<close.upperBound])
@@ -973,30 +984,30 @@ public final class Server {
         let splitter = thinking ? ThinkSplitter() : nil
         var alive = true
         let ts = ToolStream()
+        func emitContent(_ part: String) -> Bool {
+            let obj: [String: Any] = [
+                "model": self.engine.modelName, "created_at": self.iso(Date()),
+                "message": ["role": "assistant", "content": part], "done": false,
+            ]
+            alive = self.chunk(
+                fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
+            return alive
+        }
+        func emitCall(_ call: ParsedToolCall) -> Bool {
+            let obj: [String: Any] = [
+                "model": self.engine.modelName, "created_at": self.iso(Date()),
+                "message": [
+                    "role": "assistant", "content": "",
+                    "tool_calls": self.ollamaToolCalls([call]),
+                ],
+                "done": false,
+            ]
+            alive = self.chunk(
+                fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
+            return alive
+        }
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
-            func emitContent(_ part: String) -> Bool {
-                let obj: [String: Any] = [
-                    "model": self.engine.modelName, "created_at": self.iso(Date()),
-                    "message": ["role": "assistant", "content": part], "done": false,
-                ]
-                alive = self.chunk(
-                    fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
-                return alive
-            }
-            func emitCall(_ call: ParsedToolCall) -> Bool {
-                let obj: [String: Any] = [
-                    "model": self.engine.modelName, "created_at": self.iso(Date()),
-                    "message": [
-                        "role": "assistant", "content": "",
-                        "tool_calls": self.ollamaToolCalls([call]),
-                    ],
-                    "done": false,
-                ]
-                alive = self.chunk(
-                    fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
-                return alive
-            }
             if let sp = splitter {
                 let (think, content) = sp.push(delta)
                 if !think.isEmpty {
@@ -1017,14 +1028,26 @@ public final class Server {
         let (text, _, stats) = engine.generate(
             promptIds: ids, params: params,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
-        let calls = stream ? ts.toolCalls : parseToolCalls(text)
+        if stream, alive { ts.finish(onContent: emitContent) }
         var finalMessage: [String: Any] = ["role": "assistant"]
-        if let sp = splitter {
-            let (think, content) = stream ? sp.flush() : ThinkSplitter.split(text)
+        let calls: [ParsedToolCall]
+        if stream {
+            calls = ts.toolCalls
+            finalMessage["content"] = ""
+            if let sp = splitter {
+                let (think, _) = sp.flush()
+                if !think.isEmpty { finalMessage["thinking"] = think }
+            }
+        } else if let sp = splitter {
+            let (think, content) = ThinkSplitter.split(text)
             if !think.isEmpty { finalMessage["thinking"] = think }
-            finalMessage["content"] = stream ? "" : cleanContent(content, calls: calls)
+            // Parse the answer, not the reasoning: a thinking region may draft
+            // example calls, and reasoning is not an action.
+            calls = parseToolCalls(content)
+            finalMessage["content"] = cleanContent(content, calls: calls)
         } else {
-            finalMessage["content"] = stream ? "" : cleanContent(text, calls: calls)
+            calls = parseToolCalls(text)
+            finalMessage["content"] = cleanContent(text, calls: calls)
         }
         if !calls.isEmpty {
             finalMessage["tool_calls"] = ollamaToolCalls(calls)
@@ -1267,17 +1290,18 @@ public final class Server {
             }
             return d
         }
+        func emitContent(_ part: String) -> Bool {
+            sse([
+                "id": rid, "object": "chat.completion.chunk",
+                "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
+                "choices": [["index": 0, "delta": withRole(["content": part]), "finish_reason": NSNull()]],
+            ])
+        }
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
             guard alive, !delta.isEmpty else { return alive }
             return ts.append(
                 delta,
-                onContent: { part in
-                    sse([
-                        "id": rid, "object": "chat.completion.chunk",
-                        "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
-                        "choices": [["index": 0, "delta": withRole(["content": part]), "finish_reason": NSNull()]],
-                    ])
-                },
+                onContent: emitContent,
                 onCall: { call in
                     let idx = toolIndex
                     toolIndex += 1
@@ -1299,6 +1323,10 @@ public final class Server {
         let (text, _, stats) = engine.generate(
             promptIds: ids, params: params,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
+        // The withheld partial-tag tail can no longer grow into `<tool_call>`;
+        // release it as a final content delta so streamed output matches the
+        // non-streamed text byte for byte.
+        if stream, alive { _ = ts.finish(onContent: emitContent) }
         let calls = stream ? ts.toolCalls : parseToolCalls(text)
         if stream, alive {
             _ = sse([
