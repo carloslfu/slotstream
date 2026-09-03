@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-03T06:24:54.313156Z
+updated: 2026-09-03T06:46:41.406449Z
 ---
 
 # records/measurements
 
+- [[records/measurements/m1-expert-locality-on-a-real-trace-2026-09-03]] — M1 closed: expert locality on a real trace, and the eviction policy is not the lever (2026-09-03)
 - [[records/measurements/the-pass-peaks-on-a-plateau-not-one-transient-2026-09-03]] — The pass peaks on a plateau, not on one transient (2026-09-03)
 - [[records/measurements/decode-where-the-time-goes-and-two-knobs-2026-09-03]] — Decode: where the time goes, and the two knobs that moved it (2026-09-03)
 - [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]] — C1 — Mac mini M2, 16 GB, base storage (community, 2026-09-02): 1.41 tok/s warm decode against a ~4 tok/s estimate, because a 1.5 GB/s SSD puts the IO ceiling at 2.00 tok/s.

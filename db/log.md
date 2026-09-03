@@ -64,3 +64,12 @@ pool path scatters lazily on 32 lanes; query blocking ships as a bound above the
 ## [2026-09-03 06:26] validate | store
 store validates clean; brain gates pass 59 needle checks; static gates pass including planner 64/64; verify.sh 21/21 with 184 assertions
 
+## [2026-09-03 06:47] create | records/measurements
+M1 closed on a real trace: CLOCK 0.557 vs LRU 0.568, LFU 0.480 at 30 experts/layer; compulsory-miss ceiling 0.906; 10% of records serve 71% of accesses
+
+## [2026-09-03 06:47] create | records/decisions
+CLOCK stays the eviction policy; the lever is capacity and warm start, not the policy
+
+## [2026-09-03 06:47] update | records/plan
+M1 marked done in the status tracker
+

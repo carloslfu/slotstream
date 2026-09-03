@@ -1454,6 +1454,16 @@ release; anything under **Unreleased** is on `main` only.
   attention, the PLE layer and the MoE sweep peak within 0.6 GB of each other,
   so bounding one alone can never lower the process. Recorded as a null result
   with its mechanism, not as an improvement.
+- **M1 is closed, and the answer is that the eviction policy is not the lever.**
+  The expert-locality study has been open since the first week: the simulator
+  existed, the trace never did, because taking one needs a bounded forward pass.
+  `SLOTSTREAM_ROUTER_TRACE` now records every routing decision and
+  `Tools/trace_convert.py` feeds `Tools/cachesim.py`. On 220 decode steps at 30
+  experts per layer, the shipped CLOCK measured 0.557 against LRU 0.568,
+  LFU-decay 0.480, and an offline hot-set bound of 0.603 — so CLOCK stays. The
+  same trace fixes the compulsory-miss ceiling for that workload at 0.906 and
+  shows 10% of records serving 71% of accesses, which points the remaining work
+  at capacity and a warm start rather than at eviction.
 - The prefill sweep gathers each staging group's rows as it needs them instead
   of building one replicated copy of the whole pass up front (105 MB at a
   2048-token pass, 210 at 4096). Bit-identical; `sweep-check` reads the same

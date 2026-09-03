@@ -567,6 +567,9 @@ final class MoELayer {
 
         // routing decision to CPU
         let expertIds = idx.asType(.int32).asArray(Int32.self)  // B*S*topK
+        if RouterTrace.on {
+            RouterTrace.record(layer: layer, tokens: B * S, topK: cfg.topK, ids: expertIds)
+        }
         pool.unpinAll()
         let experts =
             B * S >= SweepTuning.minTokens

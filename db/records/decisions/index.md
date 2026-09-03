@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-03T06:25:34.149493Z
+updated: 2026-09-03T06:46:41.441284Z
 ---
 
 # records/decisions
 
+- [[records/decisions/clock-stays-the-eviction-policy]] — CLOCK stays the eviction policy: measured against LRU and LFU on a real trace
 - [[records/decisions/query-blocked-attention-is-a-bound-not-an-optimisation]] — Query-blocked attention is a bound above the measured product, not an optimisation
 - [[records/decisions/pool-path-scatters-lazily-and-reads-on-32-lanes]] — The pool path finishes its scatter lazily and reads on 32 lanes
 - [[records/decisions/staging-buffer-recycling-rejected]] — Staging buffer recycling was built, measured no faster and 6% slower with a higher peak, and dropped

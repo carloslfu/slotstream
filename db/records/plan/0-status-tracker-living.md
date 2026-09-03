@@ -20,7 +20,7 @@ design and the estimates it replaces.
 | Milestone | State | Exit proof |
 |---|---|---|
 | M0 Ground truth & feasibility | ✅ **done 2026-08-28** | byte-exact model inventory, Metal limits, cold SSD curve, MLX+Swift slot-pool gate, Swift prior-art survey — all in MEASUREMENTS.md |
-| M1 Expert-locality study | ◐ tooling built (`Tools/trace_routers.py`, `Tools/cachesim.py`), traces pending | hit-rate curves committed to `bench/locality/` |
+| M1 Expert-locality study | ✅ **done 2026-09-03** | traced from the Swift engine (`SLOTSTREAM_ROUTER_TRACE`), simulated, curves in `bench/locality/summary.json`: CLOCK 0.557 against LRU 0.568 and LFU 0.480 at 30 experts/layer, so the shipped policy stays; the trace also fixes the compulsory-miss ceiling at 0.906 and shows 10% of records serving 71% of accesses |
 | M2 `.ssmodel` container + repack | **skipped, by measurement** | engine streams from original shards (9 preads/expert); repack is now a measured-optimization backlog item |
 | M3 Swift engine, resident correctness (incl. QSA indexer) | ✅ **done 2026-08-28** | layers 0–1 **bit-exact** vs mlx-0.31.1 reference; template/ngram/dequant goldens exact; deeper layers ≤2.4% RMS (vendored-kernel ulp skew, documented) |
 | M4 Slot streaming decode (first full-model run) | ✅ **done 2026-08-28** | **golden equivalence passed** (30 experts/layer cached ≡ 181/layer, identical greedy text); full model generates coherently on the 48 GB dev Mac |

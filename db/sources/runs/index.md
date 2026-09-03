@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-03T06:23:50.732825Z
+updated: 2026-09-03T06:46:41.333490Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-03-router-trace-and-cache-simulation]] — M1 router trace and cache simulation, 220 decode steps at 30 experts/layer, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-pass-memory-phase-trace]] — Where a 2048-token pass peaks: phase memory trace with and without query-blocked attention, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-decode-scatter-mode-and-read-lanes-ab]] — Decode A/B: pool scatter completion mode and pool read lanes, 30 experts/layer, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-pass-cost-and-attention-block-ab]] — Pass cost by chunk with and without query-blocked attention, pinned 20 experts/layer, dev Mac, 2026-09-03
