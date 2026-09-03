@@ -166,6 +166,17 @@ public struct MemoryPlan {
         l.append(String(
             format: "  expect: ~%.1f GB peak, ~%.0f tok/s warm decode (est. from M5 Pro anchors)",
             expectedPeakGB, estWarmTokS))
+        // The decode curve is a function of experts per layer alone. It carries
+        // no term for read bandwidth, and it was anchored on a 17.3 GB/s SSD
+        // (MEASUREMENTS, M0.5). The first machine measured that was not the dev
+        // Mac reads at 1.5 GB/s, where the misses of a single token cost more
+        // time than the whole estimated step (MEASUREMENTS, C1). Until the
+        // planner can measure this disk and price those reads, the estimate
+        // says out loud what it assumes rather than quietly assuming it.
+        l.append(
+            "  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). "
+            + "A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 "
+            + "estimate, so on base storage expect well under the number above — see docs/HARDWARE.md")
         l.append(String(
             format: "  prefill: %d tokens per pass (~%.0f tok/s here; costs ~%.1f GB of the target)",
             prefillChunk, Planner.estPrefillTokS(chunk: prefillChunk),
