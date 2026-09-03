@@ -3,10 +3,12 @@
 
 Builds a two-image conversation where every turn extends the previous one, so
 the prefix cache should reuse the earlier turns (image rows included, now that
-images are keyed on their bytes) on turns 2->4. Then it snaps the server log,
-resends the exact request-4 prompt, and prints the model's answers on 4 and 5
-plus the log with prefill progress lines trimmed, so the reuse per request is
-visible (the "reading N prompt tokens" line shows how much was NOT reused).
+images are keyed on their bytes) on turns 2->4. Then it snaps the server log
+and sends a follow-up turn (R5) that extends request 4, which must reuse the
+whole R4 state — tower skipped, only the new text prefilled. It prints the
+model's answers on 4 and 5 plus the log with prefill progress lines trimmed,
+so the reuse per request is visible (the "reading N prompt tokens" line shows
+how much was NOT reused).
 
 Usage:
   Tools/vision_prefix_reuse_test.py [--thinking] [port] [model-dir]
@@ -171,34 +173,29 @@ def main():
         r4 = chat("R4", step4_prompt)
         msgs.append({"role": "assistant", "content": r4["content"]})
 
-        # 5. snapshot the log, then resend the exact request-4 prompt
+        # 5. snapshot the log, then send a follow-up turn that EXTENDS request
+        #    4's prompt. A plain resend cannot reuse: the cache is extend-only,
+        #    the held state covers R4-prompt + reply, and a resend is shorter
+        #    than it, so the match fails and the whole prompt rebuilds. An
+        #    appended turn strictly extends that same state, so the cache hands
+        #    everything over — both images' rows included — the tower does not
+        #    run again, and prefill reads only the new text. That is the win
+        #    this test exists to show.
         safe_dir = "/tmp/vpr-step4-logs"
         os.makedirs(safe_dir, exist_ok=True)
         safe = os.path.join(safe_dir, f"step4-{os.getpid()}.log")
         open(safe, "w").write(open(log).read())
         say(f"saved step-4 log: {safe}")
-        say("request 5: resend of request 4 (identical prompt)")
-        t0 = time.time()
-        r5 = post(port, {"model": "qwen3.8-flash-next:4bit", "stream": False,
-                         "think": think, "messages": step4_prompt})
-        if "error" in r5:
-            say(f"  R5 ERROR: {r5['error']}")
-            return 1
-        r5reply = r5["message"]
-        stats.append({"tag": "R5", "wall_s": round(time.time() - t0, 1),
-                      "prompt_eval_count": r5.get("prompt_eval_count"),
-                      "prompt_eval_s": round(r5.get("prompt_eval_duration", 0) / 1e9, 1),
-                      "eval_count": r5.get("eval_count"),
-                      "eval_s": round(r5.get("eval_duration", 0) / 1e9, 1)})
-        say(f"  R5 -> {r5reply['content'][:80]}")
-        say(f"       {stats[-1]}")
+        say("request 5: follow-up turn extending request 4 (reuses the prefix)")
+        r5reply = turn("R5", "Now compare the two images and say which one "
+                             "you found more interesting and why.")
 
         # 6. print outputs on 4 and 5, and the trimmed log
         say("")
         say("======== model output on request 4 ========")
         say(r4["content"])
         say("")
-        say("======== model output on request 5 (resend) ========")
+        say("======== model output on request 5 (follow-up turn) ========")
         say(r5reply["content"])
         say("")
         say("======== final log (prefill progress lines trimmed) ========")
@@ -225,10 +222,11 @@ def main():
             r"prefill: done, (\d+) tokens", full)]
         say(f"  prefill 'reading N' per logged request: {reads}")
         say(f"  prefill 'done N'    per logged request: {done}")
-        say("  (serve prints these only for prompts >= 2048 new tokens, so turns")
-        say("   that reuse almost everything are quiet — the API stats above give")
-        say("   their cost. The identical resend reuses the longest held state")
-        say("   that is a strict prefix; a cache cannot rewind to an equal prompt.)")
+        say("  (serve prints these only for prompts >= 2048 NEW tokens, so a")
+        say("   turn that reuses everything (R4, R5) is quiet in the log — the")
+        say("   API stats are its proof. The cache is extend-only: a resend of")
+        say("   the same prompt is shorter than the held state and misses; a")
+        say("   follow-up turn extends it and reuses all of it, image rows included.")
         say("")
         say(f"capture file: {log}")
         say(f"step-4 log snapshot: {safe}")
