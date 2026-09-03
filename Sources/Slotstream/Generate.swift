@@ -262,7 +262,7 @@ public final class Generator {
     /// receives the state back at the end, holding exactly the ids it consumed.
     public func generate(
         promptIds: [Int], params: SampleParams, eosIds: Set<Int>,
-        cache: PrefixCache? = nil, visionEmbeds: MLXArray? = nil,
+        cache: PrefixCache? = nil, vision: VisionPrompt? = nil,
         shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int) -> Bool)? = nil
     ) -> ([Int], GenStats) {
@@ -273,18 +273,31 @@ public final class Generator {
         // the sampler invent a first token from nothing. Callers reject this at
         // the API boundary; this is the backstop.
         guard !promptIds.isEmpty else { return ([], stats) }
-        // Vision prompts are not prefix-cacheable: the embeddings (and so the
-        // KV state alongside them) depend on the image pixels, not on the ids.
-        // A state keyed on ids would hand a follow-up turn the wrong image in
-        // the promised prefix, so a vision prompt always starts cold.
-        let isVision = visionEmbeds != nil
+        // Vision prompts are cacheable, but not on ids alone: every image
+        // expands to a run of the same placeholder id, so a second picture of
+        // the same shape produces identical ids. The image segments carry a
+        // digest of the bytes behind each run, and `take` requires those to
+        // agree as well; a swapped image therefore misses instead of resuming
+        // a state built from the wrong pixels.
+        let isVision = vision != nil
+        let images = vision?.segments ?? []
         // A hit hands over the state and the count of prompt tokens it already
         // consumed; a miss evicts enough LRU state before this allocation to
         // keep retained + active state inside the shared bounds (PrefixCache).
-        let hit = isVision ? nil : cache?.take(
-            matching: promptIds, reserveTokens: promptIds.count + params.maxTokens)
+        let hit = cache?.take(
+            matching: promptIds, images: images,
+            reserveTokens: promptIds.count + params.maxTokens)
         let state = hit?.state ?? model.makeState()
         let reused = hit?.reused ?? 0
+        // This request will not feed the draft head (see `mtpHead` below), so a
+        // state that arrived with one must not keep it: the head's cache would
+        // stop advancing while the token count grows, and the next request to
+        // take this state would speculate over a misaligned head. Dropping it
+        // makes that request treat the state as plain, which it now is.
+        if isVision, state.mtp != nil {
+            state.mtp = nil
+            state.lastMulti = nil
+        }
         stats.promptTokens = promptIds.count
         stats.reusedPrefixTokens = reused
         MLX.Memory.peakMemory = 0
@@ -302,20 +315,24 @@ public final class Generator {
         // has no draft cache to extend; finish that request plain rather than
         // speculating over a misaligned head (unreachable in serve, where the
         // mode is fixed per process; the A/B tools flip it per request).
+        // Vision still runs plain, cache or no cache: the draft head consumes
+        // raw token ids during prefill, so at an image position it would fold
+        // in the placeholder's embedding instead of the tower's row and build
+        // its cache on something the main model never saw.
         let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
         let mtpHead = isVision ? nil
             : (speculationEnabled && stateKnowsMTP ? model.mtpHead : nil)
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
-        // Vision helpers: map the expanded prompt's placeholder positions to
-        // rows of the concatenated vision embeddings, so each prefill chunk
-        // splices the slice it actually contains.
-        let visionPositions: [Int] = isVision
-            ? promptIds.enumerated().filter { $0.element == model.cfg.imageTokenId }.map { $0.offset }
-            : []
-        let visionFlat: MLXArray? = {
-            guard let v = visionEmbeds else { return nil }
-            return v.ndim == 3 ? v.reshaped([v.dim(1), model.cfg.hiddenSize]) : v
-        }()
+        // Vision helpers: the tower runs here and not at tokenize time, so an
+        // image the reused prefix already covers costs nothing at all. What
+        // comes back is the rows prefill still needs and the prompt positions
+        // they belong to, one row per position, so each chunk can splice the
+        // slice it actually contains. The positions come from the segments
+        // rather than from a scan for placeholder ids, which also skips the
+        // reused head.
+        let visionRows = vision?.rows(consumedTokens: reused)
+        let visionPositions: [Int] = visionRows?.positions ?? []
+        let visionFlat: MLXArray? = visionRows?.rows
         // A sweep allocates arrays whose sizes vary from group to group, and
         // MLX's buffer cache keeps every freed size up to its limit, so by the
         // end of a long prompt the cache alone held its whole 2 GB (measured
@@ -428,7 +445,7 @@ public final class Generator {
                 eval(logits)
             }
         }
-        if !isVision { cache?.store(state: state, tokens: consumed) }
+        cache?.store(state: state, tokens: consumed, images: images)
         stats.finishReason = reason
         stats.decodeTokens = out.count
         stats.decodeSeconds = -t0.timeIntervalSinceNow

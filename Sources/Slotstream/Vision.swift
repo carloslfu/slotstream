@@ -72,8 +72,10 @@ struct VisionPreprocess {
         return (UInt32(hBar), UInt32(wBar))
     }
 
-    /// Load CGImage from data: URL (base64) or http(s) URL or raw base64.
-    static func loadCGImage(from urlString: String) throws -> CGImage {
+    /// Fetch the encoded bytes behind a data: URL (base64), an http(s) URL or
+    /// raw base64. Separate from decoding because the prefix cache keys an
+    /// image on exactly these bytes.
+    static func loadImageData(from urlString: String) throws -> Data {
         let data: Data
         if urlString.hasPrefix("data:") {
             guard let comma = urlString.firstIndex(of: ","), let decoded = Data(base64Encoded: String(urlString[urlString.index(after: comma)...]), options: .ignoreUnknownCharacters) else {
@@ -95,10 +97,23 @@ struct VisionPreprocess {
                 throw VisionError.msg("invalid image url/base64")
             }
         }
-        guard let src = CGImageSourceCreateWithData(data as CFData, nil), let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
+        return data
+    }
+
+    /// Decode encoded image bytes to a CGImage. Cheap next to the tower pass,
+    /// so it runs even for images whose embeddings turn out to be cached.
+    static func decodeCGImage(_ data: Data) throws -> CGImage {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+            let cg = CGImageSourceCreateImageAtIndex(src, 0, nil)
+        else {
             throw VisionError.msg("failed to decode image")
         }
         return cg
+    }
+
+    /// Load CGImage from data: URL (base64) or http(s) URL or raw base64.
+    static func loadCGImage(from urlString: String) throws -> CGImage {
+        try decodeCGImage(loadImageData(from: urlString))
     }
 
     /// Resize via CoreGraphics bicubic (high) and normalize to [-1,1] CHW float32.
@@ -462,22 +477,53 @@ public final class VisionTower: TensorSource {
         return m.reshaped([1, nMerged, vcfg.outHiddenSize])
     }
 
-    /// Convenience: encode CGImage -> embeddings
-    public func encodeImage(_ cg: CGImage) throws -> (MLXArray, Int, Int, Int) {
-        let srcH = UInt32(cg.height), srcW = UInt32(cg.width)
+    /// How many tokens an image will occupy, and at what resolution — from its
+    /// dimensions alone, without touching a pixel or running a block.
+    ///
+    /// This exists so the prompt's placeholder runs, and therefore the prefix
+    /// cache key, can be built before any image is encoded. The tower is the
+    /// expensive part (27 blocks with full attention over the patches); the
+    /// geometry is arithmetic.
+    public struct ImagePlan: Sendable {
+        public let height: UInt32
+        public let width: UInt32
+        public let gridH: UInt32
+        public let gridW: UInt32
+        /// Patches before the 2x2 spatial merge.
+        public let patches: Int
+        /// Tokens after the merge — the length of this image's placeholder run.
+        public let mergedTokens: Int
+    }
+
+    public func plan(for cg: CGImage) -> ImagePlan {
         // checkpoint processor bounds: longest_edge 16777216, shortest 65536
         let (minP, maxP) = VisionPreprocess.effectiveBounds(cfgMin: 65536, cfgMax: 16777216)
-        let resized = VisionPreprocess.smartResize(h: srcH, w: srcW, factor: VisionPreprocess.factor, minPixels: minP, maxPixels: maxP)
-        let chw = VisionPreprocess.resizeAndNormalize(cg: cg, targetH: resized.h, targetW: resized.w)
-        let tps: UInt32 = UInt32(vcfg.temporalPatchSize)
-        let pixelFlat = VisionPreprocess.buildPixelValues(chw: chw, h: resized.h, w: resized.w, patch: UInt32(vcfg.patchSize), merge: UInt32(vcfg.spatialMergeSize), tps: tps)
-        let N = Int(resized.h / UInt32(vcfg.patchSize) * resized.w / UInt32(vcfg.patchSize))
-        let feat = 3 * Int(tps) * vcfg.patchSize * vcfg.patchSize
-        let pv = MLXArray(pixelFlat, [N, feat])
+        let resized = VisionPreprocess.smartResize(
+            h: UInt32(cg.height), w: UInt32(cg.width), factor: VisionPreprocess.factor,
+            minPixels: minP, maxPixels: maxP)
         let gh = resized.h / UInt32(vcfg.patchSize)
         let gw = resized.w / UInt32(vcfg.patchSize)
-        let emb = forward(pixelValues: pv, gridH: gh, gridW: gw)
-        let nMerged = Int(gh / UInt32(vcfg.spatialMergeSize) * gw / UInt32(vcfg.spatialMergeSize))
-        return (emb, N, nMerged, Int(gh))
+        let merge = UInt32(vcfg.spatialMergeSize)
+        return ImagePlan(
+            height: resized.h, width: resized.w, gridH: gh, gridW: gw,
+            patches: Int(gh * gw), mergedTokens: Int((gh / merge) * (gw / merge)))
+    }
+
+    /// Run the tower for one image against a plan already computed for it.
+    public func encode(_ cg: CGImage, plan p: ImagePlan) -> MLXArray {
+        let chw = VisionPreprocess.resizeAndNormalize(cg: cg, targetH: p.height, targetW: p.width)
+        let tps: UInt32 = UInt32(vcfg.temporalPatchSize)
+        let pixelFlat = VisionPreprocess.buildPixelValues(
+            chw: chw, h: p.height, w: p.width, patch: UInt32(vcfg.patchSize),
+            merge: UInt32(vcfg.spatialMergeSize), tps: tps)
+        let feat = 3 * Int(tps) * vcfg.patchSize * vcfg.patchSize
+        let pv = MLXArray(pixelFlat, [p.patches, feat])
+        return forward(pixelValues: pv, gridH: p.gridH, gridW: p.gridW)
+    }
+
+    /// Convenience: encode CGImage -> embeddings
+    public func encodeImage(_ cg: CGImage) throws -> (MLXArray, Int, Int, Int) {
+        let p = plan(for: cg)
+        return (encode(cg, plan: p), p.patches, p.mergedTokens, Int(p.gridH))
     }
 }
