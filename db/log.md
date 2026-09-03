@@ -19,3 +19,6 @@ store validates clean; brain gates (validate, projection parity, 46 claim-needle
 ## [2026-09-02 22:30] measurement | tool-calling-branch-first-build-and-live-gates-2026-09-02
 tools branch: first build, live gates, costs
 
+## [2026-09-02 23:20] fix | 85cd984
+review round on the tools branch: the phantom-call refactor had dropped content/thinking from non-stream /api/chat final messages and the withheld-tail flush had never landed on the /v1 path. Both fixed (85cd984); clean battery rerun passes everything except the pre-existing machine-dependent mtp-parity gate: 187 pass / 1 fail, including quality 15/15, stream reassembly 10/10 with the two new tag-tail cases, tools 7/7, and robustness 73/0.
+
