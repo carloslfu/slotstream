@@ -356,7 +356,7 @@ the one thing a command-line build has to do about Metal shaders.
 
 `make checks` runs the check catalogue: the prefill schedule, the context
 policy, cache and process bounds, the governor's branches, pull integrity,
-memory planning, HTTP framing and routing, and the sampler — 112 assertions
+memory planning, HTTP framing and routing, and the sampler — 121 assertions
 that need no weights, no network and no GPU beyond the sampler.
 
 `Tools/verify.sh` is the acceptance battery against the real model: weight
@@ -1024,18 +1024,21 @@ uncovered and why.
 
 ### Where the coverage is not
 
-At 22.57% of 6,811 library lines, these are the honest gaps and their reasons:
+21.73% of 7,138 library lines, from 121 assertions that need no weights. The
+percentage on its own says little; these are the gaps and the reason for each,
+largest first.
 
-| File | Why it is uncovered |
-|---|---|
-| `Layers.swift`, `Model.swift`, `MTP.swift`, `Weights.swift`, `Vendored/GatedDelta.swift` | The model itself. Needs a checkpoint; covered on the dev Mac by parity and the equality gates. A synthetic checkpoint would bring these to CI. |
-| `Server.swift` (94%) | The socket loop and the request handlers. The framing and routing rules are split out and covered; the handlers still need an engine. |
-| `WeightDownload.swift` | The download engine. Needs a server to talk to; a local Range server would cover resume and fallback, which have no gate today. |
-| `Engine.swift`, `ExpertStore.swift`, `NgramStore.swift`, `Checkpoint.swift` | Load and generation paths. Weights. |
+| File | Lines | Covered | Why the rest is not |
+|---|---|---|---|
+| `Server.swift` | 1,132 | 6% | The socket loop and the request handlers. The framing, routing and CORS rules are split out and covered; the handlers still need an engine to answer with. |
+| `WeightDownload.swift` | 642 | 0% | The download engine. It needs a server to talk to. A local Range server would reach resume, mirror fallback and the sources override, which have no gate at all today. |
+| `Layers.swift`, `ExpertStore.swift`, `Engine.swift`, `Checkpoint.swift`, `Model.swift`, `NgramStore.swift`, `GatedDelta.swift` | ~2,900 | 0–3% | The model. These need a checkpoint. On the dev Mac they are covered by parity against the Python reference and by the byte-equality gates; a synthetic checkpoint would bring that to CI. |
+| `Generate.swift` | 388 | 19% | The sampler is covered; the prefill and decode loops, and the sweep's admission and cache-cap hooks, run only with the model loaded. Gated by `sweep-check` and `Tools/verify.sh`. |
+| `Governor.swift` | 213 | 27% | The policy is fully covered as a pure function. The live loop — poll, decide, lock, resize — still needs an engine to resize. |
 
-None of this is untested — `verify.sh` and `api_robustness.sh` exercise most of
-it against the real model. It is untested *on CI*, which is a different and
-weaker claim, and the table says which is which.
+None of this is untested: `verify.sh` and `api_robustness.sh` exercise most of
+it against the real model. It is untested *on CI*, which is a weaker and
+different claim, and the table says which is which.
 
 
 <!-- ===== docs/TROUBLESHOOTING.md ===== -->

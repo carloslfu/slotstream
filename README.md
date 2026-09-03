@@ -348,7 +348,7 @@ the one thing a command-line build has to do about Metal shaders.
 
 `make checks` runs the check catalogue: the prefill schedule, the context
 policy, cache and process bounds, the governor's branches, pull integrity,
-memory planning, HTTP framing and routing, and the sampler — 112 assertions
+memory planning, HTTP framing and routing, and the sampler — 121 assertions
 that need no weights, no network and no GPU beyond the sampler.
 
 `Tools/verify.sh` is the acceptance battery against the real model: weight
