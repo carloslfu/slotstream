@@ -445,11 +445,15 @@ public final class Engine {
     }
 
     /// Tokenize with vision expansion: each template image_pad is worth
-    /// N_merged real tokens, so the template's single pad is expanded to a
-    /// run of pads whose embeddings the tower produced. Returns the expanded
-    /// ids and the concatenated vision embeddings [N, H] when the request
-    /// carries images, nil otherwise.
-    public func encodeWithVision(messages: [[String: Any]], tools: [[String: Any]]?, thinking: Bool = false) throws -> ([Int], MLXArray?) {
+    /// N_merged real tokens, so the template's single pad is expanded to a run
+    /// of pads that the tower's embeddings will fill. Returns the expanded ids
+    /// and a `VisionPrompt` when the request carries images, nil otherwise.
+    ///
+    /// The tower does not run here. The run lengths come from each image's
+    /// dimensions, so the ids — and with them the prefix cache key — are ready
+    /// before any pixels are read. `Generator.generate` asks the cache first
+    /// and then encodes only the images that the reused state does not cover.
+    public func encodeWithVision(messages: [[String: Any]], tools: [[String: Any]]?, thinking: Bool = false) throws -> ([Int], VisionPrompt?) {
         let baseIds = try encodeChatOpenAI(messages: messages, tools: tools, thinking: thinking)
         // Extract image URLs in template order.
         var urls: [String] = []
@@ -469,36 +473,42 @@ public final class Engine {
         }
         if urls.isEmpty { return (baseIds, nil) }
         let vt = try ensureVisionTower()
-        var allEmbeds: [MLXArray] = []
-        var nMergedPerImage: [Int] = []
+        // Decode each image (cheap) and hash the bytes it came from. Decoding
+        // gives the dimensions the run length follows from; the digest is what
+        // makes two pictures with identical ids distinguishable to the cache.
+        var items: [VisionPrompt.Item] = []
+        var hashes: [ImageHash] = []
         for url in urls {
-            let cg = try VisionPreprocess.loadCGImage(from: url)
-            let (emb, _, nMerged, _) = try vt.encodeImage(cg) // emb [1, nMerged, H]
-            allEmbeds.append(emb)
-            nMergedPerImage.append(nMerged)
+            let data = try VisionPreprocess.loadImageData(from: url)
+            let cg = try VisionPreprocess.decodeCGImage(data)
+            items.append(VisionPrompt.Item(image: cg, plan: vt.plan(for: cg)))
+            hashes.append(ImageHash(hashing: data))
         }
+        let nMergedPerImage = items.map { $0.plan.mergedTokens }
         // Expanding placeholders changes the absolute position of every token
         // after the first image, in both the ids and the vision row indices —
         // both are expanded in the same sweep, so the one-to-one splice in
-        // Model.hiddenStates still lines up.
+        // Model.hiddenStates still lines up. The segment recorded here is that
+        // same offset, which is why it is a valid key against a prompt that
+        // extends this one.
         let imageId = model.cfg.imageTokenId
         var expanded: [Int] = []
+        var segments: [ImageSegment] = []
         expanded.reserveCapacity(baseIds.count + nMergedPerImage.reduce(0, +) - urls.count)
         var imgIdx = 0
         for tok in baseIds {
             if tok == imageId, imgIdx < nMergedPerImage.count {
+                segments.append(
+                    ImageSegment(
+                        start: expanded.count, count: nMergedPerImage[imgIdx],
+                        hash: hashes[imgIdx]))
                 expanded.append(contentsOf: Array(repeating: imageId, count: nMergedPerImage[imgIdx]))
                 imgIdx += 1
             } else {
                 expanded.append(tok)
             }
         }
-        if allEmbeds.isEmpty { return (expanded, nil) }
-        var flats: [MLXArray] = []
-        for emb in allEmbeds {
-            flats.append(emb.reshaped([emb.dim(1), model.cfg.hiddenSize]))
-        }
-        let concat: MLXArray = flats.count == 1 ? flats[0] : concatenated(flats, axis: 0)
+        if items.isEmpty { return (expanded, nil) }
         // A mismatch would silently leave garbage embeddings in the KV cache,
         // so it is a hard error the client sees as a 400.
         let placeholderCount = expanded.filter { $0 == imageId }.count
@@ -508,7 +518,12 @@ public final class Engine {
                     + "placeholders but the tower produced \(nMergedPerImage.reduce(0, +)) "
                     + "(per image: \(nMergedPerImage))")
         }
-        return (expanded, concat)
+        return (
+            expanded,
+            VisionPrompt(
+                tower: vt, items: items, segments: segments,
+                hiddenSize: model.cfg.hiddenSize)
+        )
     }
 
     /// Earliest position at which any stop sequence occurs, or nil.
@@ -538,7 +553,7 @@ public final class Engine {
     /// The invariant the tests hold this to: concatenating every streamed delta
     /// reproduces the non-streamed text exactly.
     public func generate(
-        promptIds: [Int], params: SampleParams, visionEmbeds: MLXArray? = nil,
+        promptIds: [Int], params: SampleParams, vision: VisionPrompt? = nil,
         shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int, String) -> Bool)? = nil
     ) -> (text: String, ids: [Int], stats: GenStats) {
@@ -625,7 +640,7 @@ public final class Engine {
 
         let (ids, stats) = generator.generate(
             promptIds: promptIds, params: params, eosIds: eosIds, cache: prefixCache,
-            visionEmbeds: visionEmbeds,
+            vision: vision,
             shouldContinue: {
                 guard !clientGone, !stopFound else { return false }
                 return shouldContinue?() ?? true

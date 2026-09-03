@@ -33,6 +33,48 @@ extension Diagnostics {
         c.expect("a smaller live token ceiling evicts immediately", cache.heldTokens <= 2)
         c.expect("held GB includes fixed recurrent state", cache.heldGB > 0.1)
 
+        // Image keying. Every image expands to a run of the same placeholder
+        // id, so ids alone cannot tell two pictures apart; the digest can, and
+        // a match has to agree in both directions.
+        let a = ImageHash(hashing: Data("picture A".utf8))
+        let b = ImageHash(hashing: Data("picture B".utf8))
+        c.expect("identical bytes hash alike", a == ImageHash(hashing: Data("picture A".utf8)))
+        c.expect("different bytes do not", a != b)
+        let held = [ImageSegment(start: 4, count: 8, hash: a)]
+        c.expect(
+            "the same image at the same offset matches",
+            PrefixCache.imagesAgree(entry: held, prompt: held, upTo: 12))
+        c.expect(
+            "a swapped image does not",
+            !PrefixCache.imagesAgree(
+                entry: held, prompt: [ImageSegment(start: 4, count: 8, hash: b)], upTo: 12))
+        c.expect(
+            "an entry ending inside a run still matches that run",
+            PrefixCache.imagesAgree(
+                entry: [ImageSegment(start: 4, count: 3, hash: a)], prompt: held, upTo: 7))
+        c.expect(
+            "a text-only entry rejects a prompt with an image inside its range",
+            !PrefixCache.imagesAgree(entry: [], prompt: held, upTo: 12))
+        c.expect(
+            "an image beyond the entry's range is irrelevant to the match",
+            PrefixCache.imagesAgree(entry: [], prompt: held, upTo: 4))
+
+        let vcache = PrefixCache(maxTokens: 100)
+        vcache.store(state: Qwen4ExpModel.State(), tokens: [1, 2, 3], images: held)
+        c.expect(
+            "a vision conversation is held, not discarded",
+            vcache.take(matching: [1, 2, 3, 4], images: held, reserveTokens: 4) != nil)
+        vcache.store(state: Qwen4ExpModel.State(), tokens: [1, 2, 3], images: held)
+        c.expect(
+            "the same ids with a different picture miss",
+            vcache.take(
+                matching: [1, 2, 3, 4], images: [ImageSegment(start: 4, count: 8, hash: b)],
+                reserveTokens: 4) == nil)
+        vcache.store(state: Qwen4ExpModel.State(), tokens: [1, 2, 3], images: held)
+        c.expect(
+            "the text-only splice never sees a vision entry",
+            vcache.peek(extending: [1, 2]) == nil)
+
         // Weights behind a symlink: Foundation refuses to list the link itself,
         // so the index must resolve it first (it did not, before 0.2.1).
         let tmp = FileManager.default.temporaryDirectory

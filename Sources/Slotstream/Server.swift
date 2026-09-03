@@ -875,9 +875,9 @@ public final class Server {
         // same path and come back with a nil vision embed.
         let templateMsgs = Self.templateMessages(json)
         let ids: [Int]
-        let visionEmbeds: MLXArray?
+        let vision: VisionPrompt?
         do {
-            (ids, visionEmbeds) = try engine.encodeWithVision(
+            (ids, vision) = try engine.encodeWithVision(
                 messages: templateMsgs, tools: nil, thinking: thinking)
         } catch {
             respondJSON(fd, ["error": "\(error)"], status: "400 Bad Request", cors: cors)
@@ -914,7 +914,7 @@ public final class Server {
             return alive
         } : nil
         let (text, _, stats) = engine.generate(
-            promptIds: ids, params: params, visionEmbeds: visionEmbeds,
+            promptIds: ids, params: params, vision: vision,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
         var finalMessage: [String: Any] = ["role": "assistant"]
         if let sp = splitter {
@@ -1360,9 +1360,9 @@ public final class Server {
         // expands those to the tower's per-image tokens.
         let templateMsgs = Self.templateMessages(json)
         let ids: [Int]
-        let visionEmbeds: MLXArray?
+        let vision: VisionPrompt?
         do {
-            (ids, visionEmbeds) = try engine.encodeWithVision(
+            (ids, vision) = try engine.encodeWithVision(
                 messages: templateMsgs, tools: nil, thinking: false)
         } catch {
             respondJSON(
@@ -1396,7 +1396,7 @@ public final class Server {
             return alive
         } : nil
         let (text, _, stats) = engine.generate(
-            promptIds: ids, params: params, visionEmbeds: visionEmbeds,
+            promptIds: ids, params: params, vision: vision,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
         if stream, alive {
             var fin: [String: Any] = [
