@@ -7,9 +7,59 @@ import Tokenizers
 public struct ChatMessage {
     public var role: String
     public var content: String
+    /// An assistant turn's reasoning, rendered as `reasoning_content`. Clients
+    /// that keep reasoning in history can replay it; fx does not send any.
+    public var reasoning: String?
+    /// Calls this assistant turn made.
+    public var toolCalls: [ParsedToolCall]
+    /// For a `tool` message: which call it answers.
+    public var toolCallId: String?
+    public var toolName: String?
+
     public init(role: String, content: String) {
         self.role = role
         self.content = content
+        self.reasoning = nil
+        self.toolCalls = []
+        self.toolCallId = nil
+        self.toolName = nil
+    }
+
+    public init(
+        role: String, content: String, reasoning: String? = nil,
+        toolCalls: [ParsedToolCall] = [], toolCallId: String? = nil, toolName: String? = nil
+    ) {
+        self.role = role
+        self.content = content
+        self.reasoning = reasoning
+        self.toolCalls = toolCalls
+        self.toolCallId = toolCallId
+        self.toolName = toolName
+    }
+
+    /// The dictionary the chat template consumes.
+    ///
+    /// Tool-call arguments are bridged as an unordered dictionary because
+    /// swift-jinja accepts nothing else, so the template's `arguments|items`
+    /// follows Swift's hash order. That is why a generated assistant turn is
+    /// spliced back as raw ids rather than re-rendered (`PrefixCache`): a
+    /// re-render is semantically identical but not byte-identical, and the
+    /// prefix cache matches on bytes.
+    public var templateValue: [String: any Sendable] {
+        var m: [String: any Sendable] = ["role": role, "content": content]
+        if let r = reasoning, !r.isEmpty { m["reasoning_content"] = r }
+        if !toolCalls.isEmpty {
+            m["tool_calls"] = toolCalls.map { call in
+                [
+                    "type": "function",
+                    "function": [
+                        "name": call.name,
+                        "arguments": call.arguments.mapValues { $0.any },
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable]
+            }
+        }
+        return m
     }
 }
 
@@ -187,10 +237,138 @@ public final class Engine {
     }
 
     public func encodeChat(_ messages: [ChatMessage], thinking: Bool) throws -> [Int] {
-        let msgs: [[String: String]] = messages.map { ["role": $0.role, "content": $0.content] }
-        return try tokenizer.applyChatTemplate(
-            messages: msgs, tools: nil,
-            additionalContext: ["enable_thinking": thinking])
+        try encodeChat(messages, tools: [], thinking: thinking, effort: nil)
+    }
+
+    /// Render a conversation that may declare tools and replay tool calls.
+    ///
+    /// `tools` empty renders no `<tools>` block at all, which is what the
+    /// Ollama and OpenAI dialects pass, so their bytes are unchanged.
+    public func encodeChat(
+        _ messages: [ChatMessage], tools: [ToolDefinition], thinking: Bool, effort: String?
+    ) throws -> [Int] {
+        try tokenizer.applyChatTemplate(
+            messages: messages.map { $0.templateValue },
+            tools: tools.isEmpty ? nil : tools.map { $0.templateValue },
+            additionalContext: Self.additionalContext(thinking: thinking, effort: effort))
+    }
+
+    /// Encode a conversation, substituting the exact ids this server generated
+    /// for any assistant turn it can still prove it produced.
+    ///
+    /// Why this exists. The prefix cache matches on bytes, and it must: the GDN
+    /// recurrent state is a fold over the tokens it consumed, with no inverse,
+    /// so a state may only be extended by the very ids that built it. A client
+    /// replaying history does not send those ids — it sends its own view of the
+    /// turn, which the template then re-renders. Whenever that re-render
+    /// differs by a single byte, the next turn rebuilds the whole prompt.
+    ///
+    /// With reasoning ON that is not an edge case, it is every turn: fx (and
+    /// most clients) never echo reasoning back, so the re-render is missing the
+    /// `<think>` block the model actually produced, and the state cannot match.
+    /// Measured on this machine, a two-turn tool loop reused 303 of 325 tokens
+    /// with reasoning off and 0 of 349 with it on — three and a half times the
+    /// wall time for the identical second turn.
+    ///
+    /// The splice closes that. For each assistant turn, ask the cache whether it
+    /// still holds a state whose ids begin with exactly the prompt that turn was
+    /// generated from; if it does, the remainder of those ids *is* that turn,
+    /// verbatim. Check that the remainder really describes the turn the client
+    /// sent (same calls, same arguments, same text) and then use the held ids in
+    /// place of the re-render, tokenizing only the conversation after it.
+    ///
+    /// Splitting the text at `<|im_end|>` is safe because it is an added token
+    /// and therefore a hard tokenizer boundary: the suffix tokenizes identically
+    /// whether or not the text before it is present. That is measured, not
+    /// assumed — see the `chat-splice` check.
+    ///
+    /// Any mismatch anywhere falls back to the plain render, which is the
+    /// behaviour that existed before. The splice can make a turn cheaper; it can
+    /// never make one wrong.
+    public func encodeChatSpliced(
+        _ messages: [ChatMessage], tools: [ToolDefinition], thinking: Bool, effort: String?
+    ) throws -> [Int] {
+        let full = try encodeChat(messages, tools: tools, thinking: thinking, effort: effort)
+        guard prefixCache.enabled, messages.contains(where: { $0.role == "assistant" })
+        else { return full }
+        let fullText = tokenizer.decode(tokens: full, skipSpecialTokens: false)
+
+        var spliced: [Int] = []  // ids exactly as the model saw or produced them
+        var consumed = 0  // characters of fullText those ids already cover
+        var didSplice = false
+
+        func index(_ offset: Int) -> String.Index {
+            fullText.index(fullText.startIndex, offsetBy: offset)
+        }
+
+        for k in messages.indices where messages[k].role == "assistant" {
+            guard
+                let headIds = try? encodeChat(
+                    Array(messages[0..<k]), tools: tools, thinking: thinking, effort: effort)
+            else { break }
+            let headText = tokenizer.decode(tokens: headIds, skipSpecialTokens: false)
+            guard fullText.hasPrefix(headText), headText.count >= consumed else { break }
+            // The ids that produced turn k: what is already spliced, plus the
+            // conversation between there and this turn's generation prompt.
+            let bridge = String(fullText[index(consumed)..<index(headText.count)])
+            let producer =
+                spliced + (bridge.isEmpty ? [] : tokenizer.encode(text: bridge, addSpecialTokens: false))
+            guard let entry = prefixCache.peek(extending: producer) else { break }
+            let generated = Array(entry[producer.count...])
+            let genText = tokenizer.decode(tokens: generated, skipSpecialTokens: false)
+            guard Self.spliceDescribes(genText, messages[k], tools: tools) else { break }
+            guard
+                let end = fullText.range(
+                    of: "<|im_end|>", range: index(headText.count)..<fullText.endIndex)
+            else { break }
+            spliced = entry
+            consumed = fullText.distance(from: fullText.startIndex, to: end.lowerBound)
+            didSplice = true
+        }
+
+        guard didSplice else { return full }
+        let tail = String(fullText[index(consumed)...])
+        return spliced + tokenizer.encode(text: tail, addSpecialTokens: false)
+    }
+
+    /// Does this generated text describe the assistant turn the client sent?
+    ///
+    /// Deliberately compares meaning rather than bytes: the client's copy has
+    /// been through its own JSON round trip, so whitespace and argument order
+    /// may differ, but the calls it reports must be the calls that were made.
+    /// Reasoning is ignored — the client dropping it is the whole reason the
+    /// splice is needed.
+    public static func spliceDescribes(
+        _ generated: String, _ message: ChatMessage, tools: [ToolDefinition]
+    ) -> Bool {
+        let (_, body) = ThinkSplitter.split(generated)
+        let visible = body.isEmpty && !generated.contains("</think>") ? generated : body
+        let events = ToolCallSplitter.parseAll(visible, tools: tools.map { $0.schema })
+        var calls: [ParsedToolCall] = []
+        var text = ""
+        for e in events {
+            switch e {
+            case .toolCall(let c): calls.append(c)
+            case .text(let t): text += t
+            case .malformed: return false
+            default: break
+            }
+        }
+        guard calls.count == message.toolCalls.count else { return false }
+        for (a, b) in zip(calls, message.toolCalls) {
+            guard a.name == b.name, a.arguments == b.arguments else { return false }
+        }
+        // The text is compared after trimming only. A client that rewrites the
+        // assistant's prose is describing a different turn, and re-rendering it
+        // is then the correct answer.
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            == message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func additionalContext(thinking: Bool, effort: String?) -> [String: any Sendable] {
+        var ctx: [String: any Sendable] = ["enable_thinking": thinking]
+        if let e = effort, thinking { ctx["reasoning_effort"] = e }
+        return ctx
     }
 
     /// Render a template without constructing the multi-GB model. Installer
@@ -198,15 +376,14 @@ public final class Engine {
     /// old implementation built a second Engine merely to load the tokenizer,
     /// so the singleton guard correctly rejected the check it was meant to run.
     public static func encodeChatWithoutModel(
-        modelDir: URL, messages: [ChatMessage], thinking: Bool
+        modelDir: URL, messages: [ChatMessage], thinking: Bool,
+        tools: [ToolDefinition] = [], effort: String? = nil
     ) async throws -> [Int] {
         let tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
-        let msgs: [[String: String]] = messages.map {
-            ["role": $0.role, "content": $0.content]
-        }
         return try tokenizer.applyChatTemplate(
-            messages: msgs, tools: nil,
-            additionalContext: ["enable_thinking": thinking])
+            messages: messages.map { $0.templateValue },
+            tools: tools.isEmpty ? nil : tools.map { $0.templateValue },
+            additionalContext: additionalContext(thinking: thinking, effort: effort))
     }
 
     /// Earliest position at which any stop sequence occurs, or nil.

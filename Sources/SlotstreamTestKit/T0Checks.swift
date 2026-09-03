@@ -18,7 +18,7 @@ extension Catalogue {
             Check("http-routing", tier: .t0) { Diagnostics.httpRouting() },
             // T1: touches MLX, so it needs the Metal library beside the runner.
             Check("sampler-behaviour", tier: .t1) { try Diagnostics.samplerBehaviour() },
-        ]
+        ] + toolCallChecks + gatewayChecks
     }
 
     /// `--max-context` validation: the bounds, and that the message explains

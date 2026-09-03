@@ -396,6 +396,17 @@ public final class Server {
             apiGenerate(fd, json, cors: cors)
         case ("POST", "/v1/chat/completions"):
             v1Chat(fd, json, cors: cors)
+        case ("POST", "/v3/ai/language-model"), ("POST", "/v1/ai/language-model"):
+            gatewayChat(fd, json, headers: req.headers, cors: cors)
+        case ("GET", "/coding-agent/v1/models"):
+            respondJSON(
+                fd,
+                GatewayDialect.catalog(
+                    modelID: gatewayModelID, contextCap: engine.maxContextTokens), cors: cors)
+        case ("GET", "/coding-agent/v1/credits"):
+            // fx shows a balance for the gateway provider. A local model has no
+            // billing; zero is the honest answer and keeps `fx credits` working.
+            respondJSON(fd, ["balance": "0", "total_used": "0"], cors: cors)
         case ("GET", "/v1/models"):
             respondJSON(
                 fd,
@@ -418,7 +429,10 @@ public final class Server {
             // A HEAD response carries headers only; sending a body is a
             // protocol error. It still has to answer for the resource asked
             // for — a blanket 200 told every client that every path existed.
-            let known: Set<String> = ["/", "/api/version", "/api/tags", "/api/ps", "/v1/models"]
+            let known: Set<String> = [
+                "/", "/api/version", "/api/tags", "/api/ps", "/v1/models",
+                "/coding-agent/v1/models", "/coding-agent/v1/credits",
+            ]
             let status = known.contains(path) ? "200 OK" : "404 Not Found"
             let head = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\n" + cors
                 + "Content-Length: 0\r\nConnection: close\r\n\r\n"
@@ -1013,6 +1027,238 @@ public final class Server {
         } else {
             if alive { respondJSON(fd, final, cors: cors) }
         }
+    }
+
+    // MARK: /v3/ai/language-model (Vercel AI Gateway protocol 0.0.1, spec v4)
+
+    /// The model id echoed back to fx. Any `ai-language-model-id` is accepted
+    /// and resolves to the one served model, so fx's three fixed helper ids
+    /// (reviewer, compactor, vision fallback) work without configuration.
+    var gatewayModelID: String { "slotstream/" + engine.modelName }
+
+    private func gatewayChat(
+        _ fd: Int32, _ rawJSON: [String: Any], headers: [String: String], cors: String
+    ) {
+        func fail(_ f: GatewayDialect.Failure) {
+            respondJSON(fd, f.body, status: "400 Bad Request", cors: cors)
+        }
+        if let e = GatewayDialect.validateHeaders(headers) { return fail(e) }
+        let json = Self.withoutNulls(rawJSON)
+        let request: GatewayDialect.Request
+        switch GatewayDialect.parse(json, modelID: gatewayModelID) {
+        case .success(let r): request = r
+        case .failure(let e): return fail(e)
+        }
+
+        // toolChoice `none` renders no <tools> block; the history still
+        // renders, so a compaction call over a tool conversation still reads.
+        var messages = request.messages
+        let renderTools = request.toolChoice == .disabled ? [] : request.tools
+        if case .tool(let name) = request.toolChoice {
+            messages = Self.instructing(messages, "You must call the \(name) tool now.")
+        } else if request.toolChoice == .required {
+            messages = Self.instructing(messages, "You must call one of the available tools now.")
+        }
+
+        let ids: [Int]
+        do {
+            ids = try engine.encodeChatSpliced(
+                messages, tools: renderTools, thinking: request.reasoning.thinking,
+                effort: request.reasoning.effort)
+        } catch {
+            return fail(GatewayDialect.Failure("template_error", "\(error)"))
+        }
+        guard !ids.isEmpty else {
+            return fail(GatewayDialect.Failure("empty_prompt", "prompt must not be empty"))
+        }
+        if let e = engine.contextError(promptTokens: ids.count) {
+            return fail(GatewayDialect.Failure("context_length_exceeded", e))
+        }
+
+        // Sampling. fx sends no limit on the agent step, so the default must be
+        // the catalogue's advertised budget bounded by the room left in the
+        // context — never the 512-token Ollama default, which truncates every
+        // real edit.
+        var params = SampleParams.agent
+        let room = max(1, engine.maxContextTokens - ids.count)
+        params.maxTokens = min(
+            request.maxOutputTokens ?? GatewayDialect.outputBudget(
+                contextCap: engine.maxContextTokens), room)
+        if let v = request.temperature { params.temperature = v }
+        if let v = request.topP { params.topP = v }
+        if let v = request.topK { params.topK = v }
+        if let v = request.presencePenalty { params.presencePenalty = v }
+        if let v = request.seed { params.seed = UInt64(bitPattern: Int64(v)) }
+        params.stop = request.stopSequences
+        if request.seed == nil { params.seed = UInt64.random(in: 0...UInt64.max) }
+
+        // The head goes out before generation begins. fx allows 30 s for the
+        // head and no time at all for the stream, and a cold 6k-token prefill
+        // is minutes; every failure that can be detected has been by now.
+        guard startChunked(fd, contentType: "text/event-stream", cors: cors) else { return }
+        var alive = true
+        func emit(_ text: String) {
+            guard alive else { return }
+            alive = chunk(fd, Data(text.utf8))
+        }
+        emit(GatewayDialect.frame(["type": "stream-start", "warnings": []]))
+        emit(
+            GatewayDialect.frame([
+                "type": "response-metadata",
+                "id": "gen_" + String(format: "%08x", UInt32.random(in: 0...UInt32.max)),
+                "modelId": gatewayModelID, "timestamp": iso(Date()),
+            ]))
+
+        let thinkSplitter = request.reasoning.thinking ? ThinkSplitter() : nil
+        let toolSplitter = ToolCallSplitter(tools: renderTools.map { $0.schema })
+        var textOpen = false
+        var reasoningOpen = false
+        var sawCall = false
+        var reasoningTokens = 0
+        var lastKeepalive = Date()
+        var produced = false
+
+        func flushEvents(_ events: [ToolStreamEvent]) {
+            for e in events {
+                switch e {
+                case .text(let t):
+                    guard !t.isEmpty else { continue }
+                    if !textOpen {
+                        emit(GatewayDialect.frame(["type": "text-start", "id": "t0"]))
+                        textOpen = true
+                    }
+                    emit(
+                        GatewayDialect.frame(["type": "text-delta", "id": "t0", "delta": t]))
+                case .toolInputStart(let id, let name):
+                    // A text block must close before a call opens: the parts
+                    // are ordered in the specification even though fx ignores
+                    // the text markers, and a reader that honours them would
+                    // otherwise see a text block still open across the call.
+                    if textOpen {
+                        emit(GatewayDialect.frame(["type": "text-end", "id": "t0"]))
+                        textOpen = false
+                    }
+                    emit(
+                        GatewayDialect.frame([
+                            "type": "tool-input-start", "id": id, "toolName": name,
+                        ]))
+                case .toolInputDelta(let id, let d):
+                    emit(
+                        GatewayDialect.frame(["type": "tool-input-delta", "id": id, "delta": d]))
+                case .toolInputEnd(let id):
+                    emit(GatewayDialect.frame(["type": "tool-input-end", "id": id]))
+                case .toolCall(let call):
+                    sawCall = true
+                    emit(
+                        GatewayDialect.frame([
+                            "type": "tool-call", "toolCallId": call.id, "toolName": call.name,
+                            "input": call.inputJSON,
+                        ]))
+                case .malformed(let t):
+                    // Never lost: an unterminated block is the model's output
+                    // and the user should see what it actually produced.
+                    if !textOpen {
+                        emit(GatewayDialect.frame(["type": "text-start", "id": "t0"]))
+                        textOpen = true
+                    }
+                    emit(GatewayDialect.frame(["type": "text-delta", "id": "t0", "delta": t]))
+                }
+            }
+        }
+
+        let callback: (Int, String) -> Bool = { _, delta in
+            guard alive, !delta.isEmpty else { return alive }
+            produced = true
+            var body = delta
+            if let ts = thinkSplitter {
+                let (think, content) = ts.push(delta)
+                if !think.isEmpty {
+                    reasoningTokens += 1
+                    if !reasoningOpen {
+                        emit(GatewayDialect.frame(["type": "reasoning-start", "id": "r0"]))
+                        reasoningOpen = true
+                    }
+                    emit(
+                        GatewayDialect.frame([
+                            "type": "reasoning-delta", "id": "r0", "delta": think,
+                        ]))
+                }
+                if reasoningOpen, !content.isEmpty {
+                    emit(GatewayDialect.frame(["type": "reasoning-end", "id": "r0"]))
+                    reasoningOpen = false
+                }
+                body = content
+            }
+            if !body.isEmpty { flushEvents(toolSplitter.push(body)) }
+            return alive
+        }
+
+        let (_, _, stats) = engine.generate(
+            promptIds: ids, params: params,
+            shouldContinue: {
+                // The one hook that runs during prefill. A multi-minute cold
+                // prompt would otherwise send no bytes at all and trip this
+                // server's own 120 s send timeout; fx skips comment lines by
+                // design, so the keepalive costs the client nothing.
+                if !produced, Date().timeIntervalSince(lastKeepalive) >= 10 {
+                    lastKeepalive = Date()
+                    self.chunk(fd, Data(GatewayDialect.keepalive.utf8))
+                }
+                return self.peerAlive(fd)
+            }, onToken: callback)
+
+        if let ts = thinkSplitter {
+            let (think, content) = ts.flush()
+            if !think.isEmpty, reasoningOpen {
+                emit(
+                    GatewayDialect.frame([
+                        "type": "reasoning-delta", "id": "r0", "delta": think,
+                    ]))
+            }
+            if reasoningOpen {
+                emit(GatewayDialect.frame(["type": "reasoning-end", "id": "r0"]))
+                reasoningOpen = false
+            }
+            if !content.isEmpty { flushEvents(toolSplitter.push(content)) }
+        }
+        flushEvents(toolSplitter.flush())
+        if textOpen { emit(GatewayDialect.frame(["type": "text-end", "id": "t0"])) }
+
+        // `required` was asked for and nothing was called. This cannot be a 400:
+        // the head went out before generation. It is an in-stream error and a
+        // finish reason that is not `tool-calls`.
+        if !sawCall, request.toolChoice == .required || request.toolChoice.isNamedTool {
+            emit(
+                GatewayDialect.frame([
+                    "type": "error",
+                    "error": [
+                        "message":
+                            "tool_choice_unsatisfied: the model produced no tool call for toolChoice \(request.toolChoice.label)"
+                    ],
+                ]))
+        }
+        let (unified, raw) = GatewayDialect.unifiedFinish(stats.finishReason, hasToolCall: sawCall)
+        emit(
+            GatewayDialect.finishFrame(
+                reason: unified, rawReason: raw, inputTokens: stats.promptTokens,
+                cachedTokens: stats.reusedPrefixTokens,
+                outputText: max(0, stats.decodeTokens - reasoningTokens),
+                outputReasoning: reasoningTokens))
+        emit("data: [DONE]\n\n")
+        if alive { endChunked(fd) }
+    }
+
+    /// Append a one-line instruction to the system turn, adding one if the
+    /// conversation has none. Used only for `toolChoice` `required` and `tool`,
+    /// which fx sends on the reviewer and web-search calls.
+    static func instructing(_ messages: [ChatMessage], _ line: String) -> [ChatMessage] {
+        var out = messages
+        if let i = out.firstIndex(where: { $0.role == "system" }) {
+            out[i].content += "\n\n" + line
+        } else {
+            out.insert(ChatMessage(role: "system", content: line), at: 0)
+        }
+        return out
     }
 
     // MARK: /v1/chat/completions (OpenAI, SSE streaming)

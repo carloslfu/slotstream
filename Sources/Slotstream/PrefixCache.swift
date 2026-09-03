@@ -158,6 +158,28 @@ public final class PrefixCache {
         return (e.state, e.tokens.count)
     }
 
+    /// The ids of the longest retained entry that *extends* `prefix`, without
+    /// taking it.
+    ///
+    /// `take` asks the opposite question — is there an entry the incoming
+    /// prompt extends — and consumes what it finds. This one asks whether a
+    /// previous turn's own output is still held, so the caller can splice those
+    /// exact ids back in place of a re-rendered assistant turn (`Engine`'s
+    /// spliced encoding). It must not consume: the caller may still decide the
+    /// entry does not describe the turn the client sent, and the entry is then
+    /// wanted for the ordinary `take` that follows.
+    public func peek(extending prefix: [Int]) -> [Int]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard _enabled else { return nil }
+        var best: [Int]?
+        for e in entries
+        where e.tokens.count > prefix.count && e.tokens.starts(with: prefix) {
+            if best == nil || e.tokens.count > best!.count { best = e.tokens }
+        }
+        return best
+    }
+
     /// Retain `state` as the consumer of exactly `tokens`, evicting
     /// least-recently-used entries until the shared budget fits.
     public func store(state s: Qwen4ExpModel.State, tokens t: [Int]) {

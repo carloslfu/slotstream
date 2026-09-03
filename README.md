@@ -139,10 +139,30 @@ curl localhost:11434/api/chat -d '{
 
 Open WebUI and the OpenAI SDKs are tested against this subset (the Ollama
 CLI is not there yet; see [Status](#status-and-limits)). Streaming, CORS, and
-the usual sampling options all work. What isn't supported (tools, images,
-JSON-schema output, logprobs) returns a clear 400 instead of being silently
-ignored. Every endpoint, field, default, and error is in
+the usual sampling options all work. What these two dialects do not support
+(tools, images, JSON-schema output, logprobs) returns a clear 400 instead of
+being silently ignored. Every endpoint, field, default, and error is in
 [docs/API.md](docs/API.md).
+
+### Coding agents
+
+The same server also speaks the Vercel AI SDK Language Model Specification v4
+over AI Gateway protocol 0.0.1, which is what [fx](https://fx.sh) talks. Tool
+calling is native there: the model emits calls in its own format and slotstream
+parses them as they stream, typing each argument against the tool's schema. fx
+has no custom-provider setting, but its gateway client accepts a loopback
+override, so pointing it at a local model needs no fork:
+
+```bash
+FX_GATEWAY_BASE_URL=http://127.0.0.1:11434 \
+FX_GATEWAY_CHAT_URL=http://127.0.0.1:11434/v3/ai/language-model \
+AI_GATEWAY_API_KEY=local-dummy-key fx models
+```
+
+Use a throwaway `$HOME` so your normal fx profile is untouched, and read
+[docs/FX.md](docs/FX.md) first — it has the wrapper script, and it is honest
+about what does not work (fx's `auto` permission mode and its session
+compaction, both for deadline reasons).
 
 ## Speed
 
@@ -328,6 +348,8 @@ the one thing a command-line build has to do about Metal shaders.
   to add yours.
 - [docs/LIBRARY.md](docs/LIBRARY.md): using slotstream as a Swift package —
   weights, planning, serving, and the Metal library requirement.
+- [docs/FX.md](docs/FX.md): running the [fx](https://fx.sh) coding agent against
+  a local model — setup, what works, and what does not.
 - [docs/TESTING.md](docs/TESTING.md): the check catalogue, the tiers, what runs
   in CI against what runs on the dev Mac, and where the coverage is not.
 - [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and

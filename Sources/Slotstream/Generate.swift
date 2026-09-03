@@ -57,6 +57,32 @@ public struct SampleParams {
         p.presencePenalty = 0
         return p
     }
+
+    /// Defaults for an agent turn that may call tools.
+    ///
+    /// Two departures from `instruct`, and both are about the tool grammar
+    /// rather than taste:
+    ///
+    /// * **presence penalty 0.** The instruct default of 1.5 penalises every
+    ///   token already used, and the call format is obliged to repeat itself —
+    ///   `</parameter>` after every argument, then `</function>`, then
+    ///   `</tool_call>`. Penalising a closing tag because an earlier argument
+    ///   already used it pushes the model off the grammar exactly where it must
+    ///   stay on it.
+    /// * **low temperature.** A tool call is a structured artefact with one
+    ///   right shape, not prose; there is nothing for sampling diversity to buy
+    ///   here, and at 0.7 the same prompt answered with a call on one run and
+    ///   with "I don't have any tools available" on the next.
+    ///
+    /// Not fully greedy: `0.2` keeps a little room to escape a repetition loop,
+    /// which pure argmax has no way out of.
+    public static var agent: SampleParams {
+        var p = SampleParams()
+        p.temperature = 0.2
+        p.topP = 0.9
+        p.presencePenalty = 0
+        return p
+    }
 }
 
 public struct GenStats {

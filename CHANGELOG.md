@@ -3,6 +3,33 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- **fx runs against slotstream.** A second HTTP dialect speaks the Vercel AI SDK
+  Language Model Specification v4 over AI Gateway protocol 0.0.1, which is the
+  wire [fx](https://fx.sh) uses. fx ships no plugin point, but its gateway client
+  honours `FX_GATEWAY_CHAT_URL` and `FX_GATEWAY_BASE_URL` when they name an
+  `http://` loopback address, so pointing it at a local server needs no fork and
+  no patched binary: `POST /v3/ai/language-model` streams the turn,
+  `GET /coding-agent/v1/models` is the catalogue, `GET /coding-agent/v1/credits`
+  answers `fx credits`. Setup, limits and troubleshooting are in
+  [docs/FX.md](docs/FX.md).
+- **Native tool calling.** The model does not emit JSON tool calls; its template
+  teaches it an XML form. That form is now parsed as it streams — several calls
+  per turn, prose before and after, each argument typed against the tool's own
+  JSON Schema — and a tag split across two token deltas can never leak into the
+  user's transcript as text. Tool calls, tool results and reasoning also render
+  back into a conversation, so an agent loop replays correctly.
+- The catalogue derives every window from the running server's context cap
+  rather than advertising a fixed one. fx reserves room for a reply only when
+  the advertised reply budget is strictly smaller than the window; a fixed
+  budget would, at small caps, tell fx it could fill the whole context with
+  input and leave nothing to answer in.
+- Agent turns get their own sampling defaults. The instruct default penalises
+  repeated tokens, and the call format is obliged to repeat `</parameter>` and
+  `</function>`, so the penalty pushed the model off the grammar exactly where
+  it had to stay on it.
+
 ## 0.2.3 — 2026-09-02
 
 - Reading a prompt is about twice as fast. A prefill pass of 256 tokens or
