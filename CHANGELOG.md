@@ -3,6 +3,17 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## 0.2.6 — 2026-09-03
+
+- **An optional string in a tool schema is no longer read as a number.** fx
+  writes an optional parameter as `anyOf: [{"type":"string"},{"type":"null"}]`,
+  and three of the five required fields on its `terminal` tool are declared that
+  way. Typed as an unknown union, the coercion took a numeric-looking value at
+  face value, so a command or working directory like `2024` would have been sent
+  as the integer 2024 and rejected. A union of exactly one real type plus null
+  now resolves to that type; a genuine two-type union stays conservative. Found
+  by capturing fx's real schemas off the wire rather than from a fixture.
+
 ## 0.2.5 — 2026-09-03
 
 - **Fixed: a JSON null anywhere in an fx request failed the whole turn.** The

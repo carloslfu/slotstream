@@ -507,12 +507,38 @@ public struct ToolDefinition: Sendable {
                 }
                 if case .string(let t)? = field["type"] {
                     params[key] = ToolParamKind(rawValue: t) ?? .unknown
+                } else if let resolved = Self.anyOfKind(field["anyOf"]) {
+                    // `anyOf: [{"type":"string"},{"type":"null"}]` is how fx
+                    // declares an optional string, and it is the shape of three
+                    // of the five required fields on its `terminal` tool. Left
+                    // as `.unknown` the coercion would read a numeric-looking
+                    // command or working directory as a number and fx would
+                    // reject the call, so a union of one real type plus null is
+                    // resolved to that type.
+                    params[key] = resolved
                 } else {
                     params[key] = .unknown
                 }
             }
         }
         return ToolSchema(name: name, params: params)
+    }
+
+    /// The single non-null type in an `anyOf`, when there is exactly one.
+    /// A genuine union of two real types stays `.unknown`, where the
+    /// conservative coercion is the right answer.
+    static func anyOfKind(_ raw: JSONValue?) -> ToolParamKind? {
+        guard case .array(let options)? = raw else { return nil }
+        var kinds: [ToolParamKind] = []
+        for option in options {
+            guard case .object(let o) = option, case .string(let t)? = o["type"] else {
+                return nil
+            }
+            if t == "null" { continue }
+            guard let k = ToolParamKind(rawValue: t) else { return nil }
+            kinds.append(k)
+        }
+        return kinds.count == 1 ? kinds[0] : nil
     }
 
     /// The value the chat template expects in its `tools` list.

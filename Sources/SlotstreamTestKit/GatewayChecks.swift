@@ -17,6 +17,7 @@ extension Catalogue {
             Check("gateway-events", tier: .t0) { gatewayEvents() },
             Check("chat-splice", tier: .t0) { chatSplice() },
             Check("gateway-null-bridge", tier: .t0) { gatewayNullBridge() },
+            Check("gateway-anyof-types", tier: .t0) { gatewayAnyOfTypes() },
         ]
     }
 
@@ -107,7 +108,8 @@ extension Catalogue {
             let schema = r.tools[0].schema
             c.equal("schema: string parameter", schema.params["path"], .string)
             c.equal("schema: integer parameter", schema.params["start_line"], .integer)
-            c.equal("schema: anyOf becomes unknown", schema.params["opts"], .unknown)
+            // A union of two REAL types stays conservative.
+            c.equal("schema: a two-type anyOf stays unknown", schema.params["opts"], .unknown)
         } else {
             c.expect("tools parse", false)
         }
@@ -648,6 +650,93 @@ extension Catalogue {
                 #"{"exit":0,"stderr":null}"#)
         } else {
             c.expect("a json tool result with a null parses", false)
+        }
+        return c.report()
+    }
+
+    /// fx's real `terminal` schema, captured from the wire, and the typing it
+    /// must produce.
+    ///
+    /// Three of its five required fields are declared `anyOf: [{"type":"…"},
+    /// {"type":"null"}]` — fx's way of writing an optional. Typed `.unknown`
+    /// those coerce a numeric-looking command or working directory into a
+    /// number, and fx rejects the call.
+    static func gatewayAnyOfTypes() -> CheckReport {
+        var c = CheckBuilder("gateway-anyof-types")
+        let terminal: [String: Any] = [
+            "type": "function", "name": "terminal", "description": "Run a command.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "action": ["type": "string", "enum": ["exec"]],
+                    "command": ["anyOf": [["type": "string"], ["type": "null"]]],
+                    "cwd": ["anyOf": [["type": "string"], ["type": "null"]]],
+                    "profile": ["anyOf": [["type": "string"], ["type": "null"]]],
+                    "timeout_ms": ["type": "integer", "minimum": 1, "maximum": 600000],
+                    "count": ["anyOf": [["type": "integer"], ["type": "null"]]],
+                    "flag": ["anyOf": [["type": "boolean"], ["type": "null"]]],
+                    "either": ["anyOf": [["type": "string"], ["type": "integer"]]],
+                ],
+                "required": ["action", "command", "cwd", "profile", "timeout_ms"],
+            ],
+        ]
+        let user: [[String: Any]] = [["role": "user", "content": [["type": "text", "text": "hi"]]]]
+        guard case .success(let r) = GatewayDialect.parse(
+            fxBody(prompt: user, tools: [terminal]), modelID: "m")
+        else {
+            c.expect("the terminal schema parses", false)
+            return c.report()
+        }
+        let p = r.tools[0].schema.params
+        c.equal("action is a string", p["action"], .string)
+        c.equal("timeout_ms is an integer", p["timeout_ms"], .integer)
+        c.equal("an optional string resolves to string", p["command"], .string)
+        c.equal("an optional working directory resolves to string", p["cwd"], .string)
+        c.equal("an optional enum resolves to string", p["profile"], .string)
+        c.equal("an optional integer resolves to integer", p["count"], .integer)
+        c.equal("an optional boolean resolves to boolean", p["flag"], .boolean)
+        c.equal("a genuine two-type union stays unknown", p["either"], .unknown)
+
+        // The failure this prevents: a numeric-looking value in an optional
+        // string field must stay a string.
+        let schema = r.tools[0].schema
+        let call = """
+            <tool_call>
+            <function=terminal>
+            <parameter=action>
+            exec
+            </parameter>
+            <parameter=command>
+            2024
+            </parameter>
+            <parameter=cwd>
+            2024
+            </parameter>
+            <parameter=timeout_ms>
+            30000
+            </parameter>
+            </function>
+            </tool_call>
+            """
+        let events = ToolCallSplitter.parseAll(call, tools: [schema], idFactory: countingIDs())
+        if case .toolCall(let made) = events.last {
+            c.equal(
+                "a numeric-looking command stays a string", made.arguments["command"],
+                .string("2024"))
+            c.equal(
+                "a numeric-looking cwd stays a string", made.arguments["cwd"], .string("2024"))
+            c.equal("timeout_ms is still a number", made.arguments["timeout_ms"], .int(30000))
+            c.equal(
+                "the emitted input is what fx expects", made.inputJSON,
+                #"{"action":"exec","command":"2024","cwd":"2024","timeout_ms":30000}"#)
+        } else {
+            c.expect("the terminal call parses", false)
+        }
+        // A missing required field is passed through untouched: fx reports the
+        // real error, and the model corrects itself. The server must not invent
+        // a value for `profile`.
+        if case .toolCall(let made) = events.last {
+            c.expect("a missing required field is not invented", made.arguments["profile"] == nil)
         }
         return c.report()
     }
