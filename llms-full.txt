@@ -61,10 +61,13 @@ Auto-sizing never takes the whole machine. What each tier gets:
 | 48 GB and up | 33 GB (more buys nothing; see [Memory](#memory)) | ~12 tok/s |
 
 These rows come straight from `slotstream doctor --sim-ram N`, so you can
-reproduce them. Only the 48 GB row is measured on real hardware; the others
-are estimates from its curve, and smaller Macs also have slower SSDs. If you
-have one of those Macs, [docs/HARDWARE.md](docs/HARDWARE.md) is a ten-minute
-procedure to measure it and get your row into the table. The middle column
+reproduce them. Two are measured on real Macs; the rest are estimates from the
+48 GB curve, and that curve has no term for how fast your SSD reads — which is
+the one thing it has since been caught missing. A base-storage Mac mini M2
+measured 1.41 tok/s against this table's ~4, on a disk that reads 1.5 GB/s
+where the dev Mac reads 17.3. If you have one of these Macs,
+[docs/HARDWARE.md](docs/HARDWARE.md) is a ten-minute procedure to measure it
+and get your row into the table. The middle column
 assumes nothing else is holding memory: with a browser open,
 auto takes less and says so in the plan it prints at startup (see
 [Memory](#memory)). Run `slotstream doctor` before downloading anything: it
@@ -413,13 +416,15 @@ project's own, not mine.
 
 Three ways to help, in the order that helps most.
 
-**Report a measured row.** Only the 48 GB row in the tier table is measured
-on real hardware. If you have a 16, 24, or 32 GB Mac, an older chip, or an
-external SSD, [docs/HARDWARE.md](docs/HARDWARE.md) has a ten-minute
-procedure; open a
+**Report a measured row.** Two rows in the tier table are measured on real
+Macs; the 8, 24, and 32 GB rows are still estimates. If you have one of those,
+an older chip, an external SSD — or a 16 GB Mac with a *fast* SSD, which is
+the single most useful report right now — [docs/HARDWARE.md](docs/HARDWARE.md)
+has a ten-minute procedure; open a
 [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
 and your row goes into the table with your name on it. A row that
-contradicts the estimate is the most useful kind.
+contradicts the estimate is the most useful kind: the 16 GB row came in at a
+third of its estimate and retired a claim.
 
 **Sponsor the hardware.** GitHub Sponsors for this project is being set up.
 Once it is live, sponsorship pays for renting or buying the smaller Macs
@@ -1139,8 +1144,8 @@ open an issue with your `slotstream doctor` output.
 
 # Measured on real Macs
 
-The README's tier table has one row measured on real hardware and four
-estimated from its curve. This page is where estimates get replaced by
+The README's tier table has two rows measured on real Macs and three
+estimated from the 48 GB curve. This page is where estimates get replaced by
 measurements. To add your Mac, follow the procedure below and open a
 [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml);
 rows are copied in as they arrive, credited to the reporter.
@@ -1150,14 +1155,20 @@ rows are copied in as they arrive, credited to the reporter.
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
 | MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
+| Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
 
-Not yet measured on real hardware: the 8, 16, 24, and 32 GB tiers. A row that
-contradicts the estimate is the most useful kind. So is one from an older
+Not yet measured: the 8, 24, and 32 GB tiers. A row that
+contradicts the estimate is the most useful kind — the 16 GB row above is
+exactly that, and it cost the tier curve a claim. A 16 GB Mac with a fast SSD
+is now the most valuable single report available, because the two measured
+rows differ in both memory and disk speed and nothing yet separates them. So is one from an older
 chip, a fanless Air, or an external SSD, since those are exactly the
 conditions the 48 GB curve cannot see.
 
-The 48 GB row's full method and history are in
-[MEASUREMENTS.md](../MEASUREMENTS.md).
+Both rows' full method and history are in
+[MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
+16 GB machine in "C1", which is also where the bandwidth arithmetic behind
+its 1.41 tok/s is worked out.
 
 ## What the columns mean
 

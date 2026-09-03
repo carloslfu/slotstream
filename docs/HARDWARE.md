@@ -1,7 +1,7 @@
 # Measured on real Macs
 
-The README's tier table has one row measured on real hardware and four
-estimated from its curve. This page is where estimates get replaced by
+The README's tier table has two rows measured on real Macs and three
+estimated from the 48 GB curve. This page is where estimates get replaced by
 measurements. To add your Mac, follow the procedure below and open a
 [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml);
 rows are copied in as they arrive, credited to the reporter.
@@ -11,14 +11,20 @@ rows are copied in as they arrive, credited to the reporter.
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
 | MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
+| Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
 
-Not yet measured on real hardware: the 8, 16, 24, and 32 GB tiers. A row that
-contradicts the estimate is the most useful kind. So is one from an older
+Not yet measured: the 8, 24, and 32 GB tiers. A row that
+contradicts the estimate is the most useful kind — the 16 GB row above is
+exactly that, and it cost the tier curve a claim. A 16 GB Mac with a fast SSD
+is now the most valuable single report available, because the two measured
+rows differ in both memory and disk speed and nothing yet separates them. So is one from an older
 chip, a fanless Air, or an external SSD, since those are exactly the
 conditions the 48 GB curve cannot see.
 
-The 48 GB row's full method and history are in
-[MEASUREMENTS.md](../MEASUREMENTS.md).
+Both rows' full method and history are in
+[MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
+16 GB machine in "C1", which is also where the bandwidth arithmetic behind
+its 1.41 tok/s is worked out.
 
 ## What the columns mean
 

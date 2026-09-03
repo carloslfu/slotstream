@@ -34,3 +34,21 @@ N2 and M5 marked done in the tracker and the N2 queue item; the §3.3 design rec
 ## [2026-09-02 19:45] validate | store
 store validates clean; brain gates pass (validate, projection parity, 55 claim-needle checks)
 
+## [2026-09-03 04:04] create | sources/community
+issue #5 verbatim: @flol's Mac mini M2, 16 GB, 256 GB internal, 0.2.2 — plan, cold run, three warm runs, and the failed context-check step; one home-directory path redacted
+
+## [2026-09-03 04:04] create | records/machines
+Mac mini M2, 16 GB, base storage: the first machine record that is not the dev Mac
+
+## [2026-09-03 04:04] create | records/measurements
+C1 — the first community measurement: 1.41 tok/s warm decode against a ~4 tok/s estimate, because 751 MB read per token at 1.5 GB/s puts the IO ceiling at 2.00 tok/s, below what the planner promised
+
+## [2026-09-03 04:04] update | records/measurements
+M0.5 keeps status measured — its 17.3 GB/s stands — and gains a note that its generalization to small Macs (bandwidth is not the binding constraint there) is contradicted by C1
+
+## [2026-09-03 04:04] update | records/claims
+'measured on real hardware' withdrawn on its own stated trigger, a second machine record; replaced by 'measured on real Macs' and a new 1.41 tok/s row claim; the tier-estimates claim gains the contradiction
+
+## [2026-09-03 04:04] validate | store
+store validates clean; brain gates pass 59 needle checks; static gates pass including planner 64/64
+

@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-02T19:43:56.037621Z
+updated: 2026-09-03T04:02:54.343600Z
 ---
 
 # records/measurements
 
+- [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]] — C1 — Mac mini M2, 16 GB, base storage (community, 2026-09-02): 1.41 tok/s warm decode against a ~4 tok/s estimate, because a 1.5 GB/s SSD puts the IO ceiling at 2.00 tok/s.
+- [[records/measurements/m0-5-disk-the-number-the-whole-io-model-rests-on]] — M0.5 — Disk (the number the whole IO model rests on)
 - [[records/measurements/the-numbers-8k-prose-the-floor-the-ladder-and-decode-after-a-long-prompt]] — The numbers: 8k, prose, the floor, the ladder, and decode after a long prompt
 - [[records/measurements/what-the-sweep-does-not-settle]] — What the sweep does not settle
 - [[records/measurements/what-set-the-knobs-group-size-lanes-recycling-the-cache-cap-admission-and-the-n-gram-rows]] — What set the knobs: group size, lanes, recycling, the cache cap, admission, and the n-gram rows
@@ -69,7 +71,6 @@ updated: 2026-09-02T19:43:56.037621Z
 - [[records/measurements/lazy-true-fixes-loading-and-then-fails-for-a-second-deeper-reason]] — lazy=True fixes loading — and then fails for a second, deeper reason
 - [[records/measurements/m0-7-the-naive-path-fails-why-slotstream-exists]] — M0.7 — The naive path fails (why slotstream exists)
 - [[records/measurements/m0-6-compute]] — M0.6 — Compute
-- [[records/measurements/m0-5-disk-the-number-the-whole-io-model-rests-on]] — M0.5 — Disk (the number the whole IO model rests on)
 - [[records/measurements/build-blocker-mlx-swift-s-bundled-metal-shaders-require-xcode]] — ⚠️ Build blocker: mlx-swift's bundled Metal shaders require Xcode
 - [[records/measurements/swift-probe-the-mechanism-actually-runs-swift-probe]] — Swift probe — the mechanism actually runs (swift-probe/)
 - [[records/measurements/m0-4-swift-feasibility-mlx-swift-0-31-6-mlx-swift-lm-main]] — M0.4 — Swift feasibility (mlx-swift 0.31.6, mlx-swift-lm main)

@@ -53,10 +53,13 @@ Auto-sizing never takes the whole machine. What each tier gets:
 | 48 GB and up | 33 GB (more buys nothing; see [Memory](#memory)) | ~12 tok/s |
 
 These rows come straight from `slotstream doctor --sim-ram N`, so you can
-reproduce them. Only the 48 GB row is measured on real hardware; the others
-are estimates from its curve, and smaller Macs also have slower SSDs. If you
-have one of those Macs, [docs/HARDWARE.md](docs/HARDWARE.md) is a ten-minute
-procedure to measure it and get your row into the table. The middle column
+reproduce them. Two are measured on real Macs; the rest are estimates from the
+48 GB curve, and that curve has no term for how fast your SSD reads — which is
+the one thing it has since been caught missing. A base-storage Mac mini M2
+measured 1.41 tok/s against this table's ~4, on a disk that reads 1.5 GB/s
+where the dev Mac reads 17.3. If you have one of these Macs,
+[docs/HARDWARE.md](docs/HARDWARE.md) is a ten-minute procedure to measure it
+and get your row into the table. The middle column
 assumes nothing else is holding memory: with a browser open,
 auto takes less and says so in the plan it prints at startup (see
 [Memory](#memory)). Run `slotstream doctor` before downloading anything: it
@@ -405,13 +408,15 @@ project's own, not mine.
 
 Three ways to help, in the order that helps most.
 
-**Report a measured row.** Only the 48 GB row in the tier table is measured
-on real hardware. If you have a 16, 24, or 32 GB Mac, an older chip, or an
-external SSD, [docs/HARDWARE.md](docs/HARDWARE.md) has a ten-minute
-procedure; open a
+**Report a measured row.** Two rows in the tier table are measured on real
+Macs; the 8, 24, and 32 GB rows are still estimates. If you have one of those,
+an older chip, an external SSD — or a 16 GB Mac with a *fast* SSD, which is
+the single most useful report right now — [docs/HARDWARE.md](docs/HARDWARE.md)
+has a ten-minute procedure; open a
 [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
 and your row goes into the table with your name on it. A row that
-contradicts the estimate is the most useful kind.
+contradicts the estimate is the most useful kind: the 16 GB row came in at a
+third of its estimate and retired a claim.
 
 **Sponsor the hardware.** GitHub Sponsors for this project is being set up.
 Once it is live, sponsorship pays for renting or buying the smaller Macs

@@ -17,7 +17,7 @@ https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt
 - Install: `curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh` puts the latest release in `~/.slotstream/bin` (binary plus `mlx.metallib`, no Python); rerun to upgrade.
 - Expert-cache size changes speed, never output: greedy decode is byte-identical across cache sizes and live resizes.
 - One model process per user (`/tmp/slotstream-model-<uid>.lock`). The server binds 127.0.0.1 only, accepts browser origins from loopback only, and has no auth.
-- Known gaps in 0.2.0: the Ollama CLI stops at `/api/show` (its empty fields are rejected) and a symlinked weights folder fails to open in `run` and `serve`; both are fixed on main for the next release. Only the 48 GB tier is measured on real hardware; the macOS 14/15 runtime is untested.
+- Known gaps in 0.2.0: the Ollama CLI stops at `/api/show` (its empty fields are rejected) and a symlinked weights folder fails to open in `run` and `serve`; both are fixed on main for the next release. The 48 GB and 16 GB tiers are measured on real Macs, the rest are estimates from the 48 GB curve; the macOS 14/15 runtime is untested.
 
 ## Commands
 

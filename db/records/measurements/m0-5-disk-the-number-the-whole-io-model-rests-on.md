@@ -2,7 +2,7 @@
 type: measurement
 id: 01m1hhwkcdhcw5p5sya1frj9d5
 created: 2026-09-02T17:15:25.453701+00:00
-updated: 2026-09-02T17:15:25.453701+00:00
+updated: 2026-09-03T03:59:10.523467+00:00
 summary: M0.5 — Disk (the number the whole IO model rests on)
 date: 2026-08-28
 doc: measurements
@@ -10,6 +10,7 @@ level: '2'
 machines:
 - '[[records/machines/macbook-pro-m5-pro-48gb]]'
 milestone: M0
+note: 'Its measurement of this machine''s disk stands. The design consequence generalizing it to small Macs — that even a zero-hit cache sustains ~13 tok/s from IO alone, and that the binding constraint there is memory and compute rather than bandwidth — was contradicted on 2026-09-02 by C1, a base-storage Mac mini M2 whose disk reads at 1.5 GB/s: see records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02. The section''s own caveat, that base-storage Macs would be far slower and Stage C must re-measure, is what C1 confirms.'
 order: '80'
 source: '[[sources/docs/2026/09/measurements-md-2026-09-02]]'
 title: M0.5 — Disk (the number the whole IO model rests on)
