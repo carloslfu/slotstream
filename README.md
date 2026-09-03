@@ -299,7 +299,7 @@ slotstream is also a Swift package, so a Mac app can plan, fetch weights, and
 serve without shelling out to the binary:
 
 ```swift
-.package(url: "https://github.com/carloslfu/slotstream.git", .upToNextMinor(from: "0.3.0"))
+.package(url: "https://github.com/carloslfu/slotstream.git", .upToNextMinor(from: "0.2.3"))
 ```
 
 ```swift

@@ -7,7 +7,7 @@ Mac app or a tool of your own.
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/carloslfu/slotstream.git", .upToNextMinor(from: "0.3.0")),
+    .package(url: "https://github.com/carloslfu/slotstream.git", .upToNextMinor(from: "0.2.3")),
 ],
 targets: [
     .executableTarget(name: "YourApp", dependencies: [
@@ -17,7 +17,8 @@ targets: [
 ```
 
 `.upToNextMinor` rather than `from:`, because for a 0.x version `from:` accepts
-every later 0.x release, and the surface is still moving.
+every later 0.x release, and the surface is still moving. The library products
+first shipped in 0.2.3; an earlier tag has no importable products at all.
 
 Two products:
 
