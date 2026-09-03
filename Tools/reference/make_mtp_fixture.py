@@ -9,7 +9,13 @@
 # and a 1-entry cached decode step — and stores inputs plus reference
 # outputs. The Swift port must reproduce the outputs within tolerance.
 #
-# Run:  cd Tools/reference && ../../.venv/bin/python make_mtp_fixture.py
+# verify.sh regenerates the reference on the local machine at gate time
+# (make_mtp_fixture.py [inputs [out]]), so the parity gate compares Swift
+# against the SAME machine's kernels instead of a stored cross-machine
+# fixture. The committed fixtures remain the documented format and the
+# no-local-regen fallback.
+#
+# Run:  cd Tools/reference && ../../.venv/bin/python make_mtp_fixture.py [inputs.safetensors [out.safetensors]]
 
 import json
 import os
@@ -51,8 +57,13 @@ from mtp_ref import load_mtp  # noqa: E402
 from qwen4_exp import ModelArgs, RotaryEmbedding, _AttnCache  # noqa: E402
 
 MODEL_DIR = os.path.expanduser("~/.slotstream/models/qwen38-flash-next-mlx-4bit")
-INPUTS = os.path.join(HERE, "fixtures", "mtp_parity_inputs.safetensors")
-OUT = os.path.join(HERE, "fixtures", "mtp_parity.safetensors")
+# Optional argv override (verify.sh regenerates the reference on the local
+# machine at gate time so the gate compares Swift against the same machine's
+# kernels): `make_mtp_fixture.py [inputs.safetensors [out.safetensors]]`
+INPUTS = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+    HERE, "fixtures", "mtp_parity_inputs.safetensors")
+OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
+    HERE, "fixtures", "mtp_parity.safetensors")
 
 
 def main() -> None:

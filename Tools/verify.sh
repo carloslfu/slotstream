@@ -91,7 +91,22 @@ check "prefix reuse within the prefill-rechunk control (prefix-check)" "$BIN pre
 echo "== MTP draft head: parity with the Python reference + speculative gates =="
 MTPFILE="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit/mtp.safetensors"
 if [ -f "$MTPFILE" ]; then
-  check "mtp head bit-parity vs Python reference (mtp-parity)" "$BIN mtp-parity"
+  # Parity compares the Swift head against the Python reference computed ON
+  # THIS MACHINE at gate time. The committed fixture is machine-specific: the
+  # MTP layer's attention logits are sharp enough that cross-machine kernel
+  # drift flips near-tie keys, while the Swift port and the local reference
+  # are bit-exact (stage dumps agree to 0.00000). A stored fixture from
+  # another machine fails here and vice versa, so regenerate inputs
+  # (deterministic ids) + reference (pinned mlx 0.31.1) and fall back to the
+  # committed fixture only if that is impossible.
+  if $BIN mtp-fixture-inputs --out /tmp/ssv_mtp_inputs.safetensors >/dev/null 2>&1 \
+     && ./.venv31/bin/python Tools/reference/make_mtp_fixture.py \
+        /tmp/ssv_mtp_inputs.safetensors /tmp/ssv_mtp_fixture.safetensors >/dev/null 2>&1; then
+    check "mtp head bit-parity vs Python reference (mtp-parity)" \
+      "$BIN mtp-parity --fixture /tmp/ssv_mtp_fixture.safetensors"
+  else
+    check "mtp head bit-parity vs Python reference (mtp-parity)" "$BIN mtp-parity"
+  fi
   if $BIN mtp-check --memory-gb $BIG_MEMORY > /tmp/ssv_mtp.txt 2>&1; then
     echo "PASS  speculative decode gates (determinism, state integrity, accept sanity)"; PASS=$((PASS+1))
   else
