@@ -48,8 +48,8 @@ C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
     "http://127.0.0.1:$PORT/api/chat" -d '{"model":"some-other-model","messages":[{"role":"user","content":"hi"}]}')
 [ "$C" = 400 ] && ok "wrong model is rejected instead of silently relabeled" || bad "wrong model returned $C"
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
-    "http://127.0.0.1:$PORT/api/chat" -d '{"messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function"}]}')
-[ "$C" = 400 ] && ok "unsupported Ollama tools are rejected explicitly" || bad "tools returned $C"
+    "http://127.0.0.1:$PORT/api/chat" -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function"}]}')
+[ "$C" = 400 ] && ok "Ollama rejects a tool entry without a function name" || bad "nameless tool returned $C"
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
     "http://127.0.0.1:$PORT/v1/chat/completions" -d '{"messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}')
 [ "$C" = 400 ] && ok "unsupported OpenAI response_format is rejected explicitly" || bad "response_format returned $C"
@@ -109,6 +109,8 @@ def call(body, stream):
 cases = [
  ("plain",           "Say exactly: hello world", {}),
  ("emoji only",      "Reply with exactly these five emoji and nothing else: rocket, fire, star, heart, tree", {}),
+ ("lt symbol",       "Reply with exactly: 1 < 2", {}),
+ ("trailing lt",     "Reply with exactly these two characters and nothing else: 1 <", {}),
  ("emoji + text",    "Write one short sentence about space with exactly one rocket emoji.", {}),
  ("CJK",             "Write the word for cat in Japanese, Chinese and Russian. Just the three words.", {}),
  ("mixed scripts",   "Reply with exactly: caf\u00e9 na\u00efve \u4e2d\u6587 \U0001f600", {}),
@@ -302,6 +304,27 @@ for F in '"n":2' '"frequency_penalty":0.5' '"logprobs":true' '"tools":[{"type":"
   [ "$C" = 400 ] && ok "/v1 still refuses the real feature $F" || bad "/v1 accepted $F" "$C"
 done
 
+# --- tools: the feature works; garbage still refuses -------------------------
+OT='{"type":"function","function":{"name":"get_time","description":"Current time","parameters":{"type":"object","properties":{"tz":{"type":"string"}},"required":[]}}}'
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/api/chat" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"options\":{\"num_predict\":4},\"tools\":[$OT]}")
+[ "$C" = 200 ] && ok "Ollama accepts a well-formed tools array" || bad "Ollama tools returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"max_tokens\":4,\"tools\":[$OT]}")
+[ "$C" = 200 ] && ok "/v1 accepts a well-formed tools array" || bad "/v1 tools returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":4,\"tools\":[$OT],\"tool_choice\":\"none\"}")
+[ "$C" = 200 ] && ok "/v1 tool_choice none renders without schemas" || bad "/v1 tool_choice none returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d "{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"tools\":[$OT],\"tool_choice\":\"get_time\"}")
+[ "$C" = 400 ] && ok "/v1 refuses forced tool_choice" || bad "/v1 forced tool_choice returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_time","arguments":"{}"}}]},{"role":"tool","tool_call_id":"c1","content":"12:00"},{"role":"user","content":"thanks"}],"max_tokens":4}')
+[ "$C" = 200 ] && ok "tool result roundtrip is accepted on /v1" || bad "tool roundtrip returned $C"
+C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \
+    -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_time","arguments":"not json{"}}]},{"role":"user","content":"hi"}],"max_tokens":4}')
+[ "$C" = 400 ] && ok "malformed tool_calls arguments are rejected with a field-naming 400" || bad "malformed arguments returned $C"
+
 # --- think: reasoning belongs in `thinking`, not in the answer --------------
 R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"think":true,"messages":[{"role":"user","content":"What is 2+2?"}],"options":{"num_predict":80,"temperature":0}}')
 if printf '%s' "$R" | python3 -c '
@@ -331,13 +354,34 @@ then ok "a short reply arrives as per-token deltas, not one batched chunk"
 else bad "streaming is still batched into multi-token bursts"; fi
 
 # --- an unseeded request is not one fixed stream ----------------------------
+# Three samples are not enough to prove variation here: at the server's
+# sampling defaults the reply distribution is heavily peaked, and 12 live
+# runs of this exact prompt produced 6 distinct outputs with the dominant
+# one at ~5 in 6 — three draws collide about half the time and made this
+# gate fail spuriously (2026-09-03). Twelve draws with the dominant reply
+# at that rate still collide as one fixed stream ~11% of the time, so the
+# gate also verifies the fresh-seed property directly: an explicit seed
+# must reproduce exactly, and two different seeds must differ at least
+# once across four draws. Both directions together catch a pinned or
+# replayed stream deterministically, not probabilistically.
 FUN='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0}}'
-A=$(post /api/chat "$FUN" | content); B=$(post /api/chat "$FUN" | content); D=$(post /api/chat "$FUN" | content)
-if [ "$A" = "$B" ] && [ "$B" = "$D" ]; then bad "unseeded requests replay one fixed stream" "$(printf %.60s "$A")"
-else ok "unseeded requests vary, as the API documents"; fi
-SEEDED='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0,"seed":7}}'
-S1=$(post /api/chat "$SEEDED" | content); S2=$(post /api/chat "$SEEDED" | content)
+UNSEEDED=$(for i in 1 2 3 4 5 6 7 8 9 10 11 12; do post /api/chat "$FUN" | content; done)
+UNIQUE=$(printf '%s\n' "$UNSEEDED" | sort -u | grep -c .)
+if [ "$UNIQUE" -le 1 ]; then
+  bad "unseeded requests replay one fixed stream" "$(printf %.60s "$UNSEEDED")"
+else
+  ok "unseeded requests vary, as the API documents ($UNIQUE distinct in 12)"
+fi
+SEED7='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0,"seed":7}}'
+S1=$(post /api/chat "$SEED7" | content); S2=$(post /api/chat "$SEED7" | content)
 [ "$S1" = "$S2" ] && ok "an explicit seed still reproduces exactly" || bad "seeded requests are not reproducible"
+DIFFERENT=0
+for S in 101 202 303 404; do
+  R=$(post /api/chat "{\"model\":\"qwen3.8-flash-next:4bit\",\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"Tell me a fun fact.\"}],\"options\":{\"num_predict\":12,\"temperature\":1.0,\"seed\":$S}}" | content)
+  [ "$R" = "$S1" ] || DIFFERENT=1
+done
+[ "$DIFFERENT" = 1 ] && ok "different seeds take the sampler down different streams" \
+  || bad "every seed replays the same stream (seed ignored)"
 
 # --- HTTP: routing, framing, and honest status codes ------------------------
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://127.0.0.1:$PORT/api/tags?x=1")

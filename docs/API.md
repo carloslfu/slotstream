@@ -29,11 +29,14 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 ## `/api/chat`
 
 Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`, and `keep_alive`, which is accepted and has no
-effect because the model never unloads.
+(`true`/`false`), `options`, `tools` (OpenAI function specs), and
+`keep_alive`, which is accepted and has no effect because the model never
+unloads.
 
-Messages are `{"role", "content"}` with text content; images and `tool_calls`
-are rejected. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+Messages are `{"role", "content"}` with text content; images are rejected.
+Assistant messages may carry `tool_calls` and tool results are a
+`role: "tool"` message with a `tool_call_id`, as in the OpenAI and Ollama
+APIs. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
 `presence_penalty`, `num_predict`, `seed`, and `stop` (a string or an array).
 A JSON `null` means "not set" for any field, which is what client SDKs send for
 one they are not using.
@@ -74,9 +77,15 @@ every field, which is how the OpenAI client serializes an unset `max_tokens`.
 Stock SDKs put a few more fields on every call. Each is accepted at the single
 value this server already implements and refused at any other, so nothing is
 silently dropped: `n: 1`, `frequency_penalty: 0`, `logprobs: false`,
-`logit_bias: {}`, `tools: []`, `tool_choice: "none"`,
-`parallel_tool_calls: false`, `response_format: {"type": "text"}`, and `user`
-(any string; it has no effect here).
+`logit_bias: {}`, `response_format: {"type": "text"}`, and `user`
+(any string; it has no effect here). The tool fields are genuinely supported:
+`tools` (function specs), `tool_choice: "auto" | "none"`, and
+`parallel_tool_calls` (a boolean; calls are emitted one at a time).
+
+A tool call comes back as `finish_reason: "tool_calls"` with the parsed
+call in `message.tool_calls` (`function.arguments` is a JSON object on the
+Ollama surface, a JSON string on the OpenAI surface). Feed the result back
+as a `role: "tool"` message with the call's `tool_call_id`.
 
 ```python
 from openai import OpenAI
@@ -132,8 +141,8 @@ Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
 on validation failures.
 
 Deliberately unsupported, and rejected with a clear 400 rather than ignored:
-tool calling, images, JSON-schema output, logprobs, embeddings, and named
-reasoning levels for `think`.
+images, JSON-schema output, logprobs, embeddings, forced `tool_choice`, and
+named reasoning levels for `think`.
 
 A malformed request gets a status line, never a dropped connection: 411 for a
 chunked body (send `Content-Length`), 413 for a body over 4 MiB, 431 for

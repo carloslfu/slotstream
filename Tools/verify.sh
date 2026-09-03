@@ -94,7 +94,22 @@ check "sweep within the prefill-rechunk control, identical cold and warm (sweep-
 echo "== MTP draft head: parity with the Python reference + speculative gates =="
 MTPFILE="$HOME/.slotstream/models/qwen38-flash-next-mlx-4bit/mtp.safetensors"
 if [ -f "$MTPFILE" ]; then
-  check "mtp head bit-parity vs Python reference (mtp-parity)" "$BIN mtp-parity"
+  # Parity compares the Swift head against the Python reference computed ON
+  # THIS MACHINE at gate time. The committed fixture is machine-specific: the
+  # MTP layer's attention logits are sharp enough that cross-machine kernel
+  # drift flips near-tie keys, while the Swift port and the local reference
+  # are bit-exact (stage dumps agree to 0.00000). A stored fixture from
+  # another machine fails here and vice versa, so regenerate inputs
+  # (deterministic ids) + reference (pinned mlx 0.31.1) and fall back to the
+  # committed fixture only if that is impossible.
+  if $BIN mtp-fixture-inputs --out /tmp/ssv_mtp_inputs.safetensors >/dev/null 2>&1 \
+     && ./.venv31/bin/python Tools/reference/make_mtp_fixture.py \
+        /tmp/ssv_mtp_inputs.safetensors /tmp/ssv_mtp_fixture.safetensors >/dev/null 2>&1; then
+    check "mtp head bit-parity vs Python reference (mtp-parity)" \
+      "$BIN mtp-parity --fixture /tmp/ssv_mtp_fixture.safetensors"
+  else
+    check "mtp head bit-parity vs Python reference (mtp-parity)" "$BIN mtp-parity"
+  fi
   if $BIN mtp-check --memory-gb $BIG_MEMORY > /tmp/ssv_mtp.txt 2>&1; then
     echo "PASS  speculative decode gates (determinism, state integrity, accept sanity)"; PASS=$((PASS+1))
   else
@@ -123,9 +138,14 @@ for i in range(700):
     b += f[i % 3]
 print(b + "\n\nQuestion: what is the vault combination? Answer with one word.")
 PYEOF
-# 16 tokens: the reply opens with an empty <think> block, and 8 cut the answer
-# off mid-word.
-$BIN run --raw --prompt "$(cat /tmp/ssv_long.txt)" --max-tokens 16 --greedy --memory-gb $BIG_MEMORY \
+# 96 tokens: the reply opens with a <think> block that quotes the answer
+# before closing. 16 fit the pre-sweep token stream, where <think> stayed
+# empty; the sweep changed that stream (its output is inside the
+# prefill-rechunk band, not byte-identical), and the model now reasons out
+# loud for ~90 tokens before "SEVENTEEN". The gate tests recall through
+# the sparse indexer, not how far the model reasons, so the budget moves
+# with the stream.
+$BIN run --raw --prompt "$(cat /tmp/ssv_long.txt)" --max-tokens 96 --greedy --memory-gb $BIG_MEMORY \
   2>/tmp/ssv_longmem.err > /tmp/ssv_longmem.txt
 LPEAK=$(grep -o 'peak [0-9.]*' /tmp/ssv_longmem.err | grep -o '[0-9.]*')
 check "--memory-gb $BIG_MEMORY RSS peak ($LPEAK GB) under target on a 7,960-token prompt" \

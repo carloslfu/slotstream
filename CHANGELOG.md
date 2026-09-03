@@ -3,6 +3,30 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- Tool calling, on both the Ollama and OpenAI surfaces. A request may carry
+  `tools` (OpenAI function specs); the chat template renders the schemas, and
+  the model's `<tool_call>` XML comes back parsed as `message.tool_calls`
+  with `finish_reason: "tool_calls"` — `function.arguments` is a JSON object
+  on the Ollama surface, a JSON string on the OpenAI surface. A conversation
+  continues by feeding the result back as a `role: "tool"` message with the
+  call's `tool_call_id`. Streaming splits content from tool blocks mid-answer
+  (byte-exact against the non-streamed text, including partial-tag tails);
+  `tool_choice` accepts `"auto"` and `"none"` ("none" renders without the
+  schemas), forced selection is refused, and `arguments` that are not a JSON
+  object are a 400 that names the field. docs/API.md documents the shapes.
+- The serving machine record in the brain identifies the second machine as
+  a MacBook Pro (Apple M3 Max, 48 GiB): first battery on it, live tool-loop
+  gates, and the standing-server install are recorded with it.
+- Two acceptance-gate fixes: the unseeded-variation probe now draws twelve
+  samples (three collide about half the time on the peaked reply
+  distribution) and additionally pins seed-stream separation, which fails
+  deterministically if a seed is ignored; the long-context recall gate's
+  token budget moved to 96 because the prefill sweep's token stream reasons
+  out loud for ~90 tokens before answering (the old 16-truncation cut the
+  reply before the answer).
+
 ## 0.2.3 — 2026-09-02
 
 - Reading a prompt is about twice as fast. A prefill pass of 256 tokens or
