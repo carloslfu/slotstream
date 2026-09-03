@@ -3,6 +3,21 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## 0.2.5 — 2026-09-03
+
+- **Fixed: a JSON null anywhere in an fx request failed the whole turn.** The
+  chat-template bridge throws on `NSNull` and maps Swift `nil` to null, and the
+  gateway dialect handed it `NSNull`, so a single `"default": null` inside one
+  of fx's tool schemas — or a null for an unset optional argument in a replayed
+  tool call — returned `400 template_error: Cannot convert value of type NSNull
+  to Jinja Value` with no output at all. fx sends both routinely; the failure
+  showed up on the first real multi-step task, one turn after a `terminal` call.
+  Nulls now cross as an empty Optional, which the bridge degrades to null, so
+  they render as `null` and array positions are preserved rather than dropped.
+  Gated three ways: a T0 check that no path bridges an `NSNull`, and three live
+  scenarios covering a null in a tool schema, in tool-call arguments, and in a
+  JSON tool result.
+
 ## 0.2.4 — 2026-09-03
 
 - **Decode is about 10% faster at small cache sizes, and the output is

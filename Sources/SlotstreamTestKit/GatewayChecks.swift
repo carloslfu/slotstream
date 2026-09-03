@@ -16,6 +16,7 @@ extension Catalogue {
             Check("gateway-catalog", tier: .t0) { gatewayCatalog() },
             Check("gateway-events", tier: .t0) { gatewayEvents() },
             Check("chat-splice", tier: .t0) { chatSplice() },
+            Check("gateway-null-bridge", tier: .t0) { gatewayNullBridge() },
         ]
     }
 
@@ -551,6 +552,112 @@ extension Catalogue {
                 "Just an answer.", ChatMessage(role: "assistant", content: "Just an answer."),
                 tools: tools))
         return c.report()
+    }
+
+    /// JSON null must never cross into the chat template as `NSNull`.
+    ///
+    /// swift-jinja throws on `NSNull` and maps Swift nil to null, so a single
+    /// `"default": null` inside one of fx's tool schemas failed the entire turn
+    /// with a 400 and no output. Found in live use, not by these gates, which
+    /// is why every path that can carry a null is now enumerated here.
+    static func gatewayNullBridge() -> CheckReport {
+        var c = CheckBuilder("gateway-null-bridge")
+        c.expect("a bare null does not bridge to NSNull", !JSONValue.null.bridgesAnyNSNull)
+        c.expect(
+            "a null inside an object does not bridge to NSNull",
+            !JSONValue.object(["a": .int(1), "b": .null]).bridgesAnyNSNull)
+        c.expect(
+            "a null inside an array does not bridge to NSNull",
+            !JSONValue.array([.int(1), .null]).bridgesAnyNSNull)
+        c.expect(
+            "a deeply nested null does not bridge to NSNull",
+            !JSONValue.object(["x": .array([.object(["y": .null])])]).bridgesAnyNSNull)
+        c.expect("the null bridge value is not NSNull", !(JSONValue.templateNull is NSNull))
+
+        // The three request shapes that carried a null in the live failure.
+        let schemaWithNull: [String: Any] = [
+            "type": "function", "name": "terminal", "description": "Run a command.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "command": ["type": "string"],
+                    // fx really sends this.
+                    "timeout": ["anyOf": [["type": "number"], ["type": "null"]], "default": NSNull()],
+                ],
+                "required": ["command"],
+            ],
+        ]
+        let user: [[String: Any]] = [["role": "user", "content": [["type": "text", "text": "hi"]]]]
+        if case .success(let r) = GatewayDialect.parse(
+            fxBody(prompt: user, tools: [schemaWithNull]), modelID: "m")
+        {
+            c.expect(
+                "a null inside a tool schema survives parsing",
+                !r.tools[0].parameters.bridgesAnyNSNull)
+            // The rendered value is what actually reaches the template.
+            c.expect(
+                "the rendered tool spec carries no NSNull",
+                !containsNSNull(r.tools[0].templateValue))
+        } else {
+            c.expect("a tool schema with a null parses", false)
+        }
+
+        let withNullArgs: [[String: Any]] = user + [
+            [
+                "role": "assistant",
+                "content": [[
+                    "type": "tool-call", "toolCallId": "c1", "toolName": "terminal",
+                    "input": ["command": "ls", "timeout": NSNull()],
+                ]],
+            ],
+            [
+                "role": "tool",
+                "content": [[
+                    "type": "tool-result", "toolCallId": "c1", "toolName": "terminal",
+                    "output": ["type": "text", "value": "ok"],
+                ]],
+            ],
+        ]
+        if case .success(let r) = GatewayDialect.parse(
+            fxBody(prompt: withNullArgs, tools: [schemaWithNull]), modelID: "m")
+        {
+            let assistant = r.messages.first { $0.role == "assistant" }
+            c.expect(
+                "a null tool-call argument renders without NSNull",
+                assistant.map { !containsNSNull($0.templateValue) } ?? false)
+            c.expect(
+                "the null argument is kept, not dropped",
+                assistant?.toolCalls.first?.arguments["timeout"] == JSONValue.null)
+        } else {
+            c.expect("a tool call with a null argument parses", false)
+        }
+
+        // A JSON tool result carrying a null becomes text, so it can never
+        // reach the bridge, but the text must still say null.
+        if case .success(let r) = GatewayDialect.parse(
+            fxBody(prompt: user + [[
+                "role": "tool",
+                "content": [[
+                    "type": "tool-result", "toolCallId": "c1", "toolName": "terminal",
+                    "output": ["type": "json", "value": ["exit": 0, "stderr": NSNull()]],
+                ]],
+            ]]), modelID: "m")
+        {
+            c.equal(
+                "a json tool result renders null as text", r.messages.last?.content ?? "",
+                #"{"exit":0,"stderr":null}"#)
+        } else {
+            c.expect("a json tool result with a null parses", false)
+        }
+        return c.report()
+    }
+
+    /// Recursively: does this bridged structure contain an `NSNull`?
+    static func containsNSNull(_ value: Any) -> Bool {
+        if value is NSNull { return true }
+        if let d = value as? [String: Any] { return d.values.contains { containsNSNull($0) } }
+        if let a = value as? [Any] { return a.contains { containsNSNull($0) } }
+        return false
     }
 
     static func failureCode(_ body: [String: Any]) -> String? {

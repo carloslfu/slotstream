@@ -244,6 +244,63 @@ expect_400(
     "frequency_penalty_unsupported",
 )
 
+# --- JSON nulls, which fx really sends -------------------------------------
+# `"default": null` inside a tool schema, and nulls for unset optional
+# arguments, failed the whole turn with a 400 in 0.2.4: swift-jinja throws on
+# NSNull. Found in live use, not by a gate. Each shape is now a gate.
+NULL_TOOL = [
+    {
+        "type": "function",
+        "name": "terminal",
+        "description": "Run a command.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string"},
+                "timeout": {"anyOf": [{"type": "number"}, {"type": "null"}], "default": None},
+                "background": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
+            },
+            "required": ["command"],
+        },
+    }
+]
+stream(
+    "a null inside a tool schema does not fail the turn",
+    {"prompt": USER, "tools": NULL_TOOL, "maxOutputTokens": 8},
+)
+stream(
+    "a null tool-call argument does not fail the turn",
+    {
+        "prompt": USER
+        + [
+            {"role": "assistant", "content": [
+                {"type": "tool-call", "toolCallId": "c1", "toolName": "terminal",
+                 "input": {"command": "ls", "timeout": None, "background": None}}]},
+            {"role": "tool", "content": [
+                {"type": "tool-result", "toolCallId": "c1", "toolName": "terminal",
+                 "output": {"type": "text", "value": "ok"}}]},
+        ],
+        "tools": NULL_TOOL,
+        "maxOutputTokens": 8,
+    },
+)
+stream(
+    "a null in a json tool result does not fail the turn",
+    {
+        "prompt": USER
+        + [
+            {"role": "assistant", "content": [
+                {"type": "tool-call", "toolCallId": "c1", "toolName": "terminal",
+                 "input": {"command": "ls"}}]},
+            {"role": "tool", "content": [
+                {"type": "tool-result", "toolCallId": "c1", "toolName": "terminal",
+                 "output": {"type": "json", "value": {"exit": 0, "stderr": None}}}]},
+        ],
+        "tools": NULL_TOOL,
+        "maxOutputTokens": 8,
+    },
+)
+
 # --- accepted turns --------------------------------------------------------
 stream("a plain text turn streams and finishes", {"prompt": USER, "maxOutputTokens": 32})
 stream(

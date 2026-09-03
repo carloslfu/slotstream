@@ -2,7 +2,7 @@
 // /api/version response, and the release tag check in CI all read this.
 
 public enum SlotstreamBuild {
-    public static let version = "0.2.4"
+    public static let version = "0.2.5"
 }
 
 /// Model name used in error messages. The pinned manifest lives in the

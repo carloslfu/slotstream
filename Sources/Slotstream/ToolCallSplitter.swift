@@ -45,7 +45,17 @@ public enum JSONValue: Sendable, Equatable {
     case object([String: JSONValue])
     case null
 
-    /// The Foundation value, for `JSONSerialization`.
+    /// The Foundation value, for `JSONSerialization` and for the chat template.
+    ///
+    /// A JSON null crosses as an EMPTY OPTIONAL, never as `NSNull`. This is not
+    /// a style choice: swift-jinja's `Value(any:)` maps Swift `nil` to Jinja
+    /// null and *throws* on `NSNull` — "Cannot convert value of type NSNull to
+    /// Jinja Value" — so an `NSNull` anywhere in a tool schema, a replayed tool
+    /// call's arguments, or a tool result fails the whole turn with a 400. fx
+    /// sends `"default": null` inside tool schemas and nulls for unset optional
+    /// arguments, so this is the common case, not an exotic one. A boxed empty
+    /// Optional reaches the bridge's Mirror path and degrades to null, which
+    /// renders as `null` and keeps array positions intact.
     public var any: Any {
         switch self {
         case .string(let s): return s
@@ -54,7 +64,21 @@ public enum JSONValue: Sendable, Equatable {
         case .bool(let b): return b
         case .array(let a): return a.map { $0.any }
         case .object(let o): return o.mapValues { $0.any }
-        case .null: return NSNull()
+        case .null: return Self.templateNull
+        }
+    }
+
+    /// An empty `Optional` boxed as `Any`. See `any`.
+    public static let templateNull: Any = Optional<String>.none as Any
+
+    /// Is there an `NSNull` anywhere in this value's bridged form? The gate for
+    /// the rule above; nothing in production should ever answer true.
+    public var bridgesAnyNSNull: Bool {
+        switch self {
+        case .null: return Self.templateNull is NSNull
+        case .array(let a): return a.contains { $0.bridgesAnyNSNull }
+        case .object(let o): return o.values.contains { $0.bridgesAnyNSNull }
+        default: return false
         }
     }
 
