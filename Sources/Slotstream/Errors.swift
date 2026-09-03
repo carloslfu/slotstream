@@ -19,6 +19,9 @@ public enum SlotstreamError: Error, CustomStringConvertible, Sendable {
     case unsupportedCheckpoint(String)
     /// A plan the planner refuses to make.
     case invalidPlan(String)
+    /// Vision preprocessing or splicing failed (image undecodable, token-count
+    /// mismatch, missing tower).
+    case vision(String)
     /// Another process already holds the per-user model lock.
     case anotherProcessHoldsModel(lockPath: String)
     /// A simulated device may never authorize a real allocation.
@@ -35,6 +38,7 @@ public enum SlotstreamError: Error, CustomStringConvertible, Sendable {
         case let .pull(message): return message
         case let .unsupportedCheckpoint(message): return message
         case let .invalidPlan(message): return message
+        case let .vision(message): return message
         case let .anotherProcessHoldsModel(lockPath):
             return "another Slotstream model process is already running for this user — "
                 + "stop it before starting run, serve, parity, or a heavyweight check "
