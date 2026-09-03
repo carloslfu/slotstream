@@ -96,6 +96,43 @@ extension Diagnostics {
             "a disabled prefix cache offers no splice",
             spliceCache.peek(extending: [7]) == nil)
 
+        // Disk quota enforcement (the --kv-cache-size path), weights-free:
+        // a fake leaf with a v4 data.kv and an index row must leave the DB
+        // AND the disk when a smaller quota forces eviction, and lookup must
+        // not resurrect it through the unindexed-but-on-disk heal path.
+        let kvDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "slotstream-runtimecheck-kv-\(Int(Date().timeIntervalSince1970 * 1000))",
+                isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: kvDir, withIntermediateDirectories: true)
+        DiskCache.dirOverride = kvDir.path
+        defer {
+            try? FileManager.default.removeItem(at: kvDir)
+            DiskCache.dirOverride = nil
+            DiskCache.maxBytesOverride = nil
+        }
+        let emb: [Float] = [0.5, -0.25, 1.0, 0.125]
+        let key = ChunkIndex.makeKey(parentSha: nil, embeddings: emb)
+        let chunkDir = kvDir.appendingPathComponent(key, isDirectory: true)
+        try? FileManager.default.createDirectory(at: chunkDir, withIntermediateDirectories: true)
+        try? Data("{\"version\":4}\n".utf8).write(
+            to: chunkDir.appendingPathComponent("data.kv"))
+        ChunkIndex.shared.register(
+            key: key, parentSha: nil, depth: 0,
+            parentTokenCount: 0, tokenCount: 128, sizeBytes: 1_000_000)
+        DiskCache.maxBytesOverride = 1e-6  // ~1 KB: the 1 MB chunk is over quota
+        let freed = DiskCache.enforceQuota()
+        c.expect("forced eviction frees an over-quota leaf", freed >= 1_000_000)
+        c.expect(
+            "an evicted leaf's directory leaves the disk",
+            !FileManager.default.fileExists(
+                atPath: chunkDir.appendingPathComponent("data.kv").path))
+        let resurrected = DiskCache.longestPrefixHit(
+            chunk: 128, embed: { d in d == 0 ? emb : nil })
+        c.expect("lookup does not resurrect an evicted chunk", resurrected == nil)
+        DiskCache.maxBytesOverride = nil
+
         // Weights behind a symlink: Foundation refuses to list the link itself,
         // so the index must resolve it first (it did not, before 0.2.1).
         let tmp = FileManager.default.temporaryDirectory
