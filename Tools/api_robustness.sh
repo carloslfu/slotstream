@@ -353,13 +353,34 @@ then ok "a short reply arrives as per-token deltas, not one batched chunk"
 else bad "streaming is still batched into multi-token bursts"; fi
 
 # --- an unseeded request is not one fixed stream ----------------------------
+# Three samples are not enough to prove variation here: at the server's
+# sampling defaults the reply distribution is heavily peaked, and 12 live
+# runs of this exact prompt produced 6 distinct outputs with the dominant
+# one at ~5 in 6 — three draws collide about half the time and made this
+# gate fail spuriously (2026-09-03). Twelve draws with the dominant reply
+# at that rate still collide as one fixed stream ~11% of the time, so the
+# gate also verifies the fresh-seed property directly: an explicit seed
+# must reproduce exactly, and two different seeds must differ at least
+# once across four draws. Both directions together catch a pinned or
+# replayed stream deterministically, not probabilistically.
 FUN='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0}}'
-A=$(post /api/chat "$FUN" | content); B=$(post /api/chat "$FUN" | content); D=$(post /api/chat "$FUN" | content)
-if [ "$A" = "$B" ] && [ "$B" = "$D" ]; then bad "unseeded requests replay one fixed stream" "$(printf %.60s "$A")"
-else ok "unseeded requests vary, as the API documents"; fi
-SEEDED='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0,"seed":7}}'
-S1=$(post /api/chat "$SEEDED" | content); S2=$(post /api/chat "$SEEDED" | content)
+UNSEEDED=$(for i in 1 2 3 4 5 6 7 8 9 10 11 12; do post /api/chat "$FUN" | content; done)
+UNIQUE=$(printf '%s\n' "$UNSEEDED" | sort -u | grep -c .)
+if [ "$UNIQUE" -le 1 ]; then
+  bad "unseeded requests replay one fixed stream" "$(printf %.60s "$UNSEEDED")"
+else
+  ok "unseeded requests vary, as the API documents ($UNIQUE distinct in 12)"
+fi
+SEED7='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0,"seed":7}}'
+S1=$(post /api/chat "$SEED7" | content); S2=$(post /api/chat "$SEED7" | content)
 [ "$S1" = "$S2" ] && ok "an explicit seed still reproduces exactly" || bad "seeded requests are not reproducible"
+DIFFERENT=0
+for S in 101 202 303 404; do
+  R=$(post /api/chat "{\"model\":\"qwen3.8-flash-next:4bit\",\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"Tell me a fun fact.\"}],\"options\":{\"num_predict\":12,\"temperature\":1.0,\"seed\":$S}}" | content)
+  [ "$R" = "$S1" ] || DIFFERENT=1
+done
+[ "$DIFFERENT" = 1 ] && ok "different seeds take the sampler down different streams" \
+  || bad "every seed replays the same stream (seed ignored)"
 
 # --- HTTP: routing, framing, and honest status codes ------------------------
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://127.0.0.1:$PORT/api/tags?x=1")
