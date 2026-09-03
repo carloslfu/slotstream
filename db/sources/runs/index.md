@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-02T23:45:00Z
+updated: 2026-09-03T06:48:43Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-03-verify-tools-v1-clean-macbook-pro-m3-max]] — Full verify.sh battery on tools-v1: 190 PASS / 0 FAIL (robustness 75/0), first fully green run on this machine after the mtp-parity regen-at-gate fix and the unseeded-gate determinism fix (b9c712c).
 - [[sources/runs/2026/09/2026-09-02-mtp-parity-fix-and-standing-server-macbook-pro-m3-max]] — MTP parity gate fixed (regen-at-gate) and the tools-v1 build installed as the standing LaunchAgent server: bit-exact Swift-vs-Python stage forensics, then full battery 188/0.
 - [[sources/runs/2026/09/2026-09-02-live-tool-gates-macbook-pro-m3-max]] — Live tool-calling gates against the tools-branch server on the pinned 4-bit checkpoint: format quality 4/4, full tool loop pass, prefix-cache extend hits across loop turns.
 - [[sources/runs/2026/09/2026-09-02-tools-block-cost-macbook-pro-m3-max]] — Tools-block prefill cost on the pinned checkpoint: two tool schemas add 311 prompt tokens (~150 each) versus the same one-turn request without tools.

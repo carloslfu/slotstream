@@ -25,3 +25,6 @@ review round on the tools branch: the phantom-call refactor had dropped content/
 ## [2026-09-03 01:13] fix | 6006350
 MTP parity gate fixed (regen-at-gate, bit-exact stage forensics) and the tools-v1 build installed as the standing LaunchAgent server; battery 188/0
 
+## [2026-09-03 06:49] create | sources/runs/2026/09/2026-09-03-verify-tools-v1-clean-macbook-pro-m3-max
+first fully green battery on this machine: 190/0 (robustness 75/0) after the unseeded-gate determinism fix b9c712c
+
