@@ -370,6 +370,21 @@ struct MTPCheck: ParsableCommand {
         abstract: "Gate speculative decode: determinism, state integrity, accept sanity")
     @OptionGroup var model: ModelOptions
     @Option(help: "Tokens per generation") var maxTokens: Int = 48
+    @Option(help: "Image for the vision+mtp leg (default: Tools/assets/vision_test/secret1.jpg)")
+    var image: String?
+
+    /// The repo's small vision test image, found from the working directory
+    /// or by walking up toward the repository root. nil when absent — the
+    /// leg then prints SKIP rather than failing a checkout without assets.
+    static func candidateVisionAsset(_ forced: String? = nil) -> URL? {
+        let bases: [String] = forced.map { [$0] } ?? [".", "..", "../..", "../../.."]
+        let relative = "Tools/assets/vision_test/secret1.jpg"
+        for base in bases {
+            let url = URL(fileURLWithPath: base).appendingPathComponent(relative)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return nil
+    }
 
     func run() throws {
         let plan = try model.announcedPlan()
@@ -410,6 +425,72 @@ struct MTPCheck: ParsableCommand {
                     print(
                         "  info  p\(i + 1): plain vs spec shared prefix \(shared)/\(min(a.count, c.count))"
                             + (a == c ? " (identical)" : ""))
+                }
+
+                // Vision + MTP: a combined text-and-image prompt must speculate
+                // too. The head's prefill consumption splices the tower's rows
+                // at the placeholder runs (MTPHead.consume), so its cache is
+                // built on the embeddings the main model saw; without that the
+                // drafts would be self-consistent but blind to the image and
+                // the accept rate would collapse. Runs the same three legs as
+                // the text prompts above (spec, spec, plain) so determinism,
+                // "speculation actually ran" and the shared-prefix report all
+                // apply. Skips when the repo asset image is not in reach.
+                let visionAsset = MTPCheck.candidateVisionAsset(image)
+                if let img = visionAsset {
+                    do {
+                        let base64 = try Data(contentsOf: img).base64EncodedString()
+                        let mime = img.pathExtension == "png" ? "image/png" : "image/jpeg"
+                        let part: [String: Any] = [
+                            "type": "image_url",
+                            "image_url": ["url": "data:\(mime);base64,\(base64)"],
+                        ]
+                        let (ids, vision) = try engine.encodeWithVision(
+                            messages: [
+                                [
+                                    "role": "user",
+                                    "content": [
+                                        part,
+                                        ["type": "text", "text": "Describe this image briefly."],
+                                    ],
+                                ]
+                            ],
+                            tools: nil, thinking: false)
+                        guard let vision else {
+                            throw ModelError("vision prompt carried no image segments")
+                        }
+                        print(
+                            "  info  vision+mtp prompt: \(ids.count) tokens, "
+                                + "\(vision.segments.count) image(s), placeholder id "
+                                + "\(engine.model.cfg.imageTokenId)")
+                        func genVision(_ ids: [Int], _ vision: VisionPrompt?, spec: Bool)
+                            throws -> ([Int], GenStats)
+                        {
+                            engine.generator.speculationEnabled = spec
+                            defer { engine.generator.speculationEnabled = true }
+                            return engine.generator.generate(
+                                promptIds: ids, params: params, eosIds: engine.eosIds,
+                                vision: vision)
+                        }
+                        let (a, sa) = try genVision(ids, vision, spec: true)
+                        let (b, _) = try genVision(ids, vision, spec: true)
+                        check("vision speculation deterministic (\(a.count) tokens)", a == b)
+                        check("vision speculation ran", sa.verifyPasses > 0)
+                        acceptTotal += sa.acceptedDrafts
+                        draftTotal += sa.draftedTokens
+                        let (c, _) = try genVision(ids, vision, spec: false)
+                        let shared = zip(a, c).prefix { $0 == $1 }.count
+                        print(
+                            "  info  vision plain vs spec shared prefix \(shared)/\(min(a.count, c.count))"
+                                + (a == c ? " (identical)" : ""))
+                    } catch {
+                        check("vision+mtp leg completes", false)
+                        failures.append("vision+mtp leg: \(error)")
+                    }
+                } else {
+                    print(
+                        "SKIP vision+mtp leg (no Tools/assets/vision_test image in reach; "
+                            + "pass --image to force one)")
                 }
                 let rate = draftTotal > 0 ? Double(acceptTotal) / Double(draftTotal) : 0
                 print(String(format: "  info  overall accept rate %.1f%%", rate * 100))

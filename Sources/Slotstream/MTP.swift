@@ -218,9 +218,17 @@ public final class MTPHead {
     /// start, where token 0 has no preceding hidden and gets no entry
     /// (invariant: cache offset == consumed tokens − 1).
     /// Returns the last position's multi, detached, for the next call.
+    ///
+    /// `visionEmbeds` (a vision prompt's prefill) carries the tower's rows
+    /// for the chunk's placeholder runs, exactly as `Model.hiddenStates`
+    /// sees them; they are spliced into the draft stream in place of the
+    /// placeholder token's own embedding, so the head's cache is built on
+    /// what the main model actually consumed. nil on plain text and on
+    /// decode, which produces no placeholders.
     public func consume(
         chunk: [Int], chunkMulti: MLXArray, prevMulti: MLXArray?,
-        resident: ResidentWeights, rope: Rope, state: MTPState
+        resident: ResidentWeights, rope: Rope, state: MTPState,
+        visionEmbeds: MLXArray? = nil
     ) -> MLXArray {
         let S = chunk.count
         let last = chunkMulti[0..., (S - 1)..., 0...]
@@ -230,7 +238,10 @@ public final class MTPHead {
         let startIdx = prevMulti == nil ? 1 : 0
         if S - startIdx > 0 {
             let ids = MLXArray(chunk[startIdx...].map { Int32($0) }, [1, S - startIdx])
-            let e = resident.embed(ids).asType(.bfloat16)
+            var e = resident.embed(ids).asType(.bfloat16)
+            if let vEmb = visionEmbeds {
+                e = spliceVisionEmbeds(e, chunk: chunk, startIdx: startIdx, rows: vEmb)
+            }
             let multis: MLXArray
             if let pm = prevMulti {
                 multis = S > 1
@@ -243,5 +254,35 @@ public final class MTPHead {
             state.materialize()
         }
         return last
+    }
+
+    /// Copy the tower's rows into the draft embedding stream at the chunk's
+    /// placeholder positions. CPU-side, mirroring `Model.hiddenStates`: the
+    /// same order, the same one-to-one count, the same refusal to splice on a
+    /// mismatch. `rows` holds one row per placeholder in the WHOLE chunk and
+    /// is aligned against it (the same array `hiddenStates` is handed), so a
+    /// placeholder the head does not consume — chunk[0] at sequence start,
+    /// which has no preceding hidden and therefore no MTP entry — still
+    /// advances the row pointer, keeping the head's stream aligned with the
+    /// main model's from that chunk on.
+    private func spliceVisionEmbeds(_ e: MLXArray, chunk: [Int], startIdx: Int, rows: MLXArray) -> MLXArray {
+        let rowCount = rows.ndim == 3 ? rows.dim(1) : rows.dim(0)
+        let placeholderCount = chunk.filter { $0 == cfg.imageTokenId }.count
+        guard rowCount == placeholderCount, placeholderCount > 0 else { return e }
+        let vFlat = rows.ndim == 3 ? rows.reshaped([rowCount, cfg.hiddenSize]) : rows
+        let H = cfg.hiddenSize
+        let eF32 = e.asType(.float32)
+        var eArr = eF32.asArray(Float.self)
+        let vArr = vFlat.asType(.float32).asArray(Float.self)
+        var vIdx = 0
+        for (j, id) in chunk.enumerated() where id == cfg.imageTokenId {
+            if j >= startIdx {
+                let dstBase = (j - startIdx) * H
+                let srcBase = vIdx * H
+                for k in 0..<H { eArr[dstBase + k] = vArr[srcBase + k] }
+            }
+            vIdx += 1
+        }
+        return MLXArray(eArr, [1, chunk.count - startIdx, H]).asType(.bfloat16)
     }
 }

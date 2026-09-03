@@ -279,7 +279,6 @@ public final class Generator {
         // digest of the bytes behind each run, and `take` requires those to
         // agree as well; a swapped image therefore misses instead of resuming
         // a state built from the wrong pixels.
-        let isVision = vision != nil
         let images = vision?.segments ?? []
         // A hit hands over the state and the count of prompt tokens it already
         // consumed; a miss evicts enough LRU state before this allocation to
@@ -289,15 +288,6 @@ public final class Generator {
             reserveTokens: promptIds.count + params.maxTokens)
         let state = hit?.state ?? model.makeState()
         let reused = hit?.reused ?? 0
-        // This request will not feed the draft head (see `mtpHead` below), so a
-        // state that arrived with one must not keep it: the head's cache would
-        // stop advancing while the token count grows, and the next request to
-        // take this state would speculate over a misaligned head. Dropping it
-        // makes that request treat the state as plain, which it now is.
-        if isVision, state.mtp != nil {
-            state.mtp = nil
-            state.lastMulti = nil
-        }
         stats.promptTokens = promptIds.count
         stats.reusedPrefixTokens = reused
         MLX.Memory.peakMemory = 0
@@ -315,13 +305,14 @@ public final class Generator {
         // has no draft cache to extend; finish that request plain rather than
         // speculating over a misaligned head (unreachable in serve, where the
         // mode is fixed per process; the A/B tools flip it per request).
-        // Vision still runs plain, cache or no cache: the draft head consumes
-        // raw token ids during prefill, so at an image position it would fold
-        // in the placeholder's embedding instead of the tower's row and build
-        // its cache on something the main model never saw.
+        // Vision prompts speculate too now: the head's prefill consumption
+        // splices the tower's rows at the placeholder positions (MTPHead's
+        // `spliceVisionEmbeds`), so its cache is built on the embeddings the
+        // main model actually saw. A state produced by a plain vision request
+        // still runs plain, since its head cache would claim positions the
+        // main state no longer matches.
         let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
-        let mtpHead = isVision ? nil
-            : (speculationEnabled && stateKnowsMTP ? model.mtpHead : nil)
+        let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
         // Vision helpers: the tower runs here and not at tokenize time, so an
         // image the reused prefix already covers costs nothing at all. What
@@ -380,7 +371,8 @@ public final class Generator {
                 let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state, visionEmbeds: chunkVision)
                 state.lastMulti = head.consume(
                     chunk: chunk, chunkMulti: multi, prevMulti: state.lastMulti,
-                    resident: model.resident, rope: model.rope, state: state.mtp!)
+                    resident: model.resident, rope: model.rope, state: state.mtp!,
+                    visionEmbeds: chunkVision)
                 if hi == promptIds.count {
                     logits = model.lmHead(mixed[0..., (mixed.dim(1) - 1)..., 0...])
                     eval(logits)
