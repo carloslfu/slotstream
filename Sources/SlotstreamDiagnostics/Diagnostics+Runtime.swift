@@ -33,6 +33,27 @@ extension Diagnostics {
         c.expect("a smaller live token ceiling evicts immediately", cache.heldTokens <= 2)
         c.expect("held GB includes fixed recurrent state", cache.heldGB > 0.1)
 
+        // A client can re-render an assistant turn differently from the exact
+        // ids the server generated (fx omits reasoning when it sends history
+        // back). `peek` finds the longest retained extension for the splice,
+        // but does not consume it before the ordinary cache match.
+        let spliceCache = PrefixCache(maxTokens: 100)
+        spliceCache.store(state: Qwen4ExpModel.State(), tokens: [7, 8, 9])
+        spliceCache.store(state: Qwen4ExpModel.State(), tokens: [7, 8, 9, 10])
+        c.equal(
+            "prefix splice chooses the longest retained extension",
+            spliceCache.peek(extending: [7, 8]), [7, 8, 9, 10])
+        c.expect(
+            "prefix splice is strict, not an identical-history match",
+            spliceCache.peek(extending: [7, 8, 9, 10]) == nil)
+        c.equal(
+            "prefix splice lookup does not consume the retained state",
+            spliceCache.take(matching: [7, 8, 9, 10, 11])?.reused, 4)
+        spliceCache.enabled = false
+        c.expect(
+            "a disabled prefix cache offers no splice",
+            spliceCache.peek(extending: [7]) == nil)
+
         // Weights behind a symlink: Foundation refuses to list the link itself,
         // so the index must resolve it first (it did not, before 0.2.1).
         let tmp = FileManager.default.temporaryDirectory

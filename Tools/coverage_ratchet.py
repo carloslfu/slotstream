@@ -46,6 +46,25 @@ def pct(hit, found):
     return 100.0 * hit / found if found else 100.0
 
 
+def compare(measured, floor):
+    """Return per-file regressions, gains, and files absent from the floor."""
+    failures, gains, missing = [], [], []
+    for path, (hit, found) in sorted(measured.items()):
+        now = pct(hit, found)
+        if path not in floor:
+            missing.append((path, now))
+            continue
+        was = floor[path]
+        # A tenth of a point of slack: llvm-cov's line attribution moves by a
+        # line or two on an unrelated edit, and a gate that cries wolf is worse
+        # than one point of precision.
+        if now + 0.1 < was:
+            failures.append((path, was, now))
+        elif now > was + 0.1:
+            gains.append((path, was, now))
+    return failures, gains, missing
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     update = "--update" in sys.argv
@@ -60,17 +79,7 @@ def main():
     if os.path.exists(FLOOR):
         floor = json.load(open(FLOOR, encoding="utf-8")).get("files", {})
 
-    failures, gains = [], []
-    for path, (hit, found) in sorted(measured.items()):
-        now = pct(hit, found)
-        was = floor.get(path, 0.0)
-        # A tenth of a point of slack: llvm-cov's line attribution moves by a
-        # line or two on an unrelated edit, and a gate that cries wolf is worse
-        # than one point of precision.
-        if now + 0.1 < was:
-            failures.append((path, was, now))
-        elif now > was + 0.1:
-            gains.append((path, was, now))
+    failures, gains, missing = compare(measured, floor)
 
     total_hit = sum(h for h, _ in measured.values())
     total_found = sum(f for _, f in measured.values())
@@ -78,6 +87,8 @@ def main():
           % (pct(total_hit, total_found), total_found, len(measured)))
     for path, was, now in gains:
         print("  up    %-52s %.2f%% -> %.2f%%" % (path, was, now))
+    for path, now in missing:
+        print("  NEW   %-52s no floor -> %.2f%%" % (path, now))
     for path, was, now in failures:
         print("  DOWN  %-52s %.2f%% -> %.2f%%" % (path, was, now))
 
@@ -91,9 +102,13 @@ def main():
         print("floor updated: %s" % os.path.relpath(FLOOR, ROOT))
         return 0
 
-    if failures:
-        print("\n%d file(s) lost coverage. Add a check, or run --update if the "
-              "drop is deliberate and explained in the commit." % len(failures))
+    if failures or missing:
+        if failures:
+            print("\n%d file(s) lost coverage." % len(failures))
+        if missing:
+            print("\n%d new file(s) have no committed floor." % len(missing))
+        print("Add a check, or run --update if the baseline change is deliberate "
+              "and explained in the commit.")
         return 1
     return 0
 
