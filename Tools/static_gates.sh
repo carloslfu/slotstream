@@ -8,6 +8,7 @@ for f in install.sh Tools/*.sh .githooks/*; do
 done
 sh -n install.sh
 python3 -m py_compile Tools/*.py Tools/reference/*.py
+python3 Tools/coverage_ratchet_test.py
 Tools/llms_full.sh --check
 
 # The brain: the store validates, MEASUREMENTS.md and PLAN.md match their

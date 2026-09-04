@@ -164,6 +164,13 @@ extension Catalogue {
         } else {
             c.expect("sampling knobs parse", false)
         }
+
+        // Tool turns use their own defaults because the output is a grammar:
+        // low variance, and no penalty for repeated closing tags.
+        let agent = SampleParams.agent
+        c.equal("agent temperature", agent.temperature, 0.2)
+        c.equal("agent top-p", agent.topP, 0.9)
+        c.equal("agent presence penalty", agent.presencePenalty, 0)
         return c.report()
     }
 
