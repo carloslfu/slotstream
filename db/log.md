@@ -76,3 +76,6 @@ M1 marked done in the status tracker
 ## [2026-09-04 00:28] update | records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03.md
 vision landed: tower cost, parity against an independent float32 reference, and the serving evidence
 
+## [2026-09-04 03:17] update | records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03.md
+clean verify.sh run: 24 passed, 0 failed; floor numbers recorded
+

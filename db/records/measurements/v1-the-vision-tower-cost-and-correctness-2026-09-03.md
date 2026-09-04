@@ -2,14 +2,14 @@
 type: measurement
 id: 01m1mtsb1x2b5q2rhxq4zmwddx
 created: 2026-09-03T23:48:39.101597+00:00
-updated: 2026-09-04T00:28:45.821521+00:00
+updated: 2026-09-04T03:16:57.536150+00:00
 summary: 'V1 — the vision tower: 0.898 GB resident, 702 tokens for an 846x859 photograph, and agreement with an independent float32 reference inside the bfloat16 band.'
 date: 2026-09-03
 doc: measurements
 level: '2'
 milestone: V1
 order: '750'
-runs: '[[sources/runs/2026/09/2026-09-03-verify-with-vision-gates]]'
+runs: '[[sources/runs/2026/09/2026-09-04-verify-with-vision-gates-idle]], [[sources/runs/2026/09/2026-09-03-verify-with-vision-gates]]'
 title: 'V1 — the vision tower: what it costs, what a picture costs, and whether it computes the right thing (2026-09-03)'
 status: measured
 ---
@@ -29,7 +29,7 @@ what it costs and how it was checked.
 | One 846x859 photograph | **702 tokens** (52x54 patches, 2x2 merged), plus the template's two sentinels |
 | One 1206x1570 photograph | 1,862 tokens |
 | Largest picture accepted | 2,304 tokens (the 1536² engine cap) |
-| `run --image` at `--memory-gb 10` | peak **8.5 GB** RSS, tower included |
+| `run --image` at `--memory-gb 10` | peak **8.5 GB** RSS, tower included (announced peak 9.0 GB) |
 
 The tower's bytes come from the checkpoint's own header
 (`VisionTower.residentBytes`), not from a measurement of the process, so the
@@ -114,6 +114,10 @@ A follow-up turn on a conversation whose pictures have not changed re-uses the
 state built for them: the tower does not run again, and prefill reads only the
 new text. Measured on the same conversation at `--memory-gb 10`: **15.4 s for
 the first turn, 1.8 s for the follow-up.**
+
+Re-measured at the 8.1 GB floor, which is where `verify.sh` runs the suite:
+**13.7 s then 1.9 s**, and all 18 serving assertions pass at that size too —
+the smaller pool changes the speed, not the behaviour.
 
 That reuse is only safe because the cache does not key on token ids. Every
 image expands to a run of the *same* placeholder id, so two different pictures
