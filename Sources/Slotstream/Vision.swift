@@ -149,15 +149,132 @@ public struct VisionPreprocess {
         return nil
     }
 
-    /// Decode encoded image bytes to a CGImage. Cheap next to the tower pass,
-    /// so it runs even for images whose embeddings turn out to be cached.
+    /// Decode encoded image bytes to an upright CGImage.
+    ///
+    /// Two things happen here that a plain `CGImageSourceCreateImageAtIndex`
+    /// does not do, and both were found by feeding the finished path awkward
+    /// files rather than photographs.
+    ///
+    /// **The EXIF orientation is applied.** A phone stores its sensor's pixels
+    /// and a tag saying which way is up; every viewer, and the reference
+    /// processor (`transformers.image_utils.load_image` runs
+    /// `ImageOps.exif_transpose`), turns the picture before looking at it.
+    /// Ignoring the tag sends every portrait photograph to the model on its
+    /// side — measured on a tagged image whose corners are known: the model
+    /// named the stored corner, not the displayed one.
+    ///
+    /// **A truncated file is refused.** ImageIO is deliberately lenient: half
+    /// a PNG decodes to the rows it has and blank space for the rest, so an
+    /// upload cut short by a dropped connection produced a confident
+    /// description of a mostly empty image. Its own status is no help — it
+    /// reports `complete` for that file, because all the data it was given was
+    /// given at once — so the container's end marker is checked instead.
     public static func decodeCGImage(_ data: Data) throws -> CGImage {
         guard let src = CGImageSourceCreateWithData(data as CFData, nil),
-            let cg = CGImageSourceCreateImageAtIndex(src, 0, nil)
+            CGImageSourceGetCount(src) > 0
         else {
             throw VisionError.msg("failed to decode image")
         }
-        return cg
+        let status = CGImageSourceGetStatusAtIndex(src, 0)
+        guard status == .statusComplete, endMarkerPresent(data) else {
+            throw VisionError.msg(
+                "image data is incomplete — it ends mid-file, so it was probably "
+                    + "truncated in transit; send the whole picture")
+        }
+        guard let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
+            throw VisionError.msg("failed to decode image")
+        }
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+        let orientation = (props?[kCGImagePropertyOrientation] as? UInt32) ?? 1
+        return try upright(cg, orientation: orientation)
+    }
+
+    /// Does the file end where its container says it should?
+    ///
+    /// Only the three formats with an unambiguous terminator are judged, and
+    /// only in the direction that is safe: a missing end marker is a
+    /// truncation, an unrecognised container is left to ImageIO. PNG must end
+    /// in `IEND`; JPEG must contain the end-of-image marker near its tail
+    /// (cameras and editors do append after it, so this looks in the last few
+    /// hundred bytes rather than at the exact end); GIF ends with `;`.
+    public static func endMarkerPresent(_ data: Data) -> Bool {
+        let bytes = [UInt8](data)
+        if bytes.count >= 8, Array(bytes.prefix(8)) == [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] {
+            return bytes.count >= 12 && Array(bytes.suffix(8).prefix(4)) == [0x49, 0x45, 0x4E, 0x44]
+        }
+        if bytes.count >= 3, bytes[0] == 0xFF, bytes[1] == 0xD8 {
+            let tail = bytes.suffix(512)
+            var prev: UInt8 = 0
+            for b in tail {
+                if prev == 0xFF && b == 0xD9 { return true }
+                prev = b
+            }
+            return false
+        }
+        if bytes.count >= 6, Array(bytes.prefix(3)) == [0x47, 0x49, 0x46] {
+            return bytes.last == 0x3B
+        }
+        return true
+    }
+
+    /// Apply an EXIF orientation, returning an image whose pixel (0,0) is the
+    /// top-left the photographer saw. Orientations 5-8 transpose the axes, so
+    /// the result's width and height are swapped — which matters beyond the
+    /// pixels, because the token count follows from the dimensions.
+    public static func upright(_ cg: CGImage, orientation: UInt32) throws -> CGImage {
+        guard (2 ... 8).contains(orientation) else { return cg }
+        let w = cg.width, h = cg.height
+        let transposed = orientation >= 5
+        let outW = transposed ? h : w
+        let outH = transposed ? w : h
+        guard
+            let ctx = CGContext(
+                data: nil, width: outW, height: outH, bitsPerComponent: 8,
+                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                    | CGBitmapInfo.byteOrder32Big.rawValue)
+        else {
+            throw VisionError.msg("could not allocate a context to rotate the image")
+        }
+        // Quartz draws from the bottom left, so each case below is written as
+        // the transform that puts the *stored* image where the *displayed* one
+        // belongs. The eight are checked exactly, corner by corner, in
+        // `vision-check`; do not adjust one by eye.
+        let fw = CGFloat(w), fh = CGFloat(h)
+        switch orientation {
+        case 2:  // mirrored horizontally
+            ctx.translateBy(x: fw, y: 0)
+            ctx.scaleBy(x: -1, y: 1)
+        case 3:  // rotated 180
+            ctx.translateBy(x: fw, y: fh)
+            ctx.rotate(by: .pi)
+        case 4:  // mirrored vertically
+            ctx.translateBy(x: 0, y: fh)
+            ctx.scaleBy(x: 1, y: -1)
+        case 5:  // transposed (mirrored along the main diagonal)
+            ctx.rotate(by: -.pi / 2)
+            ctx.translateBy(x: -fw, y: 0)
+            ctx.translateBy(x: 0, y: fh)
+            ctx.scaleBy(x: 1, y: -1)
+        case 6:  // rotated 90 clockwise for display
+            ctx.translateBy(x: 0, y: fw)
+            ctx.rotate(by: -.pi / 2)
+        case 7:  // transverse: case 6, then flipped along the other axis
+            ctx.translateBy(x: 0, y: CGFloat(outH))
+            ctx.scaleBy(x: 1, y: -1)
+            ctx.translateBy(x: 0, y: fw)
+            ctx.rotate(by: -.pi / 2)
+        case 8:  // rotated 90 counter-clockwise for display
+            ctx.translateBy(x: fh, y: 0)
+            ctx.rotate(by: .pi / 2)
+        default:
+            break
+        }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: fw, height: fh))
+        guard let out = ctx.makeImage() else {
+            throw VisionError.msg("could not rotate the image to its stated orientation")
+        }
+        return out
     }
 
     /// Resize via CoreGraphics bicubic (high) and normalize to [-1,1] CHW float32.

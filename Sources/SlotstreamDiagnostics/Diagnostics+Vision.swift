@@ -9,7 +9,9 @@
 // of patches — and the alternative to checking it here is checking it with
 // 105 GB of weights on one machine.
 
+import CoreGraphics
 import Foundation
+import ImageIO
 import MLX
 import Slotstream
 
@@ -138,6 +140,96 @@ extension Diagnostics {
         } else {
             c.expect("the transparent fixture decodes", false)
         }
+
+        // Truncation. ImageIO decodes half a PNG into the rows it has plus
+        // blank space and calls the source complete, so an upload cut short
+        // produced a confident description of a mostly empty picture. The
+        // container's end marker is the signal it does not give.
+        let wholePNG = (try? VisionPreprocess.loadImageData(from: onePixelPNG)) ?? Data()
+        c.expect("a whole PNG has its IEND", VisionPreprocess.endMarkerPresent(wholePNG))
+        c.expect(
+            "half a PNG does not",
+            !VisionPreprocess.endMarkerPresent(wholePNG.prefix(wholePNG.count / 2)))
+        c.expect(
+            "and it is refused rather than decoded",
+            (try? VisionPreprocess.decodeCGImage(wholePNG.prefix(wholePNG.count / 2))) == nil)
+        // JPEG's end marker is looked for near the tail, not at the exact end,
+        // because cameras append after it.
+        let jpegBody = Data([0xFF, 0xD8]) + Data(repeating: 0x11, count: 64)
+        c.expect(
+            "a JPEG missing its EOI is truncated",
+            !VisionPreprocess.endMarkerPresent(jpegBody))
+        c.expect(
+            "one with EOI then trailing bytes is not",
+            VisionPreprocess.endMarkerPresent(
+                jpegBody + Data([0xFF, 0xD9]) + Data(repeating: 0x22, count: 32)))
+        c.expect(
+            "a container with no known terminator is left to ImageIO",
+            VisionPreprocess.endMarkerPresent(Data([0x42, 0x4D, 0x01, 0x02, 0x03])))
+
+        // MARK: EXIF orientation
+        //
+        // All eight, corner by corner, on a 2x2 image whose pixels are four
+        // distinct colours. A phone stores the sensor's pixels plus a tag, so
+        // getting this wrong means every portrait photograph reaches the model
+        // on its side — and the token count too, since 5-8 swap the axes.
+        //
+        // Stored:  red  green      The table is EXIF's own: 6 rotates 90
+        //          blue yellow     clockwise for display, so the stored
+        //                          bottom-left ends up top-left.
+        func corners(_ o: UInt32) -> [String]? {
+            let stored: [(UInt8, UInt8, UInt8)] = [
+                (255, 0, 0), (0, 255, 0),  // top-left, top-right
+                (0, 0, 255), (255, 255, 0),  // bottom-left, bottom-right
+            ]
+            var bytes: [UInt8] = []
+            for p in stored { bytes += [p.0, p.1, p.2, 255] }
+            let provider = CGDataProvider(data: Data(bytes) as CFData)!
+            guard
+                let src = CGImage(
+                    width: 2, height: 2, bitsPerComponent: 8, bitsPerPixel: 32,
+                    bytesPerRow: 8, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGBitmapInfo(
+                        rawValue: CGImageAlphaInfo.premultipliedLast.rawValue
+                            | CGBitmapInfo.byteOrder32Big.rawValue),
+                    provider: provider, decode: nil, shouldInterpolate: false,
+                    intent: .defaultIntent),
+                let out = try? VisionPreprocess.upright(src, orientation: o)
+            else { return nil }
+            var raw = [UInt8](repeating: 0, count: out.height * out.width * 4)
+            guard
+                let ctx = CGContext(
+                    data: &raw, width: out.width, height: out.height, bitsPerComponent: 8,
+                    bytesPerRow: out.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                        | CGBitmapInfo.byteOrder32Big.rawValue)
+            else { return nil }
+            ctx.draw(out, in: CGRect(x: 0, y: 0, width: out.width, height: out.height))
+            func name(_ i: Int) -> String {
+                let (r, g, b) = (raw[i * 4], raw[i * 4 + 1], raw[i * 4 + 2])
+                if r > 200 && g > 200 { return "yellow" }
+                if r > 200 { return "red" }
+                if g > 200 { return "green" }
+                if b > 200 { return "blue" }
+                return "?"
+            }
+            return [name(0), name(1), name(2), name(3)]  // TL, TR, BL, BR
+        }
+        let expected: [UInt32: [String]] = [
+            1: ["red", "green", "blue", "yellow"],
+            2: ["green", "red", "yellow", "blue"],
+            3: ["yellow", "blue", "green", "red"],
+            4: ["blue", "yellow", "red", "green"],
+            5: ["red", "blue", "green", "yellow"],
+            6: ["blue", "red", "yellow", "green"],
+            7: ["yellow", "green", "blue", "red"],
+            8: ["green", "yellow", "red", "blue"],
+        ]
+        for o in (UInt32(1) ... 8) {
+            c.equal("EXIF orientation \(o) lands every corner", corners(o), expected[o])
+        }
+        c.equal(
+            "an unknown orientation value is left alone", corners(99), expected[1])
 
         // MARK: pixel layout
         //

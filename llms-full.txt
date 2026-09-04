@@ -173,7 +173,9 @@ off` declines images outright.
 
 Only inline bytes are accepted: a `data:` URL or bare base64, never an
 `http://` or `file://` URL. The server does not fetch what a request points
-it at.
+it at. A photo's EXIF orientation is applied, so a portrait picture from a
+phone arrives the right way up; a file that ends mid-stream is refused rather
+than decoded into the part that arrived.
 
 A follow-up turn about the same picture re-uses the state built for it, so the
 tower runs once per image rather than once per turn — measured 15.4 s for the
@@ -902,6 +904,13 @@ never dereferences a URL a request hands it — that would make any client that
 can reach the loopback port able to fetch arbitrary hosts and read local files
 through it.
 
+**Orientation and completeness.** A photograph's EXIF orientation is applied,
+so a portrait picture from a phone reaches the model the way it looks on the
+phone rather than on its side. An image whose file ends mid-stream — an upload
+cut short — is refused with a 400 rather than decoded into the rows that
+arrived, which would otherwise come back as a confident description of a
+mostly blank picture.
+
 **What an image costs.** It is resized the way the reference processor resizes
 it and becomes one token per 32×32 pixels of the resized image, capped at
 2,304 tokens (about 1536×1536) per picture; those tokens come out of the same
@@ -1596,6 +1605,22 @@ release; anything under **Unreleased** is on `main` only.
   `Tools/vision_serving.py` (18 assertions over every dialect, against a real
   server, requiring the model to name what is in the photograph), plus a
   vision leg in `mtp-check` and six image cases in `api_robustness.sh`.
+
+- **A photograph's EXIF orientation is applied.** A phone stores its sensor's
+  pixels plus a tag saying which way is up; every viewer turns the picture
+  before showing it, and so does the reference processor
+  (`ImageOps.exif_transpose`). slotstream did not, so every portrait photograph
+  reached the model on its side — and the token count with it, since four of
+  the eight orientations swap the axes. All eight are now checked corner by
+  corner, weights-free, against EXIF's own table.
+
+- **An image that ends mid-file is refused.** ImageIO is lenient by design:
+  half a PNG decodes to the rows it has plus blank space, and reports itself
+  complete, so an upload cut short by a dropped connection came back as a
+  confident description of a mostly empty picture. The container's end marker
+  is checked instead — `IEND` for PNG, the end-of-image marker near a JPEG's
+  tail (editors append after it), `;` for GIF — and anything else is left to
+  ImageIO rather than guessed at.
 
 - **A transparent PNG is composited onto white, not onto black.** Found by
   putting a set of images with known content through the finished path: the

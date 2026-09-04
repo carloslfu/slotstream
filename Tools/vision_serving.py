@@ -283,6 +283,13 @@ def main():
     st, obj, _, raw = chat(
         port, [{"role": "user", "content": "hi", "images": ["bm90IGFuIGltYWdl"]}])
     check("bytes that are not an image are a 400", st == 400, f"{st}: {raw[:160]}")
+    # An upload cut short decodes, in ImageIO, to the rows it has plus blank
+    # space — and the model then describes a mostly empty picture with
+    # confidence. The container's end marker is what catches it.
+    half = base64.b64encode(open(DOG, "rb").read()[: os.path.getsize(DOG) // 2]).decode()
+    st, obj, _, raw = chat(port, [{"role": "user", "content": "hi", "images": [half]}])
+    check("a truncated image is a 400, not a blank description",
+          st == 400 and "incomplete" in raw, f"{st}: {raw[:160]}")
 
     print()
     print(f"{len(PASS)} passed, {len(FAIL)} failed")

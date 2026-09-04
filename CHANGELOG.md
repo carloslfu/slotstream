@@ -39,6 +39,22 @@ release; anything under **Unreleased** is on `main` only.
   server, requiring the model to name what is in the photograph), plus a
   vision leg in `mtp-check` and six image cases in `api_robustness.sh`.
 
+- **A photograph's EXIF orientation is applied.** A phone stores its sensor's
+  pixels plus a tag saying which way is up; every viewer turns the picture
+  before showing it, and so does the reference processor
+  (`ImageOps.exif_transpose`). slotstream did not, so every portrait photograph
+  reached the model on its side — and the token count with it, since four of
+  the eight orientations swap the axes. All eight are now checked corner by
+  corner, weights-free, against EXIF's own table.
+
+- **An image that ends mid-file is refused.** ImageIO is lenient by design:
+  half a PNG decodes to the rows it has plus blank space, and reports itself
+  complete, so an upload cut short by a dropped connection came back as a
+  confident description of a mostly empty picture. The container's end marker
+  is checked instead — `IEND` for PNG, the end-of-image marker near a JPEG's
+  tail (editors append after it), `;` for GIF — and anything else is left to
+  ImageIO rather than guessed at.
+
 - **A transparent PNG is composited onto white, not onto black.** Found by
   putting a set of images with known content through the finished path: the
   decoder's context is premultiplied, so drawing over fresh memory made every

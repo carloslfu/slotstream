@@ -165,7 +165,9 @@ off` declines images outright.
 
 Only inline bytes are accepted: a `data:` URL or bare base64, never an
 `http://` or `file://` URL. The server does not fetch what a request points
-it at.
+it at. A photo's EXIF orientation is applied, so a portrait picture from a
+phone arrives the right way up; a file that ends mid-stream is refused rather
+than decoded into the part that arrived.
 
 A follow-up turn about the same picture re-uses the state built for it, so the
 tower runs once per image rather than once per turn — measured 15.4 s for the

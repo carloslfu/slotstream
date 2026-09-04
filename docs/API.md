@@ -176,6 +176,13 @@ never dereferences a URL a request hands it — that would make any client that
 can reach the loopback port able to fetch arbitrary hosts and read local files
 through it.
 
+**Orientation and completeness.** A photograph's EXIF orientation is applied,
+so a portrait picture from a phone reaches the model the way it looks on the
+phone rather than on its side. An image whose file ends mid-stream — an upload
+cut short — is refused with a 400 rather than decoded into the rows that
+arrived, which would otherwise come back as a confident description of a
+mostly blank picture.
+
 **What an image costs.** It is resized the way the reference processor resizes
 it and becomes one token per 32×32 pixels of the resized image, capped at
 2,304 tokens (about 1536×1536) per picture; those tokens come out of the same
