@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500" role="img" aria-labelledby="title desc">
+  <title id="title">carloslfu/slotstream GitHub star history</title>
+  <desc id="desc">287 GitHub stars from Aug 28–Sep 4, 2026.</desc>
+  <defs>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f6feb" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#1f6feb" stop-opacity="0.03"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="959" height="499" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="42" y="49" fill="#f0f6fc" font-size="22" font-weight="600">GitHub stars over time</text>
+    <text x="42" y="78" fill="#8b949e" font-size="14">carloslfu/slotstream · Aug 28–Sep 4, 2026</text>
+    <text x="918" y="50" text-anchor="end" fill="#f0f6fc" font-size="30" font-weight="600">287</text>
+    <text x="918" y="77" text-anchor="end" fill="#8b949e" font-size="14">stars</text>
+    <line x1="78" y1="432.00" x2="922" y2="432.00" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="432.00" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">0</text>
+    <line x1="78" y1="380.33" x2="922" y2="380.33" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="380.33" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">50</text>
+    <line x1="78" y1="328.67" x2="922" y2="328.67" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="328.67" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">100</text>
+    <line x1="78" y1="277.00" x2="922" y2="277.00" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="277.00" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">150</text>
+    <line x1="78" y1="225.33" x2="922" y2="225.33" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="225.33" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">200</text>
+    <line x1="78" y1="173.67" x2="922" y2="173.67" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="173.67" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">250</text>
+    <line x1="78" y1="122.00" x2="922" y2="122.00" stroke="#21262d" stroke-width="1"/>
+    <text x="65" y="122.00" text-anchor="end" dominant-baseline="middle" fill="#8b949e" font-size="12">300</text>
+    <text x="78.00" y="469" text-anchor="middle" fill="#8b949e" font-size="12">Aug 28</text>
+    <text x="198.57" y="469" text-anchor="middle" fill="#8b949e" font-size="12">Aug 29</text>
+    <text x="439.71" y="469" text-anchor="middle" fill="#8b949e" font-size="12">Aug 31</text>
+    <text x="560.29" y="469" text-anchor="middle" fill="#8b949e" font-size="12">Sep 1</text>
+    <text x="801.43" y="469" text-anchor="middle" fill="#8b949e" font-size="12">Sep 3</text>
+    <text x="922.00" y="469" text-anchor="middle" fill="#8b949e" font-size="12">Sep 4</text>
+    <path d="M 78.00 432.00 L 198.57 432.00 L 319.14 432.00 L 439.71 429.93 L 560.29 308.00 L 680.86 178.83 L 801.43 144.73 L 922.00 135.43 L 922.00 432.00 L 78.00 432.00 Z" fill="url(#area)"/>
+    <path d="M 78.00 432.00 L 198.57 432.00 L 319.14 432.00 L 439.71 429.93 L 560.29 308.00 L 680.86 178.83 L 801.43 144.73 L 922.00 135.43" fill="none" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="922.00" cy="135.43" r="5" fill="#0d1117" stroke="#58a6ff" stroke-width="3"/>
+  </g>
+</svg>

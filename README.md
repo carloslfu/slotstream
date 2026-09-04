@@ -1,6 +1,6 @@
 # slotstream
 
-[![release](https://github.com/carloslfu/slotstream/actions/workflows/release.yml/badge.svg)](https://github.com/carloslfu/slotstream/actions/workflows/release.yml) [![latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
+[![release](https://github.com/carloslfu/slotstream/actions/workflows/release.yml/badge.svg)](https://github.com/carloslfu/slotstream/actions/workflows/release.yml) [![latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest) [![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](https://github.com/carloslfu/slotstream/stargazers)
 
 Run **Qwen3.8-Flash-Next** on a Mac that can't hold it. The model is a
 125B-parameter mixture-of-experts, 105 GB on disk at 4-bit; slotstream streams
@@ -8,9 +8,9 @@ it from SSD and runs it in whatever memory you give it. It's one Swift binary,
 no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
 work unchanged.
 
-[Discussed on Hacker News](https://news.ycombinator.com/item?id=49524447) —
-227 points and 114 comments. On 2026-09-01 it peaked at #1 on Show HN and
-#8 on the front page.
+The launch was [discussed on Hacker News](https://news.ycombinator.com/item?id=49524447) —
+227 points and 114 comments. On 2026-09-01 it peaked at No. 1 on Show HN and
+No. 8 on the front page.
 
 | on a 48 GB M5 Pro | |
 |---|---|
@@ -473,6 +473,18 @@ exact-prefix conversation cache, byte-identical output across cache sizes as
 a standing test, and every number published with its method. A side-by-side
 on the same Mac is in progress; until it lands, the numbers above are each
 project's own, not mine.
+
+## Star history
+
+<a href="https://github.com/carloslfu/slotstream/stargazers">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/star-history-dark.svg">
+    <img alt="slotstream GitHub star history" src="docs/assets/star-history.svg" width="960">
+  </picture>
+</a>
+
+Generated weekly from GitHub's stargazer timeline by
+[this repository's workflow](.github/workflows/star-history.yml).
 
 ## Support
 
