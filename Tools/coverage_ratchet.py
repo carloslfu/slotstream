@@ -55,12 +55,14 @@ def compare(measured, floor):
             missing.append((path, now))
             continue
         was = floor[path]
-        # A tenth of a point of slack: llvm-cov's line attribution moves by a
-        # line or two on an unrelated edit, and a gate that cries wolf is worse
-        # than one point of precision.
-        if now + 0.1 < was:
+        # LLVM's line attribution can move by a line or two on an unrelated
+        # edit. A fixed tenth of a point did not actually allow even one line
+        # in files below 1,000 lines, so use the larger of 0.1 point and two
+        # current source lines. Larger regressions still fail.
+        slack = max(0.1, 200.0 / found) if found else 0.1
+        if now + slack < was:
             failures.append((path, was, now))
-        elif now > was + 0.1:
+        elif now > was + slack:
             gains.append((path, was, now))
     return failures, gains, missing
 
