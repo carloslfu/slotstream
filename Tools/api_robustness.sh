@@ -331,7 +331,11 @@ then ok "a short reply arrives as per-token deltas, not one batched chunk"
 else bad "streaming is still batched into multi-token bursts"; fi
 
 # --- an unseeded request is not one fixed stream ----------------------------
-FUN='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0}}'
+# 40 tokens, not 12: the model opens this prompt with the same confident phrase
+# every time ("Here is a fun fact for you:") and only diverges once it reaches
+# the fact itself, so a 12-token window reported a working sampler as a stuck
+# one about as often as not.
+FUN='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":40,"temperature":1.0}}'
 A=$(post /api/chat "$FUN" | content); B=$(post /api/chat "$FUN" | content); D=$(post /api/chat "$FUN" | content)
 if [ "$A" = "$B" ] && [ "$B" = "$D" ]; then bad "unseeded requests replay one fixed stream" "$(printf %.60s "$A")"
 else ok "unseeded requests vary, as the API documents"; fi
