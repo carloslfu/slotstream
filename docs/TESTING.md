@@ -59,13 +59,32 @@ fails with `Failed to load the default metallib`.
 
 | Suite | What it covers | Weights | Where |
 |---|---|---|---|
-| `slotstream-checks` (T0/T1) | prefill schedule, context policy, runtime and cache bounds, governor policy, pull integrity, machine planning, HTTP framing and routing, sampler behaviour | no | CI + local |
+| `slotstream-checks` (T0/T1) | prefill schedule, context policy, runtime and cache bounds, governor policy, pull integrity, machine planning, HTTP framing and routing, vision geometry, request shaping and the embedding splice, sampler behaviour | no | CI + local |
 | `Tools/static_gates.sh` | shell and python syntax, doc parity, fixture digests, manifest digests, planner gates, installer gates | no | CI |
 | `Tools/sampler_gates.sh` | the sampler against a numpy reference, and the governor's branches | no | CI |
 | `Tools/consumer_smoke.sh` | a package outside the repository can import and use the library | no | CI |
 | `Tools/verify.sh` | the acceptance battery: provenance, goldens, byte-equality across cache sizes and live resizes, MTP, the memory promise, long context | **yes** | dev Mac |
-| `Tools/api_robustness.sh` | 68 serving-layer regressions against a live server | **yes** | dev Mac |
+| `Tools/api_robustness.sh` | 74 serving-layer regressions against a live server | **yes** | dev Mac |
+| `Tools/vision_ref.py` | the vision tower against an independent float32 implementation of the reference | tower only (0.9 GB) | dev Mac |
+| `Tools/vision_serving.py` | every dialect with a real picture, against a live server | **yes** | dev Mac |
 | `Tools/e2e_release.sh` | the installed release, end to end | **yes** | dev Mac, per release |
+
+### Why vision needs two of those
+
+A vision tower fails silently: a transposed weight or a rotary half swapped
+still yields embeddings of the right shape, and the model still writes fluent
+sentences about a picture it did not see. So the tower is checked against a
+second implementation written from the reference rather than from the Swift
+(`Tools/vision_ref.py`), and separately the rows are checked to land where the
+template reserved them — by requiring the model to name what is in the
+photograph (`Tools/vision_serving.py`). Neither alone would catch both halves.
+
+The parity gate is not an equality. The tower runs in bfloat16, 27 residual
+blocks deep, and the same reference at float32 and bfloat16 disagrees with
+itself more than slotstream disagrees with either; what is asserted is that
+slotstream sits inside the band the dtype itself spans, and that the two
+float32 implementations — which share no kernels — agree to 0.99996. Same
+argument as `prefix-check`, and for the same reason.
 
 ## Coverage
 

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-03T06:46:41.333490Z
+updated: 2026-09-04T00:20:00-05:00
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-03-verify-with-vision-gates]] — verify.sh with the vision gates: 23 passed, 1 failed — the serving suite's server was killed by the kernel while an unrelated slotstream serve held the machine.
 - [[sources/runs/2026/09/2026-09-03-router-trace-and-cache-simulation]] — M1 router trace and cache simulation, 220 decode steps at 30 experts/layer, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-pass-memory-phase-trace]] — Where a 2048-token pass peaks: phase memory trace with and without query-blocked attention, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-decode-scatter-mode-and-read-lanes-ab]] — Decode A/B: pool scatter completion mode and pool read lanes, 30 experts/layer, dev Mac, 2026-09-03

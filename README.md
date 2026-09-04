@@ -142,9 +142,36 @@ curl localhost:11434/api/chat -d '{
 Open WebUI and the OpenAI SDKs are tested against this subset (the Ollama
 CLI is not there yet; see [Status](#status-and-limits)). Streaming, CORS, and
 the usual sampling options all work. What these two dialects do not support
-(tools, images, JSON-schema output, logprobs) returns a clear 400 instead of
-being silently ignored. Every endpoint, field, default, and error is in
+(tools, JSON-schema output, logprobs) returns a clear 400 instead of being
+silently ignored. Every endpoint, field, default, and error is in
 [docs/API.md](docs/API.md).
+
+### Pictures
+
+The model reads images, and every dialect takes them: Ollama's `images`
+array on `/api/chat` and `/api/generate`, OpenAI `image_url` parts,
+AI-SDK `file` parts on the fx gateway, and `--image` on the command line.
+
+```bash
+slotstream run --image cat.jpg --prompt "what breed is this?"
+```
+
+A picture becomes one token per 32x32 pixels of its resized self, at most
+2,304 tokens each, out of the same context as the text. The vision tower is
+0.9 GB and loads the first time an image arrives — on top of the memory plan
+`serve` printed, and refused with a 400 if the machine cannot spare it at that
+moment, so the announced peak stays true for text-only runs. `serve --vision
+off` declines images outright.
+
+Only inline bytes are accepted: a `data:` URL or bare base64, never an
+`http://` or `file://` URL. The server does not fetch what a request points
+it at.
+
+A follow-up turn about the same picture re-uses the state built for it, so the
+tower runs once per image rather than once per turn — measured 15.4 s for the
+first turn and 1.8 s for the second, on the same conversation. Two different
+pictures are told apart by a digest of their bytes, never by their token ids,
+which are identical placeholders.
 
 ### Coding agents
 
@@ -299,6 +326,11 @@ its own VRAM, streaming experts means copying every miss across PCIe and sizing
 two budgets instead of one. That is a different engine, not a port, and it is
 not on the roadmap. llama.cpp runs this model on CUDA, ROCm, and Vulkan.
 
+**Does it read images?**
+Yes — the checkpoint ships a vision tower and slotstream runs it. See
+[Pictures](#pictures) for what a picture costs and what the server will and
+will not accept as one.
+
 **Can I run a different model? Qwen3.8-27B, Llama, DeepSeek?**
 No. slotstream runs exactly `qwen3.8-flash-next:4bit` and the engine is built
 around its geometry. Qwen3.8-27B in particular is a *different* model despite
@@ -317,6 +349,14 @@ other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
   engine is built around its geometry, and `pull` knows no other name. A
   per-user lock allows one model process at a time.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
+- **Vision is measured on one photograph.** The tower matches an independent
+  float32 implementation of the reference (`Tools/vision_ref.py`) and every
+  serving surface is gated end to end, but there is no accuracy benchmark
+  here — no VQA score, no comparison against the same model run by
+  transformers. What is proven is that slotstream computes the tower the
+  reference specifies and puts its rows where the template says; how well
+  `Qwen3.8-Flash-Next` sees is the model's business, unmeasured by this
+  project.
 - **The Ollama CLI can't connect in 0.2.0.** Its requests carry fields the
   release's strict validator rejects (empty `name`, `system`, `template`,
   `options`, and Ollama's empty-prompt "load" request), so `ollama run` stops

@@ -3,6 +3,47 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- **The model reads images.** The checkpoint has always carried a vision tower
+  — 333 `vision_tower.*` tensors the weight loader skipped by name — and the
+  chat template has always rendered an image part to `<|image_pad|>`. Now the
+  tower runs and its rows are spliced under those placeholders, on every
+  dialect: Ollama's `images` array on `/api/chat` and `/api/generate`, OpenAI
+  `image_url` parts, AI-SDK `file` parts on the fx gateway (whose catalogue now
+  advertises the `vision` tag), and `slotstream run --image`.
+
+  Based on [#10](https://github.com/carloslfu/slotstream/pull/10) by
+  [@msx98](https://github.com/msx98), whose port of the tower and, in
+  particular, whose prefix-cache design — keying each placeholder run on a
+  digest of the image's bytes, because every image expands to a run of the same
+  token id — are the load-bearing parts of this.
+
+  Reworked before landing: the tower's attention goes through
+  `MLXFast.scaledDotProductAttention` with a per-block `eval` (written out, it
+  materialized a float32 `[16, N, N]` score matrix twice per block — 5.4 GB
+  each at the largest image); the splice is a concatenation of contiguous spans
+  on the GPU rather than a scalar loop over a CPU copy of the hidden state, and
+  can no longer disagree with itself about how many rows it was given; image
+  sources are inline bytes only, where the previous fallback to
+  `Data(contentsOf:)` would fetch an arbitrary host or read a local file
+  through `file://`; the tower loads under the generation lock and only when
+  the machine can spare it, and `serve` announces its 0.9 GB rather than taking
+  it silently against a printed plan that did not include it.
+
+  Gated: `vision-check` (59 weights-free assertions — the reference
+  processor's geometry, the source policy, run clipping, request shaping),
+  `Tools/vision_ref.py` (the tower against an independent float32
+  implementation of the reference, inside the band bfloat16 itself spans),
+  `Tools/vision_serving.py` (18 assertions over every dialect, against a real
+  server, requiring the model to name what is in the photograph), plus a
+  vision leg in `mtp-check` and six image cases in `api_robustness.sh`.
+
+- **The request body cap is 32 MiB**, up from 4 MiB, so a base64 picture fits;
+  the largest image accepted is 24 MiB decoded. The robustness suite's oversize
+  probe moved with it — at 9,999,999 bytes it had silently stopped testing
+  anything.
+
 ## 0.2.6 — 2026-09-03
 
 - **An optional string in a tool schema is no longer read as a number.** fx

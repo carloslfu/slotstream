@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-03T04:01:04.724010Z
+updated: 2026-09-03T23:51:28.936508Z
 ---
 
 # records/claims
 
+- [[records/claims/one-picture-at-most-2304-tokens]] — A picture costs at most 2,304 tokens
+- [[records/claims/vision-tower-0-9-gb-resident]] — The vision tower costs 0.9 GB, and only when an image arrives
+- [[records/claims/request-body-cap-32-mib]] — A request body over 32 MiB is refused with 413
+- [[records/claims/vision-follow-up-turn-reuses-the-state]] — A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
 - [[records/claims/only-the-48-gb-row-is-measured-on-real-hardware]] — Only the 48 GB row is measured on real hardware
 - [[records/claims/tier-rows-are-estimates-from-the-48-gb-curve]] — The 8, 16, 24, and 32 GB tier rows are estimates from the 48 GB curve
 - [[records/claims/warm-decode-1-41-tok-s-on-a-16-gb-mac-mini-m2]] — Warm decode 1.41 tok/s on a base-storage Mac mini M2, 16 GB — the first community measurement of a tier row.

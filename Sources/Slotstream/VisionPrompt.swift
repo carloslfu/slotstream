@@ -1,17 +1,17 @@
 // The images a prompt carries, described before any of them is encoded.
 //
 // Why this is a type and not an `MLXArray` handed to `generate`. The tower is
-// the expensive half of a vision prompt: 27 blocks with full attention over
-// every patch, per image, per request. Whether an image needs encoding at all
-// depends on how much of the prompt the prefix cache can reuse, and that is not
-// known until `generate` has asked the cache. So the request builds the ids and
-// the cache key first — both come from the image dimensions, which are free —
-// and hands over this object, which runs the tower only for the images the
-// reused state does not already cover.
+// the expensive half of a vision prompt: 27 blocks of full attention over every
+// patch, per image, per request. Whether an image needs encoding at all depends
+// on how much of the prompt the prefix cache can reuse, and that is not known
+// until `generate` has asked the cache. So the request builds the ids and the
+// cache key first — both follow from the image dimensions, which are free — and
+// hands over this object, which runs the tower only for the images the reused
+// state does not already cover.
 
 import CoreGraphics
-import Foundation
 import CryptoKit
+import Foundation
 import MLX
 
 extension ImageHash {
@@ -26,6 +26,48 @@ extension ImageHash {
             return v
         }
         self.init(hi: word(0), lo: word(8))
+    }
+}
+
+/// One contiguous run of placeholder tokens and the tower rows that fill it.
+///
+/// A run is the unit the splice works in, rather than a list of positions,
+/// because a run is exactly what an image expands to: `count` copies of the
+/// placeholder id starting at `start`. Keeping them together means the row
+/// count and the position count cannot disagree — the mismatch the first
+/// version of this code detected at splice time and then only logged.
+public struct VisionRun {
+    /// Offset of the first token of the run, in the same space as the ids
+    /// handed to the model.
+    public let start: Int
+    /// Rows, `[count, hiddenSize]`, one per token of the run.
+    public let rows: MLXArray
+
+    public var count: Int { rows.dim(0) }
+    public var end: Int { start + count }
+
+    public init(start: Int, rows: MLXArray) {
+        self.start = start
+        self.rows = rows
+    }
+
+    /// The part of this run inside `[lo, hi)`, re-based to `lo`, or nil when
+    /// the run lies entirely outside it.
+    public func clipped(to lo: Int, _ hi: Int) -> VisionRun? {
+        guard let c = Self.clip(start: start, count: count, to: lo, hi) else { return nil }
+        if c.rowFrom == 0 && c.rowTo == count { return VisionRun(start: c.start, rows: rows) }
+        return VisionRun(start: c.start, rows: rows[c.rowFrom ..< c.rowTo, 0...])
+    }
+
+    /// The arithmetic of `clipped`, without the rows — the part worth checking
+    /// by a test that allocates nothing. Returns the re-based start and the
+    /// half-open range of rows that survive, or nil for no overlap.
+    public static func clip(
+        start: Int, count: Int, to lo: Int, _ hi: Int
+    ) -> (start: Int, rowFrom: Int, rowTo: Int)? {
+        let from = Swift.max(start, lo), to = Swift.min(start + count, hi)
+        guard from < to else { return nil }
+        return (from - lo, from - start, to - start)
     }
 }
 
@@ -56,30 +98,30 @@ public final class VisionPrompt {
     /// Total placeholder tokens across every image.
     public var tokenCount: Int { segments.reduce(0) { $0 + $1.count } }
 
-    /// The embedding rows prefill still needs, given that the state already
-    /// consumed the first `reused` tokens, together with the prompt positions
-    /// they belong to.
+    /// The runs prefill still needs, given that the state already consumed the
+    /// first `reused` tokens. Running the tower is the expensive part, so this
+    /// is where it happens — not at tokenize time.
     ///
     /// An image entirely inside the reused prefix is skipped: its rows are
-    /// already folded into the state's KV and recurrent history, and the cache
-    /// only handed that state over because the digests matched, so they were
+    /// already folded into that state's KV and recurrent history, and the cache
+    /// only handed the state over because the digests matched, so they were
     /// this image's rows. An image the boundary falls inside is encoded and its
-    /// consumed rows dropped — the tower has no way to produce a suffix on its
-    /// own, since every patch attends to every other one.
+    /// consumed rows dropped — the tower cannot produce a suffix on its own,
+    /// since every patch attends to every other one.
     ///
-    /// Returns nil when nothing is left to splice, which is the ordinary case
-    /// for a follow-up turn on a conversation whose pictures have not changed.
-    public func rows(consumedTokens reused: Int) -> (positions: [Int], rows: MLXArray)? {
-        var positions: [Int] = []
-        var chunks: [MLXArray] = []
+    /// Empty is the ordinary case for a follow-up turn on a conversation whose
+    /// pictures have not changed.
+    public func runs(consumedTokens reused: Int) -> [VisionRun] {
+        var out: [VisionRun] = []
         for (i, seg) in segments.enumerated() where seg.end > reused {
             let flat = tower.encode(items[i].image, plan: items[i].plan)
                 .reshaped([seg.count, hiddenSize])
-            let skip = max(0, reused - seg.start)
-            chunks.append(skip == 0 ? flat : flat[skip ..< seg.count, 0...])
-            positions.append(contentsOf: (seg.start + skip) ..< seg.end)
+            let skip = Swift.max(0, reused - seg.start)
+            out.append(
+                VisionRun(
+                    start: seg.start + skip,
+                    rows: skip == 0 ? flat : flat[skip ..< seg.count, 0...]))
         }
-        guard !chunks.isEmpty else { return nil }
-        return (positions, chunks.count == 1 ? chunks[0] : concatenated(chunks, axis: 0))
+        return out
     }
 }

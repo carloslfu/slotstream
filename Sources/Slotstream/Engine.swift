@@ -1,5 +1,6 @@
 // High-level engine: model + tokenizer + chat templating, shared by CLI/server.
 
+import CoreGraphics
 import Foundation
 import MLX
 import Tokenizers
@@ -15,6 +16,10 @@ public struct ChatMessage {
     /// For a `tool` message: which call it answers.
     public var toolCallId: String?
     public var toolName: String?
+    /// Pictures this turn carries, as inline bytes (a `data:` URL or bare
+    /// base64) in the order the template should render them. Text-only paths
+    /// leave it empty and behave exactly as before.
+    public var images: [String] = []
 
     public init(role: String, content: String) {
         self.role = role
@@ -47,6 +52,18 @@ public struct ChatMessage {
     /// prefix cache matches on bytes.
     public var templateValue: [String: any Sendable] {
         var m: [String: any Sendable] = ["role": role, "content": content]
+        // The template checks each content part for an `image`/`image_url`
+        // key, so a turn with pictures has to arrive as parts rather than a
+        // string. Images first, then the text: that is the order the template
+        // numbers them in ("Picture 1: ..."), and the order
+        // `Engine.imageSources` reads them back in.
+        if !images.isEmpty {
+            var parts: [[String: any Sendable]] = images.map {
+                ["type": "image_url", "image_url": ["url": $0] as [String: any Sendable]]
+            }
+            if !content.isEmpty { parts.append(["type": "text", "text": content]) }
+            m["content"] = parts
+        }
         if let r = reasoning, !r.isEmpty { m["reasoning_content"] = r }
         if !toolCalls.isEmpty {
             m["tool_calls"] = toolCalls.map { call in
@@ -73,7 +90,13 @@ public final class Engine {
     /// Lazily-loaded vision tower (VLM). Loaded on the first request that
     /// carries an image and then cached; see `ensureVisionTower`.
     public private(set) var visionTower: VisionTower?
-    private let visionLock = NSLock()
+    /// Whether this process will accept images at all (`--vision`). False
+    /// makes every image request a 400 that says so, rather than a surprise
+    /// gigabyte.
+    public var visionAllowed = true
+    /// Whether the checkpoint carries a tower at all, read once at startup so
+    /// the fx catalogue and `/api/show` can answer without touching it.
+    public private(set) var visionAvailable = false
     /// Longest prompt accepted, at most `ContextPolicy.maxTokens` (the largest
     /// context that has been measured, see Context.swift). Unbounded prompts
     /// are not free: KV plus indexer state costs ~27 KiB per token, and a
@@ -93,6 +116,7 @@ public final class Engine {
                     ramPercent: p.ramPercent, availableGB: p.availableGB,
                     clamped: p.clamped, prefillChunk: p.prefillChunk,
                     prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled,
+                    visionEnabled: p.visionEnabled,
                     maxContextTokens: maxContextTokens, notes: p.notes))
             }
         }
@@ -208,6 +232,10 @@ public final class Engine {
         let index = try CheckpointIndex(dir: modelDir)
         self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots)
         try model.validate()
+        // Read from the index that is already open — no tensor is touched, and
+        // nothing is allocated until an image actually arrives.
+        self.visionAvailable = VisionTower.present(index: index)
+        self.visionAllowed = plan?.visionEnabled ?? visionAvailable
         if plan?.mtpEnabled == true {
             try model.enableMTP(modelDir: modelDir)
         }
@@ -432,16 +460,49 @@ public final class Engine {
 
     // MARK: Vision
 
-    /// Load the vision tower on first use. Synchronized so two concurrent
-    /// requests racing on the first image resolve to one tower.
+    /// Load the vision tower on first use, and only if the machine can spare
+    /// it right now.
+    ///
+    /// **Under the generation lock, not a lock of its own.** Loading is
+    /// ~0.9 GB of MLX arrays plus an `eval`; a private lock let that run on a
+    /// connection thread while another request was mid-generation, which is
+    /// exactly the concurrent GPU work every other allocation path in this
+    /// file serializes. `withExclusive` is that serialization, and it also
+    /// makes the availability reading below meaningful: nothing else can
+    /// allocate between reading it and taking the memory.
+    ///
+    /// The check itself is the promise from `Planner.visionResidentGB` kept.
+    /// The plan the user was shown does not include the tower, so the tower
+    /// may only load when it genuinely fits on top; a busy machine gets a
+    /// refusal it can act on instead of a gigabyte of swap.
     public func ensureVisionTower() throws -> VisionTower {
-        visionLock.lock()
-        defer { visionLock.unlock() }
         if let vt = visionTower { return vt }
-        let idx = try CheckpointIndex(dir: modelDir)
-        let vt = try VisionTower(index: idx)
-        self.visionTower = vt
-        return vt
+        guard visionAllowed else {
+            throw SlotstreamError.vision(
+                "this server was started with --vision off; images are not accepted")
+        }
+        return try withExclusive {
+            if let vt = visionTower { return vt }
+            let idx = try CheckpointIndex(dir: modelDir)
+            guard VisionTower.present(index: idx) else {
+                throw SlotstreamError.vision(
+                    "this checkpoint has no vision tower — it is a text-only model")
+            }
+            let needGB = Double(VisionTower.residentBytes(index: idx)) / 1e9
+            if let avail = Planner.deviceAvailableGB(), avail.isFinite,
+                avail < needGB + Planner.visionLoadMarginGB
+            {
+                throw SlotstreamError.vision(
+                    String(
+                        format: "the vision tower needs %.1f GB and only %.1f GB is reclaimable "
+                            + "right now — close other apps and retry, or restart with a lower "
+                            + "--memory-gb so the tower fits",
+                        needGB, avail))
+            }
+            let vt = try VisionTower(index: idx)
+            self.visionTower = vt
+            return vt
+        }
     }
 
     /// Tokenize with vision expansion: each template image_pad is worth
@@ -453,77 +514,117 @@ public final class Engine {
     /// dimensions, so the ids — and with them the prefix cache key — are ready
     /// before any pixels are read. `Generator.generate` asks the cache first
     /// and then encodes only the images that the reused state does not cover.
-    public func encodeWithVision(messages: [[String: Any]], tools: [[String: Any]]?, thinking: Bool = false) throws -> ([Int], VisionPrompt?) {
+    public func encodeWithVision(
+        messages: [[String: Any]], tools: [[String: Any]]?, thinking: Bool = false
+    ) throws -> ([Int], VisionPrompt?) {
         let baseIds = try encodeChatOpenAI(messages: messages, tools: tools, thinking: thinking)
-        // Extract image URLs in template order.
-        var urls: [String] = []
-        for m in messages {
-            if let content = m["content"] as? [[String: Any]] {
-                for part in content where part["image_url"] != nil || part["image"] != nil || (part["type"] as? String) == "image_url" {
-                    if let iu = part["image_url"] as? [String: Any], let u = iu["url"] as? String { urls.append(u) }
-                    else if let iu = part["image_url"] as? String { urls.append(iu) }
-                    else if let im = part["image"] as? String { urls.append(im) }
-                }
-            }
-            if let images = m["images"] as? [String] {
-                for b64 in images {
-                    urls.append(b64.hasPrefix("data:") ? b64 : "data:image/jpeg;base64,\(b64)")
-                }
+        return try withImages(baseIds: baseIds, sources: Self.imageSources(in: messages))
+    }
+
+    /// The typed path (`ChatMessage`), for the fx gateway and the CLI. Renders
+    /// through the same template as `encodeChat` and then expands the same
+    /// placeholders.
+    public func encodeChatWithVision(
+        _ messages: [ChatMessage], tools: [ToolDefinition] = [], thinking: Bool = false,
+        effort: String? = nil
+    ) throws -> ([Int], VisionPrompt?) {
+        let baseIds = try encodeChat(messages, tools: tools, thinking: thinking, effort: effort)
+        return try withImages(baseIds: baseIds, sources: messages.flatMap { $0.images })
+    }
+
+    /// Expand each `<|image_pad|>` the template rendered into the run of
+    /// placeholders its image is worth, and describe the images for the tower
+    /// and the prefix cache. Shared by every surface so they cannot drift.
+    private func withImages(baseIds: [Int], sources: [String]) throws -> ([Int], VisionPrompt?) {
+        if sources.isEmpty { return (baseIds, nil) }
+        // Decode and hash first: it needs no tower, it is cheap next to one,
+        // and a malformed picture should be a 400 before the process commits
+        // 0.9 GB to a tower it may not otherwise need.
+        var decoded: [(cg: CGImage, hash: ImageHash)] = []
+        decoded.reserveCapacity(sources.count)
+        for (i, source) in sources.enumerated() {
+            do {
+                let data = try VisionPreprocess.loadImageData(from: source)
+                decoded.append((try VisionPreprocess.decodeCGImage(data), ImageHash(hashing: data)))
+            } catch {
+                throw SlotstreamError.vision("image \(i + 1): \(error)")
             }
         }
-        if urls.isEmpty { return (baseIds, nil) }
         let vt = try ensureVisionTower()
-        // Decode each image (cheap) and hash the bytes it came from. Decoding
-        // gives the dimensions the run length follows from; the digest is what
-        // makes two pictures with identical ids distinguishable to the cache.
         var items: [VisionPrompt.Item] = []
-        var hashes: [ImageHash] = []
-        for url in urls {
-            let data = try VisionPreprocess.loadImageData(from: url)
-            let cg = try VisionPreprocess.decodeCGImage(data)
-            items.append(VisionPrompt.Item(image: cg, plan: vt.plan(for: cg)))
-            hashes.append(ImageHash(hashing: data))
+        items.reserveCapacity(decoded.count)
+        for (i, d) in decoded.enumerated() {
+            do { items.append(VisionPrompt.Item(image: d.cg, plan: try vt.plan(for: d.cg))) }
+            catch { throw SlotstreamError.vision("image \(i + 1): \(error)") }
         }
-        let nMergedPerImage = items.map { $0.plan.mergedTokens }
-        // Expanding placeholders changes the absolute position of every token
-        // after the first image, in both the ids and the vision row indices —
-        // both are expanded in the same sweep, so the one-to-one splice in
-        // Model.hiddenStates still lines up. The segment recorded here is that
-        // same offset, which is why it is a valid key against a prompt that
-        // extends this one.
+        // The template renders one `<|image_pad|>` per image; the tower
+        // produces `mergedTokens` rows for it. Expanding the pad into a run of
+        // that length is what makes the two line up, and it moves every token
+        // after the first image — ids and segment offsets alike, in one sweep,
+        // so a later prompt that extends this one keys identically.
         let imageId = model.cfg.imageTokenId
+        let perImage = items.map { $0.plan.mergedTokens }
         var expanded: [Int] = []
         var segments: [ImageSegment] = []
-        expanded.reserveCapacity(baseIds.count + nMergedPerImage.reduce(0, +) - urls.count)
+        expanded.reserveCapacity(baseIds.count + perImage.reduce(0, +) - perImage.count)
         var imgIdx = 0
         for tok in baseIds {
-            if tok == imageId, imgIdx < nMergedPerImage.count {
+            if tok == imageId, imgIdx < perImage.count {
                 segments.append(
                     ImageSegment(
-                        start: expanded.count, count: nMergedPerImage[imgIdx],
-                        hash: hashes[imgIdx]))
-                expanded.append(contentsOf: Array(repeating: imageId, count: nMergedPerImage[imgIdx]))
+                        start: expanded.count, count: perImage[imgIdx], hash: decoded[imgIdx].hash))
+                expanded.append(contentsOf: repeatElement(imageId, count: perImage[imgIdx]))
                 imgIdx += 1
             } else {
                 expanded.append(tok)
             }
         }
-        if items.isEmpty { return (expanded, nil) }
-        // A mismatch would silently leave garbage embeddings in the KV cache,
-        // so it is a hard error the client sees as a 400.
-        let placeholderCount = expanded.filter { $0 == imageId }.count
-        if placeholderCount != nMergedPerImage.reduce(0, +) {
+        // Both directions are checked. Too few placeholders means the template
+        // did not render an image this code found; too many means something
+        // else in the prompt tokenized to the placeholder id — a user who
+        // typed the literal `<|image_pad|>`, for instance. Either way the rows
+        // and the runs would not correspond, so the request stops here rather
+        // than putting embeddings under the wrong tokens.
+        guard imgIdx == items.count else {
             throw SlotstreamError.vision(
-                "vision token count mismatch: template has \(placeholderCount) image "
-                    + "placeholders but the tower produced \(nMergedPerImage.reduce(0, +)) "
-                    + "(per image: \(nMergedPerImage))")
+                "the chat template rendered \(imgIdx) image placeholders for \(items.count) "
+                    + "images; slotstream cannot place the rest")
+        }
+        let placeholders = expanded.reduce(0) { $0 + ($1 == imageId ? 1 : 0) }
+        guard placeholders == perImage.reduce(0, +) else {
+            throw SlotstreamError.vision(
+                "the prompt carries \(placeholders) image placeholder tokens but the images "
+                    + "account for \(perImage.reduce(0, +)); remove any literal <|image_pad|> "
+                    + "from the text")
         }
         return (
             expanded,
             VisionPrompt(
-                tower: vt, items: items, segments: segments,
-                hiddenSize: model.cfg.hiddenSize)
+                tower: vt, items: items, segments: segments, hiddenSize: model.cfg.hiddenSize)
         )
+    }
+
+    /// Every image a request carries, in the order the chat template will
+    /// render them: message by message, part by part, and Ollama's per-message
+    /// `images` array after that message's content parts — which is where the
+    /// template puts them too.
+    public static func imageSources(in messages: [[String: Any]]) -> [String] {
+        var out: [String] = []
+        for m in messages {
+            if let content = m["content"] as? [[String: Any]] {
+                for part in content {
+                    if let iu = part["image_url"] as? [String: Any], let u = iu["url"] as? String {
+                        out.append(u)
+                    } else if let u = part["image_url"] as? String {
+                        out.append(u)
+                    } else if let u = part["image"] as? String {
+                        out.append(u)
+                    }
+                }
+            }
+            for b64 in (m["images"] as? [String] ?? []) { out.append(b64) }
+        }
+        return out
     }
 
     /// Earliest position at which any stop sequence occurs, or nil.

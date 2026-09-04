@@ -178,6 +178,55 @@ else
   echo "FAIL  serving robustness suite"; FAIL=$((FAIL+1))
 fi
 
+echo "== vision =="
+# The tower against an independent implementation. It loads 0.9 GB of vision
+# tensors and none of the 105 GB trunk, so it is cheap and can run anywhere the
+# weights are. mlx 0.31.1 for the same reason the parity goldens use it.
+VP=.build/vision-parity
+if [ -x .venv31/bin/python ]; then
+  check "vision tower dumps its pixels and embeddings" \
+    "$BIN vision-parity --out $VP"
+  if .venv31/bin/python Tools/vision_ref.py "$VP" | tail -8; then
+    echo "PASS  vision tower matches the float32 reference within the bf16 band"
+    PASS=$((PASS+1))
+  else
+    echo "FAIL  vision tower parity"; FAIL=$((FAIL+1))
+  fi
+else
+  echo "SKIP  vision parity (no .venv31; see CLAUDE.md for the mlx 0.31.1 venv)"
+fi
+
+# Every serving surface, with a real picture, against a real server. The model
+# has to name what is in the photograph: a tower wired to the wrong positions
+# still answers fluently, and nothing cheaper than this notices.
+#
+# At the floor, and only if the machine can still hold it. This gate runs last,
+# after an hour of goldens has filled the file cache, and on 2026-09-03 the
+# kernel killed its server mid-suite at the 10 GB target with 0.3 GB free and
+# swap nearly full. A skip that says so is the correct outcome there; an
+# OOM-killed server is not a vision failure and must not be reported as one.
+NEED_GB=$(awk "BEGIN{print $SMALL_MEMORY + 2}")
+AVAIL_GB=$("$BIN" doctor --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("device_available_gb", 0))' 2>/dev/null || echo 0)
+if [ "$(awk "BEGIN{print ($AVAIL_GB < $NEED_GB)}")" = "1" ]; then
+  echo "SKIP  vision serving suite (only ${AVAIL_GB} GB reclaimable, needs ${NEED_GB})"
+  echo "      re-run alone:  $BIN serve --memory-gb $SMALL_MEMORY --port 11468 &  Tools/vision_serving.py 11468"
+else
+"$BIN" serve --memory-gb $SMALL_MEMORY --port 11468 > /tmp/ssv-vision-serve.log 2>&1 &
+QPID=$!
+for _ in $(seq 1 120); do
+  if grep -q "listening on" /tmp/ssv-vision-serve.log 2>/dev/null; then break; fi
+  sleep 1
+done
+if python3 Tools/vision_serving.py 11468; then
+  echo "PASS  vision serving suite"; PASS=$((PASS+1))
+else
+  echo "FAIL  vision serving suite"; FAIL=$((FAIL+1))
+fi
+kill "$QPID" 2>/dev/null || true
+wait "$QPID" 2>/dev/null || true
+QPID=""
+fi
+
 echo
 echo "passed $PASS, failed $FAIL"
 [ $FAIL -eq 0 ]

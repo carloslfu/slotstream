@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-03T06:46:41.441284Z
+updated: 2026-09-03T23:50:38.879295Z
 ---
 
 # records/decisions
 
+- [[records/decisions/images-are-inline-bytes-only]] — slotstream never dereferences a URL a request hands it; images are inline bytes only
+- [[records/decisions/vision-tower-is-a-conditional-memory-charge]] — The vision tower is announced by the memory plan and charged when it loads, never folded into the fixed footprint
 - [[records/decisions/clock-stays-the-eviction-policy]] — CLOCK stays the eviction policy: measured against LRU and LFU on a real trace
 - [[records/decisions/query-blocked-attention-is-a-bound-not-an-optimisation]] — Query-blocked attention is a bound above the measured product, not an optimisation
 - [[records/decisions/pool-path-scatters-lazily-and-reads-on-32-lanes]] — The pool path finishes its scatter lazily and reads on 32 lanes

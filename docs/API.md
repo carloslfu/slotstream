@@ -29,11 +29,12 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 ## `/api/chat`
 
 Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`, and `keep_alive`, which is accepted and has no
-effect because the model never unloads.
+(`true`/`false`), `options`, `images`, and `keep_alive`, which is accepted and
+has no effect because the model never unloads.
 
-Messages are `{"role", "content"}` with text content; images and `tool_calls`
-are rejected. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+Messages are `{"role", "content"}`; `tool_calls` are rejected. `content` is
+text, or an array of parts for a message that carries a picture — see
+[Images](#images). `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
 `presence_penalty`, `num_predict`, `seed`, and `stop` (a string or an array).
 A JSON `null` means "not set" for any field, which is what client SDKs send for
 one they are not using.
@@ -132,14 +133,62 @@ Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
 on validation failures.
 
 Deliberately unsupported, and rejected with a clear 400 rather than ignored:
-tool calling, images, JSON-schema output, logprobs, embeddings, and named
-reasoning levels for `think`.
+tool calling, JSON-schema output, logprobs, embeddings, and named reasoning
+levels for `think`.
 
 A malformed request gets a status line, never a dropped connection: 411 for a
-chunked body (send `Content-Length`), 413 for a body over 4 MiB, 431 for
+chunked body (send `Content-Length`), 413 for a body over 32 MiB, 431 for
 headers over 64 KiB, 503 when too many connections are already open. A query
 string does not affect routing, and `HEAD` answers 200 or 404 for the path
 actually asked for.
+
+## Images
+
+The model reads pictures. Every dialect takes them, in the shape that dialect
+already uses:
+
+```bash
+# Ollama: base64 in `images`, on /api/chat or /api/generate
+curl localhost:11434/api/chat -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "messages": [{"role": "user", "content": "what is this?",
+                "images": ["'"$(base64 -i cat.jpg)"'"]}]
+}'
+
+# OpenAI: an image_url part with a data: URL
+curl localhost:11434/v1/chat/completions -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "messages": [{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},
+    {"type": "text", "text": "what is this?"}
+  ]}]
+}'
+```
+
+fx and any AI-SDK client send a `file` part with an `image/*` media type and
+inline `data`; the gateway catalogue advertises the `vision` tag so they know
+they may. `slotstream run --image cat.jpg --prompt "what is this?"` does the
+same from the command line.
+
+**Inline bytes only.** A `data:` URL or bare base64 is accepted; an `http://`,
+`https://` or `file://` URL is refused with a 400 that says so. The server
+never dereferences a URL a request hands it — that would make any client that
+can reach the loopback port able to fetch arbitrary hosts and read local files
+through it.
+
+**What an image costs.** It is resized the way the reference processor resizes
+it and becomes one token per 32×32 pixels of the resized image, capped at
+2,304 tokens (about 1536×1536) per picture; those tokens come out of the same
+32,768-token context as the text. Pictures larger than 24 MiB decoded, or with
+sides more than 200× apart, are refused. The vision tower is 0.9 GB and loads
+the first time a request carries an image, on top of the announced memory
+plan — `serve --vision off` refuses images instead, and a machine with no room
+for the tower at that moment gets a 400 rather than a swap storm.
+
+A follow-up turn on a conversation whose pictures have not changed re-uses the
+state it already built for them: the tower does not run again, and prefill
+reads only the new text. Two different pictures that happen to resize to the
+same shape are told apart by a digest of their bytes, never by the token ids.
 
 ## Limits
 

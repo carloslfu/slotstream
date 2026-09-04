@@ -194,16 +194,63 @@ extension Catalogue {
                     ["role": "system", "content": "late"],
                 ])), "system_after_conversation")
 
-        // Images.
+        // Images. An image file part is carried; anything else a `file` part
+        // could be still is not, and says so by name.
+        func userImages(_ prompt: [[String: Any]]) -> [String] {
+            switch GatewayDialect.mapPrompt(prompt) {
+            case .success(let msgs): return msgs.flatMap { $0.images }
+            case .failure: return ["<refused>"]
+            }
+        }
         c.equal(
-            "user file part is refused",
+            "an image file part becomes the turn's picture",
+            userImages([
+                [
+                    "role": "user",
+                    "content": [
+                        ["type": "file", "mediaType": "image/png", "data": "aGk="],
+                        ["type": "text", "text": "what is this"],
+                    ],
+                ]
+            ]), ["aGk="])
+        c.equal(
+            "a non-image file part is refused",
             failureCode(
                 fxBody(prompt: [
                     [
                         "role": "user",
-                        "content": [["type": "file", "mediaType": "image/png", "data": "x"]],
+                        "content": [["type": "file", "mediaType": "application/pdf", "data": "x"]],
                     ]
-                ])), "images_unsupported")
+                ])), "unsupported_file_part")
+        c.equal(
+            "an image file part without data is refused",
+            failureCode(
+                fxBody(prompt: [
+                    ["role": "user", "content": [["type": "file", "mediaType": "image/png"]]]
+                ])), "unsupported_file_part")
+        c.equal(
+            "a tool result may still not carry media",
+            failureCode(
+                fxBody(prompt: [
+                    ["role": "user", "content": [["type": "text", "text": "go"]]],
+                    [
+                        "role": "assistant",
+                        "content": [[
+                            "type": "tool-call", "toolCallId": "c1", "toolName": "read",
+                            "input": ["path": "a"],
+                        ]],
+                    ],
+                    [
+                        "role": "tool",
+                        "content": [[
+                            "type": "tool-result", "toolCallId": "c1", "toolName": "read",
+                            "output": [
+                                "type": "content",
+                                "value": [["type": "media", "mediaType": "image/png", "data": "x"]],
+                            ],
+                        ]],
+                    ],
+                ])), "unsupported_tool_output")
 
         // A full tool round trip: assistant call, then the tool's result.
         let loop: [[String: Any]] = [
@@ -357,7 +404,7 @@ extension Catalogue {
         c.equal("no alias window exceeds the live cap", overCap, [])
 
         // Shape fx's parser requires.
-        let cat = GatewayDialect.catalog(modelID: "slotstream/m", contextCap: 32768)
+        let cat = GatewayDialect.catalog(modelID: "slotstream/m", contextCap: 32768, vision: true)
         let data = cat["data"] as? [[String: Any]] ?? []
         c.equal("object is a list", cat["object"] as? String ?? "", "list")
         c.expect(
@@ -367,11 +414,20 @@ extension Catalogue {
             "every entry advertises tool-use",
             data.allSatisfy { ($0["tags"] as? [String])?.contains("tool-use") == true })
         c.expect(
-            "no vision, web-search or caching tags",
+            "a vision server advertises the vision tag",
+            data.allSatisfy { ($0["tags"] as? [String])?.contains("vision") == true })
+        c.expect(
+            "a text-only server does not",
+            (GatewayDialect.catalog(modelID: "slotstream/m", contextCap: 32768)["data"]
+                as? [[String: Any]] ?? []).allSatisfy {
+                    ($0["tags"] as? [String])?.contains("vision") != true
+                })
+        c.expect(
+            "no web-search or caching tags either way",
             data.allSatisfy {
                 let tags = Set($0["tags"] as? [String] ?? [])
                 return tags.isDisjoint(with: [
-                    "vision", "web-search", "explicit-caching", "implicit-caching", "file-input",
+                    "web-search", "explicit-caching", "implicit-caching", "file-input",
                 ])
             })
         // `released` is fx's sort rank, not a date: the served model must come

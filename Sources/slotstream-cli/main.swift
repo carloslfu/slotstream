@@ -17,6 +17,7 @@ struct Slotstream: ParsableCommand {
             PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
             ContextCheck.self, PrefillScheduleCommand.self, SweepCheck.self,
+            VisionParity.self,
         ]
     )
 }
@@ -102,6 +103,20 @@ struct ModelOptions: ParsableArguments {
                 """))
     var mtp: String = "auto"
 
+    @Option(
+        name: .customLong("vision"),
+        help: ArgumentHelp(
+            "Accept images: auto | on | off (default auto).",
+            discussion: """
+                The checkpoint carries a vision tower; auto loads it the \
+                first time a request sends a picture and keeps it resident \
+                after that (+0.9 GB, on top of the plan below, and refused \
+                if the machine cannot spare it at that moment). off refuses \
+                images outright, which is what to use when the announced \
+                peak is the number that matters.
+                """))
+    var vision: String = "auto"
+
     // Resolved once here so the tokenizer, the draft-head probe, and the index
     // all see the real directory; Foundation will not list a symlinked one.
     var modelURL: URL { ModelLocator.resolve(model).resolvingSymlinksInPath() }
@@ -113,6 +128,19 @@ struct ModelOptions: ParsableArguments {
         return m
     }
 
+    func visionMode() throws -> Planner.VisionMode {
+        guard let v = Planner.VisionMode(rawValue: vision) else {
+            throw PlanError("--vision must be auto, on, or off (got \(vision))")
+        }
+        return v
+    }
+
+    /// Does this checkpoint carry a tower? Reads the shard headers only.
+    func visionAvailable() -> Bool {
+        guard let idx = try? CheckpointIndex(dir: modelURL) else { return false }
+        return VisionTower.present(index: idx)
+    }
+
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
     func announcedPlan(maxContext: Int = ContextPolicy.maxTokens) throws -> MemoryPlan {
@@ -121,6 +149,7 @@ struct ModelOptions: ParsableArguments {
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
             ramPercent: maxRAMPercent,
             mtp: mtpMode(), mtpAvailable: MTPWeights.present(modelDir: modelURL),
+            vision: visionMode(), visionAvailable: visionAvailable(),
             maxContextTokens: maxContext)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
         return plan
@@ -215,8 +244,20 @@ struct Run: ParsableCommand {
     @Flag(help: "Greedy sampling (deterministic)") var greedy = false
     @Flag(help: "Raw prompt (no chat template)") var raw = false
     @Flag(help: "Enable thinking mode") var think = false
+    @Option(
+        name: .customLong("image"),
+        help: ArgumentHelp(
+            "Path to an image to send with the prompt (repeatable).",
+            discussion: """
+                Read from disk here, by you, and sent inline — the server \
+                itself never opens a path or a URL a request names.
+                """))
+    var images: [String] = []
 
     func run() throws {
+        if raw, !images.isEmpty {
+            throw PlanError("--raw has no chat template to place an image in; drop one of them")
+        }
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         let plan = try model.announcedPlan()
@@ -224,10 +265,18 @@ struct Run: ParsableCommand {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
                 let ids: [Int]
+                var vision: VisionPrompt?
                 if raw {
                     ids = engine.tokenizer.encode(text: prompt)
                 } else {
-                    ids = try engine.encodeChat([ChatMessage(role: "user", content: prompt)], thinking: think)
+                    var msg = ChatMessage(role: "user", content: prompt)
+                    msg.images = try images.map { path in
+                        guard let d = FileManager.default.contents(atPath: path) else {
+                            throw PlanError("cannot read image \(path)")
+                        }
+                        return d.base64EncodedString()
+                    }
+                    (ids, vision) = try engine.encodeChatWithVision([msg], thinking: think)
                 }
                 if let e = engine.contextError(promptTokens: ids.count) { throw PlanError(e) }
                 let wait = PrefillSchedule.estSeconds(tokens: ids.count, maxChunk: engine.generator.prefillChunk)
@@ -245,7 +294,7 @@ struct Run: ParsableCommand {
                 params.maxTokens = maxTokens
                 let t0 = Date()
                 let (_, _, stats) = engine.generate(
-                    promptIds: ids, params: params, onToken: { _, delta in
+                    promptIds: ids, params: params, vision: vision, onToken: { _, delta in
                     fputs(delta, stdout)
                     fflush(stdout)
                     return true
@@ -510,9 +559,11 @@ struct Doctor: ParsableCommand {
             PlanRequest(
                 expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
                 memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
-                mtp: try model.mtpMode(), maxContextTokens: maxContext),
+                mtp: try model.mtpMode(), vision: try model.visionMode(),
+                maxContextTokens: maxContext),
             on: device,
-            mtpAvailable: MTPWeights.present(modelDir: model.modelURL))
+            mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
+            visionAvailable: model.visionAvailable())
         if asJSON {
             let data = try JSONSerialization.data(
                 withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])

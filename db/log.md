@@ -73,3 +73,6 @@ CLOCK stays the eviction policy; the lever is capacity and warm start, not the p
 ## [2026-09-03 06:47] update | records/plan
 M1 marked done in the status tracker
 
+## [2026-09-04 00:28] update | records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03.md
+vision landed: tower cost, parity against an independent float32 reference, and the serving evidence
+

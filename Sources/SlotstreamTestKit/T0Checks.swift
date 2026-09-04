@@ -16,8 +16,10 @@ extension Catalogue {
             Check("machine-planning", tier: .t0) { try Diagnostics.machinePlanning() },
             Check("http-framing", tier: .t0) { Diagnostics.httpFraming() },
             Check("http-routing", tier: .t0) { Diagnostics.httpRouting() },
+            Check("vision-check", tier: .t0) { Diagnostics.vision() },
             // T1: touches MLX, so it needs the Metal library beside the runner.
             Check("sampler-behaviour", tier: .t1) { try Diagnostics.samplerBehaviour() },
+            Check("vision-splice", tier: .t1) { Diagnostics.visionSplice() },
         ] + toolCallChecks + gatewayChecks
     }
 

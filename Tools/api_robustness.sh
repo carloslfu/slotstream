@@ -368,7 +368,10 @@ def raw(payload):
 body = b'{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"hi"}]}'
 print("chunked:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n"
                       + b"%x\r\n" % len(body) + body + b"\r\n0\r\n\r\n"))
-print("oversize:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nContent-Length: 9999999\r\n\r\n" + body))
+# Past Server.maxBodyBytes (32 MiB). This number and that constant move
+# together: the cap was 4 MiB until images needed to fit in a body, and a stale
+# 9,999,999 here silently stopped testing anything once the cap passed it.
+print("oversize:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nContent-Length: 40000000\r\n\r\n" + body))
 print("badlen:", raw(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\n\r\n"))
 PYEOF
 )
@@ -378,6 +381,34 @@ case "$R" in *"oversize: HTTP/1.1 413"*) ok "an oversized body gets 413, not a b
   *) bad "oversize body mishandled" "$(printf %s "$R" | tr '\n' ' ')" ;; esac
 case "$R" in *"badlen: HTTP/1.1 400"*) ok "a malformed Content-Length gets 400" ;;
   *) bad "bad Content-Length mishandled" "$(printf %s "$R" | tr '\n' ' ')" ;; esac
+
+# --- Vision: the image surface, on every dialect ----------------------------
+# The body cap the oversize check above pins exists so a base64 picture fits;
+# these check the other half, that what arrives inside it is bounded too.
+R=$(curl -s --max-time 30 -X POST "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"file:///etc/passwd"}},{"type":"text","text":"read it"}]}]}')
+case "$R" in *"not fetched"*) ok "a file:// image is refused and says URLs are not fetched" ;;
+  *) bad "file:// image not refused" "$(printf %s "$R" | head -c 200)" ;; esac
+R=$(curl -s --max-time 30 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.com/cat.png"}}]}]}')
+case "$R" in *"not fetched"*) ok "an https:// image is refused on the OpenAI route too" ;;
+  *) bad "https:// image not refused on /v1" "$(printf %s "$R" | head -c 200)" ;; esac
+R=$(curl -s --max-time 30 -X POST "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"hi","images":[1,2,3]}]}')
+case "$R" in *"base64 strings"*) ok "a non-string images array is a 400, not a silently text-only answer" ;;
+  *) bad "images array type not validated" "$(printf %s "$R" | head -c 200)" ;; esac
+R=$(curl -s --max-time 30 -X POST "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":[{"type":"image_url"}]}]}')
+case "$R" in *"usable url"*) ok "an image part with no url is a 400" ;;
+  *) bad "image part without url not validated" "$(printf %s "$R" | head -c 200)" ;; esac
+R=$(curl -s --max-time 30 -X POST "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"hi","images":["bm90IGFuIGltYWdl"]}]}')
+case "$R" in *"decode"*) ok "bytes that are not an image are a 400 with the reason" ;;
+  *) bad "undecodable image not refused" "$(printf %s "$R" | head -c 200)" ;; esac
+R=$(curl -s --max-time 30 -X POST "http://127.0.0.1:$PORT/api/generate" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-flash-next:4bit","stream":false,"raw":true,"prompt":"hi","images":["Zm9v"]}')
+case "$R" in *"raw generation cannot carry images"*) ok "raw generate refuses images instead of dropping them" ;;
+  *) bad "raw + images not refused" "$(printf %s "$R" | head -c 200)" ;; esac
 curl -s --max-time 20 "http://127.0.0.1:$PORT/v1/models" | grep -q '"created"' \
   && ok "/v1/models carries created" || bad "/v1/models has no created field"
 R=$(curl -s --max-time 120 -X POST "http://127.0.0.1:$PORT/v1/chat/completions" \

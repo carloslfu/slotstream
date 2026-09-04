@@ -314,16 +314,13 @@ public final class Generator {
         let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
         let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
-        // Vision helpers: the tower runs here and not at tokenize time, so an
-        // image the reused prefix already covers costs nothing at all. What
-        // comes back is the rows prefill still needs and the prompt positions
-        // they belong to, one row per position, so each chunk can splice the
-        // slice it actually contains. The positions come from the segments
-        // rather than from a scan for placeholder ids, which also skips the
-        // reused head.
-        let visionRows = vision?.rows(consumedTokens: reused)
-        let visionPositions: [Int] = visionRows?.positions ?? []
-        let visionFlat: MLXArray? = visionRows?.rows
+        // Vision: the tower runs here and not at tokenize time, so an image the
+        // reused prefix already covers costs nothing at all. What comes back is
+        // one run per image still needing a splice, at absolute prompt offsets,
+        // which each chunk clips to its own window. The offsets come from the
+        // segments rather than from a scan for placeholder ids, so the reused
+        // head is skipped for free.
+        let visionRuns = vision?.runs(consumedTokens: reused) ?? []
         // A sweep allocates arrays whose sizes vary from group to group, and
         // MLX's buffer cache keeps every freed size up to its limit, so by the
         // end of a long prompt the cache alone held its whole 2 GB (measured
@@ -356,23 +353,13 @@ public final class Generator {
             // (sweep admission); no other pass may evict what decode was using.
             model.pool.admitOnSweep = hi == promptIds.count
             let chunk = Array(promptIds[i ..< hi])
-            let chunkVision: MLXArray? = {
-                guard let vf = visionFlat, !visionPositions.isEmpty else { return nil }
-                var startIdx: Int? = nil, endIdx: Int? = nil
-                for (idx, pos) in visionPositions.enumerated() where pos >= i && pos < hi {
-                    if startIdx == nil { startIdx = idx }
-                    endIdx = idx
-                }
-                guard let s = startIdx, let e = endIdx else { return nil }
-                let n = e - s + 1
-                return n == vf.dim(0) ? vf : vf[s..<(e + 1), 0...]
-            }()
+            let chunkVision = visionRuns.compactMap { $0.clipped(to: i, hi) }
             if let head = mtpHead {
-                let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state, visionEmbeds: chunkVision)
+                let (mixed, multi) = model.hiddenStatesWithMulti(chunk, state: state, vision: chunkVision)
                 state.lastMulti = head.consume(
                     chunk: chunk, chunkMulti: multi, prevMulti: state.lastMulti,
                     resident: model.resident, rope: model.rope, state: state.mtp!,
-                    visionEmbeds: chunkVision)
+                    vision: chunkVision)
                 if hi == promptIds.count {
                     logits = model.lmHead(mixed[0..., (mixed.dim(1) - 1)..., 0...])
                     eval(logits)
@@ -380,10 +367,10 @@ public final class Generator {
                     eval(mixed)
                 }
             } else if hi == promptIds.count {
-                logits = model.lastLogits(chunk, state: state, visionEmbeds: chunkVision)
+                logits = model.lastLogits(chunk, state: state, vision: chunkVision)
                 eval(logits)
             } else {
-                let h = model.hiddenStates(chunk, state: state, visionEmbeds: chunkVision)
+                let h = model.hiddenStates(chunk, state: state, vision: chunkVision)
                 eval(h)
             }
             i = hi

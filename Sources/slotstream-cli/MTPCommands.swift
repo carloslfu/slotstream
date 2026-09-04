@@ -373,18 +373,6 @@ struct MTPCheck: ParsableCommand {
     @Option(help: "Image for the vision+mtp leg (default: Tools/assets/vision_test/secret1.jpg)")
     var image: String?
 
-    /// The repo's small vision test image, found from the working directory
-    /// or by walking up toward the repository root. nil when absent — the
-    /// leg then prints SKIP rather than failing a checkout without assets.
-    static func candidateVisionAsset(_ forced: String? = nil) -> URL? {
-        let bases: [String] = forced.map { [$0] } ?? [".", "..", "../..", "../../.."]
-        let relative = "Tools/assets/vision_test/secret1.jpg"
-        for base in bases {
-            let url = URL(fileURLWithPath: base).appendingPathComponent(relative)
-            if FileManager.default.fileExists(atPath: url.path) { return url }
-        }
-        return nil
-    }
 
     func run() throws {
         let plan = try model.announcedPlan()
@@ -436,7 +424,7 @@ struct MTPCheck: ParsableCommand {
                 // the text prompts above (spec, spec, plain) so determinism,
                 // "speculation actually ran" and the shared-prefix report all
                 // apply. Skips when the repo asset image is not in reach.
-                let visionAsset = MTPCheck.candidateVisionAsset(image)
+                let visionAsset = (try? VisionAssets.resolve(image)).map { URL(fileURLWithPath: $0) }
                 if let img = visionAsset {
                     do {
                         let base64 = try Data(contentsOf: img).base64EncodedString()

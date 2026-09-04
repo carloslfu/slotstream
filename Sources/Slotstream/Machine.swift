@@ -85,11 +85,13 @@ public struct PlanRequest: Sendable, Codable, Equatable {
     /// Auto only: the largest share of RAM auto may target.
     public var maxRAMPercent: Double?
     public var mtp: Planner.MTPMode
+    public var vision: Planner.VisionMode
     public var maxContextTokens: Int
 
     public init(
         expertsPerLayer: Int? = nil, poolGB: Double? = nil, memoryGB: Double? = nil,
         maxRAMPercent: Double? = nil, mtp: Planner.MTPMode = .auto,
+        vision: Planner.VisionMode = .auto,
         maxContextTokens: Int = ContextPolicy.maxTokens
     ) {
         self.expertsPerLayer = expertsPerLayer
@@ -97,6 +99,7 @@ public struct PlanRequest: Sendable, Codable, Equatable {
         self.memoryGB = memoryGB
         self.maxRAMPercent = maxRAMPercent
         self.mtp = mtp
+        self.vision = vision
         self.maxContextTokens = maxContextTokens
     }
 
@@ -109,13 +112,15 @@ extension Planner {
     /// one keeps the machine and the request together so neither can be half
     /// supplied by accident.
     public static func plan(
-        _ request: PlanRequest, on device: Machine, mtpAvailable: Bool = false
+        _ request: PlanRequest, on device: Machine, mtpAvailable: Bool = false,
+        visionAvailable: Bool = false
     ) throws -> MemoryPlan {
         try plan(
             expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
             memoryGB: request.memoryGB, ramGB: device.ramGB,
             workingSetGB: device.workingSetGB, availableGB: device.availableGB,
             ramPercent: request.maxRAMPercent, mtp: request.mtp, mtpAvailable: mtpAvailable,
+            vision: request.vision, visionAvailable: visionAvailable,
             maxContextTokens: request.maxContextTokens, simulated: device.isSimulated)
     }
 }

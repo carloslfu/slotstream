@@ -228,7 +228,7 @@ public enum GatewayDialect {
     }
 
     /// v4 prompt messages to template messages.
-    static func mapPrompt(_ raw: [[String: Any]]) -> Result<[ChatMessage], Failure> {
+    public static func mapPrompt(_ raw: [[String: Any]]) -> Result<[ChatMessage], Failure> {
         var out: [ChatMessage] = []
         var systems: [String] = []
         var sawNonSystem = false
@@ -250,15 +250,32 @@ public enum GatewayDialect {
             case "user":
                 sawNonSystem = true
                 var parts: [String] = []
+                var images: [String] = []
                 for p in (m["content"] as? [[String: Any]] ?? []) {
                     switch p["type"] as? String {
                     case "text": parts.append(p["text"] as? String ?? "")
                     case "file":
-                        return .failure(
-                            Failure(
-                                "images_unsupported",
-                                "prompt[\(i)]: this model has no vision; `file` parts are not supported"
-                            ))
+                        // fx sends a picture as a file part with an image
+                        // media type and inline `data`. Anything else — a PDF,
+                        // an audio clip, a URL to fetch — is still refused,
+                        // and says which it was.
+                        let media = (p["mediaType"] as? String ?? p["media_type"] as? String ?? "")
+                            .lowercased()
+                        guard media.hasPrefix("image/") else {
+                            return .failure(
+                                Failure(
+                                    "unsupported_file_part",
+                                    "prompt[\(i)]: this model reads images; a `file` part of type "
+                                        + "'\(media.isEmpty ? "unknown" : media)' is not supported"))
+                        }
+                        guard let data = p["data"] as? String, !data.isEmpty else {
+                            return .failure(
+                                Failure(
+                                    "unsupported_file_part",
+                                    "prompt[\(i)]: image `file` part must carry inline `data` "
+                                        + "(base64 or a data: URL)"))
+                        }
+                        images.append(data)
                     default:
                         return .failure(
                             Failure(
@@ -267,7 +284,9 @@ public enum GatewayDialect {
                             ))
                     }
                 }
-                out.append(ChatMessage(role: "user", content: parts.joined(separator: "\n")))
+                var user = ChatMessage(role: "user", content: parts.joined(separator: "\n"))
+                user.images = images
+                out.append(user)
             case "assistant":
                 sawNonSystem = true
                 var text: [String] = []
@@ -361,8 +380,9 @@ public enum GatewayDialect {
                 guard item["type"] as? String == "text" else {
                     return .failure(
                         Failure(
-                            "images_unsupported",
-                            "a tool result may not carry media for this model"))
+                            "unsupported_tool_output",
+                            "a tool result may not carry media; send the picture as a user "
+                                + "`file` part instead"))
                 }
                 parts.append(item["text"] as? String ?? "")
             }
@@ -413,7 +433,7 @@ public enum GatewayDialect {
     /// none is configurable; listing them stops fx planning those calls with
     /// the vendor defaults it would otherwise assume (256k for `openai/`, 1M
     /// for `google/`).
-    public static func catalog(modelID: String, contextCap: Int) -> [String: Any] {
+    public static func catalog(modelID: String, contextCap: Int, vision: Bool = false) -> [String: Any] {
         let out = outputBudget(contextCap: contextCap)
         let compactCap = min(contextCap, 8192)
         let compactOut = min(compactBudget, outputBudget(contextCap: compactCap))
@@ -422,7 +442,8 @@ public enum GatewayDialect {
         {
             var e: [String: Any] = [
                 "id": id, "type": "language", "released": id == modelID ? 1 : 0,
-                "tags": ["tool-use"], "context_window": window, "max_tokens": maxTokens,
+                "tags": vision ? ["tool-use", "vision"] : ["tool-use"],
+                "context_window": window, "max_tokens": maxTokens,
             ]
             if reasoning {
                 e["reasoning_options"] = [

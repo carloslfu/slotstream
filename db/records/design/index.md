@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/design
-updated: 2026-09-02T17:15:28.267802Z
+updated: 2026-09-03T23:50:44.866851Z
 ---
 
 # records/design
 
+- [[records/design/vision-how-a-picture-becomes-tokens]] — The vision path: one placeholder becomes a run, Rust-free splicing by contiguous spans, inline bytes only, and a conditional memory charge.
 - [[records/design/13-references]] — 13. References
 - [[records/design/10-dev-mac-reference-measured-2026-08-28-full-data-in-measurements-md]] — 10. Dev-Mac reference (measured 2026-08-28 — full data in MEASUREMENTS.md)
 - [[records/design/m9-addendum-built-and-measured-2026-09-01]] — M9 addendum — built and measured (2026-09-01)

@@ -125,46 +125,43 @@ public final class Qwen4ExpModel {
         try? d.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name + ".bin"))
     }
 
+    /// Replace the embeddings under each placeholder run with the tower's rows.
+    ///
+    /// The template expands one `<|image_pad|>` per image into a run of them,
+    /// so what has to happen is a substitution of contiguous spans — which is
+    /// what this does, entirely on the GPU. The first version copied the whole
+    /// hidden to the CPU as float32, looped over `S × hidden` scalars, and
+    /// uploaded it again, on every prefill pass of every vision request. It
+    /// also scanned the ids for placeholders and, when the count disagreed with
+    /// the rows it was given, logged a line and continued with unspliced
+    /// placeholder embeddings — a silently wrong answer. A run carries its own
+    /// rows, so the two cannot disagree; a wrong offset is a programming error
+    /// and stops here.
+    public static func spliceVision(
+        _ h: MLXArray, runs: [VisionRun], length S: Int, hidden: Int
+    ) -> MLXArray {
+        var pieces: [MLXArray] = []
+        var cursor = 0
+        for run in runs.sorted(by: { $0.start < $1.start }) {
+            precondition(
+                run.start >= cursor && run.end <= S,
+                "vision run \(run.start)..<\(run.end) outside 0..<\(S) or overlapping")
+            if run.start > cursor { pieces.append(h[0..., cursor ..< run.start, 0...]) }
+            pieces.append(run.rows.reshaped([1, run.count, hidden]).asType(h.dtype))
+            cursor = run.end
+        }
+        if cursor < S { pieces.append(h[0..., cursor ..< S, 0...]) }
+        return pieces.count == 1 ? pieces[0] : concatenated(pieces, axis: 1)
+    }
+
     public func hiddenStates(
-        _ ids: [Int], state: State, visionEmbeds: MLXArray? = nil,
+        _ ids: [Int], state: State, vision: [VisionRun] = [],
         perLayerHook: ((Int, MLXArray) -> Void)? = nil
     ) -> MLXArray {
         let S = ids.count
         let idArr = MLXArray(ids.map { Int32($0) }, [1, S])
         var h0 = resident.embed(idArr).asType(.bfloat16)
-        // Vision splice: the template expands one image_pad per image to
-        // N_merged placeholder tokens, and the tower's embeddings are
-        // concatenated in that same order, so the replacement is one-to-one.
-        if let vEmb = visionEmbeds {
-            let vFlat: MLXArray
-            if vEmb.ndim == 3 {
-                vFlat = vEmb.reshaped([vEmb.dim(1), cfg.hiddenSize])
-            } else {
-                vFlat = vEmb
-            }
-            let totalVision = vFlat.dim(0)
-            let placeholderCount = ids.filter { $0 == cfg.imageTokenId }.count
-            if totalVision == placeholderCount && totalVision > 0 {
-                // CPU-side splice for determinism (S*H up to ~10M floats)
-                let hF32 = h0.asType(.float32)
-                var hArr = hF32.asArray(Float.self) // flat [S*H]
-                let vArr = vFlat.asType(.float32).asArray(Float.self) // [N*H]
-                var vIdx = 0
-                for i in 0..<S where ids[i] == cfg.imageTokenId {
-                    let dstOff = i * cfg.hiddenSize
-                    let srcOff = vIdx * cfg.hiddenSize
-                    for j in 0..<cfg.hiddenSize {
-                        hArr[dstOff + j] = vArr[srcOff + j]
-                    }
-                    vIdx += 1
-                }
-                h0 = MLXArray(hArr, [1, S, cfg.hiddenSize]).asType(.bfloat16)
-            } else if totalVision > 0 {
-                let msg = "[vision] token count mismatch: ids has \(placeholderCount) "
-                    + "placeholders but vision has \(totalVision) rows — skipping splice\n"
-                FileHandle.standardError.write(msg.data(using: .utf8)!)
-            }
-        }
+        if !vision.isEmpty { h0 = Self.spliceVision(h0, runs: vision, length: S, hidden: cfg.hiddenSize) }
         Self.debugDump("embed", h0)
         var h = tiled(h0, repetitions: [1, 1, cfg.hcCount])
 
@@ -218,18 +215,18 @@ public final class Qwen4ExpModel {
     /// (B,S,hc*H) — the hidden the MTP draft head consumes ("scheme A": the
     /// main model truly emits the pre-mixer stream on the first draft step).
     public func hiddenStatesWithMulti(
-        _ ids: [Int], state: State, visionEmbeds: MLXArray? = nil
+        _ ids: [Int], state: State, vision: [VisionRun] = []
     ) -> (mixed: MLXArray, multi: MLXArray) {
         var multi = MLXArray(0)
-        let mixed = hiddenStates(ids, state: state, visionEmbeds: visionEmbeds) { l, h in
+        let mixed = hiddenStates(ids, state: state, vision: vision) { l, h in
             if l == self.runLayers - 1 { multi = h }
         }
         return (mixed, multi)
     }
 
     /// Logits for the last position only.
-    public func lastLogits(_ ids: [Int], state: State, visionEmbeds: MLXArray? = nil) -> MLXArray {
-        let hidden = hiddenStates(ids, state: state, visionEmbeds: visionEmbeds)
+    public func lastLogits(_ ids: [Int], state: State, vision: [VisionRun] = []) -> MLXArray {
+        let hidden = hiddenStates(ids, state: state, vision: vision)
         let last = hidden[0..., (hidden.dim(1) - 1)..., 0...]
         return lmHead(last)  // (1,1,vocab)
     }
@@ -237,9 +234,9 @@ public final class Qwen4ExpModel {
     /// Logits at EVERY position plus the pre-mixer multi stream — the
     /// speculative verify pass needs both. S stays small (draft length + 1).
     public func allLogitsWithMulti(
-        _ ids: [Int], state: State, visionEmbeds: MLXArray? = nil
+        _ ids: [Int], state: State, vision: [VisionRun] = []
     ) -> (logits: MLXArray, multi: MLXArray) {
-        let (mixed, multi) = hiddenStatesWithMulti(ids, state: state, visionEmbeds: visionEmbeds)
+        let (mixed, multi) = hiddenStatesWithMulti(ids, state: state, vision: vision)
         return (lmHead(mixed), multi)
     }
 }

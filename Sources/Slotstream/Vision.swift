@@ -12,21 +12,22 @@ import UniformTypeIdentifiers
 
 // MARK: - Vision config + helpers
 
-public struct VisionConfig {
-    var hiddenSize = 1152
-    var depth = 27
-    var numHeads = 16
-    var patchSize = 16
-    var spatialMergeSize = 2
-    var temporalPatchSize = 2
-    var outHiddenSize = 2560
-    var numPositionEmbeddings = 2304
-    var headDim: Int { hiddenSize / numHeads }
+public struct VisionConfig: Sendable {
+    public init() {}
+    public var hiddenSize = 1152
+    public var depth = 27
+    public var numHeads = 16
+    public var patchSize = 16
+    public var spatialMergeSize = 2
+    public var temporalPatchSize = 2
+    public var outHiddenSize = 2560
+    public var numPositionEmbeddings = 2304
+    public var headDim: Int { hiddenSize / numHeads }
 }
 
-enum VisionError: Error, CustomStringConvertible {
+public enum VisionError: Error, CustomStringConvertible {
     case msg(String)
-    var description: String {
+    public var description: String {
         switch self { case .msg(let s): return s }
     }
 }
@@ -34,20 +35,26 @@ enum VisionError: Error, CustomStringConvertible {
 // MARK: - Image preprocessing (Pillow-faithful)
 
 /// Qwen3VL processor defaults (processing_qwen3_vl.py:96-98) + checkpoint overrides.
-struct VisionPreprocess {
-    static let factor: UInt32 = 32 // patch(16)*merge(2)
-    static let minPixels: UInt32 = 56 * 56
-    static let maxPixels: UInt32 = 14 * 14 * 4 * 1280
-    static let engineMaxPixels: UInt32 = 1536 * 1536 // cap vs 16.7M cfg
+public struct VisionPreprocess {
+    public static let factor: UInt32 = 32 // patch(16)*merge(2)
+    public static let minPixels: UInt32 = 56 * 56
+    public static let maxPixels: UInt32 = 14 * 14 * 4 * 1280
+    public static let engineMaxPixels: UInt32 = 1536 * 1536 // cap vs 16.7M cfg
 
-    static func effectiveBounds(cfgMin: UInt32, cfgMax: UInt32) -> (min: UInt32, max: UInt32) {
+    /// Largest ratio between the sides of an accepted image, from the
+    /// reference processor (`smart_resize` raises above 200). A sliver is not
+    /// a picture, and the resize would spend the whole pixel budget on one
+    /// dimension.
+    public static let maxAspectRatio: Double = 200
+
+    public static func effectiveBounds(cfgMin: UInt32, cfgMax: UInt32) -> (min: UInt32, max: UInt32) {
         let min = cfgMin > 0 ? cfgMin : minPixels
         let declared = cfgMax >= min ? cfgMax : max(maxPixels, min)
         let max = Swift.max(min, Swift.min(declared, engineMaxPixels))
         return (min, max)
     }
 
-    static func roundHalfEven(_ x: Double) -> Double {
+    public static func roundHalfEven(_ x: Double) -> Double {
         let fl = floor(x)
         let frac = x - fl
         if frac < 0.5 { return fl }
@@ -55,7 +62,7 @@ struct VisionPreprocess {
         return fmod(fl, 2.0) == 0 ? fl : fl + 1
     }
 
-    static func smartResize(h: UInt32, w: UInt32, factor: UInt32, minPixels: UInt32, maxPixels: UInt32) -> (h: UInt32, w: UInt32) {
+    public static func smartResize(h: UInt32, w: UInt32, factor: UInt32, minPixels: UInt32, maxPixels: UInt32) -> (h: UInt32, w: UInt32) {
         let fh = Double(h), fw = Double(w), ff = Double(factor)
         let fmin = Double(minPixels), fmax = Double(maxPixels)
         var hBar = roundHalfEven(fh / ff) * ff
@@ -72,37 +79,79 @@ struct VisionPreprocess {
         return (UInt32(hBar), UInt32(wBar))
     }
 
-    /// Fetch the encoded bytes behind a data: URL (base64), an http(s) URL or
-    /// raw base64. Separate from decoding because the prefix cache keys an
-    /// image on exactly these bytes.
-    static func loadImageData(from urlString: String) throws -> Data {
-        let data: Data
-        if urlString.hasPrefix("data:") {
-            guard let comma = urlString.firstIndex(of: ","), let decoded = Data(base64Encoded: String(urlString[urlString.index(after: comma)...]), options: .ignoreUnknownCharacters) else {
-                throw VisionError.msg("invalid data URL")
+    /// Largest decoded image accepted, chosen against `Server.maxBodyBytes`:
+    /// base64 costs 4/3, so a 24 MiB picture is the biggest one a 32 MiB body
+    /// can carry. A larger one is refused before any pixel is touched.
+    public static let maxImageBytes = 24 << 20
+
+    /// The encoded bytes behind an image argument. Separate from decoding
+    /// because the prefix cache keys an image on exactly these bytes.
+    ///
+    /// **Only inline bytes are accepted** — a `data:` URL or bare base64.
+    /// slotstream never dereferences a URL a request handed it. The earlier
+    /// version of this function fell through to `Data(contentsOf:)`, which
+    /// turns any string whose base64 decode happens to fail into a fetch: an
+    /// unbounded, untimed request to an attacker-chosen host, and, via
+    /// `file://`, a read of any image on the disk. Both are reachable from
+    /// anything that can POST to the loopback port. Refusing outright also
+    /// keeps the promise SECURITY.md makes (loopback only, no outbound
+    /// traffic) true of the serving path, and matches Ollama, which likewise
+    /// takes base64 only.
+    public static func loadImageData(from source: String) throws -> Data {
+        let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let scheme = uriScheme(trimmed), scheme != "data" {
+            throw VisionError.msg(
+                "image source must be inline bytes (a data: URL or base64); "
+                    + "'\(scheme):' URLs are not fetched")
+        }
+        let payload: Substring
+        if trimmed.hasPrefix("data:") {
+            guard let comma = trimmed.firstIndex(of: ",") else {
+                throw VisionError.msg("malformed data: URL — no comma before the payload")
             }
-            data = decoded
-        } else if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
-            guard let url = URL(string: urlString), let d = try? Data(contentsOf: url) else {
-                throw VisionError.msg("failed to fetch image URL")
+            let meta = trimmed[trimmed.index(trimmed.startIndex, offsetBy: 5) ..< comma]
+            guard meta.contains(";base64") else {
+                throw VisionError.msg("data: URL must be base64-encoded (';base64,' before the payload)")
             }
-            data = d
+            payload = trimmed[trimmed.index(after: comma)...]
         } else {
-            // raw base64
-            if let decoded = Data(base64Encoded: urlString, options: .ignoreUnknownCharacters) {
-                data = decoded
-            } else if let url = URL(string: urlString), let d = try? Data(contentsOf: url) {
-                data = d
-            } else {
-                throw VisionError.msg("invalid image url/base64")
-            }
+            payload = trimmed[trimmed.startIndex...]
+        }
+        // 4/3 of the cap, checked before decoding so an oversized payload is
+        // never materialized twice.
+        guard payload.count <= (maxImageBytes / 3) * 4 + 4 else {
+            throw VisionError.msg("image is larger than \(maxImageBytes >> 20) MiB")
+        }
+        guard
+            let data = Data(
+                base64Encoded: String(payload), options: .ignoreUnknownCharacters),
+            !data.isEmpty
+        else {
+            throw VisionError.msg("image payload is not valid base64")
+        }
+        guard data.count <= maxImageBytes else {
+            throw VisionError.msg("image is larger than \(maxImageBytes >> 20) MiB")
         }
         return data
     }
 
+    /// The URI scheme of `s`, if it starts with one (RFC 3986: a letter then
+    /// letters, digits, `+`, `-`, `.`, then a colon). Base64 has no colon, so
+    /// anything this finds was meant as a URL.
+    public static func uriScheme(_ s: String) -> String? {
+        var scheme = ""
+        for ch in s {
+            if ch == ":" { return scheme.isEmpty ? nil : scheme.lowercased() }
+            let ok = ch.isLetter || (!scheme.isEmpty && (ch.isNumber || ch == "+" || ch == "-" || ch == "."))
+            guard ok, ch.isASCII else { return nil }
+            scheme.append(ch)
+        }
+        return nil
+    }
+
     /// Decode encoded image bytes to a CGImage. Cheap next to the tower pass,
     /// so it runs even for images whose embeddings turn out to be cached.
-    static func decodeCGImage(_ data: Data) throws -> CGImage {
+    public static func decodeCGImage(_ data: Data) throws -> CGImage {
         guard let src = CGImageSourceCreateWithData(data as CFData, nil),
             let cg = CGImageSourceCreateImageAtIndex(src, 0, nil)
         else {
@@ -111,13 +160,8 @@ struct VisionPreprocess {
         return cg
     }
 
-    /// Load CGImage from data: URL (base64) or http(s) URL or raw base64.
-    static func loadCGImage(from urlString: String) throws -> CGImage {
-        try decodeCGImage(loadImageData(from: urlString))
-    }
-
     /// Resize via CoreGraphics bicubic (high) and normalize to [-1,1] CHW float32.
-    static func resizeAndNormalize(cg: CGImage, targetH: UInt32, targetW: UInt32) -> [Float] {
+    public static func resizeAndNormalize(cg: CGImage, targetH: UInt32, targetW: UInt32) -> [Float] {
         let w = Int(targetW), h = Int(targetH)
         let bytesPerRow = w * 4
         var raw = [UInt8](repeating: 0, count: h * bytesPerRow)
@@ -147,7 +191,7 @@ struct VisionPreprocess {
 
     /// Build pixel_values [N, C*tps*ps*ps] in merge-block order, feature [C, tps, py, px].
     /// For still image tps=2 duplicate frame.
-    static func buildPixelValues(chw: [Float], h: UInt32, w: UInt32, patch: UInt32, merge: UInt32, tps: UInt32) -> [Float] {
+    public static func buildPixelValues(chw: [Float], h: UInt32, w: UInt32, patch: UInt32, merge: UInt32, tps: UInt32) -> [Float] {
         let C: UInt32 = 3
         let gh = h / patch
         let gw = w / patch
@@ -212,6 +256,34 @@ public final class VisionTower: TensorSource {
     private let mergerFc1W: MLXArray, mergerFc1B: MLXArray
     private let mergerFc2W: MLXArray, mergerFc2B: MLXArray
 
+    /// Pixel bounds this checkpoint's processor declares, already clamped to
+    /// what the engine will spend on one image. Read from
+    /// `preprocessor_config.json` rather than hardcoded, so a checkpoint that
+    /// ships different bounds is honoured instead of silently overridden.
+    public let pixelBounds: (min: UInt32, max: UInt32)
+
+    /// Resident bytes the tower will occupy, from the checkpoint index alone —
+    /// no tensor is read. The memory plan charges this before deciding whether
+    /// vision fits (see `Planner.visionResidentGB`).
+    public static func residentBytes(index: CheckpointIndex) -> Int {
+        var total = 0
+        for (name, ref) in index.tensors where isTowerKey(name) {
+            var count = ref.itemSize
+            for dim in ref.shape { count *= dim }
+            total += count
+        }
+        return total
+    }
+
+    /// Does this checkpoint carry a vision tower at all?
+    public static func present(index: CheckpointIndex) -> Bool {
+        index.tensors.keys.contains(where: isTowerKey)
+    }
+
+    static func isTowerKey(_ name: String) -> Bool {
+        name.hasPrefix("vision_tower.") || name.hasPrefix("model.visual.")
+    }
+
     public init(index: CheckpointIndex) throws {
         self.config = index.config
         var vc = VisionConfig()
@@ -227,6 +299,19 @@ public final class VisionTower: TensorSource {
             if let x = v["num_position_embeddings"] as? Int { vc.numPositionEmbeddings = x }
         }
         self.vcfg = vc
+        // The processor's own bounds. `size.shortest_edge` is min_pixels and
+        // `size.longest_edge` is max_pixels in every Qwen*VL processor; the
+        // engine cap is applied on top by `effectiveBounds`.
+        var cfgMin: UInt32 = 0, cfgMax: UInt32 = 0
+        let procPath = index.dir.appendingPathComponent("preprocessor_config.json")
+        if let pdata = try? Data(contentsOf: procPath),
+            let proc = try? JSONSerialization.jsonObject(with: pdata) as? [String: Any],
+            let size = proc["size"] as? [String: Any]
+        {
+            if let v = size["shortest_edge"] as? Int, v > 0 { cfgMin = UInt32(clamping: v) }
+            if let v = size["longest_edge"] as? Int, v > 0 { cfgMax = UInt32(clamping: v) }
+        }
+        self.pixelBounds = VisionPreprocess.effectiveBounds(cfgMin: cfgMin, cfgMax: cfgMax)
         var kept: [String: MLXArray] = [:]
         let files = Set(index.tensors.values.map { $0.file })
         for f in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
@@ -234,44 +319,73 @@ public final class VisionTower: TensorSource {
             for (rawKey, arr) in all {
                 var key = rawKey
                 if key.hasPrefix("language_model.") { key.removeFirst("language_model.".count) }
-                if key.hasPrefix("vision_tower.") || key.hasPrefix("model.visual.") {
+                if Self.isTowerKey(key) {
                     kept[key] = arr
                 }
             }
         }
+        // Every tensor below is required. A checkpoint missing one is a
+        // checkpoint this tower cannot run, and saying so beats trapping the
+        // process on a force-unwrap halfway through a request.
+        func need(_ name: String) throws -> MLXArray {
+            guard let a = kept[name] else {
+                throw VisionError.msg("vision tower is missing \(name)")
+            }
+            return a
+        }
         // patch embed weight [1152,3,2,16,16] -> [1152,1536]
-        guard let pw5 = kept["vision_tower.patch_embed.proj.weight"] else { throw VisionError.msg("missing patch_embed weight") }
+        let pw5 = try need("vision_tower.patch_embed.proj.weight")
         let wShape = pw5.shape
+        guard wShape.count == 5 else {
+            throw VisionError.msg(
+                "vision_tower.patch_embed.proj.weight has shape \(wShape), expected 5 axes")
+        }
         // wShape is 5D: [out, C, t, h, w] -> reshape to [out, C*t*h*w]
-        let flat = wShape[1]*wShape[2]*wShape[3]*wShape[4]
+        let flat = wShape[1] * wShape[2] * wShape[3] * wShape[4]
+        guard flat == 3 * vc.temporalPatchSize * vc.patchSize * vc.patchSize else {
+            throw VisionError.msg(
+                "patch_embed expects \(3 * vc.temporalPatchSize * vc.patchSize * vc.patchSize) "
+                    + "features per patch, checkpoint has \(flat)")
+        }
+        guard vc.hiddenSize % vc.numHeads == 0, (vc.headDim / 2) % 2 == 0 else {
+            throw VisionError.msg(
+                "vision hidden_size \(vc.hiddenSize) / num_heads \(vc.numHeads) does not give "
+                    + "an even half head dimension, which the 2-D rotary embedding requires")
+        }
+        guard vc.outHiddenSize == index.config.hiddenSize else {
+            throw VisionError.msg(
+                "vision out_hidden_size \(vc.outHiddenSize) does not match the text model's "
+                    + "hidden size \(index.config.hiddenSize); the tower cannot be spliced")
+        }
         let pw = pw5.reshaped([wShape[0], flat])
         kept["vision_tower.patch_embed.proj.weight.flat"] = pw
         eval(Array(kept.values))
         self.arrays = kept
         // extract for fast access
         self.patchW = pw
-        self.patchB = kept["vision_tower.patch_embed.proj.bias"]!
-        self.posEmbed = kept["vision_tower.pos_embed.weight"]!
-        self.mergerNormW = kept["vision_tower.merger.norm.weight"]!
-        self.mergerNormB = kept["vision_tower.merger.norm.bias"]!
-        self.mergerFc1W = kept["vision_tower.merger.linear_fc1.weight"]!
-        self.mergerFc1B = kept["vision_tower.merger.linear_fc1.bias"]!
-        self.mergerFc2W = kept["vision_tower.merger.linear_fc2.weight"]!
-        self.mergerFc2B = kept["vision_tower.merger.linear_fc2.bias"]!
+        self.patchB = try need("vision_tower.patch_embed.proj.bias")
+        self.posEmbed = try need("vision_tower.pos_embed.weight")
+        self.mergerNormW = try need("vision_tower.merger.norm.weight")
+        self.mergerNormB = try need("vision_tower.merger.norm.bias")
+        self.mergerFc1W = try need("vision_tower.merger.linear_fc1.weight")
+        self.mergerFc1B = try need("vision_tower.merger.linear_fc1.bias")
+        self.mergerFc2W = try need("vision_tower.merger.linear_fc2.weight")
+        self.mergerFc2B = try need("vision_tower.merger.linear_fc2.bias")
         var blks: [Block] = []
         for i in 0..<vc.depth {
             let p = "vision_tower.blocks.\(i)"
-            blks.append(Block(
-                norm1W: kept["\(p).norm1.weight"]!, norm1B: kept["\(p).norm1.bias"]!,
-                norm2W: kept["\(p).norm2.weight"]!, norm2B: kept["\(p).norm2.bias"]!,
-                qkvW: kept["\(p).attn.qkv.weight"]!, qkvB: kept["\(p).attn.qkv.bias"]!,
-                projW: kept["\(p).attn.proj.weight"]!, projB: kept["\(p).attn.proj.bias"]!,
-                fc1W: kept["\(p).mlp.linear_fc1.weight"]!, fc1B: kept["\(p).mlp.linear_fc1.bias"]!,
-                fc2W: kept["\(p).mlp.linear_fc2.weight"]!, fc2B: kept["\(p).mlp.linear_fc2.bias"]!
-            ))
+            blks.append(
+                Block(
+                    norm1W: try need("\(p).norm1.weight"), norm1B: try need("\(p).norm1.bias"),
+                    norm2W: try need("\(p).norm2.weight"), norm2B: try need("\(p).norm2.bias"),
+                    qkvW: try need("\(p).attn.qkv.weight"), qkvB: try need("\(p).attn.qkv.bias"),
+                    projW: try need("\(p).attn.proj.weight"), projB: try need("\(p).attn.proj.bias"),
+                    fc1W: try need("\(p).mlp.linear_fc1.weight"),
+                    fc1B: try need("\(p).mlp.linear_fc1.bias"),
+                    fc2W: try need("\(p).mlp.linear_fc2.weight"),
+                    fc2B: try need("\(p).mlp.linear_fc2.bias")))
         }
         self.blocks = blks
-        FileHandle.standardError.write("[vision] tower \(vc.depth)x\(vc.hiddenSize) loaded \(kept.count) tensors\n".data(using: .utf8)!)
     }
 
     public func optionalTensor(_ name: String) -> MLXArray? { arrays[name] }
@@ -349,6 +463,13 @@ public final class VisionTower: TensorSource {
                 }
             }
         }
+        // bfloat16, like everything else in the tower. Keeping the angles in
+        // float32 and rotating there was tried, on the theory that 8 mantissa
+        // bits of cosine is a real loss of angle: measured against the float32
+        // oracle it made agreement slightly *worse* (0.99847 against 0.99870),
+        // because at this depth the residual stream's own rounding dominates
+        // and the two errors were partly cancelling. It is not a lever; do not
+        // re-derive it.
         let shape = [N, 1, hd]
         let cosA = MLXArray(cosBuf, shape)
         let sinA = MLXArray(sinBuf, shape)
@@ -415,6 +536,15 @@ public final class VisionTower: TensorSource {
         return concatenated([-x2, x1], axis: -1)
     }
 
+    /// One block's attention. Full bidirectional attention over every patch —
+    /// this tower has no windowing and no mask.
+    ///
+    /// **The fused kernel is load-bearing, for the same reason it is in
+    /// `Layers.attend`.** Written as `softmax(q·kᵀ)·v` this materializes an
+    /// `[heads, N, N]` score matrix and a second one for the probabilities. In
+    /// float32 at the engine's largest image (9,216 patches) that is 5.4 GB
+    /// each, twice, per block — on a machine whose whole promise is a memory
+    /// plan. `MLXFast.scaledDotProductAttention` never forms it.
     private func attention(_ normed: MLXArray, _ blk: Block, cos: MLXArray, sin: MLXArray) -> MLXArray {
         let N = normed.dim(0)
         let heads = vcfg.numHeads
@@ -422,25 +552,20 @@ public final class VisionTower: TensorSource {
         // qkv [N, 3*hidden]
         let qkv = dense(normed, blk.qkvW, blk.qkvB)
         let qkv3 = qkv.reshaped([N, 3, heads, hd])
-        let q = qkv3[0...,0,0...,0...]
-        let k = qkv3[0...,1,0...,0...]
-        let v = qkv3[0...,2,0...,0...]
+        let q = qkv3[0..., 0, 0..., 0...]
+        let k = qkv3[0..., 1, 0..., 0...]
+        let v = qkv3[0..., 2, 0..., 0...]
         // rope
         func applyRope(_ x: MLXArray) -> MLXArray {
-            let rh = rotateHalf(x)
-            return x * cos + rh * sin
+            x * cos + rotateHalf(x) * sin
         }
-        let qr = applyRope(q)
-        let kr = applyRope(k)
-        // to heads-first for matmul
-        let qh = qr.transposed(1,0,2).asType(.float32)
-        let kh = kr.transposed(1,0,2).asType(.float32)
-        let vh = v.transposed(1,0,2).asType(.float32)
-        let scale = 1.0 / sqrt(Float(hd))
-        let scores = matmul(qh, kh.transposed(0,2,1)) * scale
-        let probs = softmax(scores, axis: -1)
-        let ctx = matmul(probs, vh).asType(.bfloat16)
-        let ctt = ctx.transposed(1,0,2).reshaped([N, vcfg.hiddenSize])
+        // [N, heads, hd] -> [1, heads, N, hd], the layout SDPA takes.
+        let qh = applyRope(q).transposed(1, 0, 2).reshaped([1, heads, N, hd])
+        let kh = applyRope(k).transposed(1, 0, 2).reshaped([1, heads, N, hd])
+        let vh = v.transposed(1, 0, 2).reshaped([1, heads, N, hd])
+        let o = MLXFast.scaledDotProductAttention(
+            queries: qh, keys: kh, values: vh, scale: 1.0 / sqrt(Float(hd)), mask: .none)
+        let ctt = o.reshaped([heads, N, hd]).transposed(1, 0, 2).reshaped([N, vcfg.hiddenSize])
         return dense(ctt, blk.projW, blk.projB)
     }
 
@@ -465,6 +590,10 @@ public final class VisionTower: TensorSource {
             fc = geluTanh(fc)
             fc = dense(fc, blk.fc2W, blk.fc2B)
             x = x + fc
+            // Bound the graph to one block. Without this MLX builds all 27
+            // before evaluating any of them and holds every block's
+            // activations at once — the same trap `Layers.attend` documents.
+            eval(x)
         }
         // merger
         let normed = layerNorm(x, mergerNormW, mergerNormB)
@@ -495,15 +624,31 @@ public final class VisionTower: TensorSource {
         public let mergedTokens: Int
     }
 
-    public func plan(for cg: CGImage) -> ImagePlan {
-        // checkpoint processor bounds: longest_edge 16777216, shortest 65536
-        let (minP, maxP) = VisionPreprocess.effectiveBounds(cfgMin: 65536, cfgMax: 16777216)
+    public func plan(for cg: CGImage) throws -> ImagePlan {
+        try Self.plan(height: cg.height, width: cg.width, cfg: vcfg, bounds: pixelBounds)
+    }
+
+    /// The geometry alone, with no tower and no pixels — so it can be checked
+    /// against the reference processor's table by a test that loads nothing.
+    public static func plan(
+        height: Int, width: Int, cfg: VisionConfig, bounds: (min: UInt32, max: UInt32)
+    ) throws -> ImagePlan {
+        let h = height, w = width
+        guard h > 0, w > 0 else { throw VisionError.msg("image has a zero dimension") }
+        let ratio = Double(max(h, w)) / Double(min(h, w))
+        guard ratio <= VisionPreprocess.maxAspectRatio else {
+            throw VisionError.msg(
+                "image is \(w)x\(h): the ratio between its sides is "
+                    + String(format: "%.0f", ratio)
+                    + ", above the \(Int(VisionPreprocess.maxAspectRatio)) the processor allows")
+        }
+        let (minP, maxP) = bounds
         let resized = VisionPreprocess.smartResize(
-            h: UInt32(cg.height), w: UInt32(cg.width), factor: VisionPreprocess.factor,
+            h: UInt32(h), w: UInt32(w), factor: VisionPreprocess.factor,
             minPixels: minP, maxPixels: maxP)
-        let gh = resized.h / UInt32(vcfg.patchSize)
-        let gw = resized.w / UInt32(vcfg.patchSize)
-        let merge = UInt32(vcfg.spatialMergeSize)
+        let gh = resized.h / UInt32(cfg.patchSize)
+        let gw = resized.w / UInt32(cfg.patchSize)
+        let merge = UInt32(cfg.spatialMergeSize)
         return ImagePlan(
             height: resized.h, width: resized.w, gridH: gh, gridW: gw,
             patches: Int(gh * gw), mergedTokens: Int((gh / merge) * (gw / merge)))
@@ -521,9 +666,4 @@ public final class VisionTower: TensorSource {
         return forward(pixelValues: pv, gridH: p.gridH, gridW: p.gridW)
     }
 
-    /// Convenience: encode CGImage -> embeddings
-    public func encodeImage(_ cg: CGImage) throws -> (MLXArray, Int, Int, Int) {
-        let p = plan(for: cg)
-        return (encode(cg, plan: p), p.patches, p.mergedTokens, Int(p.gridH))
-    }
 }

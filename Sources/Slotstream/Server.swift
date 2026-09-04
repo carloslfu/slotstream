@@ -404,7 +404,8 @@ public final class Server {
             respondJSON(
                 fd,
                 GatewayDialect.catalog(
-                    modelID: gatewayModelID, contextCap: engine.maxContextTokens), cors: cors)
+                    modelID: gatewayModelID, contextCap: engine.maxContextTokens,
+                    vision: engine.visionAllowed && engine.visionAvailable), cors: cors)
         case ("GET", "/coding-agent/v1/credits"):
             // fx shows a balance for the gateway provider. A local model has no
             // billing; zero is the honest answer and keeps `fx credits` working.
@@ -518,7 +519,7 @@ public final class Server {
     /// verbatim. Text-only part arrays are flattened back to a string, keeping
     /// the two paths behavior-identical. Ollama clients send base64 in the
     /// `images` field; it is synthesized into image_url parts here.
-    static func templateMessages(_ json: [String: Any]) -> [[String: Any]] {
+    public static func templateMessages(_ json: [String: Any]) -> [[String: Any]] {
         guard let raw = json["messages"] as? [[String: Any]] else { return [] }
         return raw.map { m in
             var out: [String: Any] = [:]
@@ -535,18 +536,24 @@ public final class Server {
                     out["content"] = hasImage ? parts : contentText(parts as Any?)
                 } else { out["content"] = "" }
             } else { out["content"] = "" }
+            // Ollama's `images` array is per message and carries no order
+            // relative to the text, so it is rendered the way Qwen's template
+            // reads best and the way the typed path (`ChatMessage.images`)
+            // does: pictures first, then the words about them. The bytes are
+            // passed through exactly as they arrived — wrapping them in a
+            // `data:image/jpeg` URL, as this once did, asserts a content type
+            // nothing checked, and the decoder reads the real one from the
+            // bytes anyway.
             if let images = m["images"] as? [String], !images.isEmpty {
-                var existing: [[String: Any]] = []
+                var parts: [[String: Any]] = images.map {
+                    ["type": "image_url", "image_url": ["url": $0]]
+                }
                 if let s = out["content"] as? String, !s.isEmpty {
-                    existing.append(["type": "text", "text": s])
+                    parts.append(["type": "text", "text": s])
                 } else if let arr = out["content"] as? [[String: Any]] {
-                    existing = arr
+                    parts.append(contentsOf: arr)
                 }
-                for b64 in images {
-                    let url = b64.hasPrefix("data:") ? b64 : "data:image/jpeg;base64,\(b64)"
-                    existing.append(["type": "image_url", "image_url": ["url": url]])
-                }
-                out["content"] = existing
+                out["content"] = parts
             }
             return out
         }
@@ -631,8 +638,11 @@ public final class Server {
             if m["tool_calls"] != nil || m["tool_call_id"] != nil {
                 return "messages[\(i)] uses tools, which this server does not support"
             }
-            if let images = m["images"] {
-                guard images is [String] || images is [Any] else {
+            // Ollama's field. `[Any]` would accept `[1, 2, 3]` and then drop
+            // it silently on the way to the template, answering as if no
+            // picture had been sent.
+            if let images = m["images"], !(images is NSNull) {
+                guard let arr = images as? [Any], arr as? [String] != nil else {
                     return "messages[\(i)].images must be an array of base64 strings"
                 }
             }
@@ -651,10 +661,21 @@ public final class Server {
                         if part["text"] as? String == nil {
                             return "messages[\(i)] has a text part without text"
                         }
-                    } else if kind == "image_url" || kind == "image" {
-                        continue
-                    } else if part["image_url"] != nil || part["image"] != nil {
-                        continue
+                    } else if kind == "image_url" || kind == "image"
+                        || part["image_url"] != nil || part["image"] != nil
+                    {
+                        // Accept both shapes OpenAI clients send —
+                        // `image_url: {url: "..."}` and the bare string some
+                        // SDKs still emit — and refuse anything else here,
+                        // where the index is still known, rather than letting
+                        // the part vanish before the template.
+                        let value = part["image_url"] ?? part["image"]
+                        let ok = value as? String != nil
+                            || (value as? [String: Any])?["url"] as? String != nil
+                        guard ok else {
+                            return "messages[\(i)].content[\(j)] is an image part without a "
+                                + "usable url (expected a string or {\"url\": \"data:...\"})"
+                        }
                     } else {
                         return "messages[\(i)] contains unsupported content type '\(kind)'"
                     }
@@ -950,7 +971,7 @@ public final class Server {
             json,
             allowed: [
                 "model", "prompt", "system", "raw", "stream", "think", "options", "keep_alive",
-                "suffix", "template",
+                "suffix", "template", "images",
             ])
         {
             respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
@@ -992,6 +1013,24 @@ public final class Server {
                 status: "400 Bad Request", cors: cors)
             return
         }
+        // Ollama carries pictures on /api/generate in the same base64 array
+        // /api/chat uses.
+        var images: [String] = []
+        if let v = json["images"], !(v is NSNull) {
+            guard let arr = v as? [Any] else {
+                respondJSON(
+                    fd, ["error": "images must be an array of base64 strings"],
+                    status: "400 Bad Request", cors: cors)
+                return
+            }
+            guard let strs = arr as? [String] else {
+                respondJSON(
+                    fd, ["error": "images must be an array of base64 strings"],
+                    status: "400 Bad Request", cors: cors)
+                return
+            }
+            images = strs
+        }
         let prompt = json["prompt"] as? String ?? ""
         let raw = Self.bool(json["raw"]) ?? false
         let stream = Self.bool(json["stream"]) ?? true
@@ -1010,6 +1049,15 @@ public final class Server {
                 ], cors: cors)
             return
         }
+        // `raw` sends the prompt to the tokenizer untouched, so there is no
+        // chat template to render a placeholder into and nowhere for the
+        // tower's rows to go.
+        if raw, !images.isEmpty {
+            respondJSON(
+                fd, ["error": "raw generation cannot carry images; remove raw or images"],
+                status: "400 Bad Request", cors: cors)
+            return
+        }
         if raw, thinking || json["system"] != nil {
             respondJSON(
                 fd, ["error": "raw generation cannot apply system or think; remove raw or those fields"],
@@ -1018,15 +1066,25 @@ public final class Server {
         }
         let params = sampleParams(json)
         let ids: [Int]
+        var vision: VisionPrompt?
         if raw {
             ids = engine.tokenizer.encode(text: prompt)
         } else {
-            var messages: [ChatMessage] = []
+            var messages: [[String: Any]] = []
             if let system = json["system"] as? String, !system.isEmpty {
-                messages.append(ChatMessage(role: "system", content: system))
+                messages.append(["role": "system", "content": system])
             }
-            messages.append(ChatMessage(role: "user", content: prompt))
-            ids = (try? engine.encodeChat(messages, thinking: thinking)) ?? []
+            var user: [String: Any] = ["role": "user", "content": prompt]
+            if !images.isEmpty { user["images"] = images }
+            messages.append(user)
+            do {
+                (ids, vision) = try engine.encodeWithVision(
+                    messages: Self.templateMessages(["messages": messages]), tools: nil,
+                    thinking: thinking)
+            } catch {
+                respondJSON(fd, ["error": "\(error)"], status: "400 Bad Request", cors: cors)
+                return
+            }
         }
         // An empty prompt would leave the first logits uninitialized and make
         // the sampler invent a token out of nothing.
@@ -1063,7 +1121,7 @@ public final class Server {
             return alive
         } : nil
         let (text, _, stats) = engine.generate(
-            promptIds: ids, params: params,
+            promptIds: ids, params: params, vision: vision,
             shouldContinue: { self.peerAlive(fd) }, onToken: callback)
         var finalResponse = stream ? "" : text
         var finalThinking = ""
@@ -1122,10 +1180,25 @@ public final class Server {
         }
 
         let ids: [Int]
+        var vision: VisionPrompt?
         do {
-            ids = try engine.encodeChatSpliced(
-                messages, tools: renderTools, thinking: request.reasoning.thinking,
-                effort: request.reasoning.effort)
+            // The splice substitutes ids this server generated for assistant
+            // turns it can prove it produced, which needs a cached prefix; the
+            // prefix cache deliberately never offers a vision entry for that
+            // (its placeholder ids carry no pixels). So a conversation with a
+            // picture renders in full and reuses state the ordinary way, in
+            // `PrefixCache.take`, where the image digests are checked.
+            if messages.contains(where: { !$0.images.isEmpty }) {
+                (ids, vision) = try engine.encodeChatWithVision(
+                    messages, tools: renderTools, thinking: request.reasoning.thinking,
+                    effort: request.reasoning.effort)
+            } else {
+                ids = try engine.encodeChatSpliced(
+                    messages, tools: renderTools, thinking: request.reasoning.thinking,
+                    effort: request.reasoning.effort)
+            }
+        } catch let e as SlotstreamError {
+            return fail(GatewayDialect.Failure("invalid_image", "\(e)"))
         } catch {
             return fail(GatewayDialect.Failure("template_error", "\(error)"))
         }
@@ -1255,7 +1328,7 @@ public final class Server {
         }
 
         let (_, _, stats) = engine.generate(
-            promptIds: ids, params: params,
+            promptIds: ids, params: params, vision: vision,
             shouldContinue: {
                 // The one hook that runs during prefill. A multi-minute cold
                 // prompt would otherwise send no bytes at all and trip this

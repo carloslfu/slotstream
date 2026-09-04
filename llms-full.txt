@@ -150,9 +150,36 @@ curl localhost:11434/api/chat -d '{
 Open WebUI and the OpenAI SDKs are tested against this subset (the Ollama
 CLI is not there yet; see [Status](#status-and-limits)). Streaming, CORS, and
 the usual sampling options all work. What these two dialects do not support
-(tools, images, JSON-schema output, logprobs) returns a clear 400 instead of
-being silently ignored. Every endpoint, field, default, and error is in
+(tools, JSON-schema output, logprobs) returns a clear 400 instead of being
+silently ignored. Every endpoint, field, default, and error is in
 [docs/API.md](docs/API.md).
+
+### Pictures
+
+The model reads images, and every dialect takes them: Ollama's `images`
+array on `/api/chat` and `/api/generate`, OpenAI `image_url` parts,
+AI-SDK `file` parts on the fx gateway, and `--image` on the command line.
+
+```bash
+slotstream run --image cat.jpg --prompt "what breed is this?"
+```
+
+A picture becomes one token per 32x32 pixels of its resized self, at most
+2,304 tokens each, out of the same context as the text. The vision tower is
+0.9 GB and loads the first time an image arrives — on top of the memory plan
+`serve` printed, and refused with a 400 if the machine cannot spare it at that
+moment, so the announced peak stays true for text-only runs. `serve --vision
+off` declines images outright.
+
+Only inline bytes are accepted: a `data:` URL or bare base64, never an
+`http://` or `file://` URL. The server does not fetch what a request points
+it at.
+
+A follow-up turn about the same picture re-uses the state built for it, so the
+tower runs once per image rather than once per turn — measured 15.4 s for the
+first turn and 1.8 s for the second, on the same conversation. Two different
+pictures are told apart by a digest of their bytes, never by their token ids,
+which are identical placeholders.
 
 ### Coding agents
 
@@ -307,6 +334,11 @@ its own VRAM, streaming experts means copying every miss across PCIe and sizing
 two budgets instead of one. That is a different engine, not a port, and it is
 not on the roadmap. llama.cpp runs this model on CUDA, ROCm, and Vulkan.
 
+**Does it read images?**
+Yes — the checkpoint ships a vision tower and slotstream runs it. See
+[Pictures](#pictures) for what a picture costs and what the server will and
+will not accept as one.
+
 **Can I run a different model? Qwen3.8-27B, Llama, DeepSeek?**
 No. slotstream runs exactly `qwen3.8-flash-next:4bit` and the engine is built
 around its geometry. Qwen3.8-27B in particular is a *different* model despite
@@ -325,6 +357,14 @@ other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
   engine is built around its geometry, and `pull` knows no other name. A
   per-user lock allows one model process at a time.
 - **macOS 14 and 15** have only had the installer exercised, not the runtime.
+- **Vision is measured on one photograph.** The tower matches an independent
+  float32 implementation of the reference (`Tools/vision_ref.py`) and every
+  serving surface is gated end to end, but there is no accuracy benchmark
+  here — no VQA score, no comparison against the same model run by
+  transformers. What is proven is that slotstream computes the tower the
+  reference specifies and puts its rows where the template says; how well
+  `Qwen3.8-Flash-Next` sees is the model's business, unmeasured by this
+  project.
 - **The Ollama CLI can't connect in 0.2.0.** Its requests carry fields the
   release's strict validator rejects (empty `name`, `system`, `template`,
   `options`, and Ollama's empty-prompt "load" request), so `ollama run` stops
@@ -703,11 +743,12 @@ ignored. A wrong model name is a 400 naming the only model (a 404 on
 ## `/api/chat`
 
 Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`, and `keep_alive`, which is accepted and has no
-effect because the model never unloads.
+(`true`/`false`), `options`, `images`, and `keep_alive`, which is accepted and
+has no effect because the model never unloads.
 
-Messages are `{"role", "content"}` with text content; images and `tool_calls`
-are rejected. `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+Messages are `{"role", "content"}`; `tool_calls` are rejected. `content` is
+text, or an array of parts for a message that carries a picture — see
+[Images](#images). `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
 `presence_penalty`, `num_predict`, `seed`, and `stop` (a string or an array).
 A JSON `null` means "not set" for any field, which is what client SDKs send for
 one they are not using.
@@ -806,14 +847,62 @@ Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
 on validation failures.
 
 Deliberately unsupported, and rejected with a clear 400 rather than ignored:
-tool calling, images, JSON-schema output, logprobs, embeddings, and named
-reasoning levels for `think`.
+tool calling, JSON-schema output, logprobs, embeddings, and named reasoning
+levels for `think`.
 
 A malformed request gets a status line, never a dropped connection: 411 for a
-chunked body (send `Content-Length`), 413 for a body over 4 MiB, 431 for
+chunked body (send `Content-Length`), 413 for a body over 32 MiB, 431 for
 headers over 64 KiB, 503 when too many connections are already open. A query
 string does not affect routing, and `HEAD` answers 200 or 404 for the path
 actually asked for.
+
+## Images
+
+The model reads pictures. Every dialect takes them, in the shape that dialect
+already uses:
+
+```bash
+# Ollama: base64 in `images`, on /api/chat or /api/generate
+curl localhost:11434/api/chat -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "messages": [{"role": "user", "content": "what is this?",
+                "images": ["'"$(base64 -i cat.jpg)"'"]}]
+}'
+
+# OpenAI: an image_url part with a data: URL
+curl localhost:11434/v1/chat/completions -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "messages": [{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},
+    {"type": "text", "text": "what is this?"}
+  ]}]
+}'
+```
+
+fx and any AI-SDK client send a `file` part with an `image/*` media type and
+inline `data`; the gateway catalogue advertises the `vision` tag so they know
+they may. `slotstream run --image cat.jpg --prompt "what is this?"` does the
+same from the command line.
+
+**Inline bytes only.** A `data:` URL or bare base64 is accepted; an `http://`,
+`https://` or `file://` URL is refused with a 400 that says so. The server
+never dereferences a URL a request hands it — that would make any client that
+can reach the loopback port able to fetch arbitrary hosts and read local files
+through it.
+
+**What an image costs.** It is resized the way the reference processor resizes
+it and becomes one token per 32×32 pixels of the resized image, capped at
+2,304 tokens (about 1536×1536) per picture; those tokens come out of the same
+32,768-token context as the text. Pictures larger than 24 MiB decoded, or with
+sides more than 200× apart, are refused. The vision tower is 0.9 GB and loads
+the first time a request carries an image, on top of the announced memory
+plan — `serve --vision off` refuses images instead, and a machine with no room
+for the tower at that moment gets a 400 rather than a swap storm.
+
+A follow-up turn on a conversation whose pictures have not changed re-uses the
+state it already built for them: the tower does not run again, and prefill
+reads only the new text. Two different pictures that happen to resize to the
+same shape are told apart by a digest of their bytes, never by the token ids.
 
 ## Limits
 
@@ -1178,13 +1267,32 @@ fails with `Failed to load the default metallib`.
 
 | Suite | What it covers | Weights | Where |
 |---|---|---|---|
-| `slotstream-checks` (T0/T1) | prefill schedule, context policy, runtime and cache bounds, governor policy, pull integrity, machine planning, HTTP framing and routing, sampler behaviour | no | CI + local |
+| `slotstream-checks` (T0/T1) | prefill schedule, context policy, runtime and cache bounds, governor policy, pull integrity, machine planning, HTTP framing and routing, vision geometry, request shaping and the embedding splice, sampler behaviour | no | CI + local |
 | `Tools/static_gates.sh` | shell and python syntax, doc parity, fixture digests, manifest digests, planner gates, installer gates | no | CI |
 | `Tools/sampler_gates.sh` | the sampler against a numpy reference, and the governor's branches | no | CI |
 | `Tools/consumer_smoke.sh` | a package outside the repository can import and use the library | no | CI |
 | `Tools/verify.sh` | the acceptance battery: provenance, goldens, byte-equality across cache sizes and live resizes, MTP, the memory promise, long context | **yes** | dev Mac |
-| `Tools/api_robustness.sh` | 68 serving-layer regressions against a live server | **yes** | dev Mac |
+| `Tools/api_robustness.sh` | 74 serving-layer regressions against a live server | **yes** | dev Mac |
+| `Tools/vision_ref.py` | the vision tower against an independent float32 implementation of the reference | tower only (0.9 GB) | dev Mac |
+| `Tools/vision_serving.py` | every dialect with a real picture, against a live server | **yes** | dev Mac |
 | `Tools/e2e_release.sh` | the installed release, end to end | **yes** | dev Mac, per release |
+
+### Why vision needs two of those
+
+A vision tower fails silently: a transposed weight or a rotary half swapped
+still yields embeddings of the right shape, and the model still writes fluent
+sentences about a picture it did not see. So the tower is checked against a
+second implementation written from the reference rather than from the Swift
+(`Tools/vision_ref.py`), and separately the rows are checked to land where the
+template reserved them — by requiring the model to name what is in the
+photograph (`Tools/vision_serving.py`). Neither alone would catch both halves.
+
+The parity gate is not an equality. The tower runs in bfloat16, 27 residual
+blocks deep, and the same reference at float32 and bfloat16 disagrees with
+itself more than slotstream disagrees with either; what is asserted is that
+slotstream sits inside the band the dtype itself spans, and that the two
+float32 implementations — which share no kernels — agree to 0.99996. Same
+argument as `prefix-check`, and for the same reason.
 
 ## Coverage
 
@@ -1440,6 +1548,47 @@ that much, say so rather than picking the better one.
 
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
+
+## Unreleased
+
+- **The model reads images.** The checkpoint has always carried a vision tower
+  — 333 `vision_tower.*` tensors the weight loader skipped by name — and the
+  chat template has always rendered an image part to `<|image_pad|>`. Now the
+  tower runs and its rows are spliced under those placeholders, on every
+  dialect: Ollama's `images` array on `/api/chat` and `/api/generate`, OpenAI
+  `image_url` parts, AI-SDK `file` parts on the fx gateway (whose catalogue now
+  advertises the `vision` tag), and `slotstream run --image`.
+
+  Based on [#10](https://github.com/carloslfu/slotstream/pull/10) by
+  [@msx98](https://github.com/msx98), whose port of the tower and, in
+  particular, whose prefix-cache design — keying each placeholder run on a
+  digest of the image's bytes, because every image expands to a run of the same
+  token id — are the load-bearing parts of this.
+
+  Reworked before landing: the tower's attention goes through
+  `MLXFast.scaledDotProductAttention` with a per-block `eval` (written out, it
+  materialized a float32 `[16, N, N]` score matrix twice per block — 5.4 GB
+  each at the largest image); the splice is a concatenation of contiguous spans
+  on the GPU rather than a scalar loop over a CPU copy of the hidden state, and
+  can no longer disagree with itself about how many rows it was given; image
+  sources are inline bytes only, where the previous fallback to
+  `Data(contentsOf:)` would fetch an arbitrary host or read a local file
+  through `file://`; the tower loads under the generation lock and only when
+  the machine can spare it, and `serve` announces its 0.9 GB rather than taking
+  it silently against a printed plan that did not include it.
+
+  Gated: `vision-check` (59 weights-free assertions — the reference
+  processor's geometry, the source policy, run clipping, request shaping),
+  `Tools/vision_ref.py` (the tower against an independent float32
+  implementation of the reference, inside the band bfloat16 itself spans),
+  `Tools/vision_serving.py` (18 assertions over every dialect, against a real
+  server, requiring the model to name what is in the photograph), plus a
+  vision leg in `mtp-check` and six image cases in `api_robustness.sh`.
+
+- **The request body cap is 32 MiB**, up from 4 MiB, so a base64 picture fits;
+  the largest image accepted is 24 MiB decoded. The robustness suite's oversize
+  probe moved with it — at 9,999,999 bytes it had silently stopped testing
+  anything.
 
 ## 0.2.6 — 2026-09-03
 

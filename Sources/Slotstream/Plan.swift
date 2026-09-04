@@ -86,6 +86,8 @@ public struct MemoryPlan {
     /// Whether the MTP draft head loads (self-speculative decode). Charged as
     /// a fixed resident block; the pool is sized from what remains.
     public let mtpEnabled: Bool
+    /// Whether an image request may load the tower in this process.
+    public let visionEnabled: Bool
     /// True when this plan was made for a simulated device (`doctor --sim-*`).
     /// Such a plan may be printed and compared, never loaded: a simulated
     /// availability figure still produces a real allocation.
@@ -101,6 +103,7 @@ public struct MemoryPlan {
         ramGB: Double, workingSetGB: Double, ramPercent: Double,
         availableGB: Double?, clamped: Bool,
         prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
+        visionEnabled: Bool = false,
         maxContextTokens: Int = ContextPolicy.maxTokens,
         notes: [String], simulated: Bool = false
     ) {
@@ -115,6 +118,7 @@ public struct MemoryPlan {
         self.prefillChunk = prefillChunk
         self.prefixCacheTokens = prefixCacheTokens
         self.mtpEnabled = mtpEnabled
+        self.visionEnabled = visionEnabled
         self.maxContextTokens = maxContextTokens
         self.notes = notes
         self.simulated = simulated
@@ -186,6 +190,12 @@ public struct MemoryPlan {
                 format: "  mtp:    draft head on — speculative decode (%.1f GB resident, charged above)",
                 Planner.mtpResidentGB))
         }
+        if visionEnabled {
+            l.append(String(
+                format: "  vision: images accepted — the tower loads on the first one (+%.1f GB "
+                    + "resident, NOT charged above; refused if the machine cannot spare it then)",
+                Planner.visionResidentGB))
+        }
         let extra = Planner.extraContextStateGB(maxContextTokens: maxContextTokens)
         l.append(String(
             format: "  context: up to %d tokens per request (prompt + reply%@); a full-length prompt "
@@ -224,6 +234,8 @@ public struct MemoryPlan {
             "prefill_chunk": prefillChunk,
             "prefix_cache_max_tokens": prefixCacheTokens,
             "mtp": mtpEnabled,
+            "vision": visionEnabled,
+            "vision_resident_gb": visionEnabled ? Planner.visionResidentGB : 0,
             "max_context_tokens": maxContextTokens,
             "est_prefill_s_at_max_context": estPrefillSecondsAtMaxContext,
             // Unrounded on purpose: the banner rounds these to whole tok/s,
@@ -558,6 +570,29 @@ public enum Planner {
     /// Resident cost of the MTP draft head (mtp.safetensors is 1.47 GB;
     /// activations and cache growth ride the existing margins).
     public static let mtpResidentGB = 1.6
+
+    /// The vision tower's resident cost, paid only by a process that is handed
+    /// an image: 333 bf16 tensors, 0.898 GB, measured from the pinned
+    /// checkpoint's own header (`VisionTower.residentBytes`), rounded up.
+    ///
+    /// **Why this is a conditional charge and not part of the fixed
+    /// footprint.** Every published memory number — the README tier table, the
+    /// 32 GB peak, the planner goldens — is measured against a plan that has no
+    /// tower in it, and the overwhelming majority of requests never send a
+    /// picture. Folding 0.9 GB into the plan would move all of those numbers
+    /// for everyone to buy a capability most runs do not use. So the plan
+    /// states the cost instead of paying it, and `Engine.ensureVisionTower`
+    /// checks the machine can afford it at the moment an image first arrives,
+    /// refusing rather than overcommitting. The one thing that is not allowed
+    /// is what the first version did: allocate it silently and let a printed
+    /// plan be wrong by a gigabyte.
+    public static let visionResidentGB = 0.9
+
+    /// Headroom demanded on top of the tower's own bytes before loading it.
+    /// One image's activations are small next to the weights (the fused
+    /// attention never forms an N² matrix), but the load itself briefly holds
+    /// the arrays twice while MLX materializes them.
+    public static let visionLoadMarginGB = 1.0
     /// Auto enables the draft head only when the cache still affords this
     /// many experts per layer AFTER paying for it (M9 design note: below
     /// ~120/layer the displaced experts are worth more than the multiplier;
@@ -587,11 +622,18 @@ public enum Planner {
         case on, off, auto
     }
 
+    /// Whether this process will answer requests that carry images. `auto` is
+    /// "yes when the checkpoint has a tower", which the shipped one does.
+    public enum VisionMode: String, Sendable, Codable {
+        case on, off, auto
+    }
+
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
         availableGB: Double? = nil, ramPercent: Double? = nil,
         mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        vision: VisionMode = .auto, visionAvailable: Bool = false,
         maxContextTokens: Int = ContextPolicy.maxTokens,
         simulated: Bool = false
     ) throws -> MemoryPlan {
@@ -624,6 +666,12 @@ public enum Planner {
         if ramPercent != nil, expertsPerLayer != nil || poolGB != nil || memoryGB != nil {
             notes.append("--max-ram-percent ignored (it only bounds auto; an explicit memory knob is already the target)")
         }
+        if vision == .on, !visionAvailable {
+            throw PlanError(
+                "--vision on, but this checkpoint has no vision_tower tensors — it is a "
+                    + "text-only model; use --vision auto/off")
+        }
+        let visionOn = vision != .off && visionAvailable
         if mtp == .on, !mtpAvailable {
             throw PlanError(
                 "--mtp on, but mtp.safetensors is not next to the model — the draft head "
@@ -680,6 +728,7 @@ public enum Planner {
                 prefixCacheTokens: prefixCacheTokensFor(
                     poolBudgetGB: budgetForCaches, contextCap: maxContextTokens),
                 mtpEnabled: mtpOn,
+                visionEnabled: visionOn,
                 maxContextTokens: maxContextTokens,
                 notes: notes,
                 simulated: simulated)
