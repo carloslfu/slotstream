@@ -170,6 +170,19 @@ public struct VisionPreprocess {
             return [Float](repeating: 0, count: 3 * h * w)
         }
         ctx.interpolationQuality = .high
+        // Composite onto white, not onto the zeroed buffer.
+        //
+        // The context is premultiplied, so a transparent pixel drawn over
+        // fresh memory comes out black. That is not a subtle difference for
+        // the images people actually send: a logo, a chart, a diagram or a
+        // screenshot exported with transparency is usually dark content on
+        // nothing, and on black it is dark content on black. Measured before
+        // this line existed, black text on a transparent background made the
+        // model answer "the image is entirely black, with no discernible
+        // features" — the picture did not survive the decoder. White is what
+        // every viewer composites onto, so it is what the sender saw.
+        ctx.setFillColor(gray: 1, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
         ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
         // Convert to CHW normalized
         let plane = h * w

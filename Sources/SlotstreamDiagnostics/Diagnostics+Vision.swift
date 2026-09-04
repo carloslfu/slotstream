@@ -117,6 +117,28 @@ extension Diagnostics {
             "half a PNG does not",
             (try? VisionPreprocess.decodeCGImage(png.prefix(20))) == nil)
 
+        // Transparency. The decoder's context is premultiplied, so a
+        // transparent pixel drawn over fresh memory is black; slotstream fills
+        // white first, because that is what every viewer composites onto and
+        // what the sender saw. Before it did, black text on a transparent
+        // background reached the model as black on black and it answered "the
+        // image is entirely black, with no discernible features".
+        //
+        // A 1x1 fully transparent PNG, resized to the smallest grid: every
+        // channel must normalize to +1 (white), never -1 (black).
+        let clearPNG =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA360e5gAAAABJRU5ErkJggg=="
+        if let bytes = try? VisionPreprocess.loadImageData(from: clearPNG),
+            let clear = try? VisionPreprocess.decodeCGImage(bytes)
+        {
+            let pixels = VisionPreprocess.resizeAndNormalize(cg: clear, targetH: 32, targetW: 32)
+            c.expect(
+                "a transparent pixel composites onto white, not onto black",
+                pixels.allSatisfy { $0 > 0.99 })
+        } else {
+            c.expect("the transparent fixture decodes", false)
+        }
+
         // MARK: pixel layout
         //
         // `buildPixelValues` reorders patches into merge blocks — the order the

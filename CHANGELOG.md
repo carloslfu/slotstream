@@ -39,6 +39,15 @@ release; anything under **Unreleased** is on `main` only.
   server, requiring the model to name what is in the photograph), plus a
   vision leg in `mtp-check` and six image cases in `api_robustness.sh`.
 
+- **A transparent PNG is composited onto white, not onto black.** Found by
+  putting a set of images with known content through the finished path: the
+  decoder's context is premultiplied, so drawing over fresh memory made every
+  transparent pixel black. Photographs have no alpha and never showed it;
+  logos, charts, diagrams and screenshots exported with transparency do, and
+  black text on a transparent background reached the model as black on black —
+  it answered "the image is entirely black, with no discernible features or
+  content". It now reads the text. Opaque images are byte-identical either way.
+
 - **The request body cap is 32 MiB**, up from 4 MiB, so a base64 picture fits;
   the largest image accepted is 24 MiB decoded. The robustness suite's oversize
   probe moved with it — at 9,999,999 bytes it had silently stopped testing
