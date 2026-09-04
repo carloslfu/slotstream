@@ -1570,7 +1570,7 @@ that much, say so rather than picking the better one.
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.7 — 2026-09-04
 
 - **The model reads images.** The checkpoint has always carried a vision tower
   — 333 `vision_tower.*` tensors the weight loader skipped by name — and the
@@ -1598,11 +1598,11 @@ release; anything under **Unreleased** is on `main` only.
   the machine can spare it, and `serve` announces its 0.9 GB rather than taking
   it silently against a printed plan that did not include it.
 
-  Gated: `vision-check` (59 weights-free assertions — the reference
+  Gated: `vision-check` (75 weights-free assertions — the reference
   processor's geometry, the source policy, run clipping, request shaping),
   `Tools/vision_ref.py` (the tower against an independent float32
   implementation of the reference, inside the band bfloat16 itself spans),
-  `Tools/vision_serving.py` (18 assertions over every dialect, against a real
+  `Tools/vision_serving.py` (19 assertions over every dialect, against a real
   server, requiring the model to name what is in the photograph), plus a
   vision leg in `mtp-check` and six image cases in `api_robustness.sh`.
 
