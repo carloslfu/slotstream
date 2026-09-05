@@ -16,6 +16,11 @@ it from SSD and runs it in whatever memory you give it. It's one Swift binary,
 no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
 work unchanged.
 
+> **We're building Sevra on Slotstream.** A personal, local-first app with one
+> continuous conversation, a journal, and knowledge in files you own. The app
+> is still in development; the Slotstream CLI, APIs, and Swift package remain
+> independently usable today. [See Sevra and join the waitlist](https://www.sevrahq.com/).
+
 The launch was [discussed on Hacker News](https://news.ycombinator.com/item?id=49524447) —
 227 points and 114 comments. On 2026-09-01 it peaked at No. 1 on Show HN and
 No. 8 on the front page.
@@ -48,7 +53,8 @@ the memory design assumes unified memory: experts are read from SSD straight
 into memory the GPU already addresses, and the pool is sized against the one
 memory the OS, your apps, and the GPU all share. A discrete card has two
 separate budgets with a bus between them, so a Linux or Windows build would be
-a second engine with a second cache tier, not a port. It isn't on the roadmap.
+a second engine with a second cache tier, not a port. Windows and Linux support
+is planned for Sevra; it is not available in the current engine.
 On another platform, or after a different model, start with llama.cpp in
 [Related projects](#related-projects).
 
