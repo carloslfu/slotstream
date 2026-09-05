@@ -9,11 +9,11 @@ Please do not open a public issue for anything exploitable.
 
 ## What runs where
 
-- `serve` binds 127.0.0.1 only and has no authentication. Anything on the
-  same machine can talk to it; nothing off the machine can.
+- `serve` binds 127.0.0.1 only and has no authentication. Local processes
+  can use it. It does not listen on an external network interface.
 - Browser origins are allowed only from loopback hosts (`localhost`,
-  `127.0.0.1`, `::1`, `0.0.0.0`). A wildcard would let any website you visit
-  drive the model through your browser, so there isn't one.
+  `127.0.0.1`, `::1`, `0.0.0.0`). Requests from
+  other browser origins are rejected.
 - The engine makes no network calls. Only the download path does, to the
   pinned Hugging Face mirror with the original repo as fallback.
 - No telemetry, no analytics, no update checks.
@@ -21,14 +21,14 @@ Please do not open a public issue for anything exploitable.
 ## Supply chain
 
 - Releases are built by GitHub Actions from the tagged commit with signed
-  provenance. Verify an asset instead of trusting the download:
+  provenance. After downloading an asset, verify it with the GitHub CLI:
   `gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream`.
 - `install.sh` downloads the latest release and its `.sha256` and aborts on a
   mismatch. The Metal library it fetches for macOS 14 and 15 comes from
   pinned wheel URLs with pinned hashes.
-- All 25 weight files are checked against sha256 hashes compiled into the
-  binary before the engine reads them; `pull --verify` re-checks a copy any
-  time.
+- Weight files are checked against SHA-256 hashes compiled into the binary
+  before use. The draft head is optional and is checked when present.
+  `slotstream pull --verify` checks an existing download.
 
 ## Scope
 

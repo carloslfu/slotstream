@@ -1,8 +1,9 @@
 # Using slotstream from Swift
 
-slotstream is a command-line tool and a Swift package. The binary and the
-`curl | sh` install are unchanged; this page is about the other way in, for a
-Mac app or a tool of your own.
+Use the `Slotstream` Swift package to plan memory, download weights, run the
+model, or start its HTTP server from your own Mac app or tool.
+
+Add the package and product to `Package.swift`:
 
 ```swift
 // Package.swift
@@ -16,9 +17,8 @@ targets: [
 ]
 ```
 
-`.upToNextMinor` rather than `from:`, because for a 0.x version `from:` accepts
-every later 0.x release, and the surface is still moving. The library products
-first shipped in 0.2.3; an earlier tag has no importable products at all.
+The example stays within the 0.2 release series because the library API is
+still evolving. Library products are available from 0.2.3 onward.
 
 Two products:
 
@@ -29,25 +29,27 @@ Two products:
 
 ## The Metal library
 
-MLX's shaders cannot be compiled by SwiftPM on the command line, so a prebuilt
-`mlx.metallib` has to sit **next to the executable that is running** — MLX finds
-it with `dladdr` on its own code, not by searching the bundle you might expect.
+For a command-line build, place a prebuilt `mlx.metallib` **next to the
+running executable**. MLX looks there for its Metal shaders. SwiftPM doesn't
+compile them in the Command Line Tools setup.
 
-- **An Xcode app**: Xcode compiles the shaders itself. Nothing to do.
+- **An Xcode app**: Xcode compiles the shaders itself. No manual copy is needed.
 - **A command-line build** (`swift build`): copy it yourself, once.
+
   ```bash
   Tools/fetch_metallib.sh                       # from a slotstream checkout
   cp Tools/lib/mlx-0.31.1.metallib .build/debug/mlx.metallib
   ```
-  Without it, the first MLX call dies with `Failed to load the default
+  Without it, the first MLX call fails with `Failed to load the default
   metallib`. A test bundle needs its own copy in `.xctest/Contents/MacOS/`.
 
-**You only need this if you touch the model.** Planning, the weight manifest,
-the prefill schedule, context arithmetic and most diagnostics are pure Swift and
-run with no Metal at all — which is worth knowing, because it means a menu-bar
-app can show what slotstream *would* do on this Mac before downloading 105 GB.
+Planning, weight checks, prefill estimates, and most diagnostics run without
+loading Metal. An app can show a memory plan and download status before the
+user downloads the model.
 
-## Is a model here, and what would it cost?
+<a id="is-a-model-here-and-what-would-it-cost"></a>
+
+## Check and download weights
 
 ```swift
 import Slotstream
@@ -63,18 +65,18 @@ case let .corrupt(paths, _, _):
 }
 ```
 
-`status()` hashes a complete-looking copy before calling it ready, because size
-alone cannot tell a good file from same-size corruption. That takes seconds and
-is the reason a damaged tokenizer never reaches the engine.
+`status()` hashes the files before returning `.ready`, including files whose
+sizes already match. Allow several seconds for a complete copy.
 
-To fetch what is missing — resumable, hash-verified against the pinned
-revision, and silent unless you ask for progress:
+To download missing weights with resume, hash verification, and progress:
 
 ```swift
 try store.download(PullOptions(connections: 8)) { line in print(line) }
 ```
 
-## What will it do on this Mac?
+<a id="what-will-it-do-on-this-mac"></a>
+
+## Plan memory
 
 ```swift
 let machine = Machine.current()
@@ -84,35 +86,31 @@ print(plan.expertsPerLayerCached, "experts per layer,",
       plan.expectedPeakGB, "GB expected peak")
 ```
 
-`Machine.simulated(ramGB: 16)` plans for a machine that is not this one — the
-same thing `slotstream doctor --sim-ram 16` prints. A plan made for a simulated
-machine is marked, and `Engine.load` refuses it: a simulated availability figure
-still produces a real allocation, and pretending 60 GB was free once drove this
-Mac to 39 GB of swap.
+`Machine.simulated(ramGB: 16)` previews another memory size, like
+`slotstream doctor --sim-ram 16`. `Engine.load` rejects simulated plans;
+use `Machine.current()` for a plan that will allocate memory.
 
-Named `Machine` and not `Device` because MLX exports its own `Device`, and an
-app using this library imports MLX too.
+<a id="pricing-a-prompt-before-you-send-it"></a>
 
-## Pricing a prompt before you send it
+## Estimate prompt-processing time
 
 ```swift
 let seconds = PrefillSchedule.estSeconds(tokens: 8_000, maxChunk: plan.prefillChunk)
 print("about", PrefillSchedule.describe(seconds: seconds), "to the first token")
 ```
 
-Reading a long prompt is a real wait, not a hiccup, and it is the number a UI
-should show before it starts rather than after. This needs no model loaded.
+This estimate needs no model loaded. An app can show the expected wait
+before starting a long prompt.
 
 ## Serving
 
-The HTTP server the CLI runs is `Server` in the library, speaking the Ollama and
-OpenAI subsets on loopback. Everything about its behaviour is in
-[API.md](API.md); embedding it is the same server in your process.
+The library exposes the same `Server` used by the CLI. It listens on loopback
+and provides the [Ollama/OpenAI endpoints](API.md) and [AI SDK gateway](FX.md).
 
 ## Diagnostics
 
-`SlotstreamDiagnostics` exposes the checks the project gates itself with, as
-functions returning a `CheckReport` rather than things that print:
+`SlotstreamDiagnostics` returns structured `CheckReport` values that an app
+can inspect or display:
 
 ```swift
 import SlotstreamDiagnostics
@@ -125,11 +123,11 @@ print(report.name, report.passed, report.items.count)
 `.machinePlanning()`, `.httpFraming()`, `.httpRouting()` and
 `Goldens.sampler(...)` all run without weights. See [TESTING.md](TESTING.md).
 
-## What is not here yet
+<a id="what-is-not-here-yet"></a>
 
-The surface is honest about its age. `Engine` is still the class the CLI has
-always used, with a callback-based `generate`; the typed delta stream, the
-dedicated executor and `Conversation` are designed but not landed, because their
-gate is byte-equality against the real weights and that has to run on a quiet
-machine. Until then, generation through the library is what `slotstream run`
-does, and the HTTP API is the stable way to drive it from another process.
+## API stability
+
+`Engine.generate` currently uses callbacks. A typed delta stream, dedicated
+executor, and `Conversation` API are planned but not available. For now,
+`slotstream run` shows how the CLI calls the engine; the HTTP API is also
+available for callers in another process.

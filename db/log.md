@@ -79,3 +79,6 @@ vision landed: tower cost, parity against an independent float32 reference, and 
 ## [2026-09-04 03:17] update | records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03.md
 clean verify.sh run: 24 passed, 0 failed; floor numbers recorded
 
+## [2026-09-05 15:50] validate | records/claims
+Reviewed README and public guides for clarity and consistency. Preserved registered claim values; 67 claim checks, 53 local links, and syntax checks for 30 shell/Python examples passed. Regenerated llms-full.txt. Full-store validation has zero errors and the existing historical LOG_UNKNOWN_KIND warning.
+

@@ -1,210 +1,226 @@
-# The HTTP API
+# HTTP API
 
-`slotstream serve` listens on **127.0.0.1 only** (port 11434, `--port N`) and
-speaks two dialects of the same engine: Ollama-style under `/api/*` and
-OpenAI-style under `/v1/*`. There is no auth token: the server can't be
-reached from other machines, and browser requests are accepted from loopback
-origins only, so a web page you happen to visit can't drive your model.
+Start the server with `slotstream serve`. It listens on **127.0.0.1:11434**;
+use `--port N` to choose another port. It has no authentication, so local
+processes can use it. Browser requests must come from an allowed loopback
+origin. See [Security](../SECURITY.md).
 
-Validation is strict on purpose. Unknown fields, unsupported features, and
-malformed values return a 400 that names the problem; nothing is silently
-ignored. A wrong model name is a 400 naming the only model (a 404 on
-`/api/show`). The only model name is `qwen3.8-flash-next:4bit`.
+This page covers the Ollama-style `/api/*` and OpenAI-style `/v1/*` endpoints.
+For the AI SDK gateway and tool calling, see the [fx guide](FX.md).
+Use `qwen3.8-flash-next:4bit` as the model name.
+
+Unknown fields, unsupported features, and malformed values return a 400
+error describing the problem. A wrong model name returns 400, or 404 on
+`/api/show`. Some client compatibility fields are accepted without an effect;
+these are listed below.
 
 ## Endpoints
 
 | Endpoint | What it does |
 |---|---|
-| `POST /api/chat` | Chat completion, Ollama format. Streams by default. |
-| `POST /api/generate` | Prompt completion, Ollama format. Streams by default. |
-| `POST /v1/chat/completions` | Chat completion, OpenAI format. `stream: false` by default. |
-| `GET /v1/models` | The one model, OpenAI list format. |
-| `GET /api/tags` | The one model, Ollama list format. |
-| `GET /api/ps` | The loaded model and what it is costing in memory right now. |
-| `POST /api/show` | Model metadata, including `capabilities`. Fields: `model` (or Ollama's deprecated `name`), optional `verbose`; empty `system`, `template`, and `options` are accepted because the Ollama CLI always sends them, non-empty ones are a 400. |
-| `GET /api/version` | `{"version": "..."}` |
-| `POST /api/embed`, `/api/embeddings` | 400 — the model does not do embeddings. |
-| `POST /api/pull`, `/api/create` | 501 — run `slotstream pull` on the host instead. |
+| `POST /api/chat` | Chat completion in Ollama format; streams by default |
+| `POST /api/generate` | Prompt completion in Ollama format; streams by default |
+| `POST /v1/chat/completions` | Chat completion in OpenAI format; doesn't stream by default |
+| `GET /v1/models` | Lists the model in OpenAI format |
+| `GET /api/tags` | Lists the model in Ollama format |
+| `GET /api/ps` | Reports the loaded model and its current memory use |
+| `POST /api/show` | Returns model metadata and capabilities |
+| `GET /api/version` | Returns `{"version": "..."}` |
+| `POST /api/embed`, `/api/embeddings` | Returns 400; embeddings aren't supported |
+| `POST /api/pull`, `/api/create` | Returns 501; use `slotstream pull` on the host |
+
+`/api/show` accepts `model` (or the deprecated `name` alias) and optional
+`verbose`. Empty `system`, `template`, and `options` fields are accepted for
+Ollama CLI compatibility; non-empty overrides return 400.
 
 ## `/api/chat`
 
-Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`, `images`, and `keep_alive`, which is accepted and
-has no effect because the model never unloads.
+Accepted fields: `model`, `messages`, `stream` (default `true`), `think`
+(boolean), `options`, and `keep_alive`. `keep_alive` has no effect because
+the server keeps the model loaded.
 
-Messages are `{"role", "content"}`; `tool_calls` are rejected. `content` is
-text, or an array of parts for a message that carries a picture — see
-[Images](#images). `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
-`presence_penalty`, `num_predict`, `seed`, and `stop` (a string or an array).
-A JSON `null` means "not set" for any field, which is what client SDKs send for
-one they are not using.
-
-With `think: true` the model reasons before it answers. The reasoning comes
-back in `message.thinking` and the answer in `message.content`, streamed and
-non-streamed alike; it is never mixed into the answer. A reply that runs out of
-tokens mid-reasoning has an empty `content`.
+Each message has a `role` and `content`, with optional `images`. Content can
+be text or an array of supported image/text parts; see [Images](#images).
+Tool calls aren't supported on this endpoint.
 
 ```bash
 curl localhost:11434/api/chat -d '{
   "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": "hello"}],
+  "messages": [{"role": "user", "content": "Hello"}],
+  "stream": false,
   "options": {"temperature": 0.2, "seed": 7}
 }'
 ```
 
+`options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+`presence_penalty`, `num_predict`, `seed`, and `stop` (a string or array).
+JSON `null` is treated as an unset field.
+
+With `think: true`, reasoning appears in `message.thinking` and the answer
+in `message.content`, for both streamed and complete responses. If the token
+budget runs out during reasoning, `content` is empty.
+
 ## `/api/generate`
 
-Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, `keep_alive`,
-and the same `options` as chat (`null` counts as none). Empty `suffix` and
-`template` are accepted because the Ollama CLI's one-shot mode sends them;
-a non-empty suffix (fill-in-the-middle) or template override is a 400. An
-`think: true` puts the reasoning in a `thinking` field, separate from
-`response`. An empty prompt is Ollama's "load the model" request and is acknowledged with
-`done: true, done_reason: "load"` (the same for `/api/chat` with no
-messages); the model is always loaded here, so nothing else happens. `raw: true` sends your prompt with no chat template, and
-can't be combined with `system` or `think`.
+Accepted fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`,
+`images`, `keep_alive`, and the same `options` as chat. Empty `suffix` and
+`template` fields are accepted for Ollama CLI compatibility. A non-empty
+suffix or template override returns 400.
+
+`think: true` returns reasoning in `thinking` and the answer in `response`.
+`raw: true` sends the prompt without the chat template and can't be combined
+with a system prompt, thinking, or images.
+
+An empty prompt acknowledges Ollama's load request with
+`done: true, done_reason: "load"`. `/api/chat` does the same for an empty
+message list. The model is already loaded in either case.
 
 ## `/v1/chat/completions`
 
-Fields: `model`, `messages`, `stream`, `temperature`, `top_p`, `top_k`,
-`presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`, `stop`,
-and `stream_options` (`{"include_usage": true}`). `top_k` is an extension
-beyond the OpenAI schema; the rest is standard. `null` means "not set" for
-every field, which is how the OpenAI client serializes an unset `max_tokens`.
-
-Stock SDKs put a few more fields on every call. Each is accepted at the single
-value this server already implements and refused at any other, so nothing is
-silently dropped: `n: 1`, `frequency_penalty: 0`, `logprobs: false`,
-`logit_bias: {}`, `tools: []`, `tool_choice: "none"`,
-`parallel_tool_calls: false`, `response_format: {"type": "text"}`, and `user`
-(any string; it has no effect here).
+Set an OpenAI-compatible client's base URL to `http://localhost:11434/v1`.
+If it requires an API key, use any placeholder string. For example, with the
+Python OpenAI SDK installed:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:11434/v1", api_key="unused")
-r = client.chat.completions.create(
+reply = client.chat.completions.create(
     model="qwen3.8-flash-next:4bit",
-    messages=[{"role": "user", "content": "hello"}],
+    messages=[{"role": "user", "content": "Hello"}],
 )
-print(r.choices[0].message.content)
+print(reply.choices[0].message.content)
 ```
 
-`api_key` can be any string; nothing checks it.
+Accepted fields: `model`, `messages`, `stream`, `temperature`, `top_p`,
+`top_k`, `presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`,
+`stop`, and `stream_options` (`{"include_usage": true}`). `top_k` is a
+slotstream extension. JSON `null` is treated as unset.
+
+For SDK compatibility, these fields are accepted only at the listed values:
+`n: 1`, `frequency_penalty: 0`, `logprobs: false`, `logit_bias: {}`,
+`tools: []`, `tool_choice: "none"`, `parallel_tool_calls: false`, and
+`response_format: {"type": "text"}`. `user` accepts any string and has no
+effect. Other values for these options return 400.
 
 ## Sampling defaults
 
-| knob | default |
+| Option | Default |
 |---|---|
 | `temperature` | 0.7 |
 | `top_p` | 0.8 |
 | `top_k` | 20 |
 | `min_p` | 0 |
 | `presence_penalty` | 1.5 |
-| `num_predict` / `max_tokens` | 512; `<= 0` means "as many as the context allows" |
-| `seed` | random each request |
-| `stop` | none |
+| `num_predict` / `max_tokens` | 512; `<= 0` uses the remaining context |
+| `seed` | Random for each request |
+| `stop` | None |
 
-A request that names no `seed` gets a fresh one, so repeated calls differ;
-pass a `seed` to reproduce a reply exactly. An unseeded request used to replay
-one fixed stream from the moment the process started, which is why this is
-spelled out.
-
-Out-of-range values are clamped into the range the sampler is defined on
-rather than erroring: a `top_p` of 0 or a `min_p` above 1 used to empty the
-candidate set and make the old sampler emit token 0 forever.
+Set `seed` for reproducible sampling. For comparisons, keep the model,
+prompt, and generation settings fixed and start the server with
+`--no-prefix-cache`: reusing conversation state can change nearly tied
+outputs. Out-of-range sampling values are clamped to supported ranges.
 
 ## Streaming
 
-Ollama endpoints stream newline-delimited JSON objects and finish with a
-`done: true` object carrying `done_reason` and the token counts
-(`prompt_eval_count`, `eval_count`). `/v1` streams SSE `data:` lines ending
-with `[DONE]`, and its first delta carries `"role": "assistant"`. A delta is
-sent per token, withheld only while a UTF-8 scalar or a stop sequence is still
-incomplete. Either way, concatenating every delta reproduces the
-non-streamed text exactly — including multi-byte graphemes that merge across
-tokens and stop sequences that straddle a token boundary. That equality is a
-gated test (`Tools/api_robustness.sh`), not an intention.
+Ollama endpoints stream newline-delimited JSON. The final object has
+`done: true`, `done_reason`, `prompt_eval_count`, and `eval_count`.
 
-## Errors
+The OpenAI endpoint streams Server-Sent Events (SSE) as `data:` lines ending
+with `[DONE]`. Its first delta includes `"role": "assistant"`.
 
-Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
-`{"error": {"message": "..."}}`, with `"type": "invalid_request_error"` added
-on validation failures.
-
-Deliberately unsupported, and rejected with a clear 400 rather than ignored:
-tool calling, JSON-schema output, logprobs, embeddings, and named reasoning
-levels for `think`.
-
-A malformed request gets a status line, never a dropped connection: 411 for a
-chunked body (send `Content-Length`), 413 for a body over 32 MiB, 431 for
-headers over 64 KiB, 503 when too many connections are already open. A query
-string does not affect routing, and `HEAD` answers 200 or 404 for the path
-actually asked for.
+Text is sent incrementally. Incomplete UTF-8 characters and possible stop
+sequences are held back until resolved. Concatenating the text deltas gives
+the same text as a non-streamed response under the same generation
+conditions; `Tools/api_robustness.sh` checks this.
 
 ## Images
 
-The model reads pictures. Every dialect takes them, in the shape that dialect
-already uses:
+All three APIs accept images, using these request shapes:
 
-```bash
-# Ollama: base64 in `images`, on /api/chat or /api/generate
-curl localhost:11434/api/chat -d '{
-  "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": "what is this?",
-                "images": ["'"$(base64 -i cat.jpg)"'"]}]
-}'
+| API | Image field |
+|---|---|
+| Ollama chat | `images: [base64]` on the user message |
+| Ollama generate | `images: [base64]` on the request |
+| OpenAI chat | An `image_url` content part with a `data:` URL |
+| AI SDK gateway | A `file` part with an `image/*` media type and inline `data` |
 
-# OpenAI: an image_url part with a data: URL
-curl localhost:11434/v1/chat/completions -d '{
-  "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": [
-    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},
-    {"type": "text", "text": "what is this?"}
-  ]}]
-}'
+This Python 3 example sends `cat.jpg` to the Ollama chat endpoint. It uses
+only the standard library:
+
+```python
+import base64
+import json
+from pathlib import Path
+from urllib.request import Request, urlopen
+
+image = base64.b64encode(Path("cat.jpg").read_bytes()).decode("ascii")
+body = {
+    "model": "qwen3.8-flash-next:4bit",
+    "messages": [{"role": "user", "content": "What is in this picture?",
+                  "images": [image]}],
+    "stream": False,
+}
+request = Request(
+    "http://localhost:11434/api/chat",
+    data=json.dumps(body).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response)["message"]["content"])
 ```
 
-fx and any AI-SDK client send a `file` part with an `image/*` media type and
-inline `data`; the gateway catalogue advertises the `vision` tag so they know
-they may. `slotstream run --image cat.jpg --prompt "what is this?"` does the
-same from the command line.
+For the OpenAI endpoint, replace the message above with:
 
-**Inline bytes only.** A `data:` URL or bare base64 is accepted; an `http://`,
-`https://` or `file://` URL is refused with a 400 that says so. The server
-never dereferences a URL a request hands it — that would make any client that
-can reach the loopback port able to fetch arbitrary hosts and read local files
-through it.
+```python
+{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + image}},
+    {"type": "text", "text": "What is in this picture?"},
+]}
+```
 
-**Orientation and completeness.** A photograph's EXIF orientation is applied,
-so a portrait picture from a phone reaches the model the way it looks on the
-phone rather than on its side. An image whose file ends mid-stream — an upload
-cut short — is refused with a 400 rather than decoded into the rows that
-arrived, which would otherwise come back as a confident description of a
-mostly blank picture.
+Send it to `/v1/chat/completions` and read
+`choices[0].message.content` from the JSON response. Use a media type that
+matches your image. From the terminal, `slotstream run --image cat.jpg
+--prompt "What is in this picture?"` is the shorter option.
 
-**What an image costs.** It is resized the way the reference processor resizes
-it and becomes one token per 32×32 pixels of the resized image, capped at
-2,304 tokens (about 1536×1536) per picture; those tokens come out of the same
-32,768-token context as the text. Pictures larger than 24 MiB decoded, or with
-sides more than 200× apart, are refused. The vision tower is 0.9 GB and loads
-the first time a request carries an image, on top of the announced memory
-plan — `serve --vision off` refuses images instead, and a machine with no room
-for the tower at that moment gets a 400 rather than a swap storm.
+The server accepts **inline bytes only**, as bare base64 or a `data:` URL.
+It rejects `http://`, `https://`, and `file://` URLs. It applies EXIF
+orientation, composites transparency onto white, and rejects truncated files.
 
-A follow-up turn on a conversation whose pictures have not changed re-uses the
-state it already built for them: the tower does not run again, and prefill
-reads only the new text. Two different pictures that happen to resize to the
-same shape are told apart by a digest of their bytes, never by the token ids.
+Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
+the shared 32,768-token context. The decoded image file must be at most
+24 MiB, with an aspect ratio no greater than 200:1.
 
-## Limits
+The vision tower uses 0.9 GB and loads on the first image request, in addition
+to the text memory plan. A request is rejected if there's insufficient room.
+`serve --vision off` disables images. Follow-up turns reuse image state while
+the matching conversation remains cached; image identity is checked by a
+digest of its bytes.
 
-Prompt plus completion is capped at 32,768 tokens (`serve --max-context`,
-which can only lower it); a request past the cap is refused with a 400 that
-names the cap, what it is (the largest context measured so far, not a memory
-limit), and the wait that prompt would have cost. Generation is
-serialized: a second completion request waits its turn. The metadata
-endpoints never take that lock — they read a published snapshot — so
-`/api/version`, `/api/tags`, `/api/ps`, `/api/show`, and `/v1/models` answer in
-milliseconds while a request is running, and the listener keeps accepting new
-connections throughout.
+<a id="errors"></a>
+<a id="limits"></a>
+
+## Errors and limits
+
+Ollama errors use `{"error": "message"}`. OpenAI errors use
+`{"error": {"message": "..."}}`; validation failures also include
+`"type": "invalid_request_error"`.
+
+| Status | Meaning |
+|---|---|
+| 400 | Invalid or unsupported request, including tools on the Ollama/OpenAI endpoints, JSON-schema output, logprobs, embeddings, or named reasoning levels for `think` |
+| 411 | Chunked request body; send `Content-Length` instead |
+| 413 | Request body exceeds 32 MiB |
+| 431 | Request headers exceed 64 KiB |
+| 503 | Too many open connections |
+
+A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
+requested path.
+
+Prompt plus completion is capped at 32,768 tokens. `serve --max-context N`
+can lower that ceiling. A prompt over the cap returns 400 with the limit and
+an estimated processing time.
+
+Generation requests run one at a time; a second waits for the first. Metadata
+endpoints read a separate snapshot and remain responsive during generation.

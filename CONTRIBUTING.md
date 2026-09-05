@@ -1,12 +1,13 @@
 # Contributing
 
 Bug reports, measurement reports, and small focused pull requests are
-welcome. Two things about this repo are unusual enough to say up front.
+welcome. Start with the build and test commands below, and include raw output
+when reporting a performance or memory issue.
 
 ## Numbers come with their method
 
-Every performance or memory claim in the docs ships with how it was measured,
-in [MEASUREMENTS.md](MEASUREMENTS.md), and the failed experiments stay in. If
+Performance and memory claims in the docs link to their methods
+in [MEASUREMENTS.md](MEASUREMENTS.md), including failed experiments. If
 a change moves a number, re-measure it on a quiet machine (interleaved A/B
 rounds, medians, never a best-of) and update the measurement before the
 claim. An estimator may not return a value outside the range it has measured.
@@ -42,6 +43,6 @@ without its projection fails.
 
 ## Scope
 
-v0 is one model, text only, single-flight. Other models, vision, and
-batching are out of scope until the memory model for them is measured. If
-you want to propose one, open an issue first.
+The engine supports one model, text and images, and one generation at a time.
+Changes to model support, batching, or memory allocation need a design and
+measurements. Open an issue to discuss them before building a large change.

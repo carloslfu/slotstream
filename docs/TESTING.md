@@ -1,9 +1,9 @@
 # Testing
 
-Every check has one body, in `SlotstreamDiagnostics`, and three ways to run it:
-the CLI subcommand a user runs, the catalogue CI runs, and a host app that wants
-to verify its own installation. A check is not a script that greps output; it
-returns a `CheckReport` and the callers render it.
+Checks in `SlotstreamDiagnostics` return a `CheckReport`. The CLI, test
+runner, and host apps use those same functions.
+
+Choose a suite based on what you have installed:
 
 ```bash
 make checks          # the tier that needs nothing: no GPU, no weights, no network
@@ -14,13 +14,9 @@ make coverage        # line coverage of the library
 
 ## Why there is no `swift test`
 
-The Command Line Tools toolchain ships neither XCTest nor Swift Testing. Xcode
-has both, but requiring Xcode to run the tests would mean the project's own
-contributors could not run them — and `CONTRIBUTING.md` deliberately supports a
-CLT-only build, which is exactly why the Makefile fetches a prebuilt metallib.
-
-So the catalogue is a plain executable, `slotstream-checks`. It runs anywhere
-Swift builds, it is what CI runs, and it reports each check by name.
+The supported Command Line Tools setup lacks XCTest and Swift Testing.
+The project uses a plain executable, `slotstream-checks`, so contributors
+can run checks without installing Xcode. CI uses the same runner.
 
 ```bash
 .build/release/slotstream-checks --list
@@ -30,8 +26,8 @@ Swift builds, it is what CI runs, and it reports each check by name.
 
 ## Tiers
 
-A tier says what a check needs from the machine, so a run on a laptop with no
-weights is a pass rather than a confusing failure.
+Tiers group checks by their dependencies. Choose the tiers your machine can
+run; a T0 pass covers only T0.
 
 | Tier | Needs | Runs |
 |---|---|---|
@@ -41,11 +37,10 @@ weights is a pass rather than a confusing failure.
 | **T3** | A synthetic checkpoint | Not yet built |
 | **T4** | The real 105 GB of weights | The dev Mac, per release |
 
-**Tiers above T0 are never run concurrently.** The per-user process guard stops
-a *second process* from loading a model, but it deliberately permits several
-model objects inside one process — its own comment says so. Nothing else would
-stop two checks stacking GPU allocations on a shared machine, and stacking
-memory-heavy processes is what crashed this Mac on 2026-08-28.
+**Run tiers above T0 sequentially.** Several checks in one process can still
+allocate memory at the same time, despite the guard against multiple model
+processes. Use the small explicit targets in `Tools/verify.sh` and check
+available memory before a model test.
 
 ### The Metal library
 
@@ -64,27 +59,25 @@ fails with `Failed to load the default metallib`.
 | `Tools/sampler_gates.sh` | the sampler against a numpy reference, and the governor's branches | no | CI |
 | `Tools/consumer_smoke.sh` | a package outside the repository can import and use the library | no | CI |
 | `Tools/verify.sh` | the acceptance battery: provenance, goldens, byte-equality across cache sizes and live resizes, MTP, the memory promise, long context | **yes** | dev Mac |
-| `Tools/api_robustness.sh` | 74 serving-layer regressions against a live server | **yes** | dev Mac |
+| `Tools/api_robustness.sh` | Serving regressions against a live server | **yes** | dev Mac |
 | `Tools/vision_ref.py` | the vision tower against an independent float32 implementation of the reference | tower only (0.9 GB) | dev Mac |
 | `Tools/vision_serving.py` | every dialect with a real picture, against a live server | **yes** | dev Mac |
 | `Tools/e2e_release.sh` | the installed release, end to end | **yes** | dev Mac, per release |
 
-### Why vision needs two of those
+<a id="why-vision-needs-two-of-those"></a>
 
-A vision tower fails silently: a transposed weight or a rotary half swapped
-still yields embeddings of the right shape, and the model still writes fluent
-sentences about a picture it did not see. So the tower is checked against a
-second implementation written from the reference rather than from the Swift
-(`Tools/vision_ref.py`), and separately the rows are checked to land where the
-template reserved them — by requiring the model to name what is in the
-photograph (`Tools/vision_serving.py`). Neither alone would catch both halves.
+### Vision checks
 
-The parity gate is not an equality. The tower runs in bfloat16, 27 residual
-blocks deep, and the same reference at float32 and bfloat16 disagrees with
-itself more than slotstream disagrees with either; what is asserted is that
-slotstream sits inside the band the dtype itself spans, and that the two
-float32 implementations — which share no kernels — agree to 0.99996. Same
-argument as `prefix-check`, and for the same reason.
+A faulty image encoder can produce embeddings with the correct shape while
+losing the image content. `Tools/vision_ref.py` compares the encoder with an
+independent implementation. `Tools/vision_serving.py` checks the full request
+path by requiring the model to identify the photograph's content.
+
+The encoder comparison allows numerical variation from bfloat16 arithmetic.
+The tolerance comes from comparing the reference at float32 and bfloat16;
+slotstream must stay within that band. The two independent float32
+implementations agree to 0.99996. These checks test implementation correctness,
+not general vision accuracy.
 
 ## Coverage
 
@@ -97,19 +90,18 @@ python3 Tools/coverage_ratchet.py coverage.info
 built with the profiling instrumentation directly and `llvm-cov` reads what it
 wrote; the CLT ships `llvm-profdata` and `llvm-cov`, just not the test modules.
 
-The ratchet holds a **per-file** floor in `Tools/coverage-floor.json`, not a
-single number, because one number hides the case it exists to catch: new
-well-covered code masking a regression in older code. A deliberate drop is
-`--update` plus an explanation in the commit.
+`Tools/coverage-floor.json` sets a minimum for each file. This catches a loss
+of coverage in an existing file even if new code raises the overall
+percentage. Use `--update` only for a deliberate change, with an explanation
+in the commit.
 
-The percentage is a ratchet, not a target. What matters is which lines are
-uncovered and why.
+<a id="where-the-coverage-is-not"></a>
 
-### Where the coverage is not
+### Initial coverage snapshot
 
-21.73% of 7,138 library lines, from 121 assertions that need no weights. The
-percentage on its own says little; these are the gaps and the reason for each,
-largest first.
+The table below records the initial weights-free suite: 21.73% of 7,138
+library lines, from 121 assertions. It is a historical snapshot, not a current
+coverage report. Run the commands above for the current checkout.
 
 | File | Lines | Covered | Why the rest is not |
 |---|---|---|---|
@@ -119,6 +111,6 @@ largest first.
 | `Generate.swift` | 388 | 19% | The sampler is covered; the prefill and decode loops, and the sweep's admission and cache-cap hooks, run only with the model loaded. Gated by `sweep-check` and `Tools/verify.sh`. |
 | `Governor.swift` | 213 | 27% | The policy is fully covered as a pure function. The live loop — poll, decide, lock, resize — still needs an engine to resize. |
 
-None of this is untested: `verify.sh` and `api_robustness.sh` exercise most of
-it against the real model. It is untested *on CI*, which is a weaker and
-different claim, and the table says which is which.
+The snapshot covers the weights-free runner. Tests against the real model,
+such as `verify.sh` and `api_robustness.sh`, exercise additional paths locally;
+those runs aren't included in this coverage percentage.

@@ -1,90 +1,109 @@
 # Troubleshooting
 
-### "cannot listen on 127.0.0.1:11434 … another slotstream (or Ollama) is already there"
+Start with `slotstream doctor`. It checks your Mac's memory plan and disk
+space without loading the model.
 
-Ollama defaults to the same port. Stop one of them, or run
-`slotstream serve --port 11500` and point your client at that. slotstream
-claims the port *before* loading the model, so this costs a second and one
-sentence, not a full load.
+## `slotstream: command not found` after installing
 
-### `ollama run` says "unsupported request field(s): name, options, system, template"
+Open a new terminal and try again. The installer either creates a wrapper in
+`/usr/local/bin` or adds `~/.slotstream/bin` to your shell's PATH. Its final
+message tells you which it used.
 
-0.2.0 refuses the empty fields the Ollama CLI always sends, so `ollama run`
-stops before the first message. Fixed on `main` and in the next release;
-until you upgrade, use curl, Open WebUI, or an OpenAI SDK pointed at
-`http://localhost:11434/v1` ([docs/API.md](API.md)).
+## The server can't listen on port 11434
 
-### "another Slotstream model process is already running for this user"
+Ollama uses the same port by default. Stop the existing server, or choose
+another port:
 
-One model process per user, by design: a 100 GB-class model doesn't share a
-Mac with a sibling. `pgrep -fl slotstream` shows what's running; stop it and
-retry.
+```bash
+slotstream serve --port 11500
+```
 
-### Everything is slow, or the whole Mac is
+Use port 11500 in your client settings too. slotstream checks the port before
+loading the model.
 
-Run `slotstream doctor`. If the expected peak exceeds your Metal working set
-it says so; that means paging. Close the big apps (browsers hold gigabytes),
-or lower the target with `--memory-gb`. On an 8 GB Mac the floor itself
-pages; that tier is for the curious.
+## Another model process is already running
 
-### Decode is slower than the tier table says
+slotstream allows one model process per user to limit memory use. Check
+what's running with `pgrep -fl slotstream`, then stop your existing `serve`,
+`run`, or diagnostic command before retrying. For a server in a terminal,
+press **Ctrl+C** in that terminal.
 
-Compare the `target:` line of the plan printed at startup with your row in
-the README table.
+## The whole Mac is slow
 
-- Lower than the row, with a `note:` about reclaimable memory: other apps
-  were holding memory at startup, so auto took less. Close them and restart,
-  or pin the row's target, e.g. `slotstream serve --memory-gb 22` on a 32 GB
-  Mac. A pinned size skips the availability check, so it pages if that
-  memory is not actually free.
-- Same as the row: the cache is full size and the disk is the limit. Only
-  the 48 GB row is measured; the rest are estimated from a 48 GB M5 Pro, and
-  base-storage Macs have slower SSDs. No memory flag changes that.
+Run `slotstream doctor` and look for memory warnings. If the planned peak
+exceeds the Metal working-set limit, the model may need to page memory to
+disk. Close memory-heavy apps or lower the target with `--memory-gb`.
 
-### The first token takes forever
+An 8 GB Mac needs swap even at the minimum target. It may remain slow with
+other apps closed.
 
-The whole prompt is read before the first token. `slotstream doctor` ends
-with the wait to expect by prompt length at your plan (about 3.0 min for a
-full 32k prompt on a 48 GB Mac, 6.4 min on a 16 GB one), and `run` and
-`serve` print progress lines for any prompt over 2k tokens, so silence past
-a few seconds is not a hang. Follow-up turns in the same conversation read
-only what is new. `slotstream context-check --tokens N` measures a prompt of
-any length on your Mac.
+## Generation is slower than the estimate
 
-### A download was interrupted, or looks suspect
+Compare the startup plan's `target:` line with the README table:
 
-Re-run `slotstream pull`; it resumes where it stopped. `slotstream pull
---verify` re-hashes all 25 files against the pinned sha256s in seconds (the
-optional draft head is skipped when absent) and
-names the bad file, if there is one.
+- **A lower target:** other apps were using memory, so automatic sizing
+  chose a smaller cache. Close those apps and let the server resize, or
+  restart it. Avoid forcing a larger target unless the memory is available.
+- **The same target:** the estimate may not fit your hardware. Chip speed,
+  SSD speed, and thermal limits also matter. A base-storage Mac mini M2
+  measured much slower than the M5 Pro-based estimate. See
+  [Hardware measurements](HARDWARE.md).
 
-### Putting the weights on an external disk
+The first generation also starts with a cold cache. Compare repeated requests
+when checking warm decode speed.
+
+## The first token takes a long time
+
+The model processes the prompt before generating a reply. `slotstream doctor`
+shows estimated waits for different prompt lengths. A full 32k prompt is
+estimated at about 3.0 min for the 48 GB M5 Pro plan and 6.4 min for the 16 GB
+plan; slower SSDs can take longer.
+
+`run` and `serve` print progress for long prompts. Follow-up turns reuse
+unchanged conversation history while it remains cached. To measure a prompt
+on your Mac, stop the server and run `slotstream context-check --tokens 8192`.
+
+## A download was interrupted or may be damaged
+
+Run `slotstream pull` again to resume. To check existing files without
+downloading anything:
+
+```bash
+slotstream pull --verify
+```
+
+It checks the files against pinned SHA-256 hashes and names any damaged file.
+The optional draft head is skipped if absent.
+
+## Store the weights on another disk
 
 ```bash
 slotstream pull --dir /Volumes/big/qwen38
 slotstream serve --model /Volumes/big/qwen38
 ```
 
-Anything that takes `--model` accepts a directory path. In 0.2.0 pass the
-real directory, not a symlink to it: `run` and `serve` refuse a symlinked
-weights folder ("couldn't be opened") even though `doctor` and `pull --verify`
-accept one; fixed on `main`. Expect slower decode: external disks rarely
-match the internal SSD.
+Replace `/Volumes/big/qwen38` with your destination. You can also point
+`--model` at an existing weights directory. SSD speed affects generation,
+so an external disk may be slower than the internal one.
 
-### Reclaiming the disk
+## Reclaim disk space or uninstall
 
-The weights live in `~/.slotstream/models` (105 GB). Delete that folder to
-get the space back and keep the binary, or `rm -rf ~/.slotstream` to remove
-everything; a full uninstall also drops the `/usr/local/bin/slotstream`
-wrapper or the PATH line the installer said it added.
+Delete `~/.slotstream/models` to remove the downloaded weights and keep the
+program. This frees about 105 GB after a full download.
 
-### `slotstream: command not found` right after installing
+To remove both the program and the weights, delete `~/.slotstream`. Also
+remove the `/usr/local/bin/slotstream` wrapper or the PATH entry the installer
+added to your shell profile. If you chose a custom install or model directory,
+remove that directory instead.
 
-The installer puts a wrapper in `/usr/local/bin` when it can write there, and
-otherwise adds one line to your shell profile. Open a new terminal (or
-`exec $SHELL`) and retry.
+## Problems with older versions
 
-### macOS 14 or 15
+Version 0.2.0 rejected fields sent by `ollama run` and couldn't load a weights
+directory through a symlink. Both were fixed in 0.2.1. Run the installer again
+to upgrade; `slotstream --version` shows your installed version.
 
-The installer is tested there; the runtime isn't yet. If something breaks,
-open an issue with your `slotstream doctor` output.
+## Problems on macOS 14 or 15
+
+The installer is tested on these versions; the runtime still needs testing.
+[Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
+error and your `slotstream doctor` output.

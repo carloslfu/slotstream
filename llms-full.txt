@@ -10,486 +10,460 @@ Relative links below point at the same sections, which are all in this file.
 
 [![release](https://github.com/carloslfu/slotstream/actions/workflows/release.yml/badge.svg)](https://github.com/carloslfu/slotstream/actions/workflows/release.yml) [![latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest) [![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](https://github.com/carloslfu/slotstream/stargazers)
 
-Run **Qwen3.8-Flash-Next** on a Mac that can't hold it. The model is a
-125B-parameter mixture-of-experts, 105 GB on disk at 4-bit; slotstream streams
-it from SSD and runs it in whatever memory you give it. It's one Swift binary,
-no Python. It speaks the Ollama and OpenAI chat APIs, so your existing tools
-work unchanged.
+**Run a 105 GB model on a 48 GB Mac.**
+
+slotstream runs Qwen3.8-Flash-Next, a 125-billion-parameter model, by keeping
+most of its weights on SSD and loading the parts it needs into memory. On a
+48 GB M5 Pro, it generates about 12 tokens per second once the cache warms up.
+After the model download, inference works offline on your Mac.
+
+Use it from the terminal, a chat app such as Open WebUI, or your own code
+through its Ollama and OpenAI chat API subsets. It's a Swift binary for Apple
+Silicon, with no Python required.
+
+[Install](#install) · [Hardware](#will-it-run-on-my-mac) · [API](docs/API.md) ·
+[Troubleshooting](docs/TROUBLESHOOTING.md)
 
 > **We're building Sevra on Slotstream.** A personal, local-first app with one
 > continuous conversation, a journal, and knowledge in files you own. The app
-> is still in development; the Slotstream CLI, APIs, and Swift package remain
-> independently usable today. [See Sevra and join the waitlist](https://www.sevrahq.com/).
-
-The launch was [discussed on Hacker News](https://news.ycombinator.com/item?id=49524447) —
-227 points and 114 comments. On 2026-09-01 it peaked at No. 1 on Show HN and
-No. 8 on the front page.
-
-| on a 48 GB M5 Pro | |
-|---|---|
-| Warm decode | ~12 tok/s |
-| Engine start | ~2 s (only the 3.8 GB trunk loads) |
-| Peak memory | 32 GB (auto-sized; you can cap it) |
-| Weights on disk | 105 GB |
-
-## Why this exists
-
-I have a 48 GB MacBook Pro and wanted this model on it. The stock loader took
-the machine into 48 GB of swap before the first token, and the fix was a
-memory design rather than a faster kernel: keep the 3.8 GB trunk resident,
-stream experts through a fixed pool of slots, size that pool to what the
-machine really has, and give memory back when other apps want it. Every
-number in this README ships with its measurement, including the experiments
-that failed; [MEASUREMENTS.md](MEASUREMENTS.md#m07--the-naive-path-fails-why-slotstream-exists)
-starts where this did.
+> is in development. The Slotstream CLI, APIs, and Swift package remain
+> independently usable. [See Sevra and join the waitlist](https://www.sevrahq.com/).
 
 ## Will it run on my Mac?
 
-You need Apple Silicon, macOS 14+, and ~110 GB of free disk. Disk bites
-first: whatever your memory, a 512 GB Mac is the realistic minimum.
+You need an **Apple Silicon Mac, macOS 14 or later, and about 110 GB of free
+SSD space**. Check the free space before starting: the model download is much
+larger than the program itself. The installer has been tested on macOS 14 and
+15; runtime testing so far is on macOS 26.
 
-**Apple Silicon only, and not by accident.** The engine is MLX and Metal, and
-the memory design assumes unified memory: experts are read from SSD straight
-into memory the GPU already addresses, and the pool is sized against the one
-memory the OS, your apps, and the GPU all share. A discrete card has two
-separate budgets with a bus between them, so a Linux or Windows build would be
-a second engine with a second cache tier, not a port. Windows and Linux support
-is planned for Sevra; it is not available in the current engine.
-On another platform, or after a different model, start with llama.cpp in
-[Related projects](#related-projects).
+The model files, called *weights*, use a compact 4-bit format. Smaller Macs
+can run it too, with lower speeds. An 8 GB Mac needs swap even at the minimum
+memory target and can become slow to use.
 
-Auto-sizing never takes the whole machine. What each tier gets:
+<details>
+<summary>Memory targets, speed estimates, and measured results</summary>
 
-| your Mac | slotstream takes | warm decode |
+These are the memory plans and speed estimates from `slotstream doctor
+--sim-ram N`. Speeds are based on the 48 GB M5 Pro; your chip, SSD, and other
+running apps affect the result.
+
+| Mac RAM | Automatic memory target | Estimated generation speed |
 |---|---|---|
-| 8 GB | 8.1 GB, the floor | ~3 tok/s, and `doctor` warns it will page |
+| 8 GB | 8.1 GB | ~3 tok/s; requires swap and can slow the whole Mac |
 | 16 GB | 10 GB | ~4 tok/s |
 | 24 GB | 16 GB | ~8 tok/s |
 | 32 GB | 22 GB | ~9 tok/s |
-| 48 GB and up | 33 GB (more buys nothing; see [Memory](#memory)) | ~12 tok/s |
+| 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
 
-These rows come straight from `slotstream doctor --sim-ram N`, so you can
-reproduce them. Two are measured on real Macs; the rest are estimates from the
-48 GB curve, and that curve has no term for how fast your SSD reads — which is
-the one thing it has since been caught missing. A base-storage Mac mini M2
-measured 1.41 tok/s against this table's ~4, on a disk that reads 1.5 GB/s
-where the dev Mac reads 17.3. If you have one of these Macs,
-[docs/HARDWARE.md](docs/HARDWARE.md) is a ten-minute procedure to measure it
-and get your row into the table. The middle column
-assumes nothing else is holding memory: with a browser open,
-auto takes less and says so in the plan it prints at startup (see
-[Memory](#memory)). Run `slotstream doctor` before downloading anything: it
-prints your machine's plan and whether the disk can hold the weights.
+A **token** is a small piece of text, often part of a word. `tok/s` means
+tokens per second. These speeds describe *warm decode*: generating a reply
+after the cache has filled. The first reply also needs time to process your
+prompt.
+
+The estimates can differ substantially from results measured on real Macs.
+A 16 GB Mac mini M2 with base storage reached **1.41 tok/s**; a 128 GB M5 Max
+was faster than the M5 Pro estimate. See the credited results and test
+conditions in [Hardware measurements](docs/HARDWARE.md). The 8, 24, and 32 GB
+tiers still need reports.
+
+</details>
 
 ## Install
+
+Open Terminal and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
 ```
 
-Installs the latest release to `~/.slotstream/bin` and puts it on your PATH.
-Re-run the same line to upgrade. To uninstall, `rm -rf ~/.slotstream` and
-remove the `/usr/local/bin/slotstream` wrapper or the PATH line the installer
-told you it added.
+This installs the latest release in `~/.slotstream/bin` and makes the
+`slotstream` command available. If your terminal can't find it, open a new
+terminal window. Run the same installer again to upgrade.
 
-Releases are built by CI from the tagged commit with signed provenance, so you
-can verify an asset instead of trusting the download:
+Check your Mac before downloading the model:
 
 ```bash
-gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream
+slotstream doctor
 ```
 
-Or build `main` yourself. Command Line Tools are enough, no Xcode needed:
-
-```bash
-git clone https://github.com/carloslfu/slotstream && cd slotstream
-make build
-```
-
-### The 105 GB download
-
-The binary is small; the weights are not: 105.3 GB across 25 files, one time
-(the last, the 1.5 GB draft head, is optional: a source without it leaves the
-pull green and speculative decode off).
-`serve` and `run` offer the download on first use, or `slotstream pull` does
-it directly. Before transferring anything it prints the size, the destination,
-and your free disk, waits for a yes, and refuses outright if the disk can't
-hold it.
-
-Your link sets the pace. `pull` opens eight TCP connections; a full install
-from a 1 Gbit/s datacenter link measured 112 MB/s, 16 minutes for the whole
-thing, which is the port. At 100 Mbps plan on ~2 h 20; at 25 Mbps, ~9 h. One
-connection alone is bounded by the round trip to Hugging Face — about 70 MB/s
-from a datacenter, 25 to 40 from a home link 100 ms away — which is why the
-count matters and why `pull` prints how many it is actually using. (Through
-0.2.0 it ran on one connection whatever the flag said; see the changelog.)
-
-Interrupting is safe: `pull` picks up where it stopped, redoing at most the
-few chunks that were in flight, and all 25 files are checked against sha256
-hashes compiled into the binary, so a truncated or corrupted download can't
-reach the engine. The files come from a mirror of the pinned revision, with
-the original repo as fallback; the hashes are the same either way.
-`pull --verify` re-hashes an existing copy any time (8 s here).
+This shows the memory plan, estimated speed, and available disk space without
+loading or downloading the model.
 
 ## Use it
 
-First taste, no server:
+For your first reply, run:
 
 ```bash
-slotstream run --prompt "why is the sky blue?"
+slotstream run --prompt "Why is the sky blue?"
 ```
 
-For everything else, `serve` listens on port 11434 and implements the
-chat/generate subset used by Ollama clients and OpenAI SDKs:
+On first use, slotstream offers to download the model. It shows the size,
+destination, and free space, then asks for confirmation. Once the download
+finishes, it processes your prompt and prints the reply.
+
+### The 105 GB download
+
+The full download is 105.3 GB across 25 files, including an optional 1.5 GB
+draft head used to speed up generation. To download the weights before
+starting a run, use `slotstream pull`. Downloads resume after an interruption,
+and each file is checked against a pinned SHA-256 hash before use.
+
+Allow several hours on a home connection. At 100 Mbps, the transfer alone
+takes roughly 2 h 20; at 25 Mbps, roughly 9 h. You only need to download the
+weights once.
+
+<details>
+<summary>Download speed and verification details</summary>
+
+`pull` uses eight TCP connections. A full download on a 1 Gbit/s datacenter
+link measured 112 MB/s and took 16 minutes. One connection reached about
+70 MB/s from a datacenter; latency and your connection speed affect both.
+
+Files come from a mirror of a pinned Hugging Face revision, with the original
+repository as fallback. Both must match the hashes compiled into the binary.
+A source without the optional draft head can still complete the download;
+slotstream then runs with speculative decode off.
+
+To check an existing download, run `slotstream pull --verify` (8 s here on the
+development Mac). See [Troubleshooting](docs/TROUBLESHOOTING.md) to move the
+weights, check a damaged file, or reclaim the disk space.
+
+</details>
+
+### Chat apps and the API
+
+Start the server:
 
 ```bash
 slotstream serve
 ```
 
+Leave it running. In another terminal, send a message:
+
 ```bash
 curl localhost:11434/api/chat -d '{
   "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": "hello"}]
+  "messages": [{"role": "user", "content": "Hello"}]
 }'
 ```
 
-Open WebUI and the OpenAI SDKs are tested against this subset (the Ollama
-CLI is not there yet; see [Status](#status-and-limits)). Streaming, CORS, and
-the usual sampling options all work. What these two dialects do not support
-(tools, JSON-schema output, logprobs) returns a clear 400 instead of being
-silently ignored. Every endpoint, field, default, and error is in
-[docs/API.md](docs/API.md).
+This streams the reply as JSON. Set `"stream": false` to receive one complete
+response. Stop the server with **Ctrl+C** when you're done.
+
+For Open WebUI, use `http://localhost:11434` as the Ollama server address. For
+an OpenAI SDK, use `http://localhost:11434/v1` as the base URL and any string
+as the API key. These addresses work for clients running directly on the same
+Mac; a client in a container needs its own networking setup.
+
+Open WebUI, the Ollama CLI, and OpenAI SDKs have been tested. The server
+supports chat, streaming, images, and sampling options. Tool calling is
+available through the [fx gateway](#coding-agents); the Ollama and OpenAI
+endpoints currently reject tools, JSON-schema output, and logprobs with a
+400 error. See the [API reference](docs/API.md) for the supported fields.
 
 ### Pictures
 
-The model reads images, and every dialect takes them: Ollama's `images`
-array on `/api/chat` and `/api/generate`, OpenAI `image_url` parts,
-AI-SDK `file` parts on the fx gateway, and `--image` on the command line.
+Pass a local image to the command-line tool:
 
 ```bash
-slotstream run --image cat.jpg --prompt "what breed is this?"
+slotstream run --image cat.jpg --prompt "What is in this picture?"
 ```
 
-A picture becomes one token per 32x32 pixels of its resized self, at most
-2,304 tokens each, out of the same context as the text. The vision tower is
-0.9 GB and loads the first time an image arrives — on top of the memory plan
-`serve` printed, and refused with a 400 if the machine cannot spare it at that
-moment, so the announced peak stays true for text-only runs. `serve --vision
-off` declines images outright.
+Images also work through all three server APIs. API clients must send the
+image bytes as base64 or a `data:` URL; the server won't fetch a web URL or
+read a `file://` path. See [image request examples](docs/API.md#images).
 
-Only inline bytes are accepted: a `data:` URL or bare base64, never an
-`http://` or `file://` URL. The server does not fetch what a request points
-it at. A photo's EXIF orientation is applied, so a portrait picture from a
-phone arrives the right way up; a file that ends mid-stream is refused rather
-than decoded into the part that arrived.
+Each resized image uses up to 2,304 tokens of the conversation's context.
+The image encoder, or *vision tower*, loads on the first image and adds
+0.9 GB to the text memory plan. The server rejects the request if there isn't
+room. Use `slotstream serve --vision off` to disable images.
 
-A follow-up turn about the same picture re-uses the state built for it, so the
-tower runs once per image rather than once per turn — measured 15.4 s for the
-first turn and 1.8 s for the second, on the same conversation. Two different
-pictures are told apart by a digest of their bytes, never by their token ids,
-which are identical placeholders.
+In a measured conversation, the first image turn took 15.4 s and the
+follow-up took 1.8 s because its image state was reused. This tests the image
+path and reuse; the project has not measured general image-answer accuracy.
 
 ### Coding agents
 
-The same server also speaks the Vercel AI SDK Language Model Specification v4
-over AI Gateway protocol 0.0.1, which is what [fx](https://fx.sh) talks. Tool
-calling is native there: the model emits calls in its own format and slotstream
-parses them as they stream, typing each argument against the tool's schema. fx
-has no custom-provider setting, but its gateway client accepts a loopback
-override, so pointing it at a local model needs no fork:
+You can use [fx](https://fx.sh) with slotstream for tasks that read files,
+write code, and call tools. The server implements the Vercel AI SDK gateway
+protocol that fx uses.
 
-```bash
-FX_GATEWAY_BASE_URL=http://127.0.0.1:11434 \
-FX_GATEWAY_CHAT_URL=http://127.0.0.1:11434/v3/ai/language-model \
-AI_GATEWAY_API_KEY=local-dummy-key fx models
-```
-
-Use a throwaway `$HOME` so your normal fx profile is untouched, and read
-[docs/FX.md](docs/FX.md) first — it has the wrapper script, and it is honest
-about what does not work (fx's `auto` permission mode and its session
-compaction, both for deadline reasons).
+Follow the [fx setup guide](docs/FX.md) to create a separate local profile.
+Use its `ask` permission mode: automatic action reviews time out on this
+setup, and long-session compaction is unreliable.
 
 ## Speed
 
-Decode is the easy part: ~12 tok/s warm on a 48 GB Mac, and the tier table
-above says what smaller ones get. The slow axis is the prompt. All of it is
-processed before the first token appears, so 8,000 tokens wait about half a
-minute on a 48 GB Mac and about a minute and a half on a 16 GB one. Prompt
-plus completion is capped at 32,768 tokens; [Context](#context) below says
-what that cap is and what a long prompt costs.
+On the 48 GB M5 Pro:
 
-A prompt is read by a sweep: a pass of 256 tokens or more streams
-each layer's experts through staging in contiguous reads and runs the expert
-math as grouped matrix multiplies, instead of one small matvec per token over
-the cache. Measured on the dev Mac against the previous release, at a 16 GB
-target: an 8k prompt 91 → 184 tok/s, ordinary prose 66 → 140, and at the
-8.1 GB floor 51 → 93, at a peak 1.5 GB lower. The sweep never writes the expert cache, so a long
-paste no longer evicts what the conversation was using. Prose reads slower
-than repeated text at every size; the numbers in `doctor` are for the
-acceptance prompt, and [MEASUREMENTS.md](MEASUREMENTS.md) has both.
+| Measurement | Result |
+|---|---|
+| Reply generation after the cache warms up | ~12 tok/s |
+| Engine start, before processing the prompt | ~2 s |
+| Peak memory with automatic sizing | 32 GB |
 
-Within a conversation you only pay that once. Follow-up turns prefill just
-what's new, so time to first token stays flat as the chat grows: over eight
-turns at a 16 GB target, 6.0 s on the last turn instead of 25.8 s. Reused
-state isn't bit-identical to recomputing it, so a reply can occasionally
-differ where two tokens were nearly tied; `--no-prefix-cache` turns it off if
-you need exact reproducibility.
+**Long prompts take time before the first reply token.** Processing the prompt
+is called *prefill*. The estimates for this Mac are about 9 s for 2,000 tokens
+and 39 s for 8,000. Ordinary prose can take longer than the synthetic prompt
+used by the estimator. `slotstream doctor` shows estimates for your memory
+plan, and the terminal prints progress during long prompts.
 
-Decode has one more gear on machines with room to spare. The model ships a
-draft head that predicts the token after next; with `--mtp` (default `auto`)
-slotstream drafts the next token and verifies it in one two-token pass, and
-the draft is right 86% of the time. It only pays where the expert cache is
-already near its best, so auto turns it on when the cache still reaches 120
-experts per layer after the head's 1.6 GB, a 28 GB target, and keeps it off
-below that, where it measured a loss. Measured at that size on a quiet 48 GB
-Mac: **×1.24** decode (10.3 → 12.8 tok/s), ×1.33 on a code prompt, ×1.18
-with the server's default sampling; the auto ceiling becomes 34.6 GB with
-it on. The head is the 1.5 GB `mtp.safetensors` that `pull` fetches with the
-weights; without it, everything runs as before. [MEASUREMENTS.md](MEASUREMENTS.md)
-has the ladder below the threshold, the ceiling, and the method.
+The conversation cache avoids processing unchanged history again. In an
+eight-turn test at a 16 GB target, the last turn started replying after
+6.0 s with reuse, compared with 25.8 s without it. Reuse can change a reply
+when two candidate tokens are nearly tied; use `--no-prefix-cache` for
+comparisons that require a fresh computation every time.
+
+<details>
+<summary>Prefill and speculative decode measurements</summary>
+
+The prefill sweep groups work by expert and reads weights in contiguous
+batches. On the development Mac, at a 16 GB memory target, an 8,000-token
+prompt improved from 91 → 184 tok/s and prose from 66 → 140 tok/s. At the
+8.1 GB floor, prefill improved from 51 → 93 tok/s. The planner estimates
+about 220 tok/s for a 4,096-token pass on the M5 Pro. These results depend on
+the prompt and configuration; they aren't measurements on a 16 GB Mac.
+
+Speculative decode uses a small draft head to propose a token for the main
+model to verify. The draft was accepted 86% of the time in the measured test.
+At a 28 GB target, one draft improved greedy decode by ×1.24
+(10.3 → 12.8 tok/s); the improvement was ×1.18 with default server sampling.
+
+`--mtp auto` enables this when the expert cache can still hold 120 experts
+per layer after allocating 1.6 GB for the head. Below that threshold it stays
+off, because the tested smaller caches lost speed. The automatic ceiling is
+34.6 GB with the head enabled. `--mtp off` disables it.
+
+[MEASUREMENTS.md](MEASUREMENTS.md) includes the configurations, comparisons,
+and failed experiments behind these results.
+
+</details>
 
 ## Context
 
-Prompt plus reply is capped at 32,768 tokens per request (`serve
---max-context`, which can only lower it). The cap is the largest context
-slotstream has measured, not a memory limit: the model is trained for
-262,144 tokens, and context state costs ~27 KiB per token, so a full 32k
-context is under 1 GB. What makes a long prompt expensive is time, because
-every token is read before the first one comes out. On a 48 GB Mac the wait
-is about 9 s for a 2k prompt, 39 s for 8k, 1.4 min for 16k, and 3.0 min
-for the full 32k; a 16 GB Mac takes about 6.4 min for 32k. `slotstream
-doctor` prints these for your machine and its tier table has a column for
-the full-context wait, and `run` and `serve` print progress while a long
-prompt is being read. Within a conversation you pay once: follow-up turns
-read only what is new.
+**Prompt, conversation history, images, and reply share a 32,768-token limit.**
+This is the largest context slotstream has measured. The model was trained
+for 262,144 tokens, but slotstream doesn't yet support that full window.
+`serve --max-context N` can lower the limit.
 
-Past ~4k tokens the prefill pass shrinks as the context grows (4096, then
-2048, 1024, 512), which keeps the pass's temporary memory inside what has
-been measured at the cost of some speed on the tail of a long prompt;
-`slotstream prefill-schedule --chunk 4096 --tokens 32768` shows the ladder.
+At the limit, the estimated wait before the first token is about 3.0 min for
+the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. The latter comes from
+the M5 Pro's curve; a slower SSD can take longer. Follow-up turns reuse
+unchanged history while it remains cached.
 
-To see what a longer prompt costs on your Mac:
+Context state uses about 27 KiB per token. The larger cost of a long prompt
+is processing time. slotstream reduces the prefill batch size as context grows
+to keep temporary memory within the measured range.
+
+To measure a long prompt on your Mac, stop any running server, then run:
 
 ```bash
 slotstream context-check --tokens 16384
 ```
 
-It reads a synthetic prompt of that size through the real engine, reports
-seconds, tok/s, and peak memory against the plan, and stops before the
-machine swaps. Raising the cap is a two-step job, measure then charge, and
-those measurements are what will move it; 128k is the first target.
+It reports time, speed, and peak memory, checking available memory between
+passes. `slotstream prefill-schedule --chunk 4096 --tokens 32768` shows the
+batch schedule without loading the model.
 
 ## Memory
 
-With no flags, slotstream sizes itself to your machine and tells you what it
-chose. This is a 48 GB Mac; it reads 52 because everything here counts in
-decimal GB:
+By default, slotstream chooses a memory target for your Mac and prints it at
+startup. It takes the lowest of 33 GB, 70% of RAM, and 2 GB below the Metal
+working-set limit, then reduces that target if other apps are using memory.
+The draft head can raise the ceiling to 34.6 GB as described above.
 
+The 33 GB ceiling comes from tests where a larger cache stopped improving
+speed. It doesn't mean every Mac has the same speed: the chip and SSD still
+matter. The plan uses decimal GB, so a Mac sold as 48 GB appears as about
+52 GB in its device line.
+
+While the server runs, it checks memory pressure every 15 s and resizes its
+cache between requests. It gives memory back under pressure and grows again
+when space is available. Greedy output stays byte-identical across cache
+sizes and resizes.
+
+To set a memory target yourself:
+
+```bash
+slotstream doctor --memory-gb 16
+slotstream serve --memory-gb 16
 ```
-slotstream memory plan (auto)
-  device: 52 GB RAM (36.0 GB reclaimable now), 40.2 GB Metal working set
-  target: 33.0 GB total for this process   (override: --memory-gb N | --max-ram-percent P)
-  cache:  ~152 of 512 experts per layer  (7280 global slots = 20.1 GB pool)
-  expect: ~32.0 GB peak, ~12 tok/s warm decode (est. from M5 Pro anchors)
-  prefill: 4096 tokens per pass (~220 tok/s here; costs ~5.3 GB of the target)
-  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~3.0 min before its first token here, follow-up turns read only what is new
-  reuse:  up to 32768 tokens across 4 conversations (~1.2 GB), so a follow-up turn re-prefills only what is new
-```
 
-Auto takes the lowest of three limits (33 GB, 70% of RAM, and 2 GB under the
-Metal working-set limit) and sizes down further while other apps are actually
-holding memory. The 33 GB cap is the knee of the measured curve, not
-politeness: in a GB-at-a-time sweep, nothing between 34 and 84 GB decoded or
-prefilled any faster, so a 128 GB Mac gets the same plan a 48 GB one does.
-While running, slotstream re-checks every 15 s and resizes the cache between
-requests, shrinking under pressure and growing back once the pressure passes.
-Output is byte-identical across resizes.
-
-To cap it yourself, `--memory-gb G` sets the total for the process (minimum
-8.1, and it will go past 33 if you want to experiment). `--max-ram-percent P`
-moves the 70% share, and `--experts-per-layer` / `--pool-gb` size the cache
-directly. `slotstream doctor` prints the plan any of these would produce
-without loading anything.
+`--memory-gb` sets the total process target, with a minimum of 8.1 GB. An
+explicit size stays fixed and bypasses automatic availability checks, so
+check that it fits before starting. See the [memory options](docs/CLI.md#memory-options)
+for the other controls and their precedence.
 
 ## How it works
 
-Almost all of the model's bytes sit in two places: 68 GB of routed experts
-(512 per layer, 10 active per token) and a 32 GB n-gram table. The dense trunk
-is only 3.8 GB and stays resident. Experts are read with `pread` into a fixed
-pool of cache slots shared by all 48 layers, so hot layers borrow slots from
-cold ones.
+Qwen3.8-Flash-Next is a *mixture-of-experts* model: each token uses only a
+small subset of its expert networks. Most of its storage is 68 GB of routed
+experts and a 32 GB n-gram lookup table. The 3.8 GB shared part stays in RAM.
 
-**Cache size changes speed, never output.** Greedy decoding is byte-identical
-between a 4 GB cache and a 24 GB one, and that equivalence is a standing test.
+slotstream reads experts from SSD into a fixed pool of cache slots. All
+48 layers share that pool, so layers that need more slots can borrow them
+from others. Keeping more experts in RAM reduces disk reads. It changes
+speed without changing the expert weights used in the computation.
 
-Why not just mmap the file? MLX (Apple's ML framework) can't materialize part
-of a memory-mapped tensor: a top-10 expert gather evaluates all 512 experts of
-that layer, so an mmap path loads ~100 GB and dies. The stock `mlx_lm.load()`
-route took this 48 GB machine into 48 GB of swap without producing a token.
+A memory-mapped file alone doesn't solve this in MLX, Apple's machine-learning
+framework. The tested expert-gather operation materialized every expert in a
+layer, even though the token needed only a few. Explicit slots keep those
+reads and allocations under control. The [design](PLAN.md) covers the details.
+
+## Why this exists
+
+I have a 48 GB MacBook Pro and wanted to run this model on it. The stock loader
+pushed the machine into 48 GB of swap before producing a token. I built
+slotstream to keep the shared weights in memory and stream the experts from
+SSD, with a cache that leaves room for other apps.
+
+The [measurements](MEASUREMENTS.md#m07--the-naive-path-fails-why-slotstream-exists)
+start with that failed load. The launch was also
+[discussed on Hacker News](https://news.ycombinator.com/item?id=49524447), with
+227 points and 114 comments, reaching No. 1 on Show HN and No. 8 on the front
+page on September 1, 2026.
 
 ## FAQ
 
-**Will this wear out my SSD?**
-Not in normal use. After the one-time model download, slotstream reads the
-weights but does not rewrite them while generating. The main write risk is
-macOS swap, so slotstream automatically sizes its memory cache to the RAM your
-machine can spare. An 8 GB Mac—or forcing a larger cache—can still swap heavily.
+### Will this wear out my SSD?
 
-**Can I run it on Linux or Windows? On an NVIDIA, AMD, or Intel GPU?**
-No. slotstream is Apple Silicon only, for the reason above: it is built on MLX
-and Metal, and the cache design assumes unified memory. On a discrete card with
-its own VRAM, streaming experts means copying every miss across PCIe and sizing
-two budgets instead of one. That is a different engine, not a port. Sevra plans
-to add Windows and Linux support for AMD and NVIDIA; this is future work, not
-current Slotstream compatibility. llama.cpp runs this model on CUDA, ROCm, and Vulkan.
+Generation reads the model weights without rewriting them. The main source
+of extra writes is macOS swap when memory runs short. Automatic sizing helps
+avoid that, but an 8 GB Mac or an oversized manual cache can still swap heavily.
 
-**Does it read images?**
-Yes — the checkpoint ships a vision tower and slotstream runs it. See
-[Pictures](#pictures) for what a picture costs and what the server will and
-will not accept as one.
+### Can I run it on Linux or Windows?
 
-**Can I run a different model? Qwen3.8-27B, Llama, DeepSeek?**
-No. slotstream runs exactly `qwen3.8-flash-next:4bit` and the engine is built
-around its geometry. Qwen3.8-27B in particular is a *different* model despite
-the shared family name: it is dense, so every weight is used on every token and
-there is nothing to stream selectively. Expert streaming only pays off for
-mixture-of-experts models, where each token touches a small fraction of the
-weights. For any other model, use llama.cpp or Ollama.
+The current engine requires Apple Silicon, MLX, and Metal. Its cache uses the
+memory shared by the CPU and GPU. Windows and Linux support for AMD and NVIDIA
+is planned for Sevra; it isn't available in the current engine.
+
+### Can I use a different model?
+
+slotstream supports only `qwen3.8-flash-next:4bit`. Its layers, memory planner,
+and weight loader are specific to that model. Qwen3.8-27B, Llama, and DeepSeek
+aren't supported. See [Related projects](#related-projects) for other runtimes.
 
 ## Status and limits
 
-Working, and measured on one machine, an M5 Pro with 48 GB. The smaller tiers
-are estimates from its curve, not runs on real hardware; rows measured on
-other Macs are collected in [docs/HARDWARE.md](docs/HARDWARE.md).
-
-- **One model, one process.** v0 runs exactly `qwen3.8-flash-next:4bit`; the
-  engine is built around its geometry, and `pull` knows no other name. A
-  per-user lock allows one model process at a time.
-- **macOS 14 and 15** have only had the installer exercised, not the runtime.
-- **Vision is measured on one photograph.** The tower matches an independent
-  float32 implementation of the reference (`Tools/vision_ref.py`) and every
-  serving surface is gated end to end, but there is no accuracy benchmark
-  here — no VQA score, no comparison against the same model run by
-  transformers. What is proven is that slotstream computes the tower the
-  reference specifies and puts its rows where the template says; how well
-  `Qwen3.8-Flash-Next` sees is the model's business, unmeasured by this
-  project.
-- **The Ollama CLI can't connect in 0.2.0.** Its requests carry fields the
-  release's strict validator rejects (empty `name`, `system`, `template`,
-  `options`, and Ollama's empty-prompt "load" request), so `ollama run` stops
-  before the first message. Fixed on `main` and verified with a real
-  `ollama run` in both modes; it ships in the next release. curl, Open WebUI,
-  and the OpenAI SDKs work today.
+- **Hardware:** the development measurements use a 48 GB M5 Pro. Community
+  reports cover other Macs; several memory tiers remain estimates. See
+  [Hardware measurements](docs/HARDWARE.md).
+- **Concurrency:** one model process per user, with one generation at a time.
+- **Compatibility:** macOS 14/15 runtime testing is still needed. Tool calling
+  works through the fx gateway; the OpenAI and Ollama subsets don't support it.
+- **Vision:** the image encoder is checked against an independent reference
+  and the APIs are tested with images. There is no general vision accuracy
+  benchmark or comparison with another runtime yet.
 
 ## Use it from Swift
 
-slotstream is also a Swift package, so a Mac app can plan, fetch weights, and
-serve without shelling out to the binary:
+Add the package to your `Package.swift` dependencies:
 
 ```swift
 .package(url: "https://github.com/carloslfu/slotstream.git", .upToNextMinor(from: "0.2.3"))
 ```
 
+You can inspect a memory plan before downloading or loading the model:
+
 ```swift
 import Slotstream
 
 let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.current())
-print(plan.banner())                      // what this Mac would do
-print(WeightStore.default.status())       // ready, or how much is left to fetch
+print(plan.banner())
+print(WeightStore.default.status())
 ```
 
-Planning, the weight manifest and the context arithmetic need no model and no
-Metal, so an app can show what slotstream would do on this Mac before
-downloading 105 GB. [docs/LIBRARY.md](docs/LIBRARY.md) has the rest, including
-the one thing a command-line build has to do about Metal shaders.
+The [Swift library guide](docs/LIBRARY.md) covers setup, weight downloads,
+serving, and the Metal shader library needed by command-line builds.
 
 ## Docs
 
-- [docs/API.md](docs/API.md): every endpoint, accepted field, sampling
-  default, and deliberate 400.
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): port clashes, paging,
-  slow decode, moving or verifying the weights.
-- [docs/HARDWARE.md](docs/HARDWARE.md): rows measured on real Macs, and how
-  to add yours.
-- [docs/LIBRARY.md](docs/LIBRARY.md): using slotstream as a Swift package —
-  weights, planning, serving, and the Metal library requirement.
-- [docs/FX.md](docs/FX.md): running the [fx](https://fx.sh) coding agent against
-  a local model — setup, what works, and what does not.
-- [docs/TESTING.md](docs/TESTING.md): the check catalogue, the tiers, what runs
-  in CI against what runs on the dev Mac, and where the coverage is not.
-- [docs/CLI.md](docs/CLI.md): every command and flag, the memory knobs and
-  their precedence, environment variables, where files live. (`slotstream
-  <command> --help` carries the same text with more discussion.)
-- [CHANGELOG.md](CHANGELOG.md): what each release changed.
-- [PLAN.md](PLAN.md): the design and the milestone tracker.
-- [MEASUREMENTS.md](MEASUREMENTS.md): every number here with its method,
-  including the experiments that failed.
-- [db/](db/DB.md): the public brain those two are generated from: one
-  record per measurement and plan section, every number in this README and
-  the docs as a claim naming the measurement behind it, the decisions and
-  what would reverse them, the machines, and the raw runs. It is a
-  [db.md](https://github.com/carloslfu/db.md) store: `dbmd` queries it, and
-  `Tools/projections.py` regenerates the two documents from it.
-- [llms.txt](llms.txt): a map of all of this for AI agents, with the
-  commands, memory knobs, and API essentials inline;
-  [llms-full.txt](llms-full.txt) is every doc above in one file.
+| Guide | What you'll find |
+|---|---|
+| [Command reference](docs/CLI.md) | Commands, flags, file locations, and environment variables |
+| [API reference](docs/API.md) | Endpoints, request examples, streaming, and errors |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Slow replies, port conflicts, downloads, and uninstalling |
+| [Hardware measurements](docs/HARDWARE.md) | Results from real Macs and how to submit yours |
+| [Swift library](docs/LIBRARY.md) | Using slotstream in an app or tool |
+| [fx setup](docs/FX.md) | Running a coding agent with the local model |
+| [Changelog](CHANGELOG.md) | Changes by release |
+| [Design and plan](PLAN.md) | Architecture, decisions, and upcoming work |
+| [Measurements](MEASUREMENTS.md) | Evidence and methods behind performance claims |
 
-## Testing
+[db/](db/DB.md) is the public [db.md](https://github.com/carloslfu/db.md) store
+that holds the measurements, claims, plans, and raw runs. `PLAN.md` and
+`MEASUREMENTS.md` are generated from its records. For AI agents,
+[llms.txt](llms.txt) is the index and [llms-full.txt](llms-full.txt) combines
+the documentation into one file.
 
-`make checks` runs the check catalogue: the prefill schedule, the context
-policy, cache and process bounds, the governor's branches, pull integrity,
-memory planning, HTTP framing and routing, and the sampler — 121 assertions
-that need no weights, no network and no GPU beyond the sampler.
+<a id="testing"></a>
 
-`Tools/verify.sh` is the acceptance battery against the real model: weight
-provenance, goldens against a version-matched Python reference, byte-equality
-across cache sizes and live resizes, the speculative-decode gates, and a
-serving-robustness suite of inputs that used to crash the server.
-`Tools/e2e_release.sh` tests the other thing users actually touch: the
-`curl | sh` install and the binary it leaves behind. Everything that needs no
-weights runs in CI on every push, with a coverage ratchet.
-[docs/TESTING.md](docs/TESTING.md) says which is which, and where the coverage
-is not.
+## Building and testing
+
+To build from source, install Apple's Command Line Tools, then run:
+
+```bash
+git clone https://github.com/carloslfu/slotstream
+cd slotstream
+make build
+make checks
+```
+
+`make checks` runs without weights, network access, or a GPU. `make checks-all`
+adds the MLX tests. `Tools/verify.sh` tests against the real model, including
+reference comparisons, cache resizes, speculative decode, and server
+regressions. [Testing](docs/TESTING.md) explains the suites and coverage gaps;
+[Contributing](CONTRIBUTING.md) covers the development workflow.
+
+Release builds come from tagged commits in GitHub Actions. After downloading
+a release archive, you can verify its provenance with the GitHub CLI:
+
+```bash
+gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream
+```
 
 ## Related projects
 
-Streaming a mixture-of-experts model from SSD on Apple Silicon is an active
-corner, and several people got there before this repo or in parallel. If one
-of these fits your machine or your model better, use it.
+Other projects approach local inference with different models, hardware,
+and memory strategies:
 
-- [llama.cpp](https://github.com/ggml-org/llama.cpp) runs this model, with
-  the n-gram table read lazily from disk since late August 2026, and is the
-  mature choice when the routed experts fit in memory; community hardware
-  guides put its floor for this model at 64 GB.
+- [llama.cpp](https://github.com/ggml-org/llama.cpp): inference across many
+  models and CPU/GPU backends.
 - [Rapid-MLX](https://github.com/raullenchai/Rapid-MLX) and
-  [oMLX](https://github.com/jundot/omlx) serve it fully resident with
-  speculative decoding and are several times faster than slotstream when the
-  whole model fits, which today means a 128 GB Mac.
-- [Whallm](https://github.com/yanun0323/Whallm) streams routed experts for
-  DeepSeek-V4-Flash and the FP8 checkpoint of this model, with a native Mac
-  app; its README reports 15 to 19 GiB peak and 8 to 9 tok/s on a 64 GB Mac.
-- [SwiftLM](https://github.com/SharpAI/SwiftLM) is a multi-model MLX Swift
-  server with an expert-streaming mode for 100B+ MoE models, KV-cache
-  compression, and an iPhone app.
-- [Mference](https://github.com/NeelM0906/Mference) is a Swift and Metal
-  engine with its own kernels that runs several MoE families in a few GB
-  through per-layer slot profiles, down to 8 GB Macs.
-- [mlx-flash](https://github.com/matt-k-wong/mlx-flash) streams weights for
-  any MLX model at native precision, dense models included, by wrapping the
-  model's own layers.
-- [samosa-chat](https://github.com/deepanwadhwa/samosa-chat) aims a smaller
-  MoE at 16 GB machines and takes thermals seriously.
-- Earlier experiments in the same direction:
+  [oMLX](https://github.com/jundot/omlx): local inference servers for Apple Silicon.
+- [Whallm](https://github.com/yanun0323/Whallm),
+  [SwiftLM](https://github.com/SharpAI/SwiftLM), and
+  [Mference](https://github.com/NeelM0906/Mference): other approaches to running
+  large models on Macs.
+- [mlx-flash](https://github.com/matt-k-wong/mlx-flash),
+  [samosa-chat](https://github.com/deepanwadhwa/samosa-chat),
   [deepseek-v4-flash-mlx](https://github.com/ssd-moe/deepseek-v4-flash-mlx),
-  [streamlx](https://github.com/srcterm/streamlx),
-  [mlx-moe-offload](https://github.com/huckiyang/mlx-moe-offload).
+  [streamlx](https://github.com/srcterm/streamlx), and
+  [mlx-moe-offload](https://github.com/huckiyang/mlx-moe-offload): related work
+  on inference with limited memory.
 
-What slotstream adds is narrower than any of them: one model, one binary, a
-planner that sizes the cache to the machine and resizes it while running, an
-exact-prefix conversation cache, byte-identical output across cache sizes as
-a standing test, and every number published with its method. A side-by-side
-on the same Mac is in progress; until it lands, the numbers above are each
-project's own, not mine.
+There isn't a completed comparison on the same Mac yet. Each project's
+reported speeds use its own setup and shouldn't be read as a ranking.
+
+## Support
+
+[Submit a measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
+to help replace the remaining hardware estimates. Reports from 8, 24, and
+32 GB Macs, older chips, or external SSDs are useful. A 16 GB Mac with a fast
+SSD would help separate disk speed from memory capacity. The
+[procedure](docs/HARDWARE.md#how-to-measure) takes about ten minutes once the
+weights are downloaded, and reports are credited to their authors.
+
+GitHub Sponsors is being set up to fund hardware testing. Purchases and
+rentals funded by sponsorship will be recorded in this repository.
+
+## Who made this
+
+I'm [Carlos Galarza](https://www.carlosgalarza.com). I work on efficient AI
+and Executable Rationality, making machine cognition explicit and runnable.
+I also help teams run open models on their own hardware and debug unreliable
+agent workflows. For consulting or help measuring your Mac, write to
+[carloslfu@gmail.com](mailto:carloslfu@gmail.com).
 
 ## Star history
 
@@ -500,47 +474,14 @@ project's own, not mine.
   </picture>
 </a>
 
-Generated weekly from GitHub's stargazer timeline by
-[this repository's workflow](.github/workflows/star-history.yml).
-
-## Support
-
-Three ways to help, in the order that helps most.
-
-**Report a measured row.** Two rows in the tier table are measured on real
-Macs; the 8, 24, and 32 GB rows are still estimates. If you have one of those,
-an older chip, an external SSD — or a 16 GB Mac with a *fast* SSD, which is
-the single most useful report right now — [docs/HARDWARE.md](docs/HARDWARE.md)
-has a ten-minute procedure; open a
-[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
-and your row goes into the table with your name on it. A row that
-contradicts the estimate is the most useful kind: the 16 GB row came in at a
-third of its estimate and retired a claim.
-
-**Sponsor the hardware.** GitHub Sponsors for this project is being set up.
-Once it is live, sponsorship pays for renting or buying the smaller Macs
-those rows need, so they get measured instead of estimated, and the ledger of
-what it bought will live in this repo.
-
-**Hire the author.** If your team needs this model, or a different one,
-running on hardware you already own, with numbers you can hold me to, that
-is work I do. Details below.
-
-## Who made this
-
-slotstream is written by [Carlos Galarza](https://www.carlosgalarza.com). I
-work on efficient AI and on Executable Rationality, making machine cognition
-explicit, runnable, and efficient. I also help teams run open models on
-their own machines, and fix production agent workflows that fail in ways
-nobody can reproduce. If you want a hand with either, or want your Mac
-measured, write to carloslfu@gmail.com.
+Updated weekly by this repository's [workflow](.github/workflows/star-history.yml).
 
 ## License
 
-MIT. `Sources/SlotstreamCore/Vendored/GatedDelta.swift` is ported from
-[mlx-swift-lm](https://github.com/ml-explore/mlx-swift-lm) (MIT), and
-`Tools/reference/` vendors the community `qwen4_exp.py` used as the test
-oracle. Weights come from
+MIT. `Sources/Slotstream/Vendored/GatedDelta.swift` is ported from
+[mlx-swift-lm](https://github.com/ml-explore/mlx-swift-lm) (MIT).
+`Tools/reference/` includes the community `qwen4_exp.py` used as the test
+reference. Model weights come from
 [pipenetwork/Qwen3.8-Flash-Next-MLX-4bit](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit)
 and remain under the Qwen community license.
 
@@ -549,12 +490,13 @@ and remain under the Qwen community license.
 
 # Command reference
 
-Every command and flag in the released binary. `slotstream <command> --help`
-carries the same text with longer discussion per flag; this page is the map.
-Any command that loads the model takes the per-user lock, so one model
-process runs at a time.
+This page covers everyday commands, memory settings, and common diagnostics.
+Run `slotstream <command> --help` for the options in your installed version.
+Only one model process can run per user at a time.
 
-## Where things live
+<a id="where-things-live"></a>
+
+## File locations
 
 | Path | What |
 |---|---|
@@ -577,48 +519,49 @@ Generate once from a prompt, with no server.
 | `--greedy` | Deterministic greedy sampling. |
 | `--raw` | Send the prompt without the chat template. |
 | `--think` | Enable the model's thinking mode. |
+| `--image <path>` | Attach a local image; repeat the flag for multiple images. |
 
 Plus the [memory options](#memory-options) below.
 
 ### `slotstream serve`
 
-The Ollama- and OpenAI-compatible server ([docs/API.md](API.md)).
+Start the local API server. See the [API reference](API.md) for the Ollama
+and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 
 | Flag | Meaning |
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
-| `--max-context <n>` | Longest prompt-plus-completion accepted, in tokens; past it a request is refused with a 400 that says why. Default and ceiling 32768: the largest context measured so far, not a memory limit (context state is ~27 KiB per token). The flag can only lower it; `context-check` is how a higher ceiling gets earned. |
+| `--max-context <n>` | Maximum tokens shared by prompt and reply. Default and ceiling: 32768. You can lower the cap; a prompt above it returns 400. Context state uses about 27 KiB per token. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
-| `--no-prefix-cache` | Re-prefill every request from scratch instead of extending the previous request's state. |
+| `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
 
 Plus the memory options.
 
 ### `slotstream pull [model]`
 
-Download the weights: parallel, resumable, hash-verified. The only model
-name is `qwen3.8-flash-next:4bit`, which is also the default.
+Download the model weights with resumable transfers and hash verification.
+The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 
 | Flag | Meaning |
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
-| `--connections <n>` | TCP connections, one URLSession each (default 8, cap 32). Eight fill a 1 Gbit/s link (112 MB/s on a full install); more buys nothing there or on slower links. `pull` prints the count it measures. |
-| `--verify` | Re-hash an existing copy against the pinned sha256s and download nothing. |
+| `--connections <n>` | Parallel TCP connections (default 8, cap 32). Eight measured 112 MB/s for a full download on a 1 Gbit/s link. `pull` reports the active count. |
+| `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
 
 Weights placed elsewhere are used by passing that directory to `--model`, or
-by symlinking it into the default location so the model keeps its name (a
-symlinked directory fails to open in 0.2.0; fixed on `main`).
+by symlinking it into the default location. Symlinked directories work from
+0.2.1 onward.
 
 ### `slotstream doctor`
 
-The device report, the plan your flags would produce, and what each memory
-target buys. It never loads the model and takes no lock, so it is safe to run
-any time.
+Show your Mac's memory plan, disk space, and estimated speed. This command
+never loads the model and can run while the server is working.
 
 | Flag | Meaning |
 |---|---|
-| `--sim-ram <gb>` | Preview the plan for a machine with this much RAM (pristine unless `--sim-available` is also given; working set defaults to 75% of RAM). |
-| `--sim-working-set <gb>` | Pretend this Metal working-set limit. |
-| `--sim-available <gb>` | Pretend this much memory is reclaimable right now. |
+| `--sim-ram <gb>` | Preview a Mac with this much RAM. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
+| `--sim-working-set <gb>` | Use this Metal working-set limit in the simulation. |
+| `--sim-available <gb>` | Use this much available memory in the simulation. |
 | `--max-context <n>` | Preview the plan `serve --max-context n` would announce. |
 | `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
 
@@ -629,13 +572,13 @@ wait for a prompt filling the whole context.
 
 ### `slotstream context-check`
 
-Measure what reading an N-token prompt costs on this Mac. Loads the model
-(takes the lock), reads a synthetic prompt through the real engine with the
-prefix cache off, and prints seconds, tok/s, and the process peak memory
-against the plan's expected peak. Between passes it watches reclaimable
-memory and stops before the machine swaps. It writes nothing: a number it
-prints becomes a MEASUREMENTS.md entry by hand, which is the step that can
-move the 32k ceiling.
+Measure how long a synthetic prompt takes on your Mac, with conversation
+reuse disabled. It reports seconds, tokens per second, and peak process
+memory against the plan. It checks available memory between passes and
+stops if it falls below the threshold.
+
+Stop any running model process first. Results are printed without writing
+files; contributors can register them in the measurement records under `db/`.
 
 | Flag | Meaning |
 |---|---|
@@ -655,15 +598,17 @@ Memory section).
 | Flag | Meaning |
 |---|---|
 | `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
-| `--memory-gb <gb>` | Total memory target for the whole process; the expert cache gets what remains after the resident, runtime, and context footprint plus a 1 GB margin. Minimum 8.1. The easiest knob. |
+| `--memory-gb <gb>` | Total process memory target, in decimal GB. The cache gets what remains after fixed allocations and a 1 GB margin. Minimum 8.1; use this option for a manual target. |
 | `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
 | `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |
-| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Lowers the target for other apps; cannot raise it past the ~33 GB knee. Ignored when an explicit knob is given. |
+| `--vision auto\|on\|off` | Accept images (default `auto`). `auto` loads the image encoder on first use; `on` also requires the checkpoint to contain vision weights; `off` rejects images. |
+| `--mtp auto\|on\|off` | Speculative decode (default `auto`); see [Speculative decode](#speculative-decode). |
+| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Lowers the target for other apps; cannot raise it past the ~33 GB ceiling. Ignored when an explicit size is given. |
 
 Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
-which beats `--memory-gb`. An explicit size is pinned (no elastic resize) and
-bypasses auto's availability clamp, which is exactly why it exists and why it
-can drive a Mac into swap: prefer `--memory-gb` and check `doctor` first.
+which beats `--memory-gb`. An explicit size stays fixed and
+bypasses automatic availability checks. Preview it with `doctor` and make
+sure the memory is available before loading the model.
 
 ## Environment variables
 
@@ -684,10 +629,10 @@ can drive a Mac into swap: prefer `--memory-gb` and check `doctor` first.
 
 ## Checks and diagnostics
 
-These are the gates behind `Tools/verify.sh`, available in every install.
-The first group needs no weights and runs in seconds; the second loads the
-model, takes the lock, and allocates real memory, so give it a small target
-(`--memory-gb 8.1` to `10`) the way the battery does.
+These checks help diagnose an installation. The first group needs no weights;
+the second loads the model. Use small explicit memory targets for model
+checks (`--memory-gb 8.1` to `10`) and stop other model processes first.
+See [Testing](TESTING.md) for the full suites.
 
 **Weights-free**
 
@@ -712,246 +657,265 @@ model, takes the lock, and allocates real memory, so give it a small target
 | `ngram-golden` | Prints n-gram row ids for a token sequence, for comparison with Python. `--tokens`. |
 | `dequant-golden` | CPU-dequantizes one n-gram row for comparison with `mx.dequantize`. `--gid` (12345). |
 
-## New in 0.2.0
+<a id="new-in-020"></a>
+
+## Speculative decode
 
 - `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the
   model's draft head, `mtp.safetensors`, which `pull` fetches with the
-  weights (optional: a source without it leaves the pull green). `on`
+  weights. The file is optional; downloads can complete without it. `on`
   without the file is an error; `auto`, the default, turns it on when the
   cache still reaches 120 experts per layer after the head's 1.6 GB (a 28 GB
-  target) and stays off below that, where it measured a loss. At that size
+  target) and stays off below that, where it reduced speed in tests. At that size
   it measured ×1.24 decode; MEASUREMENTS.md M9 has the ladder and the
   ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
 - `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 1, by
-  measurement: a verify pass costs about a sixth of a pass per extra token
-  and a rejection re-runs the kept tokens, so the shortest chain wins;
-  MEASUREMENTS.md M9). Experiments only.
+  measurement: longer verification passes cost more, and one draft was best or tied
+  at the tested cache sizes; MEASUREMENTS.md M9). Rejected drafts roll
+  back to recorded state. This override is for experiments.
 
 
 <!-- ===== docs/API.md ===== -->
 
-# The HTTP API
+# HTTP API
 
-`slotstream serve` listens on **127.0.0.1 only** (port 11434, `--port N`) and
-speaks two dialects of the same engine: Ollama-style under `/api/*` and
-OpenAI-style under `/v1/*`. There is no auth token: the server can't be
-reached from other machines, and browser requests are accepted from loopback
-origins only, so a web page you happen to visit can't drive your model.
+Start the server with `slotstream serve`. It listens on **127.0.0.1:11434**;
+use `--port N` to choose another port. It has no authentication, so local
+processes can use it. Browser requests must come from an allowed loopback
+origin. See [Security](../SECURITY.md).
 
-Validation is strict on purpose. Unknown fields, unsupported features, and
-malformed values return a 400 that names the problem; nothing is silently
-ignored. A wrong model name is a 400 naming the only model (a 404 on
-`/api/show`). The only model name is `qwen3.8-flash-next:4bit`.
+This page covers the Ollama-style `/api/*` and OpenAI-style `/v1/*` endpoints.
+For the AI SDK gateway and tool calling, see the [fx guide](FX.md).
+Use `qwen3.8-flash-next:4bit` as the model name.
+
+Unknown fields, unsupported features, and malformed values return a 400
+error describing the problem. A wrong model name returns 400, or 404 on
+`/api/show`. Some client compatibility fields are accepted without an effect;
+these are listed below.
 
 ## Endpoints
 
 | Endpoint | What it does |
 |---|---|
-| `POST /api/chat` | Chat completion, Ollama format. Streams by default. |
-| `POST /api/generate` | Prompt completion, Ollama format. Streams by default. |
-| `POST /v1/chat/completions` | Chat completion, OpenAI format. `stream: false` by default. |
-| `GET /v1/models` | The one model, OpenAI list format. |
-| `GET /api/tags` | The one model, Ollama list format. |
-| `GET /api/ps` | The loaded model and what it is costing in memory right now. |
-| `POST /api/show` | Model metadata, including `capabilities`. Fields: `model` (or Ollama's deprecated `name`), optional `verbose`; empty `system`, `template`, and `options` are accepted because the Ollama CLI always sends them, non-empty ones are a 400. |
-| `GET /api/version` | `{"version": "..."}` |
-| `POST /api/embed`, `/api/embeddings` | 400 — the model does not do embeddings. |
-| `POST /api/pull`, `/api/create` | 501 — run `slotstream pull` on the host instead. |
+| `POST /api/chat` | Chat completion in Ollama format; streams by default |
+| `POST /api/generate` | Prompt completion in Ollama format; streams by default |
+| `POST /v1/chat/completions` | Chat completion in OpenAI format; doesn't stream by default |
+| `GET /v1/models` | Lists the model in OpenAI format |
+| `GET /api/tags` | Lists the model in Ollama format |
+| `GET /api/ps` | Reports the loaded model and its current memory use |
+| `POST /api/show` | Returns model metadata and capabilities |
+| `GET /api/version` | Returns `{"version": "..."}` |
+| `POST /api/embed`, `/api/embeddings` | Returns 400; embeddings aren't supported |
+| `POST /api/pull`, `/api/create` | Returns 501; use `slotstream pull` on the host |
+
+`/api/show` accepts `model` (or the deprecated `name` alias) and optional
+`verbose`. Empty `system`, `template`, and `options` fields are accepted for
+Ollama CLI compatibility; non-empty overrides return 400.
 
 ## `/api/chat`
 
-Fields: `model`, `messages`, `stream` (default `true`), `think`
-(`true`/`false`), `options`, `images`, and `keep_alive`, which is accepted and
-has no effect because the model never unloads.
+Accepted fields: `model`, `messages`, `stream` (default `true`), `think`
+(boolean), `options`, and `keep_alive`. `keep_alive` has no effect because
+the server keeps the model loaded.
 
-Messages are `{"role", "content"}`; `tool_calls` are rejected. `content` is
-text, or an array of parts for a message that carries a picture — see
-[Images](#images). `options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
-`presence_penalty`, `num_predict`, `seed`, and `stop` (a string or an array).
-A JSON `null` means "not set" for any field, which is what client SDKs send for
-one they are not using.
-
-With `think: true` the model reasons before it answers. The reasoning comes
-back in `message.thinking` and the answer in `message.content`, streamed and
-non-streamed alike; it is never mixed into the answer. A reply that runs out of
-tokens mid-reasoning has an empty `content`.
+Each message has a `role` and `content`, with optional `images`. Content can
+be text or an array of supported image/text parts; see [Images](#images).
+Tool calls aren't supported on this endpoint.
 
 ```bash
 curl localhost:11434/api/chat -d '{
   "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": "hello"}],
+  "messages": [{"role": "user", "content": "Hello"}],
+  "stream": false,
   "options": {"temperature": 0.2, "seed": 7}
 }'
 ```
 
+`options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+`presence_penalty`, `num_predict`, `seed`, and `stop` (a string or array).
+JSON `null` is treated as an unset field.
+
+With `think: true`, reasoning appears in `message.thinking` and the answer
+in `message.content`, for both streamed and complete responses. If the token
+budget runs out during reasoning, `content` is empty.
+
 ## `/api/generate`
 
-Fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`, `keep_alive`,
-and the same `options` as chat (`null` counts as none). Empty `suffix` and
-`template` are accepted because the Ollama CLI's one-shot mode sends them;
-a non-empty suffix (fill-in-the-middle) or template override is a 400. An
-`think: true` puts the reasoning in a `thinking` field, separate from
-`response`. An empty prompt is Ollama's "load the model" request and is acknowledged with
-`done: true, done_reason: "load"` (the same for `/api/chat` with no
-messages); the model is always loaded here, so nothing else happens. `raw: true` sends your prompt with no chat template, and
-can't be combined with `system` or `think`.
+Accepted fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`,
+`images`, `keep_alive`, and the same `options` as chat. Empty `suffix` and
+`template` fields are accepted for Ollama CLI compatibility. A non-empty
+suffix or template override returns 400.
+
+`think: true` returns reasoning in `thinking` and the answer in `response`.
+`raw: true` sends the prompt without the chat template and can't be combined
+with a system prompt, thinking, or images.
+
+An empty prompt acknowledges Ollama's load request with
+`done: true, done_reason: "load"`. `/api/chat` does the same for an empty
+message list. The model is already loaded in either case.
 
 ## `/v1/chat/completions`
 
-Fields: `model`, `messages`, `stream`, `temperature`, `top_p`, `top_k`,
-`presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`, `stop`,
-and `stream_options` (`{"include_usage": true}`). `top_k` is an extension
-beyond the OpenAI schema; the rest is standard. `null` means "not set" for
-every field, which is how the OpenAI client serializes an unset `max_tokens`.
-
-Stock SDKs put a few more fields on every call. Each is accepted at the single
-value this server already implements and refused at any other, so nothing is
-silently dropped: `n: 1`, `frequency_penalty: 0`, `logprobs: false`,
-`logit_bias: {}`, `tools: []`, `tool_choice: "none"`,
-`parallel_tool_calls: false`, `response_format: {"type": "text"}`, and `user`
-(any string; it has no effect here).
+Set an OpenAI-compatible client's base URL to `http://localhost:11434/v1`.
+If it requires an API key, use any placeholder string. For example, with the
+Python OpenAI SDK installed:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:11434/v1", api_key="unused")
-r = client.chat.completions.create(
+reply = client.chat.completions.create(
     model="qwen3.8-flash-next:4bit",
-    messages=[{"role": "user", "content": "hello"}],
+    messages=[{"role": "user", "content": "Hello"}],
 )
-print(r.choices[0].message.content)
+print(reply.choices[0].message.content)
 ```
 
-`api_key` can be any string; nothing checks it.
+Accepted fields: `model`, `messages`, `stream`, `temperature`, `top_p`,
+`top_k`, `presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`,
+`stop`, and `stream_options` (`{"include_usage": true}`). `top_k` is a
+slotstream extension. JSON `null` is treated as unset.
+
+For SDK compatibility, these fields are accepted only at the listed values:
+`n: 1`, `frequency_penalty: 0`, `logprobs: false`, `logit_bias: {}`,
+`tools: []`, `tool_choice: "none"`, `parallel_tool_calls: false`, and
+`response_format: {"type": "text"}`. `user` accepts any string and has no
+effect. Other values for these options return 400.
 
 ## Sampling defaults
 
-| knob | default |
+| Option | Default |
 |---|---|
 | `temperature` | 0.7 |
 | `top_p` | 0.8 |
 | `top_k` | 20 |
 | `min_p` | 0 |
 | `presence_penalty` | 1.5 |
-| `num_predict` / `max_tokens` | 512; `<= 0` means "as many as the context allows" |
-| `seed` | random each request |
-| `stop` | none |
+| `num_predict` / `max_tokens` | 512; `<= 0` uses the remaining context |
+| `seed` | Random for each request |
+| `stop` | None |
 
-A request that names no `seed` gets a fresh one, so repeated calls differ;
-pass a `seed` to reproduce a reply exactly. An unseeded request used to replay
-one fixed stream from the moment the process started, which is why this is
-spelled out.
-
-Out-of-range values are clamped into the range the sampler is defined on
-rather than erroring: a `top_p` of 0 or a `min_p` above 1 used to empty the
-candidate set and make the old sampler emit token 0 forever.
+Set `seed` for reproducible sampling. For comparisons, keep the model,
+prompt, and generation settings fixed and start the server with
+`--no-prefix-cache`: reusing conversation state can change nearly tied
+outputs. Out-of-range sampling values are clamped to supported ranges.
 
 ## Streaming
 
-Ollama endpoints stream newline-delimited JSON objects and finish with a
-`done: true` object carrying `done_reason` and the token counts
-(`prompt_eval_count`, `eval_count`). `/v1` streams SSE `data:` lines ending
-with `[DONE]`, and its first delta carries `"role": "assistant"`. A delta is
-sent per token, withheld only while a UTF-8 scalar or a stop sequence is still
-incomplete. Either way, concatenating every delta reproduces the
-non-streamed text exactly — including multi-byte graphemes that merge across
-tokens and stop sequences that straddle a token boundary. That equality is a
-gated test (`Tools/api_robustness.sh`), not an intention.
+Ollama endpoints stream newline-delimited JSON. The final object has
+`done: true`, `done_reason`, `prompt_eval_count`, and `eval_count`.
 
-## Errors
+The OpenAI endpoint streams Server-Sent Events (SSE) as `data:` lines ending
+with `[DONE]`. Its first delta includes `"role": "assistant"`.
 
-Ollama dialect: `{"error": "why"}` with 400, 404, or 501. OpenAI dialect:
-`{"error": {"message": "..."}}`, with `"type": "invalid_request_error"` added
-on validation failures.
-
-Deliberately unsupported, and rejected with a clear 400 rather than ignored:
-tool calling, JSON-schema output, logprobs, embeddings, and named reasoning
-levels for `think`.
-
-A malformed request gets a status line, never a dropped connection: 411 for a
-chunked body (send `Content-Length`), 413 for a body over 32 MiB, 431 for
-headers over 64 KiB, 503 when too many connections are already open. A query
-string does not affect routing, and `HEAD` answers 200 or 404 for the path
-actually asked for.
+Text is sent incrementally. Incomplete UTF-8 characters and possible stop
+sequences are held back until resolved. Concatenating the text deltas gives
+the same text as a non-streamed response under the same generation
+conditions; `Tools/api_robustness.sh` checks this.
 
 ## Images
 
-The model reads pictures. Every dialect takes them, in the shape that dialect
-already uses:
+All three APIs accept images, using these request shapes:
 
-```bash
-# Ollama: base64 in `images`, on /api/chat or /api/generate
-curl localhost:11434/api/chat -d '{
-  "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": "what is this?",
-                "images": ["'"$(base64 -i cat.jpg)"'"]}]
-}'
+| API | Image field |
+|---|---|
+| Ollama chat | `images: [base64]` on the user message |
+| Ollama generate | `images: [base64]` on the request |
+| OpenAI chat | An `image_url` content part with a `data:` URL |
+| AI SDK gateway | A `file` part with an `image/*` media type and inline `data` |
 
-# OpenAI: an image_url part with a data: URL
-curl localhost:11434/v1/chat/completions -d '{
-  "model": "qwen3.8-flash-next:4bit",
-  "messages": [{"role": "user", "content": [
-    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},
-    {"type": "text", "text": "what is this?"}
-  ]}]
-}'
+This Python 3 example sends `cat.jpg` to the Ollama chat endpoint. It uses
+only the standard library:
+
+```python
+import base64
+import json
+from pathlib import Path
+from urllib.request import Request, urlopen
+
+image = base64.b64encode(Path("cat.jpg").read_bytes()).decode("ascii")
+body = {
+    "model": "qwen3.8-flash-next:4bit",
+    "messages": [{"role": "user", "content": "What is in this picture?",
+                  "images": [image]}],
+    "stream": False,
+}
+request = Request(
+    "http://localhost:11434/api/chat",
+    data=json.dumps(body).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response)["message"]["content"])
 ```
 
-fx and any AI-SDK client send a `file` part with an `image/*` media type and
-inline `data`; the gateway catalogue advertises the `vision` tag so they know
-they may. `slotstream run --image cat.jpg --prompt "what is this?"` does the
-same from the command line.
+For the OpenAI endpoint, replace the message above with:
 
-**Inline bytes only.** A `data:` URL or bare base64 is accepted; an `http://`,
-`https://` or `file://` URL is refused with a 400 that says so. The server
-never dereferences a URL a request hands it — that would make any client that
-can reach the loopback port able to fetch arbitrary hosts and read local files
-through it.
+```python
+{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + image}},
+    {"type": "text", "text": "What is in this picture?"},
+]}
+```
 
-**Orientation and completeness.** A photograph's EXIF orientation is applied,
-so a portrait picture from a phone reaches the model the way it looks on the
-phone rather than on its side. An image whose file ends mid-stream — an upload
-cut short — is refused with a 400 rather than decoded into the rows that
-arrived, which would otherwise come back as a confident description of a
-mostly blank picture.
+Send it to `/v1/chat/completions` and read
+`choices[0].message.content` from the JSON response. Use a media type that
+matches your image. From the terminal, `slotstream run --image cat.jpg
+--prompt "What is in this picture?"` is the shorter option.
 
-**What an image costs.** It is resized the way the reference processor resizes
-it and becomes one token per 32×32 pixels of the resized image, capped at
-2,304 tokens (about 1536×1536) per picture; those tokens come out of the same
-32,768-token context as the text. Pictures larger than 24 MiB decoded, or with
-sides more than 200× apart, are refused. The vision tower is 0.9 GB and loads
-the first time a request carries an image, on top of the announced memory
-plan — `serve --vision off` refuses images instead, and a machine with no room
-for the tower at that moment gets a 400 rather than a swap storm.
+The server accepts **inline bytes only**, as bare base64 or a `data:` URL.
+It rejects `http://`, `https://`, and `file://` URLs. It applies EXIF
+orientation, composites transparency onto white, and rejects truncated files.
 
-A follow-up turn on a conversation whose pictures have not changed re-uses the
-state it already built for them: the tower does not run again, and prefill
-reads only the new text. Two different pictures that happen to resize to the
-same shape are told apart by a digest of their bytes, never by the token ids.
+Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
+the shared 32,768-token context. The decoded image file must be at most
+24 MiB, with an aspect ratio no greater than 200:1.
 
-## Limits
+The vision tower uses 0.9 GB and loads on the first image request, in addition
+to the text memory plan. A request is rejected if there's insufficient room.
+`serve --vision off` disables images. Follow-up turns reuse image state while
+the matching conversation remains cached; image identity is checked by a
+digest of its bytes.
 
-Prompt plus completion is capped at 32,768 tokens (`serve --max-context`,
-which can only lower it); a request past the cap is refused with a 400 that
-names the cap, what it is (the largest context measured so far, not a memory
-limit), and the wait that prompt would have cost. Generation is
-serialized: a second completion request waits its turn. The metadata
-endpoints never take that lock — they read a published snapshot — so
-`/api/version`, `/api/tags`, `/api/ps`, `/api/show`, and `/v1/models` answer in
-milliseconds while a request is running, and the listener keeps accepting new
-connections throughout.
+<a id="errors"></a>
+<a id="limits"></a>
+
+## Errors and limits
+
+Ollama errors use `{"error": "message"}`. OpenAI errors use
+`{"error": {"message": "..."}}`; validation failures also include
+`"type": "invalid_request_error"`.
+
+| Status | Meaning |
+|---|---|
+| 400 | Invalid or unsupported request, including tools on the Ollama/OpenAI endpoints, JSON-schema output, logprobs, embeddings, or named reasoning levels for `think` |
+| 411 | Chunked request body; send `Content-Length` instead |
+| 413 | Request body exceeds 32 MiB |
+| 431 | Request headers exceed 64 KiB |
+| 503 | Too many open connections |
+
+A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
+requested path.
+
+Prompt plus completion is capped at 32,768 tokens. `serve --max-context N`
+can lower that ceiling. A prompt over the cap returns 400 with the limit and
+an estimated processing time.
+
+Generation requests run one at a time; a second waits for the first. Metadata
+endpoints read a separate snapshot and remain responsive during generation.
 
 
 <!-- ===== docs/LIBRARY.md ===== -->
 
 # Using slotstream from Swift
 
-slotstream is a command-line tool and a Swift package. The binary and the
-`curl | sh` install are unchanged; this page is about the other way in, for a
-Mac app or a tool of your own.
+Use the `Slotstream` Swift package to plan memory, download weights, run the
+model, or start its HTTP server from your own Mac app or tool.
+
+Add the package and product to `Package.swift`:
 
 ```swift
 // Package.swift
@@ -965,9 +929,8 @@ targets: [
 ]
 ```
 
-`.upToNextMinor` rather than `from:`, because for a 0.x version `from:` accepts
-every later 0.x release, and the surface is still moving. The library products
-first shipped in 0.2.3; an earlier tag has no importable products at all.
+The example stays within the 0.2 release series because the library API is
+still evolving. Library products are available from 0.2.3 onward.
 
 Two products:
 
@@ -978,25 +941,27 @@ Two products:
 
 ## The Metal library
 
-MLX's shaders cannot be compiled by SwiftPM on the command line, so a prebuilt
-`mlx.metallib` has to sit **next to the executable that is running** — MLX finds
-it with `dladdr` on its own code, not by searching the bundle you might expect.
+For a command-line build, place a prebuilt `mlx.metallib` **next to the
+running executable**. MLX looks there for its Metal shaders. SwiftPM doesn't
+compile them in the Command Line Tools setup.
 
-- **An Xcode app**: Xcode compiles the shaders itself. Nothing to do.
+- **An Xcode app**: Xcode compiles the shaders itself. No manual copy is needed.
 - **A command-line build** (`swift build`): copy it yourself, once.
+
   ```bash
   Tools/fetch_metallib.sh                       # from a slotstream checkout
   cp Tools/lib/mlx-0.31.1.metallib .build/debug/mlx.metallib
   ```
-  Without it, the first MLX call dies with `Failed to load the default
+  Without it, the first MLX call fails with `Failed to load the default
   metallib`. A test bundle needs its own copy in `.xctest/Contents/MacOS/`.
 
-**You only need this if you touch the model.** Planning, the weight manifest,
-the prefill schedule, context arithmetic and most diagnostics are pure Swift and
-run with no Metal at all — which is worth knowing, because it means a menu-bar
-app can show what slotstream *would* do on this Mac before downloading 105 GB.
+Planning, weight checks, prefill estimates, and most diagnostics run without
+loading Metal. An app can show a memory plan and download status before the
+user downloads the model.
 
-## Is a model here, and what would it cost?
+<a id="is-a-model-here-and-what-would-it-cost"></a>
+
+## Check and download weights
 
 ```swift
 import Slotstream
@@ -1012,18 +977,18 @@ case let .corrupt(paths, _, _):
 }
 ```
 
-`status()` hashes a complete-looking copy before calling it ready, because size
-alone cannot tell a good file from same-size corruption. That takes seconds and
-is the reason a damaged tokenizer never reaches the engine.
+`status()` hashes the files before returning `.ready`, including files whose
+sizes already match. Allow several seconds for a complete copy.
 
-To fetch what is missing — resumable, hash-verified against the pinned
-revision, and silent unless you ask for progress:
+To download missing weights with resume, hash verification, and progress:
 
 ```swift
 try store.download(PullOptions(connections: 8)) { line in print(line) }
 ```
 
-## What will it do on this Mac?
+<a id="what-will-it-do-on-this-mac"></a>
+
+## Plan memory
 
 ```swift
 let machine = Machine.current()
@@ -1033,35 +998,31 @@ print(plan.expertsPerLayerCached, "experts per layer,",
       plan.expectedPeakGB, "GB expected peak")
 ```
 
-`Machine.simulated(ramGB: 16)` plans for a machine that is not this one — the
-same thing `slotstream doctor --sim-ram 16` prints. A plan made for a simulated
-machine is marked, and `Engine.load` refuses it: a simulated availability figure
-still produces a real allocation, and pretending 60 GB was free once drove this
-Mac to 39 GB of swap.
+`Machine.simulated(ramGB: 16)` previews another memory size, like
+`slotstream doctor --sim-ram 16`. `Engine.load` rejects simulated plans;
+use `Machine.current()` for a plan that will allocate memory.
 
-Named `Machine` and not `Device` because MLX exports its own `Device`, and an
-app using this library imports MLX too.
+<a id="pricing-a-prompt-before-you-send-it"></a>
 
-## Pricing a prompt before you send it
+## Estimate prompt-processing time
 
 ```swift
 let seconds = PrefillSchedule.estSeconds(tokens: 8_000, maxChunk: plan.prefillChunk)
 print("about", PrefillSchedule.describe(seconds: seconds), "to the first token")
 ```
 
-Reading a long prompt is a real wait, not a hiccup, and it is the number a UI
-should show before it starts rather than after. This needs no model loaded.
+This estimate needs no model loaded. An app can show the expected wait
+before starting a long prompt.
 
 ## Serving
 
-The HTTP server the CLI runs is `Server` in the library, speaking the Ollama and
-OpenAI subsets on loopback. Everything about its behaviour is in
-[API.md](API.md); embedding it is the same server in your process.
+The library exposes the same `Server` used by the CLI. It listens on loopback
+and provides the [Ollama/OpenAI endpoints](API.md) and [AI SDK gateway](FX.md).
 
 ## Diagnostics
 
-`SlotstreamDiagnostics` exposes the checks the project gates itself with, as
-functions returning a `CheckReport` rather than things that print:
+`SlotstreamDiagnostics` returns structured `CheckReport` values that an app
+can inspect or display:
 
 ```swift
 import SlotstreamDiagnostics
@@ -1074,61 +1035,44 @@ print(report.name, report.passed, report.items.count)
 `.machinePlanning()`, `.httpFraming()`, `.httpRouting()` and
 `Goldens.sampler(...)` all run without weights. See [TESTING.md](TESTING.md).
 
-## What is not here yet
+<a id="what-is-not-here-yet"></a>
 
-The surface is honest about its age. `Engine` is still the class the CLI has
-always used, with a callback-based `generate`; the typed delta stream, the
-dedicated executor and `Conversation` are designed but not landed, because their
-gate is byte-equality against the real weights and that has to run on a quiet
-machine. Until then, generation through the library is what `slotstream run`
-does, and the HTTP API is the stable way to drive it from another process.
+## API stability
+
+`Engine.generate` currently uses callbacks. A typed delta stream, dedicated
+executor, and `Conversation` API are planned but not available. For now,
+`slotstream run` shows how the CLI calls the engine; the HTTP API is also
+available for callers in another process.
 
 
 <!-- ===== docs/FX.md ===== -->
 
-# Running fx against slotstream
+# Use fx with slotstream
 
-[fx](https://fx.sh) is Vercel Labs' coding agent. It ships three providers —
-`gateway`, `codex`, `grok` — and no plugin point, so there is no "add a custom
-model" setting to fill in. But its gateway client honours two environment
-variables when, and only when, they name an `http://` **loopback** address with
-an explicit port. slotstream serves exactly what that client expects, so fx can
-drive a local model with no fork and no patched binary.
+[fx](https://fx.sh) is Vercel Labs' coding agent. You can point its gateway
+client at slotstream to use a local model for file reads, edits, and tool
+calls. The setup below uses a separate fx profile and asks you to approve
+actions.
 
-Nothing here changes fx. If Vercel later ships a first-class local provider,
-this path keeps working and the tool-calling engine underneath it is unchanged.
-
-## What slotstream serves
-
-The **Vercel AI SDK Language Model Specification v4**, carried over **AI Gateway
-protocol 0.0.1** — the same wire fx uses against Vercel:
-
-| Route | Purpose |
-| --- | --- |
-| `POST /v3/ai/language-model` | the model call, streamed as Server-Sent Events |
-| `POST /v1/ai/language-model` | the same handler, for a client configured with the `v1` path |
-| `GET /coding-agent/v1/models` | the model catalogue fx reads capabilities from |
-| `GET /coding-agent/v1/credits` | a zero balance, so `fx credits` answers |
-
-Tool calls are native. The model does not emit JSON tool calls; its template
-teaches it an XML form, and slotstream parses that as it streams, types each
-argument against the tool's own JSON Schema, and emits the `tool-call` parts the
-specification defines.
+Automatic action reviews time out in this setup, and long-session compaction
+is unreliable. See [Limitations](#limitations) before starting a long task.
 
 ## Setup
 
-Start a server, then point fx at it with a private profile:
+Start slotstream in one terminal and leave it running:
 
 ```sh
 slotstream serve --port 11434
 ```
 
+Save the following as `fxs` in your working directory:
+
 ```sh
 #!/bin/sh
-# fxs: run fx against a local slotstream, in its own profile
-P="$HOME/.fx-slotstream"
-mkdir -p "$P/.fx"
-[ -f "$P/.fx/settings.json" ] || cat > "$P/.fx/settings.json" <<'JSON'
+# Run fx with a separate profile for the local model.
+FX_PROFILE_DIR="$HOME/.fx-slotstream"
+mkdir -p "$FX_PROFILE_DIR/.fx"
+[ -f "$FX_PROFILE_DIR/.fx/settings.json" ] || cat > "$FX_PROFILE_DIR/.fx/settings.json" <<'JSON'
 {
   "provider": "gateway",
   "models": { "gateway": "slotstream/qwen3.8-flash-next:4bit" },
@@ -1136,7 +1080,7 @@ mkdir -p "$P/.fx"
   "auto_upgrade": false
 }
 JSON
-HOME="$P" \
+HOME="$FX_PROFILE_DIR" \
 FX_PERMISSION_MODE=ask \
 FX_GATEWAY_BASE_URL=http://127.0.0.1:11434 \
 FX_GATEWAY_CHAT_URL=http://127.0.0.1:11434/v3/ai/language-model \
@@ -1145,101 +1089,123 @@ FX_DISABLE_KEYCHAIN=1 \
 exec fx "$@"
 ```
 
-Save it as `fxs`, `chmod +x`, and use it wherever you would use `fx`. Check the
-wiring with `fxs models`, which should list the local model.
+In a second terminal, make it executable and check the model list:
 
-Four details are load-bearing:
+```sh
+chmod +x fxs
+./fxs models
+```
 
-- **The private `$HOME` is the isolation.** fx resolves everything under
-  `$HOME/.fx` and has no config-directory variable, so a separate home is the
-  only way to keep your normal fx profile, sessions and usage records untouched.
-  Symlink `~/.fx/mcp.json` and `~/.fx/skills` into the profile if you want them
-  shared.
-- **The URLs must be loopback `http://` with an explicit port.** fx checks the
-  scheme, the host (`127.0.0.1`, `localhost`, `[::1]`), the port, and the
-  absence of userinfo. Anything else is *silently* ignored and fx talks to
-  Vercel instead — which looks like your local model answering suspiciously
-  well.
-- **`FX_PERMISSION_MODE` is set as well as the settings field.** fx's compiled
-  default is `auto`, which does not work here (see below), the settings file is
-  only written when absent, and fx rewrites its own settings.
-- **The model id must match the catalogue.** Take it from `fxs models` or from
-  `GET /coding-agent/v1/models`.
+The list should include `slotstream/qwen3.8-flash-next:4bit`. Then run `./fxs`
+where you would normally run `fx`. You need fx installed separately.
 
-The key is a dummy. It is never checked, never logged, and never leaves the
-loopback socket.
+The wrapper keeps settings, sessions, and usage records under
+`~/.fx-slotstream/.fx`. It sets `FX_PERMISSION_MODE=ask` on every launch
+because fx can rewrite its settings file. The API key is a placeholder;
+slotstream doesn't authenticate it.
 
-## What works, and what does not
+**Keep both gateway URLs on loopback HTTP with an explicit port.** fx accepts
+`127.0.0.1`, `localhost`, or `[::1]`, with no userinfo in the URL. An invalid
+override is silently ignored by the tested fx client, which then connects to
+Vercel. Check `./fxs models` after changing these settings.
 
-**Works.** The main agent loop: multi-step tool use, reading and writing files,
-several calls in a turn, tool results fed back, and conversation state reused
-between turns so a follow-up turn only prefills what is new. Reasoning is
-available through fx's effort setting and streams as reasoning parts, and
-reasoning turns stay on the cache too: fx never echoes reasoning back, so the
-replayed history cannot match the ids that produced it, and slotstream splices
-the ids it still holds in place of the re-render rather than rebuilding the
-prompt.
+<a id="what-works-and-what-does-not"></a>
 
-A first turn against a cold cache pays a full prefill of the standing payload —
-fx's system prompts and tool schemas are a few thousand tokens before your
-question — and the main agent step has no client-side deadline, so it is slow
-rather than broken.
+## Supported features
 
-**`permission_mode: auto` does not work.** In that mode fx asks a reviewer model
-to classify each action, and that call carries a different tool set, so it misses
-the conversation's cached prefix and pays a full prefill against a 30-second
-deadline it cannot meet. Reviews time out and fx holds the action. Use `ask`
-(you approve) or `yolo` (nothing is asked). This is a property of the deadline,
-not of the dialect.
+The main agent loop supports multiple tool calls per turn, tool results,
+file reads and writes, images, and follow-up turns. Image parts must contain
+inline bytes; see [Images](API.md#images).
 
-**Compaction is unreliable.** fx summarises a long session by calling a fixed
-compactor model with a 120-second budget per chunk, and decode is the binding
-constraint. The catalogue advertises a deliberately small window and reply
-budget for that alias to keep chunks inside the budget, but a long session is
-still better restarted than compacted.
+Reasoning is available through fx's effort setting and streams separately
+from the answer. slotstream retains compatible conversation state, including
+reasoning state, so follow-up turns process only the new material while that
+state is cached.
 
-**Not supported, and refused with a typed 400:** vision and image parts, JSON
-schema constrained output, and provider-executed tools (fx's web search). A
-provider tool in the request is dropped before the model sees it rather than
-failing the turn, since a model cannot run one.
+The first turn processes fx's system prompt and tool schemas as well as your
+question. That can take minutes on a small memory target. The main agent
+step has no client-side deadline in the tested client.
+
+## Limitations
+
+- **Automatic permission reviews:** `permission_mode: auto` sends a separate
+  review request with a different tool set. It misses the conversation cache
+  and can exceed fx's 30-second review deadline, leaving the action on hold.
+  Use the wrapper's `ask` setting to approve actions yourself.
+- **Session compaction:** fx gives each summary chunk a 120-second budget.
+  Generation can exceed it, even with the smaller window advertised for the
+  compactor alias. Start a new session if compaction fails.
+- **Structured output:** JSON-schema constrained output returns a typed
+  400 error.
+- **Provider tools:** tools executed by a hosted provider, such as fx's web
+  search, aren't available locally. They are removed from the request before
+  it reaches the model. Ordinary client-executed tools remain available.
+
+These observations describe the tested fx integration. A client update can
+change its accepted overrides, request fields, or deadlines.
 
 ## Troubleshooting
 
-*fx answers instantly and far too well* — the override was rejected and fx is
-talking to Vercel. The URL must be `http://` on a loopback host with an explicit
-port. `fxs models` shows four models when the override is live.
+### The model list doesn't show slotstream
 
-*fx reports an invalid finish reason* — the server predates this dialect, or
-something between fx and the server is rewriting the stream. Upgrade slotstream.
+Check that the server is running and both URLs use loopback HTTP with an
+explicit port. Use the model ID returned by `./fxs models` or
+`GET /coding-agent/v1/models`.
 
-*The first turn takes minutes* — that is a cold prefill of fx's standing prompt
-at your configured memory size. Later turns in the same conversation reuse it.
-`slotstream doctor` prints what your machine can plan for.
+### fx reports an invalid finish reason
 
-*Every request is refused with `unsupported_field`* — a newer fx is sending a
-field this dialect does not know. The accepted set follows the v4 specification;
-please open an issue with the field name.
+Upgrade slotstream. An older server may not implement this gateway protocol;
+a proxy that changes the response stream can also cause this error.
 
-## How it is tested
+### The first turn takes minutes
 
-- `slotstream-checks --tier t0` covers the contract with no weights and no GPU:
-  request validation and the field policy, prompt mapping in both directions,
-  the catalogue invariants, the stream frames, and the tool-call parser
-  (including that every split point of a streamed call parses identically).
-- `Tools/fx_gates.sh` runs the live half against a real server: the catalogue,
-  the refused shapes, streamed turns, a complete tool loop, the conversation
-  reuse that makes the loop affordable, and — when `fx` is installed — the real
-  binary completing a task against the local model.
+Check the progress in the server terminal. A cold first turn processes fx's
+full standing prompt. `slotstream doctor` estimates prompt-processing time
+for your memory plan.
+
+### Requests fail with `unsupported_field`
+
+A client may be sending a field this server doesn't support. Open an issue
+with the field name and both software versions.
+
+<a id="what-slotstream-serves"></a>
+
+## Protocol reference
+
+slotstream implements the Vercel AI SDK Language Model Specification v4 over
+AI Gateway protocol 0.0.1.
+
+| Route | Purpose |
+|---|---|
+| `POST /v3/ai/language-model` | Model calls, streamed as Server-Sent Events |
+| `POST /v1/ai/language-model` | The same handler under the `v1` path |
+| `GET /coding-agent/v1/models` | Model IDs and capabilities |
+| `GET /coding-agent/v1/credits` | A zero balance for `fx credits` |
+
+The model emits tool calls in its native XML format. slotstream parses them
+incrementally, converts arguments using the tool's JSON Schema, and returns
+AI SDK `tool-call` parts.
+
+<a id="how-it-is-tested"></a>
+
+## Tests
+
+`slotstream-checks --tier t0` tests validation, prompt mapping, the model
+catalogue, stream frames, and tool-call parsing without weights or a GPU.
+
+`Tools/fx_gates.sh` tests a live server: model discovery, rejected requests,
+streaming, a complete tool loop, and conversation reuse. When fx is installed,
+it also tests the client completing a task with the local model.
 
 
 <!-- ===== docs/TESTING.md ===== -->
 
 # Testing
 
-Every check has one body, in `SlotstreamDiagnostics`, and three ways to run it:
-the CLI subcommand a user runs, the catalogue CI runs, and a host app that wants
-to verify its own installation. A check is not a script that greps output; it
-returns a `CheckReport` and the callers render it.
+Checks in `SlotstreamDiagnostics` return a `CheckReport`. The CLI, test
+runner, and host apps use those same functions.
+
+Choose a suite based on what you have installed:
 
 ```bash
 make checks          # the tier that needs nothing: no GPU, no weights, no network
@@ -1250,13 +1216,9 @@ make coverage        # line coverage of the library
 
 ## Why there is no `swift test`
 
-The Command Line Tools toolchain ships neither XCTest nor Swift Testing. Xcode
-has both, but requiring Xcode to run the tests would mean the project's own
-contributors could not run them — and `CONTRIBUTING.md` deliberately supports a
-CLT-only build, which is exactly why the Makefile fetches a prebuilt metallib.
-
-So the catalogue is a plain executable, `slotstream-checks`. It runs anywhere
-Swift builds, it is what CI runs, and it reports each check by name.
+The supported Command Line Tools setup lacks XCTest and Swift Testing.
+The project uses a plain executable, `slotstream-checks`, so contributors
+can run checks without installing Xcode. CI uses the same runner.
 
 ```bash
 .build/release/slotstream-checks --list
@@ -1266,8 +1228,8 @@ Swift builds, it is what CI runs, and it reports each check by name.
 
 ## Tiers
 
-A tier says what a check needs from the machine, so a run on a laptop with no
-weights is a pass rather than a confusing failure.
+Tiers group checks by their dependencies. Choose the tiers your machine can
+run; a T0 pass covers only T0.
 
 | Tier | Needs | Runs |
 |---|---|---|
@@ -1277,11 +1239,10 @@ weights is a pass rather than a confusing failure.
 | **T3** | A synthetic checkpoint | Not yet built |
 | **T4** | The real 105 GB of weights | The dev Mac, per release |
 
-**Tiers above T0 are never run concurrently.** The per-user process guard stops
-a *second process* from loading a model, but it deliberately permits several
-model objects inside one process — its own comment says so. Nothing else would
-stop two checks stacking GPU allocations on a shared machine, and stacking
-memory-heavy processes is what crashed this Mac on 2026-08-28.
+**Run tiers above T0 sequentially.** Several checks in one process can still
+allocate memory at the same time, despite the guard against multiple model
+processes. Use the small explicit targets in `Tools/verify.sh` and check
+available memory before a model test.
 
 ### The Metal library
 
@@ -1300,27 +1261,25 @@ fails with `Failed to load the default metallib`.
 | `Tools/sampler_gates.sh` | the sampler against a numpy reference, and the governor's branches | no | CI |
 | `Tools/consumer_smoke.sh` | a package outside the repository can import and use the library | no | CI |
 | `Tools/verify.sh` | the acceptance battery: provenance, goldens, byte-equality across cache sizes and live resizes, MTP, the memory promise, long context | **yes** | dev Mac |
-| `Tools/api_robustness.sh` | 74 serving-layer regressions against a live server | **yes** | dev Mac |
+| `Tools/api_robustness.sh` | Serving regressions against a live server | **yes** | dev Mac |
 | `Tools/vision_ref.py` | the vision tower against an independent float32 implementation of the reference | tower only (0.9 GB) | dev Mac |
 | `Tools/vision_serving.py` | every dialect with a real picture, against a live server | **yes** | dev Mac |
 | `Tools/e2e_release.sh` | the installed release, end to end | **yes** | dev Mac, per release |
 
-### Why vision needs two of those
+<a id="why-vision-needs-two-of-those"></a>
 
-A vision tower fails silently: a transposed weight or a rotary half swapped
-still yields embeddings of the right shape, and the model still writes fluent
-sentences about a picture it did not see. So the tower is checked against a
-second implementation written from the reference rather than from the Swift
-(`Tools/vision_ref.py`), and separately the rows are checked to land where the
-template reserved them — by requiring the model to name what is in the
-photograph (`Tools/vision_serving.py`). Neither alone would catch both halves.
+### Vision checks
 
-The parity gate is not an equality. The tower runs in bfloat16, 27 residual
-blocks deep, and the same reference at float32 and bfloat16 disagrees with
-itself more than slotstream disagrees with either; what is asserted is that
-slotstream sits inside the band the dtype itself spans, and that the two
-float32 implementations — which share no kernels — agree to 0.99996. Same
-argument as `prefix-check`, and for the same reason.
+A faulty image encoder can produce embeddings with the correct shape while
+losing the image content. `Tools/vision_ref.py` compares the encoder with an
+independent implementation. `Tools/vision_serving.py` checks the full request
+path by requiring the model to identify the photograph's content.
+
+The encoder comparison allows numerical variation from bfloat16 arithmetic.
+The tolerance comes from comparing the reference at float32 and bfloat16;
+slotstream must stay within that band. The two independent float32
+implementations agree to 0.99996. These checks test implementation correctness,
+not general vision accuracy.
 
 ## Coverage
 
@@ -1333,19 +1292,18 @@ python3 Tools/coverage_ratchet.py coverage.info
 built with the profiling instrumentation directly and `llvm-cov` reads what it
 wrote; the CLT ships `llvm-profdata` and `llvm-cov`, just not the test modules.
 
-The ratchet holds a **per-file** floor in `Tools/coverage-floor.json`, not a
-single number, because one number hides the case it exists to catch: new
-well-covered code masking a regression in older code. A deliberate drop is
-`--update` plus an explanation in the commit.
+`Tools/coverage-floor.json` sets a minimum for each file. This catches a loss
+of coverage in an existing file even if new code raises the overall
+percentage. Use `--update` only for a deliberate change, with an explanation
+in the commit.
 
-The percentage is a ratchet, not a target. What matters is which lines are
-uncovered and why.
+<a id="where-the-coverage-is-not"></a>
 
-### Where the coverage is not
+### Initial coverage snapshot
 
-21.73% of 7,138 library lines, from 121 assertions that need no weights. The
-percentage on its own says little; these are the gaps and the reason for each,
-largest first.
+The table below records the initial weights-free suite: 21.73% of 7,138
+library lines, from 121 assertions. It is a historical snapshot, not a current
+coverage report. Run the commands above for the current checkout.
 
 | File | Lines | Covered | Why the rest is not |
 |---|---|---|---|
@@ -1355,116 +1313,139 @@ largest first.
 | `Generate.swift` | 388 | 19% | The sampler is covered; the prefill and decode loops, and the sweep's admission and cache-cap hooks, run only with the model loaded. Gated by `sweep-check` and `Tools/verify.sh`. |
 | `Governor.swift` | 213 | 27% | The policy is fully covered as a pure function. The live loop — poll, decide, lock, resize — still needs an engine to resize. |
 
-None of this is untested: `verify.sh` and `api_robustness.sh` exercise most of
-it against the real model. It is untested *on CI*, which is a weaker and
-different claim, and the table says which is which.
+The snapshot covers the weights-free runner. Tests against the real model,
+such as `verify.sh` and `api_robustness.sh`, exercise additional paths locally;
+those runs aren't included in this coverage percentage.
 
 
 <!-- ===== docs/TROUBLESHOOTING.md ===== -->
 
 # Troubleshooting
 
-### "cannot listen on 127.0.0.1:11434 … another slotstream (or Ollama) is already there"
+Start with `slotstream doctor`. It checks your Mac's memory plan and disk
+space without loading the model.
 
-Ollama defaults to the same port. Stop one of them, or run
-`slotstream serve --port 11500` and point your client at that. slotstream
-claims the port *before* loading the model, so this costs a second and one
-sentence, not a full load.
+## `slotstream: command not found` after installing
 
-### `ollama run` says "unsupported request field(s): name, options, system, template"
+Open a new terminal and try again. The installer either creates a wrapper in
+`/usr/local/bin` or adds `~/.slotstream/bin` to your shell's PATH. Its final
+message tells you which it used.
 
-0.2.0 refuses the empty fields the Ollama CLI always sends, so `ollama run`
-stops before the first message. Fixed on `main` and in the next release;
-until you upgrade, use curl, Open WebUI, or an OpenAI SDK pointed at
-`http://localhost:11434/v1` ([docs/API.md](API.md)).
+## The server can't listen on port 11434
 
-### "another Slotstream model process is already running for this user"
+Ollama uses the same port by default. Stop the existing server, or choose
+another port:
 
-One model process per user, by design: a 100 GB-class model doesn't share a
-Mac with a sibling. `pgrep -fl slotstream` shows what's running; stop it and
-retry.
+```bash
+slotstream serve --port 11500
+```
 
-### Everything is slow, or the whole Mac is
+Use port 11500 in your client settings too. slotstream checks the port before
+loading the model.
 
-Run `slotstream doctor`. If the expected peak exceeds your Metal working set
-it says so; that means paging. Close the big apps (browsers hold gigabytes),
-or lower the target with `--memory-gb`. On an 8 GB Mac the floor itself
-pages; that tier is for the curious.
+## Another model process is already running
 
-### Decode is slower than the tier table says
+slotstream allows one model process per user to limit memory use. Check
+what's running with `pgrep -fl slotstream`, then stop your existing `serve`,
+`run`, or diagnostic command before retrying. For a server in a terminal,
+press **Ctrl+C** in that terminal.
 
-Compare the `target:` line of the plan printed at startup with your row in
-the README table.
+## The whole Mac is slow
 
-- Lower than the row, with a `note:` about reclaimable memory: other apps
-  were holding memory at startup, so auto took less. Close them and restart,
-  or pin the row's target, e.g. `slotstream serve --memory-gb 22` on a 32 GB
-  Mac. A pinned size skips the availability check, so it pages if that
-  memory is not actually free.
-- Same as the row: the cache is full size and the disk is the limit. Only
-  the 48 GB row is measured; the rest are estimated from a 48 GB M5 Pro, and
-  base-storage Macs have slower SSDs. No memory flag changes that.
+Run `slotstream doctor` and look for memory warnings. If the planned peak
+exceeds the Metal working-set limit, the model may need to page memory to
+disk. Close memory-heavy apps or lower the target with `--memory-gb`.
 
-### The first token takes forever
+An 8 GB Mac needs swap even at the minimum target. It may remain slow with
+other apps closed.
 
-The whole prompt is read before the first token. `slotstream doctor` ends
-with the wait to expect by prompt length at your plan (about 3.0 min for a
-full 32k prompt on a 48 GB Mac, 6.4 min on a 16 GB one), and `run` and
-`serve` print progress lines for any prompt over 2k tokens, so silence past
-a few seconds is not a hang. Follow-up turns in the same conversation read
-only what is new. `slotstream context-check --tokens N` measures a prompt of
-any length on your Mac.
+## Generation is slower than the estimate
 
-### A download was interrupted, or looks suspect
+Compare the startup plan's `target:` line with the README table:
 
-Re-run `slotstream pull`; it resumes where it stopped. `slotstream pull
---verify` re-hashes all 25 files against the pinned sha256s in seconds (the
-optional draft head is skipped when absent) and
-names the bad file, if there is one.
+- **A lower target:** other apps were using memory, so automatic sizing
+  chose a smaller cache. Close those apps and let the server resize, or
+  restart it. Avoid forcing a larger target unless the memory is available.
+- **The same target:** the estimate may not fit your hardware. Chip speed,
+  SSD speed, and thermal limits also matter. A base-storage Mac mini M2
+  measured much slower than the M5 Pro-based estimate. See
+  [Hardware measurements](HARDWARE.md).
 
-### Putting the weights on an external disk
+The first generation also starts with a cold cache. Compare repeated requests
+when checking warm decode speed.
+
+## The first token takes a long time
+
+The model processes the prompt before generating a reply. `slotstream doctor`
+shows estimated waits for different prompt lengths. A full 32k prompt is
+estimated at about 3.0 min for the 48 GB M5 Pro plan and 6.4 min for the 16 GB
+plan; slower SSDs can take longer.
+
+`run` and `serve` print progress for long prompts. Follow-up turns reuse
+unchanged conversation history while it remains cached. To measure a prompt
+on your Mac, stop the server and run `slotstream context-check --tokens 8192`.
+
+## A download was interrupted or may be damaged
+
+Run `slotstream pull` again to resume. To check existing files without
+downloading anything:
+
+```bash
+slotstream pull --verify
+```
+
+It checks the files against pinned SHA-256 hashes and names any damaged file.
+The optional draft head is skipped if absent.
+
+## Store the weights on another disk
 
 ```bash
 slotstream pull --dir /Volumes/big/qwen38
 slotstream serve --model /Volumes/big/qwen38
 ```
 
-Anything that takes `--model` accepts a directory path. In 0.2.0 pass the
-real directory, not a symlink to it: `run` and `serve` refuse a symlinked
-weights folder ("couldn't be opened") even though `doctor` and `pull --verify`
-accept one; fixed on `main`. Expect slower decode: external disks rarely
-match the internal SSD.
+Replace `/Volumes/big/qwen38` with your destination. You can also point
+`--model` at an existing weights directory. SSD speed affects generation,
+so an external disk may be slower than the internal one.
 
-### Reclaiming the disk
+## Reclaim disk space or uninstall
 
-The weights live in `~/.slotstream/models` (105 GB). Delete that folder to
-get the space back and keep the binary, or `rm -rf ~/.slotstream` to remove
-everything; a full uninstall also drops the `/usr/local/bin/slotstream`
-wrapper or the PATH line the installer said it added.
+Delete `~/.slotstream/models` to remove the downloaded weights and keep the
+program. This frees about 105 GB after a full download.
 
-### `slotstream: command not found` right after installing
+To remove both the program and the weights, delete `~/.slotstream`. Also
+remove the `/usr/local/bin/slotstream` wrapper or the PATH entry the installer
+added to your shell profile. If you chose a custom install or model directory,
+remove that directory instead.
 
-The installer puts a wrapper in `/usr/local/bin` when it can write there, and
-otherwise adds one line to your shell profile. Open a new terminal (or
-`exec $SHELL`) and retry.
+## Problems with older versions
 
-### macOS 14 or 15
+Version 0.2.0 rejected fields sent by `ollama run` and couldn't load a weights
+directory through a symlink. Both were fixed in 0.2.1. Run the installer again
+to upgrade; `slotstream --version` shows your installed version.
 
-The installer is tested there; the runtime isn't yet. If something breaks,
-open an issue with your `slotstream doctor` output.
+## Problems on macOS 14 or 15
+
+The installer is tested on these versions; the runtime still needs testing.
+[Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
+error and your `slotstream doctor` output.
 
 
 <!-- ===== docs/HARDWARE.md ===== -->
 
 # Measured on real Macs
 
-The README's tier table has two rows measured on real Macs and three
-estimated from the 48 GB curve. This page is where estimates get replaced by
-measurements. To add your Mac, follow the procedure below and open a
-[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml);
-rows are copied in as they arrive, credited to the reporter.
+Results measured on real Macs are listed below with the version, settings,
+and reporter. Compare these with the README's estimates: chip and SSD speed
+can make a large difference even at the same memory target.
 
-## Rows
+To add your Mac, follow [How to measure](#how-to-measure) and open a
+[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml).
+Published rows are credited to the reporter.
+
+<a id="rows"></a>
+
+## Results
 
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
@@ -1472,16 +1453,13 @@ rows are copied in as they arrive, credited to the reporter.
 | Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
 | MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.1 | auto: 34.6 GB target, ~152 experts/layer | ~19–21 tok/s with `--mtp` | not measured — `context-check` postdates 0.2.1 | not measured — server path only | [@waterliu1981](https://github.com/waterliu1981), 2026-09-02 |
 
-Not yet measured: the 8, 24, and 32 GB tiers. A row that contradicts the
-estimate is the most useful kind — the 16 GB row above is exactly that, and it
-cost the tier curve a claim. The 128 GB row contradicts it from the other
-side: on the same ~152 experts/layer plan the M5 Max decodes at ~19–21 tok/s
-where the M5 Pro anchor gives ~12, so `48 GB and up` reads low on a Max chip,
-and the plateau tracks the chip and not the memory alone. The most valuable
-single report available now is a 16 GB Mac with a *fast* SSD: the 48 and 16 GB
-rows differ in both memory and disk speed, so nothing yet separates the two
-axes. After that, an older chip, a fanless Air, or an external SSD, since
-those are exactly the conditions the 48 GB curve cannot see.
+The 8, 24, and 32 GB tiers still need measurements. The 16 GB M2 result is
+below the planner's estimate; the 128 GB M5 Max result is above it. The
+planner uses the M5 Pro curve and doesn't model either difference.
+
+A 16 GB Mac with a fast SSD would help separate disk speed from memory
+capacity: the existing 16 GB and 48 GB machines differ in both. Older chips,
+fanless Airs, and external SSDs would also help test the estimates.
 
 The 48 GB and 16 GB rows' full method and history are in
 [MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
@@ -1499,13 +1477,15 @@ its 1.41 tok/s is worked out.
 - **Long prompt**: prefill tokens per second from `context-check`, which
   reads a synthetic prompt through the real engine and stops before the
   machine swaps.
-- **Peak**: the process RSS high-water that `run` and `context-check` print,
-  not the plan's estimate.
+- **Peak**: the highest resident memory used by the process (RSS), printed
+  by `run` and `context-check`. This is measured separately from the plan's
+  estimate.
 
 ## How to measure
 
-About ten minutes once the weights are on disk. Measure on a machine that is
-otherwise quiet and not swapping.
+Allow about ten minutes once the weights are downloaded. Close other
+memory-heavy apps and check that the Mac is not swapping. Run one model
+process at a time.
 
 1. Install or upgrade, then record the version:
 
@@ -1552,10 +1532,10 @@ otherwise quiet and not swapping.
    done
    ```
 
-   Stop the server before the next step; one model process runs at a time.
+   Press **Ctrl+C** in the server terminal before the next step.
 
-5. A long prompt. It prints seconds, tok/s, and peak memory against the plan,
-   and stops before swapping. On a small Mac, 4096 is fine.
+5. Measure a long prompt. It reports time, speed, and peak memory, checking
+   available memory between passes. Use 4096 tokens on a small Mac.
 
    ```bash
    slotstream context-check --tokens 8192

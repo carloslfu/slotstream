@@ -1,12 +1,16 @@
 # Measured on real Macs
 
-The README's tier table has two rows measured on real Macs and three
-estimated from the 48 GB curve. This page is where estimates get replaced by
-measurements. To add your Mac, follow the procedure below and open a
-[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml);
-rows are copied in as they arrive, credited to the reporter.
+Results measured on real Macs are listed below with the version, settings,
+and reporter. Compare these with the README's estimates: chip and SSD speed
+can make a large difference even at the same memory target.
 
-## Rows
+To add your Mac, follow [How to measure](#how-to-measure) and open a
+[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml).
+Published rows are credited to the reporter.
+
+<a id="rows"></a>
+
+## Results
 
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
@@ -14,16 +18,13 @@ rows are copied in as they arrive, credited to the reporter.
 | Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
 | MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.1 | auto: 34.6 GB target, ~152 experts/layer | ~19–21 tok/s with `--mtp` | not measured — `context-check` postdates 0.2.1 | not measured — server path only | [@waterliu1981](https://github.com/waterliu1981), 2026-09-02 |
 
-Not yet measured: the 8, 24, and 32 GB tiers. A row that contradicts the
-estimate is the most useful kind — the 16 GB row above is exactly that, and it
-cost the tier curve a claim. The 128 GB row contradicts it from the other
-side: on the same ~152 experts/layer plan the M5 Max decodes at ~19–21 tok/s
-where the M5 Pro anchor gives ~12, so `48 GB and up` reads low on a Max chip,
-and the plateau tracks the chip and not the memory alone. The most valuable
-single report available now is a 16 GB Mac with a *fast* SSD: the 48 and 16 GB
-rows differ in both memory and disk speed, so nothing yet separates the two
-axes. After that, an older chip, a fanless Air, or an external SSD, since
-those are exactly the conditions the 48 GB curve cannot see.
+The 8, 24, and 32 GB tiers still need measurements. The 16 GB M2 result is
+below the planner's estimate; the 128 GB M5 Max result is above it. The
+planner uses the M5 Pro curve and doesn't model either difference.
+
+A 16 GB Mac with a fast SSD would help separate disk speed from memory
+capacity: the existing 16 GB and 48 GB machines differ in both. Older chips,
+fanless Airs, and external SSDs would also help test the estimates.
 
 The 48 GB and 16 GB rows' full method and history are in
 [MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
@@ -41,13 +42,15 @@ its 1.41 tok/s is worked out.
 - **Long prompt**: prefill tokens per second from `context-check`, which
   reads a synthetic prompt through the real engine and stops before the
   machine swaps.
-- **Peak**: the process RSS high-water that `run` and `context-check` print,
-  not the plan's estimate.
+- **Peak**: the highest resident memory used by the process (RSS), printed
+  by `run` and `context-check`. This is measured separately from the plan's
+  estimate.
 
 ## How to measure
 
-About ten minutes once the weights are on disk. Measure on a machine that is
-otherwise quiet and not swapping.
+Allow about ten minutes once the weights are downloaded. Close other
+memory-heavy apps and check that the Mac is not swapping. Run one model
+process at a time.
 
 1. Install or upgrade, then record the version:
 
@@ -94,10 +97,10 @@ otherwise quiet and not swapping.
    done
    ```
 
-   Stop the server before the next step; one model process runs at a time.
+   Press **Ctrl+C** in the server terminal before the next step.
 
-5. A long prompt. It prints seconds, tok/s, and peak memory against the plan,
-   and stops before swapping. On a small Mac, 4096 is fine.
+5. Measure a long prompt. It reports time, speed, and peak memory, checking
+   available memory between passes. Use 4096 tokens on a small Mac.
 
    ```bash
    slotstream context-check --tokens 8192

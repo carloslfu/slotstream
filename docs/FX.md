@@ -1,46 +1,29 @@
-# Running fx against slotstream
+# Use fx with slotstream
 
-[fx](https://fx.sh) is Vercel Labs' coding agent. It ships three providers —
-`gateway`, `codex`, `grok` — and no plugin point, so there is no "add a custom
-model" setting to fill in. But its gateway client honours two environment
-variables when, and only when, they name an `http://` **loopback** address with
-an explicit port. slotstream serves exactly what that client expects, so fx can
-drive a local model with no fork and no patched binary.
+[fx](https://fx.sh) is Vercel Labs' coding agent. You can point its gateway
+client at slotstream to use a local model for file reads, edits, and tool
+calls. The setup below uses a separate fx profile and asks you to approve
+actions.
 
-Nothing here changes fx. If Vercel later ships a first-class local provider,
-this path keeps working and the tool-calling engine underneath it is unchanged.
-
-## What slotstream serves
-
-The **Vercel AI SDK Language Model Specification v4**, carried over **AI Gateway
-protocol 0.0.1** — the same wire fx uses against Vercel:
-
-| Route | Purpose |
-| --- | --- |
-| `POST /v3/ai/language-model` | the model call, streamed as Server-Sent Events |
-| `POST /v1/ai/language-model` | the same handler, for a client configured with the `v1` path |
-| `GET /coding-agent/v1/models` | the model catalogue fx reads capabilities from |
-| `GET /coding-agent/v1/credits` | a zero balance, so `fx credits` answers |
-
-Tool calls are native. The model does not emit JSON tool calls; its template
-teaches it an XML form, and slotstream parses that as it streams, types each
-argument against the tool's own JSON Schema, and emits the `tool-call` parts the
-specification defines.
+Automatic action reviews time out in this setup, and long-session compaction
+is unreliable. See [Limitations](#limitations) before starting a long task.
 
 ## Setup
 
-Start a server, then point fx at it with a private profile:
+Start slotstream in one terminal and leave it running:
 
 ```sh
 slotstream serve --port 11434
 ```
 
+Save the following as `fxs` in your working directory:
+
 ```sh
 #!/bin/sh
-# fxs: run fx against a local slotstream, in its own profile
-P="$HOME/.fx-slotstream"
-mkdir -p "$P/.fx"
-[ -f "$P/.fx/settings.json" ] || cat > "$P/.fx/settings.json" <<'JSON'
+# Run fx with a separate profile for the local model.
+FX_PROFILE_DIR="$HOME/.fx-slotstream"
+mkdir -p "$FX_PROFILE_DIR/.fx"
+[ -f "$FX_PROFILE_DIR/.fx/settings.json" ] || cat > "$FX_PROFILE_DIR/.fx/settings.json" <<'JSON'
 {
   "provider": "gateway",
   "models": { "gateway": "slotstream/qwen3.8-flash-next:4bit" },
@@ -48,7 +31,7 @@ mkdir -p "$P/.fx"
   "auto_upgrade": false
 }
 JSON
-HOME="$P" \
+HOME="$FX_PROFILE_DIR" \
 FX_PERMISSION_MODE=ask \
 FX_GATEWAY_BASE_URL=http://127.0.0.1:11434 \
 FX_GATEWAY_CHAT_URL=http://127.0.0.1:11434/v3/ai/language-model \
@@ -57,88 +40,110 @@ FX_DISABLE_KEYCHAIN=1 \
 exec fx "$@"
 ```
 
-Save it as `fxs`, `chmod +x`, and use it wherever you would use `fx`. Check the
-wiring with `fxs models`, which should list the local model.
+In a second terminal, make it executable and check the model list:
 
-Four details are load-bearing:
+```sh
+chmod +x fxs
+./fxs models
+```
 
-- **The private `$HOME` is the isolation.** fx resolves everything under
-  `$HOME/.fx` and has no config-directory variable, so a separate home is the
-  only way to keep your normal fx profile, sessions and usage records untouched.
-  Symlink `~/.fx/mcp.json` and `~/.fx/skills` into the profile if you want them
-  shared.
-- **The URLs must be loopback `http://` with an explicit port.** fx checks the
-  scheme, the host (`127.0.0.1`, `localhost`, `[::1]`), the port, and the
-  absence of userinfo. Anything else is *silently* ignored and fx talks to
-  Vercel instead — which looks like your local model answering suspiciously
-  well.
-- **`FX_PERMISSION_MODE` is set as well as the settings field.** fx's compiled
-  default is `auto`, which does not work here (see below), the settings file is
-  only written when absent, and fx rewrites its own settings.
-- **The model id must match the catalogue.** Take it from `fxs models` or from
-  `GET /coding-agent/v1/models`.
+The list should include `slotstream/qwen3.8-flash-next:4bit`. Then run `./fxs`
+where you would normally run `fx`. You need fx installed separately.
 
-The key is a dummy. It is never checked, never logged, and never leaves the
-loopback socket.
+The wrapper keeps settings, sessions, and usage records under
+`~/.fx-slotstream/.fx`. It sets `FX_PERMISSION_MODE=ask` on every launch
+because fx can rewrite its settings file. The API key is a placeholder;
+slotstream doesn't authenticate it.
 
-## What works, and what does not
+**Keep both gateway URLs on loopback HTTP with an explicit port.** fx accepts
+`127.0.0.1`, `localhost`, or `[::1]`, with no userinfo in the URL. An invalid
+override is silently ignored by the tested fx client, which then connects to
+Vercel. Check `./fxs models` after changing these settings.
 
-**Works.** The main agent loop: multi-step tool use, reading and writing files,
-several calls in a turn, tool results fed back, and conversation state reused
-between turns so a follow-up turn only prefills what is new. Reasoning is
-available through fx's effort setting and streams as reasoning parts, and
-reasoning turns stay on the cache too: fx never echoes reasoning back, so the
-replayed history cannot match the ids that produced it, and slotstream splices
-the ids it still holds in place of the re-render rather than rebuilding the
-prompt.
+<a id="what-works-and-what-does-not"></a>
 
-A first turn against a cold cache pays a full prefill of the standing payload —
-fx's system prompts and tool schemas are a few thousand tokens before your
-question — and the main agent step has no client-side deadline, so it is slow
-rather than broken.
+## Supported features
 
-**`permission_mode: auto` does not work.** In that mode fx asks a reviewer model
-to classify each action, and that call carries a different tool set, so it misses
-the conversation's cached prefix and pays a full prefill against a 30-second
-deadline it cannot meet. Reviews time out and fx holds the action. Use `ask`
-(you approve) or `yolo` (nothing is asked). This is a property of the deadline,
-not of the dialect.
+The main agent loop supports multiple tool calls per turn, tool results,
+file reads and writes, images, and follow-up turns. Image parts must contain
+inline bytes; see [Images](API.md#images).
 
-**Compaction is unreliable.** fx summarises a long session by calling a fixed
-compactor model with a 120-second budget per chunk, and decode is the binding
-constraint. The catalogue advertises a deliberately small window and reply
-budget for that alias to keep chunks inside the budget, but a long session is
-still better restarted than compacted.
+Reasoning is available through fx's effort setting and streams separately
+from the answer. slotstream retains compatible conversation state, including
+reasoning state, so follow-up turns process only the new material while that
+state is cached.
 
-**Not supported, and refused with a typed 400:** vision and image parts, JSON
-schema constrained output, and provider-executed tools (fx's web search). A
-provider tool in the request is dropped before the model sees it rather than
-failing the turn, since a model cannot run one.
+The first turn processes fx's system prompt and tool schemas as well as your
+question. That can take minutes on a small memory target. The main agent
+step has no client-side deadline in the tested client.
+
+## Limitations
+
+- **Automatic permission reviews:** `permission_mode: auto` sends a separate
+  review request with a different tool set. It misses the conversation cache
+  and can exceed fx's 30-second review deadline, leaving the action on hold.
+  Use the wrapper's `ask` setting to approve actions yourself.
+- **Session compaction:** fx gives each summary chunk a 120-second budget.
+  Generation can exceed it, even with the smaller window advertised for the
+  compactor alias. Start a new session if compaction fails.
+- **Structured output:** JSON-schema constrained output returns a typed
+  400 error.
+- **Provider tools:** tools executed by a hosted provider, such as fx's web
+  search, aren't available locally. They are removed from the request before
+  it reaches the model. Ordinary client-executed tools remain available.
+
+These observations describe the tested fx integration. A client update can
+change its accepted overrides, request fields, or deadlines.
 
 ## Troubleshooting
 
-*fx answers instantly and far too well* — the override was rejected and fx is
-talking to Vercel. The URL must be `http://` on a loopback host with an explicit
-port. `fxs models` shows four models when the override is live.
+### The model list doesn't show slotstream
 
-*fx reports an invalid finish reason* — the server predates this dialect, or
-something between fx and the server is rewriting the stream. Upgrade slotstream.
+Check that the server is running and both URLs use loopback HTTP with an
+explicit port. Use the model ID returned by `./fxs models` or
+`GET /coding-agent/v1/models`.
 
-*The first turn takes minutes* — that is a cold prefill of fx's standing prompt
-at your configured memory size. Later turns in the same conversation reuse it.
-`slotstream doctor` prints what your machine can plan for.
+### fx reports an invalid finish reason
 
-*Every request is refused with `unsupported_field`* — a newer fx is sending a
-field this dialect does not know. The accepted set follows the v4 specification;
-please open an issue with the field name.
+Upgrade slotstream. An older server may not implement this gateway protocol;
+a proxy that changes the response stream can also cause this error.
 
-## How it is tested
+### The first turn takes minutes
 
-- `slotstream-checks --tier t0` covers the contract with no weights and no GPU:
-  request validation and the field policy, prompt mapping in both directions,
-  the catalogue invariants, the stream frames, and the tool-call parser
-  (including that every split point of a streamed call parses identically).
-- `Tools/fx_gates.sh` runs the live half against a real server: the catalogue,
-  the refused shapes, streamed turns, a complete tool loop, the conversation
-  reuse that makes the loop affordable, and — when `fx` is installed — the real
-  binary completing a task against the local model.
+Check the progress in the server terminal. A cold first turn processes fx's
+full standing prompt. `slotstream doctor` estimates prompt-processing time
+for your memory plan.
+
+### Requests fail with `unsupported_field`
+
+A client may be sending a field this server doesn't support. Open an issue
+with the field name and both software versions.
+
+<a id="what-slotstream-serves"></a>
+
+## Protocol reference
+
+slotstream implements the Vercel AI SDK Language Model Specification v4 over
+AI Gateway protocol 0.0.1.
+
+| Route | Purpose |
+|---|---|
+| `POST /v3/ai/language-model` | Model calls, streamed as Server-Sent Events |
+| `POST /v1/ai/language-model` | The same handler under the `v1` path |
+| `GET /coding-agent/v1/models` | Model IDs and capabilities |
+| `GET /coding-agent/v1/credits` | A zero balance for `fx credits` |
+
+The model emits tool calls in its native XML format. slotstream parses them
+incrementally, converts arguments using the tool's JSON Schema, and returns
+AI SDK `tool-call` parts.
+
+<a id="how-it-is-tested"></a>
+
+## Tests
+
+`slotstream-checks --tier t0` tests validation, prompt mapping, the model
+catalogue, stream frames, and tool-call parsing without weights or a GPU.
+
+`Tools/fx_gates.sh` tests a live server: model discovery, rejected requests,
+streaming, a complete tool loop, and conversation reuse. When fx is installed,
+it also tests the client completing a task with the local model.
