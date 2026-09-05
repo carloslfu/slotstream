@@ -331,8 +331,9 @@ machine can spare. An 8 GB Mac—or forcing a larger cache—can still swap heav
 No. slotstream is Apple Silicon only, for the reason above: it is built on MLX
 and Metal, and the cache design assumes unified memory. On a discrete card with
 its own VRAM, streaming experts means copying every miss across PCIe and sizing
-two budgets instead of one. That is a different engine, not a port, and it is
-not on the roadmap. llama.cpp runs this model on CUDA, ROCm, and Vulkan.
+two budgets instead of one. That is a different engine, not a port. Sevra plans
+to add Windows and Linux support for AMD and NVIDIA; this is future work, not
+current Slotstream compatibility. llama.cpp runs this model on CUDA, ROCm, and Vulkan.
 
 **Does it read images?**
 Yes — the checkpoint ships a vision tower and slotstream runs it. See
