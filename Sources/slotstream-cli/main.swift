@@ -117,6 +117,51 @@ struct ModelOptions: ParsableArguments {
                 """))
     var vision: String = "auto"
 
+    @Option(
+        help: ArgumentHelp(
+            "Where the on-disk prefix KV cache lives (default ~/.slotstream/kvcache).",
+            discussion: """
+                Overrides the env var SLOTSTREAM_KVCACHE_DIR for this run only. \
+                Used by the prefix-cache disk tier; a parent-chained index is \
+                kept at <dir>/metadata.db. Passing it enables the disk tier \
+                for this invocation.
+                """))
+    var diskKVCache: String?
+
+    @Option(
+        name: .customLong("disk-kv-cache-size"),
+        help: ArgumentHelp(
+            "On-disk prefix KV cache quota (e.g. 2048, 2048M, 2G; no suffix means MB.",
+            discussion: """
+                Sets the quota for this run — overriding \
+                SLOTSTREAM_KVCACHE_MAX_GB — and immediately evicts the \
+                least valuable leaf chunks until the store fits, before the \
+                model loads. The value is a size with an optional G/GB or \
+                M/MB suffix (case-insensitive); no suffix means megabytes. \
+                Same policy the save path applies: chunks are valued by the \
+                newest use anywhere in their subtree, so a parent with live \
+                children is protected, and only leaves are ever dropped. \
+                Values below one chunk's footprint make the disk tier \
+                ineffective.
+                """))
+    var diskKVCacheSize: String?
+
+    /// The disk quota in GB parsed from `--disk-kv-cache-size`: an optional
+    /// G / GB or M / MB suffix (case-insensitive), no suffix means megabytes.
+    /// nil when the flag is absent or unparseable.
+    var kvCacheSizeGB: Double? {
+        guard let raw = diskKVCacheSize else { return nil }
+        var s = raw.trimmingCharacters(in: .whitespaces)
+        let upper = s.uppercased()
+        var multiplierMB = 1.0
+        if upper.hasSuffix("GB") { s = String(s.dropLast(2)); multiplierMB = 1024.0 }
+        else if upper.hasSuffix("MB") { s = String(s.dropLast(2)) }
+        else if upper.hasSuffix("G") { s = String(s.dropLast(1)); multiplierMB = 1024.0 }
+        else if upper.hasSuffix("M") { s = String(s.dropLast(1)) }
+        guard let mb = Double(s) else { return nil }
+        return mb * multiplierMB / 1024.0
+    }
+
     // Resolved once here so the tokenizer, the draft-head probe, and the index
     // all see the real directory; Foundation will not list a symlinked one.
     var modelURL: URL { ModelLocator.resolve(model).resolvingSymlinksInPath() }
@@ -144,7 +189,31 @@ struct ModelOptions: ParsableArguments {
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
     func announcedPlan(maxContext: Int = ContextPolicy.maxTokens) throws -> MemoryPlan {
+        if diskKVCacheSize != nil, let gb = kvCacheSizeGB, !gb.isFinite || gb <= 0 {
+            throw PlanError("--disk-kv-cache-size must be a size greater than 0 (MB, or with a G/GB or M/MB suffix) (got \(diskKVCacheSize ?? ""))")
+        }
+        if diskKVCacheSize != nil, kvCacheSizeGB == nil {
+            throw PlanError("--disk-kv-cache-size must be a size in MB, optionally with a G/GB or M/MB suffix (got \(diskKVCacheSize ?? ""))")
+        }
         try ensureWeights()
+        // Apply explicit --disk-kv-cache before any code reads DiskCache.dir.
+        // The env-var path is the fallback inside DiskCache.dir itself.
+        if let d = diskKVCache, !d.isEmpty {
+            DiskCache.dirOverride = d
+        }
+        // --disk-kv-cache-size sets the quota and forces the store under it
+        // right here, before the model loads and before anything can save.
+        if let gb = kvCacheSizeGB {
+            DiskCache.maxBytesOverride = gb
+            let freed = DiskCache.enforceQuota()
+            let total = ChunkIndex.shared.totalBytes()
+            let note = freed > 0
+                ? String(format: ", evicted %.2f GB leaf-first", Double(freed) / 1e9)
+                : ", already under quota"
+            FileHandle.standardError.write(
+                Data(String(format: "disk-kv-cache-size %.1f GB: store is %.2f GB%@\n",
+                            gb, Double(total) / 1e9, note).utf8))
+        }
         let plan = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
             ramPercent: maxRAMPercent,

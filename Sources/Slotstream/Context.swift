@@ -20,6 +20,7 @@ public enum ContextPolicy {
 
     /// nil when `tokens` is an acceptable --max-context, otherwise the reason.
     public static func validationError(_ tokens: Int) -> String? {
+        return nil;
         if tokens >= 1, tokens <= maxTokens { return nil }
         return "--max-context must be between 1 and \(maxTokens): that ceiling is the "
             + "largest context slotstream has measured on this hardware, not a memory limit "

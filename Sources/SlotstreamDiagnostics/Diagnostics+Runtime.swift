@@ -96,6 +96,171 @@ extension Diagnostics {
             "a disabled prefix cache offers no splice",
             spliceCache.peek(extending: [7]) == nil)
 
+        // Disk quota enforcement (the --kv-cache-size path), weights-free:
+        // a fake leaf with a v4 data.kv and an index row must leave the DB
+        // AND the disk when a smaller quota forces eviction, and lookup must
+        // not resurrect it through the unindexed-but-on-disk heal path.
+        let kvDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "slotstream-runtimecheck-kv-\(Int(Date().timeIntervalSince1970 * 1000))",
+                isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: kvDir, withIntermediateDirectories: true)
+        DiskCache.dirOverride = kvDir.path
+        defer {
+            try? FileManager.default.removeItem(at: kvDir)
+            DiskCache.dirOverride = nil
+            DiskCache.maxBytesOverride = nil
+        }
+        let emb: [Float] = [0.5, -0.25, 1.0, 0.125]
+        let key = ChunkIndex.makeKey(parentSha: nil, embeddings: emb)
+        let chunkDir = kvDir.appendingPathComponent(key, isDirectory: true)
+        try? FileManager.default.createDirectory(at: chunkDir, withIntermediateDirectories: true)
+        try? Data("{\"version\":4}\n".utf8).write(
+            to: chunkDir.appendingPathComponent("data.kv"))
+        ChunkIndex.shared.register(
+            key: key, parentSha: nil, depth: 0,
+            parentTokenCount: 0, tokenCount: 128, sizeBytes: 1_000_000)
+        DiskCache.maxBytesOverride = 1e-6  // ~1 KB: the 1 MB chunk is over quota
+        let freed = DiskCache.enforceQuota()
+        c.expect("forced eviction frees an over-quota leaf", freed >= 1_000_000)
+        c.expect(
+            "an evicted leaf's directory leaves the disk",
+            !FileManager.default.fileExists(
+                atPath: chunkDir.appendingPathComponent("data.kv").path))
+        let resurrected = DiskCache.longestPrefixHit(
+            chunk: 128, embed: { d in d == 0 ? emb : nil })
+        c.expect("lookup does not resurrect an evicted chunk", resurrected == nil)
+        DiskCache.maxBytesOverride = nil
+
+        // Turn-boundary chains (one variable node per prompt, one per decode)
+        // are walked by longestVariableChain over childEndpoints from the
+        // deepest fixed boundary, each candidate re-verified against THIS
+        // prompt's delta embeddings. Weights-free: synthetic embeddings stand
+        // in for the model's — only key derivation, index rows and the
+        // placeholder data.kv files matter. Fixed chain: two chunks of 128;
+        // turn chain: prompt node at 300, decode node at 340, plus a foreign
+        // row registered past the end whose content cannot re-derive.
+        func registerNode(parent: String?, lo: Int, hi: Int, _ e: [Float]) -> String {
+            let k = ChunkIndex.makeKey(parentSha: parent, embeddings: e)
+            ChunkIndex.shared.register(
+                key: k, parentSha: parent, depth: 0,
+                parentTokenCount: lo, tokenCount: hi, sizeBytes: 16)
+            let nodeDir = kvDir.appendingPathComponent(k, isDirectory: true)
+            try? FileManager.default.createDirectory(
+                at: nodeDir, withIntermediateDirectories: true)
+            try? Data("{\"version\":4}\n".utf8).write(
+                to: nodeDir.appendingPathComponent("data.kv"))
+            return k
+        }
+        let emb0: [Float] = [0.5, -0.25, 1.0, 0.125]
+        let emb1: [Float] = [1.5, 0.25, -1.0, 0.5]
+        let turn0: [Float] = [2.0, 1.0, -0.5, 0.25]
+        let turn1: [Float] = [0.125, -1.0, 2.0, 0.75]
+        let rootKey = registerNode(parent: nil, lo: 0, hi: 128, emb0)
+        let chunkKey = registerNode(parent: rootKey, lo: 128, hi: 256, emb1)
+        let promptNodeKey = registerNode(parent: chunkKey, lo: 256, hi: 300, turn0)
+        let decodeNodeKey = registerNode(parent: promptNodeKey, lo: 300, hi: 340, turn1)
+        _ = registerNode(parent: decodeNodeKey, lo: 340, hi: 360, [9.0, 9.0, 9.0, 9.0])
+        let fakeEmbed: (Int, Int) -> [Float]? = { lo, hi in
+            switch (lo, hi) {
+            case (0, 128): return emb0
+            case (128, 256): return emb1
+            case (256, 300): return turn0
+            case (300, 340): return turn1
+            default: return [3.0, 3.0, 3.0, 3.0]
+            }
+        }
+        let fixed = DiskCache.longestPrefixHit(
+            chunk: 128, embed: { d in d == 0 ? emb0 : d == 1 ? emb1 : nil })
+        c.equal("fixed chain walk still reaches its boundary nodes", fixed, 256)
+        let chain = DiskCache.longestVariableChain(
+            parentSha: chunkKey, parentTokenCount: 256, promptCount: 380,
+            embedRange: fakeEmbed)
+        c.expect(
+            "turn chain walks the prompt node then the decode node",
+            chain.keys == [promptNodeKey, decodeNodeKey])
+        c.equal(
+            "turn chain ends at the last content-verified node", chain.end, 340)
+        c.expect(
+            "a foreign child never verifies, even with a matching boundary",
+            DiskCache.longestVariableChain(
+                parentSha: decodeNodeKey, parentTokenCount: 340, promptCount: 380,
+                embedRange: fakeEmbed).keys.isEmpty)
+        let short = DiskCache.longestVariableChain(
+            parentSha: chunkKey, parentTokenCount: 256, promptCount: 320,
+            embedRange: fakeEmbed)
+        c.expect(
+            "a prompt shorter than a held node stops below it, never rewinds",
+            short.keys == [promptNodeKey] && short.end == 300)
+        let cold = DiskCache.longestVariableChain(
+            parentSha: nil, parentTokenCount: 0, promptCount: 380,
+            embedRange: { _, _ in nil })
+        c.expect(
+            "a walk without embeddings verifies nothing",
+            cold.keys.isEmpty && cold.end == 0)
+
+        // A dead conversation is now a deep chain, and one eviction pass can
+        // only see its current tip: quota enforcement must iterate until the
+        // whole chain is gone (it used to free one node per pass).
+        var chainPrev: String? = nil
+        var deepChainKeys: [String] = []
+        for i in 0..<4 {
+            let k = registerNode(
+                parent: chainPrev, lo: i * 10, hi: (i + 1) * 10,
+                [Float(i + 10), 0.5, -0.5, 1.5])
+            ChunkIndex.shared.register(
+                key: k, parentSha: chainPrev, depth: i,
+                parentTokenCount: i * 10, tokenCount: (i + 1) * 10,
+                sizeBytes: 1_000_000)
+            deepChainKeys.append(k)
+            chainPrev = k
+        }
+        DiskCache.maxBytesOverride = 1e-6
+        let freedDeep = DiskCache.enforceQuota()
+        c.expect("quota enforcement eats a dead turn chain to its root", freedDeep >= 4_000_000)
+        c.expect(
+            "every node of the dead chain left the disk",
+            deepChainKeys.allSatisfy {
+                !FileManager.default.fileExists(
+                    atPath: kvDir.appendingPathComponent($0, isDirectory: true)
+                        .appendingPathComponent("data.kv").path)
+            })
+        DiskCache.maxBytesOverride = nil
+
+        // Recency must outrank depth. A leaf saved seconds after its elders
+        // sits in the youngest age tier and survives a deficit those elders
+        // cover; under plain depth-first ordering the fresh depth-0 leaf went
+        // first, which is how the saver evicted the node it had just written
+        // (a live conversation's tip is also its shallowest leaf).
+        var agePrev: String? = nil
+        var ageTip = ""
+        for i in 0..<4 {
+            ageTip = registerNode(
+                parent: agePrev, lo: 100 + i * 10, hi: 110 + i * 10,
+                [Float(i + 40), 0.5, -0.5, 1.5])
+            ChunkIndex.shared.register(
+                key: ageTip, parentSha: agePrev, depth: i,
+                parentTokenCount: 100 + i * 10, tokenCount: 110 + i * 10,
+                sizeBytes: 1_000_000)
+            agePrev = ageTip
+        }
+        let freshKey = registerNode(parent: nil, lo: 200, hi: 210, [7.0, 0.5, -0.5, 1.5])
+        ChunkIndex.shared.register(
+            key: freshKey, parentSha: nil, depth: 0,
+            parentTokenCount: 200, tokenCount: 210, sizeBytes: 1_000_000)
+        // Total ≈ 5 MB of rows; the quota leaves a deficit smaller than one
+        // node — exactly the shape of the reported bug.
+        DiskCache.maxBytesOverride = 4_200_000.0 / 1_073_741_824.0
+        _ = DiskCache.enforceQuota()
+        c.expect(
+            "an old deep tip is evicted before a fresh shallow leaf",
+            !ChunkIndex.shared.contains(key: ageTip))
+        c.expect(
+            "the freshest leaf survives a deficit its elders cover",
+            ChunkIndex.shared.contains(key: freshKey))
+        DiskCache.maxBytesOverride = nil
+
         // Weights behind a symlink: Foundation refuses to list the link itself,
         // so the index must resolve it first (it did not, before 0.2.1).
         let tmp = FileManager.default.temporaryDirectory

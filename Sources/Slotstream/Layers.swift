@@ -115,6 +115,33 @@ final class KVCache {
     /// Roll back to `n` entries. Bytes past `n` stay in the buffer but are
     /// dead: the next update writes over them, and fetches slice 0..<offset.
     func trim(to n: Int) { offset = min(offset, max(0, n)) }
+
+    /// Adopt whole buffers (disk cache load). The running model's buffers are
+    /// replaced, not merged: the caller has already validated shape and dtype
+    /// against the config.
+    func restoreFromArrays(keys: MLXArray, values: MLXArray, offset: Int) {
+        self.keys = keys
+        self.values = values
+        self.offset = offset
+    }
+
+    /// Append one delta chunk (disk cache load). Rejects a shape/dtype that
+    /// cannot be grown into the existing buffer, so a corrupt node never
+    /// reaches the running state.
+    func append(keys k: MLXArray, values v: MLXArray) -> Bool {
+        guard k.ndim == 4, v.ndim == 4,
+              k.dim(0) == v.dim(0), k.dim(1) == v.dim(1),
+              k.dim(2) == v.dim(2), k.dim(3) == v.dim(3)
+        else { return false }
+        if let oldK = keys, let oldV = values {
+            guard oldK.dim(0) == k.dim(0), oldK.dim(1) == k.dim(1),
+                  oldK.dim(3) == k.dim(3), oldV.dim(0) == v.dim(0),
+                  oldV.dim(1) == v.dim(1), oldV.dim(3) == v.dim(3)
+            else { return false }
+        }
+        _ = updateAndFetch(k, v)
+        return true
+    }
 }
 
 /// Grown in blocks like KVCache rather than re-concatenated per token: a
@@ -124,6 +151,11 @@ final class IndexerCache {
     private var buf: MLXArray?  // (B, cap, dim)
     private(set) var offset = 0
     let step = 1024
+    func snapshot() -> MLXArray? { buf }
+    func restore(from arr: MLXArray, offset: Int) {
+        self.buf = arr
+        self.offset = offset
+    }
 
     func update(_ k: MLXArray) -> MLXArray {
         let s = k.dim(1)
@@ -142,6 +174,15 @@ final class IndexerCache {
 
     /// Roll back to `n` entries (see KVCache.trim).
     func trim(to n: Int) { offset = min(offset, max(0, n)) }
+
+    func append(_ arr: MLXArray) -> Bool {
+        guard arr.ndim == 3 else { return false }
+        if let old = buf {
+            guard old.dim(0) == arr.dim(0), old.dim(2) == arr.dim(2) else { return false }
+        }
+        _ = update(arr)
+        return true
+    }
 
     func materializeStorage() {
         if let b = buf { eval(b) }

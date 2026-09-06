@@ -286,8 +286,117 @@ public final class Generator {
         let hit = cache?.take(
             matching: promptIds, images: images,
             reserveTokens: promptIds.count + params.maxTokens)
-        let state = hit?.state ?? model.makeState()
-        let reused = hit?.reused ?? 0
+        // Disk cache: try the longest chunk-aligned prefix on disk before the
+        // RAM cache — a cold conversation that was here before beats anything
+        // in flight. Guarded by enabled so a default run never opens the DB
+        // or the kvcache directory. Text-only: the disk key derives from token
+        // embeddings alone, which cannot see the vision tower's output, so a
+        // vision prompt skips the disk tier (and never saves to it below) and
+        // stays on the images-aware RAM path above.
+        let useDiskTier = DiskCache.enabled && images.isEmpty
+        let diskModel = model
+        let diskChunk = prefillChunk
+        // Embedding extractor for an arbitrary token range: the flat rows a
+        // node's key is derived from. The fixed chain walk slices it at chunk
+        // boundaries; turn nodes cover whatever range their delta spans.
+        // Walks bail at the first miss so nothing computes past the depth
+        // actually consumed.
+        let diskEmbedRange: (Int, Int) -> [Float]? = { lo, hi in
+            guard lo >= 0, lo < hi, hi <= promptIds.count else { return nil }
+            let ids = MLXArray(promptIds[lo..<hi].map { Int32($0) }, [1, hi - lo])
+            let rows = diskModel.resident.embed(ids).asType(.float32)
+            eval(rows)
+            return rows.reshaped([rows.dim(1) * rows.dim(2)]).asArray(Float.self)
+        }
+        var diskState: Qwen4ExpModel.State? = nil
+        var diskHitLen: Int? = nil
+        var diskParentKey: String? = nil
+        var diskParentTokenCount = 0
+        var diskChainDepth = 0
+        // Save one turn node covering [diskParentTokenCount, hi), chained
+        // onto the current deepest node, then advance the chain to it. The
+        // key is derived from the delta's own embeddings — the same
+        // re-derivation longestVariableChain uses to verify it on a later
+        // request. The write itself runs on DiskCache's serial save queue;
+        // the checkpoint is taken synchronously inside saveAsync, so a node
+        // saved at the prompt boundary holds exactly the post-prefill state.
+        func saveDiskNode(to hi: Int, state: Qwen4ExpModel.State, tokens: [Int]) {
+            let lo = diskParentTokenCount
+            guard lo < hi, let deltaEmbeds = diskEmbedRange(lo, hi) else { return }
+            let key = ChunkIndex.makeKey(parentSha: diskParentKey, embeddings: deltaEmbeds)
+            DiskCache.saveAsync(
+                state: state, tokenIds: Array(tokens[0..<hi]), key: key,
+                parentSha: diskParentKey, depth: diskChainDepth + 1,
+                embeddings: deltaEmbeds, parentTokenCount: lo)
+            diskParentKey = key
+            diskParentTokenCount = hi
+            diskChainDepth += 1
+        }
+        if useDiskTier {
+            let pc = diskChunk
+            let embed: (Int) -> [Float]? = { d in diskEmbedRange(d * pc, (d + 1) * pc) }
+            // One retry: a node that fails to apply is invalidated and
+            // removed by the loader, so the second walk stops before it and
+            // the chain loads to its last valid ancestor. (The old
+            // terminal-only fallback was the depth-1 special case of this.)
+            for attempt in 0..<2 {
+                var fixedKey: String? = nil
+                var fixedLen = 0
+                if let l = DiskCache.longestPrefixHit(chunk: pc, embed: embed) {
+                    for d in 0..<(l / pc) {
+                        guard let e = embed(d) else { break }
+                        fixedKey = ChunkIndex.makeKey(parentSha: fixedKey, embeddings: e)
+                    }
+                    fixedLen = l
+                }
+                // Turn nodes (prompt endpoints, decode endpoints) extend the
+                // fixed chain as variable-length children, greedily
+                // longest-first, each verified against this prompt's content.
+                let variable = DiskCache.longestVariableChain(
+                    parentSha: fixedKey, parentTokenCount: fixedLen,
+                    promptCount: promptIds.count, embedRange: diskEmbedRange)
+                diskParentKey = variable.keys.last ?? fixedKey
+                diskParentTokenCount = variable.end
+                diskChainDepth = fixedLen / pc + variable.keys.count
+
+                let loadLen = variable.end
+                let curReused = hit?.reused ?? 0
+                if loadLen == 0 || loadLen <= curReused { break }
+                if let ds = DiskCache.loadState(
+                    for: embed, depth: fixedLen / pc, variableKeys: variable.keys,
+                    tokenIds: Array(promptIds[0..<loadLen]),
+                    template: model.makeState())
+                {
+                    diskState = ds
+                    diskHitLen = loadLen
+                    FileHandle.standardError.write(
+                        "kvcache disk hit: \(loadLen)/\(promptIds.count) tokens\n".data(using: .utf8)!)
+                    break
+                }
+                if attempt == 1 { break }
+                diskParentKey = nil
+                diskParentTokenCount = 0
+                diskChainDepth = 0
+            }
+        }
+        // A prompt delta longer than the split threshold becomes
+        // chunk-boundary nodes plus a final partial instead of one node.
+        let promptWillSplit = DiskCache.promptSplitTokens.map {
+            promptIds.count - diskParentTokenCount > $0
+        } ?? false
+        let decodeSplitThreshold = DiskCache.decodeSplitTokens
+
+        let state: Qwen4ExpModel.State
+        let reused: Int
+        if let ds = diskState, let l = diskHitLen {
+            state = ds
+            reused = l
+            // Return the RAM hit state to the pool if we used disk instead
+            if let h = hit { cache?.store(state: h.state, tokens: Array(promptIds[0..<h.reused]), images: images) }
+        } else {
+            state = hit?.state ?? model.makeState()
+            reused = hit?.reused ?? 0
+        }
         stats.promptTokens = promptIds.count
         stats.reusedPrefixTokens = reused
         MLX.Memory.peakMemory = 0
@@ -311,7 +420,13 @@ public final class Generator {
         // main model actually saw. A state produced by a plain vision request
         // still runs plain, since its head cache would claim positions the
         // main state no longer matches.
-        let stateKnowsMTP = hit == nil || hit?.state.mtp != nil
+        //
+        // A disk-tier hit arrives with hit == nil but a state that already
+        // consumed tokens, so "no RAM hit" alone must not imply a fresh head:
+        // speculate only over a state whose draft cache actually covers it
+        // (offset == tokenCount - 1, the invariant the prefill loop keeps).
+        let stateKnowsMTP = reused == 0
+            || (state.mtp != nil && state.mtp!.offset == max(0, state.tokenCount - 1))
         let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
         // Vision: the tower runs here and not at tokenize time, so an image the
@@ -373,6 +488,17 @@ public final class Generator {
                 let h = model.hiddenStates(chunk, state: state, vision: chunkVision)
                 eval(h)
             }
+            // Split a long prompt delta at chunk boundaries (only when
+            // SLOTSTREAM_DISK_KV_SPLIT_LONG_PROMPTS asks for it) so no single
+            // data.kv grows to the whole prompt. By default nothing is saved
+            // here: the prompt boundary itself is the save point below.
+            // Text-only (see useDiskTier above): a vision state's KV carries
+            // tower output the embedding-derived key cannot fingerprint.
+            if useDiskTier, promptWillSplit,
+               hi % prefillChunk == 0, hi < promptIds.count
+            {
+                saveDiskNode(to: hi, state: state, tokens: promptIds)
+            }
             i = hi
             onPrefillProgress?(i - reused, promptIds.count - reused, -t0.timeIntervalSinceNow)
         }
@@ -394,6 +520,17 @@ public final class Generator {
         }
         model.pool.resetStats()
         model.ngram.resetStats()
+
+        // The prompt boundary is a turn node: one node holding everything
+        // since the deepest node the loader matched — for a cold conversation
+        // that is the whole prompt, for a continuing one only the new tokens.
+        // Saved before decode so the checkpoint it captures is exactly the
+        // post-prefill state (saveAsync checkpoints synchronously; the write
+        // is async on the save queue). The decode endpoint below then chains
+        // onto this node, so a turn costs only its own new tokens on disk.
+        if useDiskTier {
+            saveDiskNode(to: promptIds.count, state: state, tokens: promptIds)
+        }
 
         // ---- decode
         var out: [Int] = []
@@ -422,9 +559,30 @@ public final class Generator {
                 logits = model.lastLogits([tok], state: state)
                 consumed.append(tok)
                 eval(logits)
+                // Split a long decode delta at chunk boundaries (only when
+                // SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES asks for it). The
+                // state has consumed exactly `consumed.count` tokens here —
+                // a token is sampled before it is fed, and it was fed just
+                // above. The speculative path saves at decode end only: its
+                // state carries unverified draft tokens between rounds.
+                if let threshold = decodeSplitThreshold,
+                   consumed.count % diskChunk == 0,
+                   consumed.count - diskParentTokenCount > threshold
+                {
+                    saveDiskNode(to: consumed.count, state: state, tokens: consumed)
+                }
             }
         }
         cache?.store(state: state, tokens: consumed, images: images)
+        // The decode endpoint is a turn node: the delta since the prompt
+        // node (or, when the prompt was a full hit, since that node itself).
+        // It chains onto the deepest saved node, so a later request that
+        // shares this conversation's prefix — even one that arrived exactly
+        // here — picks up where we stopped. Text-only (see useDiskTier
+        // above).
+        if useDiskTier {
+            saveDiskNode(to: consumed.count, state: state, tokens: consumed)
+        }
         stats.finishReason = reason
         stats.decodeTokens = out.count
         stats.decodeSeconds = -t0.timeIntervalSinceNow
