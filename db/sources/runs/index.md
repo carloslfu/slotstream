@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T02:10:50.433206Z
+updated: 2026-09-06T02:34:47.688092Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-05-hermes-release-client-acceptance]] — Hermes 0.2.8 clean release: real clients and regression acceptance
 - [[sources/runs/2026/09/2026-09-05-hermes-release-context-and-gates]] — Hermes clean release candidate: full context and local gates
 - [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]] — Verified Hermes source build installed locally
 - [[sources/runs/2026/09/2026-09-05-hermes-final-integration-acceptance]] — Final Hermes integration acceptance

@@ -1,15 +1,15 @@
 ---
 type: index
 scope: root
-updated: 2026-09-06T02:10:50.754100Z
+updated: 2026-09-06T02:34:47.688092Z
 ---
 
 # Knowledge base index
 
-## Sources (26)
+## Sources (27)
 - [[sources/community/index|Community]] (1) — measurement reports from other people's Macs, verbatim
 - [[sources/docs/index|Docs]] (2) — frozen snapshots of the documents the records were lifted from
-- [[sources/runs/index|Runs]] (23) — raw tool output captured before a number was transcribed
+- [[sources/runs/index|Runs]] (24) — raw tool output captured before a number was transcribed
 
 ## Records (181)
 - [[records/claims/index|Claims]] (41) — every number on a public surface, with the measurement that supports it and the gate that guards it

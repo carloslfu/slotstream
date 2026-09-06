@@ -2822,3 +2822,13 @@ On this clean candidate, 65,520 prompt tokens plus one reply completed at the 10
 The final local fast gates pass: 24 optimized catalogue groups with 637 assertions, 64 planner checks, installer/static gates, 16 sampler/governor gates, and an external Swift package consumer. All existing coverage floors are preserved; the HTTP server's measured coverage rises from 10.51% to 12.91%, with separate floors for the new adapter files. The clean brain and generated projections pass, including 78 registered claim checks. The full real-client release matrix is recorded separately when it completes.
 
 Raw outputs, source hashes, and the small validator-test visibility bridge between the context and final local binaries are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-context-and-gates]].
+
+#### Clean release client acceptance
+
+The clean release candidate passed the complete real-client matrix and [public CI run 34005877377](https://github.com/carloslfu/slotstream/actions/runs/34005877377) at commit `2a69ac0be4148a6f351cc18159c8dbff49ba3f7e`. Both the released Hermes agent and the recorded main snapshot executed the actual terminal fixture and recalled its code on a follow-up; the released CLI returned `OK`. Vision discovery, the image answer, and the title fallback passed.
+
+The released Hermes compressor reduced the same forced fixture from 39 to 25 messages and from 99,684 to 87,082 characters. Its local auxiliary request had a 4,096-token allowance and completed with `stop` after 859 output tokens. The exact diagnostic code occurred only in the handoff at index 4, and the subsequent actual agent turn recovered it from an 18,243-token prompt. This remains a forced-compaction test rather than an automatic-threshold stress test.
+
+The release server also passed 27 OpenAI wire checks, all 19 existing image-serving checks in the clean public source, the native gateway's real tool/result round trip, and the actual Ollama image CLI. The final local binary passed all 74 ordinary API robustness checks. The larger historical counts above include other source in the earlier frozen workspace and are not substituted for this release's results. Complete clean-source checks and their identities are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-client-acceptance]].
+
+All owned test servers were stopped. The clean brain has zero validation errors and warnings. CI passed its build, static gates, sampler/governor checks, optimized catalogue, external Swift consumer, and coverage ratchet. This acceptance authorizes tagging the unchanged tested implementation; the published CI asset and installation verification are recorded separately after publication.
