@@ -95,19 +95,19 @@ finishes, it processes your prompt and prints the reply.
 
 ### Downloading the model
 
-Run `slotstream pull` to download the weights before starting a run. The
-compressed download is **88.3 GB**, reconstructing the original **105.3 GB
-across 25 files**: **16.12% fewer bytes**, with no change to model values.
-This includes the optional 1.5 GB draft head used to speed up generation.
-Downloads resume after an interruption, and each file must match its pinned
-SHA-256 before it becomes usable.
-
-Transfer-only estimates are about 2 hours at 100 Mbps or 8 hours at 25 Mbps,
-before protocol overhead and any processing that cannot overlap the download.
-The weights only need to be downloaded once.
+Run `slotstream pull` to download the model. It automatically uses compression
+and Cloudflare's global cache (CDN): **88.3 GB** instead of **105.3 GB**
+(**16.12% fewer bytes**), restoring the exact original model on disk.
+Interrupted downloads resume automatically, and every file is checked for
+corruption. You only need to download it once.
 
 <details>
 <summary>Download speed and verification details</summary>
+
+The transfer alone is estimated at about 2 hours at 100 Mbps or 8 hours at 25 Mbps.
+Connection overhead and any extra processing add to that time. The installed
+model has 25 files, including the optional 1.5 GB draft head used to speed up
+generation.
 
 Fresh downloads use small immutable compressed objects in Cloudflare R2,
 served through its CDN. Decoding and disk writes overlap the transfer. The
