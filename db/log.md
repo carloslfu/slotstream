@@ -82,3 +82,6 @@ clean verify.sh run: 24 passed, 0 failed; floor numbers recorded
 ## [2026-09-05 15:50] validate | records/claims
 Reviewed README and public guides for clarity and consistency. Preserved registered claim values; 67 claim checks, 53 local links, and syntax checks for 30 shell/Python examples passed. Regenerated llms-full.txt. Full-store validation has zero errors and the existing historical LOG_UNKNOWN_KIND warning.
 
+## [2026-09-06 02:10] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
+Prepared the scoped 0.2.8 Hermes release candidate from public main. Qualified full-window text memory, preserved default planning, verified 637 assertions and the local release gates, and updated public connection guides. The final real-client matrix and CI remain release gates.
+

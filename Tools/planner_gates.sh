@@ -140,9 +140,9 @@ check "doctor --json carries max_context_tokens + wait" \
       "$BIN doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"max_context_tokens\"]==32768 and 60 < d[\"est_prefill_s_at_max_context\"] < 3600, d'"
 # The old 400 told users to raise a flag that could not go higher.
 check "serve --max-context above the ceiling names the ceiling, not a knob" \
-      "$BIN serve --max-context 40000 --port 11498 2>&1 | grep -q 'largest context slotstream has measured'"
+      "$BIN serve --max-context 65537 --port 11498 2>&1 | grep -q 'largest context slotstream has measured'"
 check "doctor --max-context above the ceiling is the same clean error" \
-      "$BIN doctor --max-context 40000 2>&1 | grep -q 'largest context slotstream has measured' && ! $BIN doctor --max-context 40000 2>&1 | grep -q 'Fatal error'"
+      "$BIN doctor --max-context 65537 2>&1 | grep -q 'largest context slotstream has measured' && ! $BIN doctor --max-context 65537 2>&1 | grep -q 'Fatal error'"
 $BIN doctor --mtp off --max-context 8192 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/ctx8k" 2>&1
 check "a lower --max-context caps the reuse ceiling too"  "grep -q 'context: up to 8192 tokens' $T/ctx8k && grep -q 'reuse:  up to 8192 tokens' $T/ctx8k"
 # The prefill schedule: never past the measured query x key product, never

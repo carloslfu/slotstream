@@ -14,6 +14,8 @@
     "Sources/Slotstream/MemTrace.swift": 0.0,
     "Sources/Slotstream/Model.swift": 8.27,
     "Sources/Slotstream/NgramStore.swift": 2.04,
+    "Sources/Slotstream/OpenAIDialect.swift": 84.54,
+    "Sources/Slotstream/OpenAIOutput.swift": 96.55,
     "Sources/Slotstream/PinnedModel.swift": 100.0,
     "Sources/Slotstream/Plan.swift": 76.42,
     "Sources/Slotstream/PrefixCache.swift": 80.19,

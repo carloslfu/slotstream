@@ -143,7 +143,7 @@ struct ModelOptions: ParsableArguments {
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
-    func announcedPlan(maxContext: Int = ContextPolicy.maxTokens) throws -> MemoryPlan {
+    func announcedPlan(maxContext: Int = ContextPolicy.defaultTokens) throws -> MemoryPlan {
         try ensureWeights()
         let plan = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
@@ -332,7 +332,7 @@ struct Serve: ParsableCommand {
     @Option(
         name: .customLong("max-context"),
         help: ArgumentHelp(
-            "Longest prompt plus reply accepted per request, in tokens (default and ceiling \(ContextPolicy.maxTokens)).",
+            "Longest prompt plus reply accepted per request, in tokens (default \(ContextPolicy.defaultTokens), ceiling \(ContextPolicy.maxTokens)).",
             discussion: """
                 Past it a request is refused with a 400 that says why, instead \
                 of stalling. The ceiling is the largest context slotstream has \
@@ -342,7 +342,7 @@ struct Serve: ParsableCommand {
                 is read before the first token; `doctor` prints the wait for \
                 this machine and `context-check` measures a longer prompt.
                 """))
-    var maxContext: Int = ContextPolicy.maxTokens
+    var maxContext: Int = ContextPolicy.defaultTokens
     @Flag(name: .customLong("no-elastic"),
           help: "Pin the cache at its startup size. Default: an auto-sized cache resizes itself between requests as memory pressure and availability change (explicit size flags are always pinned).")
     var noElastic = false
@@ -494,8 +494,8 @@ struct Doctor: ParsableCommand {
     var asJSON = false
 
     @Option(name: .customLong("max-context"),
-            help: "Preview the plan `serve --max-context N` would announce (default and ceiling \(ContextPolicy.maxTokens)).")
-    var maxContext: Int = ContextPolicy.maxTokens
+            help: "Preview the plan `serve --max-context N` would announce (default \(ContextPolicy.defaultTokens), ceiling \(ContextPolicy.maxTokens)).")
+    var maxContext: Int = ContextPolicy.defaultTokens
 
     /// One line on the 104 GB the plan above says nothing about: is it here,
     /// is there room for it, and roughly how long it takes.

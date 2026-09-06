@@ -3,6 +3,26 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## 0.2.8 — 2026-09-05
+
+- The OpenAI Chat Completions endpoint now supports function tools, streamed
+  calls, tool results, and reasoning history. Tool IDs survive the full agent
+  loop, including results returned out of order. Malformed calls fail
+  explicitly. This adds the Hermes integration requested in
+  [#11](https://github.com/carloslfu/slotstream/issues/11).
+- An explicit `--max-context 65536` supports Hermes while ordinary serving
+  keeps its existing context default. Long-context state and transient memory
+  are charged before allocating the expert cache.
+- Model discovery reports the runtime context window and available vision
+  capability, so Hermes no longer misidentifies an image-enabled server as
+  text-only. OpenAI requests accept
+  Hermes's reasoning flags and bounded `options.num_ctx`. Unsupported
+  structured output has an explicit rejection compatible with Hermes's
+  fallback handling.
+- Added a [connection guide](docs/CLIENTS.md) and a
+  [Hermes setup guide](docs/HERMES.md), including local auxiliary routing,
+  output budgets, and troubleshooting.
+
 ## 0.2.7 — 2026-09-04
 
 - **The model reads images.** The checkpoint has always carried a vision tower

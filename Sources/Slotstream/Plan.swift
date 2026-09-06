@@ -104,7 +104,7 @@ public struct MemoryPlan {
         availableGB: Double?, clamped: Bool,
         prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
         visionEnabled: Bool = false,
-        maxContextTokens: Int = ContextPolicy.maxTokens,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
         notes: [String], simulated: Bool = false
     ) {
         self.source = source
@@ -130,7 +130,7 @@ public struct MemoryPlan {
         poolGB + Planner.fixedFootprintGB + Planner.prefillCostGB(prefillChunk)
             + Planner.prefixCacheCostGB(tokens: prefixCacheTokens)
             + (mtpEnabled ? Planner.mtpResidentGB : 0)
-            + Planner.extraContextStateGB(maxContextTokens: maxContextTokens)
+            + Planner.extraContextMemoryGB(maxContextTokens: maxContextTokens)
     }
     /// Seconds a prompt filling the whole context takes before its first
     /// token, priced through the prefill schedule this plan runs.
@@ -196,12 +196,12 @@ public struct MemoryPlan {
                     + "resident, NOT charged above; refused if the machine cannot spare it then)",
                 Planner.visionResidentGB))
         }
-        let extra = Planner.extraContextStateGB(maxContextTokens: maxContextTokens)
+        let extra = Planner.extraContextMemoryGB(maxContextTokens: maxContextTokens)
         l.append(String(
             format: "  context: up to %d tokens per request (prompt + reply%@); a full-length prompt "
                 + "takes ~%@ before its first token here, follow-up turns read only what is new",
             maxContextTokens,
-            extra > 0 ? String(format: ", +%.1f GB state charged above", extra) : "",
+            extra > 0 ? String(format: ", +%.1f GB state and transient reserve charged above", extra) : "",
             PrefillSchedule.describe(seconds: estPrefillSecondsAtMaxContext)))
         if prefixCacheTokens > 0 {
             l.append(String(
@@ -292,10 +292,25 @@ public enum Planner {
     }
 
     /// Context state above what the fixed footprint already covers. Zero at
-    /// today's ceiling; the term exists so a raised --max-context is priced
-    /// the day the ceiling moves, instead of riding on the margin.
+    /// the default window; an explicitly larger --max-context reduces the
+    /// expert pool before allocation instead of consuming the safety margin.
     public static func extraContextStateGB(maxContextTokens: Int) -> Double {
         contextStateGB(max(0, maxContextTokens - ContextPolicy.tokensInFixedFootprint))
+    }
+
+    /// The larger window also needs transient headroom. A completed 65,520
+    /// token check at chunk 512 peaked at 10.056 GB against the state-only
+    /// plan's 9.260 GB (20 ms physical-footprint sampling, not just RSS).
+    /// Reserve a full additional window's growth above the fixed footprint
+    /// throughout the supported long-context range. This conservative envelope
+    /// covers that measured gap without claiming its exact buffer attribution
+    /// or interpolating unmeasured peaks. Ordinary windows retain their budget.
+    /// See the Hermes measurement and its preserved failed run.
+    public static func extraContextMemoryGB(maxContextTokens: Int) -> Double {
+        let state = extraContextStateGB(maxContextTokens: maxContextTokens)
+        guard state > 0 else { return 0 }
+        let reserve = contextStateGB(ContextPolicy.maxTokens - ContextPolicy.tokensInFixedFootprint)
+        return state + reserve
     }
 
     /// Sizes the prefill pass from the same budget as the pool.
@@ -634,12 +649,12 @@ public enum Planner {
         availableGB: Double? = nil, ramPercent: Double? = nil,
         mtp: MTPMode = .off, mtpAvailable: Bool = false,
         vision: VisionMode = .auto, visionAvailable: Bool = false,
-        maxContextTokens: Int = ContextPolicy.maxTokens,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
         simulated: Bool = false
     ) throws -> MemoryPlan {
         if let why = ContextPolicy.validationError(maxContextTokens) { throw PlanError(why) }
-        // Zero at today's ceiling (Context.swift); charged the day it moves.
-        let contextCharge = extraContextStateGB(maxContextTokens: maxContextTokens)
+        // Price the additional active state and transient reserve before the pool.
+        let contextCharge = extraContextMemoryGB(maxContextTokens: maxContextTokens)
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
         let avail = availableGB ?? deviceAvailableGB()
@@ -754,7 +769,12 @@ public enum Planner {
         }
         if let m = memoryGB {
             guard m.isFinite else { throw PlanError("--memory-gb must be finite") }
-            guard m >= minMemoryGB else {
+            guard m - contextCharge >= minMemoryGB else {
+                if contextCharge > 0 {
+                    throw PlanError(String(format:
+                        "--memory-gb %.1f cannot fit the requested context above the %.1f GB minimum; use at least %.2f GB or lower --max-context",
+                        m, minMemoryGB, minMemoryGB + contextCharge))
+                }
                 throw PlanError(String(
                     format: "--memory-gb %.1f is below the minimum %.1f GB (floor cache of ~%.0f experts/layer = %.1f GB pool, plus the %.1f GB fixed footprint of resident weights + n-gram cache, plus %.1f GB margin)",
                     m, minMemoryGB, Geometry.perLayer(Geometry.floorSlots),
@@ -818,6 +838,9 @@ public enum Planner {
         let raw: Double
         (raw, clamped) = autoRaw(ceilingGB: kneeGB)
         let target = max(minMemoryGB, raw)
+        if maxContextTokens > ContextPolicy.defaultTokens, raw - contextCharge < minMemoryGB {
+            throw PlanError("available memory cannot fit the requested context above the minimum expert pool; close other apps or lower --max-context")
+        }
         if mtpOn, target - mtpResidentGB - contextCharge < minMemoryGB { mtpOn = false }
         // Exactly one note tells the story of why the target is what it is.
         if raw < minMemoryGB, ceiling < minMemoryGB {

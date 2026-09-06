@@ -13,7 +13,7 @@ struct PrefillScheduleCommand: ParsableCommand {
         abstract: "Print the prefill passes a prompt runs and the wait they imply (no weights needed)")
     @Option(help: "Largest pass the plan allows (the `prefill:` line of the banner)")
     var chunk: Int = 4096
-    @Option(help: "Prompt length in tokens") var tokens: Int = ContextPolicy.maxTokens
+    @Option(help: "Prompt length in tokens") var tokens: Int = ContextPolicy.defaultTokens
     @Option(help: "Tokens already held by the state (a prefix-cache hit)") var from: Int = 0
     @Flag(name: .customLong("json"), help: "Machine-readable output") var asJSON = false
 
@@ -65,6 +65,9 @@ struct ContextCheck: ParsableCommand {
         commandName: "context-check",
         abstract: "Measure what reading an N-token prompt costs on this Mac: time, tok/s, peak memory, and whether it stayed inside the plan")
     @OptionGroup var model: ModelOptions
+    @Flag(name: .customLong("sample-footprint"),
+          help: "Sample physical footprint during generation in addition to lifetime RSS")
+    var sampleFootprint = false
     @Option(help: "Prompt length in tokens (rungs double from 2048 up to here with --ladder)")
     var tokens: Int = 8192
     @Flag(help: "Run 2048, 4096, ... up to --tokens, stopping at the first rung that leaves the plan")
@@ -107,7 +110,10 @@ struct ContextCheck: ParsableCommand {
         let ladder = self.ladder
         let asJSON = self.asJSON
         let minFree = minFreeGB
-        let plan = try model.announcedPlan()
+        let sampleFootprint = self.sampleFootprint
+        // Charge the selected context before allocating the expert pool.
+        let plan = try model.announcedPlan(maxContext:
+            min(ContextPolicy.maxTokens, max(ContextPolicy.defaultTokens, target + 16)))
         Task {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
@@ -138,6 +144,7 @@ struct ContextCheck: ParsableCommand {
                     var aborted: String?
                     var params = SampleParams.greedy
                     params.maxTokens = 1
+                    let sampler = sampleFootprint ? ContextFootprintSampler() : nil
                     let (_, _, stats) = engine.generate(
                         promptIds: ids, params: params,
                         shouldContinue: {
@@ -148,12 +155,16 @@ struct ContextCheck: ParsableCommand {
                             }
                             return true
                         })
+                    let sampled = sampler?.finish()
                     engine.dropPrefixCache()
-                    let peak = stats.peakMemoryGB
-                    let fits = aborted == nil && peak <= plan.expectedPeakGB
+                    let peak = max(stats.peakMemoryGB, Double(sampled?.peakBytes ?? 0) / 1e9)
+                    let completed = stats.prefillTokens == n && stats.decodeTokens == 1
+                    let fits = aborted == nil && completed && peak <= plan.expectedPeakGB
                     let verdict: String
                     if let a = aborted {
                         verdict = "ABORTED at \(stats.prefillTokens) tokens: \(a)"
+                    } else if !completed {
+                        verdict = "INCOMPLETE: prompt or reply did not complete"
                     } else if fits {
                         verdict = "OK"
                     } else {
@@ -163,7 +174,12 @@ struct ContextCheck: ParsableCommand {
                         let d: [String: Any] = [
                             "tokens": n, "prefill_tokens": stats.prefillTokens,
                             "prefill_seconds": stats.prefillSeconds, "prefill_tok_s": stats.prefillTPS,
-                            "peak_rss_gb": peak, "plan_expected_peak_gb": plan.expectedPeakGB,
+                            "peak_rss_gb": stats.peakMemoryGB, "peak_observed_gb": peak,
+                            "sampled_footprint_peak_bytes": sampled?.peakBytes ?? 0,
+                            "footprint_samples": sampled?.samples ?? 0,
+                            "sample_interval_ms": sampled?.intervalMilliseconds ?? 0,
+                            "decode_tokens": stats.decodeTokens, "completed": completed,
+                            "plan_expected_peak_gb": plan.expectedPeakGB,
                             "prefill_chunk": engine.generator.prefillChunk,
                             "passes": PrefillSchedule.passes(tokens: n, maxChunk: engine.generator.prefillChunk),
                             "fits": fits, "aborted": aborted ?? NSNull(),
@@ -186,7 +202,7 @@ struct ContextCheck: ParsableCommand {
                     let cap = ContextPolicy.maxTokens
                     if fitsSoFar, target <= cap {
                         print("verdict: \(target) tokens stay inside the plan on this Mac; the ceiling is \(cap) "
-                            + "(prompt + reply), so no flag is needed.")
+                            + "(prompt + reply); use --max-context \(plan.maxContextTokens) when serving this window.")
                     } else if fitsSoFar {
                         print("verdict: \(target) tokens stayed inside the plan on this Mac. The ceiling is still "
                             + "\(cap) until this measurement is recorded in MEASUREMENTS.md and the planner "
@@ -205,4 +221,46 @@ struct ContextCheck: ParsableCommand {
         sem.wait()
         try result.get()
     }
+}
+
+/// Optional physical-footprint sampling. This observes Mach only: it neither
+/// evaluates MLX graphs nor changes GPU synchronization. The maximum is a
+/// sampled lower bound, not the kernel's lifetime RSS high-water.
+private final class ContextFootprintSampler {
+    struct Result: Codable {
+        var peakBytes: UInt64
+        var samples: Int
+        var intervalMilliseconds: Int
+    }
+    private let queue = DispatchQueue(label: "slotstream.footprint-observer")
+    private var timer: DispatchSourceTimer?
+    private var result: Result
+
+    init(intervalMilliseconds: Int = 20) {
+        let interval = max(1, intervalMilliseconds)
+        result = Result(peakBytes: ProcessMemory.residentBytes(), samples: 1,
+                        intervalMilliseconds: interval)
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + .milliseconds(interval),
+                       repeating: .milliseconds(interval))
+        timer.setEventHandler { [weak self] in self?.sample() }
+        self.timer = timer
+        timer.resume()
+    }
+
+    private func sample() {
+        result.peakBytes = max(result.peakBytes, ProcessMemory.residentBytes())
+        result.samples += 1
+    }
+
+    func finish() -> Result {
+        queue.sync {
+            timer?.cancel()
+            timer = nil
+            sample()
+            return result
+        }
+    }
+
+    deinit { timer?.cancel() }
 }

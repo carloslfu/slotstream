@@ -102,7 +102,7 @@ public final class Engine {
     /// are not free: KV plus indexer state costs ~27 KiB per token, and a
     /// prompt is read in full before the first token, so a huge prompt is a
     /// long, memory-growing stall rather than a fast failure.
-    public var maxContextTokens = ContextPolicy.maxTokens {
+    public var maxContextTokens = ContextPolicy.defaultTokens {
         didSet {
             let capped = min(prefixCache.maxTokens, maxContextTokens)
             prefixCache.configure(maxTokens: capped)

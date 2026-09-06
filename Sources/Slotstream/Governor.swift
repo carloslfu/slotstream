@@ -49,12 +49,14 @@ public enum GovernorPolicy {
         public var secondsSinceResize: Double?
         /// Set when this tick is an OS pressure event rather than a poll.
         public var pressure: Pressure?
+        /// Keep the explicitly selected context charged through every replan.
+        public var maxContextTokens: Int
 
         public init(
             currentSlots: Int, availableGB: Double, ramGB: Double, workingSetGB: Double,
             ramPercent: Double = Planner.defaultRAMPercent,
             secondsSincePressure: Double? = nil, secondsSinceResize: Double? = nil,
-            pressure: Pressure? = nil
+            pressure: Pressure? = nil, maxContextTokens: Int = ContextPolicy.defaultTokens
         ) {
             self.ramPercent = ramPercent
             self.currentSlots = currentSlots
@@ -64,6 +66,7 @@ public enum GovernorPolicy {
             self.secondsSincePressure = secondsSincePressure
             self.secondsSinceResize = secondsSinceResize
             self.pressure = pressure
+            self.maxContextTokens = maxContextTokens
         }
     }
 
@@ -88,14 +91,18 @@ public enum GovernorPolicy {
     /// state under contention double-reserves ~4 GB).
     public static func desiredPlan(_ i: Inputs) -> MemoryPlan? {
         let credited = i.availableGB + Geometry.gb(i.currentSlots) + Planner.fixedFootprintGB
+            + Planner.extraContextMemoryGB(maxContextTokens: i.maxContextTokens)
         return try? Planner.plan(
             expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
             ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited,
-            ramPercent: i.ramPercent)
+            ramPercent: i.ramPercent, maxContextTokens: i.maxContextTokens)
     }
 
     public static func desiredSlots(_ i: Inputs) -> Int? {
-        desiredPlan(i)?.slots
+        if let plan = desiredPlan(i) { return plan.slots }
+        // A larger window may no longer fit after availability falls. Give
+        // back the cache rather than keeping a previously generous pool.
+        return i.maxContextTokens > ContextPolicy.defaultTokens ? Geometry.floorSlots : nil
     }
 
     /// Live allocation controls for a resize. Availability-driven targets come
@@ -212,7 +219,7 @@ public final class MemoryGovernor {
             ramPercent: cur.ramPercent,
             secondsSincePressure: lastPressureAt.map { now.timeIntervalSince($0) },
             secondsSinceResize: lastResizeAt.map { now.timeIntervalSince($0) },
-            pressure: pressure)
+            pressure: pressure, maxContextTokens: engine.maxContextTokens)
     }
 
     /// OS pressure events see what availability math cannot: compressor and
@@ -282,6 +289,8 @@ public final class MemoryGovernor {
                 availableGB: ref?.availableGB, clamped: ref?.clamped ?? false,
                 prefillChunk: prefillChunk, prefixCacheTokens: livePrefixTokens,
                 mtpEnabled: ref?.mtpEnabled ?? false,
+                visionEnabled: ref?.visionEnabled ?? false,
+                maxContextTokens: engine.maxContextTokens,
                 notes: [String(
                     format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
                     Geometry.perLayer(before), Geometry.perLayer(after), reason)]))

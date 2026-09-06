@@ -20,7 +20,7 @@ extension Catalogue {
             // T1: touches MLX, so it needs the Metal library beside the runner.
             Check("sampler-behaviour", tier: .t1) { try Diagnostics.samplerBehaviour() },
             Check("vision-splice", tier: .t1) { Diagnostics.visionSplice() },
-        ] + toolCallChecks + gatewayChecks
+        ] + toolCallChecks + gatewayChecks + openAIChecks
     }
 
     /// `--max-context` validation: the bounds, and that the message explains

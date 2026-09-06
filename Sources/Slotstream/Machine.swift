@@ -92,7 +92,7 @@ public struct PlanRequest: Sendable, Codable, Equatable {
         expertsPerLayer: Int? = nil, poolGB: Double? = nil, memoryGB: Double? = nil,
         maxRAMPercent: Double? = nil, mtp: Planner.MTPMode = .auto,
         vision: Planner.VisionMode = .auto,
-        maxContextTokens: Int = ContextPolicy.maxTokens
+        maxContextTokens: Int = ContextPolicy.defaultTokens
     ) {
         self.expertsPerLayer = expertsPerLayer
         self.poolGB = poolGB

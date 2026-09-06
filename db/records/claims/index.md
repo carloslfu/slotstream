@@ -2,11 +2,17 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-03T23:51:28.936508Z
+updated: 2026-09-06T01:32:00.579778Z
 ---
 
 # records/claims
 
+- [[records/claims/context-cap-32768-tokens]] — Prompt plus completion is capped at 32,768 tokens per request
+- [[records/claims/openai-tool-sampling-defaults]] — OpenAI tool requests reuse the native agent sampler
+- [[records/claims/openai-inference-error-status]] — Non-streamed OpenAI inference failures return HTTP 500
+- [[records/claims/hermes-local-stream-watchdog]] — Hermes example sets a bounded local stream watchdog
+- [[records/claims/hermes-explicit-output-budget]] — Hermes example reserves a 4096-token output allowance
+- [[records/claims/context-opt-in-65536]] — Opt-in served context of 65536 tokens
 - [[records/claims/one-picture-at-most-2304-tokens]] — A picture costs at most 2,304 tokens
 - [[records/claims/vision-tower-0-9-gb-resident]] — The vision tower costs 0.9 GB, and only when an image arrives
 - [[records/claims/request-body-cap-32-mib]] — A request body over 32 MiB is refused with 413
@@ -31,7 +37,6 @@ updated: 2026-09-03T23:51:28.936508Z
 - [[records/claims/full-context-wait-13-7-min-on-16-gb]] — A full 32k prompt waits about 13.7 min on a 16 GB Mac
 - [[records/claims/full-context-wait-5-5-min-on-48-gb]] — A full 32k prompt waits about 5.5 min before its first token on a 48 GB Mac
 - [[records/claims/context-state-27-kib-per-token]] — Context state costs about 27 KiB per token
-- [[records/claims/context-cap-32768-tokens]] — Prompt plus completion is capped at 32,768 tokens per request
 - [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling becomes 34.6 GB with the draft head on
 - [[records/claims/mtp-auto-floor-120-per-layer-28-gb-target]] — Auto turns speculative decode on only when the cache still reaches 120 experts per layer after the head, a 28 GB target
 - [[records/claims/speculative-decode-x1-24-at-auto-floor]] — Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac

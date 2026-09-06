@@ -79,6 +79,37 @@ slotstream must stay within that band. The two independent float32
 implementations agree to 0.99996. These checks test implementation correctness,
 not general vision accuracy.
 
+## OpenAI agent integration
+
+The `openai-conversation`, `openai-tool-output`, and `openai-context-budget`
+catalogue checks cover request/history semantics, complete-call publication,
+stream equivalence, and the separate default/maximum context budgets.
+
+Against an already-running server, run `python3 Tools/openai_tools_gate.py
+--output /tmp/openai-tools.jsonl`. This exercises the real model and HTTP/SSE
+wire contract and saves every request and response. It supplies fixed tool
+results after validating calls, without executing model-authored commands.
+The [Hermes guide](HERMES.md) covers the real-client configuration and fixture
+read. Run the ordinary API, gateway, and image gates when changing shared
+serving code.
+
+For an installed Hermes source checkout with its own environment:
+
+```sh
+/path/to/hermes/.venv/bin/python Tools/hermes_integration_gate.py \
+  /path/to/hermes /tmp/hermes-slotstream-check --compress
+```
+
+This requires the larger context in the Hermes guide. It creates an isolated
+Hermes home, denies non-loopback Python network connections, permits only the
+fixture's `cat` command through the actual Hermes tool dispatcher, and checks
+the real agent, title fallback, compaction, and recall. `--cli` checks the
+actual CLI instead. Raw HTTP and result records stay in the output directory.
+Add `--image Tools/assets/vision_test/secret1.jpg` to check Hermes's own vision
+discovery and an actual image turn. The server must have enough memory for both
+the configured context and the vision tower. The OpenAI gate's `--vision` option
+also checks image tool calls and the advertised capability.
+
 ## Coverage
 
 ```bash

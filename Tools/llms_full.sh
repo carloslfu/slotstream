@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SOURCES=(README.md docs/CLI.md docs/API.md docs/LIBRARY.md docs/FX.md docs/TESTING.md \
+SOURCES=(README.md docs/CLIENTS.md docs/CLI.md docs/API.md docs/LIBRARY.md docs/FX.md docs/HERMES.md docs/TESTING.md \
          docs/TROUBLESHOOTING.md docs/HARDWARE.md CHANGELOG.md)
 
 render() {

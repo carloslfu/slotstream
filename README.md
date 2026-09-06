@@ -124,6 +124,9 @@ weights, check a damaged file, or reclaim the disk space.
 
 ### Chat apps and the API
 
+Use the [connection guide](docs/CLIENTS.md) for provider settings, Hermes,
+OpenAI-compatible clients, Ollama clients, and integration troubleshooting.
+
 Start the server:
 
 ```bash
@@ -149,9 +152,11 @@ Mac; a client in a container needs its own networking setup.
 
 Open WebUI, the Ollama CLI, and OpenAI SDKs have been tested. The server
 supports chat, streaming, images, and sampling options. Tool calling is
-available through the [fx gateway](#coding-agents); the Ollama and OpenAI
-endpoints currently reject tools, JSON-schema output, and logprobs with a
-400 error. See the [API reference](docs/API.md) for the supported fields.
+available through OpenAI chat completions and the
+[fx gateway](#coding-agents).
+The Ollama endpoints reject tools; all endpoints reject JSON-schema output
+and logprobs with a 400 error. See the [API reference](docs/API.md) for the
+supported fields.
 
 ### Pictures
 
@@ -183,6 +188,11 @@ protocol that fx uses.
 Follow the [fx setup guide](docs/FX.md) to create a separate local profile.
 Use its `ask` permission mode: automatic action reviews time out on this
 setup, and long-session compaction is unreliable.
+
+[Hermes](docs/HERMES.md) can use the OpenAI endpoint for tool calls and
+conversation compaction. Its guide uses a separate local profile, an explicit
+context window, and bounded chat and summary output budgets. This integration
+requires Slotstream 0.2.8 or later.
 
 ## Speed
 
@@ -233,12 +243,14 @@ and failed experiments behind these results.
 
 ## Context
 
-**Prompt, conversation history, images, and reply share a 32,768-token limit.**
-This is the largest context slotstream has measured. The model was trained
-for 262,144 tokens, but slotstream doesn't yet support that full window.
-`serve --max-context N` can lower the limit.
+**Prompt, conversation history, images, and reply share a 32,768-token limit
+by default.** Use `serve --max-context 65536` for the larger 65,536-token
+window, including Hermes. The planner charges extra state and transient memory
+before allocating the expert cache. The model was trained for 262,144 tokens, but
+slotstream doesn't support that full window. The long-context qualification
+is a capacity and memory check, not a long-context answer-quality benchmark.
 
-At the limit, the estimated wait before the first token is about 3.0 min for
+At the default limit, the estimated wait before the first token is about 3.0 min for
 the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. The latter comes from
 the M5 Pro's curve; a slower SSD can take longer. Follow-up turns reuse
 unchanged history while it remains cached.
@@ -342,7 +354,8 @@ aren't supported. See [Related projects](#related-projects) for other runtimes.
   [Hardware measurements](docs/HARDWARE.md).
 - **Concurrency:** one model process per user, with one generation at a time.
 - **Compatibility:** macOS 14/15 runtime testing is still needed. Tool calling
-  works through the fx gateway; the OpenAI and Ollama subsets don't support it.
+  works through OpenAI chat completions and the fx gateway; the Ollama subset
+  doesn't support it.
 - **Vision:** the image encoder is checked against an independent reference
   and the APIs are tested with images. There is no general vision accuracy
   benchmark or comparison with another runtime yet.
@@ -372,6 +385,8 @@ serving, and the Metal shader library needed by command-line builds.
 
 | Guide | What you'll find |
 |---|---|
+| [Connect apps and agents](docs/CLIENTS.md) | Choose an API, configure a client, and diagnose integration problems |
+| [Hermes setup](docs/HERMES.md) | Local tool use, context, output budgets, and conversation compaction |
 | [Command reference](docs/CLI.md) | Commands, flags, file locations, and environment variables |
 | [API reference](docs/API.md) | Endpoints, request examples, streaming, and errors |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Slow replies, port conflicts, downloads, and uninstalling |

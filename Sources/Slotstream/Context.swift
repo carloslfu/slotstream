@@ -6,15 +6,14 @@ import Foundation
 public enum ContextPolicy {
     /// Longest prompt plus reply any one request may hold, in tokens.
     ///
-    /// This is the largest context slotstream has measured, not a limit of the
-    /// model or the machine: the model is trained for 262,144 tokens and the
-    /// state a context carries (KV plus indexer, 27 KiB per token) makes 32k
-    /// under 1 GB. The planner's fixed footprint already covers a full 32k
-    /// active context, and every peak-memory number in MEASUREMENTS.md comes
-    /// from prompts of at most 7,960 tokens. Raising the cap is a two-step
-    /// job: measure past 8k on real hardware (`slotstream context-check`), then
-    /// let the planner charge the state above `tokensInFixedFootprint`.
-    public static let maxTokens = 32_768
+    /// The Hermes qualification read 65,520 prompt tokens plus a reply; the
+    /// remainder is reserved reply room. This is a measured serving envelope,
+    /// not the model's 262,144-token training window or an answer-quality claim.
+    /// The larger requested window is priced before allocating the expert pool.
+    /// See MEASUREMENTS.md, Hermes integration, for the initial budget failure
+    /// and the planned-context qualification. Keep ordinary defaults unchanged.
+    public static let maxTokens = 65_536
+    public static let defaultTokens = 32_768
     /// Context the fixed footprint (Planner.fixedFootprintGB) already pays for.
     public static let tokensInFixedFootprint = 32_768
 

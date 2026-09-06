@@ -383,13 +383,15 @@ public final class Server {
                 fd,
                 [
                     "modelfile": "# slotstream: SSD-streamed qwen4_exp",
-                    "parameters": "",
-                    "capabilities": ["completion"],
+                    "parameters": "num_ctx \(engine.maxContextTokens)",
+                    "capabilities": ["completion"]
+                        + (engine.visionAllowed && engine.visionAvailable ? ["vision"] : []),
                     "template": "{{ .Prompt }}",
                     "details": modelDetails(live: true),
                     "model_info": [
                         "general.architecture": "qwen4_exp",
                         "general.parameter_count": 176_000_000_000,
+                        "qwen4_exp.context_length": engine.maxContextTokens,
                     ],
                 ], cors: cors)
         case ("POST", "/api/chat"):
@@ -418,6 +420,9 @@ public final class Server {
                     "data": [[
                         "id": engine.modelName, "object": "model",
                         "created": startedAt, "owned_by": "slotstream",
+                        "context_length": engine.maxContextTokens,
+                        "context_window": engine.maxContextTokens,
+                        "max_output_tokens": GatewayDialect.outputBudget(contextCap: engine.maxContextTokens),
                     ]],
                 ], cors: cors)
         case ("POST", "/api/embed"), ("POST", "/api/embeddings"):
@@ -749,7 +754,7 @@ public final class Server {
     /// has. A client sending the default is asking for exactly what it gets, so
     /// refusing it breaks stock SDKs for no semantic reason; any other value is
     /// a real feature and stays a 400. Nothing is silently dropped either way.
-    private static func openAINoOpError(_ json: [String: Any]) -> String? {
+    package static func openAINoOpError(_ json: [String: Any]) -> String? {
         if json["n"] != nil, int(json["n"]) != 1 {
             return "n must be 1; this server returns a single choice"
         }
@@ -767,19 +772,8 @@ public final class Server {
         }
         if let v = json["response_format"] {
             guard let o = v as? [String: Any], (o["type"] as? String) == "text" else {
-                return "only response_format {\"type\": \"text\"} is supported"
+                return "response_format is not supported for constrained output; only {\"type\": \"text\"} is supported"
             }
-        }
-        if let v = json["tools"] {
-            guard let list = v as? [Any], list.isEmpty else {
-                return "tool calling is not supported"
-            }
-        }
-        if json["tool_choice"] != nil, (json["tool_choice"] as? String) != "none" {
-            return "tool calling is not supported"
-        }
-        if json["parallel_tool_calls"] != nil, bool(json["parallel_tool_calls"]) != false {
-            return "tool calling is not supported"
         }
         if json["user"] != nil, json["user"] as? String == nil {
             return "user must be text"
@@ -797,10 +791,12 @@ public final class Server {
             // openAINoOpError. Stock SDKs send these on every call.
             "n", "frequency_penalty", "logprobs", "top_logprobs", "logit_bias",
             "response_format", "tools", "tool_choice", "parallel_tool_calls", "user",
+            "reasoning_effort", "think", "options",
         ]
         if let e = Self.unsupportedKey(json, allowed: allowed) { return e }
         if let e = Self.openAINoOpError(json) { return e }
-        if let e = Self.messageError(json) { return e }
+        do { _ = try OpenAIDialect.conversation(json, contextLimit: engine.maxContextTokens) }
+        catch { return "\(error)" }
         for key in ["temperature", "top_p", "presence_penalty"]
         where json[key] != nil && Self.num(json[key]) == nil {
             return "\(key) must be a number"
@@ -1399,112 +1395,141 @@ public final class Server {
 
     private func v1Chat(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
         let json = Self.withoutNulls(rawJSON)
-        if let e = openAIValidationError(json) {
-            respondJSON(
-                fd, ["error": ["message": e, "type": "invalid_request_error"]],
-                status: "400 Bad Request", cors: cors)
-            return
+        func fail(_ message: String, status: String = "400 Bad Request", code: String = "invalid_request_error") {
+            respondJSON(fd, ["error": ["message": message, "type": code]], status: status, cors: cors)
         }
-        let msgs = Self.messages(json)
+        if let error = openAIValidationError(json) { return fail(error) }
+        let request: OpenAIDialect.Conversation
+        do { request = try OpenAIDialect.conversation(json, contextLimit: engine.maxContextTokens) }
+        catch { return fail("\(error)") }
         let stream = Self.bool(json["stream"]) ?? false
-        var params = SampleParams.instruct
+        let renderTools = request.choice == .disabled ? [] : request.tools
+        var messages = request.messages
+        if case .tool(let name) = request.choice {
+            messages = Self.instructing(messages, "You must call the \(name) tool now.")
+        } else if request.choice == .required {
+            messages = Self.instructing(messages, "You must call one of the available tools now.")
+        }
+        if !request.parallel && !renderTools.isEmpty {
+            messages = Self.instructing(messages, "Call at most one tool in this response.")
+        }
+        let extended = !renderTools.isEmpty || request.thinking
+            || messages.contains { $0.role == "tool" || !$0.toolCalls.isEmpty || $0.reasoning != nil }
+            || (json["messages"] as? [[String: Any]] ?? []).contains { $0["role"] as? String == "developer" }
+            || (json["messages"] as? [[String: Any]] ?? []).filter { $0["role"] as? String == "system" }.count > 1
+        let ids: [Int]
+        var vision: VisionPrompt?
+        do {
+            if !extended {
+                // Preserve existing plain-chat/vision templating and sampling.
+                (ids, vision) = try engine.encodeWithVision(messages: Self.templateMessages(json), tools: nil, thinking: false)
+            } else if messages.contains(where: { !$0.images.isEmpty }) {
+                (ids, vision) = try engine.encodeChatWithVision(messages, tools: renderTools,
+                    thinking: request.thinking, effort: request.effort)
+            } else {
+                ids = try engine.encodeChatSpliced(messages, tools: renderTools,
+                    thinking: request.thinking, effort: request.effort)
+            }
+        } catch { return fail("\(error)") }
+        if let error = engine.contextError(promptTokens: ids.count) { return fail(error) }
+        guard ids.count < request.contextLimit else {
+            return fail("prompt is \(ids.count) tokens, leaving no reply room in the requested context limit \(request.contextLimit)")
+        }
+        var params = renderTools.isEmpty ? (request.thinking ? SampleParams.thinking : .instruct) : .agent
         if let v = Self.num(json["temperature"]) { params.temperature = Float(v) }
         if let v = Self.num(json["top_p"]) { params.topP = Float(v) }
         if let v = Self.int(json["top_k"]) { params.topK = v }
         if let v = Self.num(json["presence_penalty"]) { params.presencePenalty = Float(v) }
         if let v = Self.int(json["max_tokens"]) { params.maxTokens = v }
         if let v = Self.int(json["max_completion_tokens"]) { params.maxTokens = v }
-        if let v = Self.int(json["seed"]) {
-            params.seed = UInt64(bitPattern: Int64(v))
-        }
+        if let v = Self.int(json["seed"]) { params.seed = UInt64(bitPattern: Int64(v)) }
         if let v = Self.stopList(json["stop"]) { params.stop = v }
         if params.seed == nil { params.seed = Self.randomSeed() }
         params = params.sanitized()
-        let wantUsage = Self.bool(
-            (json["stream_options"] as? [String: Any])?["include_usage"]) ?? false
-        guard !msgs.isEmpty else {
-            respondJSON(
-                fd, ["error": ["message": "messages must not be empty"]],
-                status: "400 Bad Request", cors: cors)
-            return
-        }
-        // Vision content arrives as typed parts in `content` (image_url); the
-        // template renders them to image_pad tokens, and encodeWithVision
-        // expands those to the tower's per-image tokens.
-        let templateMsgs = Self.templateMessages(json)
-        let ids: [Int]
-        let vision: VisionPrompt?
-        do {
-            (ids, vision) = try engine.encodeWithVision(
-                messages: templateMsgs, tools: nil, thinking: false)
-        } catch {
-            respondJSON(
-                fd, ["error": ["message": "\(error)"]], status: "400 Bad Request", cors: cors)
-            return
-        }
-        if let e = engine.contextError(promptTokens: ids.count) {
-            respondJSON(
-                fd, ["error": ["message": e]], status: "400 Bad Request", cors: cors)
-            return
-        }
-        let rid = "chatcmpl-\(UUID().uuidString.prefix(8))"
+        params.maxTokens = min(params.maxTokens, request.contextLimit - ids.count)
+        let wantUsage = Self.bool((json["stream_options"] as? [String: Any])?["include_usage"]) ?? false
+        let rid = "chatcmpl-\(UUID().uuidString)"
+        let created = Int(Date().timeIntervalSince1970)
         if stream, !startChunked(fd, contentType: "text/event-stream", cors: cors) { return }
+        @discardableResult func writeChunk(_ data: Data) -> Bool { self.chunk(fd, data) }
+        func endOutput() { self.endChunked(fd) }
         var alive = true
         var sentRole = false
-        let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
-            guard alive, !delta.isEmpty else { return alive }
-            // OpenAI's first delta carries the role; clients look for it.
-            var d: [String: Any] = ["content": delta]
-            if !sentRole {
-                d["role"] = "assistant"
-                sentRole = true
+        func emit(_ object: [String: Any]) {
+            guard stream, alive else { return }
+            let data = try! JSONSerialization.data(withJSONObject: object)
+            alive = writeChunk(Data("data: ".utf8) + data + Data("\n\n".utf8))
+        }
+        func emitDelta(_ delta: [String: Any]) {
+            var delta = delta
+            if !sentRole { delta["role"] = "assistant"; sentRole = true }
+            emit(["id": rid, "object": "chat.completion.chunk", "created": created, "model": engine.modelName,
+                  "choices": [["index": 0, "delta": delta, "finish_reason": NSNull()]]])
+        }
+        let accumulated = OpenAIOutput(tools: renderTools, choice: request.choice, parallel: request.parallel)
+        let thinker = request.thinking ? ThinkSplitter() : nil
+        let parser = renderTools.isEmpty ? nil : ToolCallSplitter(tools: renderTools.map { $0.schema },
+            idFactory: { "call_" + UUID().uuidString.replacingOccurrences(of: "-", with: "") })
+        func consume(_ delta: String) {
+            var body = delta
+            if let thinker {
+                let (reasoning, content) = thinker.push(delta)
+                if !reasoning.isEmpty { emitDelta(accumulated.reasoningDelta(reasoning)) }
+                body = content
             }
-            let obj: [String: Any] = [
-                "id": rid, "object": "chat.completion.chunk",
-                "created": Int(Date().timeIntervalSince1970), "model": self.engine.modelName,
-                "choices": [["index": 0, "delta": d, "finish_reason": NSNull()]],
-            ]
-            let data = try! JSONSerialization.data(withJSONObject: obj)
-            alive = self.chunk(fd, Data("data: ".utf8) + data + Data("\n\n".utf8))
-            return alive
+            if !body.isEmpty {
+                for event in accumulated.consume(parser?.push(body) ?? [.text(body)]) { emitDelta(event) }
+            }
+        }
+        let incremental = stream || (!request.parallel && !renderTools.isEmpty)
+        let callback: ((Int, String) -> Bool)? = incremental ? { _, delta in
+            guard alive else { return false }
+            consume(delta)
+            return accumulated.error == nil && !accumulated.finishedSingleCall && alive
         } : nil
-        let (text, _, stats) = engine.generate(
-            promptIds: ids, params: params, vision: vision,
-            shouldContinue: { self.peerAlive(fd) }, onToken: callback)
-        if stream, alive {
-            var fin: [String: Any] = [
-                "id": rid, "object": "chat.completion.chunk",
-                "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
-                "choices": [["index": 0, "delta": [:], "finish_reason": stats.finishReason]],
-            ]
-            if wantUsage {
-                fin["usage"] = [
-                    "prompt_tokens": stats.promptTokens,
-                    "completion_tokens": stats.decodeTokens,
-                    "total_tokens": stats.promptTokens + stats.decodeTokens,
-                ]
+        var lastKeepalive = Date()
+        let (text, _, stats) = engine.generate(promptIds: ids, params: params, vision: vision,
+            shouldContinue: {
+                if stream && Date().timeIntervalSince(lastKeepalive) >= 10 {
+                    lastKeepalive = Date()
+                    alive = writeChunk(Data(": keepalive\n\n".utf8))
+                }
+                return alive && self.peerAlive(fd)
+                    && accumulated.error == nil && !accumulated.finishedSingleCall
+            }, onToken: callback)
+        if !incremental { consume(text) }
+        if let thinker {
+            let (reasoning, body) = thinker.flush()
+            if !reasoning.isEmpty { emitDelta(accumulated.reasoningDelta(reasoning)) }
+            if !body.isEmpty {
+                for event in accumulated.consume(parser?.push(body) ?? [.text(body)]) { emitDelta(event) }
             }
-            chunk(fd, Data("data: ".utf8) + (try! JSONSerialization.data(withJSONObject: fin)) + Data("\n\n".utf8))
-            chunk(fd, Data("data: [DONE]\n\n".utf8))
-            endChunked(fd)
-        } else {
-            respondJSON(
-                fd,
-                [
-                    "id": rid, "object": "chat.completion",
-                    "created": Int(Date().timeIntervalSince1970), "model": engine.modelName,
-                    "choices": [
-                        [
-                            "index": 0, "finish_reason": stats.finishReason,
-                            "message": ["role": "assistant", "content": text],
-                        ]
-                    ],
-                    "usage": [
-                        "prompt_tokens": stats.promptTokens,
-                        "completion_tokens": stats.decodeTokens,
-                        "total_tokens": stats.promptTokens + stats.decodeTokens,
-                    ],
-                ], cors: cors)
+        }
+        if let parser {
+            for event in accumulated.consume(parser.flush()) { emitDelta(event) }
+        }
+        let finish = accumulated.finishReason(stats.finishReason)
+        if let error = accumulated.error {
+            if stream {
+                emit(["error": ["message": error, "type": "server_error", "code": "inference_error"]])
+                endOutput()
+            } else if alive { fail(error, status: "500 Internal Server Error", code: "server_error") }
+            return
+        }
+        let usage: [String: Any] = ["prompt_tokens": stats.promptTokens, "completion_tokens": stats.decodeTokens,
+                                    "total_tokens": stats.promptTokens + stats.decodeTokens,
+                                    "prompt_tokens_details": ["cached_tokens": stats.reusedPrefixTokens]]
+        if stream, alive {
+            var final: [String: Any] = ["id": rid, "object": "chat.completion.chunk", "created": created,
+                "model": engine.modelName, "choices": [["index": 0, "delta": [:], "finish_reason": finish]]]
+            // Keep the existing final-choice usage shape for current clients.
+            if wantUsage { final["usage"] = usage }
+            emit(final)
+            if alive { writeChunk(Data("data: [DONE]\n\n".utf8)) }
+            endOutput()
+        } else if !stream, alive {
+            respondJSON(fd, ["id": rid, "object": "chat.completion", "created": created, "model": engine.modelName,
+                "choices": [["index": 0, "finish_reason": finish, "message": accumulated.message]], "usage": usage], cors: cors)
         }
     }
 }

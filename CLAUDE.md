@@ -226,7 +226,9 @@ These were all real bugs found by adversarial probing. Each is now gated by
   `frequency_penalty: 0` broke stock SDKs while protecting nothing: those name
   the behaviour this server already has. Accept the exact default, refuse every
   other value. This does not license accepting a knob that would change the
-  reply — `num_ctx` and `repeat_penalty` are still refused, never dropped.
+  reply — Ollama `num_ctx` and `repeat_penalty` are still refused, never dropped.
+  The OpenAI adapter accepts a bounded `options.num_ctx` and enforces that
+  per-request limit; `Tools/openai_tools_gate.py` checks it.
 - **An unseeded request gets its seed at the API boundary.** `Sampler`'s own
   default is a constant, so an unseeded request replayed one fixed stream from
   process start while the docs promised otherwise. The draw lives in
@@ -445,11 +447,11 @@ still quoted in commit history and both are wrong.
 - Distribution: `install.sh` (repo root) is the public one-line installer; it
   fetches the latest release asset `slotstream-arm64.tar.gz` (binary +
   `mlx.metallib`, plus a `.sha256` file) into `~/.slotstream/bin`. **Cutting a
-  release**: bump `version` in `Sources/SlotstreamCore/Version.swift` (moved
-  there in 0.1.5; it is the single source for `--version`, `/api/version` and
+  release**: bump `version` in `Sources/Slotstream/Version.swift` (the single
+  source for `--version`, `/api/version` and
   the CI tag check) to match the tag, commit, then
   `git tag vX.Y.Z && git push origin vX.Y.Z` —
-  `.github/workflows/release.yml` builds on a macos-15 runner, fails unless
+  `.github/workflows/release.yml` builds on a macos-26 runner, fails unless
   `--version` equals the tag, packages, attests provenance
   (`gh attestation verify <asset> --repo carloslfu/slotstream`), and
   publishes. Never build release assets locally except as a documented

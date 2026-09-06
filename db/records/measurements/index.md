@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-04T03:16:57.536150Z
+updated: 2026-09-06T02:10:50.754100Z
 ---
 
 # records/measurements
 
+- [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]] — V1 — the vision tower: 0.898 GB resident, 702 tokens for an 846x859 photograph, and agreement with an independent float32 reference inside the bfloat16 band.
 - [[records/measurements/m1-expert-locality-on-a-real-trace-2026-09-03]] — M1 closed: expert locality on a real trace, and the eviction policy is not the lever (2026-09-03)
 - [[records/measurements/the-pass-peaks-on-a-plateau-not-one-transient-2026-09-03]] — The pass peaks on a plateau, not on one transient (2026-09-03)

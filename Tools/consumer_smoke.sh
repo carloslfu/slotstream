@@ -9,6 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 REPO=$PWD
+PACKAGE_ID=$(basename "$REPO" | tr '[:upper:]' '[:lower:]')
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/Sources/Consumer"
@@ -20,8 +21,8 @@ let package = Package(
     name: "Consumer", platforms: [.macOS(.v14)],
     dependencies: [.package(path: "$REPO")],
     targets: [.executableTarget(name: "Consumer", dependencies: [
-        .product(name: "Slotstream", package: "slotstream"),
-        .product(name: "SlotstreamDiagnostics", package: "slotstream"),
+        .product(name: "Slotstream", package: "$PACKAGE_ID"),
+        .product(name: "SlotstreamDiagnostics", package: "$PACKAGE_ID"),
     ], swiftSettings: [.swiftLanguageMode(.v5)])]
 )
 SWIFT

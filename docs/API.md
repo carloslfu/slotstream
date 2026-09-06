@@ -1,12 +1,17 @@
 # HTTP API
 
+For client configuration and integration troubleshooting, start with
+[Connect apps and agents](CLIENTS.md).
+
 Start the server with `slotstream serve`. It listens on **127.0.0.1:11434**;
 use `--port N` to choose another port. It has no authentication, so local
 processes can use it. Browser requests must come from an allowed loopback
 origin. See [Security](../SECURITY.md).
 
 This page covers the Ollama-style `/api/*` and OpenAI-style `/v1/*` endpoints.
-For the AI SDK gateway and tool calling, see the [fx guide](FX.md).
+For the AI SDK gateway, see the [fx guide](FX.md). OpenAI tool calling is
+described below. The OpenAI tool and reasoning additions require Slotstream
+0.2.8 or later.
 Use `qwen3.8-flash-next:4bit` as the model name.
 
 Unknown fields, unsupported features, and malformed values return a 400
@@ -94,16 +99,50 @@ print(reply.choices[0].message.content)
 
 Accepted fields: `model`, `messages`, `stream`, `temperature`, `top_p`,
 `top_k`, `presence_penalty`, `max_tokens` / `max_completion_tokens`, `seed`,
-`stop`, and `stream_options` (`{"include_usage": true}`). `top_k` is a
-slotstream extension. JSON `null` is treated as unset.
+`stop`, `stream_options` (`{"include_usage": true}`), `tools`, `tool_choice`,
+`parallel_tool_calls`, and `reasoning_effort`. `top_k`, `think` (boolean),
+and `options.num_ctx` are slotstream extensions. `num_ctx` may lower the
+request's prompt-plus-reply budget; it cannot exceed the served context.
+JSON `null` is treated as unset.
 
 For SDK compatibility, these fields are accepted only at the listed values:
 `n: 1`, `frequency_penalty: 0`, `logprobs: false`, `logit_bias: {}`,
-`tools: []`, `tool_choice: "none"`, `parallel_tool_calls: false`, and
 `response_format: {"type": "text"}`. `user` accepts any string and has no
 effect. Other values for these options return 400.
 
+Function tools use OpenAI's `{"type":"function","function":{"name":...,
+"description":...,"parameters":...}}` shape. The server renders their schemas
+with the model's native template and converts complete generated calls into
+`message.tool_calls`, each with an `id`, `type: "function"`, and a function
+name plus JSON argument string. The finish reason is `tool_calls`. Send the
+assistant message back unchanged, followed by a `role: "tool"` message with
+the matching `tool_call_id` and textual result. Each outstanding call needs
+exactly one result before the next conversation message. Results may arrive
+in any order; the adapter matches their IDs and restores call order for the
+native model template.
+
+`tool_choice` accepts `auto` (default), `none`, `required`, or a named
+function object. A required/named choice is both prompted and checked; an
+unsatisfied choice produces an inference error. `parallel_tool_calls: false`
+ends generation after the first complete call. The default allows multiple
+calls, with distinct IDs and stream indices. The caller executes tools.
+Malformed/truncated calls and undeclared function names produce an inference
+error; provisional arguments are never exposed as executable calls. Strict
+schema enforcement is unavailable: omit `strict` or use `false`, and validate
+arguments in the caller before execution.
+
+`reasoning_effort: "none"` or `"minimal"` disables reasoning. `low`, `medium`,
+`high`, `xhigh`, and `max` enable it, using the same model mapping as the
+gateway. Reasoning is returned separately in `reasoning_content`, which is
+accepted on assistant history messages. A conflicting `think` flag is a 400.
+Initial `system` and `developer` instructions are combined in order.
+
 ## Sampling defaults
+
+The table applies to ordinary chat. Tool-enabled requests default to temperature
+0.2, top_p 0.9 and presence_penalty 0 to preserve the repeated tool grammar.
+Reasoning without tools uses the existing thinking profile. Explicit request
+values override these defaults.
 
 | Option | Default |
 |---|---|
@@ -112,7 +151,7 @@ effect. Other values for these options return 400.
 | `top_k` | 20 |
 | `min_p` | 0 |
 | `presence_penalty` | 1.5 |
-| `num_predict` / `max_tokens` | 512; `<= 0` uses the remaining context |
+| `num_predict` / `max_tokens` | 512. Nonpositive Ollama `num_predict` uses the remaining context; OpenAI output limits must be positive. |
 | `seed` | Random for each request |
 | `stop` | None |
 
@@ -133,6 +172,12 @@ Text is sent incrementally. Incomplete UTF-8 characters and possible stop
 sequences are held back until resolved. Concatenating the text deltas gives
 the same text as a non-streamed response under the same generation
 conditions; `Tools/api_robustness.sh` checks this.
+
+Tool streams carry `delta.tool_calls` with an `index`, ID, function name and
+complete argument string. The final choice has `finish_reason: "tool_calls"`.
+Reasoning uses `delta.reasoning_content`; it is excluded from answer text.
+An inference error after streaming starts is an SSE `error` object followed
+by connection termination, without a successful finish or `[DONE]` marker.
 
 ## Images
 
@@ -189,7 +234,7 @@ It rejects `http://`, `https://`, and `file://` URLs. It applies EXIF
 orientation, composites transparency onto white, and rejects truncated files.
 
 Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
-the shared 32,768-token context. The decoded image file must be at most
+the shared context (32,768 tokens by default). The decoded image file must be at most
 24 MiB, with an aspect ratio no greater than 200:1.
 
 The vision tower uses 0.9 GB and loads on the first image request, in addition
@@ -209,7 +254,8 @@ Ollama errors use `{"error": "message"}`. OpenAI errors use
 
 | Status | Meaning |
 |---|---|
-| 400 | Invalid or unsupported request, including tools on the Ollama/OpenAI endpoints, JSON-schema output, logprobs, embeddings, or named reasoning levels for `think` |
+| 400 | Invalid or unsupported request, including tools on the Ollama endpoints, JSON-schema output, strict tool schemas, logprobs, embeddings, or named reasoning levels for `think` |
+| 500 | Inference failure, including an incomplete generated tool call or unsatisfied required tool choice |
 | 411 | Chunked request body; send `Content-Length` instead |
 | 413 | Request body exceeds 32 MiB |
 | 431 | Request headers exceed 64 KiB |
@@ -218,9 +264,13 @@ Ollama errors use `{"error": "message"}`. OpenAI errors use
 A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
 
-Prompt plus completion is capped at 32,768 tokens. `serve --max-context N`
-can lower that ceiling. A prompt over the cap returns 400 with the limit and
-an estimated processing time.
+Prompt plus completion is capped at 32,768 tokens by default. Use
+`serve --max-context 65536` for a 65,536-token window, or select a smaller
+limit. The planner charges extra state and transient memory before allocating
+the pool.
+A prompt over the configured cap returns 400 with the limit and an estimated
+processing time. `/v1/models` and `/api/show` report the actual served window;
+the model's training window must not be used as the request limit.
 
 Generation requests run one at a time; a second waits for the first. Metadata
 endpoints read a separate snapshot and remain responsive during generation.
