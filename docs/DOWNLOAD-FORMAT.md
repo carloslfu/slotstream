@@ -1,9 +1,14 @@
 # Model download and Slotpack v1
 
 Fresh `slotstream pull` downloads use immutable, losslessly compressed objects
-from Cloudflare R2 through `weights.sevra.page`. The installed model retains
-the original safetensors, tokenizer, configuration, and draft-head bytes.
+from the public Hugging Face mirror. No download token is needed. The installed
+model retains the original safetensors, tokenizer, configuration, and draft-head bytes.
 Inference does not load the transport format or require a decoder at runtime.
+
+The compressed package has its own `-Slotpack` repository. The original
+repository remains usable by ordinary Hugging Face clients without downloading
+both representations. Use Slotstream to reconstruct the compressed package;
+its objects are not directly loadable model files.
 
 The complete package is **88,295,438,048 bytes**, including its manifest,
 representing **105,264,463,248 original bytes**: **16.12% fewer bytes**.
@@ -24,7 +29,7 @@ The current manifest is
 Its public prefix is:
 
 ```text
-https://weights.sevra.page/slotpack/v1/<manifest-sha256>/
+https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack/resolve/<pinned-revision>/slotpack/v1/<manifest-sha256>/
 ```
 
 The manifest names original files and an ordered array of objects. Every
@@ -34,17 +39,48 @@ order inside the decoded object. Complete, non-overlapping coverage of every
 original file is mandatory. No object may mix required and optional files.
 
 Objects live at `objects/<first-two-hash-characters>/<sha256>.bin`. Each is at
-most 40 MiB plus a 32-byte header. The `.bin` extension and explicit
-`Cache-Control: public, max-age=31536000, immutable` make these small objects
-eligible for Cloudflare's ordinary edge cache. The custom hostname binds to
-the dedicated R2 bucket and is excluded from the site's wildcard Worker
-route. No model download passes through the application Worker.
+most 40 MiB plus a 32-byte header. `PinnedTransport.swift` selects the exact
+Hugging Face commit, and the manifest pins every object's bytes independently
+of its host. Hugging Face supplies large-file delivery and caching. The
+compressed representation does not depend on a Cloudflare product.
 
 A new model or representation gets a new immutable prefix. Do not overwrite
 an existing package with different bytes. Upload every object, verify public
 reads and a complete client reconstruction, then release the embedded pin.
-An edge cache miss retrieves the same object from R2. Cache hits improve the
-route and origin load; they do not reduce the object's byte count.
+Cache hits can improve the route and origin load; they do not reduce the
+object's byte count. Server-requested throttle waits remain cancellable.
+
+### Hosting cost and older releases
+
+Public Hugging Face hosting avoids publisher charges per model download under
+its current best-effort public-repository policy. Storage and rate limits still
+apply; no paid plan or billing fallback is enabled by the downloader. See
+[Hugging Face storage policy](https://huggingface.co/docs/hub/en/storage-limits)
+and [request limits](https://huggingface.co/docs/hub/en/rate-limits).
+
+The earlier `weights.sevra.page/slotpack/v1/` URLs are compatibility redirects
+to the same package on Hugging Face. `Tools/slotpack/legacy-redirect/` deploys
+only static assets and `_redirects`, with no Worker script, R2 binding, or
+proxy. Cloudflare documents these static asset requests and storage as
+[free and unlimited](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/).
+Keep the hostname excluded from the application Worker's wildcard route.
+New clients contact Hugging Face directly.
+
+Upgrade older releases for the new server-throttle handling. An earlier client
+on a very fast or shared connection may need to rerun its resumable pull after
+a Hugging Face request-limit window resets.
+
+Cloudflare analytics now describe only older clients' redirect traffic, not
+the model bytes delivered by Hugging Face. Hugging Face's default model counter
+counts selected query files; this client fetches hash-named objects and embeds
+the manifest, so that counter does not measure compressed pulls or completed
+installs. GitHub release-asset counts remain an acquisition proxy. No telemetry
+is added. See [Hugging Face's counting rules](https://huggingface.co/docs/hub/en/models-download-stats).
+
+Before retiring an old hosted copy, qualify a complete anonymous pull through
+the new default against every original file hash, and verify that an earlier
+released client follows the legacy redirects and reconstructs missing files.
+Preserve historical publication evidence when retiring storage.
 
 ## Codec
 
@@ -132,15 +168,22 @@ reuses completed original files; partial progress belongs to its own format.
 ## Reproduce and qualify
 
 Building and embedding require Python 3.9 or later and a C compiler;
-`publish_r2.py` requires Python 3.11 or later. Publication uses existing
-Cloudflare authority, writes no credential, and saves a resumable receipt.
+Hugging Face publication additionally requires `huggingface_hub` (qualified
+with version 1.29.0). Publication uses an existing `HF_TOKEN` or
+`--token-stdin`, writes no credential, preserves existing repository files,
+and resumes from the actual committed inventory. A conflicting object at an
+existing immutable package path is rejected.
 
 ```sh
 python3 Tools/slotpack/pack.py --model /path/to/original-model --output /path/to/package --workers 8
-python3 Tools/slotpack/publish_r2.py --package /path/to/package --account ACCOUNT --bucket BUCKET --receipt /path/to/upload.json
+python3 Tools/slotpack/publish_hf.py --package /path/to/package --repo OWNER/MODEL --receipt /path/to/upload.json
 python3 Tools/slotpack/embed.py --package /path/to/package
 python3 Tools/slotpack/checks.py
 ```
+
+Pin the resulting Hugging Face commit in `PinnedTransport.swift` and the
+legacy redirect, then complete public qualification before release.
+`publish_r2.py` remains a historical optional publisher; it is not the default.
 
 The builder verifies every original file, every compressed round trip, and
 complete coverage before writing its manifest and build receipt. The gates

@@ -95,11 +95,11 @@ finishes, it processes your prompt and prints the reply.
 
 ### Downloading the model
 
-Run `slotstream pull` to download the model. It automatically uses compression
-and Cloudflare's global cache (CDN): **88.3 GB** instead of **105.3 GB**
+Run `slotstream pull` to download the model. It automatically downloads
+compressed files from [Hugging Face](https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack): **88.3 GB** instead of **105.3 GB**
 (**16.12% fewer bytes**), restoring the exact original model on disk.
 Interrupted downloads resume automatically, and every file is checked for
-corruption. You only need to download it once.
+corruption. No Hugging Face account is needed. You only need to download it once.
 
 <details>
 <summary>Download speed and verification details</summary>
@@ -109,9 +109,9 @@ Connection overhead and any extra processing add to that time. The installed
 model has 25 files, including the optional 1.5 GB draft head used to speed up
 generation.
 
-Fresh downloads use small immutable compressed objects in Cloudflare R2,
-served through its CDN. Decoding and disk writes overlap the transfer. The
-client starts with eight independent connections and increases concurrency
+Fresh downloads use small immutable compressed objects in the public Hugging
+Face mirror, pinned to an exact repository revision. Decoding and disk writes
+overlap the transfer. The client starts with eight independent connections and increases concurrency
 only when measured throughput improves. `--connections` fixes the count;
 `--transport raw` selects the original file-based download. Existing raw
 partial downloads keep their progress automatically.

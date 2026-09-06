@@ -103,3 +103,6 @@ Preserved the v0.2.10 main-CI coverage counterexample after functional gates pas
 ## [2026-09-06 06:31] update | records/measurements/lossless-model-download-2026-09-05
 Published v0.2.10 through passing release and main CI; verified signed provenance, ordinary installation, actual CLI download controls, every original file hash and an installed loaded-model response. Retained the prior installed release.
 
+## [2026-09-06 16:06] update | records/measurements/hugging-face-lossless-download-2026-09-06
+Published unchanged Slotpack on public Hugging Face; verified complete default Linux reconstruction, independent original hashes and native transport/installer gates. Legacy hostname now uses free static redirects. Fresh Mac and earlier-client acceptance continue before R2 retirement and v0.2.11 publication.
+

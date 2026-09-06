@@ -24,7 +24,7 @@ The README, user guides, and changelog are combined in
 ## Commands
 
 - `slotstream doctor [--memory-gb G] [--sim-ram N] [--sim-available N] [--json]`: device report and the plan any flags would produce. Loads nothing, takes no lock.
-- `slotstream pull [--dir D] [--connections N] [--transport automatic|compressed|raw] [--verify]`: compressed CDN download by default, with **16.12% fewer bytes**, overlapping decode/writes, adaptive connections, exact resume and pinned raw fallback. Explicit connections fix the count; automatic mode preserves existing raw resumes. `--verify` re-hashes without downloading.
+- `slotstream pull [--dir D] [--connections N] [--transport automatic|compressed|raw] [--verify]`: compressed Hugging Face download by default, with **16.12% fewer bytes**, overlapping decode/writes, adaptive connections, exact resume and pinned raw fallback. No Hugging Face account is required. Explicit connections fix the count; automatic mode preserves existing raw resumes. `--verify` re-hashes without downloading.
 - `slotstream run --prompt "..." [--max-tokens N] [--greedy] [--raw] [--think] [--image PATH]`: one generation, no server.
 - `slotstream serve [--port 11434] [--max-context 32768] [--vision auto|on|off] [--no-elastic] [--no-prefix-cache]`: the API server. 32,768 is the prompt-plus-reply default. `--max-context 65536` selects a 65,536-token window and charges its extra state and transient reserve before allocating the cache.
 - `slotstream context-check --tokens N [--ladder]`: measure what reading an N-token prompt costs on this Mac (time, tok/s, peak memory vs the plan), stopping before the machine swaps; `slotstream prefill-schedule --chunk C --tokens N` prints the pass ladder and wait without loading anything.

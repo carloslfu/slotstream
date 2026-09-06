@@ -3,6 +3,17 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## 0.2.11 — 2026-09-06
+
+- Compressed model downloads now come directly from the public Hugging Face
+  mirror, avoiding publisher charges per download. The package, original
+  hashes, compression saving, and resumable installation remain the same.
+- Respect Hugging Face rate-limit reset headers and longer server-requested
+  waits, with prompt cancellation. Add real HTTP retry and cancellation gates.
+- Preserve older download URLs with free static redirects to Hugging Face.
+  Add a resumable publisher that checks immutable package contents and
+  preserves the existing model repository.
+
 ## 0.2.10 — 2026-09-06
 
 - New model downloads use a lossless, quantization-aware package from

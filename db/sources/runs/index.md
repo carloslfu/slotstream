@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T06:34:04.203085Z
+updated: 2026-09-06T16:07:20.103681Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-legacy-compatibility]] — The released v0.2.10 client follows live free static redirects and reconstructs missing original files from Hugging Face with zero raw fallback.
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-linux-and-gates]] — A complete anonymous default download reconstructs every original file from Hugging Face with zero raw fallbacks; independent hashes and release checks pass.
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-publication]] — The unchanged compressed package is public on Hugging Face; committed identities and anonymous object hashes pass, and the original mirror is preserved.
 - [[sources/runs/2026/09/2026-09-06-slotpack-v0210-publication-and-installed-acceptance]] — v0.2.10 release and main CI pass; exact public provenance, ordinary installer, download controls, all original hashes and loaded-model response verify.
 - [[sources/runs/2026/09/2026-09-06-slotpack-ci-coverage-regression-closure]] — A per-file CI coverage regression is corrected with explicit resumed-byte and CDN-status checks; the unchanged local ratchet passes at 96.87% downloader coverage.
 - [[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] — CI exposes a fixed-time interruption fixture; state-based cancellation and delayed-start compressed/raw checks pass.

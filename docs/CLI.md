@@ -49,7 +49,7 @@ Plus the memory options.
 
 ### `slotstream pull [model]`
 
-Download losslessly compressed model weights from the CDN, reconstructing
+Download losslessly compressed model weights from Hugging Face, reconstructing
 the original files with resumable transfers and hash verification.
 The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 
@@ -57,7 +57,7 @@ The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
 | `--connections <n>` | Fixed independent connections, 1–32. Omit to start at 8 and test increases only while throughput improves. |
-| `--transport automatic\|compressed\|raw` | Automatic uses compressed CDN objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
+| `--transport automatic\|compressed\|raw` | Automatic uses compressed Hugging Face objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
 | `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
 
 The complete compressed package uses **16.12% fewer bytes**. Decode and writes

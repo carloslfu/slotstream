@@ -14,7 +14,24 @@ import CSlotpack
         }
         let embedded = try PinnedTransport.manifest.get()
         try expect("embedded manifest and original pins agree", embedded.files.count == PinnedModel.files.count)
-        try expect("new installs have a public compressed source", PinnedTransport.defaults.first?.hasPrefix("https://weights.sevra.page/slotpack/v1/") == true)
+        try expect("new installs use an exact public Hugging Face commit",
+                   PinnedTransport.revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil &&
+                   PinnedTransport.defaults == ["https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack/resolve/\(PinnedTransport.revision)/slotpack/v1/\(PinnedTransport.manifestSHA256)"])
+        try expect("Hugging Face reset survives the old one-minute cap",
+                   DownloadRetry.delay(status: 429, retryAfter: nil, rateLimit: "\"resolvers\";r=0;t=299") == 300)
+        try expect("long Retry-After is respected",
+                   DownloadRetry.delay(status: 429, retryAfter: "300", rateLimit: nil) == 300)
+        try expect("the later server retry boundary wins",
+                   DownloadRetry.delay(status: 429, retryAfter: "100", rateLimit: "\"resolvers\";r=0;t=299") == 300)
+        try expect("unbounded waits are capped and remain cancellable",
+                   DownloadRetry.delay(status: 429, retryAfter: "1000000", rateLimit: nil) == 600)
+        try expect("invalid throttle headers wait one resolver window",
+                   DownloadRetry.delay(status: 429, retryAfter: "nan", rateLimit: "\"resolvers\";t=inf") == 300)
+        try expect("ordinary transient errors retain exponential backoff",
+                   DownloadRetry.delay(status: 503, retryAfter: nil, rateLimit: "\"resolvers\";t=299") == nil)
+        let retryDate = Date(timeIntervalSince1970: 0)
+        try expect("HTTP-date retry boundaries are honored",
+                   DownloadRetry.delay(status: 429, retryAfter: "Thu, 01 Jan 1970 00:05:00 GMT", rateLimit: nil, now: retryDate) == 300)
         let raw = Data((0..<4096).map { UInt8($0 % 8) })
         var buffer = Data(count: raw.count+32)
         let capacity = buffer.count

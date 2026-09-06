@@ -135,9 +135,9 @@ multi-GB. These rules are mandatory:
 ## Weight download
 
 Fresh pulls use Slotpack v1: a fully hash-pinned, lossless compressed package
-in a dedicated R2 bucket behind `weights.sevra.page`. Small immutable objects
-fit ordinary CDN caching; the earlier advice against hosting raw multi-GB
-shards on that cache does not apply to this layout. Preserve original model
+in the public Hugging Face mirror at an exact repository revision. The legacy
+`weights.sevra.page` hostname redirects through free static asset rules; it
+must not proxy model bytes through R2 or metered Worker code. Preserve original model
 bytes, pinned hashes, range coverage, and all decoder bounds. The canonical
 format and release qualification are in `docs/DOWNLOAD-FORMAT.md`.
 
@@ -145,7 +145,8 @@ Download, bounded parallel decoding, and writes overlap. Every network worker
 owns its URLSession so HTTP/2 streams do not collapse the intended independent
 connections. Automatic mode starts at eight and trials increases only while
 measured throughput improves; explicit counts stay fixed. CDN cache status
-and actual connection observations are logged. Do not infer a speed guarantee
+and actual connection observations are logged when available. Honor server
+rate-limit reset headers with cancellable waits. Do not infer a speed guarantee
 from byte reduction or extrapolate an unmeasured multi-gigabit connection.
 
 Keep compressed-object, decoded-chunk, and final original-file SHA-256 checks.

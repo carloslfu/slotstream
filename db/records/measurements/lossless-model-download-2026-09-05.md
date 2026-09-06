@@ -2,13 +2,14 @@
 type: measurement
 id: 01m1td69jm7whethywfef3gagt
 created: 2026-09-06T03:46:30.100771+00:00
-updated: 2026-09-06T06:31:52.812980+00:00
+updated: 2026-09-06T16:04:29.205060+00:00
 summary: 'Published v0.2.10 defaults to the lossless CDN package: 16.12% fewer bytes, complete public reconstruction, passing CI and installed-model acceptance.'
 date: 2026-09-05
 doc: measurements
 level: '2'
 machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
 milestone: Download transport
+note: 'Historical R2/v0.2.10 qualification; unchanged codec and byte measurements still stand. Current hosting: [[records/measurements/hugging-face-lossless-download-2026-09-06]].'
 order: '1100'
 runs: '[[sources/runs/2026/09/2026-09-05-slotpack-package-and-regressions]]'
 title: 'Lossless model download: complete package, integrity and CDN delivery'

@@ -103,11 +103,11 @@ finishes, it processes your prompt and prints the reply.
 
 ### Downloading the model
 
-Run `slotstream pull` to download the model. It automatically uses compression
-and Cloudflare's global cache (CDN): **88.3 GB** instead of **105.3 GB**
+Run `slotstream pull` to download the model. It automatically downloads
+compressed files from [Hugging Face](https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack): **88.3 GB** instead of **105.3 GB**
 (**16.12% fewer bytes**), restoring the exact original model on disk.
 Interrupted downloads resume automatically, and every file is checked for
-corruption. You only need to download it once.
+corruption. No Hugging Face account is needed. You only need to download it once.
 
 <details>
 <summary>Download speed and verification details</summary>
@@ -117,9 +117,9 @@ Connection overhead and any extra processing add to that time. The installed
 model has 25 files, including the optional 1.5 GB draft head used to speed up
 generation.
 
-Fresh downloads use small immutable compressed objects in Cloudflare R2,
-served through its CDN. Decoding and disk writes overlap the transfer. The
-client starts with eight independent connections and increases concurrency
+Fresh downloads use small immutable compressed objects in the public Hugging
+Face mirror, pinned to an exact repository revision. Decoding and disk writes
+overlap the transfer. The client starts with eight independent connections and increases concurrency
 only when measured throughput improves. `--connections` fixes the count;
 `--transport raw` selects the original file-based download. Existing raw
 partial downloads keep their progress automatically.
@@ -710,7 +710,7 @@ Plus the memory options.
 
 ### `slotstream pull [model]`
 
-Download losslessly compressed model weights from the CDN, reconstructing
+Download losslessly compressed model weights from Hugging Face, reconstructing
 the original files with resumable transfers and hash verification.
 The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 
@@ -718,7 +718,7 @@ The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
 | `--connections <n>` | Fixed independent connections, 1–32. Omit to start at 8 and test increases only while throughput improves. |
-| `--transport automatic\|compressed\|raw` | Automatic uses compressed CDN objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
+| `--transport automatic\|compressed\|raw` | Automatic uses compressed Hugging Face objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
 | `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
 
 The complete compressed package uses **16.12% fewer bytes**. Decode and writes
@@ -1856,9 +1856,14 @@ error and your `slotstream doctor` output.
 # Model download and Slotpack v1
 
 Fresh `slotstream pull` downloads use immutable, losslessly compressed objects
-from Cloudflare R2 through `weights.sevra.page`. The installed model retains
-the original safetensors, tokenizer, configuration, and draft-head bytes.
+from the public Hugging Face mirror. No download token is needed. The installed
+model retains the original safetensors, tokenizer, configuration, and draft-head bytes.
 Inference does not load the transport format or require a decoder at runtime.
+
+The compressed package has its own `-Slotpack` repository. The original
+repository remains usable by ordinary Hugging Face clients without downloading
+both representations. Use Slotstream to reconstruct the compressed package;
+its objects are not directly loadable model files.
 
 The complete package is **88,295,438,048 bytes**, including its manifest,
 representing **105,264,463,248 original bytes**: **16.12% fewer bytes**.
@@ -1879,7 +1884,7 @@ The current manifest is
 Its public prefix is:
 
 ```text
-https://weights.sevra.page/slotpack/v1/<manifest-sha256>/
+https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack/resolve/<pinned-revision>/slotpack/v1/<manifest-sha256>/
 ```
 
 The manifest names original files and an ordered array of objects. Every
@@ -1889,17 +1894,48 @@ order inside the decoded object. Complete, non-overlapping coverage of every
 original file is mandatory. No object may mix required and optional files.
 
 Objects live at `objects/<first-two-hash-characters>/<sha256>.bin`. Each is at
-most 40 MiB plus a 32-byte header. The `.bin` extension and explicit
-`Cache-Control: public, max-age=31536000, immutable` make these small objects
-eligible for Cloudflare's ordinary edge cache. The custom hostname binds to
-the dedicated R2 bucket and is excluded from the site's wildcard Worker
-route. No model download passes through the application Worker.
+most 40 MiB plus a 32-byte header. `PinnedTransport.swift` selects the exact
+Hugging Face commit, and the manifest pins every object's bytes independently
+of its host. Hugging Face supplies large-file delivery and caching. The
+compressed representation does not depend on a Cloudflare product.
 
 A new model or representation gets a new immutable prefix. Do not overwrite
 an existing package with different bytes. Upload every object, verify public
 reads and a complete client reconstruction, then release the embedded pin.
-An edge cache miss retrieves the same object from R2. Cache hits improve the
-route and origin load; they do not reduce the object's byte count.
+Cache hits can improve the route and origin load; they do not reduce the
+object's byte count. Server-requested throttle waits remain cancellable.
+
+### Hosting cost and older releases
+
+Public Hugging Face hosting avoids publisher charges per model download under
+its current best-effort public-repository policy. Storage and rate limits still
+apply; no paid plan or billing fallback is enabled by the downloader. See
+[Hugging Face storage policy](https://huggingface.co/docs/hub/en/storage-limits)
+and [request limits](https://huggingface.co/docs/hub/en/rate-limits).
+
+The earlier `weights.sevra.page/slotpack/v1/` URLs are compatibility redirects
+to the same package on Hugging Face. `Tools/slotpack/legacy-redirect/` deploys
+only static assets and `_redirects`, with no Worker script, R2 binding, or
+proxy. Cloudflare documents these static asset requests and storage as
+[free and unlimited](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/).
+Keep the hostname excluded from the application Worker's wildcard route.
+New clients contact Hugging Face directly.
+
+Upgrade older releases for the new server-throttle handling. An earlier client
+on a very fast or shared connection may need to rerun its resumable pull after
+a Hugging Face request-limit window resets.
+
+Cloudflare analytics now describe only older clients' redirect traffic, not
+the model bytes delivered by Hugging Face. Hugging Face's default model counter
+counts selected query files; this client fetches hash-named objects and embeds
+the manifest, so that counter does not measure compressed pulls or completed
+installs. GitHub release-asset counts remain an acquisition proxy. No telemetry
+is added. See [Hugging Face's counting rules](https://huggingface.co/docs/hub/en/models-download-stats).
+
+Before retiring an old hosted copy, qualify a complete anonymous pull through
+the new default against every original file hash, and verify that an earlier
+released client follows the legacy redirects and reconstructs missing files.
+Preserve historical publication evidence when retiring storage.
 
 ## Codec
 
@@ -1987,15 +2023,22 @@ reuses completed original files; partial progress belongs to its own format.
 ## Reproduce and qualify
 
 Building and embedding require Python 3.9 or later and a C compiler;
-`publish_r2.py` requires Python 3.11 or later. Publication uses existing
-Cloudflare authority, writes no credential, and saves a resumable receipt.
+Hugging Face publication additionally requires `huggingface_hub` (qualified
+with version 1.29.0). Publication uses an existing `HF_TOKEN` or
+`--token-stdin`, writes no credential, preserves existing repository files,
+and resumes from the actual committed inventory. A conflicting object at an
+existing immutable package path is rejected.
 
 ```sh
 python3 Tools/slotpack/pack.py --model /path/to/original-model --output /path/to/package --workers 8
-python3 Tools/slotpack/publish_r2.py --package /path/to/package --account ACCOUNT --bucket BUCKET --receipt /path/to/upload.json
+python3 Tools/slotpack/publish_hf.py --package /path/to/package --repo OWNER/MODEL --receipt /path/to/upload.json
 python3 Tools/slotpack/embed.py --package /path/to/package
 python3 Tools/slotpack/checks.py
 ```
+
+Pin the resulting Hugging Face commit in `PinnedTransport.swift` and the
+legacy redirect, then complete public qualification before release.
+`publish_r2.py` remains a historical optional publisher; it is not the default.
 
 The builder verifies every original file, every compressed round trip, and
 complete coverage before writing its manifest and build receipt. The gates
@@ -2146,6 +2189,17 @@ that much, say so rather than picking the better one.
 
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
+
+## 0.2.11 — 2026-09-06
+
+- Compressed model downloads now come directly from the public Hugging Face
+  mirror, avoiding publisher charges per download. The package, original
+  hashes, compression saving, and resumable installation remain the same.
+- Respect Hugging Face rate-limit reset headers and longer server-requested
+  waits, with prompt cancellation. Add real HTTP retry and cancellation gates.
+- Preserve older download URLs with free static redirects to Hugging Face.
+  Add a resumable publisher that checks immutable package contents and
+  preserves the existing model repository.
 
 ## 0.2.10 — 2026-09-06
 
