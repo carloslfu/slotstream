@@ -95,6 +95,7 @@ def run():
                 pauses[mode].wait(30)
             payload=encoded.get(path,sources.get(path))
             status=200;headers={}
+            if mode in ['good','cache-miss']:headers['CF-Cache-Status']='HIT' if mode=='good' else 'MISS'
             if mode=='missing' or (mode=='optional-missing' and optional in path):payload=b'not found';status=404
             elif mode=='throttle' and attempt==1:payload=b'busy';status=429;headers['Retry-After']='0'
             elif mode=='transient' and attempt==1:payload=b'busy';status=503
@@ -142,6 +143,9 @@ def run():
             if not passed:raise AssertionError(row)
             return dest
         check('normal')
+        assert f"CDN responses: HIT={len(manifest['objects'])}" in results[-1]['stdout']
+        check('cache-miss-reporting','cache-miss')
+        assert f"CDN responses: MISS={len(manifest['objects'])}" in results[-1]['stdout']
         check('redirect','redirect')
         check('bad-object-fallback','bad-digest,good')
         check('missing-object-raw-fallback','missing','good')

@@ -44,6 +44,7 @@ jobs:
           Tools/coverage.sh t0 t1 --lcov coverage.info
           python3 Tools/coverage_ratchet.py coverage.info
       - name: coverage report
+        if: ${{ always() && hashFiles('coverage.info') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov

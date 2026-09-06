@@ -79,6 +79,35 @@ import CSlotpack
         try rejects("public synchronous log lifetime closes on cancellation") {
             try WeightStore.download(to: temp, transport: .automatic, cancellation: cancelled, log: { _ in })
         }
+        // Progress reports original bytes represented by a complete object,
+        // including its separate weight/scale/bias ranges. Sparse fixtures
+        // exercise the real embedded pin without allocating model data.
+        let progressRoot = temp.appendingPathComponent("resume-progress")
+        try FileManager.default.createDirectory(at: progressRoot, withIntermediateDirectories: true)
+        let progressIndex = embedded.objects.firstIndex {
+            $0.ranges.count == 3 && Set($0.ranges.map(\.file)).count == 1
+        }!
+        let progressObject = embedded.objects[progressIndex]
+        let progressFile = embedded.files[progressObject.ranges[0].file]
+        let progressPart = progressRoot.appendingPathComponent(progressFile.path).appendingPathExtension("slotpack.part")
+        var done = [UInt8](repeating: 0, count: embedded.objects.count); done[progressIndex] = 1
+        func writeProgressMap() throws {
+            let map: [String: Any] = ["manifest": PinnedTransport.manifestSHA256, "done": done]
+            try JSONSerialization.data(withJSONObject: map).write(to: progressRoot.appendingPathComponent(".slotpack-state.json"))
+        }
+        try writeProgressMap()
+        try expect("dangling resume bits do not report downloaded bytes", SlotpackDownload.resumeModelBytes(at: progressRoot).isEmpty)
+        try Data().write(to: progressPart)
+        let progressHandle = try FileHandle(forWritingTo: progressPart)
+        try progressHandle.truncate(atOffset: UInt64(progressFile.size)); try progressHandle.close()
+        try expect("resume progress combines original weight and metadata bytes",
+                   SlotpackDownload.resumeModelBytes(at: progressRoot) == [progressFile.path: Int64(progressObject.rawSize)])
+        let progressFinal = progressRoot.appendingPathComponent(progressFile.path)
+        try FileManager.default.moveItem(at: progressPart, to: progressFinal)
+        try expect("finalized files are not counted as partial progress", SlotpackDownload.resumeModelBytes(at: progressRoot).isEmpty)
+        try FileManager.default.moveItem(at: progressFinal, to: progressPart)
+        done[progressIndex] = 2; try writeProgressMap()
+        try expect("invalid resume bits do not report downloaded bytes", SlotpackDownload.resumeModelBytes(at: progressRoot).isEmpty)
         let impossibleSize = WeightStore.freeDiskBytes(near: temp) + 4_000_000_000
         let largeFile = PinnedModel.File(path: "impossible.bin", size: impossibleSize, sha256: digest)
         var objects = [SlotpackManifest.Object]()

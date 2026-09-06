@@ -2864,6 +2864,8 @@ The final candidate preserves existing Swift API function references and nonesca
 
 [[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] preserves the failed v0.2.9 release gate and its test-only correction: interruption now follows durable progress, including intentionally delayed startup. The complete corrected local suite passes. No v0.2.9 asset was published; v0.2.10 is the corrected release candidate.
 
+[[sources/runs/2026/09/2026-09-06-slotpack-ci-coverage-regression-closure]] preserves the first v0.2.10 main-CI ratchet failure after every functional gate passed. Direct resumed-byte and CDN-status tests raise local downloader line coverage to 96.87% without changing production code or lowering any floor. The corrected main-CI result is recorded with publication acceptance.
+
 ## What compression and CDN caching change
 
 The exact compressed fraction is 0.838796260. When the network is limiting, the ideal transfer-time reduction is therefore the same 16.12037% on a slow or fast connection. Decoding, file writes, and final verification overlap downloads where possible. They impose a processing ceiling on faster links, so whole-install time cannot be inferred from the fraction alone.

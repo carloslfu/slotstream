@@ -97,3 +97,6 @@ Qualified lossless CDN default: complete public Mac/Linux reconstruction, restor
 ## [2026-09-06 05:33] update | records/measurements/lossless-model-download-2026-09-05
 Preserved the failed v0.2.9 CI fixture and corrected cancellation to wait for durable progress. Delayed-start compressed/raw fixtures and bounded memory pass; v0.2.10 publication remains pending.
 
+## [2026-09-06 06:07] update | records/measurements/lossless-model-download-2026-09-05
+Preserved the v0.2.10 main-CI coverage counterexample after functional gates passed; added direct original-byte resume and CDN cache-status checks. Local coverage passes unchanged floors; production code and installed release remain identical.
+
