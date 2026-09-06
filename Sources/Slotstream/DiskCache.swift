@@ -68,9 +68,34 @@ public enum DiskCache {
         return Int(gb * 1_073_741_824.0)
     }
 
-    /// Force the on-disk cache under its quota with the existing eviction
-    /// policy (`ChunkIndex.evictLeaves`): least recently valuable subtrees
-    /// first, leaves only, so a parent with live children is protected.
+    /// Turn-boundary saves: one node when a prompt finishes prefilling, one
+    /// when decode ends, each storing only the delta since the deepest node
+    /// the loader matched. A delta longer than its threshold splits into
+    /// chunk-boundary nodes plus a final partial, so one monster prompt or
+    /// generation cannot become one monster data.kv — the loader reads the
+    /// whole file into memory, and a multi-GB node is exactly what quota
+    /// eviction grabs wholesale. Splitting is ON by default (unset or invalid
+    /// → 0: every chunk boundary inside a delta becomes a node); a value
+    /// N ≥ 0 splits only deltas longer than N; a negative value disables
+    /// splitting. Purely env-driven, like the rest of the disk tier's knobs,
+    /// so offline gates stay hermetic.
+    static var promptSplitTokens: Int? {
+        splitThreshold("SLOTSTREAM_DISK_KV_SPLIT_LONG_PROMPTS")
+    }
+    /// Same for the post-decode delta.
+    static var decodeSplitTokens: Int? {
+        splitThreshold("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES")
+    }
+    private static func splitThreshold(_ name: String) -> Int? {
+        guard let s = ProcessInfo.processInfo.environment[name], !s.isEmpty,
+              let v = Int(s) else { return 0 }
+        return v >= 0 ? v : nil
+    }
+
+    /// Force the on-disk cache under its quota with the eviction policy
+    /// (`ChunkIndex.evictLeaves`): oldest age tier first, leaves only, so a
+    /// freshly saved node is never the first thing evicted and a parent with
+    /// live children is protected.
     /// No-op while under quota. Returns bytes freed. Runs at startup when
     /// --kv-cache-size is given, and after every save.
     @discardableResult
@@ -444,14 +469,58 @@ public enum DiskCache {
         return depth == 0 ? nil : depth * chunk
     }
 
+    /// Follow variable-length children (turn-boundary nodes: one per prompt,
+    /// one per decode) as deep as the prompt's content verifies, starting at
+    /// the deepest fixed-boundary node (`parentSha`/`parentTokenCount`, both
+    /// root/0 when no fixed chain matched). Greedy longest-first, the same
+    /// trust model as the fixed chain walk: a candidate is accepted only when
+    /// the key re-derived from THIS prompt's delta embeddings matches its row,
+    /// so a stale or foreign index row can never alias content. Nodes are
+    /// extend-only — a candidate longer than the prompt is filtered out by
+    /// `childEndpoints(before:)`, and nothing ever rewinds.
+    /// Returns the accepted keys in chain order and the matched prefix end.
+    public static func longestVariableChain(
+        parentSha: String?,
+        parentTokenCount: Int,
+        promptCount: Int,
+        embedRange: (Int, Int) -> [Float]?,
+        maxVerifications: Int = 64
+    ) -> (keys: [String], end: Int) {
+        guard enabled else { return ([], parentTokenCount) }
+        var keys: [String] = []
+        var parent = parentSha
+        var pos = parentTokenCount
+        var verifications = 0
+        while pos < promptCount {
+            var advanced = false
+            for candidate in ChunkIndex.shared.childEndpoints(
+                parentSha: parent, parentTokenCount: pos, before: promptCount)
+            {
+                guard verifications < maxVerifications else { break }
+                guard let e = embedRange(pos, candidate.tokenCount) else { break }
+                verifications += 1
+                if ChunkIndex.makeKey(parentSha: parent, embeddings: e) == candidate.key {
+                    keys.append(candidate.key)
+                    parent = candidate.key
+                    pos = candidate.tokenCount
+                    advanced = true
+                    break
+                }
+            }
+            if !advanced { break }
+        }
+        return (keys, pos)
+    }
+
     // MARK: - load
 
-    /// Rebuild a state by applying `depth` fixed-size nodes and, when present,
-    /// one variable-length terminal child.
+    /// Rebuild a state by applying `depth` fixed-size nodes followed by the
+    /// variable-length turn nodes (prompt endpoints, decode endpoints) the
+    /// caller's chain walk verified.
     public static func loadState(
         for embed: (Int) -> [Float]?,
         depth: Int,
-        terminalKey: String? = nil,
+        variableKeys: [String] = [],
         tokenIds: [Int],
         template: Qwen4ExpModel.State
     ) -> Qwen4ExpModel.State? {
@@ -459,7 +528,7 @@ public enum DiskCache {
             log("load skipped: disk cache disabled")
             return nil
         }
-        guard depth > 0 || terminalKey != nil else {
+        guard depth > 0 || !variableKeys.isEmpty else {
             log("load failed: invalid chain depth \(depth)")
             return nil
         }
@@ -474,7 +543,7 @@ public enum DiskCache {
             keys.append(key)
             parentSha = key
         }
-        if let terminalKey { keys.append(terminalKey) }
+        keys.append(contentsOf: variableKeys)
 
         let state = template
         for (index, key) in keys.enumerated() {

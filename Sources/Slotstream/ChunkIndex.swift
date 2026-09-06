@@ -19,13 +19,17 @@
 //   - parent_sha: parent's key (NULL for depth 0)
 //
 // Eviction: when total size exceeds the quota (--kv-cache-size, else env
-// SLOTSTREAM_KVCACHE_MAX_GB, default 20), the saver deletes a forest of
-// leaves (and orphans whose parent is gone) whose combined size clears the
-// deficit, choosing the lowest-value chunks first (where a chunk's value is
-// the max of its own and all its descendants' last_used, so leaves with live
-// children are protected). DiskCache.enforceQuota runs the same pass at
-// startup when the CLI flag lowers the quota; it also sweeps the evicted
-// chunks' directories off the disk.
+// SLOTSTREAM_KVCACHE_MAX_GB, default 20), the saver deletes leaves whose
+// combined size clears the deficit. Leaves are binned into four age
+// quartiles by last_used; the oldest bin goes first — all of it one tier,
+// ordered shallowest depth first, then LRU — and younger bins only if the
+// quota still demands it, so a freshly saved node is never the first thing
+// its own saver evicts. A parent with live children is protected: its value
+// is the max of its own and all its descendants' last_used. Passes repeat
+// until the quota holds, so a dead turn chain drains to its root.
+// DiskCache.enforceQuota runs the same policy at startup when the CLI flag
+// lowers the quota; it also sweeps the evicted chunks' directories off the
+// disk.
 //
 // Crashes mid-save leave a `.kv.partial` file in the chunk directory; the
 // next save for that key detects the partial and rewrites. The metadata DB
@@ -264,63 +268,104 @@ public final class ChunkIndex {
         }
     }
 
-    /// Evict leaves-first to free at least `bytesNeeded` bytes. Returns bytes
-    /// actually freed. Selection order is shortest-depth-first (shallow leaves
-    /// first), then least-recently-used within a depth. A parent with a live
-    /// child is protected: the "value" of a chunk = max(its own and all its
-    /// descendants' last_used), recomputed before selection so the leaf-only
-    /// pass never strands a subtree.
+    /// Evict leaves to free at least `bytesNeeded` bytes. Returns bytes
+    /// actually freed. Candidates are leaves only — a parent with a live
+    /// child is never dangled, and its value is the max of its own and all
+    /// its descendants' last_used, recomputed before selection. Leaves are
+    /// binned into four age quartiles by last_used: the oldest quartile goes
+    /// first, all of it one tier (within a tier, shallowest depth first, then
+    /// LRU), and younger tiers only if the quota still demands it. Recency
+    /// must dominate depth because a live conversation's tip is also its
+    /// shallowest leaf — depth-first ordering evicted the node the saver had
+    /// just written. Passes repeat until the quota holds, so a dead turn
+    /// chain drains to its root.
     public func evictLeaves(bytesNeeded: Int, maxBytes: Int) -> Int {
         serial.sync {
-            // Lift parent.last_used to max(children.last_used) for non-leaves.
-            // SQLite has no recursive CTE update that's cheap; instead, iterate
-            // depths from deepest to 0, recomputing each non-leaf as
-            // max(self.last_used, max(child.last_used)). Children whose parent
-            // has been evicted are reclassified as roots (parent_sha NULL).
-            let maxDepth = intScalar("SELECT COALESCE(MAX(depth), -1) FROM chunks;")
-            if maxDepth < 0 { return 0 }
-            for d in stride(from: maxDepth, through: 1, by: -1) {
-                let upd = prepare("""
-                UPDATE chunks
-                SET last_used = (
-                  SELECT MAX(c2.last_used)
-                  FROM chunks c2
-                  WHERE c2.parent_sha = chunks.key
-                )
-                WHERE depth = ?
-                  AND EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_sha = chunks.key);
-                """)
-                sqlite3_bind_int(upd, 1, Int32(d))
-                sqlite3_step(upd)
-                sqlite3_finalize(upd)
-            }
-
-            // Now pick chunks shortest-depth-first (a shallow leaf is more
-            // likely to be a stale root of a short, dead conversation than a
-            // deep chain still being extended), with LRU as the tie-breaker.
-            // Skip any chunk that still has children — by construction, a chunk
-            // with children has last_used >= its oldest descendant, but we
-            // only want to evict leaves here so we don't dangle trees.
             var freed = 0
-            let stmt = prepare("""
-            SELECT key, size_bytes FROM chunks
-            WHERE NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_sha = chunks.key)
-            ORDER BY depth ASC, last_used ASC;
-            """)
-            defer { sqlite3_finalize(stmt) }
-            var toDelete: [(String, Int)] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                let keyC = sqlite3_column_text(stmt, 0)
-                let size = Int(sqlite3_column_int64(stmt, 1))
-                let key = keyC.map { String(cString: $0) } ?? ""
-                toDelete.append((key, size))
-            }
-            for (key, size) in toDelete {
-                if freed >= bytesNeeded && totalBytesScalar() <= maxBytes { break }
-                deleteChunk(key: key)
-                freed += size
-                FileHandle.standardError.write(
-                    Data("[kvcache] evicted \(key.prefix(12)) (\(size) bytes)\n".utf8))
+            // Turn-boundary chains (one node per prompt, one per decode) make
+            // dead conversations deep: a single pass can only see the current
+            // tips, and each eviction exposes the next ancestor as a leaf.
+            // Iterate lift/select/delete until the quota holds, nothing is a
+            // leaf any more, or a pass stops shrinking the index (a failed
+            // delete must not spin).
+            var lastTotal = Int.max
+            while true {
+                // Lift parent.last_used to max(children.last_used) for non-leaves.
+                // SQLite has no recursive CTE update that's cheap; instead, iterate
+                // depths from deepest to 0, recomputing each non-leaf as
+                // max(self.last_used, max(child.last_used)). Children whose parent
+                // has been evicted are reclassified as roots (parent_sha NULL).
+                let maxDepth = intScalar("SELECT COALESCE(MAX(depth), -1) FROM chunks;")
+                if maxDepth < 0 { return 0 }
+                for d in stride(from: maxDepth, through: 1, by: -1) {
+                    let upd = prepare("""
+                    UPDATE chunks
+                    SET last_used = (
+                      SELECT MAX(c2.last_used)
+                      FROM chunks c2
+                      WHERE c2.parent_sha = chunks.key
+                    )
+                    WHERE depth = ?
+                      AND EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_sha = chunks.key);
+                    """)
+                    sqlite3_bind_int(upd, 1, Int32(d))
+                    sqlite3_step(upd)
+                    sqlite3_finalize(upd)
+                }
+
+                // Select the current leaves — only chunks with no children
+                // are candidates, so a live parent is never dangled.
+                let stmt = prepare("""
+                SELECT key, size_bytes, depth, last_used FROM chunks
+                WHERE NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_sha = chunks.key);
+                """)
+                defer { sqlite3_finalize(stmt) }
+                var leaves: [(key: String, size: Int, depth: Int, lastUsed: Double)] = []
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let keyC = sqlite3_column_text(stmt, 0) else { continue }
+                    leaves.append((
+                        String(cString: keyC),
+                        Int(sqlite3_column_int64(stmt, 1)),
+                        Int(sqlite3_column_int64(stmt, 2)),
+                        sqlite3_column_double(stmt, 3)))
+                }
+
+                // Age quartiles over the leaf frontier, oldest tier first:
+                // within a tier every age counts the same, and shallowest
+                // depth then LRU break the tie. A node saved seconds ago
+                // lands in the youngest tier and cannot go while an older
+                // tier still has a leaf — which is what stops the saver from
+                // evicting the node it just wrote.
+                let byAge = leaves.sorted { $0.lastUsed < $1.lastUsed }
+                var tiers:
+                    [[(key: String, size: Int, depth: Int, lastUsed: Double)]] =
+                    [[], [], [], []]
+                for (i, leaf) in byAge.enumerated() {
+                    tiers[min(3, 4 * i / max(byAge.count, 1))].append(leaf)
+                }
+                var progressed = false
+                tierLoop: for tier in tiers {
+                    for leaf in tier.sorted(by: {
+                        ($0.depth, $0.lastUsed) < ($1.depth, $1.lastUsed)
+                    }) {
+                        if freed >= bytesNeeded && totalBytesScalar() <= maxBytes {
+                            break tierLoop
+                        }
+                        deleteChunk(key: leaf.key)
+                        freed += leaf.size
+                        progressed = true
+                        FileHandle.standardError.write(
+                            Data("[kvcache] evicted \(leaf.key.prefix(12)) (\(leaf.size) bytes)\n".utf8))
+                    }
+                    if freed >= bytesNeeded && totalBytesScalar() <= maxBytes { break }
+                }
+                let total = totalBytesScalar()
+                if !progressed || total >= lastTotal
+                    || (freed >= bytesNeeded && total <= maxBytes)
+                {
+                    break
+                }
+                lastTotal = total
             }
             return freed
         }
