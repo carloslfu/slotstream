@@ -2,13 +2,13 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-06T16:04:29.188947Z
+updated: 2026-09-06T22:06:37.845291Z
 ---
 
 # records/decisions
 
-- [[records/decisions/lossless-cdn-download-default]] — Fresh installs use the qualified lossless CDN package; raw sources and original model bytes remain compatible.
 - [[records/decisions/hugging-face-lossless-download-default]] — Use the unchanged compressed Hugging Face package by default, preserving exact original bytes while removing metered R2 model hosting.
+- [[records/decisions/lossless-cdn-download-default]] — Fresh installs use the qualified lossless CDN package; raw sources and original model bytes remain compatible.
 - [[records/decisions/images-are-inline-bytes-only]] — slotstream never dereferences a URL a request hands it; images are inline bytes only
 - [[records/decisions/vision-tower-is-a-conditional-memory-charge]] — The vision tower is announced by the memory plan and charged when it loads, never folded into the fixed footprint
 - [[records/decisions/clock-stays-the-eviction-policy]] — CLOCK stays the eviction policy: measured against LRU and LFU on a real trace

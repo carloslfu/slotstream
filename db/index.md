@@ -1,15 +1,15 @@
 ---
 type: index
 scope: root
-updated: 2026-09-06T16:07:20.152768Z
+updated: 2026-09-06T22:07:35.338645Z
 ---
 
 # Knowledge base index
 
-## Sources (42)
+## Sources (44)
 - [[sources/community/index|Community]] (1) — measurement reports from other people's Macs, verbatim
 - [[sources/docs/index|Docs]] (2) — frozen snapshots of the documents the records were lifted from
-- [[sources/runs/index|Runs]] (39) — raw tool output captured before a number was transcribed
+- [[sources/runs/index|Runs]] (41) — raw tool output captured before a number was transcribed
 
 ## Records (189)
 - [[records/analyses/index|Analyses]] (2)

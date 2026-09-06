@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T16:07:20.103681Z
+updated: 2026-09-06T22:06:37.733006Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-full-mac-qualification]] — The native default completes an initially empty Mac installation across a network failure and resume; every original hash verifies, while timing measurements are discarded.
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-mac-network-interruption]] — Preserve the native Mac DNS-failure attempt, resumable verified progress and cross-client network diagnostics; its timing measurements are discarded.
 - [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-legacy-compatibility]] — The released v0.2.10 client follows live free static redirects and reconstructs missing original files from Hugging Face with zero raw fallback.
 - [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-linux-and-gates]] — A complete anonymous default download reconstructs every original file from Hugging Face with zero raw fallbacks; independent hashes and release checks pass.
 - [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-publication]] — The unchanged compressed package is public on Hugging Face; committed identities and anonymous object hashes pass, and the original mirror is preserved.

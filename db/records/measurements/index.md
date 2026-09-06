@@ -2,12 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-06T16:07:20.152768Z
+updated: 2026-09-06T22:07:35.338645Z
 ---
 
 # records/measurements
 
-- [[records/measurements/hugging-face-lossless-download-2026-09-06]] — The unchanged compressed package is public on Hugging Face; complete Linux reconstruction and native transport gates pass, with Mac and release qualification pending.
+- [[records/measurements/hugging-face-lossless-download-2026-09-06]] — Complete public Linux download and resumed native Mac installation reproduce every original file; public main CI passes. Mac timing measurements are discarded.
 - [[records/measurements/lossless-model-download-2026-09-05]] — Published v0.2.10 defaults to the lossless CDN package: 16.12% fewer bytes, complete public reconstruction, passing CI and installed-model acceptance.
 - [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]] — V1 — the vision tower: 0.898 GB resident, 702 tokens for an 846x859 photograph, and agreement with an independent float32 reference inside the bfloat16 band.
