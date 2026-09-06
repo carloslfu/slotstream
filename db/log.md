@@ -100,3 +100,6 @@ Preserved the failed v0.2.9 CI fixture and corrected cancellation to wait for du
 ## [2026-09-06 06:07] update | records/measurements/lossless-model-download-2026-09-05
 Preserved the v0.2.10 main-CI coverage counterexample after functional gates passed; added direct original-byte resume and CDN cache-status checks. Local coverage passes unchanged floors; production code and installed release remain identical.
 
+## [2026-09-06 06:31] update | records/measurements/lossless-model-download-2026-09-05
+Published v0.2.10 through passing release and main CI; verified signed provenance, ordinary installation, actual CLI download controls, every original file hash and an installed loaded-model response. Retained the prior installed release.
+

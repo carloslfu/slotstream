@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T06:07:25.522563Z
+updated: 2026-09-06T06:34:04.203085Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-06-slotpack-v0210-publication-and-installed-acceptance]] — v0.2.10 release and main CI pass; exact public provenance, ordinary installer, download controls, all original hashes and loaded-model response verify.
 - [[sources/runs/2026/09/2026-09-06-slotpack-ci-coverage-regression-closure]] — A per-file CI coverage regression is corrected with explicit resumed-byte and CDN-status checks; the unchanged local ratchet passes at 96.87% downloader coverage.
 - [[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] — CI exposes a fixed-time interruption fixture; state-based cancellation and delayed-start compressed/raw checks pass.
 - [[sources/runs/2026/09/2026-09-06-slotpack-mac-and-final-candidate-acceptance]] — Complete fresh-to-resumed public Mac installation verifies all original files; final API, HTTP, memory, coverage, external consumer and loaded-model gates pass.

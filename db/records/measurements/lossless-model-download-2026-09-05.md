@@ -2,8 +2,8 @@
 type: measurement
 id: 01m1td69jm7whethywfef3gagt
 created: 2026-09-06T03:46:30.100771+00:00
-updated: 2026-09-06T06:07:25.579333+00:00
-summary: Complete lossless package saves 16.12% of bytes; public Mac/Linux reconstruction, bounded memory, compatibility and loaded-model qualification pass.
+updated: 2026-09-06T06:31:52.812980+00:00
+summary: 'Published v0.2.10 defaults to the lossless CDN package: 16.12% fewer bytes, complete public reconstruction, passing CI and installed-model acceptance.'
 date: 2026-09-05
 doc: measurements
 level: '2'
@@ -30,11 +30,13 @@ This completes the earlier sample-based compression investigation. The original 
 
 [[sources/runs/2026/09/2026-09-06-slotpack-mac-and-final-candidate-acceptance]] captures the complete Mac public installation: an empty destination, a deliberate interruption, resume, and independent original-file verification. No existing model chunks seeded the new copy. Peak sampled RSS across its two download attempts was 1,558,462,464 bytes. The resumed segment reported zero raw fallbacks; the interrupted segment did not emit a final fallback counter. Do not describe this as one uninterrupted fresh timing sample.
 
-The final candidate preserves existing Swift API function references and nonescaping log forwarding. Both native clients revalidate/reuse the complete downloaded model without transfer. The actual Mac CLI source/transport overrides and signal handling pass, as do all transport, static, sampler, external-consumer, and coverage gates. The final binary loads the downloaded model at a 10 GB target and answers the bounded greedy prompt correctly. These are correctness and bounded-memory results; shared-machine timings remain diagnostic. Public release and installed-binary acceptance are recorded separately after publication.
+The final candidate preserves existing Swift API function references and nonescaping log forwarding. Both native clients revalidate/reuse the complete downloaded model without transfer. The actual Mac CLI source/transport overrides and signal handling pass, as do all transport, static, sampler, external-consumer, and coverage gates. The final binary loads the downloaded model at a 10 GB target and answers the bounded greedy prompt correctly. These are correctness and bounded-memory results; shared-machine timings remain diagnostic. Public release and installed-binary acceptance are recorded below.
 
-[[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] preserves the failed v0.2.9 release gate and its test-only correction: interruption now follows durable progress, including intentionally delayed startup. The complete corrected local suite passes. No v0.2.9 asset was published; v0.2.10 is the corrected release candidate.
+[[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] preserves the failed v0.2.9 release gate and its test-only correction: interruption now follows durable progress, including intentionally delayed startup. The complete corrected local suite passes. No v0.2.9 asset was published; v0.2.10 is the corrected published release.
 
 [[sources/runs/2026/09/2026-09-06-slotpack-ci-coverage-regression-closure]] preserves the first v0.2.10 main-CI ratchet failure after every functional gate passed. Direct resumed-byte and CDN-status tests raise local downloader line coverage to 96.87% without changing production code or lowering any floor. The corrected main-CI result is recorded with publication acceptance.
+
+[[sources/runs/2026/09/2026-09-06-slotpack-v0210-publication-and-installed-acceptance]] closes publication: [v0.2.10](https://github.com/carloslfu/slotstream/releases/tag/v0.2.10) is the latest published release, both public CI workflows pass, and the ordinary installer activates the exact signed archive. The installed release passes default/source/cancellation checks, revalidates and reuses all original files without transfer, independently verifies their hashes again, and loads the reconstructed model to return READY at a bounded 10 GB target. The passing main-CI revision adds test coverage only; its production sources match the signed release. Fresh `slotstream pull` now uses the lossless CDN package by default.
 
 ## What compression and CDN caching change
 
