@@ -2862,6 +2862,8 @@ This completes the earlier sample-based compression investigation. The original 
 
 The final candidate preserves existing Swift API function references and nonescaping log forwarding. Both native clients revalidate/reuse the complete downloaded model without transfer. The actual Mac CLI source/transport overrides and signal handling pass, as do all transport, static, sampler, external-consumer, and coverage gates. The final binary loads the downloaded model at a 10 GB target and answers the bounded greedy prompt correctly. These are correctness and bounded-memory results; shared-machine timings remain diagnostic. Public release and installed-binary acceptance are recorded separately after publication.
 
+[[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] preserves the failed v0.2.9 release gate and its test-only correction: interruption now follows durable progress, including intentionally delayed startup. The complete corrected local suite passes. No v0.2.9 asset was published; v0.2.10 is the corrected release candidate.
+
 ## What compression and CDN caching change
 
 The exact compressed fraction is 0.838796260. When the network is limiting, the ideal transfer-time reduction is therefore the same 16.12037% on a slow or fast connection. Decoding, file writes, and final verification overlap downloads where possible. They impose a processing ceiling on faster links, so whole-install time cannot be inferred from the fraction alone.

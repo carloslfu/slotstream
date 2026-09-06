@@ -2147,7 +2147,7 @@ that much, say so rather than picking the better one.
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## 0.2.9 — 2026-09-06
+## 0.2.10 — 2026-09-06
 
 - New model downloads use a lossless, quantization-aware package from
   Cloudflare R2 and its edge CDN: **16.12% fewer bytes**, reconstructing the
@@ -2162,6 +2162,15 @@ release; anything under **Unreleased** is on `main` only.
   simultaneous writers, malformed resume maps, unsafe partial-file types,
   and optional-file writes during fallback. Added native sanitizer and real
   HTTP gates for both transports.
+
+- Interruption tests wait for durable chunk progress and explicit writer
+  readiness, including delayed-start fixtures, so slower CI runners exercise
+  the same resume state.
+
+## 0.2.9 — not published
+
+The release gate exposed a timing assumption in the interruption fixture.
+No release asset was published; 0.2.10 includes the corrected qualification.
 
 ## 0.2.8 — 2026-09-05
 

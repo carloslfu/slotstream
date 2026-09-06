@@ -77,6 +77,8 @@ def run():
     binary=compile_harness();manifest,sources,encoded=fixture()
     counts=collections.Counter();counts_lock=threading.Lock()
     optional=manifest['objects'][-1]['sha256']
+    pauses = {mode: threading.Event() for mode in ['pause-resume', 'pause-lock']}
+    first = manifest['objects'][0]['sha256']
     class Handler(BaseHTTPRequestHandler):
         protocol_version='HTTP/1.1'
         def log_message(self,*args):pass
@@ -87,6 +89,10 @@ def run():
             mode,_,path=self.path.lstrip('/').partition('/')
             key=(mode,path)
             with counts_lock:counts[key]+=1;attempt=counts[key]
+            # Keep all but the first chunk in flight until cancellation. The
+            # test waits for its durable bit, never for a machine-speed guess.
+            if mode in pauses and first not in path:
+                pauses[mode].wait(30)
             payload=encoded.get(path,sources.get(path))
             status=200;headers={}
             if mode=='missing' or (mode=='optional-missing' and optional in path):payload=b'not found';status=404
@@ -124,7 +130,12 @@ def run():
             dest=dest or root/name
             cmd=[str(binary),str(mf),str(dest),','.join(base+'/'+m for m in compressed.split(',')) if compressed else '-',base+'/'+raw if raw else '-']
             if cancel is not None:cmd.append(str(cancel))
-            start=time.monotonic();r=subprocess.run(cmd,capture_output=True,text=True,timeout=60)
+            env=os.environ.copy()
+            if cancel == 'after-progress':env['SLOTPACK_FIXTURE_START_DELAY']='1.2'
+            start=time.monotonic()
+            try:r=subprocess.run(cmd,env=env,capture_output=True,text=True,timeout=60)
+            finally:
+                if compressed in pauses:pauses[compressed].set()
             passed=(r.returncode==0)==success
             row=dict(name=name,pass_=passed,seconds=round(time.monotonic()-start,3),returncode=r.returncode,stdout=r.stdout,stderr=r.stderr)
             results.append(row);print(json.dumps({k:v for k,v in row.items() if k not in ('stdout','stderr')}),flush=True)
@@ -146,7 +157,7 @@ def run():
         check('wrong-length-fallback','wrong-length,good')
         check('short-body-fallback','short,good')
         check('content-encoding-fallback','encoding,good')
-        resumed=root/'resume';check('cancel-preserves-progress','slow',success=False,dest=resumed,cancel=.8)
+        resumed=root/'resume';check('cancel-preserves-progress','pause-resume',success=False,dest=resumed,cancel='after-progress')
         state=json.loads((resumed/'.slotpack-state.json').read_text());assert 0<sum(state['done'])<len(state['done'])
         damaged=root/'damaged-resume';shutil.copytree(resumed,damaged)
         done_index=next(i for i,x in enumerate(state['done']) if x==1)
@@ -181,9 +192,18 @@ def run():
         check('part-fifo-rejected',dest=fifo,success=False)
 
         # Race two writers against the same directory. Second must fail promptly.
-        locked=root/'locked';p=subprocess.Popen([str(binary),str(mf),str(locked),base+'/slow','-','1.5'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        try:time.sleep(.2);check('concurrent-writer-rejected',dest=locked,success=False)
-        finally:p.wait(timeout=10)
+        locked=root/'locked';cancel_file=root/'cancel-lock-owner'
+        owner_env=os.environ.copy();owner_env['SLOTPACK_FIXTURE_START_DELAY']='1.2'
+        p=subprocess.Popen([str(binary),str(mf),str(locked),base+'/pause-lock','-','cancel-file:'+str(cancel_file)],env=owner_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        try:
+            deadline=time.monotonic()+20
+            while not (locked/'.slotpack-state.json').exists() and time.monotonic()<deadline:
+                assert p.poll() is None, 'lock owner exited before publishing its resume state'
+                time.sleep(.01)
+            assert (locked/'.slotpack-state.json').exists(), 'lock owner did not become ready'
+            check('concurrent-writer-rejected',dest=locked,success=False)
+        finally:
+            cancel_file.touch();p.wait(timeout=10);pauses['pause-lock'].set()
     server.shutdown()
     receipt=dict(pass_=all(r['pass_'] for r in results),build=json.loads((binary.parent/'build.json').read_text()),checks=results,requests=sum(counts.values()))
     (OUT/'download-checks.json').write_text(json.dumps(receipt,indent=2)+'\n')

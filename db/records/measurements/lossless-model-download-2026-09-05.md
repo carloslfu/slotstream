@@ -2,7 +2,7 @@
 type: measurement
 id: 01m1td69jm7whethywfef3gagt
 created: 2026-09-06T03:46:30.100771+00:00
-updated: 2026-09-06T05:02:42.628352+00:00
+updated: 2026-09-06T05:33:21.103880+00:00
 summary: Complete lossless package saves 16.12% of bytes; public Mac/Linux reconstruction, bounded memory, compatibility and loaded-model qualification pass.
 date: 2026-09-05
 doc: measurements
@@ -31,6 +31,8 @@ This completes the earlier sample-based compression investigation. The original 
 [[sources/runs/2026/09/2026-09-06-slotpack-mac-and-final-candidate-acceptance]] captures the complete Mac public installation: an empty destination, a deliberate interruption, resume, and independent original-file verification. No existing model chunks seeded the new copy. Peak sampled RSS across its two download attempts was 1,558,462,464 bytes. The resumed segment reported zero raw fallbacks; the interrupted segment did not emit a final fallback counter. Do not describe this as one uninterrupted fresh timing sample.
 
 The final candidate preserves existing Swift API function references and nonescaping log forwarding. Both native clients revalidate/reuse the complete downloaded model without transfer. The actual Mac CLI source/transport overrides and signal handling pass, as do all transport, static, sampler, external-consumer, and coverage gates. The final binary loads the downloaded model at a 10 GB target and answers the bounded greedy prompt correctly. These are correctness and bounded-memory results; shared-machine timings remain diagnostic. Public release and installed-binary acceptance are recorded separately after publication.
+
+[[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] preserves the failed v0.2.9 release gate and its test-only correction: interruption now follows durable progress, including intentionally delayed startup. The complete corrected local suite passes. No v0.2.9 asset was published; v0.2.10 is the corrected release candidate.
 
 ## What compression and CDN caching change
 

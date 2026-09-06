@@ -21,6 +21,7 @@ def main():
     files = [dict(path=p, size=len(b), sha256=hashlib.sha256(b).hexdigest(), optional=p.startswith('mtp'))
              for p, b in sources.items()]
     counts = collections.Counter()
+    pause_resume = threading.Event()
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
         def log_message(self, *args): pass
@@ -31,6 +32,8 @@ def main():
             mode, _, path = self.path.lstrip('/').partition('/')
             start, end = map(int, self.headers['Range'].removeprefix('bytes=').split('-'))
             counts[mode, path, start] += 1
+            if mode == 'pause-resume' and not (path == 'weights.safetensors' and start == 0):
+                pause_resume.wait(30)
             data = sources[path]
             status = 206
             if mode == 'missing' or (mode == 'optional-race' and path.startswith('mtp') and start == 0):
@@ -65,8 +68,11 @@ def main():
             command = [str(binary), str(manifest), str(dest), '-', ','.join(base+'/'+x for x in modes.split(','))]
             if cancel: command.append(str(cancel))
             env = os.environ.copy(); env['SLOTSTREAM_TEST_RAW'] = '1'
+            if cancel == 'after-progress':env['SLOTPACK_FIXTURE_START_DELAY']='1.2'
             start = time.monotonic()
-            run = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)
+            try:run = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)
+            finally:
+                if modes == 'pause-resume':pause_resume.set()
             row = dict(name=name, pass_=(run.returncode == 0) == success, seconds=round(time.monotonic()-start, 3),
                        returncode=run.returncode, stdout=run.stdout, stderr=run.stderr)
             results.append(row)
@@ -83,7 +89,7 @@ def main():
         optional = check('raw-optional-inflight-writers', 'optional-race')
         assert not (optional/'mtp.safetensors').exists()
         dest = root/'resumed'
-        check('raw-cancel', 'slow', False, dest=dest, cancel=.8)
+        check('raw-cancel', 'pause-resume', False, dest=dest, cancel='after-progress')
         assert any(1 in p.read_bytes() for p in dest.glob('*.partmap'))
         before = sum(counts.values()); check('raw-resume', dest=dest)
         assert sum(counts.values()) - before < 8

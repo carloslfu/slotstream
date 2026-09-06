@@ -2,7 +2,7 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-06T05:02:42.628352Z
+updated: 2026-09-06T05:33:21.103880Z
 ---
 
 # records/measurements

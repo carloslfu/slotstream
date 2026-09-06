@@ -21,8 +21,35 @@ import Darwin
             try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
             let lease = try DownloadDirectoryLock(dest)
             let cancellation = PullCancellation()
+            let controlQueue = DispatchQueue(label: "fixture.cancellation")
+            var control: DispatchSourceTimer?
+            if args.count > 5, args[5] == "after-progress" || args[5].hasPrefix("cancel-file:") {
+                let timer = DispatchSource.makeTimerSource(queue: controlQueue)
+                let deadline = ProcessInfo.processInfo.systemUptime + 30
+                timer.schedule(deadline: .now(), repeating: .milliseconds(10))
+                timer.setEventHandler {
+                    let ready: Bool
+                    if args[5].hasPrefix("cancel-file:") {
+                        ready = FileManager.default.fileExists(atPath: String(args[5].dropFirst("cancel-file:".count)))
+                    } else if rawTest {
+                        ready = pins.contains { file in
+                            DownloadFiles.readSmall(dest.appendingPathComponent(file.path).appendingPathExtension("partmap"), limit: 1 << 20)?.contains(1) == true
+                        }
+                    } else {
+                        let state = DownloadFiles.readSmall(dest.appendingPathComponent(".slotpack-state.json"), limit: 1 << 20)
+                        let json = state.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+                        ready = (json?["done"] as? [Int])?.contains(1) == true
+                    }
+                    if ready || ProcessInfo.processInfo.systemUptime >= deadline { cancellation.cancel() }
+                }
+                timer.resume(); control = timer
+            }
+            defer { control?.cancel(); controlQueue.sync {} }
             if args.count > 5, let seconds = Double(args[5]), seconds > 0 {
                 DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { cancellation.cancel() }
+            }
+            if let delay = Double(ProcessInfo.processInfo.environment["SLOTPACK_FIXTURE_START_DELAY"] ?? "0"), delay > 0 {
+                Thread.sleep(forTimeInterval: min(delay, 5))
             }
             let raw = args.count > 4 && args[4] != "-" ? args[4].components(separatedBy: ",") : []
             if rawTest {

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T05:02:42.592605Z
+updated: 2026-09-06T05:33:21.047429Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] — CI exposes a fixed-time interruption fixture; state-based cancellation and delayed-start compressed/raw checks pass.
 - [[sources/runs/2026/09/2026-09-06-slotpack-mac-and-final-candidate-acceptance]] — Complete fresh-to-resumed public Mac installation verifies all original files; final API, HTTP, memory, coverage, external consumer and loaded-model gates pass.
 - [[sources/runs/2026/09/2026-09-05-slotpack-public-cdn-and-linux-qualification]] — Complete fresh Linux CDN pull and independent original-file hashes pass; cache hits, raw/CDN route probes and actual CLI choices are captured.
 - [[sources/runs/2026/09/2026-09-05-slotpack-memory-counterexample-and-repair]] — A guarded counterexample catches retained completed buffers; the fixed sustained transfer and full original-file reconstruction pass.

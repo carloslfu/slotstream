@@ -94,3 +94,6 @@ Published v0.2.8 from f05b15d through release CI 34006921406. Verified the publi
 ## [2026-09-06 05:03] update | records/measurements/lossless-model-download-2026-09-05
 Qualified lossless CDN default: complete public Mac/Linux reconstruction, restored Swift API compatibility, bounded memory, fault gates, line coverage and loaded-model response; v0.2.9 publication follows.
 
+## [2026-09-06 05:33] update | records/measurements/lossless-model-download-2026-09-05
+Preserved the failed v0.2.9 CI fixture and corrected cancellation to wait for durable progress. Delayed-start compressed/raw fixtures and bounded memory pass; v0.2.10 publication remains pending.
+
