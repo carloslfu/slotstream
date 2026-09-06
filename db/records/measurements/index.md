@@ -2,13 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-06T22:07:35.338645Z
+updated: 2026-09-06T22:35:09.092014Z
 ---
 
 # records/measurements
 
-- [[records/measurements/hugging-face-lossless-download-2026-09-06]] — Complete public Linux download and resumed native Mac installation reproduce every original file; public main CI passes. Mac timing measurements are discarded.
-- [[records/measurements/lossless-model-download-2026-09-05]] — Published v0.2.10 defaults to the lossless CDN package: 16.12% fewer bytes, complete public reconstruction, passing CI and installed-model acceptance.
+- [[records/measurements/lossless-model-download-2026-09-05]] — Historical v0.2.10 lossless package and deployment qualification; the codec remains unchanged and current Hugging Face hosting is recorded separately.
+- [[records/measurements/hugging-face-lossless-download-2026-09-06]] — v0.2.11 publishes the free Hugging Face default; complete public reconstruction, installed acceptance and model-only R2 retirement are verified.
 - [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]] — V1 — the vision tower: 0.898 GB resident, 702 tokens for an 846x859 photograph, and agreement with an independent float32 reference inside the bfloat16 band.
 - [[records/measurements/m1-expert-locality-on-a-real-trace-2026-09-03]] — M1 closed: expert locality on a real trace, and the eviction policy is not the lever (2026-09-03)

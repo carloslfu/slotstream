@@ -109,3 +109,6 @@ Published unchanged Slotpack on public Hugging Face; verified complete default L
 ## [2026-09-06 22:06] update | records/measurements/hugging-face-lossless-download-2026-09-06.md
 Capture complete native Mac Hugging Face reconstruction across a network-failure resume and passing public main CI; release installation and R2 retirement follow.
 
+## [2026-09-06 22:35] update | records/measurements/hugging-face-lossless-download-2026-09-06.md
+Close v0.2.11 signed release, ordinary installer and installed-model acceptance; verify redundant model-only R2 bucket deletion and retained free compatibility redirects.
+
