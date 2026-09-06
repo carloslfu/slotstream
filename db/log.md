@@ -88,3 +88,6 @@ Prepared the scoped 0.2.8 Hermes release candidate from public main. Qualified f
 ## [2026-09-06 02:34] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
 Completed the clean 0.2.8 release matrix: released and current Hermes tool/follow-up/title flows, CLI, vision and compaction recall; 27 OpenAI checks, 19 clean-source vision checks, native gateway and Ollama image clients, and 74 API regressions passed. Public CI is green at 2a69ac0. All owned servers stopped; final client evidence retained before tagging.
 
+## [2026-09-06 02:54] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
+Published v0.2.8 from f05b15d through release CI 34006921406. Verified the public archive checksum and signed source/workflow provenance, installed the exact CI binary, retained rollback, and verified real Hermes tool/follow-up/title/image flows plus the actual CLI against that install. All owned test servers stopped; issue remains open and no reply was posted.
+
