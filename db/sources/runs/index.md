@@ -2,17 +2,25 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T02:53:34.636791Z
+updated: 2026-09-06T05:02:42.592605Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-06-slotpack-mac-and-final-candidate-acceptance]] — Complete fresh-to-resumed public Mac installation verifies all original files; final API, HTTP, memory, coverage, external consumer and loaded-model gates pass.
+- [[sources/runs/2026/09/2026-09-05-slotpack-public-cdn-and-linux-qualification]] — Complete fresh Linux CDN pull and independent original-file hashes pass; cache hits, raw/CDN route probes and actual CLI choices are captured.
+- [[sources/runs/2026/09/2026-09-05-slotpack-memory-counterexample-and-repair]] — A guarded counterexample catches retained completed buffers; the fixed sustained transfer and full original-file reconstruction pass.
+- [[sources/runs/2026/09/2026-09-05-slotpack-package-and-regressions]] — Complete identical Mac/Linux package; codec sanitizers, malformed inputs, manifests, compressed HTTP and raw multi-chunk checks pass.
 - [[sources/runs/2026/09/2026-09-05-hermes-release-published-install]] — Hermes 0.2.8: public release and installed-client verification
 - [[sources/runs/2026/09/2026-09-05-hermes-release-client-acceptance]] — Hermes 0.2.8 clean release: real clients and regression acceptance
 - [[sources/runs/2026/09/2026-09-05-hermes-release-context-and-gates]] — Hermes clean release candidate: full context and local gates
+- [[sources/runs/2026/09/2026-09-05-download-compression-artifact-inspection]] — Both complete shard archives save 16% and restore the pinned hash; 106-window weighted estimate is 105.264 GB to 88.455 GB; no accepted runtime-speed claim
+- [[sources/runs/2026/09/2026-09-05-download-aggressive-lossless-experiments]] — Raw aggressive compression experiments with exact source; runtime timings discarded for concurrent load, deterministic artifact properties independently verified
+- [[sources/runs/2026/09/2026-09-05-download-existing-compression-check]] — Actual file-header checks: raw quantized safetensors, gzip installer, Deflate wheels, and BG4-LZ4 Xet storage chunks
 - [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]] — Verified Hermes source build installed locally
 - [[sources/runs/2026/09/2026-09-05-hermes-final-integration-acceptance]] — Final Hermes integration acceptance
 - [[sources/runs/2026/09/2026-09-05-hermes-adapter-regressions-and-vision-discovery]] — Hermes adapter regressions and vision discovery counterexample
+- [[sources/runs/2026/09/2026-09-05-download-first-principles-audit]] — Download audit: current transport probes, complete Xet byte metadata, tensor inventory and lossless compression samples
 - [[sources/runs/2026/09/2026-09-05-hermes-context-qualified]] — Full long-context prefill and reply fit the reserved physical-memory envelope
 - [[sources/runs/2026/09/2026-09-05-hermes-planned-context-counterexample]] — Full long-context prefill completes but its sampled process peak exceeds the planned envelope
 - [[sources/runs/2026/09/2026-09-05-hermes-openai-real-client-gates]] — Released and current Hermes complete real local tool loops, title fallback and bounded compaction; OpenAI and gateway gates pass

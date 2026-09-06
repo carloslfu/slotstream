@@ -134,44 +134,32 @@ multi-GB. These rules are mandatory:
 
 ## Weight download
 
-`pull` runs 8 parallel connections over 64 MB chunks with a per-file
-`.partmap` (one byte per chunk) for exact resume. Each connection is its own
-URLSession, and that is not optional: HTTP/2 multiplexes every request in a
-session over one TCP connection and ignores `httpMaximumConnectionsPerHost`
-(Apple documents this), so through 0.2.0 the "8 connections" were 8 streams on
-one connection and every pull ran at single-connection speed. The 2026-08-29
-finding that "Hugging Face caps this client at 55 MB/s" was that one
-connection, measured from a home link that caps every host near 55; from a
-1 Gbit/s datacenter link Hugging Face gives 72 MB/s on one connection and 103
-to 112 on 8 to 32 (the port; a full install took 16 minutes). `pull` prints the
-connection count it measures
-from task metrics; if it ever reports fewer than requested, measure before
-tuning anything. Hosting the weights elsewhere does not raise one connection's
-speed; only more connections or a shorter round trip do (MEASUREMENTS.md,
-2026-09-01). `Tools/pull_bench_linux.sh` runs the exact pull code on a Linux
-box in Docker for a gigabit measurement.
+Fresh pulls use Slotpack v1: a fully hash-pinned, lossless compressed package
+in a dedicated R2 bucket behind `weights.sevra.page`. Small immutable objects
+fit ordinary CDN caching; the earlier advice against hosting raw multi-GB
+shards on that cache does not apply to this layout. Preserve original model
+bytes, pinned hashes, range coverage, and all decoder bounds. The canonical
+format and release qualification are in `docs/DOWNLOAD-FORMAT.md`.
 
-Hosting is not a speed lever below about 3 Gbit/s per client, and the default
-is the physical best up to 1 Gbit/s: from Helsinki, Hugging Face, R2 direct and
-Cloudflare's edge all fill the port at 8 connections, and every home link caps
-all of them alike. What the default leaves: about 20% on a gigabit link 250 to
-300 ms from the bridge, and about 2× on 5 to 10 Gbit/s links, where each
-connection is bounded by the 4 MiB window over round trip and every chunk
-idles two round trips on the `resolve` redirect. The client-side fixes, if that
-audience ever matters: adaptive concurrency (8 up to 64 while the aggregate
-rate still rises), two chunks in flight per connection, and one `resolve` per
-file (the signed bridge URL lasts about an hour). Do not move the weights to R2,
-Vercel Blob or a CDN for speed: none caches a 10 GB shard on a non-enterprise
-plan, and Hugging Face already serves these bytes from CloudFront through its
-Xet protocol (64 MiB xorbs), which `resolve` bypasses in favour of the EC2
-bridge; speaking Xet is the edge path. Anything above 1 Gbit/s is unmeasured
-and needs a billed 10 Gbit host, which needs Carlos's go (MEASUREMENTS.md M11,
-2026-09-02).
+Download, bounded parallel decoding, and writes overlap. Every network worker
+owns its URLSession so HTTP/2 streams do not collapse the intended independent
+connections. Automatic mode starts at eight and trials increases only while
+measured throughput improves; explicit counts stay fixed. CDN cache status
+and actual connection observations are logged. Do not infer a speed guarantee
+from byte reduction or extrapolate an unmeasured multi-gigabit connection.
 
-To exercise the whole pull path without spending 104 GB of network, serve the
-existing `models/` copy over a Range-capable local HTTP server and point
-`SLOTSTREAM_WEIGHTS_SOURCES` at it; a full 24-file pull then runs at SSD speed
-(2.47 GB/s measured) and ends in the real `VERIFY PASS`.
+Keep compressed-object, decoded-chunk, and final original-file SHA-256 checks.
+Resume bits follow synced writes; final paths appear only after whole-file
+verification. Cancellation drains workers. A directory lock rejects competing
+writers. Optional failures wait for outstanding writes before cleanup. Run
+`Tools/slotpack/checks.py` after transport changes, and qualify any new package
+with an independent complete public CLI pull before enabling it in a release.
+
+The raw downloader remains the explicit compatibility path and preserves old
+`.partmap` resumes. `SLOTSTREAM_WEIGHTS_SOURCES` still selects raw sources in
+automatic mode. Raw fallback inside a compressed pull uses bounded original
+ranges and cached signed redirects. The Linux bandwidth harness compiles the
+same production sources; it is a test instrument, not a Linux inference port.
 
 ## Serving invariants (learned the hard way)
 

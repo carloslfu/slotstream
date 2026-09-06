@@ -2,6 +2,8 @@
   "files": {
     "Sources/Slotstream/Checkpoint.swift": 1.63,
     "Sources/Slotstream/Context.swift": 54.43,
+    "Sources/Slotstream/DownloadConcurrency.swift": 100.0,
+    "Sources/Slotstream/DownloadHTTP.swift": 86.47,
     "Sources/Slotstream/Engine.swift": 14.79,
     "Sources/Slotstream/Errors.swift": 0.0,
     "Sources/Slotstream/ExpertStore.swift": 0.0,
@@ -17,17 +19,20 @@
     "Sources/Slotstream/OpenAIDialect.swift": 84.54,
     "Sources/Slotstream/OpenAIOutput.swift": 96.55,
     "Sources/Slotstream/PinnedModel.swift": 100.0,
+    "Sources/Slotstream/PinnedTransport.swift": 30.0,
     "Sources/Slotstream/Plan.swift": 76.42,
     "Sources/Slotstream/PrefixCache.swift": 80.19,
     "Sources/Slotstream/ProcessMemory.swift": 55.81,
     "Sources/Slotstream/RouterTrace.swift": 0.0,
     "Sources/Slotstream/Server.swift": 10.51,
+    "Sources/Slotstream/SlotpackDownload.swift": 91.85,
+    "Sources/Slotstream/SlotpackManifest.swift": 98.72,
     "Sources/Slotstream/ToolCallSplitter.swift": 96.27,
     "Sources/Slotstream/Vendored/GatedDelta.swift": 0.0,
     "Sources/Slotstream/Vision.swift": 29.04,
     "Sources/Slotstream/VisionPrompt.swift": 58.93,
-    "Sources/Slotstream/WeightDownload.swift": 0.0,
-    "Sources/Slotstream/WeightStore.swift": 36.71,
+    "Sources/Slotstream/WeightDownload.swift": 83.11,
+    "Sources/Slotstream/WeightStore.swift": 43.23,
     "Sources/Slotstream/Weights.swift": 0.0,
     "Sources/SlotstreamDiagnostics/CheckReport.swift": 64.81,
     "Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift": 83.43,
@@ -39,6 +44,6 @@
     "Sources/SlotstreamDiagnostics/Diagnostics.swift": 89.87,
     "Sources/SlotstreamDiagnostics/Goldens.swift": 94.03
   },
-  "note": "written by Tools/coverage_ratchet.py --update; per-file line coverage floors",
-  "total": 31.49
+  "note": "Transport line floors measured with instrumented HTTP and catalogue fixtures; unrelated existing floors preserved.",
+  "total": 43.07
 }

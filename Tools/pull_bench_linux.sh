@@ -16,13 +16,17 @@ cd "$(dirname "$0")/.."
 WORK="${1:-/tmp/slotstream-bench}"
 CONNS="${2:-8}"
 IMAGE=swift:6.1-noble
-mkdir -p "$WORK/pullbench/Sources" "$WORK/model"
+mkdir -p "$WORK/pullbench/Sources" "$WORK/pullbench/CSlotpack" "$WORK/model"
+cp -R Sources/CSlotpack/. "$WORK/pullbench/CSlotpack/"
 cp Sources/Slotstream/WeightDownload.swift Sources/Slotstream/WeightStore.swift \
-   Sources/Slotstream/PinnedModel.swift Sources/Slotstream/Errors.swift "$WORK/pullbench/Sources/"
+   Sources/Slotstream/PinnedModel.swift Sources/Slotstream/Errors.swift \
+   Sources/Slotstream/DownloadHTTP.swift Sources/Slotstream/DownloadConcurrency.swift \
+   Sources/Slotstream/SlotpackManifest.swift Sources/Slotstream/SlotpackDownload.swift \
+   Sources/Slotstream/PinnedTransport*.swift "$WORK/pullbench/Sources/"
 cp Tools/pull-bench-linux/main.swift "$WORK/pullbench/Sources/main.swift"
 cp Tools/pull-bench-linux/Package.swift "$WORK/pullbench/Package.swift"
 echo "== build ($IMAGE) =="
-docker run --rm -v "$WORK/pullbench:/src" -w /src "$IMAGE" swift build -c release 2>&1 | grep -E "error:|Build complete" || true
+docker run --rm -v "$WORK/pullbench:/src" -w /src "$IMAGE" swift build -c release > "$WORK/build.log" 2>&1 || { cat "$WORK/build.log"; exit 1; }
 echo "== weights-free regressions =="
 docker run --rm -v "$WORK/pullbench:/src" -w /src "$IMAGE" /src/.build/release/pullbench pull-check | tail -1
 echo "== pull, $CONNS connections, into $WORK/model (Ctrl-C is safe; rerun resumes) =="

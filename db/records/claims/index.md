@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-06T01:32:00.579778Z
+updated: 2026-09-06T03:50:13.739195Z
 ---
 
 # records/claims
 
+- [[records/claims/one-connection-about-70-mb-s-from-a-datacenter]] — One connection alone is bounded near 70 MB/s from a datacenter
+- [[records/claims/lossless-download-home-transfer-estimate]] — Rounded transfer-only estimates from complete compressed bytes, explicitly excluding overhead and unhidden processing.
+- [[records/claims/lossless-download-byte-reduction]] — The complete package byte count is verified independently on Mac and Linux.
 - [[records/claims/context-cap-32768-tokens]] — Prompt plus completion is capped at 32,768 tokens per request
 - [[records/claims/openai-tool-sampling-defaults]] — OpenAI tool requests reuse the native agent sampler
 - [[records/claims/openai-inference-error-status]] — Non-streamed OpenAI inference failures return HTTP 500
@@ -42,7 +45,6 @@ updated: 2026-09-06T01:32:00.579778Z
 - [[records/claims/speculative-decode-x1-24-at-auto-floor]] — Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 - [[records/claims/draft-head-accept-rate-86-percent]] — The draft head predicts the next token 86% of the time
 - [[records/claims/prefix-cache-flat-time-to-first-token]] — Time to first token stays flat across a conversation: 6.0 s at turn eight against 25.8 s uncached
-- [[records/claims/one-connection-about-70-mb-s-from-a-datacenter]] — One connection alone is bounded near 70 MB/s from a datacenter
 - [[records/claims/full-install-112-mb-s-on-1-gbit-s]] — A full install runs at 112 MB/s from a 1 Gbit/s datacenter link
 - [[records/claims/weights-on-disk-105-3-gb]] — The weights are 105.3 GB across 25 files
 - [[records/claims/peak-memory-32-gb-at-auto]] — Peak memory at the auto plan is 32 GB on the dev Mac

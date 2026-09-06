@@ -32,6 +32,20 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+// Existing callers may forward nonescaping logs and hold the original API
+// as function values. Compile these without starting any download.
+func forwardInstance(_ store: WeightStore, log: WeightStore.Log) throws {
+    try store.download(log: log)
+}
+func forwardStatic(_ directory: URL, log: WeightStore.Log) throws {
+    try WeightStore.download(to: directory, log: log)
+}
+let oldDownload: (URL, Int?, [String]?, WeightStore.Log) throws -> Void = WeightStore.download
+let oldOptions: ([String]?, Int?) -> PullOptions = PullOptions.init
+let cancelled = PullCancellation()
+cancelled.cancel()
+let cancelledOptions = PullOptions(cancellation: cancelled)
+
 // Plan for a machine, without one byte of weights and without touching Metal.
 let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.simulated(ramGB: 32))
 precondition(plan.slots > 0, "a 16 GB plan should size a pool")

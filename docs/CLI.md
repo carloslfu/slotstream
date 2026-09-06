@@ -12,7 +12,7 @@ Only one model process can run per user at a time.
 |---|---|
 | `~/.slotstream/bin/` | Symlink to the active release: the `slotstream` binary and its `mlx.metallib`. |
 | `~/.slotstream/releases/<sha256>-macos<NN>/` | Each installed release, content-addressed. The installer stages a release here, verifies it, then switches the `bin` symlink. |
-| `~/.slotstream/models/qwen38-flash-next-mlx-4bit/` | The weights: 25 files, 105.3 GB (the 1.5 GB draft head is optional). `.partmap` files exist only while a download is in progress. |
+| `~/.slotstream/models/qwen38-flash-next-mlx-4bit/` | The weights: 25 files, 105.3 GB (the 1.5 GB draft head is optional). Compressed pulls use `.slotpack-state.json` and `.slotpack.part` files while in progress; legacy raw pulls use `.partmap` and `.part`. |
 | `/usr/local/bin/slotstream`, or a PATH line in `~/.zshrc` / `~/.bash_profile` | How the installer puts the command on your PATH (the wrapper when `/usr/local/bin` is writable, the profile line otherwise). |
 | `/tmp/slotstream-model-<uid>.lock` | The one-process lock, held while a model is loaded. |
 
@@ -49,14 +49,21 @@ Plus the memory options.
 
 ### `slotstream pull [model]`
 
-Download the model weights with resumable transfers and hash verification.
+Download losslessly compressed model weights from the CDN, reconstructing
+the original files with resumable transfers and hash verification.
 The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 
 | Flag | Meaning |
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
-| `--connections <n>` | Parallel TCP connections (default 8, cap 32). Eight measured 112 MB/s for a full download on a 1 Gbit/s link. `pull` reports the active count. |
+| `--connections <n>` | Fixed independent connections, 1–32. Omit to start at 8 and test increases only while throughput improves. |
+| `--transport automatic\|compressed\|raw` | Automatic uses compressed CDN objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
 | `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
+
+The complete compressed package uses **16.12% fewer bytes**. Decode and writes
+overlap the transfer. Historical raw-path testing measured 112 MB/s on a
+1 Gbit/s link; that is not a guarantee for another connection. Ctrl-C safely
+preserves verified chunks. See [the download guide](DOWNLOAD-FORMAT.md).
 
 Weights placed elsewhere are used by passing that directory to `--model`, or
 by symlinking it into the default location. Symlinked directories work from
@@ -124,8 +131,10 @@ sure the memory is available before loading the model.
 
 | Variable | Read by | Meaning |
 |---|---|---|
-| `SLOTSTREAM_WEIGHTS_SOURCES` | `pull` | Comma-separated download bases tried in order (a private mirror, a local cache). Every file must still match the compiled-in hashes. |
-| `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Parallel connections, capped at 32; same as `--connections`. |
+| `SLOTSTREAM_WEIGHTS_SOURCES` | `pull` | Comma-separated raw-file bases tried in order. Selects raw transport in automatic mode; every file must match the original pins. |
+| `SLOTSTREAM_COMPRESSED_SOURCES` | `pull` | Comma-separated Slotpack package bases; every object must match the embedded package. |
+| `SLOTSTREAM_PULL_TRANSPORT` | `pull` | `automatic`, `compressed`, or `raw`; an explicit non-automatic CLI flag takes precedence. |
+| `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Fixes parallel connections, capped at 32; the CLI flag takes precedence. |
 | `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
 | `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
 | `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12; measured flat from 12 to 32, worse above). |

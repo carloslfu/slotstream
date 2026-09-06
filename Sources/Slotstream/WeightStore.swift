@@ -50,16 +50,31 @@ public enum WeightStatus: Sendable, Equatable {
     }
 }
 
+public enum WeightTransport: String, Sendable { case automatic, compressed, raw }
+
 /// How to fetch. Defaults match the flags and the environment the CLI reads.
 public struct PullOptions: Sendable {
-    /// Ordered download bases; nil means the pinned mirror then upstream.
+    /// Raw-file bases. Setting these selects the raw path in automatic mode;
+    /// nil uses the compressed CDN, with pinned raw mirrors as fallback.
     public var sources: [String]?
     /// TCP connections, each its own URLSession. Capped at 32.
     public var connections: Int?
+    public var transport: WeightTransport
+    public var cancellation: PullCancellation?
 
     public init(sources: [String]? = nil, connections: Int? = nil) {
+        self.init(sources: sources, connections: connections, transport: .automatic)
+    }
+
+    public init(sources: [String]? = nil, connections: Int? = nil, transport: WeightTransport, cancellation: PullCancellation? = nil) {
         self.sources = sources
         self.connections = connections
+        self.transport = transport
+        self.cancellation = cancellation
+    }
+
+    public init(sources: [String]? = nil, connections: Int? = nil, cancellation: PullCancellation?) {
+        self.init(sources: sources, connections: connections, transport: .automatic, cancellation: cancellation)
     }
 }
 
@@ -94,7 +109,7 @@ public struct WeightStore: Sendable {
         let free = Self.freeDiskBytes(near: modelDirectory)
         let remaining = Self.remainingBytes(at: modelDirectory)
         if remaining > 0 {
-            let have = PinnedModel.totalBytes - remaining
+            let have = PinnedModel.requiredBytes - remaining
             return have > 0
                 ? .incomplete(remainingBytes: remaining, freeDiskBytes: free)
                 : .missing(needBytes: remaining, freeDiskBytes: free)
@@ -128,7 +143,7 @@ public struct WeightStore: Sendable {
     public func download(_ options: PullOptions = .init(), log: Log = { _ in }) throws {
         try Self.download(
             to: modelDirectory, connections: options.connections, sources: options.sources,
-            log: log)
+            transport: options.transport, cancellation: options.cancellation, log: log)
     }
 
     // MARK: verify
@@ -224,12 +239,13 @@ public struct WeightStore: Sendable {
     }
 
     public static func fileMatches(_ url: URL, size: Int64, sha256 expected: String?) -> Bool {
+        let target = url.resolvingSymlinksInPath()
         guard let expected,
-            let actualSize = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size]
+            let actualSize = (try? FileManager.default.attributesOfItem(atPath: target.path))?[.size]
                 as? Int64,
             actualSize == size
         else { return false }
-        return sha256(of: url) == expected
+        return sha256(of: target) == expected
     }
 
     /// Validate the exact byte range a 206 response claims. Length alone is
@@ -261,12 +277,8 @@ public struct WeightStore: Sendable {
         return max(0, min(PullTuning.chunkBytes, size - start))
     }
 
-    /// Best case wall time for `bytes`, quoted at the fastest rate measured for
-    /// this client: 112 MB/s over eight connections on a 1 Gbit/s datacenter
-    /// link, a full install, where the port, not Hugging Face, was the limit
-    /// (MEASUREMENTS.md, 2026-09-01). Anything slower is the user's link, which
-    /// is why the call site labels this a floor; the progress line reports the
-    /// real rate within two seconds.
+    /// A reference estimate at 100 MB/s. Actual rate depends on the link,
+    /// route, source, storage, and concurrent load; this is not a source ceiling.
     public static func etaHint(_ bytes: Int64) -> String {
         let seconds = Double(bytes) / 100e6
         if seconds < 120 { return "~\(max(1, Int((seconds / 60).rounded()))) min" }
@@ -279,21 +291,25 @@ public struct WeightStore: Sendable {
     public static func remainingBytes(at dest: URL) -> Int64 {
         let fm = FileManager.default
         var remaining: Int64 = 0
+        let compressedHave = SlotpackDownload.resumeModelBytes(at: dest)
         for f in PinnedModel.files {
             let final = dest.appendingPathComponent(f.path)
+            if f.optional && !fm.fileExists(atPath: final.path) { continue }
             let resolved = final.resolvingSymlinksInPath()
             if let size = (try? fm.attributesOfItem(atPath: resolved.path))?[.size] as? Int64,
                 size == f.size { continue }
             let part = final.appendingPathExtension("part")
             let mapURL = final.appendingPathExtension("partmap")
             let n = chunkCount(f.size)
-            var have: Int64 = 0
-            if let d = try? Data(contentsOf: mapURL), d.count == n {
-                for (i, b) in d.enumerated() where b == 1 { have += chunkLength(f.size, i) }
+            var have: Int64 = compressedHave[f.path, default: 0]
+            if let ps = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64, ps == f.size,
+                let d = DownloadFiles.readSmall(mapURL, limit: n), d.count == n, d.allSatisfy({ $0 <= 1 }) {
+                let rawHave = d.enumerated().reduce(Int64(0)) { total, row in total + (row.element == 1 ? chunkLength(f.size,row.offset) : 0) }
+                have = max(have, rawHave)
             } else if let ps = (try? fm.attributesOfItem(atPath: part.path))?[.size] as? Int64,
                 ps < f.size
             {
-                have = ps  // pre-0.1.4 sequential .part
+                have = max(have, ps)  // pre-0.1.4 sequential .part
             }
             remaining += f.size - min(have, f.size)
         }
@@ -302,19 +318,72 @@ public struct WeightStore: Sendable {
 
     // MARK: download
 
+    /// Preserve the original call and function-reference signature.
     public static func download(
         to dest: URL, connections: Int? = nil, sources: [String]? = nil,
         log: Log = { _ in }
     ) throws {
+        try download(to: dest, connections: connections, sources: sources, transport: .automatic, log: log)
+    }
+
+    public static func download(
+        to dest: URL, connections: Int? = nil, sources: [String]? = nil,
+        transport: WeightTransport, cancellation: PullCancellation? = nil,
+        log: Log = { _ in }
+    ) throws {
+        // The public operation is synchronous. Session invalidation may release
+        // its delegate later, so detach the caller's nonescaping sink before
+        // returning even if a drained worker is temporarily retained by Foundation.
+        try withoutActuallyEscaping(log) { sink in
+            let forwarding = DownloadLog(sink)
+            defer { forwarding.close() }
+            try downloadImpl(to: dest, connections: connections, sources: sources,
+                transport: transport, cancellation: cancellation, log: { forwarding.write($0) })
+        }
+    }
+
+    private static func downloadImpl(
+        to dest: URL, connections: Int?, sources: [String]?,
+        transport: WeightTransport, cancellation: PullCancellation?,
+        log: @escaping Log
+    ) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        let lease = try DownloadDirectoryLock(dest)
+        defer { withExtendedLifetime(lease) {} }
+        let cancellation = cancellation ?? PullCancellation()
+        try cancellation.check()
 
         let conns = max(1, min(connections ?? PullTuning.connections, 32))
         let bases = sources ?? WeightSources.bases
+        guard !bases.isEmpty else { throw SlotstreamError.pull("no download sources configured") }
+        let env = ProcessInfo.processInfo.environment
+        let selected = transport == .automatic ? WeightTransport(rawValue: env["SLOTSTREAM_PULL_TRANSPORT"] ?? "automatic") ?? .automatic : transport
+        let legacyResume = PinnedModel.files.contains { file in
+            fm.fileExists(atPath: dest.appendingPathComponent(file.path).appendingPathExtension("part").path)
+        }
+        let rawOverride = sources != nil || env["SLOTSTREAM_WEIGHTS_SOURCES"]?.isEmpty == false
+        let compressed = selected == .compressed || (selected == .automatic && !rawOverride && !legacyResume)
+        if compressed, !PinnedTransport.manifestJSON.isEmpty {
+            let manifest = try PinnedTransport.manifest.get()
+            for repair in 0...1 {
+                let job = SlotpackDownload(manifest: manifest, digest: PinnedTransport.manifestSHA256,
+                    dest: dest, bases: PinnedTransport.bases, rawBases: bases, connections: conns,
+                    cancellation: cancellation, adaptive: connections == nil && env["SLOTSTREAM_PULL_CONNECTIONS"] == nil, log: log)
+                do { try job.run(); return }
+                catch is PullIntegrityError where repair == 0 {
+                    log("partial file failed its final hash; repairing its chunks once")
+                }
+            }
+        } else if selected == .compressed {
+            throw SlotstreamError.pull("this build does not contain a qualified compressed package")
+        }
+        if legacyResume, selected == .automatic { log("continuing the existing raw download; new installs use compressed chunks") }
         var lastIntegrityError: Error?
         for start in bases.indices {
             let selected = Array(bases[start...])
-            let job = PullJob(dest: dest, bases: selected, connections: conns)
+            let job = PullJob(dest: dest, bases: selected, connections: conns, cancellation: cancellation, log: log)
+            defer { job.shutdown() }
             let remaining = try job.plan()
             if remaining == 0 {
                 try job.run()  // may still have files to hash and rename
@@ -331,23 +400,20 @@ public struct WeightStore: Sendable {
                     format: "not enough disk: need %.1f GB (%.1f GB to download + 2 GB margin), have %.1f GB free at %@",
                     Double(needed) / 1e9, Double(remaining) / 1e9, Double(free) / 1e9, dest.path))
             }
-            log("est. \(WeightStore.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower "
-                + "link takes longer")
+            log("reference estimate: \(WeightStore.etaHint(remaining)) at 100 MB/s; actual progress is measured")
             log(String(
                 format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
                 PinnedModel.repo, String(PinnedModel.revision.prefix(12)),
                 Double(remaining) / 1e9, conns))
-            log("source: \(selected[0])")
-            for b in selected.dropFirst() { log("fallback: \(b)") }
+            log("source: \(WeightSources.display(selected[0]))")
+            for b in selected.dropFirst() { log("fallback: \(WeightSources.display(b))") }
             do {
                 try job.run()
                 return
             } catch let e as PullIntegrityError {
                 lastIntegrityError = e
                 guard start + 1 < bases.count else { throw e }
-                FileHandle.standardError.write(
-                    "  \(e.localizedDescription) — retrying from the next source\n"
-                        .data(using: .utf8)!)
+                log("\(e.localizedDescription) — retrying from the next source")
             }
         }
         if let lastIntegrityError { throw lastIntegrityError }

@@ -7,7 +7,7 @@ for f in install.sh Tools/*.sh .githooks/*; do
   bash -n "$f"
 done
 sh -n install.sh
-python3 -m py_compile Tools/*.py Tools/reference/*.py
+python3 -m py_compile Tools/*.py Tools/reference/*.py Tools/slotpack/*.py
 python3 Tools/coverage_ratchet_test.py
 Tools/llms_full.sh --check
 
@@ -24,6 +24,7 @@ fi
 
 .build/release/slotstream runtime-check
 .build/release/slotstream pull-check
+python3 Tools/slotpack/checks.py
 Tools/planner_gates.sh
 Tools/installer_gates.sh
 

@@ -182,7 +182,7 @@ struct ModelOptions: ParsableArguments {
             print("found \(corrupt.count) same-size file(s) that fail the pinned sha256: "
                 + corrupt.map(\.path).joined(separator: ", "))
         }
-        let have = PinnedModel.totalBytes - remaining
+        let have = max(0, PinnedModel.requiredBytes - remaining)
         // free disk where the weights will actually land
         var probe = url
         while !fm.fileExists(atPath: probe.path), probe.path != "/" {
@@ -194,15 +194,16 @@ struct ModelOptions: ParsableArguments {
             \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
               size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
                   have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
-              time:  \(WeightStore.etaHint(remaining)) at best (a 1 Gbit/s link) — a slower link takes longer
+              time:  measured during download; compressed transfer and reconstruction overlap
               to:    \(url.path)
               disk:  \(String(format: "%.1f", Double(free) / 1e9)) GB free
             """)
         fflush(stdout)
         switch askYesNo("download now? [Y/n] ") {
         case .some(true):
-            try WeightStore.download(to: url, log: { print($0) })
-            try WeightStore.verify(at: url, log: { print($0) })
+            try withInterruptiblePull { cancellation in
+                try WeightStore.download(to: url, transport: .automatic, cancellation: cancellation, log: { print($0); fflush(stdout) })
+            }
         case .some(false):
             throw PlanError("not downloading — when you are ready:  slotstream pull")
         case .none:  // no terminal to ask on

@@ -91,3 +91,6 @@ Completed the clean 0.2.8 release matrix: released and current Hermes tool/follo
 ## [2026-09-06 02:54] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
 Published v0.2.8 from f05b15d through release CI 34006921406. Verified the public archive checksum and signed source/workflow provenance, installed the exact CI binary, retained rollback, and verified real Hermes tool/follow-up/title/image flows plus the actual CLI against that install. All owned test servers stopped; issue remains open and no reply was posted.
 
+## [2026-09-06 05:03] update | records/measurements/lossless-model-download-2026-09-05
+Qualified lossless CDN default: complete public Mac/Linux reconstruction, restored Swift API compatibility, bounded memory, fault gates, line coverage and loaded-model response; v0.2.9 publication follows.
+

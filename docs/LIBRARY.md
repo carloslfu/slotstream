@@ -71,8 +71,18 @@ sizes already match. Allow several seconds for a complete copy.
 To download missing weights with resume, hash verification, and progress:
 
 ```swift
-try store.download(PullOptions(connections: 8)) { line in print(line) }
+let cancellation = PullCancellation()
+try store.download(PullOptions(cancellation: cancellation)) { line in print(line) }
+// From another queue, call cancellation.cancel() to preserve resume progress.
 ```
+
+The default uses the compressed CDN and tunes connection count. Explicit
+`connections` fixes that count. `transport: .raw` selects raw mirrors;
+setting `sources` also selects raw mirrors in automatic mode. Existing raw
+partial downloads continue automatically. Download returns only after final
+original-file verification; an immediate second `verify()` is unnecessary.
+`status()` reports remaining reconstructed model bytes, not compressed wire
+bytes, and permits an absent optional draft head.
 
 <a id="what-will-it-do-on-this-mac"></a>
 

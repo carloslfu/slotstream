@@ -65,7 +65,13 @@ on your Mac, stop the server and run `slotstream context-check --tokens 8192`.
 
 ## A download was interrupted or may be damaged
 
-Run `slotstream pull` again to resume. To check existing files without
+Run `slotstream pull` again to resume verified chunks. A damaged compressed
+object automatically falls back to the pinned original ranges. To explicitly
+use the raw mirrors, run `slotstream pull --transport raw`; completed original
+files are reused, while partial progress belongs to its transport. Do not
+delete partial files when resuming the same mode.
+
+To check existing files without
 downloading anything:
 
 ```bash

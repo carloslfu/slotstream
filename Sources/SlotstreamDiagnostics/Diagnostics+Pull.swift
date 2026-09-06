@@ -59,13 +59,13 @@ extension Diagnostics {
         let status = store.status()
         if case let .missing(need, free) = status {
             c.expect("an empty directory reads as missing", true)
-            c.equal("missing needs the whole manifest", need, PinnedModel.totalBytes)
+            c.equal("missing needs the required model", need, PinnedModel.requiredBytes)
             c.expect("status carries free disk", free > 0, "free \(free)")
             c.measure("free_disk_bytes", Double(free))
         } else {
             c.expect("an empty directory reads as missing", false, "got \(status)")
         }
-        c.equal("bytesToFetch agrees with the manifest", status.bytesToFetch, PinnedModel.totalBytes)
+        c.equal("bytesToFetch agrees with required files", status.bytesToFetch, PinnedModel.requiredBytes)
         c.expect("a missing copy is not ready", !status.isReady)
 
         c.measure("manifest_files", Double(PinnedModel.files.count))

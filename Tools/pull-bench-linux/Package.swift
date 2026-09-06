@@ -10,9 +10,11 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
     ],
     targets: [
+        .target(name: "CSlotpack", path: "CSlotpack"),
         .executableTarget(
             name: "pullbench",
             dependencies: [
+                "CSlotpack",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Crypto", package: "swift-crypto"),
             ],

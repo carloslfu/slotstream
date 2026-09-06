@@ -54,5 +54,6 @@ if [ -n "$LCOV" ]; then
     xcrun llvm-cov export -format=lcov "$BIN" -instr-profile "$BUILD/checks.profdata" \
         -ignore-filename-regex='(checkouts/|Sources/SlotstreamTestKit|Sources/slotstream-checks)' \
         > "$LCOV" 2>/dev/null
+    python3 Tools/slotpack/coverage.py --lcov "$LCOV"
     echo "lcov: $LCOV ($(grep -c '^DA:' "$LCOV") line records)"
 fi

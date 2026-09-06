@@ -3,6 +3,22 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## 0.2.9 — 2026-09-06
+
+- New model downloads use a lossless, quantization-aware package from
+  Cloudflare R2 and its edge CDN: **16.12% fewer bytes**, reconstructing the
+  exact original model. Independent chunks allow download, decoding, and
+  writes to overlap while bounding memory.
+- Embedded package and original-file hashes verify each stage. Unavailable
+  objects fall back to pinned Hugging Face ranges. Verified progress resumes
+  after interruption; damaged partial files repair automatically.
+- Connection count adapts to measured throughput; explicit connection counts
+  and raw mirrors remain available. Existing raw downloads keep their progress.
+- Fixed retry progress accounting, duplicate verification, cancellation,
+  simultaneous writers, malformed resume maps, unsafe partial-file types,
+  and optional-file writes during fallback. Added native sanitizer and real
+  HTTP gates for both transports.
+
 ## 0.2.8 — 2026-09-05
 
 - The OpenAI Chat Completions endpoint now supports function tools, streamed

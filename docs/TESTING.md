@@ -50,6 +50,11 @@ and the runner share, so T1 works there with no extra step. A test bundle would
 need its own copy in `.xctest/Contents/MacOS/`. Without it the first MLX call
 fails with `Failed to load the default metallib`.
 
+The LCOV path also runs instrumented transport fixtures over real loopback
+HTTP, including malformed responses, resumability, raw-source compatibility,
+and sustained-memory bounds. Their line hits are combined with the catalogue;
+network code is no longer represented only by weights-free catalogue coverage.
+
 ## What runs where
 
 | Suite | What it covers | Weights | Where |
@@ -137,7 +142,7 @@ coverage report. Run the commands above for the current checkout.
 | File | Lines | Covered | Why the rest is not |
 |---|---|---|---|
 | `Server.swift` | 1,132 | 6% | The socket loop and the request handlers. The framing, routing and CORS rules are split out and covered; the handlers still need an engine to answer with. |
-| `WeightDownload.swift` | 642 | 0% | The download engine. It needs a server to talk to. A local Range server would reach resume, mirror fallback and the sources override, which have no gate at all today. |
+| `WeightDownload.swift` | 642 | 0% | Historical coverage snapshot. The dedicated `Tools/slotpack/checks.py` gate now exercises real HTTP multi-chunk raw and compressed pulls, resume, corruption, fallback, cancellation, optional-file races, file safety, and manifest/codec bounds. |
 | `Layers.swift`, `ExpertStore.swift`, `Engine.swift`, `Checkpoint.swift`, `Model.swift`, `NgramStore.swift`, `GatedDelta.swift` | ~2,900 | 0–3% | The model. These need a checkpoint. On the dev Mac they are covered by parity against the Python reference and by the byte-equality gates; a synthetic checkpoint would bring that to CI. |
 | `Generate.swift` | 388 | 19% | The sampler is covered; the prefill and decode loops, and the sweep's admission and cache-cap hooks, run only with the model loaded. Gated by `sweep-check` and `Tools/verify.sh`. |
 | `Governor.swift` | 213 | 27% | The policy is fully covered as a pure function. The live loop — poll, decide, lock, resize — still needs an engine to resize. |
@@ -145,3 +150,17 @@ coverage report. Run the commands above for the current checkout.
 The snapshot covers the weights-free runner. Tests against the real model,
 such as `verify.sh` and `api_robustness.sh`, exercise additional paths locally;
 those runs aren't included in this coverage percentage.
+
+## Download transport gates
+
+`Tools/static_gates.sh` runs `python3 Tools/slotpack/checks.py` without the
+model. Its native harness compiles exact production sources into an immutable
+per-run executable. The gate includes AddressSanitizer/UndefinedBehaviorSanitizer
+codec checks, manifest identity and coverage, real HTTP fault injection, and
+legacy raw multi-chunk compatibility. Receipts include source and binary hashes.
+
+A new package also requires a full original-hash-checked offline build, an
+independent public CDN reconstruction through the actual CLI default, and a
+model-load smoke test before release. See [DOWNLOAD-FORMAT.md](DOWNLOAD-FORMAT.md)
+for the producer, full-pull, and libFuzzer tools. Full transfer timings are
+diagnostic unless the machine and network conditions qualify as a benchmark.

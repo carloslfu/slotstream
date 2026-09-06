@@ -93,28 +93,39 @@ On first use, slotstream offers to download the model. It shows the size,
 destination, and free space, then asks for confirmation. Once the download
 finishes, it processes your prompt and prints the reply.
 
-### The 105 GB download
+### Downloading the model
 
-The full download is 105.3 GB across 25 files, including an optional 1.5 GB
-draft head used to speed up generation. To download the weights before
-starting a run, use `slotstream pull`. Downloads resume after an interruption,
-and each file is checked against a pinned SHA-256 hash before use.
+Run `slotstream pull` to download the weights before starting a run. The
+compressed download is **88.3 GB**, reconstructing the original **105.3 GB
+across 25 files**: **16.12% fewer bytes**, with no change to model values.
+This includes the optional 1.5 GB draft head used to speed up generation.
+Downloads resume after an interruption, and each file must match its pinned
+SHA-256 before it becomes usable.
 
-Allow several hours on a home connection. At 100 Mbps, the transfer alone
-takes roughly 2 h 20; at 25 Mbps, roughly 9 h. You only need to download the
-weights once.
+Transfer-only estimates are about 2 hours at 100 Mbps or 8 hours at 25 Mbps,
+before protocol overhead and any processing that cannot overlap the download.
+The weights only need to be downloaded once.
 
 <details>
 <summary>Download speed and verification details</summary>
 
-`pull` uses eight TCP connections. A full download on a 1 Gbit/s datacenter
-link measured 112 MB/s and took 16 minutes. One connection reached about
-70 MB/s from a datacenter; latency and your connection speed affect both.
+Fresh downloads use small immutable compressed objects in Cloudflare R2,
+served through its CDN. Decoding and disk writes overlap the transfer. The
+client starts with eight independent connections and increases concurrency
+only when measured throughput improves. `--connections` fixes the count;
+`--transport raw` selects the original file-based download. Existing raw
+partial downloads keep their progress automatically.
 
-Files come from a mirror of a pinned Hugging Face revision, with the original
-repository as fallback. Both must match the hashes compiled into the binary.
-A source without the optional draft head can still complete the download;
-slotstream then runs with speculative decode off.
+Every compressed object, reconstructed chunk, and final file is hash-checked.
+Unavailable objects fall back to the pinned Hugging Face files. A missing
+optional draft head still allows the model to run with speculative decode off.
+The [download format guide](docs/DOWNLOAD-FORMAT.md) explains the package,
+cache layout, integrity checks, and reproducible qualification tools.
+
+For historical context, the raw downloader measured 112 MB/s for a complete
+install on a 1 Gbit/s datacenter link. The compressed byte saving is measured
+across the entire model; actual elapsed savings also depend on the network
+route, CPU, and disk.
 
 To check an existing download, run `slotstream pull --verify` (8 s here on the
 development Mac). See [Troubleshooting](docs/TROUBLESHOOTING.md) to move the
