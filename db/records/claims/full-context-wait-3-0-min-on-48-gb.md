@@ -2,13 +2,13 @@
 type: claim
 id: 01m1ht96avrybwaatpt19n50ye
 created: 2026-09-02T19:42:06.683125+00:00
-updated: 2026-09-02T19:42:06.683125+00:00
+updated: 2026-09-08T22:35:06.388805+00:00
 summary: A full 32k prompt waits about 3.0 min before its first token on a 48 GB Mac
 basis: derived
 gate: Tools/planner_gates.sh
 needle: 3.0 min
 supported_by: '[[records/measurements/n2-the-prefill-sweep-grouped-gemm-over-staging-contiguous-reads-no-pool-writes-2026-09-02]]'
-surfaces: README.md, docs/TROUBLESHOOTING.md
+surfaces: docs/TROUBLESHOOTING.md, docs/ENGINEERING.md
 title: A full 32k prompt waits about 3.0 min before its first token on a 48 GB Mac
 status: current
 ---

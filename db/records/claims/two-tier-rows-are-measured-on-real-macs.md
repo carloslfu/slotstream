@@ -2,13 +2,13 @@
 type: claim
 id: 01m1jprea7c6hgmtxdgpzth8xf
 created: 2026-09-03T03:59:46.503841+00:00
-updated: 2026-09-03T03:59:46.503841+00:00
+updated: 2026-09-08T22:35:06.773469+00:00
 summary: Two tier rows are measured on real Macs; the other three are estimates from the 48 GB curve.
 basis: measured
 gate: none
 needle: measured on real Macs
 supported_by: '[[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md
 title: Two tier rows are measured on real Macs
 status: current
 ---

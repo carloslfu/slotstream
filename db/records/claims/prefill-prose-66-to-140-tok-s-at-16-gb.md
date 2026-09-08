@@ -2,13 +2,13 @@
 type: claim
 id: 01m1ht96c9fctc83gar3xwt4jx
 created: 2026-09-02T19:42:06.729729+00:00
-updated: 2026-09-02T19:42:06.729729+00:00
+updated: 2026-09-08T22:35:06.668598+00:00
 summary: The sweep reads a 10,490-token prose prompt at 140 tok/s at a 16 GB target, against 66 for the 0.2.2 code
 basis: measured
 gate: Tools/verify.sh (sweep-check)
 needle: 66 → 140
 supported_by: '[[records/measurements/n2-the-prefill-sweep-grouped-gemm-over-staging-contiguous-reads-no-pool-writes-2026-09-02]]'
-surfaces: README.md
+surfaces: docs/ENGINEERING.md
 title: The sweep reads a 10,490-token prose prompt at 140 tok/s at a 16 GB target, against 66 for the 0.2.2 code
 status: current
 ---

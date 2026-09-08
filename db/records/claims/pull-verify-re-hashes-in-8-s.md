@@ -2,14 +2,14 @@
 type: claim
 id: 01m1hhwpf3v6hx4h1gcsttnsqz
 created: 2026-09-02T17:15:28.611060+00:00
-updated: 2026-09-02T17:15:28.611060+00:00
+updated: 2026-09-08T22:35:06.717362+00:00
 summary: pull --verify re-hashes the whole copy in about 8 s on the dev Mac
 basis: measured
 gate: Tools/verify.sh
-needle: 8 s here
+needle: 8 s on the development Mac
 supported_by:
 - '[[records/measurements/one-command-install-2026-08-28-v0-1-0-release-installer-proven-end-to]]'
-surfaces: README.md
+surfaces: docs/DOWNLOAD-FORMAT.md
 title: pull --verify re-hashes the whole copy in about 8 s on the dev Mac
 status: current
 ---

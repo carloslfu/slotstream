@@ -112,3 +112,6 @@ Capture complete native Mac Hugging Face reconstruction across a network-failure
 ## [2026-09-06 22:35] update | records/measurements/hugging-face-lossless-download-2026-09-06.md
 Close v0.2.11 signed release, ordinary installer and installed-model acceptance; verify redundant model-only R2 bucket deletion and retained free compatibility redirects.
 
+## [2026-09-08 22:39] update | records/decisions/newcomer-documentation
+Reorganized public docs into a short README index, practical first-use and Hermes guides, and linked engineering references. Preserved the tested Hermes YAML and launch command, relocated claim coverage without changing measurements, retained old entry-page anchors, checked 115 local links, shell syntax and the practice-file commands, and reviewed rendered desktop and narrow mobile layouts. No model integration rerun was performed for this documentation change.
+

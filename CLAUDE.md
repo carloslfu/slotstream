@@ -5,6 +5,17 @@ experts and a slot cache. Read [PLAN.md](PLAN.md) for design, [MEASUREMENTS.md](
 for every measured number and its method, `Tools/verify.sh` for the acceptance
 battery. Work lands directly on `main`.
 
+## Public documentation
+
+Keep `README.md` short: what Slotstream does, requirements, installation, a
+first reply, and an index of guides. Write setup guides for newcomers with
+complete commands, expected results, and practical troubleshooting. Put
+protocol details, implementation rationale, measurements, and test procedures
+in linked engineering/reference pages, starting at `docs/ENGINEERING.md`.
+Preserve the tested configuration and move its explanation instead of
+removing settings. Keep old public anchors usable when moving sections.
+Canonical decision: [newcomer documentation](db/records/decisions/newcomer-documentation.md).
+
 ## The brain (`db/`) — read before touching MEASUREMENTS.md or PLAN.md
 
 `db/` is a public db.md store and the authority for what this project knows:

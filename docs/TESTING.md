@@ -12,6 +12,30 @@ make test            # Tools/verify.sh, the acceptance battery against real weig
 make coverage        # line coverage of the library
 ```
 
+## Building from source
+
+To build from source, install Apple's Command Line Tools, then run:
+
+```bash
+git clone https://github.com/carloslfu/slotstream
+cd slotstream
+make build
+make checks
+```
+
+`make checks` runs without weights, network access, or a GPU. `make checks-all`
+adds the MLX tests. `Tools/verify.sh` tests against the real model, including
+reference comparisons, cache resizes, speculative decode, and server
+regressions. [Testing](TESTING.md) explains the suites and coverage gaps;
+[Contributing](../CONTRIBUTING.md) covers the development workflow.
+
+Release builds come from tagged commits in GitHub Actions. After downloading
+a release archive, you can verify its provenance with the GitHub CLI:
+
+```bash
+gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream
+```
+
 ## Why there is no `swift test`
 
 The supported Command Line Tools setup lacks XCTest and Swift Testing.

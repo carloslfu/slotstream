@@ -2,14 +2,14 @@
 type: claim
 id: 01m1hhwp5smymf1hs6fj0c6fk3
 created: 2026-09-02T17:15:28.313227+00:00
-updated: 2026-09-02T17:15:28.313227+00:00
+updated: 2026-09-08T22:35:06.586453+00:00
 summary: Peak memory at the auto plan is 32 GB on the dev Mac
 basis: measured
 gate: none
 needle: 32 GB
 supported_by:
 - '[[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md, docs/ENGINEERING.md
 title: Peak memory at the auto plan is 32 GB on the dev Mac
 status: current
 ---

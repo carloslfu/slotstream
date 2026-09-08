@@ -2,13 +2,13 @@
 type: claim
 id: 01m1mtw5vwxgwpmxqg1rrq6v01
 created: 2026-09-03T23:50:12.092082+00:00
-updated: 2026-09-03T23:50:12.109889+00:00
+updated: 2026-09-08T22:35:06.790505+00:00
 summary: A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
 basis: measured
 gate: Tools/vision_serving.py asserts the follow-up is under 70% of the first
 needle: 15.4 s
 supported_by: '[[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]]'
-surfaces: README.md
+surfaces: docs/ENGINEERING.md
 title: A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
 status: current
 ---

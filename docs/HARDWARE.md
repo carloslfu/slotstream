@@ -1,7 +1,7 @@
 # Measured on real Macs
 
 Results measured on real Macs are listed below with the version, settings,
-and reporter. Compare these with the README's estimates: chip and SSD speed
+and reporter. Compare these with the [estimates](#speed-estimates) below: chip and SSD speed
 can make a large difference even at the same memory target.
 
 To add your Mac, follow [How to measure](#how-to-measure) and open a
@@ -45,6 +45,31 @@ its 1.41 tok/s is worked out.
 - **Peak**: the highest resident memory used by the process (RSS), printed
   by `run` and `context-check`. This is measured separately from the plan's
   estimate.
+
+## Speed estimates
+
+These are the memory plans and speed estimates from `slotstream doctor
+--sim-ram N`. Speeds are based on the 48 GB M5 Pro; your chip, SSD, and other
+running apps affect the result.
+
+| Mac RAM | Automatic memory target | Estimated generation speed |
+|---|---|---|
+| 8 GB | 8.1 GB | ~3 tok/s; requires swap and can slow the whole Mac |
+| 16 GB | 10 GB | ~4 tok/s |
+| 24 GB | 16 GB | ~8 tok/s |
+| 32 GB | 22 GB | ~9 tok/s |
+| 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
+
+A **token** is a small piece of text, often part of a word. `tok/s` means
+tokens per second. These speeds describe *warm decode*: generating a reply
+after the cache has filled. The first reply also needs time to process your
+prompt.
+
+The estimates can differ substantially from results measured on real Macs.
+A 16 GB Mac mini M2 with base storage reached **1.41 tok/s**; a 128 GB M5 Max
+was faster than the M5 Pro estimate. See the credited results and test
+conditions in [Hardware measurements](HARDWARE.md). The 8, 24, and 32 GB
+tiers still need reports.
 
 ## How to measure
 

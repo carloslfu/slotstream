@@ -1,42 +1,47 @@
-# Hermes with Slotstream
+<a id="hermes-with-slotstream"></a>
 
-Hermes is installed separately. For shared provider settings and connection
-troubleshooting, see [Connect apps and agents](CLIENTS.md).
+# Use Hermes with Slotstream
 
-Hermes uses the OpenAI chat-completions endpoint. Slotstream translates its
-function definitions, calls, results, and reasoning into the same native model
-format used by the fx gateway.
+Use Hermes with a model running on your Mac. Hermes handles the conversation
+and tools, such as reading files; Slotstream runs the model.
 
-This support requires Slotstream 0.2.8 or later. Run the
-[installer](../README.md#install) again to update an older installation, and
-confirm the version with `slotstream --version`.
+## Before you start
+
+- [Install Slotstream](GETTING-STARTED.md). Check `slotstream --version`:
+  you need 0.2.8 or later. Rerun the installer to update.
+- [Install Hermes](https://github.com/NousResearch/hermes-agent#quick-install).
+  Return here once the `hermes` command is available.
+
+Both programs run on the same Mac, in separate Terminal windows.
 
 ## Start Slotstream
 
-Start one server:
+In Terminal, run:
 
 ```sh
 slotstream serve --max-context 65536 --mtp off
 ```
 
-This command matches the qualified setup with speculative decoding disabled.
-Hermes requires a larger context than Slotstream's ordinary default. The
-explicit flag selects the qualified window and charges its extra active state
-and a measured transient reserve before allocating the expert cache. The
-minimum memory target rises with this larger window. If overriding automatic
-planning, inspect `slotstream doctor --max-context 65536` first and choose a
-target that fits your Mac. Long prompts must still be read before the first
-answer token.
+If the model hasn't been downloaded, Slotstream asks to download it first.
+Wait until you see `slotstream listening on http://127.0.0.1:11434`.
+**Leave this window open and the server running.**
+
+These settings give Hermes room for its instructions, tools, and conversation
+history. They use more memory than ordinary chat. If startup fails, see
+[Troubleshooting](#troubleshooting) below.
 
 ## Configure Hermes
 
-Use a separate Hermes home to keep existing provider settings intact:
+Open a **second Terminal window**. This setup keeps your usual Hermes
+settings separate. Create a folder and open the configuration in a text editor:
 
 ```sh
 mkdir -p ~/.hermes-slotstream
+nano ~/.hermes-slotstream/config.yaml
 ```
 
-Save the following as `~/.hermes-slotstream/config.yaml`:
+Paste this configuration, keeping the indentation. If you've followed this
+guide before, edit the existing configuration instead of adding a second copy.
 
 ```yaml
 model:
@@ -60,61 +65,71 @@ compression:
   enabled: true
 ```
 
-With [Hermes](https://github.com/NousResearch/hermes-agent) installed, start it
-from the directory where it should work:
+Press **Control+O**, then **Enter** to save. Press **Control+X** to close the
+editor. You only need to do this setup once.
+
+The configuration sends replies, conversation summaries, and titles to
+Slotstream. Hermes tools that use web services still need their own connections.
+
+## Start Hermes
+
+For your first session, create a practice folder and a small file:
+
+```sh
+mkdir -p ~/slotstream-demo
+cd ~/slotstream-demo
+printf 'The garden gate code is MAPLE.\n' > note.txt
+```
+
+This creates or replaces `note.txt` in the practice folder. Then start Hermes:
 
 ```sh
 HERMES_HOME="$HOME/.hermes-slotstream" OPENAI_API_KEY=unused \
   hermes chat --provider custom --model qwen3.8-flash-next:4bit --reasoning none
 ```
 
-The placeholder key is for this local endpoint. Hermes uses chat completions.
-The explicit context setting is reproducible; the server also exposes the
-same runtime window through model discovery, so automatic discovery works.
-Vision discovery also reflects whether this server accepts images. With the
-vision weights available and vision enabled, Hermes can send image attachments.
-The first image loads the vision tower in addition to the announced text
-plan. Image admission checks available memory and can refuse the additional
-load when there is not enough headroom.
-The local stream timeout allows a long cold prefill to finish; it remains
-bounded and should be adjusted to measurements on slower hardware.
-The explicit completion allowance leaves room for input history and complete
-tool arguments. Increase it for tasks that need larger tool payloads while
-keeping room for the input history.
+Leave `unused` as written. It is a placeholder; no OpenAI account or key is
+needed. The first reply can take several minutes. Follow progress in the
+Slotstream window.
 
-Route auxiliary compression and titles to `main` to keep them on Slotstream.
-Hermes omits the usual output-limit argument on custom-provider auxiliary
-calls. The compression-specific `extra_body` gives its summary a separate
-budget while ordinary chat keeps its existing default. Compression can take
-several minutes on a long history. Compressing a very short conversation may
-increase its size because Hermes adds a structured handoff and retains recent
-messages; test it on a history with a substantial middle to summarize.
-Title generation can request constrained JSON first; Slotstream explicitly
-rejects that unsupported mode, and Hermes retries without the constraint.
-This fallback does not provide a strict JSON-schema guarantee.
+<a id="verify-the-loop"></a>
 
-## Verify the loop
+## Try it
 
-In an empty test directory, create a file containing a distinctive code. Ask
-Hermes to read it with its terminal tool and report the exact contents. Then
-ask for the code again from conversation history. This checks a real tool
-call, its returned result, and a follow-up turn.
+Ask Hermes:
 
-The automated protocol gate runs against an already-running server:
+> Read note.txt using your terminal tool and tell me what it says.
 
-```sh
-python3 Tools/openai_tools_gate.py --output /tmp/slotstream-openai-tools.jsonl
-```
+You should see a tool call to read the file, followed by its contents:
+`The garden gate code is MAPLE.` If Hermes asks permission to read the file,
+approve that action.
 
-The gate preserves requests and responses and executes no tools. It checks
-streamed and non-streamed tool loops, typed arguments and IDs, reasoning,
-discovery, tool-choice behavior, and rejection of invalid histories. The
-ordinary API and image regression suites remain separate.
+Then ask:
 
-Use the [API reference](API.md) for supported fields and limits. Tool
-execution and argument validation belong to Hermes. Slotstream does not
-implement the OpenAI Responses API or constrained JSON generation.
+> What was the gate code? Answer from our conversation without reading the file again.
 
-The [integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
-records exact client commits, build identities, observed failures, passing
-checks, and the limits of the qualification.
+It should answer `MAPLE`.
+
+## Use it again
+
+Next time, start Slotstream with the same command. In a second window,
+open your working folder and run the same Hermes command, including
+`HERMES_HOME` to select this configuration.
+
+When finished, exit Hermes with `/exit`, then press **Control+C** in the
+Slotstream window to stop the server.
+
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| Command not found | Open a new Terminal window. If it still fails, check the program's installation guide. |
+| Hermes cannot connect | Keep Slotstream running. Copy the address and model name exactly as shown. |
+| Another server is running | Stop your existing Slotstream server with Control+C, then restart with this guide's command. For another app, see [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
+| The first reply is slow | Check progress in Slotstream. Long prompts and summaries can take several minutes. |
+| Insufficient memory | Close memory-heavy apps. Run `slotstream doctor --max-context 65536` to check the plan without loading the model. See [memory help](TROUBLESHOOTING.md#the-whole-mac-is-slow). |
+| Replies or summaries stop early | Check the saved configuration, including both `max_tokens` settings. |
+
+For other connection errors, see [connection troubleshooting](CLIENTS.md#troubleshooting).
+Developers can find configuration explanations, image support, and integration
+tests in the [Hermes engineering notes](HERMES-NOTES.md).

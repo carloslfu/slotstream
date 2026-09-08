@@ -2,13 +2,13 @@
 type: claim
 id: 01m1ht96btb3b2w4k872sy067g
 created: 2026-09-02T19:42:06.714052+00:00
-updated: 2026-09-02T19:42:06.714052+00:00
+updated: 2026-09-08T22:35:06.636172+00:00
 summary: The sweep reads the 8k acceptance prompt at 184 tok/s at a 16 GB target, against 91 for the 0.2.2 code
 basis: measured
 gate: Tools/verify.sh (sweep-check)
 needle: 91 → 184 tok/s
 supported_by: '[[records/measurements/n2-the-prefill-sweep-grouped-gemm-over-staging-contiguous-reads-no-pool-writes-2026-09-02]]'
-surfaces: README.md
+surfaces: docs/ENGINEERING.md
 title: The sweep reads the 8k acceptance prompt at 184 tok/s at a 16 GB target, against 91 for the 0.2.2 code
 status: current
 ---

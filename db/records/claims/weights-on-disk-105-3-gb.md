@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwp6833jvg5w6800ywvx1
 created: 2026-09-02T17:15:28.328356+00:00
-updated: 2026-09-02T17:15:28.328356+00:00
+updated: 2026-09-08T22:35:06.857031+00:00
 summary: The weights are 105.3 GB across 25 files
 basis: derived
 gate: Tools/verify.sh
@@ -10,7 +10,7 @@ needle: 105.3 GB
 supported_by:
 - '[[records/measurements/m0-2-model-ground-truth-byte-exact-from-safetensors-headers]]'
 - '[[records/measurements/the-head-exists-again-the-pinned-conversion-had-dropped-it]]'
-surfaces: README.md, llms.txt, docs/CLI.md
+surfaces: llms.txt, docs/CLI.md, docs/GETTING-STARTED.md
 title: The weights are 105.3 GB across 25 files
 status: current
 ---

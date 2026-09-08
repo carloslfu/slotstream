@@ -29,6 +29,9 @@ produced it.
 
 ## Building and testing
 
+See [Building from source](docs/TESTING.md#building-from-source) for setup
+commands and [engineering notes](docs/ENGINEERING.md) for the reference index.
+
 `make build` needs only the Command Line Tools. `Tools/verify.sh` is the
 acceptance battery; the weight-free checks run in CI. Parity goldens are
 generated under mlx 0.31.1 with `Tools/parity_ref.py`; do not regenerate them

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-06T22:35:09.060593Z
+updated: 2026-09-08T22:35:06.876703Z
 ---
 
 # records/decisions
 
+- [[records/decisions/newcomer-documentation]] — Keep the README a short newcomer index; separate practical setup guides from engineering references.
 - [[records/decisions/hugging-face-lossless-download-default]] — Use the unchanged compressed Hugging Face package by default, preserving exact original bytes while removing metered R2 model hosting.
 - [[records/decisions/lossless-cdn-download-default]] — Fresh installs use the qualified lossless CDN package; raw sources and original model bytes remain compatible.
 - [[records/decisions/images-are-inline-bytes-only]] — slotstream never dereferences a URL a request hands it; images are inline bytes only
