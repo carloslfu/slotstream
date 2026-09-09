@@ -2,7 +2,7 @@
 type: measurement
 id: 01m222q1vkjqybwhdxvme6xq1c
 created: 2026-09-09T03:17:20.368479+00:00
-updated: 2026-09-09T03:27:25.009739+00:00
+updated: 2026-09-09T03:32:01.133880+00:00
 summary: Hermes configuration correction and regression checks
 date: 2026-09-08
 doc: measurements
@@ -48,3 +48,7 @@ A named provider protects this setup from collisions with the generic `custom` p
 The request override repairs the wire limit. It does not repair Hermes's separate internal reservation accounting. Keep compression enabled, allow room for input and follow the server's advertised maximum when adjusting limits. Tests of failed summary publication do not prove general memory quality or every long-conversation path. The server still rejects unsupported constrained JSON, and Hermes's successful plain-text title retry does not provide schema guarantees.
 
 The first long-output fixture left tools enabled and triggered calculator calls. The guard refused them and the run was interrupted; it is retained as discarded fixture evidence in [[sources/runs/2026/09/2026-09-08-hermes-long-output-fixture-discarded]]. The replacement disables tools only for its length probe. Earlier protocol, vision and memory-capacity qualifications remain separate; their direct-agent output-limit checks are not evidence for the old guide's CLI configuration path.
+
+#### Explicit proxy environments
+
+A final source and pure-function check on both Hermes versions confirmed that an explicit HTTP proxy is selected for the local endpoint unless its hostname is excluded. Setting both NO_PROXY and no_proxy to include localhost and 127.0.0.1 selects a direct connection for both spellings. The guide now documents preserving existing exclusions and checking the profile .env, which can override the shell. This is an additional environment condition; it does not explain a log whose resolved endpoint already names OpenRouter. No proxy server or inference request was used in this check. Raw result: [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]].

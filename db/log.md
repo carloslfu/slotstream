@@ -124,3 +124,6 @@ Applied Carlos’s balance correction: restored the live star and release badges
 ## [2026-09-09 03:27] update | records/measurements/hermes-configuration-hardening-2026-09-08
 Corrected the ignored Hermes CLI output budget with a named provider, separate auxiliary caps and timeouts, migration and diagnostics. Replaced direct-agent test bypass with guide-derived CLI setup. Both recorded Hermes versions passed eleven configuration cases and real CLI smoke checks; latest passed real file execution, follow-up, 1095-token output, forced compression and summary-only recall. Released Slotstream passed 24 protocol checks. Preserved the discarded tool-enabled length fixture and earlier evidence; corrected the old output-reservation claim. Owned model process stopped; validation, projections and claims pass.
 
+## [2026-09-09 03:32] update | records/measurements/hermes-configuration-hardening-2026-09-08
+Checked explicit HTTP proxy routing on both recorded Hermes versions without network requests. Confirmed local host exclusions select direct transport; documented preserving NO_PROXY/no_proxy exclusions and checking profile .env. This is separate from an OpenRouter endpoint selection. No YAML or runtime code changed; brain/projection/claim gates pass.
+

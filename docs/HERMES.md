@@ -149,6 +149,7 @@ Slotstream window to stop the server.
 |---|---|
 | Command not found | Open a new Terminal window. If it still fails, check the program's installation guide. |
 | Hermes cannot connect | Keep Slotstream running. Copy the address and model name exactly as shown. |
+| A local connection fails while using an HTTP proxy | Add `localhost` and `127.0.0.1` to the proxy exclusions in `NO_PROXY` and `no_proxy`, preserving any existing exclusions. Check this profile's `.env` as well as your shell settings. |
 | An error mentions OpenRouter or asks for a cloud API key | Hermes selected a different connection. Replace the old guide configuration above and use `--provider slotstream`, including `HERMES_HOME`. |
 | A log still labels the provider `custom` | Hermes also uses that internal label for named providers. Check the endpoint address to confirm which connection it selected. |
 | Hermes cannot find provider `slotstream` | Check that the file is named `config.yaml`, the indentation matches, and the launch command selects this folder. See the diagnostic command below. |

@@ -57,6 +57,13 @@ Hermes path. The named setup is tested with all of these stale settings present.
 This does not prevent someone from editing `providers.slotstream` itself or
 deliberately configuring a fallback provider.
 
+Explicit HTTP proxy variables are a separate routing layer. In both tested
+Hermes versions, an HTTP proxy without local exclusions is selected even for
+the local model URL. Include `localhost` and `127.0.0.1` in `NO_PROXY` and
+`no_proxy` when using a proxy, preserving existing exclusions. The profile's
+`.env` can override shell values. This condition does not explain a log that
+already reports OpenRouter as the selected model endpoint.
+
 ## Output budgets
 
 In the tested Hermes versions, CLI initialization does not forward
