@@ -14,8 +14,11 @@ as Hermes. Developers can connect their own apps through its APIs or Swift libra
 
 [Get started](#install) · [Performance](#speed) · [Guides](#guides) · [Get help](#support)
 
-> **I'm building Sevra on Slotstream:** a personal AI app with conversations,
-> a journal, and knowledge in files you own. The app is in development.
+> **I'm building Sevra on Slotstream: private, personal AI optimized for your computer.**
+> Sevra will choose a tested model for your hardware and keep that choice current
+> as models improve, with inference, memory and tools tuned together. You'll
+> control what it remembers and can access. The app is in development, starting
+> with Mac.
 > [See Sevra and join the waitlist](https://www.sevrahq.com/).
 > Slotstream's command-line tool, APIs, and Swift library remain independently usable.
 
