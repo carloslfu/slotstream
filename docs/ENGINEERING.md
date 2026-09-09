@@ -116,10 +116,18 @@ startup. It takes the lowest of 33 GB, 70% of RAM, and 2 GB below the Metal
 working-set limit, then reduces that target if other apps are using memory.
 The draft head can raise the ceiling to 34.6 GB as described in [Speed](#speed).
 
-The 33 GB ceiling comes from tests where a larger cache stopped improving
-speed. It doesn't mean every Mac has the same speed: the chip and SSD still
-matter. The plan uses decimal GB, so a Mac sold as 48 GB appears as about
-52 GB in its device line.
+The 33 GB ceiling is our current best-supported balance of speed and memory
+use for this model. Development-Mac tests showed diminishing speed gains as
+the expert cache grew. This supports a conservative default; it does not
+establish an optimum for every Mac or workload. We'll adjust the default as
+real measurements show a better tradeoff. The historical larger-target sweep
+inspected planner estimates, which hold flat beyond the verified cache sizes;
+it was not a benchmark of those larger allocations. See the
+[cache measurements](../db/records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08.md)
+and [sizing analysis](../db/records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31.md).
+
+The chip and SSD still matter. The plan uses decimal GB, so a Mac sold as
+48 GB appears as about 52 GB in its device line.
 
 While the server runs, it checks memory pressure every 15 s and resizes its
 cache between requests. It gives memory back under pressure and grows again

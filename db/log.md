@@ -130,3 +130,6 @@ Checked explicit HTTP proxy routing on both recorded Hermes versions without net
 ## [2026-09-09 16:36] update | records/measurements/hermes-configuration-hardening-2026-09-08
 Removed the guide override that forced MTP off. Preserved YAML and the Hermes launch command. Added server-plan capture, context checks and optional expected-MTP assertions. Four synthetic rejection cases, planner inspection, syntax, projections and claim checks passed. No model launched because another benchmark owns the model reservation. Live automatic-MTP integration remains pending; prior MTP-off evidence is preserved.
 
+## [2026-09-09 22:44] update | records/claims/auto-memory-target-ceiling-33-gb.md
+Documented the intentional automatic memory ceiling and manual total-process target in the README. Clarified that the current default reflects supported tradeoffs and will follow real hardware/workload measurements; distinguished historical planner estimates from larger-allocation benchmarks. Registered the base ceiling and README draft-head claim, regenerated combined documentation, and passed full validation with zero warnings, projection checks, 120 claim checks and whitespace checks. No engine behavior or performance measurement changed.
+

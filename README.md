@@ -142,6 +142,34 @@ Yes, after downloading the model. Inference runs on your Mac. Connected
 agents may still use internet services for web searches or other tools;
 their settings determine what those tools send.
 
+### Why doesn't Slotstream use all of my RAM?
+
+Auto intentionally caps the total memory target at **33 GB**, or **34.6 GB**
+with speculative decoding enabled, even on larger Macs. This is our current
+best-supported balance of speed and memory use for this model: tests on the
+development Mac showed diminishing speed gains from a larger expert cache.
+We'll adjust the default as real measurements across hardware and workloads
+show a better tradeoff. More allocated RAM does not guarantee more speed.
+
+If your Mac has spare memory, you can try a larger target. Stop any running
+server, then preview this example without loading the model:
+
+```sh
+slotstream doctor --memory-gb 40
+```
+
+If the plan fits the available memory and Metal working-set limit with
+headroom, start the server with the same target:
+
+```sh
+slotstream serve --memory-gb 40
+```
+
+Replace `40` with your chosen total-process budget in decimal GB. An explicit
+target keeps the cache fixed and disables automatic resizing, so leave room
+for macOS and other apps and watch memory pressure. See the
+[memory options](docs/CLI.md#memory-options) for details.
+
 ### Will this wear out my SSD?
 
 Generation reads the model files without rewriting them. macOS swap adds

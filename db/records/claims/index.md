@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-09T03:17:50.291977Z
+updated: 2026-09-09T22:43:30.886181Z
 ---
 
 # records/claims
 
+- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling becomes 34.6 GB with the draft head on
+- [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
 - [[records/claims/hermes-auxiliary-timeout]] — Hermes guide sets explicit auxiliary timeouts
 - [[records/claims/hermes-title-output-budget]] — Hermes guide bounds local title output
 - [[records/claims/hermes-explicit-output-budget]] — Hermes guide sends a 4096-token output ceiling
@@ -47,7 +49,6 @@ updated: 2026-09-09T03:17:50.291977Z
 - [[records/claims/context-state-27-kib-per-token]] — Context state costs about 27 KiB per token
 - [[records/claims/context-opt-in-65536]] — Opt-in served context of 65536 tokens
 - [[records/claims/context-cap-32768-tokens]] — Prompt plus completion is capped at 32,768 tokens per request
-- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling becomes 34.6 GB with the draft head on
 - [[records/claims/openai-tool-sampling-defaults]] — OpenAI tool requests reuse the native agent sampler
 - [[records/claims/openai-inference-error-status]] — Non-streamed OpenAI inference failures return HTTP 500
 - [[records/claims/hermes-local-stream-watchdog]] — Hermes example sets a bounded local stream watchdog

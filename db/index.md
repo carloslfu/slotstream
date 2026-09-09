@@ -1,7 +1,7 @@
 ---
 type: index
 scope: root
-updated: 2026-09-09T16:35:11.978463Z
+updated: 2026-09-09T22:43:30.886181Z
 ---
 
 # Knowledge base index
@@ -11,9 +11,9 @@ updated: 2026-09-09T16:35:11.978463Z
 - [[sources/docs/index|Docs]] (2) — frozen snapshots of the documents the records were lifted from
 - [[sources/runs/index|Runs]] (51) — raw tool output captured before a number was transcribed
 
-## Records (199)
+## Records (200)
 - [[records/analyses/index|Analyses]] (2)
-- [[records/claims/index|Claims]] (47) — every number on a public surface, with the measurement that supports it and the gate that guards it
+- [[records/claims/index|Claims]] (48) — every number on a public surface, with the measurement that supports it and the gate that guards it
 - [[records/decisions/index|Decisions]] (19) — what was decided, on which evidence, and what would reverse it
 - [[records/design/index|Design]] (23) — PLAN.md's design sections: goal, ground truth, byte math, architecture, correctness strategy, references
 - [[records/machines/index|Machines]] (5) — the machines measurements ran on

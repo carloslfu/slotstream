@@ -150,6 +150,34 @@ Yes, after downloading the model. Inference runs on your Mac. Connected
 agents may still use internet services for web searches or other tools;
 their settings determine what those tools send.
 
+### Why doesn't Slotstream use all of my RAM?
+
+Auto intentionally caps the total memory target at **33 GB**, or **34.6 GB**
+with speculative decoding enabled, even on larger Macs. This is our current
+best-supported balance of speed and memory use for this model: tests on the
+development Mac showed diminishing speed gains from a larger expert cache.
+We'll adjust the default as real measurements across hardware and workloads
+show a better tradeoff. More allocated RAM does not guarantee more speed.
+
+If your Mac has spare memory, you can try a larger target. Stop any running
+server, then preview this example without loading the model:
+
+```sh
+slotstream doctor --memory-gb 40
+```
+
+If the plan fits the available memory and Metal working-set limit with
+headroom, start the server with the same target:
+
+```sh
+slotstream serve --memory-gb 40
+```
+
+Replace `40` with your chosen total-process budget in decimal GB. An explicit
+target keeps the cache fixed and disables automatic resizing, so leave room
+for macOS and other apps and watch memory pressure. See the
+[memory options](docs/CLI.md#memory-options) for details.
+
 ### Will this wear out my SSD?
 
 Generation reads the model files without rewriting them. macOS swap adds
@@ -468,10 +496,18 @@ startup. It takes the lowest of 33 GB, 70% of RAM, and 2 GB below the Metal
 working-set limit, then reduces that target if other apps are using memory.
 The draft head can raise the ceiling to 34.6 GB as described in [Speed](#speed).
 
-The 33 GB ceiling comes from tests where a larger cache stopped improving
-speed. It doesn't mean every Mac has the same speed: the chip and SSD still
-matter. The plan uses decimal GB, so a Mac sold as 48 GB appears as about
-52 GB in its device line.
+The 33 GB ceiling is our current best-supported balance of speed and memory
+use for this model. Development-Mac tests showed diminishing speed gains as
+the expert cache grew. This supports a conservative default; it does not
+establish an optimum for every Mac or workload. We'll adjust the default as
+real measurements show a better tradeoff. The historical larger-target sweep
+inspected planner estimates, which hold flat beyond the verified cache sizes;
+it was not a benchmark of those larger allocations. See the
+[cache measurements](../db/records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08.md)
+and [sizing analysis](../db/records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31.md).
+
+The chip and SSD still matter. The plan uses decimal GB, so a Mac sold as
+48 GB appears as about 52 GB in its device line.
 
 While the server runs, it checks memory pressure every 15 s and resizes its
 cache between requests. It gives memory back under pressure and grows again
