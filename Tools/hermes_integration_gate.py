@@ -36,7 +36,7 @@ import yaml, httpx
 home = Path(os.environ['HERMES_HOME']); home.mkdir(exist_ok=True)
 cfg = {'model': {'default': 'qwen3.8-flash-next:4bit', 'provider': 'custom',
         'base_url': os.environ['OPENAI_BASE_URL'], 'max_tokens': 4096},
-    'agent': {'max_iterations': 4, 'local_stream_stale_timeout': 1800}, 'compression': {'enabled': True},
+    'agent': {'max_iterations': 4, 'local_stream_stale_timeout': 1800, 'reasoning_effort': 'none'}, 'compression': {'enabled': True},
     'auxiliary': {'compression': {'provider': 'main', 'extra_body': {'max_tokens': 4096, 'temperature': 0.2, 'presence_penalty': 0}}, 'title_generation': {'provider': 'main'}},
     'memory': {'memory_enabled': False, 'user_profile_enabled': False},
     'terminal': {'cwd': str(fixture), 'env_type': 'local'}, 'display': {'show_reasoning': False}}
@@ -78,7 +78,7 @@ try:
         model_tools.handle_function_call = refuse_cli_tool
         from hermes_cli.main import main
         sys.argv = ['hermes', 'chat', '--cli', '--oneshot', '--ignore-rules', '--provider', 'custom',
-            '--model', cfg['model']['default'], '--toolsets', 'terminal', '--reasoning', 'none',
+            '--model', cfg['model']['default'], '--toolsets', 'terminal',
             '--max-turns', '2', '--run-budget', '300', '-Q', '-q', 'Reply with exactly OK. Do not call a tool.']
         try: summary['cli_return'] = main()
         except SystemExit as e: summary['cli_exit'] = e.code

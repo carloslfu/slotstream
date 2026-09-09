@@ -51,6 +51,7 @@ model:
   context_length: 65536
   max_tokens: 4096
 agent:
+  reasoning_effort: none
   local_stream_stale_timeout: 1800
 auxiliary:
   compression:
@@ -71,6 +72,11 @@ editor. You only need to do this setup once.
 The configuration sends replies, conversation summaries, and titles to
 Slotstream. Hermes tools that use web services still need their own connections.
 
+Reasoning is optional. The `reasoning_effort` setting above uses `none` to skip
+the model's extra thinking before answering. Change it to `medium` to enable
+thinking, or remove the setting to use Hermes's default. Tools work with either
+setting.
+
 ## Start Hermes
 
 For your first session, create a practice folder and a small file:
@@ -85,7 +91,7 @@ This creates or replaces `note.txt` in the practice folder. Then start Hermes:
 
 ```sh
 HERMES_HOME="$HOME/.hermes-slotstream" OPENAI_API_KEY=unused \
-  hermes chat --provider custom --model qwen3.8-flash-next:4bit --reasoning none
+  hermes chat --provider custom --model qwen3.8-flash-next:4bit
 ```
 
 Leave `unused` as written. It is a placeholder; no OpenAI account or key is
@@ -127,6 +133,7 @@ Slotstream window to stop the server.
 | Hermes cannot connect | Keep Slotstream running. Copy the address and model name exactly as shown. |
 | Another server is running | Stop your existing Slotstream server with Control+C, then restart with this guide's command. For another app, see [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
 | The first reply is slow | Check progress in Slotstream. Long prompts and summaries can take several minutes. |
+| Hermes says “reasoning…” with thinking off | Hermes uses that word in its loading animation even when model thinking is off. |
 | Insufficient memory | Close memory-heavy apps. Run `slotstream doctor --max-context 65536` to check the plan without loading the model. See [memory help](TROUBLESHOOTING.md#the-whole-mac-is-slow). |
 | Replies or summaries stop early | Check the saved configuration, including both `max_tokens` settings. |
 
