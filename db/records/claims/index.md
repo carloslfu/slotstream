@@ -2,17 +2,19 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-08T22:35:06.857031Z
+updated: 2026-09-09T00:30:00.218917Z
 ---
 
 # records/claims
 
+- [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware reports cover the M5 Pro, M2 mini, M5 Max, and M5 Air; planner estimates remain separate.
+- [[records/claims/warm-decode-m5-air-32gb-community]] — M5 Air community report: 6.22 tok/s
+- [[records/claims/warm-decode-m5-max-128gb-community]] — M5 Max community report: 21 to 22 tok/s
 - [[records/claims/weights-on-disk-105-3-gb]] — The weights are 105.3 GB across 25 files
 - [[records/claims/warm-decode-12-tok-s-on-48-gb]] — Warm decode is about 12 tok/s on the 48 GB dev Mac
 - [[records/claims/warm-decode-1-41-tok-s-on-a-16-gb-mac-mini-m2]] — Warm decode 1.41 tok/s on a base-storage Mac mini M2, 16 GB — the first community measurement of a tier row.
 - [[records/claims/vision-tower-0-9-gb-resident]] — The vision tower costs 0.9 GB, and only when an image arrives
 - [[records/claims/vision-follow-up-turn-reuses-the-state]] — A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
-- [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Two tier rows are measured on real Macs; the other three are estimates from the 48 GB curve.
 - [[records/claims/tier-rows-are-estimates-from-the-48-gb-curve]] — The 8, 16, 24, and 32 GB tier rows are estimates from the 48 GB curve
 - [[records/claims/speculative-decode-x1-24-at-auto-floor]] — Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 - [[records/claims/pull-verify-re-hashes-in-8-s]] — pull --verify re-hashes the whole copy in about 8 s on the dev Mac

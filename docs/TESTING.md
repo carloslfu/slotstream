@@ -188,3 +188,71 @@ independent public CDN reconstruction through the actual CLI default, and a
 model-load smoke test before release. See [DOWNLOAD-FORMAT.md](DOWNLOAD-FORMAT.md)
 for the producer, full-pull, and libFuzzer tools. Full transfer timings are
 diagnostic unless the machine and network conditions qualify as a benchmark.
+
+## Measure your Mac
+
+Allow about ten minutes once the weights are downloaded. Close other
+memory-heavy apps and check that the Mac is not swapping. Run one model
+process at a time.
+
+1. Install or upgrade, then record the version:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+   slotstream --version
+   ```
+
+2. Print the plan. Copy the whole `slotstream memory plan` block; it carries
+   the device line, the target, and the cache size:
+
+   ```bash
+   slotstream doctor
+   ```
+
+3. One cold generation. This offers the download on first use. When it
+   finishes, `run` prints `--` lines to stderr: prefill, decode, and the
+   expert-cache line that ends with the peak. Copy all of them.
+
+   ```bash
+   slotstream run --greedy --max-tokens 128 --prompt "Explain how a hash map works, in about 200 words."
+   ```
+
+4. Warm decode. Start the server in one terminal:
+
+   ```bash
+   slotstream serve
+   ```
+
+   In another, send the same request three times and keep all three
+   results. The third is the warm number. If you would rather not run the
+   Python one-liner, the JSON carries `eval_count` and `eval_duration` in
+   nanoseconds; decode tok/s is the first divided by the second, times a
+   billion.
+
+   ```bash
+   for i in 1 2 3; do
+     curl -s localhost:11434/api/generate -d '{
+       "model": "qwen3.8-flash-next:4bit",
+       "prompt": "Explain how a hash map works, in about 200 words.",
+       "stream": false,
+       "options": {"temperature": 0, "num_predict": 128}
+     }' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("decode %.2f tok/s, prefill %.1f tok/s" % (d["eval_count"]/d["eval_duration"]*1e9, d["prompt_eval_count"]/d["prompt_eval_duration"]*1e9))'
+   done
+   ```
+
+   Press **Ctrl+C** in the server terminal before the next step.
+
+5. Measure a long prompt. It reports time, speed, and peak memory, checking
+   available memory between passes. Use 4096 tokens on a small Mac.
+
+   ```bash
+   slotstream context-check --tokens 8192
+   ```
+
+6. Open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
+   and paste the raw output from steps 1 to 5, plus the Mac model, the SSD,
+   the macOS version, what else was open, and whether the fans ran or the
+   machine throttled.
+
+Single runs vary by 15% or more on a loaded machine. If two runs disagree by
+that much, say so rather than picking the better one.

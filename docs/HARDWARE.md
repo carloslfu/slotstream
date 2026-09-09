@@ -1,37 +1,80 @@
-# Measured on real Macs
+<a id="measured-on-real-macs"></a>
 
-Results measured on real Macs are listed below with the version, settings,
-and reporter. Compare these with the [estimates](#speed-estimates) below: chip and SSD speed
-can make a large difference even at the same memory target.
+# Hardware and speed
 
-To add your Mac, follow [How to measure](#how-to-measure) and open a
-[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml).
-Published rows are credited to the reporter.
+## What you need
+
+- An Apple Silicon Mac, with macOS 14 or later.
+- About 110 GB of free SSD space for the model.
+
+Choose Apple menu → About This Mac to check your chip and memory. The
+installer has been tested on macOS 14 and 15; model runs have been tested
+on macOS 26. Windows, Linux, and Intel Macs are not supported by this engine.
+
+An 8 GB Mac needs swap, which uses disk space as extra memory and can slow
+down the whole computer. Close memory-heavy apps before running the model.
+
+To check your own Mac without downloading or loading anything, run:
+
+```sh
+slotstream doctor
+```
+
+## Understanding speed
+
+A **token** is a small piece of text, often part of a word. `tok/s` means
+tokens per second. The speeds below describe a reply after the model's
+cache has warmed up. The first reply also needs time to load the model and
+process your question. Long conversations take longer to process.
+
+Your chip, SSD, and other running apps affect speed. A memory size alone
+isn't enough to predict it.
 
 <a id="rows"></a>
 
 ## Results
 
+These results were measured on real Macs, using different releases and settings:
+
+| Mac | Memory | Reply speed |
+|---|---|---|
+| MacBook Pro, M5 Pro | 48 GB | ~12 tok/s |
+| Mac mini, M2 (base storage) | 16 GB | 1.41 tok/s |
+| MacBook Air, M5 | 32 GB | 6.22 tok/s |
+| MacBook Pro, M5 Max | 128 GB | ~21–22 tok/s |
+
+The M5 Pro result is from the author; the others are community reports.
+The 8 and 24 GB sizes still need reports. Open the details below for
+versions, settings, and credits.
+
+<details>
+<summary>Full results and test conditions</summary>
+
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
 | MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
-| Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
-| MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.1 | auto: 34.6 GB target, ~152 experts/layer | ~19–21 tok/s with `--mtp` | not measured — `context-check` postdates 0.2.1 | not measured — server path only | [@waterliu1981](https://github.com/waterliu1981), 2026-09-02 |
+| Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured; `context-check` postdates 0.2.2 | 6.1 GB | [@flol's report](https://github.com/carloslfu/slotstream/issues/5), 2026-09-02 |
+| MacBook Air, M5 | 32 GB | 1 TB; location not specified | 26.6.2 | 0.2.11 | 22 GB target, ~75 experts/layer planned | **6.22 tok/s** | 126.28 tok/s for 8192 tokens, 2048-token passes | 17.75 GB RSS on the long prompt | [@arczhi's report](https://github.com/carloslfu/slotstream/issues/12), 2026-09-07 |
+| MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | auto: 34.6 GB target, ~152 experts/layer | ~21–22 tok/s with speculative decoding | not measured | not measured; server path only | [@waterliu1981's update](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176), 2026-09-03 |
 
-The 8, 24, and 32 GB tiers still need measurements. The 16 GB M2 result is
-below the planner's estimate; the 128 GB M5 Max result is above it. The
-planner uses the M5 Pro curve and doesn't model either difference.
+The 16 GB M2 and 32 GB M5 Air results are below the planner's estimates;
+the 128 GB M5 Max result is above its estimate. The planner uses the M5 Pro
+curve and doesn't model these differences.
 
 A 16 GB Mac with a fast SSD would help separate disk speed from memory
-capacity: the existing 16 GB and 48 GB machines differ in both. Older chips,
-fanless Airs, and external SSDs would also help test the estimates.
+capacity: the existing 16 GB and 48 GB machines differ in both. Reports from
+older chips and external SSDs would also help test the estimates.
 
-The 48 GB and 16 GB rows' full method and history are in
-[MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
-16 GB machine in "C1", which is also where the bandwidth arithmetic behind
-its 1.41 tok/s is worked out.
+The Air's long-prompt test explicitly used a 22 GB target with vision and
+speculative decoding off. Its full warm-server command and system load were
+not supplied. The M5 Max row uses the reporter's updated results after
+moving from 0.2.1 to 0.2.3. Community results have not been independently
+rerun by the author.
 
-## What the columns mean
+Full methods, raw reports, and limits are in [MEASUREMENTS.md](../MEASUREMENTS.md):
+the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
+
+### What the columns mean
 
 - **Plan**: the target and cache size `slotstream doctor` prints with nothing
   else running. Auto sizes down while other apps hold memory, so say what was
@@ -46,11 +89,13 @@ its 1.41 tok/s is worked out.
   by `run` and `context-check`. This is measured separately from the plan's
   estimate.
 
+</details>
+
 ## Speed estimates
 
-These are the memory plans and speed estimates from `slotstream doctor
---sim-ram N`. Speeds are based on the 48 GB M5 Pro; your chip, SSD, and other
-running apps affect the result.
+These estimates come from the 48 GB M5 Pro and can differ substantially
+from results on other Macs. In particular, the 16 GB M2 above ran much
+slower than its estimate. Use the measured results when available.
 
 | Mac RAM | Automatic memory target | Estimated generation speed |
 |---|---|---|
@@ -60,81 +105,12 @@ running apps affect the result.
 | 32 GB | 22 GB | ~9 tok/s |
 | 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
 
-A **token** is a small piece of text, often part of a word. `tok/s` means
-tokens per second. These speeds describe *warm decode*: generating a reply
-after the cache has filled. The first reply also needs time to process your
-prompt.
-
-The estimates can differ substantially from results measured on real Macs.
-A 16 GB Mac mini M2 with base storage reached **1.41 tok/s**; a 128 GB M5 Max
-was faster than the M5 Pro estimate. See the credited results and test
-conditions in [Hardware measurements](HARDWARE.md). The 8, 24, and 32 GB
-tiers still need reports.
-
 ## How to measure
 
-Allow about ten minutes once the weights are downloaded. Close other
-memory-heavy apps and check that the Mac is not swapping. Run one model
-process at a time.
+To share your Mac's results, follow the [measurement steps](TESTING.md#measure-your-mac),
+then open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml).
+Allow about ten minutes once the model is downloaded. Reports are credited
+to their authors.
 
-1. Install or upgrade, then record the version:
-
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
-   slotstream --version
-   ```
-
-2. Print the plan. Copy the whole `slotstream memory plan` block; it carries
-   the device line, the target, and the cache size:
-
-   ```bash
-   slotstream doctor
-   ```
-
-3. One cold generation. This offers the download on first use. When it
-   finishes, `run` prints `--` lines to stderr: prefill, decode, and the
-   expert-cache line that ends with the peak. Copy all of them.
-
-   ```bash
-   slotstream run --greedy --max-tokens 128 --prompt "Explain how a hash map works, in about 200 words."
-   ```
-
-4. Warm decode. Start the server in one terminal:
-
-   ```bash
-   slotstream serve
-   ```
-
-   In another, send the same request three times and keep all three
-   results. The third is the warm number. If you would rather not run the
-   Python one-liner, the JSON carries `eval_count` and `eval_duration` in
-   nanoseconds; decode tok/s is the first divided by the second, times a
-   billion.
-
-   ```bash
-   for i in 1 2 3; do
-     curl -s localhost:11434/api/generate -d '{
-       "model": "qwen3.8-flash-next:4bit",
-       "prompt": "Explain how a hash map works, in about 200 words.",
-       "stream": false,
-       "options": {"temperature": 0, "num_predict": 128}
-     }' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("decode %.2f tok/s, prefill %.1f tok/s" % (d["eval_count"]/d["eval_duration"]*1e9, d["prompt_eval_count"]/d["prompt_eval_duration"]*1e9))'
-   done
-   ```
-
-   Press **Ctrl+C** in the server terminal before the next step.
-
-5. Measure a long prompt. It reports time, speed, and peak memory, checking
-   available memory between passes. Use 4096 tokens on a small Mac.
-
-   ```bash
-   slotstream context-check --tokens 8192
-   ```
-
-6. Open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
-   and paste the raw output from steps 1 to 5, plus the Mac model, the SSD,
-   the macOS version, what else was open, and whether the fans ran or the
-   machine throttled.
-
-Single runs vary by 15% or more on a loaded machine. If two runs disagree by
-that much, say so rather than picking the better one.
+The full [engineering notes](ENGINEERING.md#speed) explain prompt-processing
+time, memory use, and the methods behind the performance claims.

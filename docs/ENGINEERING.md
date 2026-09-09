@@ -14,7 +14,7 @@ for Slotstream. For installation and a first reply, start with
 | Build, test, and contribute | [Testing](TESTING.md), [Contributing](../CONTRIBUTING.md) |
 | Download internals | [Slotpack format](DOWNLOAD-FORMAT.md) |
 | Design and evidence | [Design and plan](../PLAN.md), [Measurements](../MEASUREMENTS.md), [Hardware reports](HARDWARE.md) |
-| Security and releases | [Security](../SECURITY.md), [Changelog](../CHANGELOG.md) |
+| Security and releases | [Security](../SECURITY.md), [Changelog](../CHANGELOG.md), [Latest release](https://github.com/carloslfu/slotstream/releases/latest) |
 
 The public [db.md store](../db/DB.md) holds the measurements, claims, plans,
 and raw runs. `PLAN.md` and `MEASUREMENTS.md` are generated from its records.
@@ -216,4 +216,4 @@ MIT. [`Sources/Slotstream/Vendored/GatedDelta.swift`](../Sources/Slotstream/Vend
 [`Tools/reference/`](../Tools/reference/) includes the community `qwen4_exp.py` used as the test
 reference. Model weights come from
 [pipenetwork/Qwen3.8-Flash-Next-MLX-4bit](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit)
-and remain under the Qwen community license.
+and remain under the [Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/blob/main/LICENSE).

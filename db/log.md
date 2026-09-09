@@ -115,3 +115,6 @@ Close v0.2.11 signed release, ordinary installer and installed-model acceptance;
 ## [2026-09-08 22:39] update | records/decisions/newcomer-documentation
 Reorganized public docs into a short README index, practical first-use and Hermes guides, and linked engineering references. Preserved the tested Hermes YAML and launch command, relocated claim coverage without changing measurements, retained old entry-page anchors, checked 115 local links, shell syntax and the practice-file commands, and reviewed rendered desktop and narrow mobile layouts. No model integration rerun was performed for this documentation change.
 
+## [2026-09-09 00:34] update | records/decisions/newcomer-documentation
+Completed another newcomer pass: reduced README navigation from 26 to 13 links, verified destinations, simplified hardware and troubleshooting, and moved the measurement procedure to testing. Captured issue 6 and issue 12 verbatim before updating credited hardware rows. Internal link and legacy-anchor checks passed (111 links); Hermes YAML and launch remain unchanged, shell syntax and practice-file checks passed. Reviewed desktop and 390/320-pixel layouts. Brain validation and generated-document/claim gates pass. No model integration rerun was performed.
+

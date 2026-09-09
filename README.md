@@ -1,23 +1,23 @@
 # slotstream
 
-**Run a 105 GB model on a 48 GB Mac.**
+**Run a 105 GB AI model on a 48 GB Mac.**
 
-Slotstream runs Qwen3.8-Flash-Next by keeping most of the model on your SSD
-and loading the parts it needs into memory. After the download, the model
-runs offline on your Mac. Use it in Terminal, a chat app, or an agent such
-as Hermes.
+Slotstream runs Qwen3.8-Flash-Next on your Mac. Use it to chat, ask about
+pictures, or work with files through an agent such as Hermes. The model
+works offline after a one-time download.
 
-[Get started](docs/GETTING-STARTED.md) · [Use Hermes](docs/HERMES.md) ·
-[Get help](docs/TROUBLESHOOTING.md) · [Latest release](https://github.com/carloslfu/slotstream/releases/latest)
+It keeps most of the model on your SSD and loads the parts it needs into
+memory, so the whole model doesn't have to fit in RAM.
+
+**[Get started](#install)**
 
 ## Will it run on my Mac?
 
 You need an **Apple Silicon Mac, macOS 14 or later, and about 110 GB of free
-SSD space**. Macs with less memory run more slowly; an 8 GB Mac can become
-slow to use. Runtime testing on macOS 14 and 15 is still needed.
+SSD space**. Slotstream currently supports this one model on Mac.
 
-Slotstream currently supports this one model on Mac. See the
-[hardware guide](docs/HARDWARE.md) for results from real Macs and speed estimates.
+An 8 GB Mac can become slow to use. Model runs have been tested on macOS 26;
+macOS 14 and 15 still need testing.
 
 ## Install
 
@@ -39,10 +39,9 @@ slotstream doctor
 slotstream run --prompt "Why is the sky blue?"
 ```
 
-On first use, Slotstream asks to download the model. This is a large,
-one-time download and can take hours. Interrupted downloads resume when
-you run the command again. The [getting-started guide](docs/GETTING-STARTED.md)
-walks through each step.
+The first run asks to download the model. This can take hours, but you only
+need to do it once. Interrupted downloads resume when you try again.
+Follow the [step-by-step setup](docs/GETTING-STARTED.md) for more help.
 
 <a id="downloading-the-model"></a>
 <a id="chat-apps-and-the-api"></a>
@@ -55,12 +54,11 @@ walks through each step.
 
 ## Guides
 
-| I want to… | Start here |
+| What would you like to do? | Guide |
 |---|---|
-| Install, download the model, or ask about a picture | [Get started](docs/GETTING-STARTED.md) |
-| Use Hermes to work with files and tools | [Hermes setup](docs/HERMES.md) |
-| Connect Open WebUI, another chat app, or fx | [Connect apps and agents](docs/CLIENTS.md) |
-| Check how fast it runs on my Mac | [Hardware and speed](docs/HARDWARE.md) |
+| Work with files and tools through an agent | [Use Hermes](docs/HERMES.md) |
+| Chat in Open WebUI or another app | [Connect a chat app](docs/CLIENTS.md) |
+| See how it runs on different Macs | [Hardware and speed](docs/HARDWARE.md) |
 | Fix a problem or uninstall | [Troubleshooting](docs/TROUBLESHOOTING.md) |
 
 <a id="docs"></a>
@@ -73,10 +71,10 @@ walks through each step.
 <a id="testing"></a>
 <a id="building-and-testing"></a>
 <a id="related-projects"></a>
+<a id="star-history"></a>
 
-For developers: [engineering notes](docs/ENGINEERING.md),
-[command reference](docs/CLI.md), [API reference](docs/API.md),
-[Swift library](docs/LIBRARY.md), and [contributing](CONTRIBUTING.md).
+[Developer documentation](docs/ENGINEERING.md) covers the API, Swift library,
+commands, benchmarks, and contributing.
 
 <a id="why-this-exists"></a>
 <a id="support"></a>
@@ -84,20 +82,14 @@ For developers: [engineering notes](docs/ENGINEERING.md),
 ## Who made this
 
 I'm [Carlos Galarza](https://www.carlosgalarza.com). I built Slotstream to
-run this model on my own Mac. [Report a problem](https://github.com/carloslfu/slotstream/issues)
-or [share your Mac's results](docs/HARDWARE.md#how-to-measure).
-For consulting or help, write to [carloslfu@gmail.com](mailto:carloslfu@gmail.com).
+run this model on my own Mac. You can [report a bug](https://github.com/carloslfu/slotstream/issues/new)
+or [email me](mailto:carloslfu@gmail.com) for help or consulting.
 
-I'm also building **Sevra**, a personal, local-first app powered by Slotstream.
-The app is in development. The Slotstream CLI, APIs, and Swift package remain
-independently usable. [See Sevra and join the waitlist](https://www.sevrahq.com/).
-
-<a id="star-history"></a>
-
-[Star history](docs/ENGINEERING.md#star-history) · [Changelog](CHANGELOG.md)
+I'm also building [Sevra](https://www.sevrahq.com/), a personal AI app powered
+by Slotstream. The app is in development. Slotstream's command-line tool,
+APIs, and Swift library remain independently usable.
 
 ## License
 
-[MIT](LICENSE). Model weights are separately covered by the
-[Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit).
-See [credits](docs/ENGINEERING.md#credits) for the upstream code and model.
+Slotstream is [MIT-licensed](LICENSE). The model weights have their own
+[Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/blob/main/LICENSE).

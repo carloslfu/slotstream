@@ -8,24 +8,24 @@ Relative links below point at the same sections, which are all in this file.
 
 # slotstream
 
-**Run a 105 GB model on a 48 GB Mac.**
+**Run a 105 GB AI model on a 48 GB Mac.**
 
-Slotstream runs Qwen3.8-Flash-Next by keeping most of the model on your SSD
-and loading the parts it needs into memory. After the download, the model
-runs offline on your Mac. Use it in Terminal, a chat app, or an agent such
-as Hermes.
+Slotstream runs Qwen3.8-Flash-Next on your Mac. Use it to chat, ask about
+pictures, or work with files through an agent such as Hermes. The model
+works offline after a one-time download.
 
-[Get started](docs/GETTING-STARTED.md) · [Use Hermes](docs/HERMES.md) ·
-[Get help](docs/TROUBLESHOOTING.md) · [Latest release](https://github.com/carloslfu/slotstream/releases/latest)
+It keeps most of the model on your SSD and loads the parts it needs into
+memory, so the whole model doesn't have to fit in RAM.
+
+**[Get started](#install)**
 
 ## Will it run on my Mac?
 
 You need an **Apple Silicon Mac, macOS 14 or later, and about 110 GB of free
-SSD space**. Macs with less memory run more slowly; an 8 GB Mac can become
-slow to use. Runtime testing on macOS 14 and 15 is still needed.
+SSD space**. Slotstream currently supports this one model on Mac.
 
-Slotstream currently supports this one model on Mac. See the
-[hardware guide](docs/HARDWARE.md) for results from real Macs and speed estimates.
+An 8 GB Mac can become slow to use. Model runs have been tested on macOS 26;
+macOS 14 and 15 still need testing.
 
 ## Install
 
@@ -47,10 +47,9 @@ slotstream doctor
 slotstream run --prompt "Why is the sky blue?"
 ```
 
-On first use, Slotstream asks to download the model. This is a large,
-one-time download and can take hours. Interrupted downloads resume when
-you run the command again. The [getting-started guide](docs/GETTING-STARTED.md)
-walks through each step.
+The first run asks to download the model. This can take hours, but you only
+need to do it once. Interrupted downloads resume when you try again.
+Follow the [step-by-step setup](docs/GETTING-STARTED.md) for more help.
 
 <a id="downloading-the-model"></a>
 <a id="chat-apps-and-the-api"></a>
@@ -63,12 +62,11 @@ walks through each step.
 
 ## Guides
 
-| I want to… | Start here |
+| What would you like to do? | Guide |
 |---|---|
-| Install, download the model, or ask about a picture | [Get started](docs/GETTING-STARTED.md) |
-| Use Hermes to work with files and tools | [Hermes setup](docs/HERMES.md) |
-| Connect Open WebUI, another chat app, or fx | [Connect apps and agents](docs/CLIENTS.md) |
-| Check how fast it runs on my Mac | [Hardware and speed](docs/HARDWARE.md) |
+| Work with files and tools through an agent | [Use Hermes](docs/HERMES.md) |
+| Chat in Open WebUI or another app | [Connect a chat app](docs/CLIENTS.md) |
+| See how it runs on different Macs | [Hardware and speed](docs/HARDWARE.md) |
 | Fix a problem or uninstall | [Troubleshooting](docs/TROUBLESHOOTING.md) |
 
 <a id="docs"></a>
@@ -81,10 +79,10 @@ walks through each step.
 <a id="testing"></a>
 <a id="building-and-testing"></a>
 <a id="related-projects"></a>
+<a id="star-history"></a>
 
-For developers: [engineering notes](docs/ENGINEERING.md),
-[command reference](docs/CLI.md), [API reference](docs/API.md),
-[Swift library](docs/LIBRARY.md), and [contributing](CONTRIBUTING.md).
+[Developer documentation](docs/ENGINEERING.md) covers the API, Swift library,
+commands, benchmarks, and contributing.
 
 <a id="why-this-exists"></a>
 <a id="support"></a>
@@ -92,23 +90,17 @@ For developers: [engineering notes](docs/ENGINEERING.md),
 ## Who made this
 
 I'm [Carlos Galarza](https://www.carlosgalarza.com). I built Slotstream to
-run this model on my own Mac. [Report a problem](https://github.com/carloslfu/slotstream/issues)
-or [share your Mac's results](docs/HARDWARE.md#how-to-measure).
-For consulting or help, write to [carloslfu@gmail.com](mailto:carloslfu@gmail.com).
+run this model on my own Mac. You can [report a bug](https://github.com/carloslfu/slotstream/issues/new)
+or [email me](mailto:carloslfu@gmail.com) for help or consulting.
 
-I'm also building **Sevra**, a personal, local-first app powered by Slotstream.
-The app is in development. The Slotstream CLI, APIs, and Swift package remain
-independently usable. [See Sevra and join the waitlist](https://www.sevrahq.com/).
-
-<a id="star-history"></a>
-
-[Star history](docs/ENGINEERING.md#star-history) · [Changelog](CHANGELOG.md)
+I'm also building [Sevra](https://www.sevrahq.com/), a personal AI app powered
+by Slotstream. The app is in development. Slotstream's command-line tool,
+APIs, and Swift library remain independently usable.
 
 ## License
 
-[MIT](LICENSE). Model weights are separately covered by the
-[Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit).
-See [credits](docs/ENGINEERING.md#credits) for the upstream code and model.
+Slotstream is [MIT-licensed](LICENSE). The model weights have their own
+[Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/blob/main/LICENSE).
 
 
 <!-- ===== docs/GETTING-STARTED.md ===== -->
@@ -267,7 +259,7 @@ for Slotstream. For installation and a first reply, start with
 | Build, test, and contribute | [Testing](TESTING.md), [Contributing](../CONTRIBUTING.md) |
 | Download internals | [Slotpack format](DOWNLOAD-FORMAT.md) |
 | Design and evidence | [Design and plan](../PLAN.md), [Measurements](../MEASUREMENTS.md), [Hardware reports](HARDWARE.md) |
-| Security and releases | [Security](../SECURITY.md), [Changelog](../CHANGELOG.md) |
+| Security and releases | [Security](../SECURITY.md), [Changelog](../CHANGELOG.md), [Latest release](https://github.com/carloslfu/slotstream/releases/latest) |
 
 The public [db.md store](../db/DB.md) holds the measurements, claims, plans,
 and raw runs. `PLAN.md` and `MEASUREMENTS.md` are generated from its records.
@@ -469,7 +461,7 @@ MIT. [`Sources/Slotstream/Vendored/GatedDelta.swift`](../Sources/Slotstream/Vend
 [`Tools/reference/`](../Tools/reference/) includes the community `qwen4_exp.py` used as the test
 reference. Model weights come from
 [pipenetwork/Qwen3.8-Flash-Next-MLX-4bit](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit)
-and remain under the Qwen community license.
+and remain under the [Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/blob/main/LICENSE).
 
 
 <!-- ===== docs/HERMES-NOTES.md ===== -->
@@ -1782,124 +1774,214 @@ model-load smoke test before release. See [DOWNLOAD-FORMAT.md](DOWNLOAD-FORMAT.m
 for the producer, full-pull, and libFuzzer tools. Full transfer timings are
 diagnostic unless the machine and network conditions qualify as a benchmark.
 
+## Measure your Mac
+
+Allow about ten minutes once the weights are downloaded. Close other
+memory-heavy apps and check that the Mac is not swapping. Run one model
+process at a time.
+
+1. Install or upgrade, then record the version:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+   slotstream --version
+   ```
+
+2. Print the plan. Copy the whole `slotstream memory plan` block; it carries
+   the device line, the target, and the cache size:
+
+   ```bash
+   slotstream doctor
+   ```
+
+3. One cold generation. This offers the download on first use. When it
+   finishes, `run` prints `--` lines to stderr: prefill, decode, and the
+   expert-cache line that ends with the peak. Copy all of them.
+
+   ```bash
+   slotstream run --greedy --max-tokens 128 --prompt "Explain how a hash map works, in about 200 words."
+   ```
+
+4. Warm decode. Start the server in one terminal:
+
+   ```bash
+   slotstream serve
+   ```
+
+   In another, send the same request three times and keep all three
+   results. The third is the warm number. If you would rather not run the
+   Python one-liner, the JSON carries `eval_count` and `eval_duration` in
+   nanoseconds; decode tok/s is the first divided by the second, times a
+   billion.
+
+   ```bash
+   for i in 1 2 3; do
+     curl -s localhost:11434/api/generate -d '{
+       "model": "qwen3.8-flash-next:4bit",
+       "prompt": "Explain how a hash map works, in about 200 words.",
+       "stream": false,
+       "options": {"temperature": 0, "num_predict": 128}
+     }' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("decode %.2f tok/s, prefill %.1f tok/s" % (d["eval_count"]/d["eval_duration"]*1e9, d["prompt_eval_count"]/d["prompt_eval_duration"]*1e9))'
+   done
+   ```
+
+   Press **Ctrl+C** in the server terminal before the next step.
+
+5. Measure a long prompt. It reports time, speed, and peak memory, checking
+   available memory between passes. Use 4096 tokens on a small Mac.
+
+   ```bash
+   slotstream context-check --tokens 8192
+   ```
+
+6. Open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
+   and paste the raw output from steps 1 to 5, plus the Mac model, the SSD,
+   the macOS version, what else was open, and whether the fans ran or the
+   machine throttled.
+
+Single runs vary by 15% or more on a loaded machine. If two runs disagree by
+that much, say so rather than picking the better one.
+
 
 <!-- ===== docs/TROUBLESHOOTING.md ===== -->
 
 # Troubleshooting
 
-Start with `slotstream doctor`. It checks your Mac's memory plan and disk
-space without loading the model.
+Start with `slotstream doctor`. It checks your Mac's memory and disk space
+without loading the model. Find the problem that matches what you're seeing below.
 
 ## `slotstream: command not found` after installing
 
-Open a new terminal and try again. The installer either creates a wrapper in
-`/usr/local/bin` or adds `~/.slotstream/bin` to your shell's PATH. Its final
-message tells you which it used.
+Open a new Terminal window and try again. If that doesn't help, run the
+[installer](GETTING-STARTED.md#install) again and read its final message.
+It tells you how the `slotstream` command was added to your shell.
 
 ## The server can't listen on port 11434
 
-Ollama uses the same port by default. Stop the existing server, or choose
-another port:
+Another app is using the address Slotstream needs. Ollama uses the same
+port by default. Stop that server, or start Slotstream on a different port:
 
-```bash
+```sh
 slotstream serve --port 11500
 ```
 
-Use port 11500 in your client settings too. slotstream checks the port before
-loading the model.
+Use port 11500 in your chat app's connection settings too. Slotstream checks
+this before loading the model.
 
 ## Another model process is already running
 
-slotstream allows one model process per user to limit memory use. Check
-what's running with `pgrep -fl slotstream`, then stop your existing `serve`,
-`run`, or diagnostic command before retrying. For a server in a terminal,
-press **Ctrl+C** in that terminal.
+Slotstream runs one model process at a time to limit memory use. Find the
+Terminal window where you started it and press **Control+C** before retrying.
+If you're unsure what's running, this command lists Slotstream processes:
+
+```sh
+pgrep -fl slotstream
+```
 
 ## The whole Mac is slow
 
-Run `slotstream doctor` and look for memory warnings. If the planned peak
-exceeds the Metal working-set limit, the model may need to page memory to
-disk. Close memory-heavy apps or lower the target with `--memory-gb`.
+Close memory-heavy apps and check `slotstream doctor` for memory warnings.
+Stop Slotstream with **Control+C** and restart it without custom memory
+settings so it can choose a size that fits.
 
-An 8 GB Mac needs swap even at the minimum target. It may remain slow with
-other apps closed.
+An 8 GB Mac needs swap, which uses disk space as extra memory, even at the
+minimum setting. It may remain slow with other apps closed. See
+[hardware and speed](HARDWARE.md) for the limits of smaller Macs.
+
+For manual adjustments, read the [memory settings](CLI.md#memory-options).
+Forcing a larger setting can make the whole Mac slower.
 
 ## Generation is slower than the estimate
 
-Compare the startup plan's `target:` line with the README table:
+The estimates don't account for every chip, SSD, or temperature. Compare
+your Mac with the [measured results](HARDWARE.md#results), especially if it
+has less memory or a slower disk.
 
-- **A lower target:** other apps were using memory, so automatic sizing
-  chose a smaller cache. Close those apps and let the server resize, or
-  restart it. Avoid forcing a larger target unless the memory is available.
-- **The same target:** the estimate may not fit your hardware. Chip speed,
-  SSD speed, and thermal limits also matter. A base-storage Mac mini M2
-  measured much slower than the M5 Pro-based estimate. See
-  [Hardware measurements](HARDWARE.md).
+Other apps can leave less memory for Slotstream. Close them and let the
+server adjust, or restart it. Avoid forcing a larger memory setting just
+to match an estimate.
 
-The first generation also starts with a cold cache. Compare repeated requests
-when checking warm decode speed.
+Replies can also be slower just after starting the model. Later requests
+can reuse parts already loaded into memory.
 
 ## The first token takes a long time
 
-The model processes the prompt before generating a reply. `slotstream doctor`
-shows estimated waits for different prompt lengths. A full 32k prompt is
-estimated at about 3.0 min for the 48 GB M5 Pro plan and 6.4 min for the 16 GB
-plan; slower SSDs can take longer.
+Slotstream has to process your question and conversation history before it
+starts replying. The terminal shows progress during long requests.
+`slotstream doctor` estimates waits for different prompt lengths.
 
-`run` and `serve` print progress for long prompts. Follow-up turns reuse
-unchanged conversation history while it remains cached. To measure a prompt
-on your Mac, stop the server and run `slotstream context-check --tokens 8192`.
+For a full conversation at the default limit, the estimated wait is about
+3.0 min for the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. These
+estimates come from the M5 Pro; slower SSDs can take longer. Follow-up turns
+reuse unchanged history while it stays in memory.
+
+If Hermes or fx gives up before Slotstream replies, check the timeout
+settings in the [Hermes guide](HERMES.md#troubleshooting) or
+[fx guide](FX.md#the-first-turn-takes-minutes).
 
 ## A download was interrupted or may be damaged
 
-Run `slotstream pull` again to resume verified chunks. A damaged compressed
-object automatically falls back to the pinned original ranges. To explicitly
-use the raw mirrors, run `slotstream pull --transport raw`; completed original
-files are reused, while partial progress belongs to its transport. Do not
-delete partial files when resuming the same mode.
+Run this again to resume:
 
-To check existing files without
-downloading anything:
+```sh
+slotstream pull
+```
 
-```bash
+Keep the partially downloaded files; Slotstream reuses its saved progress.
+To check existing files without downloading anything, run:
+
+```sh
 slotstream pull --verify
 ```
 
-It checks the files against pinned SHA-256 hashes and names any damaged file.
-The optional draft head is skipped if absent.
+It checks for corruption and names any damaged files. The optional file
+used for speculative decoding is skipped if absent.
+
+For transport options and how verification works, see the
+[download reference](DOWNLOAD-FORMAT.md#download-behavior-and-measured-checks).
 
 ## Store the weights on another disk
 
-```bash
-slotstream pull --dir /Volumes/big/qwen38
-slotstream serve --model /Volumes/big/qwen38
+The model files are also called *weights*. Replace the path below with a
+folder on your external SSD. Keep the quotes if the path contains spaces:
+
+```sh
+slotstream pull --dir "/Volumes/My SSD/slotstream-model"
+slotstream serve --model "/Volumes/My SSD/slotstream-model"
 ```
 
-Replace `/Volumes/big/qwen38` with your destination. You can also point
-`--model` at an existing weights directory. SSD speed affects generation,
-so an external disk may be slower than the internal one.
+If the model files are already there, only the second command is needed.
+An external disk may be slower than the internal SSD.
 
 ## Reclaim disk space or uninstall
 
-Delete `~/.slotstream/models` to remove the downloaded weights and keep the
-program. This frees about 105 GB after a full download.
+Stop Slotstream first. In Finder, choose **Go → Go to Folder** and enter
+`~/.slotstream` to find its files.
 
-To remove both the program and the weights, delete `~/.slotstream`. Also
-remove the `/usr/local/bin/slotstream` wrapper or the PATH entry the installer
-added to your shell profile. If you chose a custom install or model directory,
-remove that directory instead.
+Delete the `models` folder there to remove the downloaded model and keep
+the program. This frees about 105 GB after a full download.
+
+To remove both, delete `~/.slotstream`. Also remove the
+`/usr/local/bin/slotstream` wrapper or the PATH entry the installer added to
+your shell profile. If you chose a custom install or model folder, use
+that location instead. The [installation reference](CLI.md#file-locations)
+lists the default paths.
 
 ## Problems with older versions
 
-Version 0.2.0 rejected fields sent by `ollama run` and couldn't load a weights
-directory through a symlink. Both were fixed in 0.2.1. Run the installer again
-to upgrade; `slotstream --version` shows your installed version.
+[Run the installer again](GETTING-STARTED.md#update-or-get-help) to update.
+Then stop and restart any running server. `slotstream --version` shows your
+installed version; the [changelog](../CHANGELOG.md) lists the fixes in each release.
 
 ## Problems on macOS 14 or 15
 
-The installer is tested on these versions; the runtime still needs testing.
-[Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
-error and your `slotstream doctor` output.
+The installer has been tested on these versions; running the model still
+needs testing. [Report a bug](https://github.com/carloslfu/slotstream/issues/new)
+with the error and your `slotstream doctor` output.
+
+For other unresolved problems, include your Mac model, memory, Slotstream
+version, the command you ran, and the error message. Remove credentials
+and private file contents before posting.
 
 
 <!-- ===== docs/DOWNLOAD-FORMAT.md ===== -->
@@ -2136,40 +2218,83 @@ from separate executables are not combined.
 
 <!-- ===== docs/HARDWARE.md ===== -->
 
-# Measured on real Macs
+<a id="measured-on-real-macs"></a>
 
-Results measured on real Macs are listed below with the version, settings,
-and reporter. Compare these with the [estimates](#speed-estimates) below: chip and SSD speed
-can make a large difference even at the same memory target.
+# Hardware and speed
 
-To add your Mac, follow [How to measure](#how-to-measure) and open a
-[measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml).
-Published rows are credited to the reporter.
+## What you need
+
+- An Apple Silicon Mac, with macOS 14 or later.
+- About 110 GB of free SSD space for the model.
+
+Choose Apple menu → About This Mac to check your chip and memory. The
+installer has been tested on macOS 14 and 15; model runs have been tested
+on macOS 26. Windows, Linux, and Intel Macs are not supported by this engine.
+
+An 8 GB Mac needs swap, which uses disk space as extra memory and can slow
+down the whole computer. Close memory-heavy apps before running the model.
+
+To check your own Mac without downloading or loading anything, run:
+
+```sh
+slotstream doctor
+```
+
+## Understanding speed
+
+A **token** is a small piece of text, often part of a word. `tok/s` means
+tokens per second. The speeds below describe a reply after the model's
+cache has warmed up. The first reply also needs time to load the model and
+process your question. Long conversations take longer to process.
+
+Your chip, SSD, and other running apps affect speed. A memory size alone
+isn't enough to predict it.
 
 <a id="rows"></a>
 
 ## Results
 
+These results were measured on real Macs, using different releases and settings:
+
+| Mac | Memory | Reply speed |
+|---|---|---|
+| MacBook Pro, M5 Pro | 48 GB | ~12 tok/s |
+| Mac mini, M2 (base storage) | 16 GB | 1.41 tok/s |
+| MacBook Air, M5 | 32 GB | 6.22 tok/s |
+| MacBook Pro, M5 Max | 128 GB | ~21–22 tok/s |
+
+The M5 Pro result is from the author; the others are community reports.
+The 8 and 24 GB sizes still need reports. Open the details below for
+versions, settings, and credits.
+
+<details>
+<summary>Full results and test conditions</summary>
+
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
 | MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
-| Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured — `context-check` postdates 0.2.2 | 6.1 GB | [@flol](https://github.com/flol), 2026-09-02 |
-| MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.1 | auto: 34.6 GB target, ~152 experts/layer | ~19–21 tok/s with `--mtp` | not measured — `context-check` postdates 0.2.1 | not measured — server path only | [@waterliu1981](https://github.com/waterliu1981), 2026-09-02 |
+| Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured; `context-check` postdates 0.2.2 | 6.1 GB | [@flol's report](https://github.com/carloslfu/slotstream/issues/5), 2026-09-02 |
+| MacBook Air, M5 | 32 GB | 1 TB; location not specified | 26.6.2 | 0.2.11 | 22 GB target, ~75 experts/layer planned | **6.22 tok/s** | 126.28 tok/s for 8192 tokens, 2048-token passes | 17.75 GB RSS on the long prompt | [@arczhi's report](https://github.com/carloslfu/slotstream/issues/12), 2026-09-07 |
+| MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | auto: 34.6 GB target, ~152 experts/layer | ~21–22 tok/s with speculative decoding | not measured | not measured; server path only | [@waterliu1981's update](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176), 2026-09-03 |
 
-The 8, 24, and 32 GB tiers still need measurements. The 16 GB M2 result is
-below the planner's estimate; the 128 GB M5 Max result is above it. The
-planner uses the M5 Pro curve and doesn't model either difference.
+The 16 GB M2 and 32 GB M5 Air results are below the planner's estimates;
+the 128 GB M5 Max result is above its estimate. The planner uses the M5 Pro
+curve and doesn't model these differences.
 
 A 16 GB Mac with a fast SSD would help separate disk speed from memory
-capacity: the existing 16 GB and 48 GB machines differ in both. Older chips,
-fanless Airs, and external SSDs would also help test the estimates.
+capacity: the existing 16 GB and 48 GB machines differ in both. Reports from
+older chips and external SSDs would also help test the estimates.
 
-The 48 GB and 16 GB rows' full method and history are in
-[MEASUREMENTS.md](../MEASUREMENTS.md): the 48 GB machine throughout, and the
-16 GB machine in "C1", which is also where the bandwidth arithmetic behind
-its 1.41 tok/s is worked out.
+The Air's long-prompt test explicitly used a 22 GB target with vision and
+speculative decoding off. Its full warm-server command and system load were
+not supplied. The M5 Max row uses the reporter's updated results after
+moving from 0.2.1 to 0.2.3. Community results have not been independently
+rerun by the author.
 
-## What the columns mean
+Full methods, raw reports, and limits are in [MEASUREMENTS.md](../MEASUREMENTS.md):
+the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
+
+### What the columns mean
 
 - **Plan**: the target and cache size `slotstream doctor` prints with nothing
   else running. Auto sizes down while other apps hold memory, so say what was
@@ -2184,11 +2309,13 @@ its 1.41 tok/s is worked out.
   by `run` and `context-check`. This is measured separately from the plan's
   estimate.
 
+</details>
+
 ## Speed estimates
 
-These are the memory plans and speed estimates from `slotstream doctor
---sim-ram N`. Speeds are based on the 48 GB M5 Pro; your chip, SSD, and other
-running apps affect the result.
+These estimates come from the 48 GB M5 Pro and can differ substantially
+from results on other Macs. In particular, the 16 GB M2 above ran much
+slower than its estimate. Use the measured results when available.
 
 | Mac RAM | Automatic memory target | Estimated generation speed |
 |---|---|---|
@@ -2198,84 +2325,15 @@ running apps affect the result.
 | 32 GB | 22 GB | ~9 tok/s |
 | 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
 
-A **token** is a small piece of text, often part of a word. `tok/s` means
-tokens per second. These speeds describe *warm decode*: generating a reply
-after the cache has filled. The first reply also needs time to process your
-prompt.
-
-The estimates can differ substantially from results measured on real Macs.
-A 16 GB Mac mini M2 with base storage reached **1.41 tok/s**; a 128 GB M5 Max
-was faster than the M5 Pro estimate. See the credited results and test
-conditions in [Hardware measurements](HARDWARE.md). The 8, 24, and 32 GB
-tiers still need reports.
-
 ## How to measure
 
-Allow about ten minutes once the weights are downloaded. Close other
-memory-heavy apps and check that the Mac is not swapping. Run one model
-process at a time.
+To share your Mac's results, follow the [measurement steps](TESTING.md#measure-your-mac),
+then open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml).
+Allow about ten minutes once the model is downloaded. Reports are credited
+to their authors.
 
-1. Install or upgrade, then record the version:
-
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
-   slotstream --version
-   ```
-
-2. Print the plan. Copy the whole `slotstream memory plan` block; it carries
-   the device line, the target, and the cache size:
-
-   ```bash
-   slotstream doctor
-   ```
-
-3. One cold generation. This offers the download on first use. When it
-   finishes, `run` prints `--` lines to stderr: prefill, decode, and the
-   expert-cache line that ends with the peak. Copy all of them.
-
-   ```bash
-   slotstream run --greedy --max-tokens 128 --prompt "Explain how a hash map works, in about 200 words."
-   ```
-
-4. Warm decode. Start the server in one terminal:
-
-   ```bash
-   slotstream serve
-   ```
-
-   In another, send the same request three times and keep all three
-   results. The third is the warm number. If you would rather not run the
-   Python one-liner, the JSON carries `eval_count` and `eval_duration` in
-   nanoseconds; decode tok/s is the first divided by the second, times a
-   billion.
-
-   ```bash
-   for i in 1 2 3; do
-     curl -s localhost:11434/api/generate -d '{
-       "model": "qwen3.8-flash-next:4bit",
-       "prompt": "Explain how a hash map works, in about 200 words.",
-       "stream": false,
-       "options": {"temperature": 0, "num_predict": 128}
-     }' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("decode %.2f tok/s, prefill %.1f tok/s" % (d["eval_count"]/d["eval_duration"]*1e9, d["prompt_eval_count"]/d["prompt_eval_duration"]*1e9))'
-   done
-   ```
-
-   Press **Ctrl+C** in the server terminal before the next step.
-
-5. Measure a long prompt. It reports time, speed, and peak memory, checking
-   available memory between passes. Use 4096 tokens on a small Mac.
-
-   ```bash
-   slotstream context-check --tokens 8192
-   ```
-
-6. Open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
-   and paste the raw output from steps 1 to 5, plus the Mac model, the SSD,
-   the macOS version, what else was open, and whether the fans ran or the
-   machine throttled.
-
-Single runs vary by 15% or more on a loaded machine. If two runs disagree by
-that much, say so rather than picking the better one.
+The full [engineering notes](ENGINEERING.md#speed) explain prompt-processing
+time, memory use, and the methods behind the performance claims.
 
 
 <!-- ===== CHANGELOG.md ===== -->

@@ -19,7 +19,7 @@ The README, user guides, engineering notes, and changelog are combined in
 - Images work on every dialect: Ollama `images` (base64) on `/api/chat` and `/api/generate`, OpenAI `image_url` parts, AI-SDK `file` parts on the fx gateway, `run --image`. Inline bytes only — a `data:` URL or bare base64; `http://` and `file://` URLs are refused and never fetched. A picture is one token per 32x32 pixels of its resized self, at most 2,304 tokens, out of the same context as the text; the vision tower is 0.9 GB and loads on the first image, on top of the announced memory plan.
 - Expert-cache size changes speed, never output: greedy decode is byte-identical across cache sizes and live resizes.
 - One model process per user (`/tmp/slotstream-model-<uid>.lock`). The server binds 127.0.0.1 only, accepts browser origins from loopback only, and has no auth.
-- Hardware reports include a 48 GB M5 Pro, a 16 GB M2, and a 128 GB M5 Max. The 8, 24, and 32 GB tiers remain estimates. Runtime testing on macOS 14/15 is still needed. Ollama CLI and symlinked-weight-directory bugs in 0.2.0 were fixed in 0.2.1.
+- Hardware reports include a 48 GB M5 Pro, a 16 GB M2, a 32 GB M5 Air, and a 128 GB M5 Max. The latter three are community reports with different settings; the separate memory-tier table remains estimated from the M5 Pro. The 8 and 24 GB sizes still need reports. Runtime testing on macOS 14/15 is still needed. Ollama CLI and symlinked-weight-directory bugs in 0.2.0 were fixed in 0.2.1.
 
 ## Commands
 
@@ -53,7 +53,7 @@ The README, user guides, engineering notes, and changelog are combined in
 - [docs/LIBRARY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/LIBRARY.md): using slotstream as a Swift package — the two products, the Metal library requirement, weights, planning, serving
 - [docs/TESTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TESTING.md): the check catalogue and its tiers, what runs in CI against what needs the real weights, coverage and its ratchet
 - [docs/TROUBLESHOOTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TROUBLESHOOTING.md): port clashes, the one-process rule, paging, slow decode, moving or verifying weights, and fixes for old versions
-- [docs/HARDWARE.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HARDWARE.md): credited results from real Macs and a procedure to add yours
+- [docs/HARDWARE.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HARDWARE.md): requirements, speed explained, credited results from real Macs, and separate estimates; measurement steps are in docs/TESTING.md
 - [CHANGELOG.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/CHANGELOG.md): what each release changed
 
 ## Design and evidence

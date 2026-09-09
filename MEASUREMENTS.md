@@ -2455,6 +2455,71 @@ sequential ceiling has far less of that to give. The prediction on record is
 that this machine gains from the grouped GEMM's share of the pass and little
 from the reads — well under the dev Mac's 2x.
 
+## C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)
+Reported by `@waterliu1981` in [issue #6](https://github.com/carloslfu/slotstream/issues/6).
+The original report and its follow-up are preserved in
+[[sources/community/2026/09/2026-09-03-macbook-pro-m5-max-128gb-waterliu1981]].
+
+MacBook Pro 16-inch (Mac17,7), M5 Max, 128 GB, internal 2 TB SSD,
+macOS 26.6.2. The reporter described an idle machine. The auto plan was
+34.6 GB with about 152 experts per layer and speculative decoding enabled.
+
+The first report used Slotstream 0.2.1 and summarized warm decode at about
+19 to 21 tok/s. The same author then remeasured with Slotstream 0.2.3,
+reporting a checksum-verified binary replacement and unchanged weights.
+That [follow-up](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176)
+is the source of the current hardware row:
+
+| Repeated 256-token request | Reply speed |
+|---|---|
+| 1 | 21.02 tok/s |
+| 2 | 21.53 tok/s |
+| 3 | 22.11 tok/s |
+
+The report summarizes this as **21–22 tok/s** with the auto plan and
+speculative decoding. Two longer warm runs returned 22.83 and 22.10 tok/s.
+The current surface uses the reported range instead of a best run.
+
+The report's prefill and peak figures were planner estimates, not measured
+long-prompt speed or process RSS. Keep both columns unmeasured. Cache-size
+sweeps in the source use manual settings and are not the automatic result.
+
+This is one community report, not an independent rerun or a comparison made
+under the same conditions as the M5 Pro and M2 measurements. It supports a
+machine-specific row, not a promise for all Macs with that memory capacity.
+
+## C3: MacBook Air M5, 32 GB (community, 2026-09-07)
+Reported by `@arczhi` in [issue #12](https://github.com/carloslfu/slotstream/issues/12),
+preserved in [[sources/community/2026/09/2026-09-07-macbook-air-m5-32gb-arczhi]].
+
+MacBook Air M5 (2026), 32 GB, 1 TB SSD, macOS 26.6.2, reported Slotstream
+0.2.11. The report does not specify whether the model was on internal or
+external storage. It uses a 22 GB plan, with about 75 experts per layer
+planned and a 2048-token prefill chunk.
+
+Three identical requests to one running server returned **6.29, 6.28, and
+6.22 tok/s**. The public hardware row uses **6.22 tok/s**, the third request,
+matching the measurement procedure. The short cold run returned 6.60 tok/s
+and a 15.7 GB process RSS peak; it is not the warm result or long-prompt peak.
+
+The long-prompt command explicitly sets a 22 GB target, vision off, MTP off,
+8192 tokens, and physical-footprint sampling. The reported JSON completed
+without aborting: 8192 prefill tokens in 64.8707 seconds at 126.28197 tok/s,
+process RSS peak 17.75475 GB, and sampled physical-footprint peak 20.58214 GB.
+The full hardware row rounds prefill to **126.28 tok/s** and process RSS to
+**17.75 GB**. RSS and physical footprint are different metrics, not interchangeable
+versions of the same peak. The exact command and output remain in the source.
+
+The reported maximum context and memory plan differ from the default setup;
+these results do not establish the cost of the default or every larger
+conversation. The warm requests' full launch command and system load were
+not supplied. This review verified that `--sample-footprint` exists in the
+published v0.2.11 source, but did not independently rerun the reporter's binary.
+
+This adds a real 32 GB Mac to the hardware reports. It does not turn the
+planner's roughly 9 tok/s estimate into a measurement, or isolate the effects
+of chip, cooling, storage, context, and settings from one another.
+
 ## Decode: where the time goes, and the two knobs that moved it (2026-09-03)
 Decode had no equivalent of the prefill split, so "decode is slow" could not be
 attributed without guessing. `run` now prints one, and it says decode at a small
