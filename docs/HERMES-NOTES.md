@@ -36,16 +36,50 @@ plan. Image admission checks available memory and can refuse the additional
 load when there is not enough headroom.
 The local stream timeout allows a long cold prefill to finish; it remains
 bounded and should be adjusted to measurements on slower hardware.
-The explicit completion allowance leaves room for input history and complete
-tool arguments. Increase it for tasks that need larger tool payloads while
-keeping room for the input history.
+The auxiliary task timeouts are configured separately from the main stream
+watchdog. Otherwise a long summary can time out while an equally long main
+prefill would still be allowed to continue.
+
+## Provider selection
+
+The named `providers.slotstream` entry binds the endpoint, placeholder key,
+API mode, and request overrides together. The launch command selects that
+entry explicitly. A missing or disabled entry produces an initialization
+error in the tested versions. Hermes can still log `provider=custom` for this
+named endpoint; the resolved URL, not that internal label alone, identifies
+the connection.
+
+The older generic `custom` setup could collide with a saved provider also
+named `custom`, including the legacy `custom_providers` list. `CUSTOM_BASE_URL`
+from the shell or the profile's `.env` could also override the old
+`model.base_url`. `OPENAI_BASE_URL` is not the routing override for that generic
+Hermes path. The named setup is tested with all of these stale settings present.
+This does not prevent someone from editing `providers.slotstream` itself or
+deliberately configuring a fallback provider.
+
+## Output budgets
+
+In the tested Hermes versions, CLI initialization does not forward
+`model.max_tokens` to the agent. Our earlier guide put the limit there, and our
+earlier integration gate constructed the agent directly with an explicit limit.
+That bypassed the failing configuration path. Without a limit on the actual
+request, Slotstream used its ordinary completion default and could cut off
+long replies or tool arguments.
+
+The guide now sets the main limit through
+`providers.slotstream.extra_body.max_tokens`, which reaches the wire through
+Hermes's named-provider request overrides. Auxiliary requests need their own
+`extra_body.max_tokens`; they do not inherit this override. These are generation
+ceilings. They do not repair Hermes's separate internal output-reservation
+accounting, so leave compression enabled and room for input history. Larger
+limits still have to fit the server's advertised `max_output_tokens` and
+remaining context.
 
 ## Summaries and titles
 
 Route auxiliary compression and titles to `main` to keep them on Slotstream.
 Hermes omits the usual output-limit argument on custom-provider auxiliary
-calls. The compression-specific `extra_body` gives its summary a separate
-budget while ordinary chat keeps its existing default. Compression can take
+calls. Each task's `extra_body` supplies its own budget. Compression can take
 several minutes on a long history. Compressing a very short conversation may
 increase its size because Hermes adds a structured handoff and retains recent
 messages; test it on a history with a substantial middle to summarize.
@@ -69,7 +103,9 @@ ordinary API and image regression suites remain separate.
 Run the command from a source checkout, with the server already running.
 For tests through the actual Hermes client, including compression and images,
 see [OpenAI agent integration](TESTING.md#openai-agent-integration).
-The [integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
+The [configuration correction](../db/records/measurements/hermes-configuration-hardening-2026-09-08.md)
+records the corrected guide and tests through the actual CLI configuration path.
+The earlier [protocol integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
 records exact client commits, build identities, observed failures, passing
 checks, and the limits of the qualification. These results cover those tested
 versions and paths; they do not establish compatibility with every future client.

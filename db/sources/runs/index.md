@@ -2,11 +2,18 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T22:35:08.967008Z
+updated: 2026-09-09T03:26:54.651397Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-08-hermes-final-config-regression]] — Final Hermes configuration regression and cleanup verification
+- [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]] — OpenAI tool protocol regression for the Hermes configuration correction
+- [[sources/runs/2026/09/2026-09-08-hermes-cli-hardening]] — Hermes reported and latest CLI acceptance
+- [[sources/runs/2026/09/2026-09-08-hermes-live-hardening]] — Hermes real-model output budget, tools and compression acceptance
+- [[sources/runs/2026/09/2026-09-08-hermes-long-output-fixture-discarded]] — Discarded tool-enabled long-output fixture
+- [[sources/runs/2026/09/2026-09-08-hermes-config-reported-version]] — Hermes reported-version configuration regression gate
+- [[sources/runs/2026/09/2026-09-08-hermes-config-latest]] — Hermes latest configuration regression gate
 - [[sources/runs/2026/09/2026-09-06-slotpack-v0211-publication-and-r2-retirement]] — Public v0.2.11 provenance, ordinary installation, installed-model acceptance and verified R2 bucket retirement complete the free Hugging Face migration.
 - [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-full-mac-qualification]] — The native default completes an initially empty Mac installation across a network failure and resume; every original hash verifies, while timing measurements are discarded.
 - [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-mac-network-interruption]] — Preserve the native Mac DNS-failure attempt, resumable verified progress and cross-client network diagnostics; its timing measurements are discarded.

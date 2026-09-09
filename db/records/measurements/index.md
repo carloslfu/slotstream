@@ -2,16 +2,17 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-09T00:30:00.103218Z
+updated: 2026-09-09T03:27:25.009739Z
 ---
 
 # records/measurements
 
+- [[records/measurements/hermes-configuration-hardening-2026-09-08]] — Hermes configuration correction and regression checks
+- [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/c3-macbook-air-m5-32gb-community]] — C3: MacBook Air M5, 32 GB (community, 2026-09-07)
 - [[records/measurements/c2-macbook-pro-m5-max-128gb-community]] — C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)
 - [[records/measurements/lossless-model-download-2026-09-05]] — Historical v0.2.10 lossless package and deployment qualification; the codec remains unchanged and current Hugging Face hosting is recorded separately.
 - [[records/measurements/hugging-face-lossless-download-2026-09-06]] — v0.2.11 publishes the free Hugging Face default; complete public reconstruction, installed acceptance and model-only R2 retirement are verified.
-- [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]] — V1 — the vision tower: 0.898 GB resident, 702 tokens for an 846x859 photograph, and agreement with an independent float32 reference inside the bfloat16 band.
 - [[records/measurements/m1-expert-locality-on-a-real-trace-2026-09-03]] — M1 closed: expert locality on a real trace, and the eviction policy is not the lever (2026-09-03)
 - [[records/measurements/the-pass-peaks-on-a-plateau-not-one-transient-2026-09-03]] — The pass peaks on a plateau, not on one transient (2026-09-03)

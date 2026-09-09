@@ -2,12 +2,13 @@
 type: measurement
 id: 01m1t5edyhtkshayqdcbx6php4
 created: 2026-09-06T01:31:08.113169+00:00
-updated: 2026-09-06T02:54:17.450571+00:00
+updated: 2026-09-09T03:17:50.112692+00:00
 summary: 'Hermes integration: context qualification and OpenAI agent protocol'
 date: 2026-09-05
 doc: measurements
 level: '3'
 machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
+note: The direct-agent output-budget checks did not prove the old guide CLI configuration. See [[records/measurements/hermes-configuration-hardening-2026-09-08]] for the correction; other protocol, memory and vision results retain their recorded scope.
 order: '780'
 runs: '[[sources/runs/2026/09/2026-09-05-hermes-release-published-install]]'
 title: 'Hermes integration: context qualification and OpenAI agent protocol'

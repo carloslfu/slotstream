@@ -603,16 +603,50 @@ plan. Image admission checks available memory and can refuse the additional
 load when there is not enough headroom.
 The local stream timeout allows a long cold prefill to finish; it remains
 bounded and should be adjusted to measurements on slower hardware.
-The explicit completion allowance leaves room for input history and complete
-tool arguments. Increase it for tasks that need larger tool payloads while
-keeping room for the input history.
+The auxiliary task timeouts are configured separately from the main stream
+watchdog. Otherwise a long summary can time out while an equally long main
+prefill would still be allowed to continue.
+
+## Provider selection
+
+The named `providers.slotstream` entry binds the endpoint, placeholder key,
+API mode, and request overrides together. The launch command selects that
+entry explicitly. A missing or disabled entry produces an initialization
+error in the tested versions. Hermes can still log `provider=custom` for this
+named endpoint; the resolved URL, not that internal label alone, identifies
+the connection.
+
+The older generic `custom` setup could collide with a saved provider also
+named `custom`, including the legacy `custom_providers` list. `CUSTOM_BASE_URL`
+from the shell or the profile's `.env` could also override the old
+`model.base_url`. `OPENAI_BASE_URL` is not the routing override for that generic
+Hermes path. The named setup is tested with all of these stale settings present.
+This does not prevent someone from editing `providers.slotstream` itself or
+deliberately configuring a fallback provider.
+
+## Output budgets
+
+In the tested Hermes versions, CLI initialization does not forward
+`model.max_tokens` to the agent. Our earlier guide put the limit there, and our
+earlier integration gate constructed the agent directly with an explicit limit.
+That bypassed the failing configuration path. Without a limit on the actual
+request, Slotstream used its ordinary completion default and could cut off
+long replies or tool arguments.
+
+The guide now sets the main limit through
+`providers.slotstream.extra_body.max_tokens`, which reaches the wire through
+Hermes's named-provider request overrides. Auxiliary requests need their own
+`extra_body.max_tokens`; they do not inherit this override. These are generation
+ceilings. They do not repair Hermes's separate internal output-reservation
+accounting, so leave compression enabled and room for input history. Larger
+limits still have to fit the server's advertised `max_output_tokens` and
+remaining context.
 
 ## Summaries and titles
 
 Route auxiliary compression and titles to `main` to keep them on Slotstream.
 Hermes omits the usual output-limit argument on custom-provider auxiliary
-calls. The compression-specific `extra_body` gives its summary a separate
-budget while ordinary chat keeps its existing default. Compression can take
+calls. Each task's `extra_body` supplies its own budget. Compression can take
 several minutes on a long history. Compressing a very short conversation may
 increase its size because Hermes adds a structured handoff and retains recent
 messages; test it on a history with a substantial middle to summarize.
@@ -636,7 +670,9 @@ ordinary API and image regression suites remain separate.
 Run the command from a source checkout, with the server already running.
 For tests through the actual Hermes client, including compression and images,
 see [OpenAI agent integration](TESTING.md#openai-agent-integration).
-The [integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
+The [configuration correction](../db/records/measurements/hermes-configuration-hardening-2026-09-08.md)
+records the corrected guide and tests through the actual CLI configuration path.
+The earlier [protocol integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
 records exact client commits, build identities, observed failures, passing
 checks, and the limits of the qualification. These results cover those tested
 versions and paths; they do not establish compatibility with every future client.
@@ -1586,27 +1622,38 @@ nano ~/.hermes-slotstream/config.yaml
 ```
 
 Paste this configuration, keeping the indentation. If you've followed this
-guide before, edit the existing configuration instead of adding a second copy.
+guide before, replace its previous configuration block with this one. Preserve
+any unrelated settings you added; do not leave duplicate sections or the old
+`model.base_url` and `model.max_tokens` entries.
 
 ```yaml
 model:
-  provider: custom
-  base_url: http://localhost:11434/v1
+  provider: slotstream
   default: qwen3.8-flash-next:4bit
   context_length: 65536
-  max_tokens: 4096
+providers:
+  slotstream:
+    base_url: http://localhost:11434/v1
+    api_key: unused
+    api_mode: chat_completions
+    extra_body:
+      max_tokens: 4096
 agent:
   reasoning_effort: none
   local_stream_stale_timeout: 1800
 auxiliary:
   compression:
     provider: main
+    timeout: 1800
     extra_body:
       max_tokens: 4096
       temperature: 0.2
       presence_penalty: 0
   title_generation:
     provider: main
+    timeout: 1800
+    extra_body:
+      max_tokens: 64
 compression:
   enabled: true
 ```
@@ -1616,6 +1663,13 @@ editor. You only need to do this setup once.
 
 The configuration sends replies, conversation summaries, and titles to
 Slotstream. Hermes tools that use web services still need their own connections.
+Keep the provider name `slotstream` in both the configuration and launch command.
+It keeps this connection separate from other providers named `custom`.
+
+The three `max_tokens` settings limit replies, summaries, and titles separately.
+They are output ceilings, not required response lengths. You can adjust them
+for your tasks. Keep replies and summaries within the server's output limit;
+see [output budgets](HERMES-NOTES.md#output-budgets).
 
 Reasoning is optional. The `reasoning_effort` setting above uses `none` to skip
 the model's extra thinking before answering. Change it to `medium` to enable
@@ -1635,13 +1689,13 @@ printf 'The garden gate code is MAPLE.\n' > note.txt
 This creates or replaces `note.txt` in the practice folder. Then start Hermes:
 
 ```sh
-HERMES_HOME="$HOME/.hermes-slotstream" OPENAI_API_KEY=unused \
-  hermes chat --provider custom --model qwen3.8-flash-next:4bit
+HERMES_HOME="$HOME/.hermes-slotstream" \
+  hermes chat --provider slotstream --model qwen3.8-flash-next:4bit
 ```
 
-Leave `unused` as written. It is a placeholder; no OpenAI account or key is
-needed. The first reply can take several minutes. Follow progress in the
-Slotstream window.
+Leave `api_key: unused` in the configuration as written. It is a placeholder;
+no OpenAI account or key is needed. The first reply can take several minutes.
+Follow progress in the Slotstream window.
 
 <a id="verify-the-loop"></a>
 
@@ -1676,11 +1730,27 @@ Slotstream window to stop the server.
 |---|---|
 | Command not found | Open a new Terminal window. If it still fails, check the program's installation guide. |
 | Hermes cannot connect | Keep Slotstream running. Copy the address and model name exactly as shown. |
+| An error mentions OpenRouter or asks for a cloud API key | Hermes selected a different connection. Replace the old guide configuration above and use `--provider slotstream`, including `HERMES_HOME`. |
+| A log still labels the provider `custom` | Hermes also uses that internal label for named providers. Check the endpoint address to confirm which connection it selected. |
+| Hermes cannot find provider `slotstream` | Check that the file is named `config.yaml`, the indentation matches, and the launch command selects this folder. See the diagnostic command below. |
 | Another server is running | Stop your existing Slotstream server with Control+C, then restart with this guide's command. For another app, see [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
 | The first reply is slow | Check progress in Slotstream. Long prompts and summaries can take several minutes. |
 | Hermes says “reasoning…” with thinking off | Hermes uses that word in its loading animation even when model thinking is off. |
 | Insufficient memory | Close memory-heavy apps. Run `slotstream doctor --max-context 65536` to check the plan without loading the model. See [memory help](TROUBLESHOOTING.md#the-whole-mac-is-slow). |
-| Replies or summaries stop early | Check the saved configuration, including both `max_tokens` settings. |
+| Replies or summaries stop early | Check all three `extra_body.max_tokens` settings. A `max_tokens` entry directly under `model` does not set Hermes's chat output limit in the tested versions. |
+
+To diagnose a connection, exit Hermes and run:
+
+```sh
+HERMES_HOME="$HOME/.hermes-slotstream" \
+  hermes --profile default chat --cli --verbose \
+  --provider slotstream --model qwen3.8-flash-next:4bit
+```
+
+`--profile default` selects the configuration in this folder even if you
+previously selected another Hermes profile. Send a short greeting. Any reported
+inference endpoint should be `localhost:11434` or `127.0.0.1:11434`. Keep the
+error and the Slotstream window's output when reporting a problem.
 
 For other connection errors, see [connection troubleshooting](CLIENTS.md#troubleshooting).
 Developers can find configuration explanations, image support, and integration
@@ -1816,15 +1886,28 @@ serving code.
 For an installed Hermes source checkout with its own environment:
 
 ```sh
+/path/to/hermes/.venv/bin/python Tools/hermes_config_gate.py \
+  /path/to/hermes /tmp/hermes-config-check
 /path/to/hermes/.venv/bin/python Tools/hermes_integration_gate.py \
-  /path/to/hermes /tmp/hermes-slotstream-check --compress
+  /path/to/hermes /tmp/hermes-slotstream-check --compress --long-output --contaminated
 ```
 
-This requires the larger context in the Hermes guide. It creates an isolated
+Both gates read the configuration from the guide and use Hermes's CLI agent
+initialization. The configuration gate uses synthetic HTTP responses with real
+network access disabled. It checks output limits, optional reasoning, stale
+custom-provider settings, an explicit profile override, missing/disabled providers, unavailable endpoints,
+title fallback, auxiliary timeouts, and preservation after failed summaries.
+Run it separately against each supported Hermes checkout.
+
+The integration gate uses a real model and requires the larger context in the
+Hermes guide. It creates an isolated
 Hermes home, denies non-loopback Python network connections, permits only the
 fixture's `cat` command through the actual Hermes tool dispatcher, and checks
-the real agent, title fallback, compaction, and recall. `--cli` checks the
-actual CLI instead. Raw HTTP and result records stay in the output directory.
+the real agent, title fallback, compaction, and recall. `--long-output` also
+requires a complete reply beyond the ordinary server default, with tools disabled
+for that probe. `--contaminated` adds stale generic-provider settings.
+`--cli` checks the actual CLI entry point instead of the multi-turn scenario;
+run it separately. Raw HTTP and result records stay in the output directory.
 Add `--image Tools/assets/vision_test/secret1.jpg` to check Hermes's own vision
 discovery and an actual image turn. The server must have enough memory for both
 the configured context and the vision tower. The OpenAI gate's `--vision` option

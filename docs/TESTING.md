@@ -125,15 +125,28 @@ serving code.
 For an installed Hermes source checkout with its own environment:
 
 ```sh
+/path/to/hermes/.venv/bin/python Tools/hermes_config_gate.py \
+  /path/to/hermes /tmp/hermes-config-check
 /path/to/hermes/.venv/bin/python Tools/hermes_integration_gate.py \
-  /path/to/hermes /tmp/hermes-slotstream-check --compress
+  /path/to/hermes /tmp/hermes-slotstream-check --compress --long-output --contaminated
 ```
 
-This requires the larger context in the Hermes guide. It creates an isolated
+Both gates read the configuration from the guide and use Hermes's CLI agent
+initialization. The configuration gate uses synthetic HTTP responses with real
+network access disabled. It checks output limits, optional reasoning, stale
+custom-provider settings, an explicit profile override, missing/disabled providers, unavailable endpoints,
+title fallback, auxiliary timeouts, and preservation after failed summaries.
+Run it separately against each supported Hermes checkout.
+
+The integration gate uses a real model and requires the larger context in the
+Hermes guide. It creates an isolated
 Hermes home, denies non-loopback Python network connections, permits only the
 fixture's `cat` command through the actual Hermes tool dispatcher, and checks
-the real agent, title fallback, compaction, and recall. `--cli` checks the
-actual CLI instead. Raw HTTP and result records stay in the output directory.
+the real agent, title fallback, compaction, and recall. `--long-output` also
+requires a complete reply beyond the ordinary server default, with tools disabled
+for that probe. `--contaminated` adds stale generic-provider settings.
+`--cli` checks the actual CLI entry point instead of the multi-turn scenario;
+run it separately. Raw HTTP and result records stay in the output directory.
 Add `--image Tools/assets/vision_test/secret1.jpg` to check Hermes's own vision
 discovery and an actual image turn. The server must have enough memory for both
 the configured context and the vision tower. The OpenAI gate's `--vision` option

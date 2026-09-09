@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-09T01:48:49.897807Z
+updated: 2026-09-09T03:17:50.291977Z
 ---
 
 # records/claims
 
+- [[records/claims/hermes-auxiliary-timeout]] — Hermes guide sets explicit auxiliary timeouts
+- [[records/claims/hermes-title-output-budget]] — Hermes guide bounds local title output
+- [[records/claims/hermes-explicit-output-budget]] — Hermes guide sends a 4096-token output ceiling
 - [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware reports cover the M5 Pro, M2 mini, M5 Max, and M5 Air; planner estimates remain separate.
 - [[records/claims/warm-decode-m5-max-128gb-community]] — M5 Max community report: 21 to 22 tok/s
 - [[records/claims/warm-decode-m5-air-32gb-community]] — M5 Air community report: 6.22 tok/s
@@ -48,7 +51,6 @@ updated: 2026-09-09T01:48:49.897807Z
 - [[records/claims/openai-tool-sampling-defaults]] — OpenAI tool requests reuse the native agent sampler
 - [[records/claims/openai-inference-error-status]] — Non-streamed OpenAI inference failures return HTTP 500
 - [[records/claims/hermes-local-stream-watchdog]] — Hermes example sets a bounded local stream watchdog
-- [[records/claims/hermes-explicit-output-budget]] — Hermes example reserves a 4096-token output allowance
 - [[records/claims/request-body-cap-32-mib]] — A request body over 32 MiB is refused with 413
 - [[records/claims/expert-cache-0-133-gb-per-expert-per-layer]] — Each expert per layer costs 0.133 GB of cache
 - [[records/claims/io-queue-depth-flat-from-12-to-32]] — Expert read parallelism measured flat from queue depth 12 to 32 and worse above

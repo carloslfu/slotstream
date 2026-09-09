@@ -41,27 +41,38 @@ nano ~/.hermes-slotstream/config.yaml
 ```
 
 Paste this configuration, keeping the indentation. If you've followed this
-guide before, edit the existing configuration instead of adding a second copy.
+guide before, replace its previous configuration block with this one. Preserve
+any unrelated settings you added; do not leave duplicate sections or the old
+`model.base_url` and `model.max_tokens` entries.
 
 ```yaml
 model:
-  provider: custom
-  base_url: http://localhost:11434/v1
+  provider: slotstream
   default: qwen3.8-flash-next:4bit
   context_length: 65536
-  max_tokens: 4096
+providers:
+  slotstream:
+    base_url: http://localhost:11434/v1
+    api_key: unused
+    api_mode: chat_completions
+    extra_body:
+      max_tokens: 4096
 agent:
   reasoning_effort: none
   local_stream_stale_timeout: 1800
 auxiliary:
   compression:
     provider: main
+    timeout: 1800
     extra_body:
       max_tokens: 4096
       temperature: 0.2
       presence_penalty: 0
   title_generation:
     provider: main
+    timeout: 1800
+    extra_body:
+      max_tokens: 64
 compression:
   enabled: true
 ```
@@ -71,6 +82,13 @@ editor. You only need to do this setup once.
 
 The configuration sends replies, conversation summaries, and titles to
 Slotstream. Hermes tools that use web services still need their own connections.
+Keep the provider name `slotstream` in both the configuration and launch command.
+It keeps this connection separate from other providers named `custom`.
+
+The three `max_tokens` settings limit replies, summaries, and titles separately.
+They are output ceilings, not required response lengths. You can adjust them
+for your tasks. Keep replies and summaries within the server's output limit;
+see [output budgets](HERMES-NOTES.md#output-budgets).
 
 Reasoning is optional. The `reasoning_effort` setting above uses `none` to skip
 the model's extra thinking before answering. Change it to `medium` to enable
@@ -90,13 +108,13 @@ printf 'The garden gate code is MAPLE.\n' > note.txt
 This creates or replaces `note.txt` in the practice folder. Then start Hermes:
 
 ```sh
-HERMES_HOME="$HOME/.hermes-slotstream" OPENAI_API_KEY=unused \
-  hermes chat --provider custom --model qwen3.8-flash-next:4bit
+HERMES_HOME="$HOME/.hermes-slotstream" \
+  hermes chat --provider slotstream --model qwen3.8-flash-next:4bit
 ```
 
-Leave `unused` as written. It is a placeholder; no OpenAI account or key is
-needed. The first reply can take several minutes. Follow progress in the
-Slotstream window.
+Leave `api_key: unused` in the configuration as written. It is a placeholder;
+no OpenAI account or key is needed. The first reply can take several minutes.
+Follow progress in the Slotstream window.
 
 <a id="verify-the-loop"></a>
 
@@ -131,11 +149,27 @@ Slotstream window to stop the server.
 |---|---|
 | Command not found | Open a new Terminal window. If it still fails, check the program's installation guide. |
 | Hermes cannot connect | Keep Slotstream running. Copy the address and model name exactly as shown. |
+| An error mentions OpenRouter or asks for a cloud API key | Hermes selected a different connection. Replace the old guide configuration above and use `--provider slotstream`, including `HERMES_HOME`. |
+| A log still labels the provider `custom` | Hermes also uses that internal label for named providers. Check the endpoint address to confirm which connection it selected. |
+| Hermes cannot find provider `slotstream` | Check that the file is named `config.yaml`, the indentation matches, and the launch command selects this folder. See the diagnostic command below. |
 | Another server is running | Stop your existing Slotstream server with Control+C, then restart with this guide's command. For another app, see [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
 | The first reply is slow | Check progress in Slotstream. Long prompts and summaries can take several minutes. |
 | Hermes says “reasoning…” with thinking off | Hermes uses that word in its loading animation even when model thinking is off. |
 | Insufficient memory | Close memory-heavy apps. Run `slotstream doctor --max-context 65536` to check the plan without loading the model. See [memory help](TROUBLESHOOTING.md#the-whole-mac-is-slow). |
-| Replies or summaries stop early | Check the saved configuration, including both `max_tokens` settings. |
+| Replies or summaries stop early | Check all three `extra_body.max_tokens` settings. A `max_tokens` entry directly under `model` does not set Hermes's chat output limit in the tested versions. |
+
+To diagnose a connection, exit Hermes and run:
+
+```sh
+HERMES_HOME="$HOME/.hermes-slotstream" \
+  hermes --profile default chat --cli --verbose \
+  --provider slotstream --model qwen3.8-flash-next:4bit
+```
+
+`--profile default` selects the configuration in this folder even if you
+previously selected another Hermes profile. Send a short greeting. Any reported
+inference endpoint should be `localhost:11434` or `127.0.0.1:11434`. Keep the
+error and the Slotstream window's output when reporting a problem.
 
 For other connection errors, see [connection troubleshooting](CLIENTS.md#troubleshooting).
 Developers can find configuration explanations, image support, and integration
