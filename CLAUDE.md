@@ -63,6 +63,15 @@ that landed without the regenerate on 2026-09-03 is why it exists.
 
 ## Claims and measurement discipline (mistakes made 2026-08-29/30)
 
+**Operating defaults and limits.** Follow the canonical
+[measured operating policies](db/records/design/measured-operating-policies.md).
+For each important tuning value, document its purpose, units, kind of limit,
+evidence and tested scope, tradeoff, override behavior, and revision criterion
+beside the code and in the linked brain record. Keep justified defaults when
+new hardware cannot be measured; unused capacity alone is not a defect.
+An estimator's clamp is not evidence of a physical performance plateau.
+Update code/help, gates, claims and user docs together when the policy changes.
+
 Every rule here is one this project already got wrong. They share a root:
 **asserting from a document instead of checking the system.**
 

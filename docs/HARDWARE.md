@@ -105,6 +105,11 @@ slower than its estimate. Use the measured results when available.
 | 32 GB | 22 GB | ~9 tok/s |
 | 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
 
+The repeated target on larger Macs is the intentional default for this model,
+based on the best measured tradeoff supported so far. These simulated rows do
+not establish that larger allocations cannot help another Mac. See
+[memory defaults and overrides](../README.md#why-doesnt-slotstream-use-all-of-my-ram).
+
 ## How to measure
 
 To share your Mac's results, follow the [measurement steps](TESTING.md#measure-your-mac),

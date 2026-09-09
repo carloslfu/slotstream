@@ -18,11 +18,11 @@ $BIN doctor --mtp off --sim-ram 17.2 --sim-working-set 11.8 --sim-available 6 > 
 check "16GB busy: floor 8.1 GB + heavy-paging warning" "grep -q 'target: 8.1' $T/b16 && grep -q 'heavy paging' $T/b16"
 $BIN doctor --mtp off --sim-ram 8.6 --sim-working-set 5.8 --sim-available 4.5 > "$T/m8" 2>&1
 check "8GB Mac: floor 8.1 GB + too-small warning"      "grep -q 'target: 8.1' $T/m8 && grep -q 'below the comfortable minimum' $T/m8"
-# A big machine stops at the knee, says why, and can still be sent past it.
-# Before this, a 128 GB Mac targeted 89.6 GB for the speed 33 GB reaches.
+# A big machine retains the chosen policy ceiling, explains its evidence,
+# and permits explicit overrides. These are policy checks, not speed tests.
 $BIN doctor --mtp off --sim-ram 137.4 > "$T/p128" 2>&1
 check "128GB auto stops at the knee, not at 70% of RAM" "grep -q 'target: 33.0' $T/p128"
-check "128GB explains the memory it left on the table"  "grep -q 'decode stops improving' $T/p128"
+check "128GB explains the measured basis for its default" "grep -q 'default memory ceiling is 33.0 GB' $T/p128 && grep -q 'other hardware may benefit' $T/p128"
 $BIN doctor --mtp off --sim-ram 137.4 --memory-gb 88 > "$T/f128" 2>&1
 check "128GB: --memory-gb still reaches full residency" "grep -q 'all 512 experts per layer resident' $T/f128"
 # doctor says "availability is not a constraint" with +infinity; a

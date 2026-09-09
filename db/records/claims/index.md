@@ -2,13 +2,13 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-09T22:43:30.886181Z
+updated: 2026-09-09T22:59:04.556748Z
 ---
 
 # records/claims
 
-- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling becomes 34.6 GB with the draft head on
 - [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
+- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling becomes 34.6 GB with the draft head on
 - [[records/claims/hermes-auxiliary-timeout]] — Hermes guide sets explicit auxiliary timeouts
 - [[records/claims/hermes-title-output-budget]] — Hermes guide bounds local title output
 - [[records/claims/hermes-explicit-output-budget]] — Hermes guide sends a 4096-token output ceiling

@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-09T16:35:11.978463Z
+updated: 2026-09-09T22:59:04.540193Z
 ---
 
 # records/measurements
 
+- [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
+- [[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]] — Automatic memory default: evidence scope and retained policy (2026-09-09)
 - [[records/measurements/hermes-configuration-hardening-2026-09-08]] — Hermes configuration correction and regression checks
 - [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/c3-macbook-air-m5-32gb-community]] — C3: MacBook Air M5, 32 GB (community, 2026-09-07)
@@ -50,7 +52,6 @@ updated: 2026-09-09T16:35:11.978463Z
 - [[records/measurements/m9-mtp-self-speculative-decode-conversion-parity-accept-curve-and-where]] — M9 — MTP self-speculative decode: conversion, parity, accept curve, and where it pays (2026-09-01)
 - [[records/measurements/resolution-bound-expert-load-staging-2026-08-31]] — Resolution: bound expert-load staging (2026-08-31)
 - [[records/measurements/the-memory-gb-promise-did-not-hold-on-real-prompts-2026-08-31-resolved]] — The --memory-gb promise did not hold on real prompts (2026-08-31; resolved below)
-- [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
 - [[records/measurements/one-more-toolchain-constraint-found-the-hard-way]] — One more toolchain constraint (found the hard way)
 - [[records/measurements/summary-what-m0-settled]] — Summary — what M0 settled
 - [[records/measurements/reference-implementation]] — Reference implementation

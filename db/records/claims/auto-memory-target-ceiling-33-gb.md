@@ -3,12 +3,12 @@ type: claim
 meta-type: conclusion
 id: 01m245ecdk71ab1kfpd9kw9zg5
 created: 2026-09-09T22:43:30.867975+00:00
-updated: 2026-09-09T22:43:30.867975+00:00
+updated: 2026-09-09T22:59:04.556748+00:00
 summary: Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
 basis: derived
 gate: Tools/planner_gates.sh
 needle: 33 GB
-supported_by: '[[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]]'
+supported_by: '[[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]]'
 surfaces: README.md, docs/ENGINEERING.md, docs/CLI.md
 title: Automatic memory target ceiling is 33 GB
 status: current

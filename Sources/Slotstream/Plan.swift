@@ -154,7 +154,7 @@ public struct MemoryPlan {
         }
         if let t = targetGB {
             let hint = source == .auto
-                ? "   (override: --memory-gb N | --max-ram-percent P)"
+                ? "   (explicit target: --memory-gb N; auto RAM share: --max-ram-percent P)"
                 : ""
             l.append(String(format: "  target: %.1f GB total for this process%@", t, hint))
         }
@@ -332,10 +332,10 @@ public enum Planner {
     /// | 4096 | 47/layer | 42.9 s | 9.0 s | 14.4 GB |
     ///
     /// 2048 dominates 1024 on every axis, so a fifth was simply too tight; 4096
-    /// buys a little more prefill and gives back more decode, so it should only
-    /// be reached on a machine whose pool is already past the decode plateau —
-    /// which is exactly what a proportional cap does, since there pool memory
-    /// is worth nothing and pass memory is worth a lot.
+    /// buys a little more prefill and gives back more decode. The current cost
+    /// model therefore favors the larger pass once its decode estimate flattens.
+    /// This is a measured tradeoff on the tested setup plus a bounded estimate,
+    /// not evidence that additional cache has no value on every machine.
     /// A request this plan is tuned for: prompt tokens, then generated tokens.
     /// Only ever used to choose the prefill pass size — never correctness.
     static let tuningPromptTokens = 2000.0
@@ -353,9 +353,10 @@ public enum Planner {
     /// Giving more memory made it slower.
     ///
     /// Scoring `prompt/prefill + reply/decode` prices both sides in the one
-    /// unit that matters, seconds, and picks the trade the machine can afford:
-    /// past the decode plateau a big pass is nearly free and wins, and below it
-    /// the pass only grows when the prefill it buys beats the decode it costs.
+    /// unit that matters, seconds, and picks the estimated trade the budget can
+    /// afford. Above the last decode anchor the estimate credits no further
+    /// cache gain; below it, a pass grows when its estimated prefill saving
+    /// outweighs its decode cost. These are model scores, not new benchmarks.
     /// Swept a GB at a time from 7 to 90 GB, the estimate never gets worse as
     /// the target grows.
     public static func prefillChunkFor(poolBudgetGB: Double) -> Int {
@@ -507,33 +508,32 @@ public enum Planner {
     }
 
     /// The share of RAM auto may target before other limits apply. Overridable
-    /// per run with --max-ram-percent; it binds on small machines, where the
-    /// cache is starved and every GB still buys speed.
+    /// per run with --max-ram-percent. It bounds the user's RAM share separately
+    /// from the model-specific operating default and the physical constraints.
     public static let defaultRAMPercent = 70.0
 
-    /// Auto will not target more than this, however large the machine.
+    /// Base automatic total-process ceiling in decimal GB, before an enabled
+    /// draft head's separately charged cost. This is an operating default for
+    /// the implemented model, not a hardware or correctness limit.
     ///
-    /// This is the knee of the whole plan, not a politeness limit: 33 GB is the
-    /// smallest target at which **both** numbers reach the best the
-    /// measurements support — the expert cache clears the decode plateau
-    /// (11.2 tok/s at 120 experts/layer, 11.6 at 150, flat after) *and* the
-    /// budget still affords the 4096-token prefill pass (125 tok/s against 113
-    /// at 2048). Swept a GB at a time, nothing between 34 and 84 GB improves
-    /// either number.
+    /// The clean M5 Pro cache ladder showed diminishing returns (11.2 tok/s at
+    /// 120 experts/layer, 11.6 at 150). This target also affords the selected
+    /// prefill workspace. It is our best-supported memory/speed tradeoff so far.
+    /// The historical 34-to-84-GB sweep read planner estimates already held flat
+    /// beyond their verified anchors; it did not benchmark those allocations.
     ///
-    /// So the old 70%-of-RAM policy was right for a 48 GB Mac by luck — it
-    /// landed near this knee — and wrong everywhere above: a 128 GB Mac
-    /// targeted 89.6 GB to run at exactly the same estimated speed.
-    ///
-    /// Not a hard limit: --memory-gb N goes past it deliberately, which is how
-    /// a large machine explores full residency (all 512/layer needs about
-    /// 84 GB and has never been measured). The one unreproduced hint of a
-    /// further decode step, 20 tok/s at 181/layer, is why that door stays open.
+    /// Keep this default until comparable real runs justify a better tradeoff.
+    /// More RAM alone neither proves a gain nor requires a live autotuner.
+    /// Explicit --memory-gb / --pool-gb / --experts-per-layer bypass this policy
+    /// ceiling and pin the cache; they do not change physical feasibility.
+    /// Evidence and revision contract:
+    /// db/records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram.md
+    /// db/records/design/measured-operating-policies.md
     public static let usefulCeilingGB = 33.0
 
-    /// Auto policy: never target more than the cache can use, leave a share of
-    /// RAM to the OS and the user's other apps, and stay 2 GB under the Metal
-    /// recommended working set — whichever binds first.
+    /// Combine the operating default, the user's RAM-share bound and a Metal
+    /// working-set margin. The caller separately clamps to live availability.
+    /// The policy ceiling expresses current evidence, not maximum useful RAM.
     public static func autoTargetGB(
         ramGB: Double, workingSetGB: Double, ramPercent: Double = defaultRAMPercent,
         ceilingGB: Double = usefulCeilingGB
@@ -568,9 +568,10 @@ public enum Planner {
     /// them** rather than extrapolating to an unconfirmed number. It
     /// under-promises above 150/layer on purpose: a plan that quotes a speed
     /// the machine does not reach is worse than one that quotes less.
-    /// Where the measured decode curve stops improving: 11.2 tok/s at 120
-    /// experts/layer, 11.6 at 150, flat after. Both the estimate and the
-    /// prefill-pass sizing key off this one number.
+    /// Upper verified cache anchor, retained under its public compatibility
+    /// name. The estimator holds flat after this point to avoid extrapolation;
+    /// that does not prove that actual throughput is flat above it. Both the
+    /// estimate and prefill-pass sizing use this bound. See the operating policy.
     public static let decodePlateauPerLayer = 150.0
 
     public static func estWarmTokS(expertsPerLayer e: Double) -> Double {
@@ -610,8 +611,8 @@ public enum Planner {
     public static let visionLoadMarginGB = 1.0
     /// Auto enables the draft head only when the cache still affords this
     /// many experts per layer AFTER paying for it (M9 design note: below
-    /// ~120/layer the displaced experts are worth more than the multiplier;
-    /// past the ~150/layer plateau they are worth nothing).
+    /// ~120/layer the tested gain did not repay the displaced cache; near the
+    /// upper measured cache range the draft head was a useful alternative).
     public static let mtpAutoFloorPerLayer = 120.0
 
     /// Pool budget before the prefill pass takes its share.
@@ -806,9 +807,9 @@ public enum Planner {
         }
 
         // auto: the default. The draft head is worth its 1.6 GB only when the
-        // cache still reaches ~120+ experts/layer after paying for it, and
-        // past the decode knee that RAM buys nothing else — so when the head
-        // is on, the ceiling rises by exactly its cost.
+        // cache still reaches ~120+ experts/layer after paying for it in the
+        // measured setup. Preserve that cache budget when the head is enabled
+        // by raising the policy ceiling by its separately charged cost.
         let mtpWanted = mtp != .off && mtpAvailable
         func autoRaw(ceilingGB: Double) -> (Double, Bool) {
             let c = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: ceilingGB)
@@ -861,8 +862,8 @@ public enum Planner {
             // This machine could hold more and auto declined. Say so, or it
             // reads as slotstream failing to use the hardware.
             notes.append(String(
-                format: "this machine could hold more, but decode stops improving around here (measured 11.2 tok/s at 120 experts/layer, 11.6 at 150) — auto caps at %.1f GB rather than spend RAM for nothing; --memory-gb N to go further",
-                usefulCeilingGB))
+                format: "auto's default memory ceiling is %.1f GB for this model, based on diminishing returns in development-Mac tests; other hardware may benefit from more. We revise defaults using real measurements; --memory-gb N selects a larger fixed target",
+                kneeGB))
         }
         let slots = slotsForTarget(target - (mtpOn ? mtpResidentGB : 0) - contextCharge)
         return finish(.auto, slots, target: target, mtpOn: mtpOn)

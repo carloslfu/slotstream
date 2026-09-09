@@ -127,6 +127,14 @@ which beats `--memory-gb`. An explicit size stays fixed and
 bypasses automatic availability checks. Preview it with `doctor` and make
 sure the memory is available before loading the model.
 
+The automatic ceiling is an intentional default for this model, based on the
+best speed/memory tradeoff supported by development-Mac measurements so far.
+It is separate from the RAM-share and physical-memory bounds. Defaults can
+change as comparable real measurements justify better choices; extra RAM
+alone is not evidence that the current choice is wrong. See
+[why auto retains a ceiling](ENGINEERING.md#memory) and the
+[operating-policy contract](../db/records/design/measured-operating-policies.md).
+
 ## Environment variables
 
 | Variable | Read by | Meaning |

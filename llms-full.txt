@@ -491,6 +491,11 @@ batch schedule without loading the model.
 
 ## Memory
 
+Memory defaults follow the [measured operating policies](../db/records/design/measured-operating-policies.md).
+That contract distinguishes model facts, safety and qualification limits,
+operating defaults, and bounded estimates. Tuning choices carry evidence,
+scope and revision criteria; maintaining those choices is part of the engine.
+
 By default, slotstream chooses a memory target for your Mac and prints it at
 startup. It takes the lowest of 33 GB, 70% of RAM, and 2 GB below the Metal
 working-set limit, then reduces that target if other apps are using memory.
@@ -504,7 +509,7 @@ real measurements show a better tradeoff. The historical larger-target sweep
 inspected planner estimates, which hold flat beyond the verified cache sizes;
 it was not a benchmark of those larger allocations. See the
 [cache measurements](../db/records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08.md)
-and [sizing analysis](../db/records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31.md).
+and [sizing interpretation](../db/records/measurements/automatic-memory-default-evidence-scope-2026-09-09.md).
 
 The chip and SSD still matter. The plan uses decimal GB, so a Mac sold as
 48 GB appears as about 52 GB in its device line.
@@ -978,6 +983,14 @@ Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
 which beats `--memory-gb`. An explicit size stays fixed and
 bypasses automatic availability checks. Preview it with `doctor` and make
 sure the memory is available before loading the model.
+
+The automatic ceiling is an intentional default for this model, based on the
+best speed/memory tradeoff supported by development-Mac measurements so far.
+It is separate from the RAM-share and physical-memory bounds. Defaults can
+change as comparable real measurements justify better choices; extra RAM
+alone is not evidence that the current choice is wrong. See
+[why auto retains a ceiling](ENGINEERING.md#memory) and the
+[operating-policy contract](../db/records/design/measured-operating-policies.md).
 
 ## Environment variables
 
@@ -2572,6 +2585,11 @@ slower than its estimate. Use the measured results when available.
 | 24 GB | 16 GB | ~8 tok/s |
 | 32 GB | 22 GB | ~9 tok/s |
 | 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
+
+The repeated target on larger Macs is the intentional default for this model,
+based on the best measured tradeoff supported so far. These simulated rows do
+not establish that larger allocations cannot help another Mac. See
+[memory defaults and overrides](../README.md#why-doesnt-slotstream-use-all-of-my-ram).
 
 ## How to measure
 

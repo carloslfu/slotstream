@@ -111,6 +111,11 @@ batch schedule without loading the model.
 
 ## Memory
 
+Memory defaults follow the [measured operating policies](../db/records/design/measured-operating-policies.md).
+That contract distinguishes model facts, safety and qualification limits,
+operating defaults, and bounded estimates. Tuning choices carry evidence,
+scope and revision criteria; maintaining those choices is part of the engine.
+
 By default, slotstream chooses a memory target for your Mac and prints it at
 startup. It takes the lowest of 33 GB, 70% of RAM, and 2 GB below the Metal
 working-set limit, then reduces that target if other apps are using memory.
@@ -124,7 +129,7 @@ real measurements show a better tradeoff. The historical larger-target sweep
 inspected planner estimates, which hold flat beyond the verified cache sizes;
 it was not a benchmark of those larger allocations. See the
 [cache measurements](../db/records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08.md)
-and [sizing analysis](../db/records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31.md).
+and [sizing interpretation](../db/records/measurements/automatic-memory-default-evidence-scope-2026-09-09.md).
 
 The chip and SSD still matter. The plan uses decimal GB, so a Mac sold as
 48 GB appears as about 52 GB in its device line.
