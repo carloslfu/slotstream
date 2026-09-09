@@ -2868,6 +2868,11 @@ The first long-output fixture left tools enabled and triggered calculator calls.
 
 A final source and pure-function check on both Hermes versions confirmed that an explicit HTTP proxy is selected for the local endpoint unless its hostname is excluded. Setting both NO_PROXY and no_proxy to include localhost and 127.0.0.1 selects a direct connection for both spellings. The guide now documents preserving existing exclusions and checking the profile .env, which can override the shell. This is an additional environment condition; it does not explain a log whose resolved endpoint already names OpenRouter. No proxy server or inference request was used in this check. Raw result: [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]].
 
+#### Automatic MTP guide correction
+The Hermes server command now leaves MTP on Slotstream’s normal automatic default. The public CLI already selected automatic MTP; the guide unnecessarily forced it off. The model-provider YAML and Hermes launch command are unchanged. The integration gate now captures the running server’s memory plan, checks the configured context, and accepts --expect-mtp on/off to require the selected state before any inference request.
+
+Planning-only inspection and synthetic metadata rejection checks passed; the evidence is [[sources/runs/2026/09/2026-09-09-hermes-automatic-mtp-preflight]]. No live Hermes inference was performed for this change because another benchmark held the model-process reservation. The earlier live Hermes runs remain explicitly MTP-off evidence. Automatic MTP integration, including the enabled path, is pending and must not be claimed from this planner output.
+
 ### Hermes integration: context qualification and OpenAI agent protocol
 The integration failure in [issue #11](https://github.com/carloslfu/slotstream/issues/11) has two independent causes: the released OpenAI endpoint rejects agent tool semantics before inference, and Hermes requires a context larger than the served default. The issue does not include the reporter's trace, versions, or configuration; these are independently reproduced failures, not a claim to have identified their exact first request.
 

@@ -19,16 +19,17 @@ Both programs run on the same Mac, in separate Terminal windows.
 In Terminal, run:
 
 ```sh
-slotstream serve --max-context 65536 --mtp off
+slotstream serve --max-context 65536
 ```
 
 If the model hasn't been downloaded, Slotstream asks to download it first.
 Wait until you see `slotstream listening on http://127.0.0.1:11434`.
 **Leave this window open and the server running.**
 
-These settings give Hermes room for its instructions, tools, and conversation
-history. They use more memory than ordinary chat. If startup fails, see
-[Troubleshooting](#troubleshooting) below.
+The larger context gives Hermes room for its instructions, tools, and conversation
+history. Slotstream chooses its memory plan and whether to use speculative
+decoding automatically. This context uses more memory than ordinary chat.
+If startup fails, see [Troubleshooting](#troubleshooting) below.
 
 ## Configure Hermes
 

@@ -14,8 +14,10 @@ constrained JSON generation. See the [API reference](API.md).
 
 ## Context and memory
 
-The startup command in the [setup guide](HERMES.md#start-slotstream) matches the
-qualified setup with speculative decoding disabled.
+The startup command in the [setup guide](HERMES.md#start-slotstream) leaves
+memory planning and speculative decoding on their automatic defaults.
+Slotstream decides whether to enable the MTP draft head from its availability
+and the planned expert cache. Hermes does not require an MTP override.
 Hermes requires a larger context than Slotstream's ordinary default. The
 explicit flag selects the qualified window and charges its extra active state
 and a measured transient reserve before allocating the expert cache. The
@@ -112,6 +114,10 @@ For tests through the actual Hermes client, including compression and images,
 see [OpenAI agent integration](TESTING.md#openai-agent-integration).
 The [configuration correction](../db/records/measurements/hermes-configuration-hardening-2026-09-08.md)
 records the corrected guide and tests through the actual CLI configuration path.
+Those live Hermes runs explicitly disabled MTP. The guide now follows
+Slotstream's automatic default, but a live Hermes run with automatic MTP is
+still pending. The gate records the selected server plan so that later runs
+can distinguish enabled and disabled MTP coverage.
 The earlier [protocol integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
 records exact client commits, build identities, observed failures, passing
 checks, and the limits of the qualification. These results cover those tested

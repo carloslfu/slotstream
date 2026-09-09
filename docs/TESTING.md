@@ -139,7 +139,12 @@ title fallback, auxiliary timeouts, and preservation after failed summaries.
 Run it separately against each supported Hermes checkout.
 
 The integration gate uses a real model and requires the larger context in the
-Hermes guide. It creates an isolated
+Hermes guide. To check the guide's automatic planning, start the server with
+`slotstream serve --max-context 65536`, following the repository's model-process
+and memory-safety rules. The gate records the running server's memory plan and
+checks its context. Add `--expect-mtp on` or `--expect-mtp off` to require the
+selected state when qualifying that path; a planning-only `doctor` result does
+not prove which path an integration run exercised. It creates an isolated
 Hermes home, denies non-loopback Python network connections, permits only the
 fixture's `cat` command through the actual Hermes tool dispatcher, and checks
 the real agent, title fallback, compaction, and recall. `--long-output` also

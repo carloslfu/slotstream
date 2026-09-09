@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-09T03:32:01.081125Z
+updated: 2026-09-09T16:34:54.497131Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-09-hermes-automatic-mtp-preflight]] — Hermes automatic MTP guide and preflight verification
 - [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]] — Hermes local endpoint proxy exclusions
 - [[sources/runs/2026/09/2026-09-08-hermes-final-config-regression]] — Final Hermes configuration regression and cleanup verification
 - [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]] — OpenAI tool protocol regression for the Hermes configuration correction

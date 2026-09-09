@@ -584,8 +584,10 @@ constrained JSON generation. See the [API reference](API.md).
 
 ## Context and memory
 
-The startup command in the [setup guide](HERMES.md#start-slotstream) matches the
-qualified setup with speculative decoding disabled.
+The startup command in the [setup guide](HERMES.md#start-slotstream) leaves
+memory planning and speculative decoding on their automatic defaults.
+Slotstream decides whether to enable the MTP draft head from its availability
+and the planned expert cache. Hermes does not require an MTP override.
 Hermes requires a larger context than Slotstream's ordinary default. The
 explicit flag selects the qualified window and charges its extra active state
 and a measured transient reserve before allocating the expert cache. The
@@ -682,6 +684,10 @@ For tests through the actual Hermes client, including compression and images,
 see [OpenAI agent integration](TESTING.md#openai-agent-integration).
 The [configuration correction](../db/records/measurements/hermes-configuration-hardening-2026-09-08.md)
 records the corrected guide and tests through the actual CLI configuration path.
+Those live Hermes runs explicitly disabled MTP. The guide now follows
+Slotstream's automatic default, but a live Hermes run with automatic MTP is
+still pending. The gate records the selected server plan so that later runs
+can distinguish enabled and disabled MTP coverage.
 The earlier [protocol integration measurement](../db/records/measurements/hermes-context-and-openai-integration-2026-09-05.md)
 records exact client commits, build identities, observed failures, passing
 checks, and the limits of the qualification. These results cover those tested
@@ -1610,16 +1616,17 @@ Both programs run on the same Mac, in separate Terminal windows.
 In Terminal, run:
 
 ```sh
-slotstream serve --max-context 65536 --mtp off
+slotstream serve --max-context 65536
 ```
 
 If the model hasn't been downloaded, Slotstream asks to download it first.
 Wait until you see `slotstream listening on http://127.0.0.1:11434`.
 **Leave this window open and the server running.**
 
-These settings give Hermes room for its instructions, tools, and conversation
-history. They use more memory than ordinary chat. If startup fails, see
-[Troubleshooting](#troubleshooting) below.
+The larger context gives Hermes room for its instructions, tools, and conversation
+history. Slotstream chooses its memory plan and whether to use speculative
+decoding automatically. This context uses more memory than ordinary chat.
+If startup fails, see [Troubleshooting](#troubleshooting) below.
 
 ## Configure Hermes
 
@@ -1911,7 +1918,12 @@ title fallback, auxiliary timeouts, and preservation after failed summaries.
 Run it separately against each supported Hermes checkout.
 
 The integration gate uses a real model and requires the larger context in the
-Hermes guide. It creates an isolated
+Hermes guide. To check the guide's automatic planning, start the server with
+`slotstream serve --max-context 65536`, following the repository's model-process
+and memory-safety rules. The gate records the running server's memory plan and
+checks its context. Add `--expect-mtp on` or `--expect-mtp off` to require the
+selected state when qualifying that path; a planning-only `doctor` result does
+not prove which path an integration run exercised. It creates an isolated
 Hermes home, denies non-loopback Python network connections, permits only the
 fixture's `cat` command through the actual Hermes tool dispatcher, and checks
 the real agent, title fallback, compaction, and recall. `--long-output` also

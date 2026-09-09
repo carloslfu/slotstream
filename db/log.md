@@ -127,3 +127,6 @@ Corrected the ignored Hermes CLI output budget with a named provider, separate a
 ## [2026-09-09 03:32] update | records/measurements/hermes-configuration-hardening-2026-09-08
 Checked explicit HTTP proxy routing on both recorded Hermes versions without network requests. Confirmed local host exclusions select direct transport; documented preserving NO_PROXY/no_proxy exclusions and checking profile .env. This is separate from an OpenRouter endpoint selection. No YAML or runtime code changed; brain/projection/claim gates pass.
 
+## [2026-09-09 16:36] update | records/measurements/hermes-configuration-hardening-2026-09-08
+Removed the guide override that forced MTP off. Preserved YAML and the Hermes launch command. Added server-plan capture, context checks and optional expected-MTP assertions. Four synthetic rejection cases, planner inspection, syntax, projections and claim checks passed. No model launched because another benchmark owns the model reservation. Live automatic-MTP integration remains pending; prior MTP-off evidence is preserved.
+

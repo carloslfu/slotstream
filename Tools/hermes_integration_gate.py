@@ -7,6 +7,8 @@ p = argparse.ArgumentParser()
 p.add_argument('source', type=Path)
 p.add_argument('output', type=Path)
 p.add_argument('--port', type=int, default=11434)
+p.add_argument('--expect-mtp', choices=('on', 'off'),
+    help='Require the running server to report the selected MTP state')
 p.add_argument('--cli', action='store_true')
 p.add_argument('--compress', action='store_true')
 p.add_argument('--long-output', action='store_true', help='Require a complete reply longer than the server default')
@@ -82,6 +84,18 @@ def capture(self, request, *args, **kwargs):
     return response
 httpx.Client.send = capture
 try:
+    # Preserve the actual server plan, rather than inferring it from a doctor
+    # run or assuming the caller launched the same configuration as before.
+    with httpx.Client(trust_env=False, timeout=10) as client:
+        response = client.get(endpoint['base_url'].removesuffix('/v1') + '/api/ps')
+        response.raise_for_status()
+        card = next(model for model in response.json()['models']
+                    if model['name'] == cfg['model']['default'])
+    plan = summary['server_plan'] = card['details']['memory_plan']
+    assert plan['max_context_tokens'] == context, 'Server context differs from the Hermes guide'
+    assert type(plan['mtp']) is bool, 'Server did not report its MTP state'
+    if a.expect_mtp:
+        assert plan['mtp'] == (a.expect_mtp == 'on'), f'Expected MTP {a.expect_mtp}: {plan}'
     if a.cli:
         import model_tools
         def refuse_cli_tool(*args, **kwargs):
