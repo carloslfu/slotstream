@@ -47,7 +47,7 @@ The README, user guides, engineering notes, and changelog are combined in
 
 - [docs/CLIENTS.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLIENTS.md): connection settings for OpenAI and Ollama clients, Hermes and fx setup links, integration checks, troubleshooting, and issue evidence
 - [docs/HERMES.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HERMES.md): first-time Hermes setup, complete tested configuration, file-reading example, and troubleshooting
-- [README.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/README.md): short introduction, installation, first reply, and an index of user and developer guides
+- [README.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/README.md): project overview, requirements, measured speed, quick start, guides, a plain explanation, limitations, FAQs, community, and star history
 - [docs/CLI.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLI.md): everyday commands, common diagnostics, memory-option precedence, environment variables, file locations, the diagnostic checks
 - [docs/API.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
 - [docs/LIBRARY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/LIBRARY.md): using slotstream as a Swift package — the two products, the Metal library requirement, weights, planning, serving

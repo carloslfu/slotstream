@@ -7,11 +7,14 @@ battery. Work lands directly on `main`.
 
 ## Public documentation
 
-Keep `README.md` short: what Slotstream does, requirements, installation, a
-first reply, and an index of guides. Write setup guides for newcomers with
-complete commands, expected results, and practical troubleshooting. Put
-protocol details, implementation rationale, measurements, and test procedures
-in linked engineering/reference pages, starting at `docs/ENGINEERING.md`.
+Keep `README.md` approachable and complete: purpose, capabilities, measured
+results with limits, requirements, quick start, a plain explanation, FAQs,
+community/support, author, star count/history, and links to guides. Preserve
+useful sections and project character; do not optimize for minimum word or
+link count. Write setup guides for newcomers with complete commands, expected
+results, and practical troubleshooting. Put protocol details, full benchmark
+methods, implementation rationale, and test procedures in linked engineering
+pages, starting at `docs/ENGINEERING.md`.
 Preserve the tested configuration and move its explanation instead of
 removing settings. Keep old public anchors usable when moving sections.
 Canonical decision: [newcomer documentation](db/records/decisions/newcomer-documentation.md).

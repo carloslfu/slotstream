@@ -2,13 +2,13 @@
 type: claim
 id: 01m1jprea7c6hgmtxdgpzth8xf
 created: 2026-09-03T03:59:46.503841+00:00
-updated: 2026-09-09T00:30:00.218917+00:00
+updated: 2026-09-09T01:48:49.897807+00:00
 summary: Hardware reports cover the M5 Pro, M2 mini, M5 Max, and M5 Air; planner estimates remain separate.
 basis: measured
 gate: none
 needle: measured on real Macs
 supported_by: '[[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]]'
-surfaces: docs/HARDWARE.md
+surfaces: README.md, docs/HARDWARE.md
 title: Hardware results measured on real Macs
 status: current
 ---

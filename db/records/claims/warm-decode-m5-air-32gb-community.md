@@ -2,13 +2,13 @@
 type: claim
 id: 01m21s4myjyy3v646q481zdxms
 created: 2026-09-09T00:30:00.146920+00:00
-updated: 2026-09-09T00:30:00.146920+00:00
+updated: 2026-09-09T01:48:49.866225+00:00
 summary: 'M5 Air community report: 6.22 tok/s'
 basis: measured
 gate: none
 needle: 6.22 tok/s
 supported_by: '[[records/measurements/c3-macbook-air-m5-32gb-community]]'
-surfaces: docs/HARDWARE.md
+surfaces: README.md, docs/HARDWARE.md
 title: 'M5 Air community report: 6.22 tok/s'
 status: current
 ---

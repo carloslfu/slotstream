@@ -189,14 +189,9 @@ reported speeds use its own setup and shouldn't be read as a ranking.
 
 ## Star history
 
-<a href="https://github.com/carloslfu/slotstream/stargazers">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/star-history-dark.svg">
-    <img alt="slotstream GitHub star history" src="assets/star-history.svg" width="960">
-  </picture>
-</a>
-
-Updated weekly by this repository's [workflow](../.github/workflows/star-history.yml).
+The [README](../README.md#star-history) shows the star count and history.
+The chart is updated weekly by this repository's
+[workflow](../.github/workflows/star-history.yml).
 
 ## Image memory and measurements
 
