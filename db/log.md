@@ -922,3 +922,6 @@ Preparing v0.2.12: preserve the complete optimization source and evidence, merge
 ## [2026-09-10 21:41] update | records/measurements/release-qualification-0-2-12.md
 Preserved clean-build failure and full coverage artifacts before recording the release corrections. Restored omitted serving and context-budget checks, added image-checkpoint boundary cases, retained server/prefix floors, and reviewed eight native-code denominator changes with unchanged covered-line evidence. Publication and installed-release acceptance remain pending.
 
+## [2026-09-10 21:52] update | records/measurements/release-qualification-0-2-12.md
+Preserved the CI memory refusal; independently verified exact malformed checkpoint parsing and regression-tested the planner gate. Final CI and public artifact acceptance remain pending.
+

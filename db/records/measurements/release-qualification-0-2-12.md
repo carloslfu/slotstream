@@ -2,14 +2,14 @@
 type: measurement
 id: 01m26m86458wn87fxaj6bp506h
 created: 2026-09-10T21:40:45.317682+00:00
-updated: 2026-09-10T21:41:15.278010+00:00
+updated: 2026-09-10T21:52:58.442640+00:00
 summary: Public release preparation, coverage reconciliation and installed-artifact acceptance for v0.2.12
 date: 2026-09-10
 doc: measurements
 level: '3'
 machines: '[[records/machines/github-actions-macos-26]], [[records/machines/macbook-pro-m5-pro-48gb]]'
 order: '1120'
-runs: '[[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]]'
+runs: '[[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]], [[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]]'
 title: v0.2.12 release qualification
 status: analysis
 ---
@@ -77,3 +77,21 @@ and installed-release checks against the actual public download.
 Evidence: [[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]].
 Performance remains in [[records/measurements/optimization-final-composition-2026-09-09]]
 and practical serving observations in [[records/measurements/user-server-throughput-2026-09-10]].
+
+## Malformed checkpoint gates on small CI hosts
+
+The next static job reached the planner checks and exposed six tests that
+assumed enough real host memory to reach checkpoint parsing. The production
+startup guard correctly runs first and refused the small hosted runner.
+The fixtures now independently validate the exact production CheckpointIndex
+through the existing packed-artifact verifier. Every tiny invalid fixture
+fails metadata construction before payload reads, model allocation or writes.
+The normal run path is still required to exit cleanly with the same parser
+error or its earlier, explicitly identified memory refusal.
+
+Five regression tests exercise both permitted paths and reject wrong or absent
+parser errors, success exits, traps, unexpected startup errors and output
+creation. All six actual malformed fixtures also passed locally with their
+exact diagnoses. Production memory guards and inference code are unchanged.
+Final CI confirmation remains pending. Evidence:
+[[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]].

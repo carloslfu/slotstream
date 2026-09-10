@@ -1,6 +1,6 @@
 #!/bin/bash
 # Memory-planner gates. No real weights or GPU work are needed. Malformed-model
-# checks still enforce the live startup headroom guard before checkpoint parsing.
+# checks validate headers independently, then retain the live startup guard.
 # CI runs these on release builds; Tools/verify.sh runs the same file locally.
 set -u
 cd "$(dirname "$0")/.."
@@ -15,6 +15,27 @@ run_binary() { "$BIN" "$@"; }
 PASS=0; FAIL=0
 check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); else echo "FAIL  $1"; FAIL=$((FAIL+1)); fi }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+
+# Parsing a deliberately tiny invalid fixture must not depend on the host
+# being able to fit an inference process. The existing packed-artifact verifier
+# constructs the same CheckpointIndex before payload verification, pool/model
+# allocation, or writes. Every fixture here fails that metadata construction.
+# Also keep the run-path check: on a small host its earlier memory refusal is
+# correct; with headroom it must return the exact same checkpoint diagnosis.
+checkpoint_rejection() {
+  local directory="$1" expected="$2" metadata_status startup_status
+  run_binary pack-experts --model "$directory" --destination "$T/unused-packed" --verify-only > "$T/metadata-error" 2>&1
+  metadata_status=$?
+  [ "$metadata_status" -ne 0 ] && [ "$metadata_status" -lt 128 ] || return 1
+  grep -Fq "$expected" "$T/metadata-error" || return 1
+  ! grep -q 'Fatal error' "$T/metadata-error" || return 1
+  [ ! -e "$T/unused-packed" ] || return 1
+  run_binary run --model "$directory" --prompt hi > "$T/startup-error" 2>&1
+  startup_status=$?
+  [ "$startup_status" -ne 0 ] && [ "$startup_status" -lt 128 ] || return 1
+  ! grep -q 'Fatal error' "$T/startup-error" || return 1
+  grep -Fq "$expected" "$T/startup-error" || grep -q '^Error: insufficient_memory:' "$T/startup-error"
+}
 
 run_binary doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/p48" 2>&1
 check "48GB pristine: 33.0 GB target and starts quiet" "grep -q 'target: 33.0' $T/p48 && ! grep -q 'note:' $T/p48"
@@ -80,7 +101,7 @@ check "knob precedence noted, never silent"            "grep -q 'pool-gb ignored
 MC='{"text_config":{"hidden_size":2560,"num_hidden_layers":48,"num_experts":512}}'
 mkdir -p "$T/nosafe" && printf '%s' "$MC" > "$T/nosafe/config.json"
 check "--model with no safetensors: clean error"   "! run_binary run --model $T/nosafe --prompt hi 2>&1 | grep -q 'Fatal error'"
-check "--model with no safetensors: names the fix" "run_binary run --model $T/nosafe --prompt hi 2>&1 | grep -q 'no .safetensors files'"
+check "--model with no safetensors: names the fix" "checkpoint_rejection $T/nosafe 'no .safetensors files'"
 
 # --- MTP draft-head policy (planning only; a dummy file flips availability) --
 mkdir -p "$T/mtpdir" && : > "$T/mtpdir/mtp.safetensors"
@@ -107,7 +128,7 @@ check "MTP charge visible in json peak" \
 
 
 mkdir -p "$T/badjson" && printf 'not json' > "$T/badjson/config.json"
-check "--model with unparseable config: clean error" "run_binary run --model $T/badjson --prompt hi 2>&1 | grep -qi 'json'"
+check "--model with unparseable config: clean error" "checkpoint_rejection $T/badjson 'is not valid JSON'"
 
 mkdir -p "$T/badcfg" && printf '%s' '{"text_config":{"hidden_size":2560,"num_hidden_layers":48,"num_experts":512,"full_attention_interval":0}}' > "$T/badcfg/config.json"
 check "invalid config arithmetic is rejected before it traps" \
@@ -115,7 +136,7 @@ check "invalid config arithmetic is rejected before it traps" \
 
 mkdir -p "$T/badhdr" && printf '%s' "$MC" > "$T/badhdr/config.json"
 head -c 200 /dev/urandom > "$T/badhdr/model-00001.safetensors"
-check "--model with a corrupt safetensors header"  "run_binary run --model $T/badhdr --prompt hi 2>&1 | grep -q 'not a readable safetensors file'"
+check "--model with a corrupt safetensors header"  "checkpoint_rejection $T/badhdr 'not a readable safetensors file'"
 
 mkdir -p "$T/badshape" && printf '%s' "$MC" > "$T/badshape/config.json"
 python3 -c "
@@ -123,12 +144,12 @@ import json,struct
 h=json.dumps({'bad':{'dtype':'BF16','shape':[4,4],'data_offsets':[0,31]}}).encode()
 open('$T/badshape/model-00001.safetensors','wb').write(struct.pack('<Q',len(h))+h+b'\0'*31)"
 check "safetensors dtype/shape byte mismatch rejected" \
-      "run_binary run --model $T/badshape --prompt hi 2>&1 | grep -q 'byte count does not match'"
+      "checkpoint_rejection $T/badshape 'byte count does not match'"
 
 mkdir -p "$T/hugehdr" && printf '%s' "$MC" > "$T/hugehdr/config.json"
 python3 -c "import struct;open('$T/hugehdr/model-00001.safetensors','wb').write(struct.pack('<Q',100000001))"
 check "safetensors header over 100MB rejected before allocation" \
-      "run_binary run --model $T/hugehdr --prompt hi 2>&1 | grep -q 'header length'"
+      "checkpoint_rejection $T/hugehdr 'header length'"
 
 mkdir -p "$T/other" && printf '%s' "$MC" > "$T/other/config.json"
 python3 -c "
@@ -136,7 +157,7 @@ import json,struct,sys
 h=json.dumps({'some.other.weight':{'dtype':'BF16','shape':[4,4],'data_offsets':[0,32]}}).encode()
 h+=b' '*((8-len(h)%8)%8)
 open('$T/other/model-00001.safetensors','wb').write(struct.pack('<Q',len(h))+h+b'\0'*32)"
-check "--model with a different model's tensors"   "run_binary run --model $T/other --prompt hi 2>&1 | grep -q 'does not look like'"
+check "--model with a different model's tensors"   "checkpoint_rejection $T/other 'does not look like'"
 
 check "serve --max-context 0 refused before load"  "! run_binary serve --max-context 0 2>&1 | grep -q 'engine ready'"
 
