@@ -24,8 +24,7 @@ jobs:
         run: SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
       - name: build
         run: |
-          swift build -c release
-          cp Tools/lib/mlx-0.31.1.metallib .build/release/mlx.metallib
+          make build
       - name: smoke
         run: |
           V=$(.build/release/slotstream --version)
@@ -42,7 +41,10 @@ jobs:
       - name: package
         run: |
           mkdir dist
-          tar -czf dist/slotstream-arm64.tar.gz -C .build/release slotstream mlx.metallib
+          # Preserve the before/after source binding used by native acceptance.
+          # The attested archive binds these receipts to this exact CI binary.
+          tar -czf dist/slotstream-arm64.tar.gz -C .build/release \
+            slotstream mlx.metallib build-identity.json build-source.tar.gz
           (cd dist && shasum -a 256 slotstream-arm64.tar.gz > slotstream-arm64.tar.gz.sha256)
           cat dist/slotstream-arm64.tar.gz.sha256
       - name: attest provenance

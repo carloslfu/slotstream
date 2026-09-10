@@ -1,8 +1,8 @@
 name: ci
-# The full run: a macOS release build plus the static and runtime gates,
-# about eight minutes. A push that touches only prose skips it and runs
-# docs.yml instead (the two path lists are the same, so every push runs
-# exactly one of them); a push that mixes code and prose still runs this.
+# Release/runtime, external-consumer, and instrumented-coverage jobs run on
+# separate runners. These builds do not depend on each other's artifacts.
+# A prose-only push skips this workflow and runs docs.yml instead; mixed
+# source/documentation changes keep the full CI suite.
 on:
   pull_request:
     paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE"]
@@ -37,8 +37,22 @@ jobs:
         # where MLX looks for it: beside the executable that is running. The
         # runner sits in that same directory, so T1 finds the shaders too.
         run: .build/release/slotstream-checks --tier t0 --tier t1
+  public-library:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - name: toolchain
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
       - name: the library is importable from outside the package
         run: Tools/consumer_smoke.sh
+  coverage:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - name: toolchain
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: pinned Metal library
+        run: SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
       - name: coverage may not go down
         run: |
           Tools/coverage.sh t0 t1 --lcov coverage.info

@@ -11,14 +11,18 @@ METALLIB := Tools/lib/mlx-0.31.1.metallib
 RELEASE  := .build/release
 DEBUG    := .build/debug
 SLOTSTREAM_BUILD_JOBS ?=
+# On a fresh checkout SwiftPM replaces .build/release with an architecture
+# symlink. Keep the pre-build receipt in its real output directory instead.
+# Expand lazily so non-build targets never invoke SwiftPM.
+RELEASE_IDENTITY = $(shell swift build -c release --show-bin-path)
 
 .PHONY: build debug checks checks-all test context-test coverage clean hooks docs
 
 build: $(METALLIB)
-	python3 Tools/build_identity.py before $(RELEASE)
+	python3 Tools/build_identity.py before "$(RELEASE_IDENTITY)"
 	swift build -c release $(if $(SLOTSTREAM_BUILD_JOBS),-j $(SLOTSTREAM_BUILD_JOBS))
 	cp $(METALLIB) $(RELEASE)/mlx.metallib
-	python3 Tools/build_identity.py after $(RELEASE)
+	python3 Tools/build_identity.py after "$(RELEASE_IDENTITY)"
 
 debug: $(METALLIB)
 	swift build $(if $(SLOTSTREAM_BUILD_JOBS),-j $(SLOTSTREAM_BUILD_JOBS))
