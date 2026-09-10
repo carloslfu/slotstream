@@ -47,14 +47,17 @@ struct VisionParity: ParsableCommand {
         // The same two steps `encode` runs, kept apart so the exact pixel
         // tensor the tower saw is what the oracle is given. Otherwise a
         // preprocessing difference would read as a tower difference.
-        let chw = VisionPreprocess.resizeAndNormalize(
+        let chw = try VisionPreprocess.resizeAndNormalizeChecked(
             cg: cg, targetH: plan.height, targetW: plan.width)
         let pixels = VisionPreprocess.buildPixelValues(
             chw: chw, h: plan.height, w: plan.width, patch: UInt32(tower.vcfg.patchSize),
             merge: UInt32(tower.vcfg.spatialMergeSize), tps: UInt32(tower.vcfg.temporalPatchSize))
         let feat = 3 * tower.vcfg.temporalPatchSize * tower.vcfg.patchSize * tower.vcfg.patchSize
         let pv = MLXArray(pixels, [plan.patches, feat])
-        let embed = tower.forward(pixelValues: pv, gridH: plan.gridH, gridW: plan.gridW)
+        let controls = try InferenceOptimizations.environment()
+        let padding = controls.visionAttentionPadding
+        let embed = tower.forward(pixelValues: pv, gridH: plan.gridH, gridW: plan.gridW,
+            attentionPadding: padding, queryTile: controls.visionQueryTile)
         eval(embed)
 
         let dir = URL(fileURLWithPath: out)
@@ -76,6 +79,8 @@ struct VisionParity: ParsableCommand {
             "out_hidden_size": tower.vcfg.outHiddenSize,
             "depth": tower.vcfg.depth, "num_heads": tower.vcfg.numHeads,
             "resident_gb": bytes,
+            "attention_padding": padding,
+            "attention_query_tile": controls.visionQueryTile,
         ]
         try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
             .write(to: dir.appendingPathComponent("manifest.json"))

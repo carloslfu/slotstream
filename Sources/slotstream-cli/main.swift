@@ -17,7 +17,7 @@ struct Slotstream: ParsableCommand {
             PrefixCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
             ContextCheck.self, PrefillScheduleCommand.self, SweepCheck.self,
-            VisionParity.self,
+            VisionParity.self, OptimizationStateCheck.self, PackExperts.self,
         ]
     )
 }
@@ -110,10 +110,10 @@ struct ModelOptions: ParsableArguments {
             discussion: """
                 The checkpoint carries a vision tower; auto loads it the \
                 first time a request sends a picture and keeps it resident \
-                after that (+0.9 GB, on top of the plan below, and refused \
-                if the machine cannot spare it at that moment). off refuses \
-                images outright, which is what to use when the announced \
-                peak is the number that matters.
+                after that (0.9 GB, reserved inside the process memory \
+                target before loading). Image attention also needs workspace. \
+                A request is refused if its reservation or real headroom is \
+                insufficient. off refuses images outright.
                 """))
     var vision: String = "auto"
 
@@ -143,16 +143,44 @@ struct ModelOptions: ParsableArguments {
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
-    func announcedPlan(maxContext: Int = ContextPolicy.defaultTokens) throws -> MemoryPlan {
+    func announcedPlan(maxContext: Int = ContextPolicy.defaultTokens, prefixCacheEnabled: Bool = true,
+                       maxPrefillWait: Double = 30, qualification: Bool = false,
+                       requireMTP: Bool = false) throws -> MemoryPlan {
+        let configuration = try ContextConfiguration(maxContextTokens: maxContext,
+            maxPrefillWaitMinutes: maxPrefillWait, qualification: qualification)
+        let policy = try runtimePolicy(prefixCacheEnabled: prefixCacheEnabled)
+        let requestedMTP = try mtpMode(); _ = try visionMode()
+        if requireMTP, requestedMTP == .off {
+            throw PlanError("this diagnostic requires the MTP draft head; --mtp off is incompatible")
+        }
         try ensureWeights()
-        let plan = try Planner.plan(
+        let base = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
             ramPercent: maxRAMPercent,
-            mtp: mtpMode(), mtpAvailable: MTPWeights.present(modelDir: modelURL),
+            mtp: requireMTP ? .on : requestedMTP, mtpAvailable: MTPWeights.present(modelDir: modelURL),
             vision: visionMode(), visionAvailable: visionAvailable(),
-            maxContextTokens: maxContext)
+            maxContextTokens: maxContext, qualification: qualification,
+            runtimePolicy: policy)
+        let plan = try runtimePlan(base, prefixCacheEnabled: prefixCacheEnabled).withRequestPolicy(configuration)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
         return plan
+    }
+
+    /// The announce, doctor and serving metadata share the same reservation
+    /// resolution. Merely printing a simulated plan never makes it loadable.
+    func runtimePlan(_ base: MemoryPlan, prefixCacheEnabled: Bool = true) throws -> MemoryPlan {
+        try Planner.applyingRuntimePolicy(base, policy: runtimePolicy(prefixCacheEnabled: prefixCacheEnabled))
+    }
+
+    func runtimePolicy(prefixCacheEnabled: Bool = true) throws -> RuntimeAllocationPolicy {
+        let env = ProcessInfo.processInfo.environment
+        let chunk: Int?
+        if let raw = env["SLOTSTREAM_PREFILL_CHUNK"] {
+            guard let value = Int(raw) else { throw PlanError("SLOTSTREAM_PREFILL_CHUNK must be an integer") }
+            chunk = value
+        } else { chunk = nil }
+        return try RuntimeAllocationPolicy(prefillChunkOverride: chunk,
+            prefixCacheEnabled: prefixCacheEnabled && env["SLOTSTREAM_PREFIX_CACHE"] != "0")
     }
 
     /// If the pinned model isn't fully downloaded and we have a terminal, ask
@@ -239,7 +267,16 @@ func askYesNo(_ prompt: String) -> Bool? {
 struct Run: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Generate from a prompt")
     @OptionGroup var model: ModelOptions
+    @Option(help: "Prompt plus reply context window") var maxContext = ContextPolicy.defaultTokens
+    @Option(help: "Accepted request to first model token budget in minutes; 0 disables only time")
+    var maxPrefillWait = 30.0
     @Option var prompt: String = "Why is the sky blue?"
+    @Option(help: "Read the exact UTF-8 prompt from a file") var promptFile: String?
+    @Option(help: "Write exact tokens, effective configuration and generation measurements as JSON")
+    var statsJson: String?
+    @Option(help: "Deterministic sampling seed") var seed: UInt64?
+    @Flag(help: "Sample physical footprint during generation (diagnostic overhead)")
+    var sampleFootprint = false
     @Option(help: "Maximum tokens to generate (<= 0 means as many as allowed)")
     var maxTokens: Int = 128
     @Flag(help: "Greedy sampling (deterministic)") var greedy = false
@@ -259,28 +296,66 @@ struct Run: ParsableCommand {
         if raw, !images.isEmpty {
             throw PlanError("--raw has no chat template to place an image in; drop one of them")
         }
+        _ = try ContextConfiguration(maxContextTokens: maxContext, maxPrefillWaitMinutes: maxPrefillWait)
+        let launchStart = RuntimeClock.now()
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
-        let plan = try model.announcedPlan()
+        let plan = try model.announcedPlan(maxContext: maxContext, maxPrefillWait: maxPrefillWait)
         Task {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let loadSeconds = RuntimeClock.seconds(since: launchStart)
+                engine.generator.footprintSampling = sampleFootprint
+                let control = try engine.beginRequest()
+                let encodeStart = RuntimeClock.now()
+                var promptText = prompt
+                if let promptFile {
+                    let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: promptFile))
+                    defer { try? handle.close() }
+                    var data = Data()
+                    while true {
+                        let (next, overflow) = data.count.addingReportingOverflow(65_536)
+                        try control.checkInputBytes(overflow ? Int.max : next)
+                        guard let part = try handle.read(upToCount: 65_536), !part.isEmpty else { break }
+                        data.append(part)
+                    }
+                    try control.checkInputBytes(data.count)
+                    guard let decoded = String(data: data, encoding: .utf8) else {
+                        throw PlanError("prompt file must contain valid UTF-8")
+                    }
+                    promptText = decoded
+                }
                 let ids: [Int]
                 var vision: VisionPrompt?
                 if raw {
-                    ids = engine.tokenizer.encode(text: prompt)
+                    try control.checkInputBytes(promptText.utf8.count)
+                    ids = engine.tokenizer.encode(text: promptText)
                 } else {
-                    var msg = ChatMessage(role: "user", content: prompt)
+                    var msg = ChatMessage(role: "user", content: promptText)
+                    var retainedInputBytes = promptText.utf8.count
                     msg.images = try images.map { path in
-                        guard let d = FileManager.default.contents(atPath: path) else {
-                            throw PlanError("cannot read image \(path)")
+                        let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
+                        defer { try? handle.close() }
+                        let size = try handle.seekToEnd()
+                        guard size > 0, size <= UInt64(VisionPreprocess.maxImageBytes) else {
+                            throw PlanError("image must be nonempty and at most \(VisionPreprocess.maxImageBytes >> 20) MiB")
+                        }
+                        let encodedBytes = ((Int(size) + 2) / 3) * 4
+                        let (next, overflow) = retainedInputBytes.addingReportingOverflow(encodedBytes)
+                        try control.checkInputBytes(overflow ? Int.max : next)
+                        retainedInputBytes = next
+                        try handle.seek(toOffset: 0)
+                        let d = try handle.read(upToCount: Int(size) + 1) ?? Data()
+                        guard d.count == Int(size) else {
+                            throw PlanError("image changed size while being read")
                         }
                         return d.base64EncodedString()
                     }
-                    (ids, vision) = try engine.encodeChatWithVision([msg], thinking: think)
+                    (ids, vision) = try engine.encodeChatWithVision([msg], thinking: think, request: control)
                 }
                 if let e = engine.contextError(promptTokens: ids.count) { throw PlanError(e) }
-                let wait = PrefillSchedule.estSeconds(tokens: ids.count, maxChunk: engine.generator.prefillChunk)
+                let encodeSeconds = RuntimeClock.seconds(since: encodeStart)
+                let wait = PrefillSchedule.estSeconds(tokens: ids.count, maxChunk: engine.generator.prefillChunk, tailAware: engine.model.optimizations.tailAwarePrefill)
                 FileHandle.standardError.write(
                     "prompt tokens: \(ids.count) (~\(PrefillSchedule.describe(seconds: wait)) to the first token at this plan)\n"
                         .data(using: .utf8)!)
@@ -290,27 +365,70 @@ struct Run: ParsableCommand {
                     quietBelowTokens: 2048, maxChunk: engine.generator.prefillChunk) { line in
                     FileHandle.standardError.write("  \(line)\n".data(using: .utf8)!)
                 }
-                engine.generator.onPrefillProgress = progress.report
+                progress.tailAware = engine.model.optimizations.tailAwarePrefill
+                engine.generator.onPrefillProgressAbsolute = progress.report
                 var params: SampleParams = greedy ? .greedy : (think ? .thinking : .instruct)
                 params.maxTokens = maxTokens
+                params.seed = seed
                 let t0 = Date()
-                let (_, _, stats) = engine.generate(
+                let (text, outputIds, stats) = engine.generate(
                     promptIds: ids, params: params, vision: vision, onToken: { _, delta in
                     fputs(delta, stdout)
                     fflush(stdout)
                     return true
-                })
+                }, request: control)
                 print("")
+                if let statsJson {
+                    let workspaceGB = engine.model.optimizations.layerExpertWorkspace
+                        ? Double(engine.model.cfg.numExperts * engine.model.pool.recordBytes) / 1e9 : 0
+                    // Conservative experimental allowance, not a calibrated
+                    // production parameter family or a fixed-total comparison.
+                    let scopeGB = engine.model.optimizations.readScopeEnabled
+                        ? max(0, Planner.prefillCostGB(engine.model.optimizations.readScopeTokens)
+                            - Planner.prefillCostGB(engine.generator.prefillChunk))
+                            + Double(PrefixCache.fixedBytesPerEntry) / 1e9 : 0
+                    let statsData = try JSONEncoder().encode(stats)
+                    let routerGB = Double(stats.cachedRouterBytes) / 1e9
+                    let payload: [String: Any] = [
+                        "schema_version": 1,
+                        "stats": try JSONSerialization.jsonObject(with: statsData),
+                        "prompt_ids": ids, "output_ids": outputIds, "text": text,
+                        "plan": plan.json(), "effective_prefill_chunk": engine.generator.prefillChunk,
+                        "effective_pool_slots": engine.model.pool.slots,
+                        "effective_prefill_cost_gb": Planner.prefillCostGB(engine.generator.prefillChunk),
+                        "effective_expected_peak_gb": plan.expectedPeakGB + Planner.prefillCostGB(engine.generator.prefillChunk) - Planner.prefillCostGB(plan.prefillChunk) + workspaceGB + scopeGB + routerGB,
+                        "extra_expert_workspace_gb": workspaceGB,
+                        "extra_read_scope_allowance_gb": scopeGB,
+                        "extra_router_cache_gb": routerGB,
+                        "experimental_memory_family": workspaceGB > 0 || scopeGB > 0 || routerGB > 0,
+                        "optimizations": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.model.optimizations)),
+                        "effective_mtp": engine.model.mtpHead != nil && engine.generator.speculationEnabled,
+                        "load_seconds": loadSeconds, "encode_seconds": encodeSeconds,
+                        "launch_seconds": RuntimeClock.seconds(since: launchStart),
+                        "sampling": ["greedy": greedy, "seed": seed.map(String.init) ?? "default",
+                                     "requested_max_tokens": String(maxTokens)],
+                    ]
+                    try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+                        .write(to: URL(fileURLWithPath: statsJson), options: .atomic)
+                }
+                if let error = stats.runtimeError { throw ModelError(error) }
                 let hs = String(format: "%.3f", stats.expertHitRate)
                 let perLayer = String(format: "~%.0f/%d experts per layer", plan.expertsPerLayerCached, Geometry.expertsPerLayer)
+                let memoryObservation: String
+                if let sample = stats.sampledFootprint {
+                    memoryObservation = String(format: "sampled footprint peak %.3f GB", Double(sample.peakBytes) / 1e9)
+                } else {
+                    memoryObservation = String(format: "RSS high-water %.3f GB, current footprint %.3f GB",
+                        Double(stats.lifetimeRSSPeakBytes) / 1e9, Double(stats.physicalFootprintEndBytes) / 1e9)
+                }
                 FileHandle.standardError.write(
                     """
 
                     -- prefill \(stats.prefillTokens) tok in \(String(format: "%.2f", stats.prefillSeconds))s (\(String(format: "%.1f", stats.prefillTPS)) tok/s)\(stats.prefixHit ? " | \(stats.reusedPrefixTokens) of \(stats.promptTokens) reused from the previous turn" : "")
-                    -- prefill split: io \(String(format: "%.2f", stats.prefillIOSeconds))s + scatter \(String(format: "%.2f", stats.prefillScatterSeconds))s + compute \(String(format: "%.2f", max(0, stats.prefillSeconds - stats.prefillIOSeconds - stats.prefillScatterSeconds)))s | \(stats.prefillRecords) records (\(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3)) GB, \(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3 / max(stats.prefillIOSeconds, 1e-9))) GB/s)
+                    -- prefill split: io \(String(format: "%.2f", stats.prefillIOSeconds))s + scatter \(String(format: "%.2f", stats.prefillScatterSeconds))s | \(stats.prefillRecords) records (\(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3)) GB, \(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3 / max(stats.prefillIOSeconds, 1e-9))) GB/s)
                     -- decode \(stats.decodeTokens) tok in \(String(format: "%.2f", stats.decodeSeconds))s (\(String(format: "%.2f", stats.decodeTPS)) tok/s)
-                    \(RouterTrace.flush().map { $0 + "\n" } ?? "")\(MemTrace.on ? MemTrace.report() + "\n" : "")-- decode split: io \(String(format: "%.2f", stats.decodeIOSeconds))s + scatter \(String(format: "%.2f", stats.decodeScatterSeconds))s + compute \(String(format: "%.2f", max(0, stats.decodeSeconds - stats.decodeIOSeconds - stats.decodeScatterSeconds)))s | \(stats.decodeRecords) records\(stats.verifyPasses > 0 ? String(format: " | mtp %d/%d drafts accepted (%.0f%%), %d verify passes", stats.acceptedDrafts, stats.draftedTokens, 100 * stats.draftAcceptRate, stats.verifyPasses) : "")
-                    -- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | peak \(String(format: "%.1f", stats.peakMemoryGB)) GB | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
+                    \(RouterTrace.flush().map { $0 + "\n" } ?? "")\(MemTrace.on ? MemTrace.report() + "\n" : "")-- decode split: io \(String(format: "%.2f", stats.decodeIOSeconds))s + scatter \(String(format: "%.2f", stats.decodeScatterSeconds))s | \(stats.decodeRecords) records\(stats.verifyPasses > 0 ? String(format: " | mtp %d/%d drafts accepted (%.0f%%), %d verify passes", stats.acceptedDrafts, stats.draftedTokens, 100 * stats.draftAcceptRate, stats.verifyPasses) : "")
+                    -- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | \(memoryObservation) | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
 
                     """.data(using: .utf8)!)
                 result = .success(())
@@ -335,15 +453,16 @@ struct Serve: ParsableCommand {
         help: ArgumentHelp(
             "Longest prompt plus reply accepted per request, in tokens (default \(ContextPolicy.defaultTokens), ceiling \(ContextPolicy.maxTokens)).",
             discussion: """
-                Past it a request is refused with a 400 that says why, instead \
-                of stalling. The ceiling is the largest context slotstream has \
-                measured on real hardware, not a memory limit: the model is \
-                trained for 262,144 tokens and context state costs ~27 KiB per \
-                token. What a long prompt really costs is time, since all of it \
-                is read before the first token; `doctor` prints the wait for \
-                this machine and `context-check` measures a longer prompt.
+                The configured window stays fixed for this engine. The planner \
+                must fit its state and workspaces before loading; requests \
+                above the window are refused. --max-prefill-wait separately \
+                bounds accepted-request-to-first-token time. `doctor` reports \
+                memory feasibility and available timing estimates; \
+                `context-check` runs explicit, unqualified capacity diagnostics.
                 """))
     var maxContext: Int = ContextPolicy.defaultTokens
+    @Option(help: "Accepted request to first model token budget in minutes; 0 disables only time")
+    var maxPrefillWait = 30.0
     @Flag(name: .customLong("no-elastic"),
           help: "Pin the cache at its startup size. Default: an auto-sized cache resizes itself between requests as memory pressure and availability change (explicit size flags are always pinned).")
     var noElastic = false
@@ -353,7 +472,7 @@ struct Serve: ParsableCommand {
 
     func run() throws {
         if let why = ContextPolicy.validationError(maxContext) { throw PlanError(why) }
-        let plan = try model.announcedPlan(maxContext: maxContext)
+        let plan = try model.announcedPlan(maxContext: maxContext, prefixCacheEnabled: !noPrefixCache, maxPrefillWait: maxPrefillWait)
         // Claim the port first: failing here after a full model load wastes
         // half a minute and used to be a fatalError.
         let listenFD = try Server.bindPort(port)
@@ -375,7 +494,11 @@ struct Serve: ParsableCommand {
                 from: Date(), dateStyle: .none, timeStyle: .medium)
             FileHandle.standardError.write("[\(stamp)] \(line)\n".data(using: .utf8)!)
         }
-        engine.generator.onPrefillProgress = progress.report
+        progress.tailAware = engine.model.optimizations.tailAwarePrefill
+        engine.generator.onPrefillProgressAbsolute = { done, total, elapsed, base in
+            progress.maxChunk = engine.generator.prefillChunk
+            progress.report(done: done, total: total, elapsed: elapsed, base: base)
+        }
         if noPrefixCache {
             engine.prefixCache.enabled = false
             engine.prefixCache.drop()
@@ -497,6 +620,8 @@ struct Doctor: ParsableCommand {
     @Option(name: .customLong("max-context"),
             help: "Preview the plan `serve --max-context N` would announce (default \(ContextPolicy.defaultTokens), ceiling \(ContextPolicy.maxTokens)).")
     var maxContext: Int = ContextPolicy.defaultTokens
+    @Option(help: "Accepted request to first model token budget in minutes; 0 disables only time")
+    var maxPrefillWait = 30.0
 
     /// One line on the 104 GB the plan above says nothing about: is it here,
     /// is there room for it, and roughly how long it takes.
@@ -527,6 +652,7 @@ struct Doctor: ParsableCommand {
     }
 
     func run() throws {
+        let configuration = try ContextConfiguration(maxContextTokens: maxContext, maxPrefillWaitMinutes: maxPrefillWait)
         // --json is for machines: emit the plan and nothing else.
         let quiet = asJSON
         let info = MLX.GPU.deviceInfo()
@@ -556,22 +682,43 @@ struct Doctor: ParsableCommand {
                 workingSetGB: simWorkingSet ?? (simRAM.map { $0 * 0.75 } ?? Planner.deviceWorkingSetGB()),
                 availableGB: simulatedAvailable, isSimulated: true)
             : .current()
-        let plan = try Planner.plan(
-            PlanRequest(
-                expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
-                memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
-                mtp: try model.mtpMode(), vision: try model.visionMode(),
-                maxContextTokens: maxContext),
-            on: device,
+        let request = PlanRequest(expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
+            memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
+            mtp: try model.mtpMode(), vision: try model.visionMode(), maxContextTokens: maxContext)
+        let feasibility = Planner.contextFeasibility(request, on: device,
             mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
-            visionAvailable: model.visionAvailable())
+            visionAvailable: model.visionAvailable(), runtimePolicy: try model.runtimePolicy())
+        let advisory: MemoryPlan?
+        if feasibility.requestedPlan == nil, maxContext <= ContextPolicy.defaultTokens,
+           model.expertsPerLayer != nil || model.poolGB != nil {
+            advisory = try Planner.plan(expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
+                memoryGB: model.memoryGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
+                availableGB: device.availableGB, ramPercent: model.maxRAMPercent,
+                mtp: model.mtpMode(), mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
+                vision: model.visionMode(), visionAvailable: model.visionAvailable(),
+                maxContextTokens: maxContext, simulated: device.isSimulated, runtimePolicy: model.runtimePolicy())
+        } else { advisory = nil }
+        guard let requestedPlan = feasibility.requestedPlan ?? advisory else {
+            if asJSON {
+                let output: [String: Any] = ["error": ["code": "insufficient_memory",
+                    "message": feasibility.refusal ?? "requested configuration does not fit"],
+                    "context_feasibility": feasibility.json]
+                print(String(decoding: try JSONSerialization.data(withJSONObject: output,
+                    options: [.prettyPrinted, .sortedKeys]), as: UTF8.self))
+                throw ExitCode(2)
+            }
+            throw PlanError("\(feasibility.refusal ?? "requested configuration does not fit"); maximum feasible window: \(feasibility.maximumFeasibleWindow) tokens")
+        }
+        let plan = try requestedPlan.withRequestPolicy(configuration)
         if asJSON {
+            var output = plan.json(); output["context_feasibility"] = feasibility.json
             let data = try JSONSerialization.data(
-                withJSONObject: plan.json(), options: [.prettyPrinted, .sortedKeys])
+                withJSONObject: output, options: [.prettyPrinted, .sortedKeys])
             print(String(decoding: data, as: UTF8.self))
             return
         }
         print(plan.banner())
+        print("memory-feasible window: \(feasibility.maximumFeasibleWindow) tokens; separate from the \(maxPrefillWait)-minute request-to-first-token policy")
         print("""
 
         knobs (first one given wins; with none, auto is the default):
@@ -595,11 +742,15 @@ struct Doctor: ParsableCommand {
         for t in [Planner.minMemoryGB, 10, 12, 16, 24, 28, 36, 48, 73]
         where t >= Planner.minMemoryGB
         {
-            let s = Planner.slotsForTarget(t)
-            let e = Geometry.perLayer(s)
-            let est = Planner.estWarmTokS(expertsPerLayer: e)
-            let full = s >= Geometry.totalRecords
-            let chunk = Planner.prefillChunkFor(poolBudgetGB: Planner.poolBudgetGB(t))
+            guard let row = try? Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: t,
+                ramGB: device.ramGB, workingSetGB: device.workingSetGB, availableGB: device.availableGB,
+                maxContextTokens: maxContext, simulated: true, runtimePolicy: model.runtimePolicy()) else {
+                print(String(format: "  %6.1f GB   unavailable at this context", t)); continue
+            }
+            let e = row.expertsPerLayerCached
+            let est = row.estWarmTokS
+            let full = row.fullyResident
+            let chunk = row.prefillChunk
             let wait = PrefillSchedule.estSeconds(tokens: maxContext, maxChunk: chunk)
             print(String(
                 format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@   %5d   ~%@",
@@ -696,6 +847,17 @@ struct ElasticDrill: ParsableCommand {
     var slots: Int = 4000
     @Flag(help: "Skip the 60 s grow cooldown wait and only assert the shrink half")
     var quick = false
+    @Option(help: "Hard total-memory ceiling for this diagnostic; the full governor drill needs an explicit ceiling above the ordinary 10 GB test budget")
+    var maxMemoryGB: Double = 10
+
+    func validate() throws {
+        guard slots > 0, slots <= Geometry.totalRecords else {
+            throw ValidationError("--slots must be positive and within the model's expert count")
+        }
+        guard maxMemoryGB.isFinite, (8.1 ... 26).contains(maxMemoryGB) else {
+            throw ValidationError("--max-memory-gb must be between 8.1 and 26")
+        }
+    }
 
     /// `elastic-check` proves the *pool* can be resized without changing the
     /// math. This proves the *governor* actually decides to do it: poll,
@@ -708,8 +870,11 @@ struct ElasticDrill: ParsableCommand {
         var result: Result<Void, Error> = .success(())
         let startSlots = slots
         let skipGrow = quick
+        let memoryCeiling = maxMemoryGB
         Task {
             do {
+                let oldAvailability = Planner.availabilityOverride
+                defer { Planner.availabilityOverride = oldAvailability }
                 var fail: [String] = []
                 func note(_ s: String) {
                     FileHandle.standardError.write((s + "\n").data(using: .utf8)!)
@@ -730,6 +895,17 @@ struct ElasticDrill: ParsableCommand {
                 let extraSlots = Int((3.0e9 / Geometry.recordBytes).rounded(.up))
                 let minStartSlots = Geometry.floorSlots + extraSlots
                 let minStartPool = Geometry.gb(minStartSlots)
+                let minimumTarget = minStartPool + Planner.fixedFootprintGB
+                    + Planner.prefillCostGB(Planner.prefillChunkFor(poolBudgetGB: minStartPool))
+                    + Planner.prefixCacheCostGB(tokens: Planner.prefixCacheTokensFor(poolBudgetGB: minStartPool))
+                    + Planner.planningMarginGB
+                guard minimumTarget <= memoryCeiling else {
+                    throw PlanError(String(format:
+                        "elastic-drill needs at least a %.3f GB total target, above --max-memory-gb %.3f; "
+                        + "the normal governor deadbands require this larger test. "
+                        + "Use an explicit sufficient ceiling only with that target plus 3 GB physically reclaimable.",
+                        minimumTarget, memoryCeiling))
+                }
                 let minAvailable = max(12.0, minStartPool * 3)
                 guard let realAvail = Planner.deviceAvailableGB(), realAvail >= minAvailable else {
                     print(String(format:
@@ -753,6 +929,43 @@ struct ElasticDrill: ParsableCommand {
                     + Planner.prefillCostGB(chunk)
                     + Planner.prefixCacheCostGB(tokens: cacheTokens)
                     + Planner.planningMarginGB
+                guard target <= memoryCeiling else {
+                    throw PlanError(String(format:
+                        "elastic-drill needs a %.3f GB total target, above --max-memory-gb %.3f; "
+                        + "the normal governor deadbands require this larger test. "
+                        + "Use an explicit sufficient ceiling only with that target plus 3 GB physically reclaimable.",
+                        target, memoryCeiling))
+                }
+                guard realAvail >= target + 3 else {
+                    throw PlanError(String(format:
+                        "elastic-drill requires %.3f GB reclaimable for its target plus 3 GB spare; observed %.3f",
+                        target + 3, realAvail))
+                }
+                let observation = FootprintSampler()
+                let vmBefore = ProcessMemory.vmActivity()
+                var complete = false
+                var outputs: [[Int]] = []
+                var finalObservation: (sample: FootprintSampler.Result, vm: ProcessMemory.VMActivity?, physical: UInt64, rss: UInt64)?
+                defer {
+                    let observed = finalObservation ?? (sample: observation.finish(), vm: ProcessMemory.vmActivity(),
+                        physical: ProcessMemory.residentBytes(), rss: ProcessMemory.lifetimeRSSPeakBytes())
+                    let sample = observed.sample
+                    let vmAfter = observed.vm
+                    let report: [String: Any] = [
+                        "complete": complete, "target_gb": target, "ceiling_gb": memoryCeiling,
+                        "sampled_peak_bytes": sample.peakBytes, "samples": sample.samples,
+                        "physical_footprint_end_bytes": observed.physical,
+                        "lifetime_rss_peak_bytes": observed.rss,
+                        "swapins_before": vmBefore.map { $0.swapins as Any } ?? NSNull(),
+                        "swapins_after": vmAfter.map { $0.swapins as Any } ?? NSNull(),
+                        "swapouts_before": vmBefore.map { $0.swapouts as Any } ?? NSNull(),
+                        "swapouts_after": vmAfter.map { $0.swapouts as Any } ?? NSNull(),
+                        "output_ids": outputs,
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
+                        note("ELASTIC DRILL MEMORY " + String(decoding: data, as: UTF8.self))
+                    }
+                }
                 let plan = MemoryPlan(
                     source: .auto, slots: initialSlots, targetGB: target,
                     ramGB: Planner.deviceRAMGB(),
@@ -762,6 +975,22 @@ struct ElasticDrill: ParsableCommand {
                     prefillChunk: chunk, prefixCacheTokens: cacheTokens,
                     notes: ["elastic drill bounded test plan"])
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                func checkMemory(nextSlots: Int? = nil) throws {
+                    let additional = nextSlots.map { $0 > engine.model.pool.slots ? Geometry.gb($0) : 0 } ?? 0
+                    guard let available = Planner.deviceAvailableGB(), available >= 3 + additional else {
+                        throw PlanError("elastic-drill lost real memory headroom before work; no simulated availability authorizes allocation")
+                    }
+                    let physical = ProcessMemory.residentBytes(), rss = ProcessMemory.lifetimeRSSPeakBytes()
+                    guard physical > 0, rss > 0,
+                          Double(max(physical, rss)) <= memoryCeiling * 1e9 else {
+                        throw PlanError("elastic-drill physical memory observation is unavailable or exceeds its explicit ceiling")
+                    }
+                    guard let current = ProcessMemory.vmActivity(), let before = vmBefore,
+                          current.swapins == before.swapins, current.swapouts == before.swapouts else {
+                        throw PlanError("elastic-drill memory interval is unavailable or contains swap activity")
+                    }
+                }
+                try checkMemory()
                 note(String(format: "  (machine has %.1f GB reclaimable; drill capped at a "
                     + "%.1f GB pool)", realAvail, poolCeiling))
 
@@ -770,27 +999,58 @@ struct ElasticDrill: ParsableCommand {
                 let ids = try engine.encodeChat(
                     [ChatMessage(role: "user", content: "Name three rivers, comma separated.")],
                     thinking: false)
-                func gen() -> String { engine.generate(promptIds: ids, params: p).text }
+                func gen() throws -> String {
+                    try checkMemory()
+                    var interrupted: Error?
+                    let generated = engine.generate(promptIds: ids, params: p, shouldContinue: {
+                        do { try checkMemory(); return true }
+                        catch { interrupted = error; return false }
+                    })
+                    outputs.append(generated.ids)
+                    if let interrupted { throw interrupted }
+                    guard generated.stats.runtimeError == nil, generated.stats.requestFailure == nil,
+                          !generated.ids.isEmpty else {
+                        throw PlanError("elastic-drill generation failed or returned no output")
+                    }
+                    try checkMemory()
+                    return generated.text
+                }
 
                 let gov = MemoryGovernor(engine: engine)
-                gov.start()
+                // Exercise the real queued poll/resize path at controlled
+                // boundaries. A background timer could apply an unchecked
+                // availability stimulus during the cooldown sleep.
                 defer { gov.stop() }
 
-                let before = gen()
+                let before = try gen()
                 let s0 = engine.model.pool.slots
                 note(String(format: "  start:  %d slots (~%.0f/layer) -> %@",
                     s0, Geometry.perLayer(s0), before))
 
                 // --- shrink: pretend the machine just got busy
                 Planner.availabilityOverride = 2.0
-                let shrinkInputs = GovernorPolicy.Inputs(
-                    currentSlots: s0, availableGB: 2.0,
-                    ramGB: plan.ramGB, workingSetGB: plan.workingSetGB,
-                    ramPercent: plan.ramPercent)
+                func inputs(at available: Double) -> GovernorPolicy.Inputs {
+                    GovernorPolicy.Inputs(currentSlots: engine.model.pool.slots, availableGB: available,
+                        ramGB: plan.ramGB, workingSetGB: plan.workingSetGB, ramPercent: plan.ramPercent,
+                        maxContextTokens: engine.maxContextTokens,
+                        ownedAdditionalBytes: engine.prefixCache.ownedAdditionalBytes(mtpResident: false))
+                }
+                func pollBounded() throws {
+                    guard let available = Planner.availabilityOverride,
+                          let desired = GovernorPolicy.desiredPlan(inputs(at: available)),
+                          desired.expectedPeakGB <= memoryCeiling,
+                          desired.slots <= s0 else {
+                        throw PlanError("elastic-drill stimulus exceeds its bounded starting arena or total-memory ceiling")
+                    }
+                    try checkMemory(nextSlots: desired.slots)
+                    gov.pollNow()
+                    try checkMemory()
+                }
+                let shrinkInputs = inputs(at: 2)
                 let startCache = engine.prefixCache.maxTokens
-                gov.pollNow()
+                try pollBounded()
                 let s1 = engine.model.pool.slots
-                let underPressure = gen()
+                let underPressure = try gen()
                 note(String(format: "  squeeze: %d slots (~%.0f/layer) -> %@",
                     s1, Geometry.perLayer(s1), underPressure))
                 if s1 >= s0 { fail.append("governor did not shrink: \(s0) -> \(s1)") }
@@ -829,13 +1089,10 @@ struct ElasticDrill: ParsableCommand {
                 // planner's nonlinear prefill/cache reservations and can land
                 // below the 2 GB grow dead-band.
                 func desiredSlots(at available: Double) -> Int {
-                    GovernorPolicy.desiredSlots(GovernorPolicy.Inputs(
-                        currentSlots: s1, availableGB: available,
-                        ramGB: plan.ramGB, workingSetGB: plan.workingSetGB,
-                        ramPercent: plan.ramPercent)) ?? s1
+                    GovernorPolicy.desiredSlots(inputs(at: available)) ?? s1
                 }
                 var low = 0.0
-                var high = realAvail
+                var high = min(realAvail, Planner.deviceAvailableGB() ?? 0)
                 if desiredSlots(at: high) < s0 {
                     fail.append("real reclaimable memory cannot reconstruct the bounded starting pool")
                 } else {
@@ -845,17 +1102,14 @@ struct ElasticDrill: ParsableCommand {
                     }
                 }
                 let recoveryAvailability = high
-                let recoveryInputs = GovernorPolicy.Inputs(
-                    currentSlots: s1, availableGB: recoveryAvailability,
-                    ramGB: plan.ramGB, workingSetGB: plan.workingSetGB,
-                    ramPercent: plan.ramPercent)
+                let recoveryInputs = inputs(at: recoveryAvailability)
                 note(String(
                     format: "  recovery stimulus: %.1f GB available -> %d desired slots (%.1f GB growth)",
                     recoveryAvailability,
                     GovernorPolicy.desiredSlots(recoveryInputs) ?? s1,
                     Geometry.gb((GovernorPolicy.desiredSlots(recoveryInputs) ?? s1) - s1)))
                 Planner.availabilityOverride = recoveryAvailability
-                gov.pollNow()
+                try pollBounded()
                 if engine.model.pool.slots != s1 {
                     fail.append("governor grew during the cooldown (should wait \(Int(GovernorPolicy.growCooldown)) s)")
                 } else {
@@ -864,11 +1118,13 @@ struct ElasticDrill: ParsableCommand {
 
                 if !skipGrow {
                     note("  waiting out the \(Int(GovernorPolicy.growCooldown)) s grow cooldown...")
-                    try await Task.sleep(
-                        for: .seconds(GovernorPolicy.growCooldown + 3))
-                    gov.pollNow()
+                    for _ in 0 ..< Int(GovernorPolicy.growCooldown + 3) {
+                        try await Task.sleep(for: .seconds(1))
+                        try checkMemory()
+                    }
+                    try pollBounded()
                     let s2 = engine.model.pool.slots
-                    let recovered = gen()
+                    let recovered = try gen()
                     note(String(format: "  recover: %d slots (~%.0f/layer) -> %@",
                         s2, Geometry.perLayer(s2), recovered))
                     if s2 <= s1 { fail.append("governor did not grow back: \(s1) -> \(s2)") }
@@ -877,8 +1133,24 @@ struct ElasticDrill: ParsableCommand {
                     }
                 }
                 Planner.availabilityOverride = nil
+                if let first = outputs.first, !outputs.allSatisfy({ $0 == first }) {
+                    fail.append("output token IDs changed across governor transitions")
+                }
+                let finalSample = observation.finish()
+                let finalVM = ProcessMemory.vmActivity()
+                let finalPhysical = ProcessMemory.residentBytes(), finalRSS = ProcessMemory.lifetimeRSSPeakBytes()
+                finalObservation = (finalSample, finalVM, finalPhysical, finalRSS)
+                if finalSample.peakBytes == 0 || finalPhysical == 0 || finalRSS == 0
+                    || Double(max(finalSample.peakBytes, max(finalPhysical, finalRSS))) > memoryCeiling * 1e9 {
+                    fail.append("final sampled footprint, physical footprint or RSS is unavailable or exceeds the ceiling")
+                }
+                if vmBefore == nil || finalVM == nil || finalVM?.swapins != vmBefore?.swapins
+                    || finalVM?.swapouts != vmBefore?.swapouts {
+                    fail.append("the complete memory interval is unavailable or contains swap activity")
+                }
 
                 if fail.isEmpty {
+                    complete = true
                     print("ELASTIC DRILL PASS: governor shrank under simulated pressure, honored the "
                         + "grow cooldown\(skipGrow ? "" : ", grew back when memory returned"), "
                         + "and every generation was byte-identical")

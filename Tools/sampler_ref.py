@@ -65,7 +65,9 @@ def sample(logits, a, state, generated):
     total = cdf[-1]
     if not np.isfinite(total) or total <= 0:
         return int(np.argmax(logits.astype(np.float32))), state
-    pick = int((cdf < (u * total).astype(np.float32)).sum())
+    # A zero draw must skip any leading zero-mass tokens. Keep the historical
+    # lower-bound convention for positive draws and its exact rounding path.
+    pick = int(((cdf <= np.float32(0)) if u == 0 else (cdf < (u * total).astype(np.float32))).sum())
     return min(pick, probs.shape[0] - 1), state
 
 

@@ -1,0 +1,58 @@
+Review the exact-prefix and image-identity invariants in this excerpt. Explain the two most important requirements.
+
+// Extend-only, never rewind. A pure-attention runner can slice a KV cache to
+// any prefix. This model cannot: `LinearCache` holds the GDN recurrent state,
+// which is a fold over every token seen and has no inverse, and `ngramCtx`
+// is likewise carried forward. So the state is reusable only when the new
+// prompt *extends* exactly the ids that produced it; anything else — an edited
+// earlier message, a different conversation, a regenerate with a shorter
+// prompt — is a full rebuild. That covers the dominant chat and tool-loop
+// shape and fails safe for the rest.
+//
+// Images. Token ids alone are not a sufficient key for a vision prompt: the
+// template expands each image into a run of the *same* placeholder id, so two
+// different pictures that resize to the same grid produce byte-identical ids.
+// Matching on ids alone would hand a follow-up turn a state built from the
+// wrong pixels. An entry therefore also carries an `ImageSegment` per image —
+// where its run starts and a digest of the bytes that produced it — and a
+// match requires the segments to agree as well as the ids. That is what makes
+// a vision conversation cacheable at all; before it, every image request
+// re-prefilled its whole prompt and re-ran the tower on every turn.
+//
+// Memory. A held state is ~27 KiB per token (KV + indexer) plus ~113 MB of
+// fixed GDN recurrent state. Several conversations are genuinely additive.
+// A miss evicts enough LRU entries before the caller allocates its state that
+// retained + active states never exceed maxEntries and their token capacities
+// share one budget. The governor sheds them before shrinking the pool.
+
+import Foundation
+
+/// A digest of one image's encoded bytes, wide enough that a collision is not
+/// a practical concern. Bytes rather than the URL: the same http URL may serve
+/// different pictures later, while identical bytes always decode, resize and
+/// encode to the same rows for a given tower.
+public struct ImageHash: Hashable, Sendable {
+    public let hi: UInt64
+    public let lo: UInt64
+    public init(hi: UInt64, lo: UInt64) {
+        self.hi = hi
+        self.lo = lo
+    }
+}
+
+/// One image's placeholder run inside an expanded prompt: where it starts, how
+/// many tokens it occupies, and which image produced it. Offsets are in the
+/// expanded id space — the same space `promptIds` is in.
+public struct ImageSegment: Hashable, Sendable {
+    public let start: Int
+    public let count: Int
+    public let hash: ImageHash
+    public init(start: Int, count: Int, hash: ImageHash) {
+        self.start = start
+        self.count = count
+        self.hash = hash
+    }
+    /// One past the last token of the run.
+    public var end: Int { start + count }
+}
+

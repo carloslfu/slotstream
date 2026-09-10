@@ -237,8 +237,10 @@ Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
 the shared context (32,768 tokens by default). The decoded image file must be at most
 24 MiB, with an aspect ratio no greater than 200:1.
 
-The vision tower uses 0.9 GB and loads on the first image request, in addition
-to the text memory plan. A request is rejected if there's insufficient room.
+The vision tower uses 0.9 GB and loads on the first image request. That
+reservation stays inside the original process memory target, reducing expert
+capacity as needed. Image attention and decoded pixels also need workspace;
+a request is rejected before dispatch if its budget or real headroom is insufficient.
 `serve --vision off` disables images. Follow-up turns reuse image state while
 the matching conversation remains cached; image identity is checked by a
 digest of its bytes.
@@ -259,7 +261,7 @@ Ollama errors use `{"error": "message"}`. OpenAI errors use
 | 411 | Chunked request body; send `Content-Length` instead |
 | 413 | Request body exceeds 32 MiB |
 | 431 | Request headers exceed 64 KiB |
-| 503 | Too many open connections |
+| 503 | Too many open connections, insufficient memory, or an expired request-to-first-token deadline |
 
 A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
@@ -268,9 +270,50 @@ Prompt plus completion is capped at 32,768 tokens by default. Use
 `serve --max-context 65536` for a 65,536-token window, or select a smaller
 limit. The planner charges extra state and transient memory before allocating
 the pool.
-A prompt over the configured cap returns 400 with the limit and an estimated
-processing time. `/v1/models` and `/api/show` report the actual served window;
+A prompt over the configured cap returns 400 with the actual limit. A known
+prefill estimate can also refuse work that exceeds the remaining wait budget. `/v1/models` and `/api/show` report the actual served window;
 the model's training window must not be used as the request limit.
 
 Generation requests run one at a time; a second waits for the first. Metadata
 endpoints read a separate snapshot and remain responsive during generation.
+
+## Request deadlines and resource failures
+
+The request policy and structured resource failures in this section are
+unreleased source additions.
+
+`--max-prefill-wait` bounds the interval from accepting a complete request to
+sampling its first model token. Its default is 30 minutes; `0` disables only
+time. Upload and model startup are outside this clock; queueing, prompt
+preparation, image work and prefill are inside it. Decode after the first token
+remains subject to memory and cancellation checks. SSE keepalives preserve
+transport liveness and never reset the clock.
+
+Admission resolves the current memory plan and exact reusable prefix while
+holding the generation gate. It prices missing input from its absolute position;
+an unknown estimate stays unknown. `/api/show`, `/v1/models` and the gateway
+catalog expose an additive `context_policy` with configured, model and qualified
+mode limits. `doctor --json` additionally computes memory feasibility, which is
+independent of the wait policy.
+
+| Code | Before streaming headers | Action |
+|---|---|---|
+| `context_length_exceeded` | 400 | Send less input or restart with a supported larger window. |
+| `prefill_wait_exceeded` | 400 | Reduce missing input, reuse a valid prefix or raise the wait budget. |
+| `insufficient_memory` | 503 | Free memory, lower the target/context, or resize an image. |
+| `prefill_deadline_exceeded` | 503 | Retry with less work or a deliberate longer wait budget. |
+| `inference_error` | 500 | Inspect the error and retry after correcting its cause. |
+
+After headers, failures use the dialect's terminal error frame and close the
+stream. They never emit a successful OpenAI finish or `[DONE]`, Ollama
+`done: true`, or gateway success terminal. Disconnection stops bounded work.
+A tool proposal from an errored, truncated or incomplete turn is not a completed
+tool request; receiving clients must require successful termination before
+executing it. The engine's strict consumer fixture covers its wire contract;
+application-side tool authority remains the receiver's responsibility.
+
+Memory checks precede the next bounded allocation and leave safety headroom.
+They cannot prevent another application from allocating between checks. The
+engine joins readers and synchronizes GPU users before releasing request pins,
+and failed state is not reused. A subsequent request either succeeds or receives
+an explicit still-unavailable error.

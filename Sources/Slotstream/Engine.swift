@@ -102,25 +102,85 @@ public final class Engine {
     /// are not free: KV plus indexer state costs ~27 KiB per token, and a
     /// prompt is read in full before the first token, so a huge prompt is a
     /// long, memory-growing stall rather than a fast failure.
-    public var maxContextTokens = ContextPolicy.defaultTokens {
-        didSet {
-            let capped = min(prefixCache.maxTokens, maxContextTokens)
+    private let contextLock = NSRecursiveLock()
+    private var configuredContextTokens = ContextPolicy.defaultTokens
+    private let allocatedContextTokens: Int
+    private var contextAssignmentFailure: RequestFailure?
+    public var maxContextTokens: Int {
+        get { contextLock.withLock { configuredContextTokens } }
+        set {
+            contextLock.lock(); defer { contextLock.unlock() }
+            if let why = ContextPolicy.validationError(newValue, qualification: currentPlan?.contextQualification ?? false) {
+                contextAssignmentFailure = RequestFailure(.invalidConfiguration, why); return
+            }
+            guard newValue <= allocatedContextTokens else {
+                contextAssignmentFailure = RequestFailure(.invalidConfiguration,
+                    "context assignment exceeds this engine's allocated plan; construct a new Engine with a validated plan")
+                return
+            }
+            contextAssignmentFailure = nil
+            configuredContextTokens = newValue
+            let capped = min(prefixCache.maxTokens, newValue)
             prefixCache.configure(maxTokens: capped)
-            // Keep /api/show's memory plan aligned with the allocation control
-            // that actually changed; otherwise --max-context 1024 reported the
-            // startup cache ceiling even though it had already been reduced.
-            if let p = currentPlan, p.prefixCacheTokens != capped || p.maxContextTokens != maxContextTokens {
-                updatePlan(MemoryPlan(
-                    source: p.source, slots: p.slots, targetGB: p.targetGB,
-                    ramGB: p.ramGB, workingSetGB: p.workingSetGB,
-                    ramPercent: p.ramPercent, availableGB: p.availableGB,
-                    clamped: p.clamped, prefillChunk: p.prefillChunk,
-                    prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled,
-                    visionEnabled: p.visionEnabled,
-                    maxContextTokens: maxContextTokens, notes: p.notes))
+            if let p = currentPlan {
+                updatePlan(MemoryPlan(source: p.source, slots: p.slots, targetGB: p.targetGB,
+                    ramGB: p.ramGB, workingSetGB: p.workingSetGB, ramPercent: p.ramPercent,
+                    availableGB: p.availableGB, clamped: p.clamped, prefillChunk: p.prefillChunk,
+                    prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled, visionEnabled: p.visionEnabled,
+                    visionResidentReserved: p.visionResidentReserved, maxContextTokens: newValue,
+                    notes: p.notes, runtimeAllocationPolicy: p.runtimeAllocationPolicy,
+                    maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification))
             }
         }
     }
+
+    /// Call when a complete request is accepted, before tokenization or images.
+    public func beginRequest(connected: @escaping () -> Bool = { true }) throws -> RequestController {
+        if let override = requestControllerOverride {
+            let control = try override(); try control.attachReservations(requestReservations); return control
+        }
+        if let contextAssignmentFailure = contextLock.withLock({ contextAssignmentFailure }) { throw contextAssignmentFailure }
+        if let unavailable = planLock.withLock({ allocationUnavailable }) { throw unavailable }
+        let configuration = try ContextConfiguration(maxContextTokens: maxContextTokens,
+            maxPrefillWaitMinutes: currentPlan?.maxPrefillWaitMinutes ?? ContextConfiguration.defaultWaitMinutes,
+            qualification: currentPlan?.contextQualification ?? false)
+        let control = RequestController(configuration: configuration,
+            slackBytes: Int(Planner.availabilitySlackGB(ramGB: currentPlan?.ramGB ?? Planner.deviceRAMGB()) * 1e9),
+            connected: connected, pressure: { [weak self] in
+                guard let self else { return true }
+                return self.pressureBoundary.snapshot() != nil || self.osPressureLock.withLock { self.osPressure }
+            })
+        try control.attachReservations(requestReservations)
+        return control
+    }
+    private let requestReservations = RequestMemoryReservations()
+
+    // Package-only dependency seam for deterministic HTTP diagnostics. No wire
+    // field or environment variable can install it.
+    package var requestControllerOverride: (() throws -> RequestController)?
+
+    public var contextPolicyJSON: [String: Any] {
+        let plan = currentPlan
+        return ["configured_window": maxContextTokens, "model_limit": ContextPolicy.modelLimit,
+            "implementation_limit": ContextPolicy.implementationLimit,
+            "mtp_limit": ContextPolicy.mtpLimit, "vision_limit": ContextPolicy.visionLimit,
+            "max_prefill_wait_minutes": plan?.maxPrefillWaitMinutes ?? ContextConfiguration.defaultWaitMinutes,
+            "wait_scope": "accepted_request_to_first_model_token",
+            "qualification": plan?.contextQualification ?? false,
+            "allocation_available": planLock.withLock { allocationUnavailable == nil },
+            "estimate_scope": "measured M5 Pro anchors; unknown for unqualified pass sizes"]
+    }
+
+    deinit { pressureMonitor?.cancel() }
+
+    private var allocationUnavailable: RequestFailure?
+    package func setAllocationUnavailable(_ failure: RequestFailure?) {
+        planLock.withLock { allocationUnavailable = failure }
+    }
+
+    private let osPressureLock = NSLock()
+    private var osPressure = false
+    private var pressureMonitor: DispatchSourceMemoryPressure?
 
     /// Retained conversation state, so a follow-up turn re-prefills only what
     /// is new. See PrefixCache for the extend-only rule and the memory story.
@@ -138,19 +198,9 @@ public final class Engine {
     /// raise --max-context, which cannot go past the ceiling the server was
     /// already at.
     public func contextError(promptTokens: Int) -> String? {
-        guard promptTokens > maxContextTokens else { return nil }
-        let wait = PrefillSchedule.describe(seconds: PrefillSchedule.estSeconds(
-            tokens: promptTokens, maxChunk: generator.prefillChunk))
-        let ceiling = maxContextTokens < ContextPolicy.maxTokens
-            ? "this server was started with --max-context \(maxContextTokens); "
-                + "the ceiling is \(ContextPolicy.maxTokens)"
-            : "\(ContextPolicy.maxTokens) is the largest context slotstream has measured, "
-                + "not a memory limit (context state costs ~27 KiB per token)"
-        return "prompt is \(promptTokens) tokens, over this server's limit of "
-            + "\(maxContextTokens) for prompt plus reply. \(ceiling). Reading a prompt "
-            + "this long would take ~\(wait) before the first token here. Send less, or "
-            + "split the material across turns of one conversation so each follow-up "
-            + "reads only what is new."
+        if let contextAssignmentFailure = contextLock.withLock({ contextAssignmentFailure }) { return contextAssignmentFailure.message }
+        guard promptTokens < 0 || promptTokens > maxContextTokens else { return nil }
+        return "context_length_exceeded: prompt is \(promptTokens) tokens, over the configured \(maxContextTokens)-token prompt-plus-reply window. Send less or restart with a larger supported --max-context; the model limit is \(ContextPolicy.modelLimit)."
     }
     /// The live memory plan (updated by the elastic governor on resize; nil
     /// for internal fixed-size uses). Guarded by its own lock so /api reads
@@ -168,7 +218,11 @@ public final class Engine {
         planLock.unlock()
     }
 
-    private let lock = NSLock()
+    private let lock = GenerationGate()
+    package let pressureBoundary = PressureBoundary()
+    // Immutable after startup, so the governor never reads mutable model
+    // controls concurrently with a request changing its diagnostic options.
+    package let responsiveGovernor: Bool
 
     /// Run `body` with the generation lock held — the governor uses this to
     /// resize the pool strictly between requests.
@@ -176,6 +230,11 @@ public final class Engine {
         lock.lock()
         defer { lock.unlock() }
         return try body()
+    }
+
+    @discardableResult
+    package func tryWithExclusive(_ body: () -> Void) -> Bool {
+        lock.tryWithExclusive(body)
     }
 
     /// Pool numbers for the metadata endpoints, published rather than read
@@ -212,6 +271,22 @@ public final class Engine {
         // allocation and 39 GB of swap. The flag travels on the plan so this
         // cannot be forgotten at a call site.
         if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
+        let context = try ContextConfiguration(maxContextTokens: plan?.maxContextTokens ?? ContextPolicy.defaultTokens,
+            maxPrefillWaitMinutes: plan?.maxPrefillWaitMinutes ?? ContextConfiguration.defaultWaitMinutes,
+            qualification: plan?.contextQualification ?? false)
+        guard poolSlots >= Geometry.floorSlots, poolSlots <= Geometry.totalRecords,
+              plan == nil || plan?.slots == poolSlots else {
+            throw SlotstreamError.invalidPlan("engine pool must match a supported memory plan")
+        }
+        let initialLedger = plan?.memoryLedger ?? ContextMemoryLedger(slots: poolSlots,
+            context: context.maxContextTokens, chunk: 256,
+            retentionTokens: Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
+            mtp: false, visionResident: false)
+        let initial = RequestController(configuration: context,
+            slackBytes: Int(Planner.availabilitySlackGB(ramGB: plan?.ramGB ?? Planner.deviceRAMGB()) * 1e9))
+        try initial.check(nextAllocationBytes: initialLedger.expectedPeakBytes, phase: "model allocation")
+        self.allocatedContextTokens = context.maxContextTokens
+        self.configuredContextTokens = context.maxContextTokens
         self.modelDir = modelDir
         self._plan = plan
         // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
@@ -220,7 +295,8 @@ public final class Engine {
         self.prefixCache = PrefixCache(
             maxTokens: plan?.prefixCacheTokens
                 ?? Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
-            enabled: env != "0")
+            enabled: env != "0" && (plan?.runtimeAllocationPolicy?.prefixCacheEnabled ?? true))
+        if let p = plan, p.runtimeAllocationPolicy != nil { prefixCache.setBudgetLimit(p.prefixCacheTokens) }
         // MLX's allocator otherwise retains freed transients (KV caches,
         // activations) in an unbounded internal cache — measured ~5 GB of RSS
         // above the memory plan after a few dozen requests. 2 GB keeps
@@ -231,6 +307,7 @@ public final class Engine {
         let t0 = Date()
         let index = try CheckpointIndex(dir: modelDir)
         self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots)
+        self.responsiveGovernor = model.optimizations.responsiveGovernor
         try model.validate()
         // Read from the index that is already open — no tensor is touched, and
         // nothing is allocated until an image actually arrives.
@@ -240,6 +317,10 @@ public final class Engine {
             try model.enableMTP(modelDir: modelDir)
         }
         self.generator = Generator(model: model)
+        if let p = plan, p.runtimeAllocationPolicy != nil {
+            generator.setPrefillBudgetCeiling(p.prefillChunk)
+            generator.prefillChunk = p.prefillChunk
+        }
         if let p = plan, ProcessInfo.processInfo.environment["SLOTSTREAM_PREFILL_CHUNK"] == nil {
             generator.prefillChunk = p.prefillChunk
         }
@@ -260,6 +341,13 @@ public final class Engine {
         }
         self.eosIds = eos
         publishPoolSnapshot()
+        let monitor = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical],
+            queue: DispatchQueue(label: "slotstream.request-pressure"))
+        monitor.setEventHandler { [weak self, weak monitor] in
+            guard let self, let monitor else { return }
+            self.osPressureLock.withLock { self.osPressure = !monitor.data.contains(.normal) }
+        }
+        monitor.resume(); pressureMonitor = monitor
         let banner = "engine ready in \(String(format: "%.1f", -t0.timeIntervalSinceNow))s: "
             + "expert cache ~\(String(format: "%.0f", model.pool.slotsPerLayer))/\(model.cfg.numExperts) per layer "
             + "(\(model.pool.slots) global slots = \(String(format: "%.1f", Double(model.pool.poolBytes) / 1e9)) GB), "
@@ -471,17 +559,46 @@ public final class Engine {
     /// makes the availability reading below meaningful: nothing else can
     /// allocate between reading it and taking the memory.
     ///
-    /// The check itself is the promise from `Planner.visionResidentGB` kept.
-    /// The plan the user was shown does not include the tower, so the tower
-    /// may only load when it genuinely fits on top; a busy machine gets a
-    /// refusal it can act on instead of a gigabyte of swap.
-    public func ensureVisionTower() throws -> VisionTower {
-        if let vt = visionTower { return vt }
+    /// Replan before allocation so a target-driven process pays for the
+    /// tower with expert capacity. Also require real machine headroom: an
+    /// accounting allowance is not proof that physical memory is available.
+    public func ensureVisionTower() throws -> VisionTower { try ensureVisionTower(request: nil) }
+
+    public func ensureVisionTower(request: RequestController?, workspaceBytes: Int = 0) throws -> VisionTower {
+        guard workspaceBytes >= 0 else {
+            throw RequestFailure(.invalidConfiguration, "vision workspace bytes must be nonnegative")
+        }
         guard visionAllowed else {
             throw SlotstreamError.vision(
                 "this server was started with --vision off; images are not accepted")
         }
-        return try withExclusive {
+        if let request { try lock.lock(request: request) } else { lock.lock() }
+        defer { lock.unlock() }
+        return try { () throws -> VisionTower in
+            try request?.check(nextAllocationBytes: visionTower == nil ? 1_900_000_000 : 0, phase: "vision tower allocation")
+            if pressureBoundary.snapshot() != nil {
+                let failure = RequestFailure(.insufficientMemory, "memory pressure interrupted image preparation; retry after the cache resizes")
+                throw request?.fail(failure) ?? failure
+            }
+            let reservedPlan: MemoryPlan?
+            do { reservedPlan = try currentPlan.map { try Planner.loadingVision($0) } }
+            catch {
+                let failure = RequestFailure(.insufficientMemory, "vision allocation cannot fit the current plan: \(error)")
+                throw request?.fail(failure) ?? failure
+            }
+            if let charged = reservedPlan {
+                let ledger = charged.memoryLedger
+                let peak = ContextBytes.sum(ledger.expectedPeakBytes - ledger.prefillBytes,
+                    max(ledger.prefillBytes, workspaceBytes))
+                if let target = charged.targetGB, Double(peak) > target * 1e9 {
+                    var failure = RequestFailure(.insufficientMemory,
+                        "image attention workspace exceeds this process memory target; resize the image or raise --memory-gb")
+                    failure.requiredBytes = peak
+                    failure.availableBytes = target < Double(Int.max) / 1e9 ? Int(target * 1e9) : Int.max
+                    throw request?.fail(failure) ?? failure
+                }
+            }
+            try request?.check(nextAllocationBytes: workspaceBytes, phase: "vision workspace admission")
             if let vt = visionTower { return vt }
             let idx = try CheckpointIndex(dir: modelDir)
             guard VisionTower.present(index: idx) else {
@@ -489,20 +606,37 @@ public final class Engine {
                     "this checkpoint has no vision tower — it is a text-only model")
             }
             let needGB = Double(VisionTower.residentBytes(index: idx)) / 1e9
+            guard needGB <= Planner.visionResidentGB else {
+                throw SlotstreamError.vision("vision weights exceed the supported resident allowance")
+            }
             if let avail = Planner.deviceAvailableGB(), avail.isFinite,
                 avail < needGB + Planner.visionLoadMarginGB
             {
-                throw SlotstreamError.vision(
-                    String(
+                let failure = RequestFailure(.insufficientMemory, String(
                         format: "the vision tower needs %.1f GB and only %.1f GB is reclaimable "
                             + "right now — close other apps and retry, or restart with a lower "
                             + "--memory-gb so the tower fits",
                         needGB, avail))
+                throw request?.fail(failure) ?? failure
+            }
+            if let p = reservedPlan {
+                // The lock excludes generation and governor mutation. Shrink
+                // releases the old arena before allocating the smaller one.
+                model.pool.resize(to: p.slots)
+                if p.runtimeAllocationPolicy != nil {
+                    generator.setPrefillBudgetCeiling(p.prefillChunk)
+                    prefixCache.setBudgetLimit(p.prefixCacheTokens)
+                }
+                generator.prefillChunk = min(generator.prefillChunk, p.prefillChunk)
+                prefixCache.configure(maxTokens: min(prefixCache.maxTokens, p.prefixCacheTokens))
+                MLX.Memory.clearCache()
+                updatePlan(p)
+                publishPoolSnapshot()
             }
             let vt = try VisionTower(index: idx)
             self.visionTower = vt
             return vt
-        }
+        }()
     }
 
     /// Tokenize with vision expansion: each template image_pad is worth
@@ -517,8 +651,18 @@ public final class Engine {
     public func encodeWithVision(
         messages: [[String: Any]], tools: [[String: Any]]?, thinking: Bool = false
     ) throws -> ([Int], VisionPrompt?) {
+        try encodeWithVision(messages: messages, tools: tools, thinking: thinking, request: nil)
+    }
+
+    public func encodeWithVision(
+        messages: [[String: Any]], tools: [[String: Any]]?, thinking: Bool = false,
+        request: RequestController?
+    ) throws -> ([Int], VisionPrompt?) {
+        let request: RequestController? = try request ?? beginRequest()
+        try request?.attachReservations(requestReservations)
+        try request?.checkInputBytes(ContextBytes.sum(ContextInputMemory.bytes(messages), ContextInputMemory.bytes(tools ?? [])))
         let baseIds = try encodeChatOpenAI(messages: messages, tools: tools, thinking: thinking)
-        return try withImages(baseIds: baseIds, sources: Self.imageSources(in: messages))
+        return try withImages(baseIds: baseIds, sources: Self.imageSources(in: messages), request: request)
     }
 
     /// The typed path (`ChatMessage`), for the fx gateway and the CLI. Renders
@@ -528,35 +672,72 @@ public final class Engine {
         _ messages: [ChatMessage], tools: [ToolDefinition] = [], thinking: Bool = false,
         effort: String? = nil
     ) throws -> ([Int], VisionPrompt?) {
+        try encodeChatWithVision(messages, tools: tools, thinking: thinking, effort: effort, request: nil)
+    }
+
+    public func encodeChatWithVision(
+        _ messages: [ChatMessage], tools: [ToolDefinition] = [], thinking: Bool = false,
+        effort: String? = nil, request: RequestController?
+    ) throws -> ([Int], VisionPrompt?) {
+        let request: RequestController? = try request ?? beginRequest()
+        try request?.attachReservations(requestReservations)
+        try request?.checkInputBytes(ContextInputMemory.bytes(messages: messages, tools: tools))
         let baseIds = try encodeChat(messages, tools: tools, thinking: thinking, effort: effort)
-        return try withImages(baseIds: baseIds, sources: messages.flatMap { $0.images })
+        return try withImages(baseIds: baseIds, sources: messages.flatMap { $0.images }, request: request)
     }
 
     /// Expand each `<|image_pad|>` the template rendered into the run of
     /// placeholders its image is worth, and describe the images for the tower
     /// and the prefix cache. Shared by every surface so they cannot drift.
-    private func withImages(baseIds: [Int], sources: [String]) throws -> ([Int], VisionPrompt?) {
+    private func withImages(baseIds: [Int], sources: [String], request: RequestController? = nil) throws -> ([Int], VisionPrompt?) {
+        defer { request?.releaseDispatchReservation() }
+        try request?.check(phase: "prompt preparation")
         if sources.isEmpty { return (baseIds, nil) }
+        let started = RuntimeClock.now()
+        let observer = generator.footprintSampling ? FootprintSampler() : nil
+        let vmBefore = generator.footprintSampling ? ProcessMemory.vmActivity() : nil
+        var observationFinished = false
+        defer { if !observationFinished { _ = observer?.finish() } }
         // Decode and hash first: it needs no tower, it is cheap next to one,
         // and a malformed picture should be a 400 before the process commits
         // 0.9 GB to a tower it may not otherwise need.
         var decoded: [(cg: CGImage, hash: ImageHash)] = []
+        let sourceBatch = DecodedImageBatch(deduplicate: model.optimizations.deduplicateImages)
         decoded.reserveCapacity(sources.count)
         for (i, source) in sources.enumerated() {
+            try request?.check(nextAllocationBytes: min(source.utf8.count, VisionPreprocess.maxImageBytes * 2), phase: "image source decoding")
             do {
                 let data = try VisionPreprocess.loadImageData(from: source)
-                decoded.append((try VisionPreprocess.decodeCGImage(data), ImageHash(hashing: data)))
-            } catch {
-                throw SlotstreamError.vision("image \(i + 1): \(error)")
-            }
-        }
-        let vt = try ensureVisionTower()
-        var items: [VisionPrompt.Item] = []
-        items.reserveCapacity(decoded.count)
-        for (i, d) in decoded.enumerated() {
-            do { items.append(VisionPrompt.Item(image: d.cg, plan: try vt.plan(for: d.cg))) }
+                decoded.append(try sourceBatch.decode(data, request: request))
+            } catch let failure as RequestFailure { throw failure }
             catch { throw SlotstreamError.vision("image \(i + 1): \(error)") }
         }
+        let decodedSeconds = RuntimeClock.seconds(since: started)
+        let (visionConfig, pixelBounds) = try VisionTower.configuration(directory: modelDir)
+        var items: [VisionPrompt.Item] = []
+        items.reserveCapacity(decoded.count)
+        var expandedCount = baseIds.count
+        for (i, d) in decoded.enumerated() {
+            try request?.check(phase: "image geometry")
+            do {
+                let plan = try VisionTower.plan(height: d.cg.height, width: d.cg.width,
+                    cfg: visionConfig, bounds: pixelBounds)
+                let (next, overflow) = expandedCount.addingReportingOverflow(plan.mergedTokens - 1)
+                guard !overflow, next <= min(maxContextTokens, ContextPolicy.visionLimit) else {
+                    throw RequestFailure(.contextLengthExceeded,
+                        "image-expanded input exceeds the configured or qualified vision context; reduce the history or image count")
+                }
+                expandedCount = next
+                items.append(VisionPrompt.Item(image: d.cg, plan: plan))
+            } catch let failure as RequestFailure { throw failure }
+            catch { throw SlotstreamError.vision("image \(i + 1): \(error)") }
+        }
+        let towerStart = RuntimeClock.now()
+        let workspace = items.map { ContextWorkspace.visionBytes(patches: $0.plan.patches,
+            hidden: visionConfig.hiddenSize, heads: visionConfig.numHeads,
+            queryTile: model.optimizations.visionQueryTile, padding: model.optimizations.visionAttentionPadding) }.max() ?? 0
+        let vt = try ensureVisionTower(request: request, workspaceBytes: ContextBytes.sum(workspace, sourceBatch.chargedBytes))
+        let towerReadySeconds = RuntimeClock.seconds(since: towerStart)
         // The template renders one `<|image_pad|>` per image; the tower
         // produces `mergedTokens` rows for it. Expanding the pad into a run of
         // that length is what makes the two line up, and it moves every token
@@ -597,11 +778,19 @@ public final class Engine {
                     + "account for \(perImage.reduce(0, +)); remove any literal <|image_pad|> "
                     + "from the text")
         }
-        return (
-            expanded,
-            VisionPrompt(
-                tower: vt, items: items, segments: segments, hiddenSize: model.cfg.hiddenSize)
-        )
+        guard expanded.count <= min(maxContextTokens, ContextPolicy.visionLimit) else {
+            throw RequestFailure(.contextLengthExceeded, "image-expanded input exceeds the configured or qualified vision context limit")
+        }
+        let prompt = VisionPrompt(tower: vt, items: items, segments: segments, hiddenSize: model.cfg.hiddenSize)
+        prompt.preparationRequest = request
+        prompt.preparationObservation = ImagePreparationObservation(
+            seconds: RuntimeClock.seconds(since: started), sourceDecodeSeconds: decodedSeconds,
+            towerReadySeconds: towerReadySeconds, sampledFootprint: observer?.finish(),
+            vmBefore: vmBefore, vmAfter: generator.footprintSampling ? ProcessMemory.vmActivity() : nil,
+            sourceDecodedImages: sourceBatch.decodedImages, sourceReusedImages: sourceBatch.reusedImages,
+            sourceAdmissionBytes: sourceBatch.chargedBytes)
+        observationFinished = true
+        return (expanded, prompt)
     }
 
     /// Every image a request carries, in the order the chat template will
@@ -658,15 +847,92 @@ public final class Engine {
         shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int, String) -> Bool)? = nil
     ) -> (text: String, ids: [Int], stats: GenStats) {
-        lock.lock()
-        defer { lock.unlock() }
+        generate(promptIds: promptIds, params: params, vision: vision,
+            shouldContinue: shouldContinue, onToken: onToken, request: nil)
+    }
+
+    public func generate(
+        promptIds: [Int], params: SampleParams, vision: VisionPrompt? = nil,
+        shouldContinue: (() -> Bool)? = nil,
+        onToken: ((Int, String) -> Bool)? = nil,
+        request: RequestController?, onAdmitted: (() -> Bool)? = nil
+    ) -> (text: String, ids: [Int], stats: GenStats) {
+        let requestStart = RuntimeClock.now()
+        let control: RequestController
+        do {
+            if let contextAssignmentFailure = contextLock.withLock({ contextAssignmentFailure }) { throw contextAssignmentFailure }
+            if let unavailable = planLock.withLock({ allocationUnavailable }) { throw unavailable }
+            control = try request ?? beginRequest()
+            try control.attachReservations(requestReservations)
+            guard control.configuration.maxContextTokens <= allocatedContextTokens else {
+                throw RequestFailure(.invalidConfiguration, "request policy exceeds the allocated engine window")
+            }
+            if let why = contextError(promptTokens: promptIds.count) {
+                throw RequestFailure(.contextLengthExceeded, why)
+            }
+            guard promptIds.count <= control.configuration.maxContextTokens else {
+                throw RequestFailure(.contextLengthExceeded, "prompt exceeds this request's configured context window")
+            }
+            try lock.lock(request: control)
+        } catch {
+            var stats = GenStats(); stats.promptTokens = promptIds.count
+            let failure = error as? RequestFailure ?? RequestFailure(.inferenceError, String(describing: error))
+            stats.requestFailure = failure; stats.runtimeError = failure.message; stats.finishReason = "error"
+            stats.memoryPressureCancelled = failure.code == .insufficientMemory
+            if failure.code == .insufficientMemory, let ticket = pressureBoundary.snapshot() {
+                stats.memoryPressureBoundarySeconds = RuntimeClock.seconds(since: ticket.requestedAt)
+            }
+            stats.requestSeconds = request?.elapsedSeconds ?? RuntimeClock.seconds(since: requestStart)
+            return ("", [], stats)
+        }
+        let queueSeconds = RuntimeClock.seconds(since: requestStart)
+        let preparationSeconds = max(0, control.elapsedSeconds - queueSeconds)
+        defer { control.releaseDispatchReservation(); lock.unlock() }
         var params = params.sanitized()
-        let room = max(0, maxContextTokens - promptIds.count)
-        if room == 0 {
+        // A queued request may acquire the lock before the waiting governor.
+        // Refuse it before image encoding, cache checkout or GPU allocation.
+        if let ticket = pressureBoundary.snapshot() {
             var stats = GenStats()
             stats.promptTokens = promptIds.count
-            stats.finishReason = "length"
+            stats.memoryPressureCancelled = true
+            let failure = control.fail(RequestFailure(.insufficientMemory,
+                "memory pressure interrupted inference; retry after the cache resizes"))
+            stats.requestFailure = failure; stats.runtimeError = failure.message
+            stats.finishReason = "error"
+            stats.memoryPressureBoundarySeconds = RuntimeClock.seconds(since: ticket.requestedAt)
             stats.peakMemoryGB = ProcessMemory.peakResidentGB
+            stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
+            stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
+            stats.cachedRouterBytes = model.cachedRouterBytes
+            stats.queueSeconds = queueSeconds
+            stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
+            return ("", [], stats)
+        }
+        let modeLimit = vision == nil ? ContextPolicy.modelLimit : ContextPolicy.visionLimit
+        let effectiveWindow = min(maxContextTokens, control.configuration.maxContextTokens, modeLimit)
+        guard promptIds.count <= effectiveWindow else {
+            let failure = control.fail(RequestFailure(.contextLengthExceeded,
+                "prompt exceeds the configured or qualified vision context window"))
+            var stats = GenStats(); stats.promptTokens = promptIds.count
+            stats.requestFailure = failure; stats.runtimeError = failure.message; stats.finishReason = "error"
+            stats.queueSeconds = queueSeconds; stats.preparationSeconds = preparationSeconds
+            return ("", [], stats)
+        }
+        let room = max(0, effectiveWindow - promptIds.count)
+        if room == 0 {
+            if onAdmitted?() == false { control.cancel() }
+            var stats = GenStats()
+            if let failure = control.failure {
+                stats.requestFailure = failure; stats.runtimeError = failure.message
+            }
+            stats.promptTokens = promptIds.count
+            stats.finishReason = control.failure == nil ? "length" : "error"
+            stats.peakMemoryGB = ProcessMemory.peakResidentGB
+            stats.cachedRouterBytes = model.cachedRouterBytes
+            stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
+            stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
+            stats.queueSeconds = queueSeconds
+            stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
             return ("", [], stats)
         }
         // Context is prompt + completion, not two independent 32k allowances.
@@ -680,11 +946,26 @@ public final class Engine {
         var lastTok = -1
         var clientGone = false
         var stopFound = false
+        var firstTextSeconds: Double?
+        var pressureObserved: PressureTicket?
+        var pressureBoundarySeconds: Double?
+
+        func observePressure() -> Bool {
+            guard let ticket = pressureBoundary.snapshot() else { return false }
+            control.fail(RequestFailure(.insufficientMemory,
+                "memory pressure interrupted inference; retry after the cache resizes"))
+            if pressureObserved == nil {
+                pressureObserved = ticket
+                pressureBoundarySeconds = RuntimeClock.seconds(since: ticket.requestedAt)
+            }
+            return true
+        }
 
         func emit(_ delta: String, _ tok: Int) -> Bool {
             if delta.isEmpty { return true }
             delivered += delta
             guard let cb = onToken else { return true }
+            if firstTextSeconds == nil { firstTextSeconds = RuntimeClock.seconds(since: requestStart) }
             return cb(tok, delta)
         }
 
@@ -732,20 +1013,33 @@ public final class Engine {
 
         let needsIncrementalDecode = onToken != nil || !stops.isEmpty
         let tokenHandler: ((Int) -> Bool)? = needsIncrementalDecode ? { tok in
+            control.sampledFirstToken()
             lastTok = tok
             pendingIds.append(tok)
             let ok = flushStablePrefix(tok)
             if !ok, !stopFound { clientGone = true }
-            return ok
-        } : nil
+            // A pressure event can arrive inside a client callback. This is
+            // already a supported committed-emission boundary in both decode
+            // paths; do not spend another forward before observing it.
+            return ok && !observePressure()
+        } : { _ in control.sampledFirstToken(); return !observePressure() }
 
-        let (ids, stats) = generator.generate(
+        // Snapshot after any vision reservation/governor resize, while this
+        // request owns the generation gate. Keep explicit process targets and
+        // the device working set separate from reclaimable-memory admission.
+        generator.readScopeFootprintLimitBytes = currentPlan.flatMap { plan in
+            let limit = min(plan.targetGB ?? plan.expectedPeakGB, plan.workingSetGB)
+            return limit.isFinite && limit > 0 && limit < Double(Int.max) / 1e9
+                ? Int(limit * 1e9) : 0
+        }
+        var (ids, stats) = generator.generate(
             promptIds: promptIds, params: params, eosIds: eosIds, cache: prefixCache,
             vision: vision,
             shouldContinue: {
                 guard !clientGone, !stopFound else { return false }
+                if observePressure() { return false }
                 return shouldContinue?() ?? true
-            }, onToken: tokenHandler)
+            }, onToken: tokenHandler, request: control, onAdmitted: onAdmitted)
 
         var text = tokenizer.decode(tokens: ids, skipSpecialTokens: true)
         if !stops.isEmpty, let cut = Self.stopIndex(text, stops) {
@@ -753,13 +1047,37 @@ public final class Engine {
         }
         // The one full decode is both the non-streamed result and an exact final
         // reconciliation for the bounded incremental decoder.
-        if !clientGone, onToken != nil {
+        if !clientGone, control.failure == nil, stats.runtimeError == nil, onToken != nil {
             let target = text.unicodeScalars
             let sent = delivered.unicodeScalars
             if target.count >= sent.count, target.starts(with: sent) {
                 _ = emit(String(String.UnicodeScalarView(target.dropFirst(sent.count))), lastTok)
             }
         }
+        stats.queueSeconds = queueSeconds
+        stats.preparationSeconds = preparationSeconds
+        stats.memoryPressureCancelled = pressureObserved != nil
+        if pressureObserved != nil {
+            stats.runtimeError = stats.runtimeError
+                ?? "memory pressure interrupted inference; retry after the cache resizes"
+            stats.finishReason = "error"
+        }
+        stats.memoryPressureBoundarySeconds = pressureBoundarySeconds
+        stats.firstTextSeconds = firstTextSeconds
+        if let failure = control.failure {
+            stats.requestFailure = failure; stats.runtimeError = failure.message; stats.finishReason = "error"
+            stats.memoryPressureCancelled = failure.code == .insufficientMemory
+            // A request guard can see the ticket before the legacy continuation
+            // callback runs. Preserve the same observed boundary in that path.
+            if failure.code == .insufficientMemory, stats.memoryPressureBoundarySeconds == nil,
+               let ticket = pressureBoundary.snapshot() {
+                stats.memoryPressureBoundarySeconds = RuntimeClock.seconds(since: ticket.requestedAt)
+            }
+            prefixCache.drop()
+            Stream.gpu.synchronize()
+            MLX.Memory.clearCache()
+        }
+        stats.requestSeconds = control.elapsedSeconds
         return (text, ids, stats)
     }
 }

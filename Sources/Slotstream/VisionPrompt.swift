@@ -74,9 +74,17 @@ public struct VisionRun {
 /// The images of one request, their placeholder runs in the expanded prompt,
 /// and the tower that can turn them into rows on demand.
 public final class VisionPrompt {
-    struct Item {
+    package var preparationObservation: ImagePreparationObservation?
+    /// Source pixels can outlive tokenization and queue for inference. Keep
+    /// their engine reservation alive for exactly as long as this owner.
+    package var preparationRequest: RequestController?
+    package struct Item {
         let image: CGImage
         let plan: VisionTower.ImagePlan
+        package init(image: CGImage, plan: VisionTower.ImagePlan) {
+            self.image = image
+            self.plan = plan
+        }
     }
 
     private let tower: VisionTower
@@ -88,15 +96,52 @@ public final class VisionPrompt {
     /// pixels.
     public let segments: [ImageSegment]
 
-    init(tower: VisionTower, items: [Item], segments: [ImageSegment], hiddenSize: Int) {
+    package init(tower: VisionTower, items: [Item], segments: [ImageSegment], hiddenSize: Int) {
+        precondition(items.count == segments.count)
         self.tower = tower
         self.items = items
-        self.segments = segments
+        self.segments = segments.enumerated().map { i, segment in
+            ImageSegment(start: segment.start, count: segment.count, hash: segment.hash,
+                preparationIdentity: Self.preparationKey(tower: tower, item: items[i], hiddenSize: hiddenSize, padding: 0))
+        }
         self.hiddenSize = hiddenSize
     }
 
     /// Total placeholder tokens across every image.
     public var tokenCount: Int { segments.reduce(0) { $0 + $1.count } }
+
+    private static func preparationKey(tower: VisionTower, item: Item, hiddenSize: Int, padding: Int,
+                                       queryTile: Int = 0) -> String {
+        let p = item.plan
+        return "vision-v1:\(tower.featureNamespace):\(item.image.width):\(item.image.height):"
+            + "\(p.width):\(p.height):\(p.gridW):\(p.gridH):\(p.patches):\(p.mergedTokens):\(hiddenSize):\(padding)"
+            + (queryTile == 0 ? "" : ":query\(queryTile)")
+    }
+
+    package func cacheSegments(attentionPadding: Int, queryTile: Int = 0) -> [ImageSegment] {
+        if attentionPadding == 0 && queryTile == 0 { return segments }
+        return segments.enumerated().map { i, segment in
+            ImageSegment(start: segment.start, count: segment.count, hash: segment.hash,
+                preparationIdentity: Self.preparationKey(tower: tower, item: items[i], hiddenSize: hiddenSize,
+                    padding: attentionPadding, queryTile: queryTile))
+        }
+    }
+
+    package private(set) var encodedImages = 0
+    package private(set) var reusedImageFeatures = 0
+    package private(set) var prefixSkippedImages = 0
+    package private(set) var executedQueryTiles = 0
+
+    /// A request owns one immutable tower/processor instance, so no feature
+    /// can cross model or processor instances. Geometry is explicit even for
+    /// repeated encoded bytes. Features never persist beyond this call's runs.
+    private struct FeatureKey: Hashable {
+        let content: ImageHash
+        let plan: VisionTower.ImagePlan
+        let sourceWidth: Int
+        let sourceHeight: Int
+        let hiddenSize: Int
+    }
 
     /// The runs prefill still needs, given that the state already consumed the
     /// first `reused` tokens. Running the tower is the expensive part, so this
@@ -112,10 +157,37 @@ public final class VisionPrompt {
     /// Empty is the ordinary case for a follow-up turn on a conversation whose
     /// pictures have not changed.
     public func runs(consumedTokens reused: Int) -> [VisionRun] {
+        runs(consumedTokens: reused, deduplicate: false)
+    }
+
+    package func runs(consumedTokens reused: Int, deduplicate: Bool, attentionPadding: Int = 0) -> [VisionRun] {
+        do { return try runsChecked(consumedTokens: reused, deduplicate: deduplicate, attentionPadding: attentionPadding) }
+        catch { preconditionFailure("\(error)") }
+    }
+
+    package func runsChecked(consumedTokens reused: Int, deduplicate: Bool, attentionPadding: Int = 0,
+                             queryTile: Int = 0, request: RequestController? = nil) throws -> [VisionRun] {
+        encodedImages = 0; reusedImageFeatures = 0; prefixSkippedImages = 0
+        executedQueryTiles = 0
+        var features: [FeatureKey: MLXArray] = [:]
         var out: [VisionRun] = []
-        for (i, seg) in segments.enumerated() where seg.end > reused {
-            let flat = tower.encode(items[i].image, plan: items[i].plan)
-                .reshaped([seg.count, hiddenSize])
+        for (i, seg) in segments.enumerated() {
+            guard seg.end > reused else { prefixSkippedImages += 1; continue }
+            let item = items[i]
+            precondition(seg.count == item.plan.mergedTokens)
+            let key = FeatureKey(content: seg.hash, plan: item.plan,
+                sourceWidth: item.image.width, sourceHeight: item.image.height, hiddenSize: hiddenSize)
+            let flat: MLXArray
+            if deduplicate, let held = features[key] {
+                flat = held
+                reusedImageFeatures += 1
+            } else {
+                flat = try tower.encodeChecked(item.image, plan: item.plan, attentionPadding: attentionPadding,
+                    queryTile: queryTile, onQueryTile: { self.executedQueryTiles += 1 }, request: request)
+                    .reshaped([seg.count, hiddenSize])
+                encodedImages += 1
+                if deduplicate { features[key] = flat }
+            }
             let skip = Swift.max(0, reused - seg.start)
             out.append(
                 VisionRun(

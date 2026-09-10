@@ -14,10 +14,12 @@ matching connection settings below.
 | Open WebUI or the Ollama CLI | Ollama-compatible chat | [Ollama settings](#ollama-compatible-clients) below |
 | fx | AI SDK gateway | [fx guide](FX.md), including permission-review and compaction limits |
 
-OpenAI function tools and reasoning support require **Slotstream 0.2.8 or
-later**. Run the [installer](../README.md#install) again to update, then confirm
-`slotstream --version` and restart the server. See the [changelog](../CHANGELOG.md)
-for the release history.
+OpenAI function tools and reasoning support require the **unreleased source
+build** described in the [changelog](../CHANGELOG.md#unreleased). The public
+installer fetches the published release. Changing a client setting cannot add
+missing support to an older server. See [building from source](../README.md#testing)
+and start the executable you built; a local build can share the published
+release's version string.
 
 ## Start one server
 
@@ -84,7 +86,7 @@ OLLAMA_HOST=http://127.0.0.1:11434 ollama run qwen3.8-flash-next:4bit
 
 The Ollama endpoints support chat, streaming, and images. They reject function
 tools. For an agent that offers both provider types, select OpenAI Chat
-Completions when using tools, with the version requirement above.
+Completions when using tools, following the source-build requirement above.
 
 ## Check the connection
 
@@ -117,7 +119,7 @@ as well. The [testing guide](TESTING.md) provides automated integration gates.
 | Symptom | What to check |
 |---|---|
 | Connection refused or the wrong model appears | Confirm the server is running, the port matches, and another server is not answering there. Check the executable you started and `/v1/models`. |
-| A tool request is rejected | Confirm the client uses OpenAI Chat Completions and the server is version 0.2.8 or later. The Ollama endpoints reject tools. |
+| A tool request is rejected | Confirm the client uses OpenAI Chat Completions and the server includes the unreleased tool support. The Ollama endpoints reject tools. |
 | The client calls `/v1/responses` | Select its Chat Completions mode. Responses-only clients are unsupported. |
 | Context is rejected or the client guesses a huge window | Match the client's limit to the served window, which includes instructions, tool definitions, history, images, and output. The ordinary default is 32,768; Hermes uses an explicit `--max-context 65536`. |
 | The first answer times out | Read the server's prefill progress. Large standing prompts can take minutes; configure the client's local stream watchdog using measured waits. See the Hermes and fx guides for their different timeout behavior. |

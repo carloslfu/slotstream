@@ -10,15 +10,18 @@
 METALLIB := Tools/lib/mlx-0.31.1.metallib
 RELEASE  := .build/release
 DEBUG    := .build/debug
+SLOTSTREAM_BUILD_JOBS ?=
 
-.PHONY: build debug checks checks-all test coverage clean hooks docs
+.PHONY: build debug checks checks-all test context-test coverage clean hooks docs
 
 build: $(METALLIB)
-	swift build -c release
+	python3 Tools/build_identity.py before $(RELEASE)
+	swift build -c release $(if $(SLOTSTREAM_BUILD_JOBS),-j $(SLOTSTREAM_BUILD_JOBS))
 	cp $(METALLIB) $(RELEASE)/mlx.metallib
+	python3 Tools/build_identity.py after $(RELEASE)
 
 debug: $(METALLIB)
-	swift build
+	swift build $(if $(SLOTSTREAM_BUILD_JOBS),-j $(SLOTSTREAM_BUILD_JOBS))
 	cp $(METALLIB) $(DEBUG)/mlx.metallib
 
 $(METALLIB):
@@ -37,6 +40,12 @@ checks-all: debug
 # remains the acceptance battery against the real weights.
 test:
 	Tools/verify.sh
+
+# No SwiftPM, MLX, weights, GPU, model lock or real pressure. The source-policy
+# executable uses inert device observations and synthetic machine inputs.
+CONTEXT_TEST_OUT ?= .build/context-proxy-$(shell date +%Y%m%d-%H%M%S)
+context-test:
+	python3 Tools/context_acceptance.py proxy --out "$(CONTEXT_TEST_OUT)"
 
 coverage:
 	Tools/coverage.sh

@@ -24,9 +24,11 @@ Silicon, with no Python required.
 [Install](#install) · [Hardware](#will-it-run-on-my-mac) · [API](docs/API.md) ·
 [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-> **We're building Sevra on Slotstream.** A personal, local-first app with one
-> continuous conversation, a journal, and knowledge in files you own. The app
-> is in development. The Slotstream CLI, APIs, and Swift package remain
+> **We're building Sevra on Slotstream.** Sevra will choose and maintain the
+> best local AI models your hardware can run well, optimizing the whole stack
+> around a few carefully selected models. Private personal AI with memory,
+> tools and meaningful controls, without having to configure it yourself.
+> The app is in development. The Slotstream CLI, APIs, and Swift package remain
 > independently usable. [See Sevra and join the waitlist](https://www.sevrahq.com/).
 
 ## Will it run on my Mac?
@@ -103,11 +105,11 @@ finishes, it processes your prompt and prints the reply.
 
 ### Downloading the model
 
-Run `slotstream pull` to download the model. It automatically uses compression
-and Cloudflare's global cache (CDN): **88.3 GB** instead of **105.3 GB**
+Run `slotstream pull` to download the model. It automatically downloads
+compressed files from [Hugging Face](https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack): **88.3 GB** instead of **105.3 GB**
 (**16.12% fewer bytes**), restoring the exact original model on disk.
 Interrupted downloads resume automatically, and every file is checked for
-corruption. You only need to download it once.
+corruption. No Hugging Face account is needed. You only need to download it once.
 
 <details>
 <summary>Download speed and verification details</summary>
@@ -117,9 +119,9 @@ Connection overhead and any extra processing add to that time. The installed
 model has 25 files, including the optional 1.5 GB draft head used to speed up
 generation.
 
-Fresh downloads use small immutable compressed objects in Cloudflare R2,
-served through its CDN. Decoding and disk writes overlap the transfer. The
-client starts with eight independent connections and increases concurrency
+Fresh downloads use small immutable compressed objects in the public Hugging
+Face mirror, pinned to an exact repository revision. Decoding and disk writes
+overlap the transfer. The client starts with eight independent connections and increases concurrency
 only when measured throughput improves. `--connections` fixes the count;
 `--transport raw` selects the original file-based download. Existing raw
 partial downloads keep their progress automatically.
@@ -235,6 +237,12 @@ eight-turn test at a 16 GB target, the last turn started replying after
 when two candidate tokens are nearly tied; use `--no-prefix-cache` for
 comparisons that require a fresh computation every time.
 
+The unreleased optimization work adds bounded prompt-read grouping, compact
+runtime state and reusable committed prompt checkpoints. Its gains depend on
+which work a request can avoid. The [final integrated measurements](MEASUREMENTS.md#final-integrated-optimization-results)
+separate preview latency, sustained generation, process memory and unchanged
+prompts from new input; component gains are not added together.
+
 <details>
 <summary>Prefill and speculative decode measurements</summary>
 
@@ -265,9 +273,16 @@ and failed experiments behind these results.
 **Prompt, conversation history, images, and reply share a 32,768-token limit
 by default.** Use `serve --max-context 65536` for the larger 65,536-token
 window, including Hermes. The planner charges extra state and transient memory
-before allocating the expert cache. The model was trained for 262,144 tokens, but
+before allocating the expert cache. The pinned model config allows 262,144 tokens, but
 slotstream doesn't support that full window. The long-context qualification
 is a capacity and memory check, not a long-context answer-quality benchmark.
+
+In unreleased source builds, `run`, `serve` and `doctor` share `--max-context`
+and `--max-prefill-wait`.
+The wait defaults to 30 minutes from accepting the request to its first sampled
+token, including queueing and preparation. `0` disables only that time policy;
+memory and cancellation checks still apply. `doctor --json` reports the
+memory-feasible window separately. See [request limits and errors](docs/API.md#request-deadlines-and-resource-failures).
 
 At the default limit, the estimated wait before the first token is about 3.0 min for
 the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. The latter comes from
@@ -530,10 +545,12 @@ matching connection settings below.
 | Open WebUI or the Ollama CLI | Ollama-compatible chat | [Ollama settings](#ollama-compatible-clients) below |
 | fx | AI SDK gateway | [fx guide](FX.md), including permission-review and compaction limits |
 
-OpenAI function tools and reasoning support require **Slotstream 0.2.8 or
-later**. Run the [installer](../README.md#install) again to update, then confirm
-`slotstream --version` and restart the server. See the [changelog](../CHANGELOG.md)
-for the release history.
+OpenAI function tools and reasoning support require the **unreleased source
+build** described in the [changelog](../CHANGELOG.md#unreleased). The public
+installer fetches the published release. Changing a client setting cannot add
+missing support to an older server. See [building from source](../README.md#testing)
+and start the executable you built; a local build can share the published
+release's version string.
 
 ## Start one server
 
@@ -600,7 +617,7 @@ OLLAMA_HOST=http://127.0.0.1:11434 ollama run qwen3.8-flash-next:4bit
 
 The Ollama endpoints support chat, streaming, and images. They reject function
 tools. For an agent that offers both provider types, select OpenAI Chat
-Completions when using tools, with the version requirement above.
+Completions when using tools, following the source-build requirement above.
 
 ## Check the connection
 
@@ -633,7 +650,7 @@ as well. The [testing guide](TESTING.md) provides automated integration gates.
 | Symptom | What to check |
 |---|---|
 | Connection refused or the wrong model appears | Confirm the server is running, the port matches, and another server is not answering there. Check the executable you started and `/v1/models`. |
-| A tool request is rejected | Confirm the client uses OpenAI Chat Completions and the server is version 0.2.8 or later. The Ollama endpoints reject tools. |
+| A tool request is rejected | Confirm the client uses OpenAI Chat Completions and the server includes the unreleased tool support. The Ollama endpoints reject tools. |
 | The client calls `/v1/responses` | Select its Chat Completions mode. Responses-only clients are unsupported. |
 | Context is rejected or the client guesses a huge window | Match the client's limit to the served window, which includes instructions, tool definitions, history, images, and output. The ordinary default is 32,768; Hermes uses an explicit `--max-context 65536`. |
 | The first answer times out | Read the server's prefill progress. Large standing prompts can take minutes; configure the client's local stream watchdog using measured waits. See the Hermes and fx guides for their different timeout behavior. |
@@ -665,6 +682,9 @@ This page covers everyday commands, memory settings, and common diagnostics.
 Run `slotstream <command> --help` for the options in your installed version.
 Only one model process can run per user at a time.
 
+The shared `run` context option, request-wait controls, feasibility metadata
+and expanded `context-check` flags below are unreleased source additions.
+
 <a id="where-things-live"></a>
 
 ## File locations
@@ -677,6 +697,24 @@ Only one model process can run per user at a time.
 | `/usr/local/bin/slotstream`, or a PATH line in `~/.zshrc` / `~/.bash_profile` | How the installer puts the command on your PATH (the wrapper when `/usr/local/bin` is writable, the profile line otherwise). |
 | `/tmp/slotstream-model-<uid>.lock` | The one-process lock, held while a model is loaded. |
 
+## Reading tokens per second
+
+`slotstream run` prints a `-- decode` line with average `tok/s` after the
+response, and a separate prefill rate for reading the prompt. Add
+`--stats-json stats.json` to save the raw generation measurements.
+
+When using an existing `slotstream serve`, the Ollama-compatible `/api/chat`
+and `/api/generate` endpoints return `eval_count` and `eval_duration` in the
+final response. For streaming, read the final frame. Duration is in
+nanoseconds: divide the count by `eval_duration / 1e9` when that duration is
+positive. This measures the decode phase and excludes prefill. The ordinary
+OpenAI-compatible response supplies token usage without these duration fields.
+
+These are end-of-response statistics. A planner's expected speed is an
+estimate; it is separate from the measured rate of a completed request.
+[The serving benchmark and throughput expectations](../MEASUREMENTS.md#three-prompt-serving-benchmark-and-throughput-expectations)
+show the observed variation, prompt-reuse behavior and measurement limits.
+
 ## Everyday commands
 
 ### `slotstream run`
@@ -686,6 +724,8 @@ Generate once from a prompt, with no server.
 | Flag | Meaning |
 |---|---|
 | `--prompt <text>` | The prompt (default: "Why is the sky blue?"). |
+| `--max-context <n>` | Window shared by the final templated input and reply; uses the same planning and bounds as `serve`. |
+| `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including preparation. Default 30 minutes; `0` disables only the time policy. |
 | `--max-tokens <n>` | Tokens to generate; `<= 0` means as many as the context allows (default 128). |
 | `--greedy` | Deterministic greedy sampling. |
 | `--raw` | Send the prompt without the chat template. |
@@ -703,6 +743,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
 | `--max-context <n>` | Maximum tokens shared by prompt and reply. Default: 32768; ceiling: 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Context state uses about 27 KiB per token. |
+| `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
 
@@ -710,7 +751,7 @@ Plus the memory options.
 
 ### `slotstream pull [model]`
 
-Download losslessly compressed model weights from the CDN, reconstructing
+Download losslessly compressed model weights from Hugging Face, reconstructing
 the original files with resumable transfers and hash verification.
 The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 
@@ -718,7 +759,7 @@ The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
 | `--connections <n>` | Fixed independent connections, 1–32. Omit to start at 8 and test increases only while throughput improves. |
-| `--transport automatic\|compressed\|raw` | Automatic uses compressed CDN objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
+| `--transport automatic\|compressed\|raw` | Automatic uses compressed Hugging Face objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
 | `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
 
 The complete compressed package uses **16.12% fewer bytes**. Decode and writes
@@ -740,7 +781,8 @@ never loads the model and can run while the server is working.
 | `--sim-ram <gb>` | Preview a Mac with this much RAM. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
 | `--sim-working-set <gb>` | Use this Metal working-set limit in the simulation. |
 | `--sim-available <gb>` | Use this much available memory in the simulation. |
-| `--max-context <n>` | Preview the plan `serve --max-context n` would announce. |
+| `--max-context <n>` | Preview the same allocation and report the largest memory-feasible window under these inputs. |
+| `--max-prefill-wait <minutes>` | Preview the request deadline separately from memory feasibility; default 30 minutes, `0` disables only time. |
 | `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
 
 Plus the memory options, so `doctor --memory-gb 16` shows exactly what
@@ -750,22 +792,33 @@ wait for a prompt filling the whole context.
 
 ### `slotstream context-check`
 
-Measure how long a synthetic prompt takes on your Mac, with conversation
-reuse disabled. It reports seconds, tokens per second, and peak process
-memory against the plan. It checks available memory between passes and
-stops if it falls below the threshold.
+Run an explicit capacity diagnostic with a synthetic prompt. Conversation
+reuse is disabled by default; the retained-state mode first fills distinct
+conversations and exercises their interleaved follow-ups. The report includes
+actual prompt and reply IDs, compute shapes, sampled physical footprint and
+swap observations. Incomplete or contaminated runs fail qualification.
 
 Stop any running model process first. Results are printed without writing
 files; contributors can register them in the measurement records under `db/`.
 
 | Flag | Meaning |
 |---|---|
-| `--tokens <n>` | Prompt length (default 8192; at most 262144). |
+| `--tokens <n>` | Prompt length (default 8192); prompt plus the required reply must fit the model limit. |
+| `--reply-tokens <n>` | Required nonempty output, reserved before model loading (default 16). An early stop is incomplete qualification. |
+| `--max-prefill-wait <minutes>` | The same request deadline; `0` disables only this deadline. |
+| `--wall-seconds <seconds>` | Independent hard duration bound per rung (default 7200). |
+| `--plan-only` | Print the unqualified memory plan and resolved runtime controls without loading an engine. |
+| `--warm-conversations <n>` | Fill and revisit retained conversations before the main request. Requires a single rung and enough configured room. |
+| `--warm-tokens <n>` | Length of each distinct warm-up prompt. Its reply and follow-up must also fit the configured window. |
+| `--sample-footprint` | Compatibility flag; this diagnostic always samples physical footprint in addition to lifetime process RSS and allocator telemetry. |
 | `--ladder` | Run 2048, 4096, … up to `--tokens`, stopping at the first rung that leaves the plan. |
 | `--min-free-gb <gb>` | Abort a pass when reclaimable memory falls below this (default: the planner's slack, 5% of RAM, at least 1.5 GB). |
 | `--json` | One JSON object per rung. |
 
 Plus the memory options; give it the same target you would give `serve`.
+With retained conversations, the wall-clock ceiling covers both warm-up and
+the main request. Diagnostic access above the public implementation ceiling
+does not make that window supported by `serve` or `run`.
 
 ## Memory options
 
@@ -784,9 +837,40 @@ Memory section).
 | `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Lowers the target for other apps; cannot raise it past the ~33 GB ceiling. Ignored when an explicit size is given. |
 
 Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
-which beats `--memory-gb`. An explicit size stays fixed and
-bypasses automatic availability checks. Preview it with `doctor` and make
-sure the memory is available before loading the model.
+which beats `--memory-gb`. An explicit size keeps its expert-pool policy. Physical headroom is still
+checked before model loading and request growth. Preview it with `doctor`;
+an unavailable window is reported separately from a request that may take
+too long to prefill.
+
+
+A larger context reserves allocated cache capacity, retained conversations,
+resident components and transient work before assigning the expert pool.
+`doctor --json` includes the byte ledger and a discrete feasibility result;
+a smaller history does not turn unused long-context reservation into free RAM.
+Unknown prefill estimates appear as JSON `null` and remain deadline-bound.
+Neither a fixed pool nor `--no-elastic` disables request memory checks.
+
+## Optimization defaults in the unreleased source build
+
+The CLI resolves the selected optimization family automatically: compact
+runtime state and n-gram rows, bounded prompt-read grouping, committed prompt
+checkpoints, bounded output buffering and memory-governor response. Long
+prompt grouping is admitted only when its additional workspace fits; ordinary
+chronological passes remain the fallback. Explicit prefill and optimization
+controls retain their precedence and validation.
+
+Prompt checkpoints help only when the token and image history actually
+matches. Use `--no-prefix-cache` for comparisons that require fresh prompt
+computation. Query tiling bounds vision attention workspace; it does not grant
+extra permanent expert-cache capacity. The specialized fused rotation keeps
+its qualified platform and shape checks, with the original rotation elsewhere.
+
+The `SLOTSTREAM_OPT_` switches remain available for reference comparisons and
+qualification. They include experimental paths that were rejected or remain
+conditional. Enabling every switch is not the selected configuration.
+[Integrated measurements](../MEASUREMENTS.md#final-integrated-optimization-results)
+report the tested workloads and limits; [the unified plan](../PLAN.md) retains
+the disposition of each candidate.
 
 ## Environment variables
 
@@ -822,14 +906,14 @@ See [Testing](TESTING.md) for the full suites.
 | `governor-check` | The elastic resize policy across pressure, availability, and cooldowns. |
 | `sampler-golden` | Sampling from reproducible synthetic logits, compared against `Tools/sampler_ref.py`. Flags: `--vocab`, `--draws`, `--seed`, `--logit-seed`, `--temperature`, `--top-p`, `--top-k`, `--min-p`, `--presence-penalty`, `--accumulate`. |
 | `pull-check` | Same-size corruption detection and HTTP range validation in the downloader. |
-| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same arithmetic `doctor` and the 400 message use. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
+| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same wait arithmetic `doctor` and the 400 message use. JSON includes actual canonical pass sizes, physical query rows and key extents, including numerical padding. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
 
 **Load the model**
 
 | Command | Proves |
 |---|---|
 | `elastic-check` | Greedy output is byte-identical across a live pool grow and shrink. `--max-tokens` (24), `--big-slots` (960; lower it on small machines). |
-| `elastic-drill` | The live governor shrinks under pressure, honors the grow cooldown, grows back, and output never changes. `--slots` (4000), `--quick` skips the 60 s cooldown wait. |
+| `elastic-drill` | Drives the live governor through controlled polls: shrink, grow cooldown, regrowth and exact output. `--slots` (4000), `--max-memory-gb` (10), `--quick` skips regrowth. The unchanged deadbands need a larger starting arena: the full test uses `--slots 1000 --max-memory-gb 13`, requires the derived target plus 3 GB physically reclaimable, and reports sampled memory and swap. An insufficient ceiling refuses before model allocation. |
 | `prefix-check` | Conversation prefix reuse is equivalent, bounded, and deterministic. `--slots` (640), `--max-tokens` (24). |
 | `sweep-check` | The prefill sweep (passes of 256 tokens or more) stays inside the prefill-rechunk band against the pool path, is deterministic, gives bit-identical logits on a cold and a warm pool, and leaves the pool consistent after admission. `--slots` (640). |
 | `parity` | N truncated layers match the Python reference dumps. `--layers` (4), `--tokens`, `--compare <dir>`, `--out <dir>`. |
@@ -1099,8 +1183,10 @@ Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
 the shared context (32,768 tokens by default). The decoded image file must be at most
 24 MiB, with an aspect ratio no greater than 200:1.
 
-The vision tower uses 0.9 GB and loads on the first image request, in addition
-to the text memory plan. A request is rejected if there's insufficient room.
+The vision tower uses 0.9 GB and loads on the first image request. That
+reservation stays inside the original process memory target, reducing expert
+capacity as needed. Image attention and decoded pixels also need workspace;
+a request is rejected before dispatch if its budget or real headroom is insufficient.
 `serve --vision off` disables images. Follow-up turns reuse image state while
 the matching conversation remains cached; image identity is checked by a
 digest of its bytes.
@@ -1121,7 +1207,7 @@ Ollama errors use `{"error": "message"}`. OpenAI errors use
 | 411 | Chunked request body; send `Content-Length` instead |
 | 413 | Request body exceeds 32 MiB |
 | 431 | Request headers exceed 64 KiB |
-| 503 | Too many open connections |
+| 503 | Too many open connections, insufficient memory, or an expired request-to-first-token deadline |
 
 A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
@@ -1130,12 +1216,53 @@ Prompt plus completion is capped at 32,768 tokens by default. Use
 `serve --max-context 65536` for a 65,536-token window, or select a smaller
 limit. The planner charges extra state and transient memory before allocating
 the pool.
-A prompt over the configured cap returns 400 with the limit and an estimated
-processing time. `/v1/models` and `/api/show` report the actual served window;
+A prompt over the configured cap returns 400 with the actual limit. A known
+prefill estimate can also refuse work that exceeds the remaining wait budget. `/v1/models` and `/api/show` report the actual served window;
 the model's training window must not be used as the request limit.
 
 Generation requests run one at a time; a second waits for the first. Metadata
 endpoints read a separate snapshot and remain responsive during generation.
+
+## Request deadlines and resource failures
+
+The request policy and structured resource failures in this section are
+unreleased source additions.
+
+`--max-prefill-wait` bounds the interval from accepting a complete request to
+sampling its first model token. Its default is 30 minutes; `0` disables only
+time. Upload and model startup are outside this clock; queueing, prompt
+preparation, image work and prefill are inside it. Decode after the first token
+remains subject to memory and cancellation checks. SSE keepalives preserve
+transport liveness and never reset the clock.
+
+Admission resolves the current memory plan and exact reusable prefix while
+holding the generation gate. It prices missing input from its absolute position;
+an unknown estimate stays unknown. `/api/show`, `/v1/models` and the gateway
+catalog expose an additive `context_policy` with configured, model and qualified
+mode limits. `doctor --json` additionally computes memory feasibility, which is
+independent of the wait policy.
+
+| Code | Before streaming headers | Action |
+|---|---|---|
+| `context_length_exceeded` | 400 | Send less input or restart with a supported larger window. |
+| `prefill_wait_exceeded` | 400 | Reduce missing input, reuse a valid prefix or raise the wait budget. |
+| `insufficient_memory` | 503 | Free memory, lower the target/context, or resize an image. |
+| `prefill_deadline_exceeded` | 503 | Retry with less work or a deliberate longer wait budget. |
+| `inference_error` | 500 | Inspect the error and retry after correcting its cause. |
+
+After headers, failures use the dialect's terminal error frame and close the
+stream. They never emit a successful OpenAI finish or `[DONE]`, Ollama
+`done: true`, or gateway success terminal. Disconnection stops bounded work.
+A tool proposal from an errored, truncated or incomplete turn is not a completed
+tool request; receiving clients must require successful termination before
+executing it. The engine's strict consumer fixture covers its wire contract;
+application-side tool authority remains the receiver's responsibility.
+
+Memory checks precede the next bounded allocation and leave safety headroom.
+They cannot prevent another application from allocating between checks. The
+engine joins readers and synchronizes GPU users before releasing request pins,
+and failed state is not reused. A subsequent request either succeeds or receives
+an explicit still-unavailable error.
 
 
 <!-- ===== docs/LIBRARY.md ===== -->
@@ -1226,6 +1353,14 @@ original-file verification; an immediate second `verify()` is unnecessary.
 `status()` reports remaining reconstructed model bytes, not compressed wire
 bytes, and permits an absent optional draft head.
 
+The default uses the compressed CDN and tunes connection count. Explicit
+`connections` fixes that count. `transport: .raw` selects raw mirrors;
+setting `sources` also selects raw mirrors in automatic mode. Existing raw
+partial downloads continue automatically. Download returns only after final
+original-file verification; an immediate second `verify()` is unnecessary.
+`status()` reports remaining reconstructed model bytes, not compressed wire
+bytes, and permits an absent optional draft head.
+
 <a id="what-will-it-do-on-this-mac"></a>
 
 ## Plan memory
@@ -1277,12 +1412,56 @@ print(report.name, report.passed, report.items.count)
 
 <a id="what-is-not-here-yet"></a>
 
+## Optimization controls
+
+`InferenceOptimizations()` retains the explicit reference configuration.
+`try InferenceOptimizations.environment()` resolves the deployment defaults
+and validated environment overrides. These are deliberately different entry
+points: an existing caller that constructs reference controls keeps those
+semantics. Ordinary engine construction resolves the environment defaults.
+
+Automatic prompt-read grouping requires the request memory controller and a
+compatible chronological schedule. `Engine.generate` creates a controller
+when the caller does not supply one. The lower-level `Generator.generate`
+overload without a controller keeps ordinary chronological processing.
+Begin and pass the controller before preparation, as described below, to
+include that work in the same request deadline and memory reservation.
+Explicit controls, saved control sets and public initializers retain their
+compatibility behavior; no numerical or capacity guarantee follows from
+enabling an experimental control.
+
 ## API stability
 
 `Engine.generate` currently uses callbacks. A typed delta stream, dedicated
 executor, and `Conversation` API are planned but not available. For now,
 `slotstream run` shows how the CLI calls the engine; the HTTP API is also
 available for callers in another process.
+
+## Context and request control
+
+These additive APIs are available in the unreleased source build.
+
+Construct an engine with the plan that prices its context. Shared
+`ContextConfiguration` validates `maxContextTokens` and
+`maxPrefillWaitMinutes` before loading. Attach it using
+`MemoryPlan.withRequestPolicy`, then use `Engine(modelDir:plan:)`.
+Call `beginRequest` before tokenization or images, pass that controller to
+`encodeChatWithVision`/`encodeWithVision` and `generate`, and use its
+`connected` callback for cancellation. The request clock includes the generation
+queue; it stops counting the deadline at the first sampled token.
+
+Legacy call signatures remain available. `GenStats.requestFailure` adds a
+structured code, elapsed/limit/estimate or memory details when applicable;
+`runtimeError` and `finishReason` continue to expose failure to older callers.
+Check these before using generated tools. An invalid legacy assignment to
+`maxContextTokens` keeps the advertised window unchanged and refuses subsequent
+work until corrected; a larger allocation requires a newly planned engine.
+
+`Planner.contextFeasibility` searches actual discrete windows under frozen
+machine inputs and runtime allocation controls. It returns the requested plan,
+largest fitting plan and refusal, independently of the time policy. Diagnostic
+qualification is explicit; it never changes the public implementation or
+MTP/vision limits advertised by ordinary serving.
 
 
 <!-- ===== docs/FX.md ===== -->
@@ -1515,11 +1694,15 @@ The explicit context setting is reproducible; the server also exposes the
 same runtime window through model discovery, so automatic discovery works.
 Vision discovery also reflects whether this server accepts images. With the
 vision weights available and vision enabled, Hermes can send image attachments.
-The first image loads the vision tower in addition to the announced text
-plan. Image admission checks available memory and can refuse the additional
-load when there is not enough headroom.
-The local stream timeout allows a long cold prefill to finish; it remains
-bounded and should be adjusted to measurements on slower hardware.
+The first image reserves the tower's memory inside the server target; a target
+that can only fit text at this context size can refuse that additional load.
+The local stream timeout allows a long cold prefill to finish. In unreleased
+source builds, the server's `--max-prefill-wait` is a separate request deadline, defaulting to 30 minutes
+and including queueing and preparation. If deliberately raising that server
+budget, raise the client's stale-stream timeout and HTTP read timeout enough
+to let the server return its own terminal result. Keepalives do not extend the
+server budget. A deadline or resource error must not execute a pending tool
+call or be treated as a completed summary.
 The explicit completion allowance leaves room for input history and complete
 tool arguments. Increase it for tasks that need larger tool payloads while
 keeping room for the input history.
@@ -1575,8 +1758,86 @@ Choose a suite based on what you have installed:
 make checks          # the tier that needs nothing: no GPU, no weights, no network
 make checks-all      # adds the MLX tier
 make test            # Tools/verify.sh, the acceptance battery against real weights
+make context-test    # isolated context policy + proxy fixtures; no MLX or weights
 make coverage        # line coverage of the library
 ```
+
+## Configurable context without a model
+
+`make context-test` compiles the production planner, feasibility solver,
+schedule and request controller with inert device observers. It uses the
+existing allocation golden and process/transport fixtures. It needs Python
+and a Swift compiler, but does not invoke SwiftPM, load MLX, touch weights,
+start a server or simulate pressure on the host. The dedicated
+`context-proxies` CI workflow runs this same command.
+
+Every run writes a fresh report and raw logs. Set `CONTEXT_TEST_OUT` to choose
+the directory. Reports bind the exact tested source and driver bytes, map
+each acceptance case to its proxy scope, and list its deferred native checks.
+Missing prerequisites or failing checks fail the command. Proxy success never
+certifies tensor numerical parity, model capacity, speed, answer quality, a
+real client installation or a release.
+
+To check explicit windows against an already built candidate without a new
+compile or model launch:
+
+```bash
+python3 -m unittest discover -s Tools -p context_window_matrix_test.py
+python3 Tools/context_window_matrix.py \
+  --binary /path/to/candidate/slotstream --out .build/context-window-matrix
+```
+
+The candidate needs its build identity, source archive and Metal library beside
+it. This command invokes only `doctor` with simulated device metadata and
+`prefill-schedule`. It checks the public ceiling, allocation ledger, cold and
+continued scheduling, padded attention bounds and overflow refusals. Its report
+identifies any source differences between the candidate and the current checkout;
+it does not turn an older candidate's result into current-source build evidence.
+These checks do not load the model or establish native capacity.
+
+Create a portable source handoff without a binary or model:
+
+```bash
+python3 Tools/context_acceptance.py prepare --out .build/context-handoff
+```
+
+The handoff contains a source archive, its hashes, the acceptance inventory,
+the original capacity profiles and explicit external dependencies. Preserve
+the handoff manifest outside the extracted source. On the intended test Mac,
+extract into a fresh directory, review the manifest, restore the pinned model,
+and build that exact source with the normal `make build` procedure. The archive
+contains the source and fixtures for the proxy/capacity workflow; the complete
+repository brain/docs and independently installed clients remain dependencies
+of the broader release battery.
+
+Bind the new candidate and model on that target, then explicitly run native
+capacity qualification there:
+
+```bash
+python3 Tools/context_acceptance.py bind \
+  --handoff /path/to/context-handoff/handoff.json \
+  --binary .build/release/slotstream --model /path/to/pinned-model \
+  --out .build/context-binding
+python3 Tools/context_acceptance.py run-capacity \
+  --binding .build/context-binding/binding.json \
+  --out .build/context-native --execute-on-target
+```
+
+Binding reads metadata and calls only `context-check --plan-only`. It checks
+the candidate's source archive against the handoff; an older binary cannot
+stand in for changed source. The native command runs the required governor
+and combined draft/image resource checks, then the frozen incremental capacity
+profiles in order. It preserves original retained warm-up lengths, verifies
+model payloads, rechecks identities and real readiness, and stops the entire
+campaign at the first failed stage. It never refreshes a failed baseline or
+retries silently. Rebinding on a different host captures that host's model
+metadata without changing the frozen workload.
+
+Capacity success still leaves numerical, final API/client, installed release
+and rollback acceptance separate. The catalog names those remaining checks;
+the public context ceiling changes only after its native qualification. There
+is no background model waiter and no automatic hardware fallback from the
+software command.
 
 ## Why there is no `swift test`
 
@@ -1607,6 +1868,32 @@ run; a T0 pass covers only T0.
 allocate memory at the same time, despite the guard against multiple model
 processes. Use the small explicit targets in `Tools/verify.sh` and check
 available memory before a model test.
+
+The full live-governor drill is a separate bounded exception: its normal
+1 GB shrink and 2 GB grow deadbands require a starting arena larger than the
+ordinary 10 GB tests. `verify.sh` uses `elastic-drill --slots 1000
+--max-memory-gb 13`, after checking 16 GB reclaimable. The command independently
+checks its derived total target plus 3 GB spare, each controlled poll and
+generation, sampled physical footprint, RSS and swap. It preserves the real
+cooldown and exact output checks. A skipped drill fails full acceptance.
+Run this gate without other heavy work. Full model hashing holds the same
+process exclusion lock as inference and must pass before native acceptance.
+
+MTP diagnostics require and price the draft head before Engine allocation,
+including when their `--mtp` option is left at `auto`; explicit `off` is
+incompatible. The full `mtp-check` includes vision and uses an explicit 12 GB
+target after a 15 GB reclaimable preflight. Its text-only leg can be selected
+with `--vision off` under the ordinary 10 GB test target. A text-only pass does
+not prove the combined image/MTP leg.
+
+The full original vision-serving photographs need a separate profile:
+`--memory-gb 14.5` with `SLOTSTREAM_PREFILL_CHUNK=3072`, MTP off, and a
+20.5 GB real reclaimable preflight. The explicit workspace covers the larger
+image's attention buffers while retaining the original photographs and
+assertions. The old 10 GB profile correctly refuses that image before
+dispatch. This override applies only to the full image server; ordinary
+quality gates keep their smaller target. Successful and nonempty responses
+are required before different-image answers count as content evidence.
 
 ### The Metal library
 
@@ -1731,6 +2018,46 @@ model-load smoke test before release. See [DOWNLOAD-FORMAT.md](DOWNLOAD-FORMAT.m
 for the producer, full-pull, and libFuzzer tools. Full transfer timings are
 diagnostic unless the machine and network conditions qualify as a benchmark.
 
+## Configurable context gates
+
+`Tools/context_gates.py --report result.json` compares frozen default allocation
+fields and validates CLI bounds, metadata, complete schedules and strict tool
+termination without loading weights. `Tools/consumer_smoke.sh` compiles the
+original public function signatures as an external package.
+
+The native `optimization-state-check --variant context-serving --json` injects
+memory and monotonic-clock failures through real HTTP handlers and a single
+floor-sized model, including queued requests and subsequent recovery. Variants
+`context-small-projections-64` and `context-small-projections-128` exercise the
+complete bounded arithmetic family with a prospectively fixed rechunking
+control, repeated state checks and rollback/continuation checks. The matching
+`partial`, `prefix`, `shorttail` and `sparse-prefix` variants cover boundaries
+and reused state. These are correctness gates; their synthetic prompts do not
+demonstrate answer quality.
+
+`Tools/context_qualification.py` accepts a frozen binary/model-window protocol
+and advances through strictly increasing prompt lengths only when the preceding
+rung completes its required output within its planned memory, measured swap
+and independent wall-clock limits. The protocol binds the driver files,
+reconstructible build, pinned model manifest and model directory observations;
+the runner fully verifies model payload hashes before inference. It checks
+actual physical query rows and padded key extents as well as prompt and
+delivered output IDs. The retained protocol additionally requires completed,
+interleaved warm conversations and exact observed cache ownership.
+`Tools/context_qualification_checks.py` verifies refusal of incomplete,
+over-budget and contaminated evidence, including stopping after a failed rung.
+It preserves the first counterexample and
+never retries or changes the protocol. Full-window capacity, numerical parity,
+latency calibration, advertised MTP/vision combinations and real clients remain
+separate acceptance requirements in the engineering plan.
+
+`Tools/gateway_client_gate.mjs <sdk-root> <output-dir> <port> <context>` uses
+the separately installed, published `ai` and `@ai-sdk/gateway` packages. It
+records their versions and checks discovery, streaming and a complete tool
+round trip through an allowlisted fixture read. Requests stay on the selected
+loopback server. This successful-client check does not replace the strict
+receiving-side terminal and authority gates.
+
 
 <!-- ===== docs/TROUBLESHOOTING.md ===== -->
 
@@ -1850,15 +2177,41 @@ The installer is tested on these versions; the runtime still needs testing.
 [Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
 error and your `slotstream doctor` output.
 
+## A long request is refused or interrupted
+
+The feasibility report and request deadlines below are unreleased source
+additions. Check `slotstream --version` and the installed command's `--help`.
+
+Inspect `slotstream doctor --max-context N --json` with the same memory options
+as the server. `context_feasibility` reports what fits in memory; an estimate
+of `null` means that schedule has no qualified throughput estimate.
+
+For `prefill_wait_exceeded` or `prefill_deadline_exceeded`, send less missing
+history, reuse an exact valid prefix, or deliberately raise
+`--max-prefill-wait`. The default is 30 minutes from accepted request to first
+model token, including queueing and images. `0` disables only time. Client read
+and stale-stream timeouts must allow the selected server budget.
+
+For `insufficient_memory`, free memory or reduce the memory/context target.
+A large image can exceed the attention-workspace allowance even after its
+resident tower fits; resize the image. Neither `--no-elastic` nor a fixed pool
+turns off memory checks. After an interruption, retry a short request; an
+unavailable engine returns an explicit error instead of resuming partial state.
+
 
 <!-- ===== docs/DOWNLOAD-FORMAT.md ===== -->
 
 # Model download and Slotpack v1
 
 Fresh `slotstream pull` downloads use immutable, losslessly compressed objects
-from Cloudflare R2 through `weights.sevra.page`. The installed model retains
-the original safetensors, tokenizer, configuration, and draft-head bytes.
+from the public Hugging Face mirror. No download token is needed. The installed
+model retains the original safetensors, tokenizer, configuration, and draft-head bytes.
 Inference does not load the transport format or require a decoder at runtime.
+
+The compressed package has its own `-Slotpack` repository. The original
+repository remains usable by ordinary Hugging Face clients without downloading
+both representations. Use Slotstream to reconstruct the compressed package;
+its objects are not directly loadable model files.
 
 The complete package is **88,295,438,048 bytes**, including its manifest,
 representing **105,264,463,248 original bytes**: **16.12% fewer bytes**.
@@ -1879,7 +2232,7 @@ The current manifest is
 Its public prefix is:
 
 ```text
-https://weights.sevra.page/slotpack/v1/<manifest-sha256>/
+https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack/resolve/<pinned-revision>/slotpack/v1/<manifest-sha256>/
 ```
 
 The manifest names original files and an ordered array of objects. Every
@@ -1889,17 +2242,48 @@ order inside the decoded object. Complete, non-overlapping coverage of every
 original file is mandatory. No object may mix required and optional files.
 
 Objects live at `objects/<first-two-hash-characters>/<sha256>.bin`. Each is at
-most 40 MiB plus a 32-byte header. The `.bin` extension and explicit
-`Cache-Control: public, max-age=31536000, immutable` make these small objects
-eligible for Cloudflare's ordinary edge cache. The custom hostname binds to
-the dedicated R2 bucket and is excluded from the site's wildcard Worker
-route. No model download passes through the application Worker.
+most 40 MiB plus a 32-byte header. `PinnedTransport.swift` selects the exact
+Hugging Face commit, and the manifest pins every object's bytes independently
+of its host. Hugging Face supplies large-file delivery and caching. The
+compressed representation does not depend on a Cloudflare product.
 
 A new model or representation gets a new immutable prefix. Do not overwrite
 an existing package with different bytes. Upload every object, verify public
 reads and a complete client reconstruction, then release the embedded pin.
-An edge cache miss retrieves the same object from R2. Cache hits improve the
-route and origin load; they do not reduce the object's byte count.
+Cache hits can improve the route and origin load; they do not reduce the
+object's byte count. Server-requested throttle waits remain cancellable.
+
+### Hosting cost and older releases
+
+Public Hugging Face hosting avoids publisher charges per model download under
+its current best-effort public-repository policy. Storage and rate limits still
+apply; no paid plan or billing fallback is enabled by the downloader. See
+[Hugging Face storage policy](https://huggingface.co/docs/hub/en/storage-limits)
+and [request limits](https://huggingface.co/docs/hub/en/rate-limits).
+
+The earlier `weights.sevra.page/slotpack/v1/` URLs are compatibility redirects
+to the same package on Hugging Face. `Tools/slotpack/legacy-redirect/` deploys
+only static assets and `_redirects`, with no Worker script, R2 binding, or
+proxy. Cloudflare documents these static asset requests and storage as
+[free and unlimited](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/).
+Keep the hostname excluded from the application Worker's wildcard route.
+New clients contact Hugging Face directly.
+
+Upgrade older releases for the new server-throttle handling. An earlier client
+on a very fast or shared connection may need to rerun its resumable pull after
+a Hugging Face request-limit window resets.
+
+Cloudflare analytics now describe only older clients' redirect traffic, not
+the model bytes delivered by Hugging Face. Hugging Face's default model counter
+counts selected query files; this client fetches hash-named objects and embeds
+the manifest, so that counter does not measure compressed pulls or completed
+installs. GitHub release-asset counts remain an acquisition proxy. No telemetry
+is added. See [Hugging Face's counting rules](https://huggingface.co/docs/hub/en/models-download-stats).
+
+Before retiring an old hosted copy, qualify a complete anonymous pull through
+the new default against every original file hash, and verify that an earlier
+released client follows the legacy redirects and reconstructs missing files.
+Preserve historical publication evidence when retiring storage.
 
 ## Codec
 
@@ -1987,15 +2371,22 @@ reuses completed original files; partial progress belongs to its own format.
 ## Reproduce and qualify
 
 Building and embedding require Python 3.9 or later and a C compiler;
-`publish_r2.py` requires Python 3.11 or later. Publication uses existing
-Cloudflare authority, writes no credential, and saves a resumable receipt.
+Hugging Face publication additionally requires `huggingface_hub` (qualified
+with version 1.29.0). Publication uses an existing `HF_TOKEN` or
+`--token-stdin`, writes no credential, preserves existing repository files,
+and resumes from the actual committed inventory. A conflicting object at an
+existing immutable package path is rejected.
 
 ```sh
 python3 Tools/slotpack/pack.py --model /path/to/original-model --output /path/to/package --workers 8
-python3 Tools/slotpack/publish_r2.py --package /path/to/package --account ACCOUNT --bucket BUCKET --receipt /path/to/upload.json
+python3 Tools/slotpack/publish_hf.py --package /path/to/package --repo OWNER/MODEL --receipt /path/to/upload.json
 python3 Tools/slotpack/embed.py --package /path/to/package
 python3 Tools/slotpack/checks.py
 ```
+
+Pin the resulting Hugging Face commit in `PinnedTransport.swift` and the
+legacy redirect, then complete public qualification before release.
+`publish_r2.py` remains a historical optional publisher; it is not the default.
 
 The builder verifies every original file, every compressed round trip, and
 complete coverage before writing its manifest and build receipt. The gates
@@ -2073,6 +2464,18 @@ its 1.41 tok/s is worked out.
 
 ## How to measure
 
+Context is a startup choice, with a 32,768-token default. Unreleased source
+builds add the feasibility report and request-wait controls described here.
+Use `doctor --json` with the intended `--max-context` and memory policy to inspect the feasible
+window before loading. A memory-feasible window does not promise a short wait:
+the request-to-first-token budget defaults to 30 minutes, including preparation
+and queueing. Setting `--max-prefill-wait 0` disables only that time policy.
+
+Keep the configured window, prompt count and required reply count with each
+result. Capacity evidence needs a complete prompt and reply, sampled physical
+footprint, RSS and unchanged swap counters. Report MTP and vision separately;
+a text-only capacity result does not qualify those modes or answer quality.
+
 Allow about ten minutes once the weights are downloaded. Close other
 memory-heavy apps and check that the Mac is not swapping. Run one model
 process at a time.
@@ -2146,6 +2549,27 @@ that much, say so rather than picking the better one.
 
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
+
+## Unreleased
+
+- Shared context and request-wait configuration across run, serve, doctor and
+  the Swift library. Exact allocation accounting includes retention and loaded
+  components; discovery separates the configured window from model/mode limits.
+- Cancellable queueing and request-to-first-token deadlines, with memory checks
+  before bounded work, typed errors in every serving dialect and safe cleanup.
+- Checked context diagnostics preserve reply room and enforce bounded late
+  prefill passes. Larger public windows remain gated on full qualification.
+
+## 0.2.11 — 2026-09-06
+
+- Compressed model downloads now come directly from the public Hugging Face
+  mirror, avoiding publisher charges per download. The package, original
+  hashes, compression saving, and resumable installation remain the same.
+- Respect Hugging Face rate-limit reset headers and longer server-requested
+  waits, with prompt cancellation. Add real HTTP retry and cancellation gates.
+- Preserve older download URLs with free static redirects to Hugging Face.
+  Add a resumable publisher that checks immutable package contents and
+  preserves the existing model repository.
 
 ## 0.2.10 — 2026-09-06
 

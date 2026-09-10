@@ -2,8 +2,9 @@ import Foundation
 
 // The embedded manifest pins the exact original files and every CDN object.
 enum PinnedTransport {
+    static let revision = "13ec15dcebdddc817b57f0f9087c5ef82018f10e"
     static let defaults = [
-        "https://weights.sevra.page/slotpack/v1/\(manifestSHA256)"
+        "https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack/resolve/\(revision)/slotpack/v1/\(manifestSHA256)"
     ]
     static let manifest: Result<SlotpackManifest, Error> = Result {
         try SlotpackManifest.load(Data(manifestJSON.utf8), digest: manifestSHA256, files: PinnedModel.files)

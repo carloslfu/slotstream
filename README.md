@@ -16,9 +16,11 @@ Silicon, with no Python required.
 [Install](#install) · [Hardware](#will-it-run-on-my-mac) · [API](docs/API.md) ·
 [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-> **We're building Sevra on Slotstream.** A personal, local-first app with one
-> continuous conversation, a journal, and knowledge in files you own. The app
-> is in development. The Slotstream CLI, APIs, and Swift package remain
+> **We're building Sevra on Slotstream.** Sevra will choose and maintain the
+> best local AI models your hardware can run well, optimizing the whole stack
+> around a few carefully selected models. Private personal AI with memory,
+> tools and meaningful controls, without having to configure it yourself.
+> The app is in development. The Slotstream CLI, APIs, and Swift package remain
 > independently usable. [See Sevra and join the waitlist](https://www.sevrahq.com/).
 
 ## Will it run on my Mac?
@@ -95,11 +97,11 @@ finishes, it processes your prompt and prints the reply.
 
 ### Downloading the model
 
-Run `slotstream pull` to download the model. It automatically uses compression
-and Cloudflare's global cache (CDN): **88.3 GB** instead of **105.3 GB**
+Run `slotstream pull` to download the model. It automatically downloads
+compressed files from [Hugging Face](https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack): **88.3 GB** instead of **105.3 GB**
 (**16.12% fewer bytes**), restoring the exact original model on disk.
 Interrupted downloads resume automatically, and every file is checked for
-corruption. You only need to download it once.
+corruption. No Hugging Face account is needed. You only need to download it once.
 
 <details>
 <summary>Download speed and verification details</summary>
@@ -109,9 +111,9 @@ Connection overhead and any extra processing add to that time. The installed
 model has 25 files, including the optional 1.5 GB draft head used to speed up
 generation.
 
-Fresh downloads use small immutable compressed objects in Cloudflare R2,
-served through its CDN. Decoding and disk writes overlap the transfer. The
-client starts with eight independent connections and increases concurrency
+Fresh downloads use small immutable compressed objects in the public Hugging
+Face mirror, pinned to an exact repository revision. Decoding and disk writes
+overlap the transfer. The client starts with eight independent connections and increases concurrency
 only when measured throughput improves. `--connections` fixes the count;
 `--transport raw` selects the original file-based download. Existing raw
 partial downloads keep their progress automatically.
@@ -227,6 +229,12 @@ eight-turn test at a 16 GB target, the last turn started replying after
 when two candidate tokens are nearly tied; use `--no-prefix-cache` for
 comparisons that require a fresh computation every time.
 
+The unreleased optimization work adds bounded prompt-read grouping, compact
+runtime state and reusable committed prompt checkpoints. Its gains depend on
+which work a request can avoid. The [final integrated measurements](MEASUREMENTS.md#final-integrated-optimization-results)
+separate preview latency, sustained generation, process memory and unchanged
+prompts from new input; component gains are not added together.
+
 <details>
 <summary>Prefill and speculative decode measurements</summary>
 
@@ -257,9 +265,16 @@ and failed experiments behind these results.
 **Prompt, conversation history, images, and reply share a 32,768-token limit
 by default.** Use `serve --max-context 65536` for the larger 65,536-token
 window, including Hermes. The planner charges extra state and transient memory
-before allocating the expert cache. The model was trained for 262,144 tokens, but
+before allocating the expert cache. The pinned model config allows 262,144 tokens, but
 slotstream doesn't support that full window. The long-context qualification
 is a capacity and memory check, not a long-context answer-quality benchmark.
+
+In unreleased source builds, `run`, `serve` and `doctor` share `--max-context`
+and `--max-prefill-wait`.
+The wait defaults to 30 minutes from accepting the request to its first sampled
+token, including queueing and preparation. `0` disables only that time policy;
+memory and cancellation checks still apply. `doctor --json` reports the
+memory-feasible window separately. See [request limits and errors](docs/API.md#request-deadlines-and-resource-failures).
 
 At the default limit, the estimated wait before the first token is about 3.0 min for
 the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. The latter comes from

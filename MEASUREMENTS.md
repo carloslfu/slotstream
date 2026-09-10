@@ -2743,6 +2743,104 @@ suite is for: the model has to name what is in the photograph.
   accept rate. A draft head fed the placeholder's own embedding rather than
   the tower's row would be self-consistent and blind, and would diverge.
 
+## What broader testing found
+
+Two photographs are not a test. A set of images whose content is known exactly
+— four colour quadrants, five ordered bands, counted squares, rendered text, a
+40x40 thumbnail, a 4:1 panorama, the same picture as PNG and as JPEG, a
+greyscale JPEG — was put through the same path, with one open "describe this"
+and one checkable question each. 16 of 16.
+
+The ones worth naming, because each would have been invisible to a suite that
+only asked for a description:
+
+- **Spatial layout is right.** Unprompted, the model reported "red
+  (top-left), green (top-right), blue (bottom-left), and yellow
+  (bottom-right)" — all four corners, correctly. A tower whose patches were
+  ordered by row instead of by merge block, or whose rotary halves were
+  swapped, describes four coloured squares just as fluently and puts them in
+  the wrong corners.
+- **Vertical order is right.** Five bands read back "black, red, white, blue,
+  green", top to bottom, exactly.
+- **Text is legible.** A hand-drawn bitmap "SLOT 42" came back as `SLOT 42`.
+- **Counting is not a lucky guess.** Three squares answered 3, five answered 5.
+- **The size extremes hold.** A 40x40 image, upscaled to the processor's
+  minimum, still reads as magenta; a 1200x300 panorama places green on the
+  left and orange on the right.
+
+**One real defect, which only an image with transparency could show.** The
+decoder drew into a premultiplied CoreGraphics context over fresh memory, so
+every transparent pixel arrived black. On a photograph this is invisible —
+photographs have no alpha. On the images people actually paste into a chat —
+a logo, a chart, a diagram, a screenshot exported with transparency — it is
+not: black text on a transparent background reached the model as black on
+black, and it answered *"the image is entirely black, with no discernible
+features or content."* The picture did not survive the decoder.
+
+The fix is two lines: fill the context white before drawing, which is what
+every viewer composites onto and therefore what the sender saw. The same image
+now answers `SLOT 42`. Opaque images are unaffected, byte for byte — the
+parity dump's pixel tensor hashes identically before and after — and the
+property is pinned weights-free in `vision-check`: a transparent pixel must
+normalize to +1, never -1.
+
+### Formats, and two more defects
+
+A second pass fed the finished path the files a decoder gets wrong rather than
+the ones it gets right: nine containers (TIFF, BMP, JPEG 2000, HEIC, PSD, TGA,
+GIF, interlaced PNG, palette PNG), 8-bit greyscale, 16-bit RGB, an animated
+GIF, a 1x1 image, 199:1, a 2400x1800 downscale, and five files that should be
+refused — truncated, text with a `.png` name, zero bytes, a 40000x40000 header
+with one row of data, and 400:1. Every container came back with the same
+correct answer, and the refusals refused. Two things did not.
+
+**EXIF orientation was ignored.** A phone stores its sensor's pixels and a tag
+saying which way is up. Every viewer applies it; so does the reference
+(`transformers.image_utils.load_image` calls `ImageOps.exif_transpose`).
+slotstream did not, so a photograph tagged `Orientation=6` — which is most
+portrait photographs — reached the model rotated, and it named the stored
+corner rather than the displayed one. Four of the eight orientations also swap
+the axes, so the token count was wrong with it. All eight are now applied and
+pinned corner by corner against EXIF's own table in `vision-check`; the
+transverse case was wrong on the first attempt and that table is what caught
+it.
+
+**A truncated file was answered rather than refused.** ImageIO is lenient by
+design: half a PNG decodes to the rows it has plus blank space, and — measured,
+not assumed — `CGImageSourceGetStatusAtIndex` reports it *complete*, because
+all the data it was handed arrived at once. So an upload cut short by a dropped
+connection came back as a confident description of a mostly empty picture. The
+container's end marker is the signal ImageIO does not give: `IEND` for PNG, the
+end-of-image marker near a JPEG's tail (editors append after it), `;` for GIF,
+and no judgement at all for containers without an unambiguous terminator.
+
+### What the request layer and the shared state survive
+
+Sixteen protocol cases: malformed `images` fields, an image part with no url, a
+`data:` URL that is not base64, `ftp://`, an unknown part type, an image in a
+system turn (a 400 carrying the template's own reason, not a 500), eight images
+in one turn all charged for, thirty images past the context ceiling (a 400
+naming the cap, not an allocation), streaming, `think: true`, and the same
+request twice byte for byte.
+
+Six state cases, which is where a wrong cache key hides: five simultaneous
+first images against a server whose tower has never loaded (the lazy-load
+race), eight concurrent requests over five different pictures, five interleaved
+conversations each still answering about its own picture, byte-identical
+prompts with different pixels, an image arriving on the second turn, and a
+picture swapped underneath an identical history. All six.
+
+### What vision costs a text-only user: nothing
+
+Built from the commit before any of this and compared directly.
+
+- **Three greedy prompts, byte-identical output.** The vision path is invisible
+  to a request without a picture.
+- **`--vision off` reproduces the pre-vision plan exactly** — same target, same
+  pool, same expected peak; the only difference in `doctor --json` is two new
+  reporting keys. That is the conditional-charge decision holding: no published
+  memory number moved.
+
 ## Reuse
 
 A follow-up turn on a conversation whose pictures have not changed re-uses the
@@ -2761,6 +2859,212 @@ would answer the second from the first's state. Each run therefore carries a
 SHA-256 of the bytes it came from, and a match requires the digests to agree
 in both directions. The end-to-end check for it is two requests with identical
 words and different pictures: the first says dog, the second does not.
+
+### Optimization — retained state and terminal-forward confirmation
+The first qualified mechanisms are deliberately scoped. They do not establish the combined engine's performance or complete the unified program. Runs and exclusions: [[sources/runs/2026/09/2026-09-05-optimization-initial-implementation]], [[sources/runs/2026/09/2026-09-05-optimization-second-implementation]].
+
+| Mechanism and workload | Result | Limits |
+|---|---|---|
+| Omit the ordinary decode forward after the last requested token; fixed short prompt, one output token, 640 slots, requested 8.1 GB | Five complete valid confirmation pairs: median paired request-time reduction **14.73%**, median paired saving **0.2056 s**; all five improved; identical output token IDs; decode expert records **472 → 0** | One of the originally scheduled five pairs had swap activity and was wholly excluded. One fixed-policy replacement pair supplied the fifth valid pair. The effect is an avoided terminal forward; it is not a 14.73% steady decode or whole-engine claim. |
+| Compact retained GDN/PLE windows; frozen 440-token prose, one output token, 640 slots | Three complete valid pairs: median paired allocator-active reduction **333,414,400 bytes**; median sampled physical high-water **6,446,354,128 → 6,118,690,488 bytes** | 20 ms samples are lower bounds, not continuous peaks. The maximum chunk was explicitly forced to 1024, with a separate transient allowance. Latency was variable; the predeclared memory-benefit plus median-latency-nonregression gate passed. No general prefill speed claim. |
+
+The final-forward confirmation protocol required at least 5% median paired request reduction, at least four of five positive valid pairs, exact IDs and serving acceptance. The measured confirmation clears those thresholds; the 74-case serving battery passed the earlier control combination. Native generation diagnostics checked pending-token ownership, continuation, EOS, stop callbacks and early cancellation. Later cache-reservation and cancellation/validity fixes require their own final integrated verification before release.
+
+Exact compact-MTP-row checks passed 366 assertions; compact n-gram storage passed 1,160 checks including eviction and tiny capacities; incremental indexer blocks passed 1,127 checks at 2,051 tokens, including speculative rollback and continuation. The broader MTP text/image/prefix suite also passed. These are correctness results, not throughput measurements. Build-provenance limits for intermediate checks are recorded with the raw runs.
+
+The value-only sampler threshold passed 16 NumPy reference gates. Its first three-pair request benchmark lost two pairs to swap activity; the remaining pair does not demonstrate a request-speed improvement. Keep that candidate experimental pending component and confirmation measurements.
+
+All these experiments used the same local model and M5 Pro machine. OS filesystem cache was uncontrolled and never globally purged. No result certifies another Mac or justifies raising the context or query-by-key safety envelope.
+
+### Final integrated optimization results
+**Final status, September 10: the approved OPT00–OPT36 optimization program is complete and the exact qualified candidate is active locally.** Every required execution gate is closed. All thirty-seven outcomes are accounted for; selected changes are implemented and tested, rejected candidates stay disabled, and explicitly prerequisite-dependent research remains deferred. This is completion of the approved program, not a claim that every possible future optimization has been implemented.
+
+**Session record and later live-server benchmark.** The completed session's exact final closure is [[sources/runs/2026/09/2026-09-10-optimization-final-program-complete]]. The original work, all-item outcomes, accepted and rejected experiments, failed runs, resource/thermal scheduling corrections and activation history remain preserved below. The later three-prompt benchmark, every clean timing, explicit discarded attempts and observed-versus-estimated tokens/sec are now documented separately in [[records/measurements/user-server-throughput-2026-09-10]]. It does not change the original qualification or the conservative calibration decision.
+
+The actual working source matches all 150 qualified source inputs. The installed executable SHA-256 is `9268e4b2a3371e78a71d493d7788559a06a22498e8061a89278c4918c6764673`; the installed Metal library also matches the qualified asset. Installed defaults match the final qualification, and a bounded generation check returns exactly `OK`. The previous installation remains available for rollback. Resource admission, cleanup, free model lock and unchanged Git index checks pass, with no owned model/compiler left running. Nothing is staged, committed, pushed or released by this activation: [[sources/runs/2026/09/2026-09-10-optimization-final-local-activation-and-all37-outcomes]].
+
+Final reconciliation checks the complete candidate matrix, source and artifact identities, all thirty-seven historical dispositions, empirical calibration, public claims and generated documentation. Database validation has zero errors and one unchanged historical `LOG_UNKNOWN_KIND` warning at `log.md:124`; it is not reported as warning-free: [[sources/runs/2026/09/2026-09-10-optimization-final-preactivation-closure]]. The installed activation adds a final delivery check to those already-passed gates.
+
+**Measured improvements and tradeoffs.** These are median paired changes within each named study. They cannot be added together or generalized to every workload.
+
+| Workload | Observed result |
+| --- | --- |
+| Matching prefix with a distinct new tail | Visible preview latency 40.61% lower; request duration 31.52% lower |
+| Completely repeated committed prompt | Visible preview latency 96.48% lower; request duration 70.96% lower |
+| Plain sustained generation, fixed 10 GB target | Active TPS +0.46%, effectively flat; sampled process peak 6.54% lower |
+| Fixed-MTP sustained generation, fixed 12 GB target | Active TPS 3.66% slower; sampled process peak 3.94% lower |
+| Short prose / sampled requests | Request duration 2.39% / 8.06% lower; sampled process peak 7.47% / 6.15% lower |
+
+The two sustained cohorts each complete thirty-two first and thirty-two measured responses of 512 outputs, with exact paired prompt/output IDs and text. They retain thirteen clean joint pairs with MTP off and twelve with MTP on. Fixed-MTP request duration is 3.56% longer, within the original 5% nonregression allowance. New-input sustained preview is effectively unchanged (0.48% later plain; 0.86% later fixed MTP); the large preview gains require actual committed-prompt reuse. Process-peak reductions are neither a percentage of total machine RAM nor permission to allocate permanent extra expert slots.
+
+Automatic-prefill prerequisite studies separately reduced preview latency by 17.82% to 25.65% across their three qualified profiles. Those use a prerequisite build and different memory targets; the smaller two profiles use more sampled peak memory. They are not additional final-composition percentage gains. The completed calibration retains the conservative seventeen-parameter family with no added residency credit or timing multiplier.
+
+**Preserved preactivation and earlier execution history follows. Pending, live and unqualified wording below belongs to the stated checkpoint and is superseded by the completed status above. Prior failed attempts remain failed.**
+
+**Current status, September 10: every required final candidate workload now qualifies; empirical calibration is closed. Exact local activation is next.** Both complete sustained cohorts pass the original acceptance rules, alongside all eight short paired studies, both sixty-request lifetimes, the full original verification battery, public consumer checks and isolated installed upgrade/rollback qualification. All 37 OPT00–OPT36 dispositions remain in scope, including rejected and prerequisite-dependent alternatives. Qualification does not mean every optimization improved every metric or that deferred hardware/aggregate-demand research has been implemented.
+
+The final MTP-on cohort completes all thirty-two first responses and thirty-two measured responses, each with 512 outputs, for 32,768 outputs. Every paired prompt ID, output ID and text comparison is exact, including excluded rows. Twelve clean joint pairs remain; rounds 1, 2, 3 and 9 retain their original thermal/VM exclusions. No partial result is reused, replacement response added or acceptance threshold changed. Maximum sampled request process peak is 9,958,183,832 bytes under the fixed 12 GB target and 1,362 slots in both arms. Source/artifact identity, deadline and owned-process cleanup all pass: [[sources/runs/2026/09/2026-09-10-optimization-final-long-on-complete-pass]]. The actual bounded launch evidence is [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-thermal-recovery-guarded-launch]].
+
+**The final sustained result is a speed/memory tradeoff.** Plain decoding is effectively flat: median paired active TPS improves 0.4560390212% with 6.5436095540% lower sampled process peak. Fixed-MTP active TPS is 3.6550887835% slower and request duration 3.5592440567% longer, with 3.9434511045% lower sampled process peak. This passes the original 5% request nonregression allowance; it is not an MTP speedup. No universal performance, energy, unbounded lifetime or new hardware claim follows.
+
+The completed empirical decision retains all seventeen parameters of `m5-pro-reference-envelope-v1`, with zero new permanent expert-capacity credit and no prefill/decode speed multiplier. It reconciles both sustained cohorts, both lifetimes, the actual context allocation ledger, short resource envelopes and the separately qualified 192-response prefill prerequisites: [[sources/runs/2026/09/2026-09-10-optimization-final-empirical-calibration-decision]]. Source/application activation and the final installed smoke and record closure remain to be performed.
+
+**Fixed-MTP sustained comparison on the exact final candidate.** Values below are marginal arm medians across the twelve clean joint pairs; changes are medians of per-pair percentages, so they need not equal the ratio of those arm medians.
+
+| Metric | Reference median | Combined median | Median paired change |
+| --- | ---: | ---: | ---: |
+| Active generation, tok/s | 7.551143377 | 7.303870732 | 3.6550887835% slower |
+| Late generation, tok/s | 7.429163901 | 7.189488654 | 3.6161598506% slower |
+| Client request duration, seconds | 74.719622021 | 77.127360459 | 3.5592440567% longer |
+| Visible preview, seconds | 7.077233437 | 7.101940979 | 0.8592601150% later |
+| Sampled request process peak, bytes | 9,892,025,276 | 9,504,289,592 | 3.9434511045% lower |
+
+Two of twelve pairs improve active/late generation and client duration; five improve preview; all twelve reduce sampled process peak. Active TPS uses the 511 observed inter-output intervals. Late TPS uses the 384 intervals from output 128 through output 512. Neither includes prefill or work after the final output sample. The full run takes 11,793.320247542 seconds. The inner driver exits 1 because excluded rows remain present, while the original outer complete-cohort assessor qualifies the run. This is a bounded fixed-total-target comparison; it does not establish infinite equilibrium. Nominal thermal observations do not certify an unloaded host. The earlier failed cohorts remain failed and are preserved below as history.
+
+**Preserved earlier execution history follows. Any pending, live or unqualified status below describes its original checkpoint and is superseded by the current status above.**
+
+The exact final integration build has completed all eight original short-request paired studies, both repeated-request lifetimes, the full verification battery and installed upgrade/rollback qualification. **MTP-off sustained generation also passes. MTP-on sustained generation remains unqualified after a thermal stop; final empirical calibration and local activation remain pending.** These results qualify specific workloads, not the whole optimization program or an absolute fastest runtime.
+
+**Current execution, September 10: continue the complete MTP-on qualification with prospectively tested recovery from excluded completed fair responses.** The user instructed continuation based on actual capacity; the prior quiet-window hold is superseded. V667 changes the benchmark control flow only. It explicitly adds `recover_completed_fair_thermal_requests=true`: a complete nominal-to-fair response remains excluded from timing, then may continue only through the unchanged bounded nominal-readiness check. Full work, exact parity, original twelve-GB cap, thirty-two cells, sixty-four 512-output responses, eight-clean-joint-pair minimum and nonregression criteria remain. Invalid or missing observations, low power mode, serious/critical thermal state, footprint violations, swap-outs and bounded readiness failures still stop.
+
+All eighty-six model-free checks pass, including the full simulated driver, both recovery points, cleanup and the original joint assessor. A full cohort whose first responses are all thermally excluded still fails qualification. The initial test representation error and corrected exact expectations are retained. V668 performs actual bounded prelaunch readiness before the single frozen run; V669 and V670 preserve the original terminal reporting and calibration criteria with their new evidence locations rebound. No passed cohort is repeated or partial observation reused. No inference source or user installation has changed. Full MTP-on qualification, final empirical calibration, final all-item/source/artifact/claim/projection closure and exact local activation remain open: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-thermal-recovery-preparation]].
+
+**Closed prior V653 attempt:** eight first responses and seven measured responses complete all 512 outputs and 511 intervals. The four available first-response pairs and three complete measured pairs retain exact prompt IDs, output IDs and text. The final reference first response completes in 111.1651487500003 seconds and reports nominal-to-fair thermal state; its measured response is never started. Maximum sampled request peak is 9,960,494,024 bytes, minimum sampled reclaimable memory is 14,449,229,824 bytes and no new swap-outs occur. Source/artifact proofs, reservation and cleanup pass with no remaining owned jobs. This is incomplete and unqualified, with no partial performance comparison: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-user-directed-thermal-stop]].
+
+The prior driver treated this completed fair response as an immediate whole-study abort even though its existing idle readiness helper could already wait through fair. V667 corrects that control flow prospectively without changing the inference candidate or timing eligibility. Nominal observations still do not certify an unloaded machine, and host-load limits remain reportable.
+
+**Preserved execution history follows; its former live statements are superseded by the current status above.**
+
+**Current execution, September 10: the complete MTP-on repetition is running under the user's instruction to continue now.** The user-directed continuation supersedes the prior quiet-window availability hold. Actual V656 startup readiness observes 121.419873333 sampled nominal seconds across sixty observations, normal pressure and no competing model/compiler, then starts frozen V653 under deadline 2026-09-10T18:41:33.844074+00:00. The unchanged full workload, cooling schedule, 18 GB startup check, 12 GB sampled request cap, live resource/ownership guards, timing exclusions and original acceptance remain in force. No applications are closed and no prior partial results are reused: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-user-directed-guarded-launch]].
+
+Only the closed readiness and launch evidence is captured at this point. The full cohort is live and has not qualified. Host load and power observations remain part of the existing serving evidence; nominal thermal state does not certify an unloaded machine. Final reporting must retain those environmental limits. V654 is the prepared terminal reporter and V655 the prepared empirical calibration closure for this exact cohort. Both remain unexecuted. Full sustained MTP-on qualification, final all-item/evidence closure and actual local source/binary activation remain required.
+
+**Earlier preparation before user-directed continuation:** V653 is a separate, unlaunched repetition of the complete MTP-on protocol after V637's thermal stop. Its protocol, driver, helper, inference candidate, cooling schedule, workload and acceptance rules remain byte-identical. The runner's sole change is its output directory; reversing that change reconstructs V637 exactly. All seventy model-free checks pass for the fresh identity, and the original native/eight-paired prerequisite evidence is revalidated during freezing. The failed partial cohort stays separate and contributes no replacement observations: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-quiet-interval-preparation]].
+
+V654/V655 preserve the original terminal-report and calibration criteria with only their new executor/report locations rebound. V656 preserves bounded prelaunch readiness and checks the immediately preceding failed cohort's cleanup. All three reverse-source and syntax checks pass; none of these scripts has executed. A user-confirmed quiet interval and actual bounded memory/thermal readiness are required before a fresh 12,600-second work plus sixty-second cleanup reservation. No deadline is granted and no model is launched. Full MTP-on qualification, empirical calibration, final all-item/evidence closure and actual local activation remain open; the other passed gates and all thirty-seven dispositions stay intact.
+
+**Preserved prior execution, September 10: the distributed-cooling MTP-on cohort stopped and remains unqualified.** V637 terminates after 13 recorded cells: twelve measured responses and thirteen first responses, each with all 512 outputs. V649 independently verifies all 12,800 completed outputs, full prompt work, all 511 emission intervals per response, sampled request caps and exact prompt/output IDs and text across all six complete A/B pairs. Maximum sampled request peak is 9,910,768,536 bytes against the original 12 GB cap. Minimum sampled reclaimable memory is 15,214,362,624 bytes, maximum owned RSS is 4,945,199,104 bytes, and no new swap-outs occur. Exact source/artifact proofs, the reservation and owned-process cleanup pass, with no remaining owned jobs: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-distributed-thermal-stop]].
+
+The stop occurs during round 7 reference's first response, which finishes its complete workload in 83.77691487499942 client seconds. The generator reports nominal before and fair after, with low power mode disabled and no generator swap-ins or swap-outs. The measured request in that cell is never started. The outer incomplete-cohort rejection preserves this actual resource failure; it does not qualify a partial comparison. Distributed cooling delivered twelve between-request pauses in the complete cells, but cannot guarantee a nominal thermal state throughout every continuous request. The reference-arm failure does not establish a candidate regression.
+
+The next required condition is a quiet external machine interval before any fresh complete comparison. No automatic retry, replacement observations, partial-data pooling, shortened workload or relaxed acceptance is authorized by this failed result. V642/V643 remain unused preparations bound to the failed cohort and cannot close empirical calibration or authorize activation. All previously passed exact-build gates and all thirty-seven accepted/rejected/conditional/deferred dispositions remain intact. Full MTP-on sustained qualification, final empirical calibration, final disposition/artifact/claim/projection closure and actual local source/binary activation remain open. No model is left running and no source activation, installation, stage, commit, push or release has occurred.
+
+**Earlier V637 preparation and launch, September 10:** V637 retains the same minimum 180 seconds idle per cell: sixty reserved seconds plus thirty sampled nominal seconds before the first request, then ninety sampled nominal seconds before the measured request. Both 512-output requests remain continuous. All original sixteen pairs, work and numerical checks, timing exclusions, hard resource/thermal stops, 12,600-second work allowance and sixty-second cleanup remain. This changes benchmark scheduling only; inference code and the candidate binary are unchanged.
+
+All seventy model-free checks pass. The between-request pause keeps the already ready child alive with its native model reservation, checks child and lock status before and after observations, preserves the live reclaimable floor and outer memory guard, and stops before another cell if readiness fails. Incomplete raw assessment now reports the original stop before reading nonexistent later responses. Explicit reverse transformations reconstruct the prior runner, serving driver and helper exactly. The failed V627 evidence stays failed and supplies no replacement rows. V638 observes 121.28519829199999 sampled nominal seconds across sixty actual observations with normal pressure and no competing model/compiler, then starts the frozen full cohort under deadline 2026-09-10T16:58:48.859112+00:00. That cohort subsequently stopped and did not qualify, as recorded above. Source and frozen preparation: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-distributed-cooling-preparation]].
+
+**Completed delivery evidence reconciled:** V641 rechecks 194 required artifacts against their exact earlier captures, along with current bound drivers, all 150 external-consumer source inputs, candidate binary, Metal library and installer asset. The full build, metadata, static, consumer, resource, four real client, 25/0 verification and 31/0 installed upgrade/rollback results remain valid. The packaged candidate uses the exact activation key exercised by the isolated installer. V642/V643 preserve the original terminal-report and calibration criteria, with only their current MTP-on executor/report paths rebound; both remain unexecuted. These read-only checks do not close MTP-on qualification or activate the user installation. Exact evidence and the two corrected audit path-resolution attempts: [[sources/runs/2026/09/2026-09-10-optimization-final-distributed-launch-and-delivery-reconciliation]].
+
+
+**Previous failed cohort, preserved:** V627 finishes two first and two measured responses, all with 512 outputs. The completed pair retains exact prompt IDs, output IDs and text in both phases. Maximum sampled request peak is 9,899,021,496 bytes, below the original 12 GB cap. The combined measured request changes from nominal to fair and records eight global swap-ins; the reference measured request records sixteen swap-ins. No new swap-outs occur. Source proofs, deadline and cleanup pass, with no remaining owned jobs. The original thermal guard stops the cohort; the outer missing next warmup is secondary. No partial performance comparison or replacement evidence is accepted: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-cooled-thermal-stop]].
+
+The required 60-second cooldown and at least 120 sampled nominal seconds were delivered before each cell. The first and measured 512-output requests nevertheless run back to back, totaling 187.00727912500008 client seconds for the combined cell. Before-cell cooling was insufficient on this attempt. This does not isolate a code regression or prove a remedy. Next qualify bounded cooling between the two complete requests prospectively, preserving every output, original inference behavior, paired criterion and hard resource rejection. At that checkpoint no successor cohort had been frozen or launched. V630/V631 remain unexecuted report preparations attached to a failed cohort and cannot close calibration or authorize activation. Passed gates remain passed; final MTP-on sustained qualification, calibration, complete disposition reconciliation and actual local activation remain open.
+
+Binary SHA-256: `9268e4b2a3371e78a71d493d7788559a06a22498e8061a89278c4918c6764673`. The machine is the recorded M5 Pro Mac. For the eight short-request studies below, reference and combined arms use the same exact build, checkpoint and fixed expert pool within each study. This is a comparison of reference paths against the selected integration family, not an old-release comparison. Each study retains 32 measured and 32 first responses, interleaved A/B order, original resource eligibility and full output/work checks. No failed earlier run supplies replacement observations.
+
+Positive percentages below mean a reduction. Each percentage is the median of eligible paired reductions, not a ratio of marginal medians. Process-memory percentages describe sampled request peaks, not whole-machine RAM, permanent capacity or a continuous maximum. First-response results are assessed separately.
+
+| Workload | Target / fixed slots | Clean measured pairs | Request time reduction | Visible-preview reduction | Sampled process-peak reduction |
+|---|---:|---:|---:|---:|---:|
+| Unique prose, 440 prompt tokens, 16 outputs | 8.1 GB / 827 | 14 | 2.39% | 0.38% | 7.47% |
+| Sampled short prompt, 17 prompt tokens, 16 outputs | 8.1 GB / 827 | 15 | 8.06% | 0.24% | 6.15% |
+| Fixed MTP, 17 prompt tokens, 16 outputs | 10 GB / 838 | 16 | −2.00% | −0.35% | 4.82% |
+| Distinct tail, 445 prompt tokens, 256 reused by combined, 16 outputs | 8.1 GB / 640 | 16 | 31.52% | 40.61% | 1.59% |
+| Complete repeated prompt, 440 reused by combined, 16 outputs | 8.1 GB / 640 | 16 | 70.96% | 96.48% | 5.73% |
+| Unique prose with retention enabled, zero reuse, 16 outputs | 8.1 GB / 640 | 16 | 0.84% | −0.21% | 5.00% |
+| Actual default controls, 440 prompt tokens, one output | 8.1 GB / 640 | 16 | 2.98% | Not measurable: whitespace output | 7.09% |
+
+The eighth original short-one study, at 8.1 GB and 827 fixed slots, has 16 clean measured pairs and **11.28% lower paired request duration**. It measures terminal-work and compact-state effects in the selected family; one output cannot establish active decode TPS. The fixed-MTP short cohort passes its original memory/nonregression criteria, but its roughly 2% longer request duration is explicitly not a speed gain. Repeated-prompt preview benefits depend on actual prefix reuse and do not apply to unrelated prompts.
+
+Individual fixed-MTP, distinct-tail, complete-repeat and short-one evidence is preserved in [[sources/runs/2026/09/2026-09-09-optimization-final-mtp-resource-complete-pass]], [[sources/runs/2026/09/2026-09-09-optimization-final-distinct-tail-complete-pass]], [[sources/runs/2026/09/2026-09-09-optimization-final-complete-repeat-complete-pass]] and [[sources/runs/2026/09/2026-09-09-optimization-final-short-one-complete-pass]].
+
+Full precision, first-response results, exclusions, exact work and raw measurements: [[sources/runs/2026/09/2026-09-09-optimization-final-prose-complete-pass]], [[sources/runs/2026/09/2026-09-09-optimization-final-sampled-complete-pass]], [[sources/runs/2026/09/2026-09-09-optimization-final-retention-complete-pass]] and [[sources/runs/2026/09/2026-09-09-optimization-final-actual-default-and-eight-paired-complete-pass]]. The actual command/target audit corrects two earlier prose/sampled plan labels that incorrectly said 10 GB. Their protocols, acceptance and percentage calculations were already correct: [[sources/runs/2026/09/2026-09-09-optimization-final-calibration-inputs-and-profile-label-correction]]. All 512 first/measured responses across the eight studies satisfy their actual sampled physical cap, including observations excluded from timing.
+
+The automatic-prefill mechanism also has three complete prerequisite studies on build `d3701afdb0540850f376ca9a696a2a0ffa31a67121362e341f87ebc9e27fd7dc`, before final default composition. Each has 32 first and 32 measured responses with 16 outputs, matching fixed pools within each profile, actual public planner metadata, and unchanged chronological compute geometry. All 192 responses and the original descriptive calculations have been independently rechecked. These results explain the prefill benefit; they are not an additional final-build benchmark and cannot be added to the combined percentages above.
+
+| Planner chunk / target / fixed slots | Prompt tokens | Clean measured pairs | Request reduction | Preview reduction | Prefill-time reduction | Sampled peak reduction |
+|---|---:|---:|---:|---:|---:|---:|
+| 256 / 10 GB / 961 | 1,027 | 14 | 21.89% | 25.65% | 25.66% | -16.03% |
+| 512 / 12 GB / 1,491 | 2,051 | 11 | 18.65% | 20.91% | 20.91% | -12.69% |
+| 1024 / 16 GB / 2,576 | 4,099 | 6 | 16.70% | 17.82% | 17.95% | 4.16% |
+
+Negative peak reductions mean more temporary process memory. All responses remain within their declared 10/12/16 GB caps. Whole-request, prefill and preview gains are specific to these eligible group sizes and inputs; sixteen-output timing does not establish sustained TPS. Original evidence: [[sources/runs/2026/09/2026-09-09-optimization-public-planner-256-complete-pass]], [[sources/runs/2026/09/2026-09-09-optimization-public-planner-512-complete-pass]], [[sources/runs/2026/09/2026-09-09-optimization-public-planner-1024-complete-pass]]. Exact reconciliation and unexecuted final-calibration preparation: [[sources/runs/2026/09/2026-09-10-optimization-final-prefill-reconciliation-and-calibration-preparation]].
+
+The OS filesystem cache was uncontrolled and was not globally purged. Each process ran its original first request before its measured request. A fresh process is not evidence of a physically cold SSD; prefix reuse is reported separately above.
+
+Observed paired request ranges make the variability visible. Positive reductions mean faster; negative reductions mean slower. These are the extrema of these finite studies, not reliable population p95 estimates.
+
+| Workload | Observed paired reduction range | Faster pairs |
+|---|---:|---:|
+| Short one-output | 4.72% to 16.36% | 16/16 |
+| Unique prose | -3.59% to 9.90% | 13/14 |
+| Sampled short | 2.70% to 16.00% | 15/15 |
+| Fixed MTP | -5.27% to 3.13% | 1/16 |
+| Distinct prefix tail | 30.12% to 33.24% | 16/16 |
+| Complete repeated prompt | 66.23% to 72.89% | 16/16 |
+| Unique with retention | -4.36% to 8.42% | 10/16 |
+| Actual default one-output | -1.63% to 6.88% | 14/16 |
+
+The original three-pair serving A/A pilot, with the same arm configuration and unchanged client/generator swap counters, showed an apparent median request reduction of 0.86% and a maximum of 8.93%. It used an earlier build and an eight-output workload, so it illustrates variability rather than estimating the final build's noise distribution. No historical A/A percentage is subtracted from the current results, and no new threshold or significance claim is introduced. Near-zero timing changes remain descriptive; passing resource-benefit/nonregression criteria does not make them universal speed gains. Exact ratios, counts and unchanged exclusions: [[sources/runs/2026/09/2026-09-09-optimization-final-observed-spreads-and-original-aa-context]].
+
+The complete MTP-off long-generation study uses a fixed total memory target of 10 GB, with 1,217 effective expert slots in both arms. All 32 first and 32 measured responses complete 512 output tokens, for 32,768 outputs in total. Every paired prompt, output-token sequence and output text matches, including excluded observations. Thirteen pairs qualify after rounds 4, 12 and 15 are excluded for global swap-in activity; there are no replacement rounds. The original cohort assessor and outer source/deadline/cleanup qualification pass.
+
+| MTP-off long-generation metric | Reference median | Combined median | Median paired improvement |
+|---|---:|---:|---:|
+| Active emission speed | 6.9522 tokens/s | 7.0013 tokens/s | 0.46% |
+| Emission speed after output 128 | 6.8849 tokens/s | 6.9567 tokens/s | 0.34% |
+| Whole request duration | 81.8221 s | 81.0804 s | 0.85% |
+| Visible-preview latency | 8.0920 s | 8.0241 s | -0.48% |
+| Sampled process peak | 7.9069 GB | 7.3922 GB | 6.54% |
+
+Higher throughput and lower duration/peak are improvements. The displayed arm medians provide context; the improvement column is calculated per pair, so it must not be reconstructed from those marginal medians. Active emission is 511 divided by the sum of all 511 inter-token intervals. The later window uses 384 intervals from output 128 through output 512. Both exclude prefill and work after the final sampled token. Nine of 13 pairs improve active and later throughput; all 13 reduce sampled process peak. The small timing shifts do not establish a material sustained-speed gain. This is bounded 512-output evidence, not indefinite equilibrium, another memory target or another chip. Across all first/measured responses, including timing exclusions, the maximum sampled peak is 7,938,182,984 bytes. Evidence and full precision: [[sources/runs/2026/09/2026-09-10-optimization-final-long-off-complete-pass]].
+
+The first final MTP-on attempt refused its incompatible legacy large-memory profile before launching a model. V609 corrected delivery and completed both first responses with identical 512-output work, but eight global swap-in pages during combined startup triggered the legacy full-study abort. There were no swap-outs, at least 22.44 GB remained reclaimable, and the largest first-response sampled peak was below 9.88 GB. Both partial identities remain failed and supply no MTP-on performance comparison: [[sources/runs/2026/09/2026-09-10-optimization-final-long-on-delivery-refusal]], [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-startup-swapin-stop]].
+
+The prospective V616 method preserves the exact original 12 GB, 512-output chat protocol and 18 GB startup requirement. Startup swap-ins invalidate the entire pair under the original joint assessor while the fixed cohort continues. Swap-outs, missing/invalid/reset counters, pressure and footprint violations retain stops. Full response/parity checks also apply to excluded pairs; no failed partial observations or replacement rounds enter the comparison. All 55 model-free checks pass. That V616 cohort later stops on a fair thermal observation and remains failed: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-startup-exclusion-preparation]].
+
+V616 completes seven first and seven measured responses, preserving all 512 outputs in each. Round four combined begins in nominal thermal state and ends fair, triggering the original thermal stop. The missing later warmup reported by the outer assessor is a consequence, not the root cause. All three completed pairs preserve exact first/measured prompt and output IDs and text; all 14 responses stay below 12 GB, with a maximum sampled peak of 9,912,832,968 bytes. At least 20,621,852,672 bytes remain reclaimable, with no new swap-outs or swap changes in the failed request. This partial cohort remains failed and supplies no sustained comparison: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-thermal-stop]].
+
+The subsequently failed V627 cohort increased cooling to a 60-second reserved cooldown plus 120 sampled nominal seconds per cell, within the unchanged 600-second readiness bound. All original requests, numerical gates, timing exclusions, memory/pressure/swap-out/thermal stops and full work allowance remain. All 60 model-free checks pass. The prelaunch review also corrects an overstrict sample-count assertion using an actual saved 120-second observation; V624's unused freeze is preserved. The real prelaunch readiness check passes before the fresh complete cohort starts; the cohort later stopped thermally and remains unqualified, as recorded above. Longer cooling is not a guarantee of constant clocks or equilibrium: [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-cooled-cohort-preparation]].
+
+Both original lifetime modes complete 60 requests: two warmup cycles plus eight measured cycles over six request positions. MTP off at 10 GB reaches a maximum sampled request peak of **9,037,173,152 bytes**. One prose observation has eight swap-ins and no swap-outs and is excluded from clean growth calculations without replacement; all requests still meet output/work and absolute-cap checks. MTP on at 12 GB reaches **10,828,060,144 bytes**, with all 60 observations resource-clean. Both modes pass exact per-position replay, the original 64 MiB active-growth and 256 MiB physical-end-growth bounds, bounded embedding storage and charged prefix capacity. This is bounded lifetime evidence, not a leak-free-forever claim: [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-off-pass]], [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-on-pass]].
+
+The same exact build passes all 25 original top-level verification checks, including independent numerical parity, all 15 behavioral-quality items, all 74 API probes, full vision-serving inputs and resource checks. The public installer also passes all 31 installed checks and all five install/upgrade/E2E/rollback phases in an isolated root, including actual rollback generation. The user's installed binary remains unchanged at this checkpoint: [[sources/runs/2026/09/2026-09-09-optimization-final-complete-verification-pass]], [[sources/runs/2026/09/2026-09-09-optimization-final-installed-qualification-pass]].
+
+The final planner constants retain the verified reference family. Exact-source review proves policy continuity after moving unchanged device-observation functions, and the actual final 2,048-token context rung fits its 8,997,561,600-byte ledger with a sampled peak of 8,536,952,072 bytes. No temporary vision saving is allocated permanently to expert residency, and no isolated prefill ratio multiplies the whole timing curve. The MTP-on sustained measurement and final empirical family decision remain open. Hardware claims stay on the measured machine; the fused rotation default is restricted to its qualified chip/model/OS and other platforms retain fallback dispatch: [[sources/runs/2026/09/2026-09-09-optimization-final-calibration-inputs-and-profile-label-correction]], [[sources/runs/2026/09/2026-09-09-optimization-final-control-and-fallback-review]].
+
+The final terminal extractor and empirical-calibration report now follow the exact V627 cohort. Their original calculations remain, and the calibration report also checks the closed automatic-prefill prerequisites. Both reports remain unexecuted until the full MTP-on cohort qualifies; activation remains unapplied: [[sources/runs/2026/09/2026-09-10-optimization-final-cooled-launch-and-report-binding]].
+
+### Three-prompt serving benchmark and throughput expectations
+**What to expect from this observed setup.** On the recorded M5 Pro Mac, the existing auto-sized server produced **10.28 to 15.80 decode tokens per second** across the eight clean short-request observations. A rough expectation of **10 to 16 tokens/sec for similar short requests at these settings** is a description of this observed range, not a guaranteed floor, ceiling, sustained rate or estimate for another machine. Thinking was disabled, greedy sampling was used, and the MTP draft head was enabled. Model, output length, available memory, retained prompt state and background activity matter.
+
+The server's existing planner reported `est_warm_tok_s` of **10.63** at about **121 cached experts per layer**, and **11.47** after automatic residency grew to about **146 per layer**. These are planner estimates, distinct from the observed request rates. Its metadata retained a **27.9 GB advertised auto target** while the pool changed from **5,817 to 7,006 slots**. The target is not an observed peak-memory measurement. This small run does not recalibrate the planner or supply a new MTP multiplier.
+
+The original integrated sustained studies used **10 GB with MTP off** and **12 GB with fixed MTP on**, producing combined-arm median active rates of about **7.00** and **7.30 tokens/sec**, respectively. Those are different memory budgets, workloads and timing definitions from this larger auto-sized server's short requests. They remain in [[records/measurements/optimization-final-composition-2026-09-09]]; the present results neither replace them nor establish another optimization speedup.
+
+**Method and evidence.** Three synthetic prompts cover a sky explanation, a Python function and a longer fictional incident report. Each is sent as an initial request, an exact repeat, and a follow-up including the complete initial user/assistant exchange. Requests run one at a time against the user's already running server, with thinking disabled, temperature zero, seed seven and a maximum of 128 output tokens. Initial means first in this small study, not a cold process, SSD or expert pool. All nine completed responses stop naturally, and all three completed exact repeats match their initial output text. Exact prompts, raw streamed frames with arrival timestamps, outputs, server metadata, memory observations and driver bytes are preserved in [[sources/runs/2026/09/2026-09-10-user-server-three-prompts-small-benchmark]].
+
+| Prompt | Case | Output tokens | First visible text | Complete response | Decode tokens/sec |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Sky explanation | Initial | 76 | 3.94 s | 9.82 s | 12.92 |
+| Sky explanation | Exact repeat | 76 | 2.5 ms | 4.81 s | 15.80 |
+| Sky explanation | Follow-up | 47 | 1.51 s | 5.49 s | 11.81 |
+| Python function | Initial | 108 | 2.10 s | 10.52 s | 12.83 |
+| Python function | Exact repeat | 108 | 2.7 ms | 8.21 s | 13.16 |
+| Python function | Follow-up | 32 | 1.86 s | 4.98 s | 10.28 |
+| Long report summary | Initial | 103 | 5.56 s | 14.98 s | 10.93 |
+| Long report summary | Exact repeat (resumed) | 103 | Excluded: paging | Excluded | Excluded |
+| Long report summary | Follow-up (resumed) | 55 | 1.47 s | 5.51 s | 13.60 |
+
+**Interruptions and exclusions.** One additional long-summary repeat attempt is canceled on observed warning memory pressure and has no successful terminal frame: [[sources/runs/2026/09/2026-09-10-user-server-small-benchmark-pressure-attempt-discarded]]. An optional quiet-memory wait sends no requests and expires. The remaining cases then continue under the original live request guards. The completed resumed summary repeat overlaps **11,581 system swap-ins** and is excluded from the timing comparison: [[sources/runs/2026/09/2026-09-10-user-server-small-benchmark-paging-repeat-discarded]]. Its successful content check is not timing qualification. The eight reported timing rows have nominal sampled thermal state and no swap-counter change during their request. The aggregate source is mixed evidence; the two separate sources explicitly mark the discarded attempts/timings and the original source remains unchanged.
+
+Automatic residency changes across the interruption, so the resumed cases are not a matched fixed-pool comparison. Only one observation of each case is taken; no population percentile, significance test, universal rate or causal attribution to a single optimization is claimed. The two short immediate repeats show almost zero prefill time and first visible text in milliseconds; their remaining generation still takes seconds. The ordinary Ollama endpoint does not expose an exact cached-token count, so no unobserved hit count is claimed. The user's server is left running, with no other model/compiler launched and no applications closed.
+
+**Meaning of the timing fields.** First visible text is client time from sending the request to receiving a frame with non-whitespace answer text. Complete response is client time through the successful terminal frame. Decode throughput is the server's `eval_count / (eval_duration / 1e9)`, excluding prefill. It is not the independent inter-output-interval active TPS used by the sustained qualification studies. Follow-ups have different input and output lengths from their base prompt, so total durations are not like-for-like speed comparisons.
+
+**How to see your own numbers.** `slotstream run` prints separate prefill and decode rates after generation; its `--stats-json <path>` option saves the raw measurements. When using the existing server, `/api/chat` and `/api/generate` provide `eval_count` and nanosecond `eval_duration` in their successful final response; streaming clients receive them in the final frame. Calculate the ratio above when the duration is positive. The ordinary OpenAI-compatible response carries token usage without these Ollama duration fields. These are end-of-response observations, not a built-in continuously updating counter. See the CLI guide for commands.
+
+**Long-session context.** The original first-principles optimization program, all OPT00–OPT36 selected/rejected/deferred outcomes, superseded progress, failed attempts, resource and thermal-control changes, qualification evidence and actual local activation remain in [[records/plan/whole-engine-optimization-2026-09-04]]. Integrated preview, prefill, sustained throughput, memory and lifetime results remain in [[records/measurements/optimization-final-composition-2026-09-09]]. The final exact-source and installed-artifact closure is [[sources/runs/2026/09/2026-09-10-optimization-final-program-complete]]. This later user-server benchmark is observational follow-up evidence, not a replacement for that qualification.
 
 ### Hermes integration: context qualification and OpenAI agent protocol
 The integration failure in [issue #11](https://github.com/carloslfu/slotstream/issues/11) has two independent causes: the released OpenAI endpoint rejects agent tool semantics before inference, and Hermes requires a context larger than the served default. The issue does not include the reporter's trace, versions, or configuration; these are independently reproduced failures, not a claim to have identified their exact first request.
@@ -2811,39 +3115,346 @@ The final candidate differs from `39d236e8` only in Server.swift's vision capabi
 
 The earlier real-client checks remain preserved, including the first compression fixture that grew instead of shrinking: [[sources/runs/2026/09/2026-09-05-hermes-openai-real-client-gates]]. Regression results and the vision-discovery counterexample are in [[sources/runs/2026/09/2026-09-05-hermes-adapter-regressions-and-vision-discovery]]. Final acceptance is in [[sources/runs/2026/09/2026-09-05-hermes-final-integration-acceptance]].
 
-At qualification time the installed release was unchanged. The user subsequently requested installation; the normal local `slotstream` command was first switched to the exact verified local Hermes binary and matching Metal library, with the previous install preserved for rollback. The installed runtime and context-planning checks passed; see [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]]. At that point no issue reply or release had been published. The first verified local binary, source archive, identity and complete client captures are retained under `.build/hermes-integration/`. This qualification applies to that frozen source closure; separate ongoing engine optimizations in the working tree are not silently included in these results.
+At qualification time the installed release was unchanged. The user subsequently requested installation; the normal local `slotstream` command now points to the exact verified Hermes binary and matching Metal library, with the previous install preserved for rollback. The installed runtime and context-planning checks passed; see [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]]. No issue reply or release has been published. A verified local binary, source archive, identity and complete client captures are retained under `.build/hermes-integration/`. This qualification applies to that frozen source closure; separate ongoing engine optimizations in the working tree are not silently included in these results.
 
-#### Clean release candidate, 0.2.8
+### Configurable context component and interface contracts
+This unreleased candidate preserves the installed ordinary allocation
+projection and exposes one context/wait policy through CLI and library entry
+points. The request clock starts on acceptance, includes preparation and
+queueing, and stops at the first sampled token. Zero wait disables only time.
+Atomic Engine-owned leases account for simultaneous input, image and dispatch
+reservations; per-buffer guards price full replacement and provisional draft
+allocations before the work starts.
 
-The release candidate starts from public main `770dba6` and includes the Hermes adapter, its context-budget support, and the connection documentation. Concurrent engine experiments are excluded. The default context and neural implementation remain unchanged. Elastic replanning retains the selected larger window, and undersized explicit or automatic targets are rejected before allocation. The full-context diagnostic samples physical footprint and requires complete prefill plus a reply.
+Build 16 passes all ten bounded C07 shape/prefix cases on one identified
+binary, each with 1605 unchanged assertions, plus the 835-assertion HTTP matrix.
+Nine numerical cases have zero candidate drift; the short-tail64 case has one
+logits measure inside the unchanged band, with every greedy token agreeing.
+Normal Generator activation is implemented, but these short witnesses do not
+reach its real128K transition or qualify full-window capacity.
 
-On this clean candidate, 65,520 prompt tokens plus one reply completed at the 10 GB text-only target, using 256-token prefill passes. The sampled physical peak was 9.651146928 GB against the 9.742730496 GB plan; RSS alone was 8.472694984 GB. Prefill took 1,323.152083992958 seconds. No abort or additional system swap-out occurred. This independently qualifies the release's bounded text capacity and memory configuration; it does not extend the result to full-window images, other hardware, or answer quality.
+Build 17 corrects the preserved build16 MTP exclusivity abort and passes actual
+MTP retention/cancellation/recovery (198), lifecycle (138), CLI (102) and
+planner (64). The adaptive-MTP mismatch exactly reproduces the already rejected
+V50 option, which remains disabled. Build 18 then passes fixed-MTP pressure
+cancellation/feasible recovery (80), HTTP (835) and T0 (33 groups / 22249).
+Four distinct conversations and their interleaved follow-ups complete, then a
+4096+16-token main request completes; eight system swap-in pages exclude that
+run from capacity evidence.
 
-The final local fast gates pass: 24 optimized catalogue groups with 637 assertions, 64 planner checks, installer/static gates, 16 sampler/governor gates, and an external Swift package consumer. All existing coverage floors are preserved; the HTTP server's measured coverage rises from 10.51% to 12.91%, with separate floors for the new adapter files. The clean brain and generated projections pass, including 78 registered claim checks. The completed real-client release matrix follows below.
+Actual Ollama and the published AI SDK gateway pass at32768. Hermes enforces
+its own64000-token minimum before inference at that ordinary window. At65536,
+actual Ollama, gateway SDK and pinned Hermes all pass; Hermes performs one real
+allowlisted tool read, follow-up, title and bounded request-context handling.
+Build20 also passes the actual Hermes CLI and forced compression extensions.
+Compression finishes normally, reduces the transcript, and preserves the exact
+diagnostic fact in a real follow-up answer. Image extensions still need a
+current-build run. This is not a test of the separate FX app or Sevra
+receiving-side action authority.
 
-Raw outputs, source hashes, and the small validator-test visibility bridge between the context and final local binaries are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-context-and-gates]].
+Build 19 passes T0 (33 groups / 22251), the original public Swift API signatures
+from a fresh external SwiftPM consumer, and all281 complete-prompt MTP/vision
+cache assertions after arithmetic-epoch consistency was corrected. Its
+existing native regression also passes sampler/governor, n-gram/template/layer
+parity,8.1GB/10GB exact output, live cache resizing, prefix reuse, sweep and
+MTP-head parity. The last MTP check was intentionally stopped on a source
+counterexample: its legacy command loaded the head outside an MTP-off plan.
+Build20 compiles mandatory-head startup planning, bounded full governor/MTP
+test budgets and actual late schedule reporting. T0 passes33groups/22256
+assertions, CLI116, sampler/governor17groups and the full static suite,
+including planner64, installer fixtures, nine qualification-driver groups and
+three owned-process cleanup groups. The full13GB governor and12GB combined
+MTP/image diagnostics remain unrun. The optional V193 read-scope checkpoint
+integration was imported only after build20's group ended and is unbuilt in
+this worktree; it does not inherit build20's acceptance.
 
-#### Clean release client acceptance
+The shared V193 continuation passes T0 33/22263, CLI116, HTTP835 and
+image-reuse76, then stops on eight plain-governor failures. A successful
+startup floor advisory was incorrectly treated as live feasibility. The
+prospective governor now checks the complete ledger against credited physical
+headroom and the total target at every context. Its32new pure assertions and
+both native pressure variants remain unrun; C05 is open for this correction.
 
-The clean release candidate passed the complete real-client matrix and [public CI run 34005877377](https://github.com/carloslfu/slotstream/actions/runs/34005877377) at commit `2a69ac0be4148a6f351cc18159c8dbff49ba3f7e`. Both the released Hermes agent and the recorded main snapshot executed the actual terminal fixture and recalled its code on a follow-up; the released CLI returned `OK`. Vision discovery, the image answer, and the title fallback passed.
+All model runs above overlapped a coordinated download; their timing and
+capacity interpretations are excluded. No full-window capacity ladder,
+retained-state capacity result, new public limit, release or installed-release
+acceptance is claimed. The default remains32768 and the public implementation
+ceiling65536. The engineering plan owns remaining C01-C22 gates. Raw failed,
+interrupted and passing runs remain linked below; updated source does not
+inherit an earlier build's native acceptance.
 
-The released Hermes compressor reduced the same forced fixture from 39 to 25 messages and from 99,684 to 87,082 characters. Its local auxiliary request had a 4,096-token allowance and completed with `stop` after 859 output tokens. The exact diagnostic code occurred only in the handoff at index 4, and the subsequent actual agent turn recovered it from an 18,243-token prompt. This remains a forced-compaction test rather than an automatic-threshold stress test.
+### Governor fixture classification after physical-fit correction (2026-09-06)
 
-The release server also passed 27 OpenAI wire checks, all 19 existing image-serving checks in the clean public source, the native gateway's real tool/result round trip, and the actual Ollama image CLI. The final local binary passed all 74 ordinary API robustness checks. The larger historical counts above include other source in the earlier frozen workspace and are not substituted for this release's results. Complete clean-source checks and their identities are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-client-acceptance]].
+[[sources/runs/2026/09/2026-09-06-configurable-context-governor-advisory-fixture-counterexample]]
+records shared V198: compilation passes; T0 returns32of33groups and22295
+assertions with20failed expectations in four old ordinary-context fixtures.
+All32new exhaustion/recovery assertions pass. Both reviewers independently
+verify through the frozen public doctor that the old10GB whole-availability
+rows require7.919289600/7.921999104GB while only7.425GB remains after safety
+slack. A successful legacy startup advisory cannot imply live feasibility.
 
-All owned test servers were stopped. The clean brain has zero validation errors and warnings. CI passed its build, static gates, sampler/governor checks, optimized catalogue, external Swift consumer, and coverage ratchet. This acceptance qualified the unchanged tested implementation for release; the published CI asset and installation verification follow below.
+The diagnostic-only correction retains every original10/18/44GB input, checks
+refusal/floor/still-unavailable behavior for the exact four invalid advisories,
+and adds12GB feasible near-floor rows. Existing settlement/cooldown/recovery
+assertions remain for feasible plans. The production guard, deadbands,
+allocation goldens and numerical tolerances are unchanged. The revised fixture
+is unbuilt at this capture, and both native governors still must pass; C05
+remains open. No CLI or model case followed the failed T0 run.
 
-#### Published release and verified installation
+The verified transport release and exact evidence packet are integrated while
+preserving context documentation, shipped Hermes history and restored original
+historical sources. This prepares a common successor source closure; it is
+not context capacity qualification. P5 and P6 remain open, with default32768
+and public ceiling65536 unchanged.
 
-[Slotstream v0.2.8](https://github.com/carloslfu/slotstream/releases/tag/v0.2.8) is public. [Release workflow 34006921406](https://github.com/carloslfu/slotstream/actions/runs/34006921406) built and attested it from tag commit `f05b15dfa4d109ae32b882688ce615c3454cffe1`. The only changes after the full code CI commit are documentation and engineering evidence, and that tag's documentation CI also passed.
+### Shared regression and excluded full-resource interval (2026-09-06)
 
-The downloaded archive's SHA-256 is `d1266daed642951cbfba22f75c1bcd7b321c5356738c14a0858d15f2ec4da817`. Checksum and signed-provenance verification passed, including the workflow, tag, source commit, and artifact digest. The public installer activated binary `3ccf3e9e8b5989e3f4bb85e3ba5ec51c48e9dba7fea68c2e7811bcc27a2316c8` and the matching pinned Metal library. The normal `slotstream` command returns `0.2.8` outside the repository, and the previous local Hermes installation remains intact for rollback.
+[[sources/runs/2026/09/2026-09-06-optimization-merged-correctness-v202]]
+records the exact shared V202 candidate: all 19 correctness groups pass,
+including T0 33/22346, both native governor variants at 80 assertions,
+the 832-assertion combined scope lifecycle, and the 835-assertion HTTP suite.
+The production feasibility correction and revised advisory classification
+now pass their relevant pure and native checks. Experimental defaults remain
+off. This correctness result does not qualify a larger context window.
 
-The exact installed CI binary passed runtime checks and context/vision planning, then served the actual released Hermes client. Terminal fixture execution, follow-up recall, title fallback, vision discovery, the `Dog` image answer, and the actual CLI's `OK` response all passed. The bounded server used `--memory-gb 11 --max-context 65536 --vision on --mtp off` after measuring 36.269719552 GB reclaimable and waiting for the shared model/build lock. Its test server was stopped afterward. Full-window memory, forced compaction, and the broader wire matrix remain the separate qualification results above; this additional run verifies the published artifact and installation.
+[[sources/runs/2026/09/2026-09-06-configurable-context-full-resource-swap-exclusion]]
+preserves the full 13 GB elastic drill's incomplete first attempt: the first
+answer is exact and the sampled footprint remains below the ceiling, but
+eight global swap-ins stop the diagnostic before a second completed answer.
+Two controls without an owned model also observe swap-ins. No process is
+attributed from global counters, no resource criterion is relaxed, and the
+full MTP/image diagnostic does not start after the failure.
 
-Publication, installer, provenance, runtime, and installed-client outputs are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-published-install]]. The source, raw synthetic captures and downloaded CI package are also retained locally under `.build/hermes-release-v0.2.8/`. The release was published from an isolated worktree while concurrent engine experiments were preserved in the canonical development workspace. The issue remains open, and no reply was posted.
+[[sources/runs/2026/09/2026-09-06-configurable-context-vision-target-counterexample]]
+records independent tower/reference parity and the subsequent 10 GB image
+suite's four failures. Full-size fruit and two-image requests receive the
+correct typed memory refusal. The raw 21-pass report also exposes one fixture
+false positive: an empty error answer counted as different image content.
+Its prospective correction requires successful, nonempty responses. The
+full-image successor reserves its actual attention workspace at 14.5 GB with
+a 3072-token prefill reservation and a 20.5 GB real preflight; the ordinary
+quality probe remains at 10 GB. Its outcome is not yet recorded here.
+
+P5 has not run. Full resource, retained/minimum/pass-transition capacity and
+remaining client/release/installed acceptance remain open. The public ceiling
+is still 65536 and the default is 32768. Neither a plan nor an excluded
+interval is a 262144-token qualification.
+
+### Full images and actual clients complete (2026-09-06)
+
+[[sources/runs/2026/09/2026-09-06-configurable-context-full-image-and-actual-client-pass]]
+records all 25 full-image assertions passing on V202, including successful
+nonempty responses for the different-picture predicate. The original images
+use an explicit 14.5 GB total target and a 3072-token prefill reservation,
+after a 20.5 GB real preflight. That override is local to the full-image
+server. The original 10 GB refusal remains preserved. A separate ordinary
+10 GB server passes all 15 quality assertions. Actual pinned Hermes at 65K
+passes its tool/follow-up/title/image flow with exactly one fixture tool
+execution, and actual Ollama returns the dog image's correct subject.
+
+`Tools/verify.sh`, the helper and testing instructions now carry that exact
+full-image profile. The helper's semantic correction was exercised; its
+subsequent header edit is documentation only. No runtime source, model
+ceiling, default option, image fixture or memory criterion changed. Timing
+and capacity conclusions remain excluded because global swap-ins continue.
+Full resource, P5 and release/installed acceptance remain open.
+
+### Structured overflow refusals and verification completeness (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-configurable-context-ollama-overflow-wire-counterexample]]
+preserves the original HTTP suite's 73/74 result and four independently
+recorded live HTTP 400 responses. Length enforcement works, but the old
+shell assertion matches obsolete prose and both Ollama overflow branches
+omit the structured code/details used by other refusals. A focused source
+successor keeps the legacy string and status, adds the existing typed
+refusal wrapper, and exercises 21 new pre-header/code/no-success assertions
+across all seven dialect variants. The shell suite now checks status and
+code directly. Its shared build and affected acceptance are pending.
+
+The full verification script also now treats missing vision-reference
+dependencies and insufficient full-image headroom as failed acceptance,
+while preserving the no-launch behavior and rerun guidance. The reviewed
+provider-free shell/predicate checks live in the shared V209 evidence;
+no mandatory vision skip can silently yield a passing full battery.
+
+The successful V202 client source is marked discarded for resource/timing
+measurement because its recorded global swap-ins are nonzero. Its exact
+raw body and passing correctness assertions are preserved unchanged. The
+flag is measurement disposition, not a claim that those client assertions
+failed. The independent runtime correction leaves default 32768, public
+65536, all optional defaults and the memory ledger unchanged.
+
+[[sources/runs/2026/09/2026-09-06-optimization-vision-acceptance-profile]]
+
+[[sources/runs/2026/09/2026-09-07-optimization-typed-context-wire-counterexample]]
+
+### Additional OpenAI code field found by the unchanged matrix (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-optimization-typed-context-wire-counterexample]]
+preserves the shared V211 successor. Build, T0 22346 and CLI116 pass; the
+extended context matrix passes 854 of 856 assertions and stops before the
+two actual HTTP suites. All four Ollama structured-code cases pass. Only
+the OpenAI JSON/SSE structured-code checks fail: their local helper puts
+the code in the existing type field but omits error.code.
+
+The one-line V214 correction adds error.code while retaining type, message
+and HTTP status. The same 856 assertions and actual suites are being rebuilt
+and rerun on V215. No fixture, criterion, default, context ceiling or memory
+constant changes. The V211 result remains preserved, not replaced.
+
+A byte-exact local rollback copy of installed public v0.2.11 is prepared
+with both binary and Metal hashes; its doctor accepts configured65536. This
+is preservation and a model-free configuration check only: rollback itself
+and installation of the new context work have not run.
+
+### V215 current interface acceptance and unrun capacity matrix (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-optimization-typed-context-correctness]]
+records the complete affected successor: T0 33/22346, CLI116, native context
+serving856, actual API robustness74 and all four actual overflow cases pass.
+The additive Ollama and OpenAI typed-code corrections close the preceding
+preserved wire failures. Source/driver/Metal identities and raw outputs remain
+exact. Native context serving records8 swap-ins and API robustness28, with
+zero swap-outs: their correctness predicates stand, while the source is
+discarded for resource/timing use. No inference arithmetic or memory credit
+changed from V202. The older V211 source receives the same metadata-only
+resource disposition correction with its failed raw/body bytes unchanged.
+
+The actual CLI also records exact262144 planning boundaries: cold accepts
+20,583,511,296 bytes and retained accepts20,585,806,080 bytes; each rejects a
+one-byte smaller target. These are current discrete-policy planning results,
+not measured physical minima. The retained case explicitly carries four
+1021-token warm inputs and their interleaved follow-ups; its5795-slot retained
+budget exceeds the4096 rounded slots that setup requires. The extra C19
+protocols and exact raw neighbors are at
+[[sources/runs/2026/09/2026-09-07-configurable-context-v215-minimum-and-transition-protocols]],
+and the ordinary cold/retained protocols at
+[[sources/runs/2026/09/2026-09-07-configurable-context-v215-capacity-protocols]].
+All eight profiles/sixteen main rungs are prepared and unrun, with full model
+payload verification still required. No inference from synthetic filler is
+an answer-quality or latency-calibration result.
+
+A further idle control records16 global swap-ins over83.21061301231384s,
+including a45s wait with no owned model. This is preserved and excluded at
+[[sources/runs/2026/09/2026-09-07-configurable-context-v215-idle-swap-control]].
+Full resource, full-window capacity, release, installed acceptance and actual
+rollback remain open. Public65536 and default32768 are unchanged.
+
+### Final harness review and resource hold (2026-09-07)
+
+The bounded release-shell review is complete. Its exact20case-tested
+correction now requires the expected doctor exit2 under pipefail as well as
+typed insufficient_memory, validates the nested discovery cap before any POST,
+and requires context_length_exceeded alongside HTTP400. This supersedes the
+preceding pending harness status; the installed model suite itself is unrun.
+The original failed proposal and passing successor are preserved at
+[[sources/runs/2026/09/2026-09-07-optimization-default-and-release-acceptance-review]].
+All143runtime source files still match the exactV215archive in both worktrees,
+recorded at
+[[sources/runs/2026/09/2026-09-07-configurable-context-v215-prepared-state-audit]].
+
+The final readiness snapshot has21,662,023,680reclaimable bytes, below the
+ordinary capacity profile's25GB prerequisite, with further background swap
+activity. There is no owned model/compiler and the model lock is free. The
+raw snapshot is at
+[[sources/runs/2026/09/2026-09-07-configurable-context-v215-capacity-preflight-hold]].
+No capacity or full resource run was attempted. The eight frozen profiles
+remain unconsumed; P5/P6, remaining resource acceptance, installation and
+rollback remain open. Default32768 and public65536 remain in force.
+
+### Selected-candidate acceptance correction (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-configurable-context-candidate-selection-acceptance]] preserves the full five-file acceptance correction and its
+first counterexamples. Static, planner and installer gates consistently use
+the explicitly selected candidate, including paths with spaces/apostrophes.
+The installer packages that executable and its colocated Metal library, then
+verifies exact installed bytes through fresh/repeated activation, checksum
+refusal and legacy upgrade. The static entrypoint retains the mandatory
+qualification-driver checks. All64 planner assertions remain unchanged.
+
+Six static-selection fixtures, ten real-install.sh selection/fault fixtures,
+and the unchanged nine qualification-driver groups pass. The old installer
+fails seven of the same ten cases. A separate private fixture installation of
+V215 also passes exact binary/Metal identity; the real user installation and
+rollback remain unexercised. This does not close release/installed C22.
+
+On the loaded machine, the old quoted planner path produces18pass/46fail.
+The corrected quoted and normal paths both produce58pass/6fail, with the
+same six malformed-checkpoint diagnostics blocked by the real startup memory
+guard. A captured direct fixture shows9.2GB reclaimable and an8.1GB target,
+then insufficient allocation headroom before checkpoint parsing. These failures
+are preserved; no expected error or guard is weakened. A complete64/64 planner
+and full static pass remain required on a quiet machine. All143runtime source
+files still match frozenV215 in both worktrees; no frozen P5 driver changes.
+
+P5/P6 remain open. Eight prospective profiles/sixteen main rungs remain unrun;
+no model payload verification or capacity run starts during this work. Public
+65536 and default32768 remain unchanged. Loaded-machine results carry no
+resource or timing qualification.
+
+### Final acceptance-script integration (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-optimization-verification-selected-paths]]
+records the full verification entrypoint preserving the selected executable
+through its evaluated call sites; its nine focused fixtures pass. Mandatory
+vision, context-qualification and installer checks remain enforced.
+[[sources/runs/2026/09/2026-09-07-configurable-context-sampler-exit-and-binary-selection]]
+preserves the five original sampler false passes and the corrected eight-case
+full-shell fixture, plus all17real V215 sampler/NumPy/governor checks passing.
+API version checks now require both the selected quoted executable and a
+successful process exit. No new full74-case API server run is claimed.
+
+[[sources/runs/2026/09/2026-09-07-optimization-mandatory-sampler-and-final-handoff]]
+records the final mandatory static wiring: sampler8/static9/syntax3pass,
+exact integrated files,95public-number checks and zero validation errors.
+All143runtime sources and the frozen capacity drivers remain unchanged.
+The shared context plan, source closure, public docs and client fixtures are
+now integrated. P5/P6 remain open: all eight capacity profiles/sixteen main
+rungs are unrun; the current six headroom-blocked planner checks, remaining
+full resource tests, actual final clients, release/installation and rollback
+still require their own passing evidence. Public65536/default32768 remain.
+### Final release-response acceptance review (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-optimization-serial-and-installed-gate-integration]]
+records16original installed-gate false passes and one quoted-binary-path
+failure, followed by19/19passing complete-shell fixtures and mandatory static
+wiring. The separate successor at
+[[sources/runs/2026/09/2026-09-07-configurable-context-openai-release-completion]]
+preserves those19cases and exposes nine OpenAI false passes. All28complete-shell
+fixtures pass after requiring successful curl, one successful text completion,
+nonempty assistant content and a positive integer completion-token count.
+These are local process/response fixtures; no real installed model, socket,
+release or rollback ran. The original failed scripts and raw results remain
+preserved. The existing mandatory static entrypoint runs the expanded suite.
+
+[[sources/runs/2026/09/2026-09-07-optimization-cached-planner-build-and-typed-parity]]
+separately records the successful temporary cached build and441exact typed
+planner comparisons, with shared V215runtime/release/build state restored.
+It grants no new context capacity or performance claim. All eight V215P5
+profiles/sixteen main rungs remain unrun. Full resource acceptance, P5/P6,
+actual installed/release/rollback gates remain open; the original ordinary
+capacity preflight remains25GB, public context65536 and default32768.
+
+
+The source/protocol dependency split is preserved at
+[[sources/runs/2026/09/2026-09-07-optimization-planner-metadata-and-context-boundary]].
+The full262Kexpansion campaign remains necessary for this context-expansion
+goal, while unchanged32768/65536optimization retains its own applicable gates.
+No context profile is waived. That source also records the corrected e2e_release.sh
+executable bit; verify.sh remains at its tracked0644mode.
+
+
+### Portable software acceptance; native qualification deferred (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-configurable-context-portable-software-acceptance]] records the exact source-only policy pass, nine passing Python suites, adversarial evidence fixes, and portable source/binding checks. See the current context plan addendum for Carlos's explicit native-testing deferral. These results qualify software predicates and geometry only; no new model capacity, numerical result, memory measurement, real client or release is claimed. The public/default/mode ceilings remain unchanged.
+
+### Explicit per-window software checks (2026-09-07)
+
+[[sources/runs/2026/09/2026-09-07-configurable-context-window-cli-matrix]] preserves the selected V215 binary/archive hashes and exact outputs for the completed window matrix, including public-ceiling and model-ceiling refusals. The current testing guide documents the reusable command. The identified candidate passes the public planner and bounded scheduling checks; the source-only platform-method extraction is reported as a source difference. These are software contract results, with no fresh model load, tensor capacity, throughput, parity or release qualification. The initial test-only ledger assertion failure and its corrected validator are both retained.
 
 ## Lossless model download: complete package, integrity and CDN delivery
+This section preserves the original codec and v0.2.10 deployment measurements. Hosting has since moved to Hugging Face in v0.2.11; see [[records/measurements/hugging-face-lossless-download-2026-09-06]]. The codec and model bytes are unchanged.
+
 # Lossless model transport: complete package and delivery
 
 The complete model package uses **16.12% fewer bytes**: 105,264,463,248 original bytes become 88,295,438,048 package bytes, saving 16,969,025,200 bytes. The package includes its embedded manifest; normal clients transfer only the 88,294,086,225 object bytes. Original files, tensor bits, and installed size remain unchanged.
@@ -2891,3 +3502,18 @@ The qualified default is a stable Slotpack v1 representation: bounded independen
 Each network worker owns a persistent URLSession. Concurrency starts at eight and tests larger counts only while throughput improves; explicit counts remain fixed. The decoder queue and per-iteration object lifetime bound memory. Disk admission accounts for reconstructed output; verified resume bits follow synced writes. Cancellation drains work. Optional-file cleanup cannot race in-flight writes, and missing optional files no longer cause readiness to request another download indefinitely.
 
 Cloudflare R2 stores immutable content-addressed objects under a manifest-specific prefix behind the public custom domain. The application wildcard Worker is excluded for that hostname. The original Hugging Face pins remain an independent raw fallback. Existing raw resumes and explicit source overrides retain their semantics. See `docs/DOWNLOAD-FORMAT.md` and the producer/qualification tools under `Tools/slotpack/`.
+
+## Hugging Face transport: unchanged bytes and publisher cost
+The unchanged lossless Slotpack package is published in the separate public repository [carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack](https://huggingface.co/carloslfu/Qwen3.8-Flash-Next-MLX-4bit-Slotpack), pinned at commit `13ec15dcebdddc817b57f0f9087c5ef82018f10e`. The original raw repository and its original pinned revision remain intact. Keeping the representations in separate repositories prevents ordinary Hugging Face clients from downloading both.
+
+The original compression and integrity measurements in [[records/measurements/lossless-model-download-2026-09-05]] remain valid: this move changes hosting, not the model, codec, object bytes, manifest or reconstructed file hashes. [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-publication]] captures committed-object identity verification and anonymous public reads.
+
+[[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-linux-and-gates]] captures a complete fresh anonymous download using the exact production Swift/C engine and embedded Hugging Face default in the Linux bandwidth instrument. Every original file passes the client checks and independent GNU sha256sum verification; the client reports zero raw fallback chunks. Its download counter reports 799.2 seconds; subsequent explicit verification and independent hashing are outside that counter. This is a single route diagnostic, not a paired host comparison or universal installation-time claim. The final native Mac static and installer checks also pass. [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-full-mac-qualification]] additionally records a complete native Mac installation begun in an empty directory, interrupted by a hostname-resolution failure and resumed without external chunks: every original file independently matches. The completed resumed segment reports zero raw fallback chunks; the interrupted segments emitted no final fallback counter. Public main CI passes all functional, consumer, catalogue and coverage gates. [[sources/runs/2026/09/2026-09-06-slotpack-v0211-publication-and-r2-retirement]] closes publication and installed acceptance: the signed [v0.2.11 release](https://github.com/carloslfu/slotstream/releases/tag/v0.2.11) passes the ordinary installer, actual CLI selection/cancellation checks, complete model reuse and independent hashes, and a bounded loaded-model reply.
+
+Hugging Face resolver throttling can require a full reset-window wait. The shared HTTP transport now honors its RateLimit reset and longer Retry-After values, with a bounded, cancellable wait. Real HTTP fixtures verify retry and prompt cancellation. Original compressed-object, reconstructed-chunk and whole-file checks, raw compatibility and resume remain intact.
+
+The legacy weights.sevra.page hostname now redirects through Cloudflare's static asset service to the same exact Hugging Face commit. The deployed version serves assets directly, has no bindings, and does not invoke a Worker function. Its staged public object checks pass. [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-legacy-compatibility]] additionally verifies the unchanged released v0.2.10 client following the live redirect, reconstructing a missing model shard and metadata with exact original hashes and zero raw fallback. The complete native Mac installation also passes after preserving and resuming its network-interrupted progress. The redundant model-only R2 bucket has now been emptied and deleted, with absence and continued legacy redirect delivery verified in the publication receipt.
+
+Under its current [public storage policy](https://huggingface.co/docs/hub/en/storage-limits), Hugging Face provides best-effort public hosting without publisher charges per download. Limits still apply. No paid plan, metered proxy or billing fallback is enabled. [Static asset redirects are free](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/); the redundant model-only R2 bucket is deleted, so it no longer accumulates new storage/read usage. Deletion does not remove any charges that may already have accrued.
+
+Cloudflare volume/address analytics now cover only legacy redirect traffic. Hugging Face's default model counter follows selected query files, while the compressed client fetches hash-named objects and embeds its manifest. Neither counter measures completed compressed installations. GitHub release acquisition proxies remain available; no telemetry or counting-only request was added.

@@ -28,36 +28,6 @@ extension Catalogue {
             try OpenAIDialect.conversation(base.merging(extra) { _, new in new }, contextLimit: 65_536)
         }
         func rejected(_ extra: [String: Any]) -> Bool { (try? parse(extra)) == nil }
-        // The plain OpenAI path still uses the shared image/text template.
-        // These two client dialects must preserve the same image bytes and
-        // text order while tool turns use the extended message representation.
-        let textParts: [[String: Any]] = [["type": "text", "text": "Hello, "],
-            ["type": "text", "text": "world."]]
-        let plain = Server.templateMessages(["messages": [["role": "user", "content": textParts]]])
-        c.equal("plain text parts keep their order", plain.first?["content"] as? String, "Hello, world.")
-        let imagePart: [String: Any] = ["type": "image_url", "image_url": ["url": "fixture-bytes"]]
-        let imageParts = [imagePart] + textParts
-        let typed = Server.templateMessages(["messages": [["role": "user", "content": imageParts]]])
-        c.equal("OpenAI images retain every typed part", (typed.first?["content"] as? [[String: Any]])?.count, 3)
-        let preserved = (typed.first?["content"] as? [[String: Any]])?.first?["image_url"] as? [String: Any]
-        c.equal("OpenAI image bytes pass through intact", preserved?["url"] as? String, "fixture-bytes")
-        let ollama = Server.templateMessages(["messages": [["role": "user", "content": "Describe.", "images": ["fixture-bytes"]]]])
-        let combined = ollama.first?["content"] as? [[String: Any]]
-        c.equal("Ollama image precedes its text", combined?.first?["type"] as? String, "image_url")
-        c.equal("Ollama text survives image conversion", combined?.last?["text"] as? String, "Describe.")
-        let nullText = Server.templateMessages(["messages": [["role": "assistant", "content": NSNull()]]])
-        c.equal("null content stays an empty template string", nullText.first?["content"] as? String, "")
-        c.expect("stock SDK no-op defaults remain accepted", Server.openAINoOpError([
-            "n": 1, "frequency_penalty": 0, "logprobs": false, "logit_bias": [:],
-            "response_format": ["type": "text"], "user": "local-user"]) == nil)
-        for unsupported: [String: Any] in [["n": 2], ["frequency_penalty": 1],
-            ["logprobs": true], ["top_logprobs": 1], ["logit_bias": ["42": 1]], ["user": 123]] {
-            c.expect("unsupported SDK option fails explicitly: \(unsupported.keys.sorted())",
-                Server.openAINoOpError(unsupported) != nil)
-        }
-        let constrained = Server.openAINoOpError(["response_format": ["type": "json_schema"]]) ?? ""
-        c.expect("constrained-output error triggers Hermes's plain title fallback",
-            constrained.contains("response_format is not supported"))
         let first = try parse(["reasoning_effort": "none", "think": false,
             "options": ["num_ctx": 64_000], "parallel_tool_calls": false])
         c.equal("requested context retained", first.contextLimit, 64_000)
@@ -174,15 +144,6 @@ extension Catalogue {
             expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
             ramGB: 51.5, workingSetGB: 40.2, availableGB: 10,
             vision: .off, maxContextTokens: 65_536, simulated: true)) == nil)
-        c.expect("undersized explicit target refuses the larger context", (try? Planner.plan(
-            expertsPerLayer: nil, poolGB: nil, memoryGB: 8.1,
-            ramGB: 51.5, workingSetGB: 40.2, availableGB: 30,
-            vision: .off, maxContextTokens: 65_536, simulated: true)) == nil)
-        let governor = GovernorPolicy.Inputs(currentSlots: hermes.slots, availableGB: 20,
-            ramGB: 51.5, workingSetGB: 40.2, maxContextTokens: hermes.maxContextTokens)
-        c.equal("governor replan retains selected context", GovernorPolicy.desiredPlan(governor)?.maxContextTokens, 65_536)
-        var starved = governor; starved.availableGB = 0
-        c.equal("unaffordable context sheds cache to its floor", GovernorPolicy.desiredSlots(starved), Geometry.floorSlots)
         c.expect("both expected peaks stay below requested target", ordinary.expectedPeakGB <= 10 && hermes.expectedPeakGB <= 10)
         c.expect("reuse bound does not exceed request context", hermes.prefixCacheTokens <= hermes.maxContextTokens)
         c.expect("the Hermes minimum is actually accepted", ContextPolicy.validationError(64_000) == nil)

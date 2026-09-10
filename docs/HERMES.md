@@ -73,11 +73,15 @@ The explicit context setting is reproducible; the server also exposes the
 same runtime window through model discovery, so automatic discovery works.
 Vision discovery also reflects whether this server accepts images. With the
 vision weights available and vision enabled, Hermes can send image attachments.
-The first image loads the vision tower in addition to the announced text
-plan. Image admission checks available memory and can refuse the additional
-load when there is not enough headroom.
-The local stream timeout allows a long cold prefill to finish; it remains
-bounded and should be adjusted to measurements on slower hardware.
+The first image reserves the tower's memory inside the server target; a target
+that can only fit text at this context size can refuse that additional load.
+The local stream timeout allows a long cold prefill to finish. In unreleased
+source builds, the server's `--max-prefill-wait` is a separate request deadline, defaulting to 30 minutes
+and including queueing and preparation. If deliberately raising that server
+budget, raise the client's stale-stream timeout and HTTP read timeout enough
+to let the server return its own terminal result. Keepalives do not extend the
+server budget. A deadline or resource error must not execute a pending tool
+call or be treated as a completed summary.
 The explicit completion allowance leaves room for input history and complete
 tool arguments. Increase it for tasks that need larger tool payloads while
 keeping room for the input history.

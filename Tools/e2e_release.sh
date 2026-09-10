@@ -17,28 +17,77 @@ set -uo pipefail
 PORT="${1:-11530}"
 B=${BIN:-"$HOME/.slotstream/bin/slotstream"}
 P=0; F=0
+WORK=$(mktemp -d) || exit 1
+trap 'rm -rf "$WORK"' EXIT
+run_binary() { "$B" "$@"; }
+binary_metallib_present() { [ -f "$(dirname "$B")/mlx.metallib" ]; }
 ok()  { echo "PASS  $1"; P=$((P+1)); }
 bad() { echo "FAIL  $1"; F=$((F+1)); }
 chk() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi }
 
 jq_() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)" 2>/dev/null; }
-chat() { curl -s --max-time 900 "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' -d "$1"; }
+chat() { curl -fsS --max-time 900 "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' -d "$1"; }
+
+# Every successful text comparison must first prove a complete generation.
+# In particular, two failed/empty responses must never count as stream parity.
+ollama_text() {
+  python3 -c '
+import json,sys
+stream = len(sys.argv) > 1 and sys.argv[1] == "stream"
+frames = [json.loads(line) for line in sys.stdin if line.strip()] if stream else [json.load(sys.stdin)]
+assert frames, "missing response"
+parts = []
+for index, frame in enumerate(frames):
+    assert isinstance(frame, dict) and "error" not in frame, "failed generation"
+    assert frame.get("done") is (index == len(frames)-1), "missing, repeated or early terminal"
+    message = frame["message"]
+    assert message.get("role") == "assistant" and isinstance(message.get("content"), str), "invalid message"
+    parts.append(message["content"])
+terminal = frames[-1]
+assert terminal.get("done_reason") in ("stop", "length"), "unsuccessful terminal"
+count = terminal.get("eval_count")
+assert type(count) is int and count > 0, "missing generated tokens"
+text = "".join(parts)
+assert text.strip(), "empty generation"
+print(text, end="")
+' "$@"
+}
+
+openai_text() {
+  python3 -c '
+import json,sys
+response = json.load(sys.stdin)
+assert isinstance(response, dict) and "error" not in response, "failed generation"
+choices = response["choices"]
+assert isinstance(choices, list) and len(choices) == 1, "missing or multiple completions"
+choice = choices[0]
+assert choice.get("finish_reason") in ("stop", "length"), "unsuccessful terminal"
+message = choice["message"]
+assert message.get("role") == "assistant", "invalid message role"
+text = message["content"]
+assert isinstance(text, str) and text.strip(), "empty generation"
+count = response["usage"]["completion_tokens"]
+assert type(count) is int and count > 0, "missing generated tokens"
+print(text, end="")
+'
+}
 
 echo "== install integrity =="
 # Derive rather than hardcode: a pinned literal here goes stale on every
 # release and reports a version bump as a product failure.
-EXPECTED=$("$B" --version)
-chk "installed binary reports a version"    "[ -n \"$EXPECTED\" ]"
-chk "metallib shipped beside the binary"    "[ -f \$HOME/.slotstream/bin/mlx.metallib ]"
-chk "doctor runs with no model loaded"      "$B doctor >/dev/null"
-chk "doctor simulates a 16 GB Mac"          "$B doctor --sim-ram 17.2 --sim-available 6 | grep -q 'experts per layer'"
-chk "doctor simulates an 8 GB Mac"          "$B doctor --sim-ram 8 --sim-available 3 >/dev/null"
+EXPECTED=$(run_binary --version)
+VERSION_STATUS=$?
+chk "installed binary reports a version"    "[ \"$VERSION_STATUS\" -eq 0 ] && [ -n \"$EXPECTED\" ]"
+chk "metallib shipped beside the binary"    "binary_metallib_present"
+chk "doctor runs with no model loaded"      "run_binary doctor >/dev/null"
+chk "doctor refuses unavailable memory on a busy 16 GB Mac" "( run_binary doctor --sim-ram 17.2 --sim-available 6 --json; [ \$? -eq 2 ] ) | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"error\"][\"code\"]==\"insufficient_memory\"'"
+chk "doctor refuses unavailable memory on an 8 GB Mac" "( run_binary doctor --sim-ram 8 --sim-available 3 --json; [ \$? -eq 2 ] ) | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"error\"][\"code\"]==\"insufficient_memory\"'"
 
 echo "== weights-free gates from the installed binary =="
-chk "sampler golden (greedy)"                "$B sampler-golden --temperature 0 --draws 8 >/dev/null"
-chk "sampler golden (nucleus + penalty)"    "$B sampler-golden --temperature 0.8 --top-p 0.95 --top-k 40 --presence-penalty 1.5 --draws 8 >/dev/null"
-chk "governor policy branches"              "$B governor-check >/dev/null"
-chk "chat template matches transformers"    "$B template-check >/dev/null"
+chk "sampler golden (greedy)"                "run_binary sampler-golden --temperature 0 --draws 8 >/dev/null"
+chk "sampler golden (nucleus + penalty)"    "run_binary sampler-golden --temperature 0.8 --top-p 0.95 --top-k 40 --presence-penalty 1.5 --draws 8 >/dev/null"
+chk "governor policy branches"              "run_binary governor-check >/dev/null"
+chk "chat template matches transformers"    "run_binary template-check >/dev/null"
 
 echo "== API surface =="
 V=$(curl -s --max-time 30 "http://127.0.0.1:$PORT/api/version" | jq_ "d['version']")
@@ -52,63 +101,70 @@ chk "HEAD returns no body"                  "[ -z \"\$(curl -s --max-time 30 -I 
 chk "malformed JSON gets 400"               "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -d '{oops' http://127.0.0.1:$PORT/api/chat)\" = 400 ]"
 
 echo "== generation: short, long, unicode, formats =="
-R=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Reply with exactly: HELLO"}],"stream":false,"options":{"temperature":0,"num_predict":8}}' | jq_ "d['message']['content']")
-if printf '%s' "$R" | grep -q "HELLO"; then ok "short prompt, non-streamed"; else bad "short prompt -> $R"; fi
+R=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Reply with exactly: HELLO"}],"stream":false,"options":{"temperature":0,"num_predict":8}}' | ollama_text)
+R_STATUS=$?
+if [ "$R_STATUS" -eq 0 ] && printf '%s' "$R" | grep -q "HELLO"; then ok "short prompt, non-streamed"; else bad "short prompt -> $R"; fi
 
-python3 > /tmp/ss_long.json <<'PYE'
+python3 > "$WORK/long.json" <<'PYE'
 import json
 body = 'The quick brown fox jumps over the lazy dog. ' * 380 + ' Reply with exactly: LONGOK'
 print(json.dumps({"model": "qwen3.8-flash-next:4bit",
                   "messages": [{"role": "user", "content": body}],
                   "stream": False, "options": {"temperature": 0, "num_predict": 8}}))
 PYE
-R=$(curl -s --max-time 1800 -H 'Content-Type: application/json' --data-binary @/tmp/ss_long.json "http://127.0.0.1:$PORT/api/chat" | jq_ "d['message']['content']")
-if printf '%s' "$R" | grep -q "LONGOK"; then ok "long prompt (~3.4k tokens)"; else bad "long prompt -> $R"; fi
+R=$(curl -fsS --max-time 1800 -H 'Content-Type: application/json' --data-binary "@$WORK/long.json" "http://127.0.0.1:$PORT/api/chat" | ollama_text)
+R_STATUS=$?
+if [ "$R_STATUS" -eq 0 ] && printf '%s' "$R" | grep -q "LONGOK"; then ok "long prompt (~3.4k tokens)"; else bad "long prompt -> $R"; fi
 
-R=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Repeat exactly, nothing else: 🚀🔥⭐❤️🌳 café 日本語"}],"stream":false,"options":{"temperature":0,"num_predict":40}}' | jq_ "d['message']['content']")
-if printf '%s' "$R" | grep -q "🚀" && printf '%s' "$R" | grep -q "日本語"; then ok "unicode round-trip (emoji + CJK)"; else bad "unicode -> $R"; fi
+R=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Repeat exactly, nothing else: 🚀🔥⭐❤️🌳 café 日本語"}],"stream":false,"options":{"temperature":0,"num_predict":40}}' | ollama_text)
+R_STATUS=$?
+if [ "$R_STATUS" -eq 0 ] && printf '%s' "$R" | grep -q "🚀" && printf '%s' "$R" | grep -q "日本語"; then ok "unicode round-trip (emoji + CJK)"; else bad "unicode -> $R"; fi
 
-S=$(curl -s --max-time 900 "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Count: one two three four five"}],"stream":true,"options":{"temperature":0,"num_predict":24}}' | python3 -c "
-import json,sys
-t=''
-for l in sys.stdin:
-    l=l.strip()
-    if l:
-        o=json.loads(l); t+=o.get('message',{}).get('content','')
-print(t)")
-N=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Count: one two three four five"}],"stream":false,"options":{"temperature":0,"num_predict":24}}' | jq_ "d['message']['content']")
-if [ "$S" = "$N" ]; then ok "streamed deltas reassemble to non-streamed text"; else bad "stream != nonstream"; fi
+S=$(curl -fsS --max-time 900 "http://127.0.0.1:$PORT/api/chat" -H 'Content-Type: application/json' -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Count: one two three four five"}],"stream":true,"options":{"temperature":0,"num_predict":24}}' | ollama_text stream)
+S_STATUS=$?
+N=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Count: one two three four five"}],"stream":false,"options":{"temperature":0,"num_predict":24}}' | ollama_text)
+N_STATUS=$?
+if [ "$S_STATUS" -eq 0 ] && [ "$N_STATUS" -eq 0 ] && [ "$S" = "$N" ]; then ok "streamed deltas reassemble to non-streamed text"; else bad "stream != nonstream"; fi
 
 echo "== OpenAI surface =="
-R=$(curl -s --max-time 900 "http://127.0.0.1:$PORT/v1/chat/completions" -H 'Content-Type: application/json' -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: ARRAYOK"}]}],"temperature":0,"max_tokens":8}' | jq_ "d['choices'][0]['message']['content']")
-if printf '%s' "$R" | grep -q "ARRAYOK"; then ok "OpenAI array-form content"; else bad "openai array -> $R"; fi
+R=$(curl -fsS --max-time 900 "http://127.0.0.1:$PORT/v1/chat/completions" -H 'Content-Type: application/json' -d '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: ARRAYOK"}]}],"temperature":0,"max_tokens":8}' | openai_text)
+R_STATUS=$?
+if [ "$R_STATUS" -eq 0 ] && printf '%s' "$R" | grep -q "ARRAYOK"; then ok "OpenAI array-form content"; else bad "openai array -> $R"; fi
 
 echo "== sampling knobs and hostile inputs =="
-chk "seed -1 (Ollama default) survives"     "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false,\"options\":{\"seed\":-1,\"num_predict\":4}}' | grep -q message"
-chk "num_predict -1 generates"               "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"stream\":false,\"options\":{\"num_predict\":-1,\"temperature\":0,\"stop\":[\"\\n\"]}}' | grep -q message"
-chk "top_p 0 clamped, not divide-by-zero"   "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"stream\":false,\"options\":{\"top_p\":0,\"num_predict\":4}}' | grep -q message"
+chk "seed -1 (Ollama default) survives"     "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false,\"options\":{\"seed\":-1,\"num_predict\":4}}' | ollama_text >/dev/null"
+chk "num_predict -1 generates"               "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"stream\":false,\"options\":{\"num_predict\":-1,\"temperature\":0,\"stop\":[\"\\n\"]}}' | ollama_text >/dev/null"
+chk "top_p 0 clamped, not divide-by-zero"   "chat '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"stream\":false,\"options\":{\"top_p\":0,\"num_predict\":4}}' | ollama_text >/dev/null"
 # A chat with no messages is Ollama's documented "load" request (0.2.1): it is
 # acknowledged with done_reason "load" and no text, never refused or answered.
 chk "no-messages chat is the load request"  "curl -s --max-time 60 -d '{\"model\":\"qwen3.8-flash-next:4bit\",\"messages\":[],\"stream\":false}' http://127.0.0.1:$PORT/api/chat | grep -q '\"done_reason\":\"load\"'"
-python3 -c "import json;print(json.dumps({'model':'qwen3.8-flash-next:4bit','messages':[{'role':'user','content':'x '*90000}],'stream':False}))" > /tmp/ss_big.json
-chk "over-length prompt refused with 400"    "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 -H 'Content-Type: application/json' --data-binary @/tmp/ss_big.json http://127.0.0.1:$PORT/api/chat)\" = 400 ]"
+CONTEXT=$(curl -s --max-time 60 -d '{"model":"qwen3.8-flash-next:4bit"}' "http://127.0.0.1:$PORT/api/show" | jq_ "d['details']['memory_plan']['max_context_tokens']")
+if python3 -c "import json,sys; cap=int(sys.argv[1]); assert 1<=cap<=262144; print(json.dumps({'model':'qwen3.8-flash-next:4bit','messages':[{'role':'user','content':'x '*(cap+1000)}],'stream':False}))" "$CONTEXT" > "$WORK/big.json"; then
+  CONTEXT_STATUS=$(curl -s -o "$WORK/big_error.json" -w '%{http_code}' --max-time 300 -H 'Content-Type: application/json' --data-binary "@$WORK/big.json" "http://127.0.0.1:$PORT/api/chat")
+  chk "over-length prompt refused with a typed 400" "[ \"$CONTEXT_STATUS\" = 400 ] && jq_ \"d['code']\" < \"$WORK/big_error.json\" | grep -qx context_length_exceeded"
+else
+  bad "could not construct over-length payload from the discovered context window"
+fi
 
-R=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Count from 1 to 9 separated by spaces, digits only."}],"stream":false,"options":{"temperature":0,"num_predict":40,"stop":["4"]}}' | jq_ "d['message']['content']")
-if ! printf '%s' "$R" | grep -q "4"; then ok "stop sequence honored (got '$R')"; else bad "stop sequence -> $R"; fi
+R=$(chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Count from 1 to 9 separated by spaces, digits only."}],"stream":false,"options":{"temperature":0,"num_predict":40,"stop":["4"]}}' | ollama_text)
+R_STATUS=$?
+if [ "$R_STATUS" -eq 0 ] && ! printf '%s' "$R" | grep -q "4"; then ok "stop sequence honored (got '$R')"; else bad "stop sequence -> $R"; fi
 
 echo "== conversation prefix cache, live =="
 curl -s --max-time 60 -d '{"model":"qwen3.8-flash-next:4bit"}' "http://127.0.0.1:$PORT/api/show" >/dev/null
 H0=$(curl -s --max-time 60 -d '{"model":"qwen3.8-flash-next:4bit"}' "http://127.0.0.1:$PORT/api/show" | jq_ "d['details']['prefix_cache']['hits']")
-chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Name one planet, just the name."}],"stream":false,"options":{"temperature":0,"num_predict":6}}' >/dev/null
-chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Name one planet, just the name."},{"role":"assistant","content":"Mars"},{"role":"user","content":"Bigger than Earth? Yes or no."}],"stream":false,"options":{"temperature":0,"num_predict":6}}' >/dev/null
+chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Name one planet, just the name."}],"stream":false,"options":{"temperature":0,"num_predict":6}}' | ollama_text >/dev/null
+PREFIX_FIRST_STATUS=$?
+chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Name one planet, just the name."},{"role":"assistant","content":"Mars"},{"role":"user","content":"Bigger than Earth? Yes or no."}],"stream":false,"options":{"temperature":0,"num_predict":6}}' | ollama_text >/dev/null
+PREFIX_NEXT_STATUS=$?
 H1=$(curl -s --max-time 60 -d '{"model":"qwen3.8-flash-next:4bit"}' "http://127.0.0.1:$PORT/api/show" | jq_ "d['details']['prefix_cache']['hits']")
-if [ "${H1:-0}" -gt "${H0:-0}" ]; then ok "follow-up turn reused a cached prefix ($H0 -> $H1 hits)"; else bad "no prefix reuse ($H0 -> $H1)"; fi
+if [ "$PREFIX_FIRST_STATUS" -eq 0 ] && [ "$PREFIX_NEXT_STATUS" -eq 0 ] && [ "${H1:-0}" -gt "${H0:-0}" ]; then ok "follow-up turn reused a cached prefix ($H0 -> $H1 hits)"; else bad "no prefix reuse ($H0 -> $H1)"; fi
 
 echo "== concurrency and liveness =="
 PIDS=""
 for i in 1 2 3 4; do
   chat '{"model":"qwen3.8-flash-next:4bit","messages":[{"role":"user","content":"Say OK"}],"stream":false,"options":{"temperature":0,"num_predict":4}}' \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("done") is True and d.get("eval_count",0)>0' &
+    | ollama_text >/dev/null &
   PIDS="$PIDS $!"
 done
 CONCURRENT_OK=1

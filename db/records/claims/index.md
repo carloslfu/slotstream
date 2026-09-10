@@ -2,24 +2,30 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-06T03:50:13.739195Z
+updated: 2026-09-07T02:30:23.838875Z
 ---
 
 # records/claims
 
+- [[records/claims/vision-tower-0-9-gb-resident]] — The vision tower costs 0.9 GB, and only when an image arrives
+- [[records/claims/vision-follow-up-turn-reuses-the-state]] — A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
+- [[records/claims/full-vision-verification-preflight]] — Full image verification requires six GB spare before loading
+- [[records/claims/full-vision-verification-prefill]] — Full image verification reserves its image attention workspace
+- [[records/claims/full-vision-verification-target]] — Full original image verification uses an explicit 14.5 GB target
+- [[records/claims/context-diagnostic-default-wall]] — Diagnostic independent wall ceiling default
+- [[records/claims/context-diagnostic-default-reply]] — Diagnostic required reply default
+- [[records/claims/context-default-wait-policy]] — Default request to first token wait policy
 - [[records/claims/one-connection-about-70-mb-s-from-a-datacenter]] — One connection alone is bounded near 70 MB/s from a datacenter
 - [[records/claims/lossless-download-home-transfer-estimate]] — Rounded transfer-only estimates from complete compressed bytes, explicitly excluding overhead and unhidden processing.
 - [[records/claims/lossless-download-byte-reduction]] — The complete package byte count is verified independently on Mac and Linux.
-- [[records/claims/context-cap-32768-tokens]] — Prompt plus completion is capped at 32,768 tokens per request
-- [[records/claims/openai-tool-sampling-defaults]] — OpenAI tool requests reuse the native agent sampler
+- [[records/claims/context-opt-in-65536]] — Opt-in served context of 65536 tokens
+- [[records/claims/context-cap-32768-tokens]] — Prompt plus completion defaults to 32,768 tokens per request
 - [[records/claims/openai-inference-error-status]] — Non-streamed OpenAI inference failures return HTTP 500
 - [[records/claims/hermes-local-stream-watchdog]] — Hermes example sets a bounded local stream watchdog
 - [[records/claims/hermes-explicit-output-budget]] — Hermes example reserves a 4096-token output allowance
-- [[records/claims/context-opt-in-65536]] — Opt-in served context of 65536 tokens
+- [[records/claims/openai-tool-sampling-defaults]] — OpenAI tool requests reuse the native agent sampler
 - [[records/claims/one-picture-at-most-2304-tokens]] — A picture costs at most 2,304 tokens
-- [[records/claims/vision-tower-0-9-gb-resident]] — The vision tower costs 0.9 GB, and only when an image arrives
 - [[records/claims/request-body-cap-32-mib]] — A request body over 32 MiB is refused with 413
-- [[records/claims/vision-follow-up-turn-reuses-the-state]] — A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
 - [[records/claims/only-the-48-gb-row-is-measured-on-real-hardware]] — Only the 48 GB row is measured on real hardware
 - [[records/claims/tier-rows-are-estimates-from-the-48-gb-curve]] — The 8, 16, 24, and 32 GB tier rows are estimates from the 48 GB curve
 - [[records/claims/warm-decode-1-41-tok-s-on-a-16-gb-mac-mini-m2]] — Warm decode 1.41 tok/s on a base-storage Mac mini M2, 16 GB — the first community measurement of a tier row.

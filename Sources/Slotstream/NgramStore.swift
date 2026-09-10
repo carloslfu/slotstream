@@ -56,6 +56,7 @@ public enum Splitmix {
 }
 
 public final class NgramStore {
+    deinit { pendingPrefetch?.cancelAndJoin() }
     let cfg: ModelConfig
     let index: CheckpointIndex
     let pleLayerIndex: Int  // layer index in the stack (config id − 1)
@@ -75,17 +76,68 @@ public final class NgramStore {
     private var wRefs: [TensorRef] = []
     private var sRefs: [TensorRef] = []
     private var bRefs: [TensorRef] = []
+    private var readHandles: [[TensorReadHandle]]?
+    private let rowReader: RowReader
+    private var cacheRevision: UInt64 = 0
+    private var pendingPrefetch: NgramPrefetch?
+    package private(set) var lookaheadRowsConsumed = 0
+    package private(set) var lookaheadTicketsDiscarded = 0
+    package private(set) var lookaheadWaitSeconds = 0.0
+    package private(set) var prefetchSeconds = 0.0
+    package func resetObservation() {
+        lookaheadRowsConsumed = 0; lookaheadTicketsDiscarded = 0
+        lookaheadWaitSeconds = 0; prefetchSeconds = 0
+    }
+    package var hasPendingPrefetch: Bool { pendingPrefetch != nil }
+    private func invalidateLookahead() {
+        cacheRevision += 1
+        if let pendingPrefetch { discardPrefetch(pendingPrefetch) }
+    }
+    package var readFault: ReadFault?
+    package var readHandleCount: Int { readHandles?.reduce(0) { $0 + $1.count } ?? 0 }
+    package var directReadHandles = false {
+        didSet {
+            guard oldValue != directReadHandles else { return }
+            invalidateLookahead()
+            readHandles = directReadHandles ? [wRefs, sRefs, bRefs].map { $0.map { index.readHandle(for: $0) } } : nil
+        }
+    }
     private let wRowBytes: Int
     private let sRowBytes: Int
 
     // row cache: gid -> dequantized f32 row (already bf16-rounded)
     private var cache: [Int64: [Float]] = [:]
+    private var compactCache: [Int64: [UInt16]] = [:]
+    /// Stores the bits of already BF16-rounded values. Changing mode drops
+    /// the performance cache only; model state and row values do not change.
+    public var compactRows = false {
+        didSet {
+            if oldValue != compactRows {
+                clearRows()
+            }
+        }
+    }
     private var cacheOrder: [Int64] = []
-    private let cacheCap = 400_000
+    private var ringOrder: FIFOKeys
+    public var ringEvictionOrder = false {
+        didSet { if oldValue != ringEvictionOrder { clearRows() } }
+    }
+    private func clearRows() {
+        invalidateLookahead()
+        cache.removeAll(); compactCache.removeAll(); cacheOrder.removeAll(); ringOrder.removeAll()
+    }
+    private let cacheCap: Int
+    public var cachedRowCount: Int { compactRows ? compactCache.count : cache.count }
+    /// Payload only; dictionary/array allocation overhead is measured by the
+    /// process observer rather than misrepresented as part of this count.
+    public var cachedPayloadBytes: Int { cachedRowCount * headDim * (compactRows ? 2 : 4) }
     public private(set) var rowHits = 0
     public private(set) var rowMisses = 0
 
-    public init(index: CheckpointIndex, resident: ResidentWeights) {
+    public init(index: CheckpointIndex, resident: ResidentWeights, cacheCapacity: Int = 400_000) {
+        precondition(cacheCapacity >= 1 && cacheCapacity <= 400_000)
+        self.cacheCap = cacheCapacity
+        self.ringOrder = FIFOKeys(capacity: cacheCapacity)
         self.index = index
         self.cfg = index.config
         self.pleLayerIndex = cfg.pleLayerIndices[0]
@@ -137,6 +189,8 @@ public final class NgramStore {
         }
         wRowBytes = wRefs[0].rowBytes
         sRowBytes = sRefs[0].rowBytes
+        rowReader = RowReader(index:index,rowsPerShard:rowsPerShard,headDim:headDim,qGroup:cfg.ngramQGroup,
+            wRefs:wRefs,sRefs:sRefs,bRefs:bRefs,wRowBytes:wRowBytes,sRowBytes:sRowBytes)
     }
 
     // MARK: hashing (CPU, exact)
@@ -188,58 +242,97 @@ public final class NgramStore {
 
     // MARK: row fetch + dequant
 
-    private func fetchRow(_ gid: Int64) -> [Float] {
+    private func fetchRow(_ gid: Int64) throws -> [Float] {
+        if compactRows, let r = compactCache[gid] {
+            rowHits += 1
+            return r.map(bf16ToFloat)
+        }
         if let r = cache[gid] {
             rowHits += 1
             return r
         }
         rowMisses += 1
-        let out = readRow(gid)
+        let out = try readRow(gid)
         insert(gid, out)
         return out
     }
 
     /// Three preads and the dequant for one row. Pure: touches no shared
     /// state, so `prefetch` can run it on many lanes at once.
-    private func readRow(_ gid: Int64) -> [Float] {
-        let shard = Int(gid) / rowsPerShard
-        let row = Int(gid) % rowsPerShard
-        var wRaw = [UInt8](repeating: 0, count: wRowBytes)
-        var sRaw = [UInt8](repeating: 0, count: sRowBytes)
-        var bRaw = [UInt8](repeating: 0, count: sRowBytes)
-        wRaw.withUnsafeMutableBytes { index.pread(into: $0.baseAddress!, wRefs[shard], offset: row * wRowBytes, count: wRowBytes) }
-        sRaw.withUnsafeMutableBytes { index.pread(into: $0.baseAddress!, sRefs[shard], offset: row * sRowBytes, count: sRowBytes) }
-        bRaw.withUnsafeMutableBytes { index.pread(into: $0.baseAddress!, bRefs[shard], offset: row * sRowBytes, count: sRowBytes) }
+    private func readRow(_ gid: Int64) throws -> [Float] {
+        try rowReader.read(gid,handles:readHandles,fault:readFault)
+    }
 
-        let g = cfg.ngramQGroup
-        var out = [Float](repeating: 0, count: headDim)
-        wRaw.withUnsafeBytes { wp in
-            sRaw.withUnsafeBytes { sp in
-                bRaw.withUnsafeBytes { bp in
-                    let words = wp.bindMemory(to: UInt32.self)
-                    let scales = sp.bindMemory(to: UInt16.self)
-                    let biases = bp.bindMemory(to: UInt16.self)
-                    for j in 0 ..< headDim {
-                        let q = Float((words[j / 8] >> UInt32(4 * (j % 8))) & 0xF)
-                        let sc = bf16ToFloat(scales[j / g])
-                        let bi = bf16ToFloat(biases[j / g])
-                        out[j] = bf16Round(sc * q + bi)
+    /// Immutable geometry plus an owned index. A worker captures descriptor
+    /// and fault references before dispatch, so main-thread option changes
+    /// cannot race its reads or close a descriptor it is using.
+    private struct RowReader {
+        let index: CheckpointIndex
+        let rowsPerShard: Int
+        let headDim: Int
+        let qGroup: Int
+        let wRefs: [TensorRef]
+        let sRefs: [TensorRef]
+        let bRefs: [TensorRef]
+        let wRowBytes: Int
+        let sRowBytes: Int
+        func read(_ gid: Int64,handles: [[TensorReadHandle]]?,fault: ReadFault?,shouldContinue: () -> Bool = { true }) throws -> [Float] {
+            guard let value = Int(exactly: gid), value >= 0, value / rowsPerShard < wRefs.count,
+                value % rowsPerShard < wRefs[value / rowsPerShard].shape[0]
+            else { throw CheckpointReadError.invalidRange }
+            try fault?.beforeRead()
+            let shard = Int(gid) / rowsPerShard
+            let row = Int(gid) % rowsPerShard
+            var wRaw = [UInt8](repeating: 0, count: wRowBytes)
+            var sRaw = [UInt8](repeating: 0, count: sRowBytes)
+            var bRaw = [UInt8](repeating: 0, count: sRowBytes)
+            if let handles {
+                try wRaw.withUnsafeMutableBytes { try handles[0][shard].readChecked(into: $0.baseAddress!, offset: row * wRowBytes, count: wRowBytes,shouldContinue:shouldContinue) }
+                try sRaw.withUnsafeMutableBytes { try handles[1][shard].readChecked(into: $0.baseAddress!, offset: row * sRowBytes, count: sRowBytes,shouldContinue:shouldContinue) }
+                try bRaw.withUnsafeMutableBytes { try handles[2][shard].readChecked(into: $0.baseAddress!, offset: row * sRowBytes, count: sRowBytes,shouldContinue:shouldContinue) }
+            } else {
+                try wRaw.withUnsafeMutableBytes { try index.preadChecked(into: $0.baseAddress!, wRefs[shard], offset: row * wRowBytes, count: wRowBytes,shouldContinue:shouldContinue) }
+                try sRaw.withUnsafeMutableBytes { try index.preadChecked(into: $0.baseAddress!, sRefs[shard], offset: row * sRowBytes, count: sRowBytes,shouldContinue:shouldContinue) }
+                try bRaw.withUnsafeMutableBytes { try index.preadChecked(into: $0.baseAddress!, bRefs[shard], offset: row * sRowBytes, count: sRowBytes,shouldContinue:shouldContinue) }
+            }
+
+            let g = qGroup
+            var out = [Float](repeating: 0, count: headDim)
+            wRaw.withUnsafeBytes { wp in
+                sRaw.withUnsafeBytes { sp in
+                    bRaw.withUnsafeBytes { bp in
+                        let words = wp.bindMemory(to: UInt32.self)
+                        let scales = sp.bindMemory(to: UInt16.self)
+                        let biases = bp.bindMemory(to: UInt16.self)
+                        for j in 0 ..< headDim {
+                            let q = Float((words[j / 8] >> UInt32(4 * (j % 8))) & 0xF)
+                            let sc = bf16ToFloat(scales[j / g])
+                            let bi = bf16ToFloat(biases[j / g])
+                            out[j] = bf16Round(sc * q + bi)
+                        }
                     }
                 }
             }
+            return out
         }
-        return out
     }
 
     private func insert(_ gid: Int64, _ row: [Float]) {
-        if cache.count >= cacheCap {
+        invalidateLookahead()
+        if (compactRows ? compactCache.count : cache.count) >= cacheCap {
             // FIFO eviction of oldest 10%
-            let n = cacheCap / 10
-            for k in cacheOrder.prefix(n) { cache.removeValue(forKey: k) }
-            cacheOrder.removeFirst(n)
+            let n = max(1, cacheCap / 10)
+            for j in 0..<n {
+                let k = ringEvictionOrder ? ringOrder.popFirst()! : cacheOrder[j]
+                if compactRows { compactCache.removeValue(forKey: k) }
+                else { cache.removeValue(forKey: k) }
+            }
+            if !ringEvictionOrder { cacheOrder.removeFirst(n) }
         }
-        cache[gid] = row
-        cacheOrder.append(gid)
+        if compactRows { compactCache[gid] = row.map { UInt16(truncatingIfNeeded: $0.bitPattern >> 16) } }
+        else { cache[gid] = row }
+        if ringEvictionOrder { ringOrder.append(gid) }
+        else { cacheOrder.append(gid) }
     }
 
     /// Read every row of a pass that the cache lacks, in parallel, before the
@@ -252,27 +345,78 @@ public final class NgramStore {
     /// speculative here; the cache is filled in first-appearance order, so it
     /// holds exactly what the serial path would have held.
     static let prefetchLanes = 32
-    private func prefetch(_ gids: [Int64]) {
+    /// At most 1024 tokens / 16384 rows (~10.5 MB FP32 payload), further
+    /// bounded by row-cache capacity. No cache or statistics are published by
+    /// the worker. The regular prefetch retains first-appearance insertion.
+    package func beginPrefetch(history: [Int64], nNew: Int, maxTokens: Int = 1024) throws -> NgramPrefetch? {
+        guard nNew >= 0, nNew <= history.count, maxTokens >= 1, maxTokens <= 1024 else {
+            throw CheckpointReadError.invalidRange
+        }
+        if let pendingPrefetch { discardPrefetch(pendingPrefetch) }
+        let room = max(0,cacheCap-cachedRowCount)
+        let count = min(nNew,maxTokens,room/nHeads)
+        guard count > 0 else { return nil }
+        let past = min(history.count-nNew,cfg.ngramSize-1)
+        let begin = history.count-nNew-past
+        let ids = Array(history[begin..<history.count-nNew+count])
+        let gids = rowIds(history:ids,nNew:count).flatMap { $0 }
+        var seen = Set<Int64>()
+        let missing = gids.filter { (compactRows ? compactCache[$0] == nil : cache[$0] == nil) && seen.insert($0).inserted }
+        guard !missing.isEmpty else { return nil }
+        let reader = rowReader, handles = readHandles, fault = readFault
+        let ticket = NgramPrefetch(prefix:gids,missing:missing,cacheRevision:cacheRevision,
+            reader:{ try reader.read($0,handles:handles,fault:fault,shouldContinue:$1) })
+        pendingPrefetch = ticket
+        return ticket
+    }
+    package func discardPrefetch(_ ticket: NgramPrefetch) {
+        if pendingPrefetch === ticket { pendingPrefetch = nil; lookaheadTicketsDiscarded += 1 }
+        ticket.cancelAndJoin()
+    }
+    private func takePrefetched(_ gids: [Int64]) throws -> [Int64:[Float]] {
+        guard let ticket = pendingPrefetch else { return [:] }
+        pendingPrefetch = nil
+        defer { ticket.cancelAndJoin() }
+        guard ticket.cacheRevision == cacheRevision, gids.starts(with:ticket.prefix) else {
+            lookaheadTicketsDiscarded += 1
+            return [:]
+        }
+        let start = RuntimeClock.now()
+        defer { lookaheadWaitSeconds += RuntimeClock.seconds(since:start) }
+        let rows: [[Float]]
+        do { rows = try ticket.joinedRows() }
+        catch { lookaheadTicketsDiscarded += 1; throw error }
+        lookaheadRowsConsumed += rows.count
+        return Dictionary(uniqueKeysWithValues:zip(ticket.missing,rows))
+    }
+    private func prefetch(_ gids: [Int64]) throws {
+        let start = RuntimeClock.now()
+        defer { prefetchSeconds += RuntimeClock.seconds(since:start) }
         var missing: [Int64] = []
         var seen = Set<Int64>()
-        for g in gids where cache[g] == nil && seen.insert(g).inserted { missing.append(g) }
+        for g in gids where (compactRows ? compactCache[g] == nil : cache[g] == nil)
+            && seen.insert(g).inserted { missing.append(g) }
         rowHits += gids.count - missing.count  // the rest were already resident, or repeats of a missing one
         rowMisses += missing.count
+        let prepared = try takePrefetched(gids)
         guard missing.count > 1 else {
-            if let g = missing.first { insert(g, readRow(g)) }
+            if let g = missing.first { insert(g, try prepared[g] ?? readRow(g)) }
             return
         }
         var rows = [[Float]](repeating: [], count: missing.count)
         let lanes = min(Self.prefetchLanes, missing.count)
+        let failure = JoinedReadFailure()
         rows.withUnsafeMutableBufferPointer { buf in
             DispatchQueue.concurrentPerform(iterations: lanes) { lane in
                 var j = lane
                 while j < missing.count {
-                    buf[j] = self.readRow(missing[j])
+                    do { buf[j] = try prepared[missing[j]] ?? self.readRow(missing[j]) }
+                    catch { failure.record(error) }
                     j += lanes
                 }
             }
         }
+        try failure.finish()
         for (j, g) in missing.enumerated() { insert(g, rows[j]) }
     }
 
@@ -284,19 +428,39 @@ public final class NgramStore {
 
     /// Fetch + dequantize one row by global id (test/verification hook).
     public func debugRow(_ gid: Int64) -> [Float] {
-        fetchRow(gid)
+        checkpointCompatibility { try debugRowChecked(gid) }
+    }
+
+    public func debugRowChecked(_ gid: Int64) throws -> [Float] {
+        try fetchRow(gid)
     }
 
     /// Embedding for the last nNew positions: returns (1, nNew, pleEmbedDim) bf16.
     public func embedding(history: [Int64], nNew: Int) -> MLXArray {
+        checkpointCompatibility { try embeddingChecked(history: history, nNew: nNew) }
+    }
+
+    public func embeddingChecked(history: [Int64], nNew: Int) throws -> MLXArray {
+        guard nNew >= 0, nNew <= history.count else { throw CheckpointReadError.invalidRange }
         let gids = rowIds(history: history, nNew: nNew)
-        prefetch(gids.flatMap { $0 })
+        try prefetch(gids.flatMap { $0 })
+        if compactRows {
+            var flat: [UInt16] = []
+            flat.reserveCapacity(nNew * cfg.pleEmbedDim)
+            for pos in gids {
+                for gid in pos {
+                    if let row = compactCache[gid] { flat.append(contentsOf: row) }
+                    else { flat.append(contentsOf: try fetchRow(gid).map { UInt16(truncatingIfNeeded: $0.bitPattern >> 16) }) }
+                }
+            }
+            return MLXArray(flat, [1, nNew, cfg.pleEmbedDim]).view(dtype: .bfloat16)
+        }
         var flat = [Float]()
         flat.reserveCapacity(nNew * cfg.pleEmbedDim)
         for pos in gids {
             for gid in pos {
                 // Every row is resident after the prefetch; counted there.
-                flat.append(contentsOf: cache[gid] ?? fetchRow(gid))
+                flat.append(contentsOf: try cache[gid] ?? fetchRow(gid))
             }
         }
         return MLXArray(flat, [1, nNew, cfg.pleEmbedDim]).asType(.bfloat16)

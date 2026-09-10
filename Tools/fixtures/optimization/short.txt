@@ -1,0 +1,1 @@
+Complete this sentence with a concise explanation: A compiler translates source code into machine instructions because

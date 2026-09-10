@@ -62,8 +62,10 @@ public final class MTPWeights: TensorSource {
 /// SparseMoeBlock with every expert resident — same math as MoELayer, minus
 /// the slot pool: routing indices feed gatherQuantizedMM directly.
 final class ResidentMoE {
+    var specializedRouter = false
+    var routerObserver: (([Int32]) -> Void)?
     let cfg: ModelConfig
-    let gateWeight: MLXArray  // router, unquantized
+    let routerProjection: RouterProjection
     let sharedGate: QLinear
     let sharedGateProj: QLinear
     let sharedUpProj: QLinear
@@ -74,7 +76,7 @@ final class ResidentMoE {
 
     init(_ w: TensorSource, base b: String) {
         cfg = w.config
-        gateWeight = w.tensor(b + ".gate.weight")
+        routerProjection = RouterProjection(w.tensor(b + ".gate.weight"))
         sharedGate = w.linear(b + ".shared_expert_gate")
         sharedGateProj = w.linear(b + ".shared_expert.gate_proj")
         sharedUpProj = w.linear(b + ".shared_expert.up_proj")
@@ -90,8 +92,9 @@ final class ResidentMoE {
     }
 
     func callAsFunction(_ x: MLXArray) -> MLXArray {
-        let logits = matmul(x.asType(.float32), gateWeight.transposed())
-        let idx = argPartition(-logits, kth: cfg.topK - 1, axis: -1)[.ellipsis, ..<cfg.topK]
+        let logits = routerProjection(x)
+        let idx = RouterSelection.indices(logits, k: cfg.topK, enabled: specializedRouter)
+        if let routerObserver { routerObserver(idx.asType(.int32).asArray(Int32.self)) }
         let weights = softmax(takeAlong(logits, idx, axis: -1), axis: -1, precise: true)
         let rhs = idx.asType(.uint32)
 
@@ -123,7 +126,19 @@ public final class MTPState {
 
     public init() {}
 
+    func forkForPrefix() -> MTPState {
+        let result = MTPState()
+        kv.copyForPrefix(to: result.kv)
+        indexer.copyForPrefix(to: result.indexer)
+        result.materialize()
+        return result
+    }
+
     public var offset: Int { kv.offset }
+
+    public func isAligned(withConsumedTokens count: Int) -> Bool {
+        count > 0 && kv.offset == count - 1 && indexer.offset == kv.offset
+    }
 
     public func trim(to n: Int) {
         kv.trim(to: n)
@@ -148,6 +163,24 @@ public final class MTPHead {
     let mlpHC: GatedResidual
     let attn: QSAAttention
     let moe: ResidentMoE
+    package var usesSpecializedRouter: Bool {
+        get { moe.specializedRouter }
+        set {
+            if newValue { RouterSelection.prepare() }
+            moe.specializedRouter = newValue
+        }
+    }
+    package var routerObserver: (([Int32]) -> Void)? {
+        get { moe.routerObserver }
+        set { moe.routerObserver = newValue }
+    }
+    package var usesCompiledNorm: Bool {
+        get { attnHC.compiledNormFinish }
+        set { attnHC.compiledNormFinish = newValue; mlpHC.compiledNormFinish = newValue; mixer.compiledNormFinish = newValue }
+    }
+    package var compiledNormFinishes: Int { attnHC.compiledFinishes + mlpHC.compiledFinishes + mixer.compiledFinishes }
+    package var indexerSpecializedRows: Int { attn.indexer.specializedRows }
+    package var usesBoundedIndexer: Bool { attn.boundedIndexer }
     let mixer: GatedResidual
     public let residentBytes: Int
 
@@ -229,17 +262,33 @@ public final class MTPHead {
     public func consume(
         chunk: [Int], chunkMulti: MLXArray, prevMulti: MLXArray?,
         resident: ResidentWeights, rope: Rope, state: MTPState,
-        vision: [VisionRun] = []
+        vision: [VisionRun] = [], compactRetainedRow: Bool = false
     ) -> MLXArray {
+        do {
+            return try consumeChecked(chunk: chunk, chunkMulti: chunkMulti, prevMulti: prevMulti,
+                resident: resident, rope: rope, state: state, vision: vision, compactRetainedRow: compactRetainedRow)
+        } catch { preconditionFailure("draft embedding lookup failed: \(error)") }
+    }
+
+    public func consumeChecked(
+        chunk: [Int], chunkMulti: MLXArray, prevMulti: MLXArray?,
+        resident: ResidentWeights, rope: Rope, state: MTPState,
+        vision: [VisionRun] = [], compactRetainedRow: Bool = false
+    ) throws -> MLXArray {
         let S = chunk.count
-        let last = chunkMulti[0..., (S - 1)..., 0...]
-        // Materialize the slice so returning it does not pin the whole
-        // chunk's multi buffer (84 MB at a 4096-token prefill chunk).
+        guard S > 0, chunk.allSatisfy({ $0 >= 0 && $0 < cfg.vocabSize }),
+              chunkMulti.shape == [1, S, cfg.hcCount * cfg.hiddenSize],
+              prevMulti == nil || prevMulti!.shape == [1, 1, cfg.hcCount * cfg.hiddenSize] else {
+            throw ModelError("draft consumption requires a nonempty, aligned multi-stream chunk")
+        }
+        let row = chunkMulti[0..., (S - 1)..., 0...]
+        let last = compactRetainedRow ? contiguous(row) : row
+        // Evaluation alone retains a view's parent; contiguous detaches an
+        // oversized backing allocation before this row crosses the boundary.
         eval(last)
         let startIdx = prevMulti == nil ? 1 : 0
         if S - startIdx > 0 {
-            let ids = MLXArray(chunk[startIdx...].map { Int32($0) }, [1, S - startIdx])
-            var e = resident.embed(ids).asType(.bfloat16)
+            var e = try resident.embedChecked(Array(chunk[startIdx...]), shape: [1, S - startIdx]).asType(.bfloat16)
             if !vision.isEmpty {
                 // The head skips chunk[0] at sequence start (it has no
                 // preceding hidden), so every run is re-based by the same

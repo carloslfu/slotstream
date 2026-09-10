@@ -1,8 +1,8 @@
 ---
 type: claim
-id: 01m1t5ee0srbxahva8qj2ksavt
-created: 2026-09-06T01:31:08.185292+00:00
-updated: 2026-09-06T01:31:08.185292+00:00
+id: 01m1swa0v22d9sastmwz3rfk84
+created: 2026-09-05T22:51:26.434937+00:00
+updated: 2026-09-05T22:51:26.434937+00:00
 summary: Non-streamed OpenAI inference failures return HTTP 500
 basis: derived
 gate: Tools/openai_tools_gate.py

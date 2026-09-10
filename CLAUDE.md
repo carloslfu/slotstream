@@ -5,6 +5,18 @@ experts and a slot cache. Read [PLAN.md](PLAN.md) for design, [MEASUREMENTS.md](
 for every measured number and its method, `Tools/verify.sh` for the acceptance
 battery. Work lands directly on `main`.
 
+## Sevra integration direction (September 8, 2026)
+
+Read [the canonical engineering integration record](db/records/design/sevra-maintained-model-integration.md),
+also projected into PLAN.md. Sevra selects and maintains a few qualified models
+for actual hardware profiles and optimizes the whole stack around them. The
+product is not permanently tied to one flagship; the current engine's exact
+checkpoint, measured gates and independent CLI/API/Swift behavior remain intact.
+New choices require target-specific engineering and full-stack qualification.
+Update README/docs, canonical plan/support records and generated projections
+alongside verified implementation. Do not present this direction as shipped
+model selection or new hardware support.
+
 ## The brain (`db/`) — read before touching MEASUREMENTS.md or PLAN.md
 
 `db/` is a public db.md store and the authority for what this project knows:
@@ -116,9 +128,17 @@ multi-GB. These rules are mandatory:
    unless the large configuration is itself the measurement, and then nothing
    else heavy may be running.
 4. **Kill every test process the moment its test ends**, and confirm.
-5. `Tools/verify.sh` keeps every heavy gate between the 8.1 GB floor and a
-   10 GB target. Equality tests use small pools because their property is
-   size-independent; never restore a spare-RAM-driven large profile.
+5. `Tools/verify.sh` keeps ordinary equality gates between the 8.1 GB floor
+   and a 10 GB target. The full live-governor drill is an explicit exception:
+   unchanged shrink/grow deadbands require `--slots 1000 --max-memory-gb 13`,
+   with a 16 GB real reclaimable preflight, internal target-plus-3 GB checks,
+   sampled memory/swap evidence and no other heavy work. A skipped drill does
+   not pass acceptance. The full image/MTP diagnostic separately uses an
+   explicitly priced 12 GB target and a 15 GB preflight. The complete original
+   vision-serving photographs separately use 14.5 GB and a 3072-token prefill
+   reservation, after a 20.5 GB preflight; that workspace prevents the larger
+   image's correct target refusal. Keep this override local to the image
+   server. Never use spare RAM to enlarge an equality profile.
 6. The engine caps MLX's allocator cache at 2 GB (`Engine.swift`,
    `MLX.Memory.cacheLimit`). Do not remove it: without the cap a 10 GB-target
    server held 15.1 GB of real RSS (freed transients hoarded by the
@@ -135,9 +155,9 @@ multi-GB. These rules are mandatory:
 ## Weight download
 
 Fresh pulls use Slotpack v1: a fully hash-pinned, lossless compressed package
-in a dedicated R2 bucket behind `weights.sevra.page`. Small immutable objects
-fit ordinary CDN caching; the earlier advice against hosting raw multi-GB
-shards on that cache does not apply to this layout. Preserve original model
+in the public Hugging Face mirror at an exact repository revision. The legacy
+`weights.sevra.page` hostname redirects through free static asset rules; it
+must not proxy model bytes through R2 or metered Worker code. Preserve original model
 bytes, pinned hashes, range coverage, and all decoder bounds. The canonical
 format and release qualification are in `docs/DOWNLOAD-FORMAT.md`.
 
@@ -145,7 +165,8 @@ Download, bounded parallel decoding, and writes overlap. Every network worker
 owns its URLSession so HTTP/2 streams do not collapse the intended independent
 connections. Automatic mode starts at eight and trials increases only while
 measured throughput improves; explicit counts stay fixed. CDN cache status
-and actual connection observations are logged. Do not infer a speed guarantee
+and actual connection observations are logged when available. Honor server
+rate-limit reset headers with cancellable waits. Do not infer a speed guarantee
 from byte reduction or extrapolate an unmeasured multi-gigabit connection.
 
 Keep compressed-object, decoded-chunk, and final original-file SHA-256 checks.
@@ -184,18 +205,30 @@ These were all real bugs found by adversarial probing. Each is now gated by
   final decode only; never restore full-prefix decoding after every token.
 - **The pass shrinks as the context grows, and the bound is measured, not
   chosen.** `PrefillSchedule.chunk(at:maxChunk:)` halves the pass until
-  pass × context is under 4096 × 8016, the largest query-by-key product any
+  physical query rows × key extent is under 4096 × 8016, the largest query-by-key product any
   prefill measurement covered, because the sparse-attention layers score every
   query of the pass against every key of the context (a chunk × context
-  transient the pool math never modelled). Every `--memory-gb` peak number
-  in MEASUREMENTS.md comes from prompts of at most 7,960 tokens; do not raise
-  `measuredQueryKeyProduct` or `ContextPolicy.maxTokens` without a
-  `context-check` measurement recorded in MEASUREMENTS.md, and never quote a
+  transient). Count cropped numerical-alignment query rows and masked key
+  columns too. Preserve the original 256-row floor while it fits; there is no
+  floor exemption from the product bound. Do not raise
+  `measuredQueryKeyProduct` or the implementation limit without the staged
+  `context-check` qualification recorded in MEASUREMENTS.md, and never quote a
   context number the tool did not print (`doctor`, `prefill-schedule`).
 - **Prompt plus completion is capped (`--max-context`, default 32,768).** The
-  planner charges a full active context, and `Engine.generate` clamps new
-  tokens to the remaining room. If you raise the cap, update the memory model
-  and re-measure process RSS.
+  model limit, implementation limit, configured window and request cap are
+  distinct. The planner charges actual stepped active capacity, bounded retained
+  state, resident modes and workspace. `Engine.generate` clamps new tokens to
+  the remaining room. Full replacement buffers are charged before releasing
+  their old readers; spare main, draft and indexer buffers cannot credit each
+  other. Qualified MTP and vision limits remain explicit. A larger public
+  limit requires the configurable-context plan's C01–C22 gates, including
+  sampled physical footprint, RSS, swap and a nontrivial reply reaching the cap.
+- **One accepted request owns its guards through preparation and queuing.**
+  `--max-prefill-wait` defaults to 30 minutes to the first sampled token; zero
+  disables only time. Unknown ETA never disables the wall guard. Concurrent
+  preparation and pending dispatches reserve shared headroom atomically;
+  prepared images retain their reservation while queued and while owned.
+  Failures after streaming begins end with an error, never a success tail.
 - **A metadata endpoint must never take the generation lock.** `/api/tags` and
   `/api/ps` want pool numbers, and reading them through `withExclusive` made
   both block for the whole of a running request. Worse, the accept loop waited

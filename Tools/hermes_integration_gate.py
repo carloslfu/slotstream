@@ -7,10 +7,14 @@ p = argparse.ArgumentParser()
 p.add_argument('source', type=Path)
 p.add_argument('output', type=Path)
 p.add_argument('--port', type=int, default=11434)
+p.add_argument('--context', type=int, default=65536,
+               help='Exact configured server window expected from discovery and CLI settings')
 p.add_argument('--cli', action='store_true')
 p.add_argument('--compress', action='store_true')
 p.add_argument('--image', type=Path, help='JPEG fixture for real Hermes vision discovery and inference')
 a = p.parse_args()
+if not 64000 <= a.context <= 262144:
+    p.error('--context must satisfy Hermes Agent’s 64000-token minimum and fit the pinned model limit')
 source = a.source.resolve()
 image_path = a.image.resolve() if a.image else None
 out = a.output.resolve(); out.mkdir(parents=True, exist_ok=True)
@@ -41,7 +45,7 @@ cfg = {'model': {'default': 'qwen3.8-flash-next:4bit', 'provider': 'custom',
     'memory': {'memory_enabled': False, 'user_profile_enabled': False},
     'terminal': {'cwd': str(fixture), 'env_type': 'local'}, 'display': {'show_reasoning': False}}
 # The agent gate checks discovery; the CLI gate checks the explicit guide setting.
-if a.cli: cfg['model']['context_length'] = 65536
+if a.cli: cfg['model']['context_length'] = a.context
 (home / 'config.yaml').write_text(yaml.safe_dump(cfg))
 requests = []; executions = []; summary = {}; agent = None
 send = httpx.Client.send
@@ -117,8 +121,8 @@ try:
         summary.update(context_length=agent.context_compressor.context_length,
             compression_threshold=agent.context_compressor.threshold_tokens,
             ollama_num_ctx=agent._ollama_num_ctx)
-        assert summary['context_length'] == 65536, summary
-        assert 0 < summary['compression_threshold'] < 65536, summary
+        assert summary['context_length'] == a.context, summary
+        assert 0 < summary['compression_threshold'] < a.context, summary
         result = agent.run_conversation(user_message='Use the terminal tool to run exactly `cat diagnostic.txt` in the current directory. Then reply with only the file contents. Do not infer or invent them.')
         summary['tool_turn'] = result
         assert executions and marker in executions[0]['result'], executions
@@ -184,7 +188,7 @@ finally:
     if agent:
         try: agent.close()
         except Exception: pass
-    summary.update(executions=executions, blocked_nonlocal_connections=blocked)
+    summary.update(executions=executions, blocked_nonlocal_connections=blocked, expected_context=a.context)
     (out / 'result.json').write_text(json.dumps(summary, default=str, indent=2))
     (out / 'http.json').write_text(json.dumps(requests, default=str, indent=2))
     print(json.dumps({k: v for k, v in summary.items() if k not in ('tool_turn', 'followup', 'compression', 'after_compression', 'image_turn')}, default=str, indent=2), flush=True)

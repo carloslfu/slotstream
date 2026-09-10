@@ -113,3 +113,24 @@ to upgrade; `slotstream --version` shows your installed version.
 The installer is tested on these versions; the runtime still needs testing.
 [Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
 error and your `slotstream doctor` output.
+
+## A long request is refused or interrupted
+
+The feasibility report and request deadlines below are unreleased source
+additions. Check `slotstream --version` and the installed command's `--help`.
+
+Inspect `slotstream doctor --max-context N --json` with the same memory options
+as the server. `context_feasibility` reports what fits in memory; an estimate
+of `null` means that schedule has no qualified throughput estimate.
+
+For `prefill_wait_exceeded` or `prefill_deadline_exceeded`, send less missing
+history, reuse an exact valid prefix, or deliberately raise
+`--max-prefill-wait`. The default is 30 minutes from accepted request to first
+model token, including queueing and images. `0` disables only time. Client read
+and stale-stream timeouts must allow the selected server budget.
+
+For `insufficient_memory`, free memory or reduce the memory/context target.
+A large image can exceed the attention-workspace allowance even after its
+resident tower fits; resize the image. Neither `--no-elastic` nor a fixed pool
+turns off memory checks. After an interruption, retry a short request; an
+unavailable engine returns an explicit error instead of resuming partial state.

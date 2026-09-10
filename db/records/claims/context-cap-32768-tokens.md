@@ -2,8 +2,8 @@
 type: claim
 id: 01m1hhwpa9e6h7te9vpqfjpv2s
 created: 2026-09-02T17:15:28.457232+00:00
-updated: 2026-09-06T01:32:00.579778+00:00
-summary: Prompt plus completion is capped at 32,768 tokens per request
+updated: 2026-09-06T00:46:59.048465+00:00
+summary: Prompt plus completion defaults to 32,768 tokens per request
 basis: derived
 gate: Tools/planner_gates.sh
 needle: 32,768

@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-06T05:02:42.646666Z
+updated: 2026-09-09T14:07:58.081241Z
 ---
 
 # records/decisions
 
+- [[records/decisions/benchmark-startup-swapin-exclusion-2026-09-09]] — Explicit paired benchmark startup swap-in exclusion with unchanged hard resource limits
+- [[records/decisions/bounded-mtp-tail-excluded-from-combined]] — Preserve the original MTP verification shape after exact-output counterexamples
+- [[records/decisions/compact-ngram-storage-and-ring-disposition-2026-09-07]] — Select exact compact BF16 storage and reject ring eviction variants
+- [[records/decisions/hugging-face-lossless-download-default]] — Use the unchanged compressed Hugging Face package by default, preserving exact original bytes while removing metered R2 model hosting.
 - [[records/decisions/lossless-cdn-download-default]] — Fresh installs use the qualified lossless CDN package; raw sources and original model bytes remain compatible.
 - [[records/decisions/images-are-inline-bytes-only]] — slotstream never dereferences a URL a request hands it; images are inline bytes only
 - [[records/decisions/vision-tower-is-a-conditional-memory-charge]] — The vision tower is announced by the memory plan and charged when it loads, never folded into the fixed footprint

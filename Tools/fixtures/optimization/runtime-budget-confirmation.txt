@@ -1,0 +1,1 @@
+Explain why looking up a key in a hash table usually takes constant time, and describe one situation that breaks that assumption.

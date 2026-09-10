@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/design
-updated: 2026-09-03T23:50:44.866851Z
+updated: 2026-09-09T01:52:44.837037Z
 ---
 
 # records/design
 
+- [[records/design/sevra-maintained-model-integration]] — Sevra integration: versioned hardware/model profiles, full-stack qualification, maintained updates and documentation tied to implementation.
 - [[records/design/vision-how-a-picture-becomes-tokens]] — The vision path: one placeholder becomes a run, Rust-free splicing by contiguous spans, inline bytes only, and a conditional memory charge.
 - [[records/design/13-references]] — 13. References
 - [[records/design/10-dev-mac-reference-measured-2026-08-28-full-data-in-measurements-md]] — 10. Dev-Mac reference (measured 2026-08-28 — full data in MEASUREMENTS.md)

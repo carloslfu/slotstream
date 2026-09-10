@@ -12,6 +12,9 @@ public struct ServerError: Error, CustomStringConvertible {
 }
 
 public final class Server {
+    /// Explicit opt-in for local benchmark processes. Ordinary wire responses
+    /// retain their existing schema and do not run the footprint sampler.
+    private static let benchmarkDetailsEnabled = ProcessInfo.processInfo.environment["SLOTSTREAM_BENCH_DETAILS"] == "1"
     let engine: Engine
     let port: UInt16
     /// Total on-disk size of the weights, reported by /api/tags and /api/ps.
@@ -19,12 +22,47 @@ public final class Server {
     /// than a second hand-maintained copy of the number.
     let weightsBytes: Int
     var listenFD: Int32 = -1
+    /// Package-only observation for real-socket lifecycle diagnostics. Install
+    /// before handling connections; it never changes queue limits or payloads.
+    package var outputObserver: ((Int32, BoundedOutput) -> Void)?
+
+    private func makeOutput(_ fd: Int32, streaming: Bool = true) -> BoundedOutput? {
+        guard streaming, engine.model.optimizations.boundedOutputQueue else { return nil }
+        let output = BoundedOutput(fd: fd)
+        outputObserver?(fd, output)
+        return output
+    }
+
+    private func requestRefusal(_ fd: Int32, _ error: Error, dialect: String, cors: String) {
+        let failure = error as? RequestFailure
+            ?? RequestFailure(.invalidConfiguration, String(describing: error))
+        guard failure.code != .clientCancelled else { return }
+        let body: [String: Any]
+        if dialect == "ollama" {
+            body = ["error": failure.message, "code": failure.code.rawValue, "details": failure.json]
+        } else if dialect == "gateway" {
+            var gateway = GatewayDialect.Failure(failure.code.rawValue, failure.message).body
+            gateway["details"] = failure.json
+            body = gateway
+        } else { body = ["error": failure.json] }
+        respondJSON(fd, body, status: failure.httpStatus, cors: cors)
+    }
 
     public init(engine: Engine, port: UInt16, weightsBytes: Int = 0, listenFD: Int32 = -1) {
         self.engine = engine
         self.port = port
         self.weightsBytes = weightsBytes
         self.listenFD = listenFD
+        if Self.benchmarkDetailsEnabled { engine.generator.footprintSampling = true }
+    }
+
+    private func benchmarkMetadata(_ stats: GenStats, prompt: [Int], output: [Int]) -> [String: Any] {
+        ["stats": try! JSONSerialization.jsonObject(with: JSONEncoder().encode(stats)),
+         "prompt_ids": prompt, "output_ids": output,
+         "effective_prefill_chunk": engine.generator.prefillChunk,
+         "effective_pool_slots": engine.model.pool.slots,
+         "effective_mtp": engine.model.mtpHead != nil && engine.generator.speculationEnabled,
+         "optimizations": try! JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.model.optimizations))]
     }
 
     /// Claim the port. Callers bind *before* loading the model so "address
@@ -278,15 +316,16 @@ public final class Server {
     }
 
     @discardableResult
-    private func chunk(_ fd: Int32, _ payload: Data) -> Bool {
+    private func chunk(_ fd: Int32, _ payload: Data, writer: BoundedOutput? = nil) -> Bool {
         var d = Data(String(format: "%x\r\n", payload.count).utf8)
         d += payload
         d += Data("\r\n".utf8)
-        return send(fd, d)
+        return writer?.enqueue(d) ?? send(fd, d)
     }
 
-    private func endChunked(_ fd: Int32) {
-        _ = send(fd, Data("0\r\n\r\n".utf8))
+    private func endChunked(_ fd: Int32, writer: BoundedOutput? = nil) {
+        let end = Data("0\r\n\r\n".utf8)
+        if let writer { writer.enqueue(end) } else { _ = send(fd, end) }
     }
 
     /// A nonblocking peek distinguishes an idle connected peer (EAGAIN) from
@@ -303,7 +342,7 @@ public final class Server {
 
     // MARK: routing
 
-    private func handle(_ fd: Int32) {
+    package func handle(_ fd: Int32) {
         defer { close(fd) }
         let req: Request
         switch readRequest(fd) {
@@ -329,6 +368,21 @@ public final class Server {
             _ = send(fd, Data(head.utf8))
             return
         }
+        let path = Self.routePath(req.path)
+        let inferencePaths = ["/api/chat", "/api/generate", "/v1/chat/completions",
+                              "/v3/ai/language-model", "/v1/ai/language-model"]
+        let control: RequestController?
+        if req.method == "POST", inferencePaths.contains(path) {
+            let dialect = path == "/v1/chat/completions" ? "openai"
+                : path.hasSuffix("/language-model") ? "gateway" : "ollama"
+            do {
+                let accepted = try engine.beginRequest(connected: { self.peerAlive(fd) })
+                // Upload is complete. Parsing, validation, templating and
+                // queueing now share this one clock and allocation guard.
+                try accepted.checkInputBytes(req.body.count)
+                control = accepted
+            } catch { requestRefusal(fd, error, dialect: dialect, cors: cors); return }
+        } else { control = nil }
         let parsed = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any]
         if req.method == "POST", !req.body.isEmpty, parsed == nil {
             respondJSON(
@@ -336,7 +390,15 @@ public final class Server {
             return
         }
         let json = parsed ?? [:]
-        let path = Self.routePath(req.path)
+        if let control {
+            switch path {
+            case "/api/chat": apiChat(fd, json, cors: cors, control: control)
+            case "/api/generate": apiGenerate(fd, json, cors: cors, control: control)
+            case "/v1/chat/completions": v1Chat(fd, json, cors: cors, control: control)
+            default: gatewayChat(fd, json, headers: req.headers, cors: cors, control: control)
+            }
+            return
+        }
         switch (req.method, path) {
         case ("GET", "/api/version"):
             respondJSON(fd, ["version": SlotstreamBuild.version], cors: cors)
@@ -388,26 +450,18 @@ public final class Server {
                         + (engine.visionAllowed && engine.visionAvailable ? ["vision"] : []),
                     "template": "{{ .Prompt }}",
                     "details": modelDetails(live: true),
+                    "context_policy": engine.contextPolicyJSON,
                     "model_info": [
                         "general.architecture": "qwen4_exp",
                         "general.parameter_count": 176_000_000_000,
                         "qwen4_exp.context_length": engine.maxContextTokens,
                     ],
                 ], cors: cors)
-        case ("POST", "/api/chat"):
-            apiChat(fd, json, cors: cors)
-        case ("POST", "/api/generate"):
-            apiGenerate(fd, json, cors: cors)
-        case ("POST", "/v1/chat/completions"):
-            v1Chat(fd, json, cors: cors)
-        case ("POST", "/v3/ai/language-model"), ("POST", "/v1/ai/language-model"):
-            gatewayChat(fd, json, headers: req.headers, cors: cors)
         case ("GET", "/coding-agent/v1/models"):
-            respondJSON(
-                fd,
-                GatewayDialect.catalog(
-                    modelID: gatewayModelID, contextCap: engine.maxContextTokens,
-                    vision: engine.visionAllowed && engine.visionAvailable), cors: cors)
+            var catalog = GatewayDialect.catalog(modelID: gatewayModelID, contextCap: engine.maxContextTokens,
+                vision: engine.visionAllowed && engine.visionAvailable)
+            catalog["context_policy"] = engine.contextPolicyJSON
+            respondJSON(fd, catalog, cors: cors)
         case ("GET", "/coding-agent/v1/credits"):
             // fx shows a balance for the gateway provider. A local model has no
             // billing; zero is the honest answer and keeps `fx credits` working.
@@ -422,6 +476,7 @@ public final class Server {
                         "created": startedAt, "owned_by": "slotstream",
                         "context_length": engine.maxContextTokens,
                         "context_window": engine.maxContextTokens,
+                        "context_policy": engine.contextPolicyJSON,
                         "max_output_tokens": GatewayDialect.outputBudget(contextCap: engine.maxContextTokens),
                     ]],
                 ], cors: cors)
@@ -754,7 +809,7 @@ public final class Server {
     /// has. A client sending the default is asking for exactly what it gets, so
     /// refusing it breaks stock SDKs for no semantic reason; any other value is
     /// a real feature and stays a 400. Nothing is silently dropped either way.
-    package static func openAINoOpError(_ json: [String: Any]) -> String? {
+    private static func openAINoOpError(_ json: [String: Any]) -> String? {
         if json["n"] != nil, int(json["n"]) != 1 {
             return "n must be 1; this server returns a single choice"
         }
@@ -860,7 +915,7 @@ public final class Server {
 
     // MARK: /api/chat
 
-    private func apiChat(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
+    private func apiChat(_ fd: Int32, _ rawJSON: [String: Any], cors: String, control: RequestController) {
         let json = Self.withoutNulls(rawJSON)
         if let e = ollamaValidationError(
             json, allowed: ["model", "messages", "stream", "think", "options", "keep_alive"],
@@ -895,23 +950,28 @@ public final class Server {
         let vision: VisionPrompt?
         do {
             (ids, vision) = try engine.encodeWithVision(
-                messages: templateMsgs, tools: nil, thinking: thinking)
+                messages: templateMsgs, tools: nil, thinking: thinking, request: control)
         } catch {
-            respondJSON(fd, ["error": "\(error)"], status: "400 Bad Request", cors: cors)
+            requestRefusal(fd, error, dialect: "ollama", cors: cors)
             return
         }
         if let e = engine.contextError(promptTokens: ids.count) {
-            respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
+            requestRefusal(fd, RequestFailure(.contextLengthExceeded, e), dialect: "ollama", cors: cors)
             return
         }
-        let t0 = Date()
-        if stream, !startChunked(fd, contentType: "application/x-ndjson", cors: cors) { return }
+        let t0 = RuntimeClock.now()
+        var headersStarted = false
         // With think on, the model reasons first and closes with `</think>`.
         // Ollama carries that in message.thinking; leaving it in the answer
         // handed clients the reasoning and a stray closing tag.
         let splitter = thinking ? ThinkSplitter() : nil
+        let output = makeOutput(fd, streaming: stream)
+        defer { output?.finish() }
+        @discardableResult func writeChunk(_ data: Data) -> Bool { self.chunk(fd, data, writer: output) }
+        func endOutput() { self.endChunked(fd, writer: output) }
         var alive = true
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
+            if output?.alive == false { alive = false }
             guard alive, !delta.isEmpty else { return alive }
             var message: [String: Any] = ["role": "assistant"]
             if let sp = splitter {
@@ -926,13 +986,24 @@ public final class Server {
                 "model": self.engine.modelName, "created_at": self.iso(Date()),
                 "message": message, "done": false,
             ]
-            alive = self.chunk(
-                fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
+            alive = writeChunk((try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
             return alive
         } : nil
-        let (text, _, stats) = engine.generate(
+        let (text, benchmarkOutputIds, stats) = engine.generate(
             promptIds: ids, params: params, vision: vision,
-            shouldContinue: { self.peerAlive(fd) }, onToken: callback)
+            shouldContinue: { alive && (output?.alive ?? true) && self.peerAlive(fd) }, onToken: callback, request: control, onAdmitted: {
+                guard stream else { return true }
+                headersStarted = self.startChunked(fd, contentType: "application/x-ndjson", cors: cors)
+                return headersStarted
+            })
+        if let error = stats.runtimeError {
+            let failure: [String: Any] = ["error": error, "code": stats.requestFailure?.code.rawValue ?? "inference_error"]
+            if headersStarted {
+                if alive { writeChunk((try! JSONSerialization.data(withJSONObject: failure)) + Data("\n".utf8)) }
+                endOutput()
+            } else if alive { requestRefusal(fd, stats.requestFailure ?? RequestFailure(.inferenceError, error), dialect: "ollama", cors: cors) }
+            return
+        }
         var finalMessage: [String: Any] = ["role": "assistant"]
         if let sp = splitter {
             let (think, content) = stream ? sp.flush() : ThinkSplitter.split(text)
@@ -941,19 +1012,26 @@ public final class Server {
         } else {
             finalMessage["content"] = stream ? "" : text
         }
-        let final: [String: Any] = [
+        var final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
             "message": finalMessage,
             "done": true, "done_reason": stats.finishReason,
-            "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
+            "total_duration": Int(RuntimeClock.seconds(since: t0) * 1e9),
             "prompt_eval_count": stats.promptTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
             "eval_count": stats.decodeTokens,
             "eval_duration": Int(stats.decodeSeconds * 1e9),
         ]
+        if Self.benchmarkDetailsEnabled {
+            var details = benchmarkMetadata(stats, prompt: ids, output: benchmarkOutputIds)
+            if let output {
+                details["output_before_completion_frame"] = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(output.snapshot))
+            }
+            final["slotstream_benchmark"] = details
+        }
         if stream, alive {
-            chunk(fd, (try! JSONSerialization.data(withJSONObject: final)) + Data("\n".utf8))
-            endChunked(fd)
+            writeChunk((try! JSONSerialization.data(withJSONObject: final)) + Data("\n".utf8))
+            endOutput()
         } else {
             if alive { respondJSON(fd, final, cors: cors) }
         }
@@ -961,7 +1039,7 @@ public final class Server {
 
     // MARK: /api/generate
 
-    private func apiGenerate(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
+    private func apiGenerate(_ fd: Int32, _ rawJSON: [String: Any], cors: String, control: RequestController) {
         let json = Self.withoutNulls(rawJSON)
         if let e = ollamaValidationError(
             json,
@@ -1064,6 +1142,8 @@ public final class Server {
         let ids: [Int]
         var vision: VisionPrompt?
         if raw {
+            do { try control.checkInputBytes(prompt.utf8.count) }
+            catch { requestRefusal(fd, error, dialect: "ollama", cors: cors); return }
             ids = engine.tokenizer.encode(text: prompt)
         } else {
             var messages: [[String: Any]] = []
@@ -1076,9 +1156,9 @@ public final class Server {
             do {
                 (ids, vision) = try engine.encodeWithVision(
                     messages: Self.templateMessages(["messages": messages]), tools: nil,
-                    thinking: thinking)
+                    thinking: thinking, request: control)
             } catch {
-                respondJSON(fd, ["error": "\(error)"], status: "400 Bad Request", cors: cors)
+                requestRefusal(fd, error, dialect: "ollama", cors: cors)
                 return
             }
         }
@@ -1091,14 +1171,19 @@ public final class Server {
             return
         }
         if let e = engine.contextError(promptTokens: ids.count) {
-            respondJSON(fd, ["error": e], status: "400 Bad Request", cors: cors)
+            requestRefusal(fd, RequestFailure(.contextLengthExceeded, e), dialect: "ollama", cors: cors)
             return
         }
-        let t0 = Date()
-        if stream, !startChunked(fd, contentType: "application/x-ndjson", cors: cors) { return }
+        let t0 = RuntimeClock.now()
+        var headersStarted = false
         let splitter = thinking ? ThinkSplitter() : nil
+        let output = makeOutput(fd, streaming: stream)
+        defer { output?.finish() }
+        @discardableResult func writeChunk(_ data: Data) -> Bool { self.chunk(fd, data, writer: output) }
+        func endOutput() { self.endChunked(fd, writer: output) }
         var alive = true
         let callback: ((Int, String) -> Bool)? = stream ? { _, delta in
+            if output?.alive == false { alive = false }
             guard alive, !delta.isEmpty else { return alive }
             var obj: [String: Any] = [
                 "model": self.engine.modelName, "created_at": self.iso(Date()),
@@ -1112,13 +1197,24 @@ public final class Server {
             } else {
                 obj["response"] = delta
             }
-            alive = self.chunk(
-                fd, (try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
+            alive = writeChunk((try! JSONSerialization.data(withJSONObject: obj)) + Data("\n".utf8))
             return alive
         } : nil
-        let (text, _, stats) = engine.generate(
+        let (text, benchmarkOutputIds, stats) = engine.generate(
             promptIds: ids, params: params, vision: vision,
-            shouldContinue: { self.peerAlive(fd) }, onToken: callback)
+            shouldContinue: { alive && (output?.alive ?? true) && self.peerAlive(fd) }, onToken: callback, request: control, onAdmitted: {
+                guard stream else { return true }
+                headersStarted = self.startChunked(fd, contentType: "application/x-ndjson", cors: cors)
+                return headersStarted
+            })
+        if let error = stats.runtimeError {
+            let failure: [String: Any] = ["error": error, "code": stats.requestFailure?.code.rawValue ?? "inference_error"]
+            if headersStarted {
+                if alive { writeChunk((try! JSONSerialization.data(withJSONObject: failure)) + Data("\n".utf8)) }
+                endOutput()
+            } else if alive { requestRefusal(fd, stats.requestFailure ?? RequestFailure(.inferenceError, error), dialect: "ollama", cors: cors) }
+            return
+        }
         var finalResponse = stream ? "" : text
         var finalThinking = ""
         if let sp = splitter {
@@ -1129,16 +1225,23 @@ public final class Server {
         var final: [String: Any] = [
             "model": engine.modelName, "created_at": iso(Date()),
             "response": finalResponse, "done": true, "done_reason": stats.finishReason,
-            "total_duration": Int(-t0.timeIntervalSinceNow * 1e9),
+            "total_duration": Int(RuntimeClock.seconds(since: t0) * 1e9),
             "prompt_eval_count": stats.promptTokens,
             "prompt_eval_duration": Int(stats.prefillSeconds * 1e9),
             "eval_count": stats.decodeTokens,
             "eval_duration": Int(stats.decodeSeconds * 1e9),
         ]
+        if Self.benchmarkDetailsEnabled {
+            var details = benchmarkMetadata(stats, prompt: ids, output: benchmarkOutputIds)
+            if let output {
+                details["output_before_completion_frame"] = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(output.snapshot))
+            }
+            final["slotstream_benchmark"] = details
+        }
         if !finalThinking.isEmpty { final["thinking"] = finalThinking }
         if stream, alive {
-            chunk(fd, (try! JSONSerialization.data(withJSONObject: final)) + Data("\n".utf8))
-            endChunked(fd)
+            writeChunk((try! JSONSerialization.data(withJSONObject: final)) + Data("\n".utf8))
+            endOutput()
         } else {
             if alive { respondJSON(fd, final, cors: cors) }
         }
@@ -1152,7 +1255,7 @@ public final class Server {
     var gatewayModelID: String { "slotstream/" + engine.modelName }
 
     private func gatewayChat(
-        _ fd: Int32, _ rawJSON: [String: Any], headers: [String: String], cors: String
+        _ fd: Int32, _ rawJSON: [String: Any], headers: [String: String], cors: String, control: RequestController
     ) {
         func fail(_ f: GatewayDialect.Failure) {
             respondJSON(fd, f.body, status: "400 Bad Request", cors: cors)
@@ -1187,12 +1290,15 @@ public final class Server {
             if messages.contains(where: { !$0.images.isEmpty }) {
                 (ids, vision) = try engine.encodeChatWithVision(
                     messages, tools: renderTools, thinking: request.reasoning.thinking,
-                    effort: request.reasoning.effort)
+                    effort: request.reasoning.effort, request: control)
             } else {
+                try control.checkInputBytes(ContextInputMemory.bytes(messages: messages, tools: renderTools))
                 ids = try engine.encodeChatSpliced(
                     messages, tools: renderTools, thinking: request.reasoning.thinking,
                     effort: request.reasoning.effort)
             }
+        } catch let failure as RequestFailure {
+            requestRefusal(fd, failure, dialect: "gateway", cors: cors); return
         } catch let e as SlotstreamError {
             return fail(GatewayDialect.Failure("invalid_image", "\(e)"))
         } catch {
@@ -1225,19 +1331,17 @@ public final class Server {
         // The head goes out before generation begins. fx allows 30 s for the
         // head and no time at all for the stream, and a cold 6k-token prefill
         // is minutes; every failure that can be detected has been by now.
-        guard startChunked(fd, contentType: "text/event-stream", cors: cors) else { return }
+        var headersStarted = false
+        let output = makeOutput(fd)
+        defer { output?.finish() }
+        @discardableResult func writeChunk(_ data: Data) -> Bool { self.chunk(fd, data, writer: output) }
+        func endOutput() { self.endChunked(fd, writer: output) }
         var alive = true
         func emit(_ text: String) {
             guard alive else { return }
-            alive = chunk(fd, Data(text.utf8))
+            alive = writeChunk(Data(text.utf8))
         }
-        emit(GatewayDialect.frame(["type": "stream-start", "warnings": []]))
-        emit(
-            GatewayDialect.frame([
-                "type": "response-metadata",
-                "id": "gen_" + String(format: "%08x", UInt32.random(in: 0...UInt32.max)),
-                "modelId": gatewayModelID, "timestamp": iso(Date()),
-            ]))
+
 
         let thinkSplitter = request.reasoning.thinking ? ThinkSplitter() : nil
         let toolSplitter = ToolCallSplitter(tools: renderTools.map { $0.schema })
@@ -1245,7 +1349,7 @@ public final class Server {
         var reasoningOpen = false
         var sawCall = false
         var reasoningTokens = 0
-        var lastKeepalive = Date()
+        var lastKeepalive = RuntimeClock.now()
         var produced = false
 
         func flushEvents(_ events: [ToolStreamEvent]) {
@@ -1297,6 +1401,7 @@ public final class Server {
         }
 
         let callback: (Int, String) -> Bool = { _, delta in
+            if output?.alive == false { alive = false }
             guard alive, !delta.isEmpty else { return alive }
             produced = true
             var body = delta
@@ -1330,13 +1435,32 @@ public final class Server {
                 // prompt would otherwise send no bytes at all and trip this
                 // server's own 120 s send timeout; fx skips comment lines by
                 // design, so the keepalive costs the client nothing.
-                if !produced, Date().timeIntervalSince(lastKeepalive) >= 10 {
-                    lastKeepalive = Date()
-                    self.chunk(fd, Data(GatewayDialect.keepalive.utf8))
+                if headersStarted, !produced, RuntimeClock.seconds(since: lastKeepalive) >= 10 {
+                    lastKeepalive = RuntimeClock.now()
+                    alive = writeChunk(Data(GatewayDialect.keepalive.utf8))
                 }
-                return self.peerAlive(fd)
-            }, onToken: callback)
+                return alive && (output?.alive ?? true) && self.peerAlive(fd)
+            }, onToken: callback, request: control, onAdmitted: {
+                headersStarted = self.startChunked(fd, contentType: "text/event-stream", cors: cors)
+                guard headersStarted else { return false }
+        emit(GatewayDialect.frame(["type": "stream-start", "warnings": []]))
+        emit(
+            GatewayDialect.frame([
+                "type": "response-metadata",
+                "id": "gen_" + String(format: "%08x", UInt32.random(in: 0...UInt32.max)),
+                "modelId": self.gatewayModelID, "timestamp": self.iso(Date()),
+            ]))
+                return alive
+            })
 
+        if let error = stats.runtimeError {
+            if headersStarted {
+                emit(GatewayDialect.frame(["type": "error", "error": stats.requestFailure?.json
+                    ?? ["message": error, "type": "inference_error"]]))
+                endOutput()
+            } else { requestRefusal(fd, stats.requestFailure ?? RequestFailure(.inferenceError, error), dialect: "gateway", cors: cors) }
+            return
+        }
         if let ts = thinkSplitter {
             let (think, content) = ts.flush()
             if !think.isEmpty, reasoningOpen {
@@ -1375,7 +1499,7 @@ public final class Server {
                 outputText: max(0, stats.decodeTokens - reasoningTokens),
                 outputReasoning: reasoningTokens))
         emit("data: [DONE]\n\n")
-        if alive { endChunked(fd) }
+        if alive { endOutput() }
     }
 
     /// Append a one-line instruction to the system turn, adding one if the
@@ -1393,10 +1517,10 @@ public final class Server {
 
     // MARK: /v1/chat/completions (OpenAI, SSE streaming)
 
-    private func v1Chat(_ fd: Int32, _ rawJSON: [String: Any], cors: String) {
+    private func v1Chat(_ fd: Int32, _ rawJSON: [String: Any], cors: String, control: RequestController) {
         let json = Self.withoutNulls(rawJSON)
         func fail(_ message: String, status: String = "400 Bad Request", code: String = "invalid_request_error") {
-            respondJSON(fd, ["error": ["message": message, "type": code]], status: status, cors: cors)
+            respondJSON(fd, ["error": ["message": message, "type": code, "code": code]], status: status, cors: cors)
         }
         if let error = openAIValidationError(json) { return fail(error) }
         let request: OpenAIDialect.Conversation
@@ -1422,18 +1546,19 @@ public final class Server {
         do {
             if !extended {
                 // Preserve existing plain-chat/vision templating and sampling.
-                (ids, vision) = try engine.encodeWithVision(messages: Self.templateMessages(json), tools: nil, thinking: false)
+                (ids, vision) = try engine.encodeWithVision(messages: Self.templateMessages(json), tools: nil, thinking: false, request: control)
             } else if messages.contains(where: { !$0.images.isEmpty }) {
                 (ids, vision) = try engine.encodeChatWithVision(messages, tools: renderTools,
-                    thinking: request.thinking, effort: request.effort)
+                    thinking: request.thinking, effort: request.effort, request: control)
             } else {
+                try control.checkInputBytes(ContextInputMemory.bytes(messages: messages, tools: renderTools))
                 ids = try engine.encodeChatSpliced(messages, tools: renderTools,
                     thinking: request.thinking, effort: request.effort)
             }
-        } catch { return fail("\(error)") }
-        if let error = engine.contextError(promptTokens: ids.count) { return fail(error) }
+        } catch { requestRefusal(fd, error, dialect: "openai", cors: cors); return }
+        if let error = engine.contextError(promptTokens: ids.count) { return fail(error, code: "context_length_exceeded") }
         guard ids.count < request.contextLimit else {
-            return fail("prompt is \(ids.count) tokens, leaving no reply room in the requested context limit \(request.contextLimit)")
+            return fail("prompt is \(ids.count) tokens, leaving no reply room in the requested context limit \(request.contextLimit)", code: "context_length_exceeded")
         }
         var params = renderTools.isEmpty ? (request.thinking ? SampleParams.thinking : .instruct) : .agent
         if let v = Self.num(json["temperature"]) { params.temperature = Float(v) }
@@ -1450,9 +1575,11 @@ public final class Server {
         let wantUsage = Self.bool((json["stream_options"] as? [String: Any])?["include_usage"]) ?? false
         let rid = "chatcmpl-\(UUID().uuidString)"
         let created = Int(Date().timeIntervalSince1970)
-        if stream, !startChunked(fd, contentType: "text/event-stream", cors: cors) { return }
-        @discardableResult func writeChunk(_ data: Data) -> Bool { self.chunk(fd, data) }
-        func endOutput() { self.endChunked(fd) }
+        var headersStarted = false
+        let output = makeOutput(fd, streaming: stream)
+        defer { output?.finish() }
+        @discardableResult func writeChunk(_ data: Data) -> Bool { self.chunk(fd, data, writer: output) }
+        func endOutput() { self.endChunked(fd, writer: output) }
         var alive = true
         var sentRole = false
         func emit(_ object: [String: Any]) {
@@ -1483,20 +1610,32 @@ public final class Server {
         }
         let incremental = stream || (!request.parallel && !renderTools.isEmpty)
         let callback: ((Int, String) -> Bool)? = incremental ? { _, delta in
+            if output?.alive == false { alive = false }
             guard alive else { return false }
             consume(delta)
             return accumulated.error == nil && !accumulated.finishedSingleCall && alive
         } : nil
-        var lastKeepalive = Date()
+        var lastKeepalive = RuntimeClock.now()
         let (text, _, stats) = engine.generate(promptIds: ids, params: params, vision: vision,
             shouldContinue: {
-                if stream && Date().timeIntervalSince(lastKeepalive) >= 10 {
-                    lastKeepalive = Date()
+                if headersStarted && RuntimeClock.seconds(since: lastKeepalive) >= 10 {
+                    lastKeepalive = RuntimeClock.now()
                     alive = writeChunk(Data(": keepalive\n\n".utf8))
                 }
-                return alive && self.peerAlive(fd)
+                return alive && (output?.alive ?? true) && self.peerAlive(fd)
                     && accumulated.error == nil && !accumulated.finishedSingleCall
-            }, onToken: callback)
+            }, onToken: callback, request: control, onAdmitted: {
+                guard stream else { return true }
+                headersStarted = self.startChunked(fd, contentType: "text/event-stream", cors: cors)
+                return headersStarted
+            })
+        if let error = stats.runtimeError {
+            if headersStarted {
+                emit(["error": stats.requestFailure?.json ?? RequestFailure(.inferenceError, error).json])
+                endOutput()
+            } else { requestRefusal(fd, stats.requestFailure ?? RequestFailure(.inferenceError, error), dialect: "openai", cors: cors) }
+            return
+        }
         if !incremental { consume(text) }
         if let thinker {
             let (reasoning, body) = thinker.flush()
@@ -1509,7 +1648,7 @@ public final class Server {
             for event in accumulated.consume(parser.flush()) { emitDelta(event) }
         }
         let finish = accumulated.finishReason(stats.finishReason)
-        if let error = accumulated.error {
+        if let error = stats.runtimeError ?? accumulated.error {
             if stream {
                 emit(["error": ["message": error, "type": "server_error", "code": "inference_error"]])
                 endOutput()

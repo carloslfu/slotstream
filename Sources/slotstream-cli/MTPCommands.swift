@@ -107,13 +107,12 @@ struct MTPAccept: ParsableCommand {
 
     func run() throws {
         guard depth >= 1, depth <= 8 else { throw ValidationError("--depth must be 1...8") }
-        let plan = try model.announcedPlan()
+        let plan = try model.announcedPlan(requireMTP: true)
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         Task {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
-                try engine.model.enableMTP(modelDir: model.modelURL)
                 var traces: [GreedyTrace] = []
                 for (i, prompt) in mtpProbePrompts.enumerated() {
                     let ids = try engine.encodeChat(
@@ -302,13 +301,12 @@ struct MTPBench: ParsableCommand {
     @Option(help: "Seed for --sample") var seed: UInt64 = 1
 
     func run() throws {
-        let plan = try model.announcedPlan()
+        let plan = try model.announcedPlan(requireMTP: true)
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         Task {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
-                try engine.model.enableMTP(modelDir: model.modelURL)
                 var params = sample ? SampleParams() : SampleParams.greedy
                 if sample { params.seed = seed }
                 params.maxTokens = maxTokens
@@ -375,13 +373,47 @@ struct MTPCheck: ParsableCommand {
 
 
     func run() throws {
-        let plan = try model.announcedPlan()
+        let plan = try model.announcedPlan(requireMTP: true)
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         Task {
             do {
+                let observation = FootprintSampler()
+                let vmBefore = ProcessMemory.vmActivity()
+                let memoryTarget = plan.targetGB ?? plan.expectedPeakGB
+                var memoryValidated = false
+                var finalObservation: (sample: FootprintSampler.Result, vm: ProcessMemory.VMActivity?, physical: UInt64, rss: UInt64)?
+                defer {
+                    let observed = finalObservation ?? (sample: observation.finish(), vm: ProcessMemory.vmActivity(),
+                        physical: ProcessMemory.residentBytes(), rss: ProcessMemory.lifetimeRSSPeakBytes())
+                    let report: [String: Any] = [
+                        "memory_validated": memoryValidated, "target_gb": memoryTarget,
+                        "sampled_peak_bytes": observed.sample.peakBytes, "samples": observed.sample.samples,
+                        "physical_footprint_end_bytes": observed.physical, "lifetime_rss_peak_bytes": observed.rss,
+                        "swapins_before": vmBefore.map { $0.swapins as Any } ?? NSNull(),
+                        "swapins_after": observed.vm.map { $0.swapins as Any } ?? NSNull(),
+                        "swapouts_before": vmBefore.map { $0.swapouts as Any } ?? NSNull(),
+                        "swapouts_after": observed.vm.map { $0.swapouts as Any } ?? NSNull(),
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
+                        print("MTP CHECK MEMORY " + String(decoding: data, as: UTF8.self))
+                    }
+                }
+                func memoryGuard() throws {
+                    guard let current = ProcessMemory.vmActivity(), let before = vmBefore,
+                          current.swapins == before.swapins, current.swapouts == before.swapouts,
+                          Double(current.reclaimableBytes) >= 3e9 else {
+                        throw ModelError("MTP check lost real headroom, has unavailable observations or observed swap")
+                    }
+                    let physical = ProcessMemory.residentBytes(), rss = ProcessMemory.lifetimeRSSPeakBytes()
+                    guard physical > 0, rss > 0, Double(max(physical, rss)) <= memoryTarget * 1e9 else {
+                        throw ModelError("MTP check memory observations are unavailable or exceed the planned target")
+                    }
+                }
+                try memoryGuard()
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
-                try engine.model.enableMTP(modelDir: model.modelURL)
+                engine.generator.footprintSampling = true
+                try memoryGuard()
                 var failures: [String] = []
                 func check(_ name: String, _ ok: Bool) {
                     print(ok ? "PASS  \(name)" : "FAIL  \(name)")
@@ -390,13 +422,28 @@ struct MTPCheck: ParsableCommand {
                 var params = SampleParams.greedy
                 params.maxTokens = maxTokens
 
+                func checkedGeneration(_ ids: [Int], vision: VisionPrompt? = nil) throws -> ([Int], GenStats) {
+                    try memoryGuard()
+                    var interrupted: Error?
+                    let generated = engine.generate(promptIds: ids, params: params, vision: vision, shouldContinue: {
+                        do { try memoryGuard(); return true }
+                        catch { interrupted = error; return false }
+                    })
+                    if let interrupted { throw interrupted }
+                    guard generated.stats.runtimeError == nil, generated.stats.requestFailure == nil else {
+                        throw ModelError("MTP check generation failed its Engine request guard")
+                    }
+                    try memoryGuard()
+                    return (generated.ids, generated.stats)
+                }
+
                 func gen(_ prompt: String, spec: Bool) throws -> ([Int], GenStats) {
                     engine.generator.speculationEnabled = spec
                     defer { engine.generator.speculationEnabled = true }
                     let ids = try engine.encodeChat(
                         [ChatMessage(role: "user", content: prompt)], thinking: false)
-                    return engine.generator.generate(
-                        promptIds: ids, params: params, eosIds: engine.eosIds)
+                    engine.dropPrefixCache()
+                    return try checkedGeneration(ids)
                 }
 
                 var acceptTotal = 0
@@ -424,7 +471,14 @@ struct MTPCheck: ParsableCommand {
                 // the text prompts above (spec, spec, plain) so determinism,
                 // "speculation actually ran" and the shared-prefix report all
                 // apply. Skips when the repo asset image is not in reach.
-                let visionAsset = (try? VisionAssets.resolve(image)).map { URL(fileURLWithPath: $0) }
+                let visionMode = try model.visionMode()
+                let visionAsset: URL?
+                if visionMode == .off { visionAsset = nil }
+                else if visionMode == .on || image != nil {
+                    visionAsset = URL(fileURLWithPath: try VisionAssets.resolve(image))
+                } else {
+                    visionAsset = (try? VisionAssets.resolve(image)).map { URL(fileURLWithPath: $0) }
+                }
                 if let img = visionAsset {
                     do {
                         let base64 = try Data(contentsOf: img).base64EncodedString()
@@ -456,9 +510,8 @@ struct MTPCheck: ParsableCommand {
                         {
                             engine.generator.speculationEnabled = spec
                             defer { engine.generator.speculationEnabled = true }
-                            return engine.generator.generate(
-                                promptIds: ids, params: params, eosIds: engine.eosIds,
-                                vision: vision)
+                            engine.dropPrefixCache()
+                            return try checkedGeneration(ids, vision: vision)
                         }
                         let (a, sa) = try genVision(ids, vision, spec: true)
                         let (b, _) = try genVision(ids, vision, spec: true)
@@ -477,7 +530,7 @@ struct MTPCheck: ParsableCommand {
                     }
                 } else {
                     print(
-                        "SKIP vision+mtp leg (no Tools/assets/vision_test image in reach; "
+                        "SKIP vision+mtp leg (vision disabled or no Tools/assets/vision_test image in reach; "
                             + "pass --image to force one)")
                 }
                 let rate = draftTotal > 0 ? Double(acceptTotal) / Double(draftTotal) : 0
@@ -576,9 +629,7 @@ struct MTPCheck: ParsableCommand {
                 let q = "Name three primary colors."
                 let ids1 = try engine.encodeChat(
                     [ChatMessage(role: "user", content: q)], thinking: false)
-                let (o1, s1) = engine.generator.generate(
-                    promptIds: ids1, params: params, eosIds: engine.eosIds,
-                    cache: engine.prefixCache)
+                let (o1, s1) = try checkedGeneration(ids1)
                 let cont = engine.tokenizer.encode(text: "\n\nThe capital of France is")
                 let ids2 = ids1 + o1 + cont
                 let hit = engine.prefixCache.take(matching: ids2, reserveTokens: ids2.count + 8)
@@ -601,6 +652,15 @@ struct MTPCheck: ParsableCommand {
                 }
                 check("turn-1 speculation ran", s1.verifyPasses > 0)
 
+                let sample = observation.finish()
+                let vmAfter = ProcessMemory.vmActivity()
+                let physical = ProcessMemory.residentBytes(), rss = ProcessMemory.lifetimeRSSPeakBytes()
+                finalObservation = (sample, vmAfter, physical, rss)
+                memoryValidated = sample.samples > 0 && sample.peakBytes > 0 && physical > 0 && rss > 0
+                    && Double(max(sample.peakBytes, max(physical, rss))) <= memoryTarget * 1e9
+                    && vmBefore != nil && vmAfter != nil && vmBefore?.swapins == vmAfter?.swapins
+                    && vmBefore?.swapouts == vmAfter?.swapouts
+                check("whole MTP check memory interval fits the priced target without swap", memoryValidated)
                 print(failures.isEmpty ? "MTP CHECK PASS" : "MTP CHECK FAIL: \(failures.joined(separator: ", "))")
                 if !failures.isEmpty { throw ExitCode(2) }
                 result = .success(())
@@ -634,13 +694,12 @@ struct MTPPassCost: ParsableCommand {
     @Option var prompt: String = "Explain how a transistor works, in about 300 words."
 
     func run() throws {
-        let plan = try model.announcedPlan()
+        let plan = try model.announcedPlan(requireMTP: true)
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         Task {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
-                try engine.model.enableMTP(modelDir: model.modelURL)
                 let m = engine.model
                 guard let head = m.mtpHead else { throw ModelError("draft head not loaded") }
                 var params = SampleParams.greedy

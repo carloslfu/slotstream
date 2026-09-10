@@ -30,6 +30,35 @@ struct DownloadHTTPError: Error, LocalizedError {
     }
 }
 
+enum DownloadRetry {
+    /// Hugging Face advertises five-minute resolver windows in RateLimit.
+    /// Preserve the server's wait instead of exhausting retries before reset.
+    static func delay(status: Int, retryAfter: String?, rateLimit: String?, now: Date = Date()) -> Double? {
+        var delays = [Double]()
+        if let value = retryAfter {
+            if let seconds = Double(value), seconds.isFinite, seconds >= 0 {
+                delays.append(seconds)
+            } else {
+                let formatter = DateFormatter()
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
+                if let date = formatter.date(from: value) { delays.append(max(0, date.timeIntervalSince(now))) }
+            }
+        }
+        if status == 429, let rateLimit {
+            for field in rateLimit.components(separatedBy: CharacterSet(charactersIn: ";,")) {
+                let field = field.trimmingCharacters(in: .whitespaces)
+                if field.hasPrefix("t="), let seconds = Double(field.dropFirst(2)), seconds.isFinite, seconds >= 0 {
+                    delays.append(seconds + 1) // Allow the advertised whole-second window to finish.
+                }
+            }
+        }
+        if let delay = delays.max() { return min(600, delay) }
+        return status == 429 ? 300 : nil
+    }
+}
+
 enum DownloadFiles {
     /// Small local control files are bounded before allocation and may not be
     /// symlinks, devices, FIFOs, or sockets. A malformed map simply loses its
@@ -191,15 +220,9 @@ final class DownloadHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable 
         let encoding = http.value(forHTTPHeaderField: "Content-Encoding")?.lowercased()
         if !valid || (encoding != nil && encoding != "identity") ||
             (response.expectedContentLength >= 0 && response.expectedContentLength != Int64(expected)) {
-            var retry: Double?
-            if let value = http.value(forHTTPHeaderField: "Retry-After") {
-                if let seconds = Double(value), seconds.isFinite { retry = min(60, max(0, seconds)) }
-                else {
-                    let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
-                    formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
-                    retry = formatter.date(from: value).map { min(60, max(0, $0.timeIntervalSinceNow)) }
-                }
-            }
+            let retry = DownloadRetry.delay(status: status,
+                retryAfter: http.value(forHTTPHeaderField: "Retry-After"),
+                rateLimit: http.value(forHTTPHeaderField: "RateLimit"))
             failure = DownloadHTTPError(status: status, retryAfter: retry)
             completionHandler(.cancel); return
         }

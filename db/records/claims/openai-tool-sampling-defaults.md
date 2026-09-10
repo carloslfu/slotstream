@@ -1,8 +1,8 @@
 ---
 type: claim
-id: 01m1t5ee18yscjg0dfcv4b8f68
-created: 2026-09-06T01:31:08.200294+00:00
-updated: 2026-09-06T01:31:08.200294+00:00
+id: 01m1swa0rawkyjx76e591xw5z4
+created: 2026-09-05T22:51:26.346940+00:00
+updated: 2026-09-05T22:51:26.346940+00:00
 summary: OpenAI tool requests reuse the native agent sampler
 basis: derived
 gate: Tools/openai_tools_gate.py and Tools/hermes_integration_gate.py

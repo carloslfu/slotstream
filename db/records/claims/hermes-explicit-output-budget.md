@@ -1,8 +1,8 @@
 ---
 type: claim
-id: 01m1t5edzv7gc6rez72800jqg3
-created: 2026-09-06T01:31:08.155313+00:00
-updated: 2026-09-06T01:31:08.155313+00:00
+id: 01m1swa0sckv139kvazpwp7fjz
+created: 2026-09-05T22:51:26.380755+00:00
+updated: 2026-09-05T22:51:26.380755+00:00
 summary: Hermes example reserves a 4096-token output allowance
 basis: derived
 gate: Tools/hermes_integration_gate.py

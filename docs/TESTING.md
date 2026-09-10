@@ -9,8 +9,86 @@ Choose a suite based on what you have installed:
 make checks          # the tier that needs nothing: no GPU, no weights, no network
 make checks-all      # adds the MLX tier
 make test            # Tools/verify.sh, the acceptance battery against real weights
+make context-test    # isolated context policy + proxy fixtures; no MLX or weights
 make coverage        # line coverage of the library
 ```
+
+## Configurable context without a model
+
+`make context-test` compiles the production planner, feasibility solver,
+schedule and request controller with inert device observers. It uses the
+existing allocation golden and process/transport fixtures. It needs Python
+and a Swift compiler, but does not invoke SwiftPM, load MLX, touch weights,
+start a server or simulate pressure on the host. The dedicated
+`context-proxies` CI workflow runs this same command.
+
+Every run writes a fresh report and raw logs. Set `CONTEXT_TEST_OUT` to choose
+the directory. Reports bind the exact tested source and driver bytes, map
+each acceptance case to its proxy scope, and list its deferred native checks.
+Missing prerequisites or failing checks fail the command. Proxy success never
+certifies tensor numerical parity, model capacity, speed, answer quality, a
+real client installation or a release.
+
+To check explicit windows against an already built candidate without a new
+compile or model launch:
+
+```bash
+python3 -m unittest discover -s Tools -p context_window_matrix_test.py
+python3 Tools/context_window_matrix.py \
+  --binary /path/to/candidate/slotstream --out .build/context-window-matrix
+```
+
+The candidate needs its build identity, source archive and Metal library beside
+it. This command invokes only `doctor` with simulated device metadata and
+`prefill-schedule`. It checks the public ceiling, allocation ledger, cold and
+continued scheduling, padded attention bounds and overflow refusals. Its report
+identifies any source differences between the candidate and the current checkout;
+it does not turn an older candidate's result into current-source build evidence.
+These checks do not load the model or establish native capacity.
+
+Create a portable source handoff without a binary or model:
+
+```bash
+python3 Tools/context_acceptance.py prepare --out .build/context-handoff
+```
+
+The handoff contains a source archive, its hashes, the acceptance inventory,
+the original capacity profiles and explicit external dependencies. Preserve
+the handoff manifest outside the extracted source. On the intended test Mac,
+extract into a fresh directory, review the manifest, restore the pinned model,
+and build that exact source with the normal `make build` procedure. The archive
+contains the source and fixtures for the proxy/capacity workflow; the complete
+repository brain/docs and independently installed clients remain dependencies
+of the broader release battery.
+
+Bind the new candidate and model on that target, then explicitly run native
+capacity qualification there:
+
+```bash
+python3 Tools/context_acceptance.py bind \
+  --handoff /path/to/context-handoff/handoff.json \
+  --binary .build/release/slotstream --model /path/to/pinned-model \
+  --out .build/context-binding
+python3 Tools/context_acceptance.py run-capacity \
+  --binding .build/context-binding/binding.json \
+  --out .build/context-native --execute-on-target
+```
+
+Binding reads metadata and calls only `context-check --plan-only`. It checks
+the candidate's source archive against the handoff; an older binary cannot
+stand in for changed source. The native command runs the required governor
+and combined draft/image resource checks, then the frozen incremental capacity
+profiles in order. It preserves original retained warm-up lengths, verifies
+model payloads, rechecks identities and real readiness, and stops the entire
+campaign at the first failed stage. It never refreshes a failed baseline or
+retries silently. Rebinding on a different host captures that host's model
+metadata without changing the frozen workload.
+
+Capacity success still leaves numerical, final API/client, installed release
+and rollback acceptance separate. The catalog names those remaining checks;
+the public context ceiling changes only after its native qualification. There
+is no background model waiter and no automatic hardware fallback from the
+software command.
 
 ## Why there is no `swift test`
 
@@ -41,6 +119,32 @@ run; a T0 pass covers only T0.
 allocate memory at the same time, despite the guard against multiple model
 processes. Use the small explicit targets in `Tools/verify.sh` and check
 available memory before a model test.
+
+The full live-governor drill is a separate bounded exception: its normal
+1 GB shrink and 2 GB grow deadbands require a starting arena larger than the
+ordinary 10 GB tests. `verify.sh` uses `elastic-drill --slots 1000
+--max-memory-gb 13`, after checking 16 GB reclaimable. The command independently
+checks its derived total target plus 3 GB spare, each controlled poll and
+generation, sampled physical footprint, RSS and swap. It preserves the real
+cooldown and exact output checks. A skipped drill fails full acceptance.
+Run this gate without other heavy work. Full model hashing holds the same
+process exclusion lock as inference and must pass before native acceptance.
+
+MTP diagnostics require and price the draft head before Engine allocation,
+including when their `--mtp` option is left at `auto`; explicit `off` is
+incompatible. The full `mtp-check` includes vision and uses an explicit 12 GB
+target after a 15 GB reclaimable preflight. Its text-only leg can be selected
+with `--vision off` under the ordinary 10 GB test target. A text-only pass does
+not prove the combined image/MTP leg.
+
+The full original vision-serving photographs need a separate profile:
+`--memory-gb 14.5` with `SLOTSTREAM_PREFILL_CHUNK=3072`, MTP off, and a
+20.5 GB real reclaimable preflight. The explicit workspace covers the larger
+image's attention buffers while retaining the original photographs and
+assertions. The old 10 GB profile correctly refuses that image before
+dispatch. This override applies only to the full image server; ordinary
+quality gates keep their smaller target. Successful and nonempty responses
+are required before different-image answers count as content evidence.
 
 ### The Metal library
 
@@ -164,3 +268,43 @@ independent public CDN reconstruction through the actual CLI default, and a
 model-load smoke test before release. See [DOWNLOAD-FORMAT.md](DOWNLOAD-FORMAT.md)
 for the producer, full-pull, and libFuzzer tools. Full transfer timings are
 diagnostic unless the machine and network conditions qualify as a benchmark.
+
+## Configurable context gates
+
+`Tools/context_gates.py --report result.json` compares frozen default allocation
+fields and validates CLI bounds, metadata, complete schedules and strict tool
+termination without loading weights. `Tools/consumer_smoke.sh` compiles the
+original public function signatures as an external package.
+
+The native `optimization-state-check --variant context-serving --json` injects
+memory and monotonic-clock failures through real HTTP handlers and a single
+floor-sized model, including queued requests and subsequent recovery. Variants
+`context-small-projections-64` and `context-small-projections-128` exercise the
+complete bounded arithmetic family with a prospectively fixed rechunking
+control, repeated state checks and rollback/continuation checks. The matching
+`partial`, `prefix`, `shorttail` and `sparse-prefix` variants cover boundaries
+and reused state. These are correctness gates; their synthetic prompts do not
+demonstrate answer quality.
+
+`Tools/context_qualification.py` accepts a frozen binary/model-window protocol
+and advances through strictly increasing prompt lengths only when the preceding
+rung completes its required output within its planned memory, measured swap
+and independent wall-clock limits. The protocol binds the driver files,
+reconstructible build, pinned model manifest and model directory observations;
+the runner fully verifies model payload hashes before inference. It checks
+actual physical query rows and padded key extents as well as prompt and
+delivered output IDs. The retained protocol additionally requires completed,
+interleaved warm conversations and exact observed cache ownership.
+`Tools/context_qualification_checks.py` verifies refusal of incomplete,
+over-budget and contaminated evidence, including stopping after a failed rung.
+It preserves the first counterexample and
+never retries or changes the protocol. Full-window capacity, numerical parity,
+latency calibration, advertised MTP/vision combinations and real clients remain
+separate acceptance requirements in the engineering plan.
+
+`Tools/gateway_client_gate.mjs <sdk-root> <output-dir> <port> <context>` uses
+the separately installed, published `ai` and `@ai-sdk/gateway` packages. It
+records their versions and checks discovery, streaming and a complete tool
+round trip through an allowlisted fixture read. Requests stay on the selected
+loopback server. This successful-client check does not replace the strict
+receiving-side terminal and authority gates.

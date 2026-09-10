@@ -4,9 +4,7 @@
 // exposed over /api/show — so what the process *does* and what it *says* can
 // never drift apart.
 
-import Darwin
 import Foundation
-import MLX
 
 /// Model geometry the cache math speaks in. The planner needs these before the
 /// checkpoint is opened, so they are constants — `check(against:recordBytes:)`
@@ -55,6 +53,22 @@ public struct PlanError: Error, CustomStringConvertible {
     public init(_ s: String) { description = s }
 }
 
+/// Explicit process controls whose unused reservations can become expert
+/// capacity. Kept with the plan so vision loading and the governor cannot
+/// silently restore an allocation after its budget has been spent.
+public struct RuntimeAllocationPolicy: Equatable, Sendable {
+    public let prefillChunkOverride: Int?
+    public let prefixCacheEnabled: Bool
+
+    public init(prefillChunkOverride: Int? = nil, prefixCacheEnabled: Bool = true) throws {
+        if let chunk = prefillChunkOverride, !(256 ... 4096).contains(chunk) {
+            throw PlanError("runtime allocation planning requires a prefill chunk between 256 and 4096")
+        }
+        self.prefillChunkOverride = prefillChunkOverride
+        self.prefixCacheEnabled = prefixCacheEnabled
+    }
+}
+
 /// The resolved memory decision: which knob decided it, what it costs, and
 /// what to expect. Everything user-facing about memory comes from here.
 public struct MemoryPlan {
@@ -88,6 +102,9 @@ public struct MemoryPlan {
     public let mtpEnabled: Bool
     /// Whether an image request may load the tower in this process.
     public let visionEnabled: Bool
+    /// A loaded tower is charged inside the total-process target. Merely
+    /// accepting images does not take expert capacity from text requests.
+    public let visionResidentReserved: Bool
     /// True when this plan was made for a simulated device (`doctor --sim-*`).
     /// Such a plan may be printed and compared, never loaded: a simulated
     /// availability figure still produces a real allocation.
@@ -97,6 +114,9 @@ public struct MemoryPlan {
     /// the fixed footprint; anything above is charged separately.
     public let maxContextTokens: Int
     public let notes: [String]
+    public let runtimeAllocationPolicy: RuntimeAllocationPolicy?
+    public let maxPrefillWaitMinutes: Double
+    public let contextQualification: Bool
 
     public init(
         source: Source, slots: Int, targetGB: Double?,
@@ -104,8 +124,11 @@ public struct MemoryPlan {
         availableGB: Double?, clamped: Bool,
         prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
         visionEnabled: Bool = false,
+        visionResidentReserved: Bool = false,
         maxContextTokens: Int = ContextPolicy.defaultTokens,
-        notes: [String], simulated: Bool = false
+        notes: [String], simulated: Bool = false,
+        runtimeAllocationPolicy: RuntimeAllocationPolicy? = nil,
+        maxPrefillWaitMinutes: Double = 30, contextQualification: Bool = false
     ) {
         self.source = source
         self.slots = slots
@@ -119,18 +142,35 @@ public struct MemoryPlan {
         self.prefixCacheTokens = prefixCacheTokens
         self.mtpEnabled = mtpEnabled
         self.visionEnabled = visionEnabled
+        self.visionResidentReserved = visionResidentReserved
         self.maxContextTokens = maxContextTokens
         self.notes = notes
         self.simulated = simulated
+        self.runtimeAllocationPolicy = runtimeAllocationPolicy
+        self.maxPrefillWaitMinutes = maxPrefillWaitMinutes
+        self.contextQualification = contextQualification
     }
 
     public var expertsPerLayerCached: Double { Geometry.perLayer(slots) }
     public var poolGB: Double { Geometry.gb(slots) }
-    public var expectedPeakGB: Double {
-        poolGB + Planner.fixedFootprintGB + Planner.prefillCostGB(prefillChunk)
-            + Planner.prefixCacheCostGB(tokens: prefixCacheTokens)
-            + (mtpEnabled ? Planner.mtpResidentGB : 0)
-            + Planner.extraContextMemoryGB(maxContextTokens: maxContextTokens)
+    public var memoryLedger: ContextMemoryLedger {
+        ContextMemoryLedger(slots: slots, context: maxContextTokens, chunk: prefillChunk,
+            retentionTokens: prefixCacheTokens, mtp: mtpEnabled, visionResident: visionResidentReserved)
+    }
+    public var expectedPeakGB: Double { Double(memoryLedger.expectedPeakBytes) / 1e9 }
+
+    public func withRequestPolicy(_ configuration: ContextConfiguration) throws -> MemoryPlan {
+        guard configuration.maxContextTokens == maxContextTokens else {
+            throw PlanError("request policy must use the context window priced by the memory plan")
+        }
+        return MemoryPlan(source: source, slots: slots, targetGB: targetGB, ramGB: ramGB,
+            workingSetGB: workingSetGB, ramPercent: ramPercent, availableGB: availableGB, clamped: clamped,
+            prefillChunk: prefillChunk, prefixCacheTokens: prefixCacheTokens, mtpEnabled: mtpEnabled,
+            visionEnabled: visionEnabled, visionResidentReserved: visionResidentReserved,
+            maxContextTokens: maxContextTokens, notes: notes, simulated: simulated,
+            runtimeAllocationPolicy: runtimeAllocationPolicy,
+            maxPrefillWaitMinutes: configuration.maxPrefillWaitMinutes,
+            contextQualification: configuration.qualification)
     }
     /// Seconds a prompt filling the whole context takes before its first
     /// token, priced through the prefill schedule this plan runs.
@@ -191,10 +231,9 @@ public struct MemoryPlan {
                 Planner.mtpResidentGB))
         }
         if visionEnabled {
-            l.append(String(
-                format: "  vision: images accepted — the tower loads on the first one (+%.1f GB "
-                    + "resident, NOT charged above; refused if the machine cannot spare it then)",
-                Planner.visionResidentGB))
+            l.append(visionResidentReserved
+                ? String(format: "  vision: tower memory reserved (%.1f GB resident, charged above)", Planner.visionResidentGB)
+                : String(format: "  vision: images accepted — first image reserves +%.1f GB inside the target; refused if it cannot fit", Planner.visionResidentGB))
         }
         let extra = Planner.extraContextMemoryGB(maxContextTokens: maxContextTokens)
         l.append(String(
@@ -235,9 +274,20 @@ public struct MemoryPlan {
             "prefix_cache_max_tokens": prefixCacheTokens,
             "mtp": mtpEnabled,
             "vision": visionEnabled,
+            "vision_resident_reserved": visionResidentReserved,
+            "vision_charged_gb": visionResidentReserved ? Planner.visionResidentGB : 0,
             "vision_resident_gb": visionEnabled ? Planner.visionResidentGB : 0,
             "max_context_tokens": maxContextTokens,
-            "est_prefill_s_at_max_context": estPrefillSecondsAtMaxContext,
+            "est_prefill_s_at_max_context": estPrefillSecondsAtMaxContext.isFinite
+                ? estPrefillSecondsAtMaxContext as Any : NSNull(),
+            "model_context_limit": ContextPolicy.modelLimit,
+            "implementation_context_limit": ContextPolicy.implementationLimit,
+            "mtp_context_limit": ContextPolicy.mtpLimit,
+            "vision_context_limit": ContextPolicy.visionLimit,
+            "max_prefill_wait_minutes": maxPrefillWaitMinutes,
+            "prefill_wait_scope": "accepted_request_to_first_model_token",
+            "context_qualification": contextQualification,
+            "memory_ledger": memoryLedger.json,
             // Unrounded on purpose: the banner rounds these to whole tok/s,
             // and a caller comparing two plans across a rounding boundary sees
             // a step that is not there. Anything asserting on the plan should
@@ -247,22 +297,60 @@ public struct MemoryPlan {
         ]
         if let a = availableGB, a.isFinite { d["device_available_gb"] = tenth(a) }
         if let t = targetGB { d["target_gb"] = tenth(t) }
+        if let policy = runtimeAllocationPolicy {
+            d["runtime_prefix_cache_enabled"] = policy.prefixCacheEnabled
+            if let chunk = policy.prefillChunkOverride { d["runtime_prefill_override"] = chunk }
+        }
         if !notes.isEmpty { d["notes"] = notes }
         return d
     }
 }
 
 public enum Planner {
+    /// Reassign only reservations already present in a resolved plan. This
+    /// preserves its existing margin, active context and resident charges;
+    /// it does not infer extra headroom from a short current request.
+    public static func applyingRuntimePolicy(
+        _ p: MemoryPlan, policy: RuntimeAllocationPolicy
+    ) throws -> MemoryPlan {
+        if let previous = p.runtimeAllocationPolicy {
+            guard previous == policy else { throw PlanError("runtime allocation policy requires a fresh base plan") }
+            return p // Never credit the same reservation twice.
+        }
+        let chunk = policy.prefillChunkOverride ?? p.prefillChunk
+        let prefixTokens = policy.prefixCacheEnabled ? p.prefixCacheTokens : 0
+        let freed = prefillCostGB(p.prefillChunk) - prefillCostGB(chunk)
+            + prefixCacheCostGB(tokens: p.prefixCacheTokens) - prefixCacheCostGB(tokens: prefixTokens)
+        var slots = p.slots
+        if p.targetGB != nil, freed != 0 {
+            let remaining = p.poolGB + freed
+            guard remaining.isFinite, remaining + 1e-9 >= Geometry.gb(Geometry.floorSlots) else {
+                throw PlanError("runtime prefill reservation cannot fit above the minimum expert pool; lower the chunk or raise the memory target")
+            }
+            slots = Geometry.slotsForPoolGB(remaining)
+        }
+        return MemoryPlan(source: p.source, slots: slots, targetGB: p.targetGB,
+            ramGB: p.ramGB, workingSetGB: p.workingSetGB, ramPercent: p.ramPercent,
+            availableGB: p.availableGB, clamped: p.clamped, prefillChunk: chunk,
+            prefixCacheTokens: prefixTokens, mtpEnabled: p.mtpEnabled,
+            visionEnabled: p.visionEnabled, visionResidentReserved: p.visionResidentReserved,
+            maxContextTokens: p.maxContextTokens,
+            notes: p.notes + (chunk != p.prefillChunk || prefixTokens != p.prefixCacheTokens
+                ? ["prefill and prefix retention reservations match the explicit runtime controls"] : []),
+            simulated: p.simulated, runtimeAllocationPolicy: policy,
+            maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification)
+    }
+
     /// Non-pool footprint: resident weights, the 256 MB n-gram payload plus
     /// collection overhead, Swift and MLX runtime allocations, one fixed GDN
     /// recurrent state, and a full 32k active context. Expert staging is now
     /// transferred directly into MLX in batches of at most 32 records,
     /// avoiding separate raw + Swift copies and the former multi-GB cold-fill
     /// transient.
-    public static let fixedFootprintGB = 5.3
+    public static let fixedFootprintGB = Double(PlannerCostModel.fixedBytes) / 1e9
     /// Extra slack when deriving a pool from a total-memory target, so the
     /// promise ("stays under G") survives transients.
-    public static let planningMarginGB = 1.0
+    public static let planningMarginGB = Double(PlannerCostModel.planningMarginBytes) / 1e9
 
     /// What a prefill pass costs in transient activations.
     ///
@@ -281,7 +369,7 @@ public enum Planner {
     /// peak by 0.1 GB. 1.30 MB/token is charged here so the estimate errs high
     /// at every measured point.
     public static func prefillCostGB(_ chunk: Int) -> Double {
-        Double(chunk) * 1.30e-3
+        Double(chunk) * (Double(PlannerCostModel.prefillBytesPerToken) / 1e9)
     }
 
     /// KV plus indexer state for a context of `tokens`, which the pool math
@@ -295,7 +383,7 @@ public enum Planner {
     /// the default window; an explicitly larger --max-context reduces the
     /// expert pool before allocation instead of consuming the safety margin.
     public static func extraContextStateGB(maxContextTokens: Int) -> Double {
-        contextStateGB(max(0, maxContextTokens - ContextPolicy.tokensInFixedFootprint))
+        Double(ContextGeometry.additionalActiveBytes(tokens: maxContextTokens)) / 1e9
     }
 
     /// The larger window also needs transient headroom. A completed 65,520
@@ -306,11 +394,9 @@ public enum Planner {
     /// covers that measured gap without claiming its exact buffer attribution
     /// or interpolating unmeasured peaks. Ordinary windows retain their budget.
     /// See the Hermes measurement and its preserved failed run.
-    public static func extraContextMemoryGB(maxContextTokens: Int) -> Double {
-        let state = extraContextStateGB(maxContextTokens: maxContextTokens)
-        guard state > 0 else { return 0 }
-        let reserve = contextStateGB(ContextPolicy.maxTokens - ContextPolicy.tokensInFixedFootprint)
-        return state + reserve
+    public static func extraContextMemoryGB(maxContextTokens: Int, mtp: Bool = false) -> Double {
+        Double(ContextGeometry.additionalActiveBytes(tokens: maxContextTokens, mtp: mtp)
+            + ContextMemoryLedger.transientReserveBytes(context: maxContextTokens, mtp: mtp)) / 1e9
     }
 
     /// Sizes the prefill pass from the same budget as the pool.
@@ -338,8 +424,8 @@ public enum Planner {
     /// is worth nothing and pass memory is worth a lot.
     /// A request this plan is tuned for: prompt tokens, then generated tokens.
     /// Only ever used to choose the prefill pass size — never correctness.
-    static let tuningPromptTokens = 2000.0
-    static let tuningReplyTokens = 400.0
+    static let tuningPromptTokens = PlannerCostModel.tuningPromptTokens
+    static let tuningReplyTokens = PlannerCostModel.tuningReplyTokens
 
     /// The prefill pass to run at a given pool budget: the one that finishes a
     /// representative request soonest.
@@ -358,7 +444,7 @@ public enum Planner {
     /// the pass only grows when the prefill it buys beats the decode it costs.
     /// Swept a GB at a time from 7 to 90 GB, the estimate never gets worse as
     /// the target grows.
-    public static func prefillChunkFor(poolBudgetGB: Double) -> Int {
+    public static func prefillChunkFor(poolBudgetGB: Double, contextCap: Int = ContextPolicy.defaultTokens) -> Int {
         // 8192 is not a candidate: nothing has measured it, and the prefill
         // schedule would cut it to 4096 on the first pass anyway
         // (PrefillSchedule.measuredQueryKeyProduct), so offering it only
@@ -367,7 +453,7 @@ public enum Planner {
             prefillCostGB($0) <= 0.25 * poolBudgetGB
         }
         func seconds(_ c: Int) -> Double {
-            let pool = poolBudgetGB - prefillCostGB(c) - prefixCacheGB(poolBudgetGB: poolBudgetGB)
+            let pool = poolBudgetGB - prefillCostGB(c) - prefixCacheGB(poolBudgetGB: poolBudgetGB, contextCap: contextCap)
             let slots = Geometry.slotsForPoolGB(max(0, pool))
             let decode = estWarmTokS(expertsPerLayer: Geometry.perLayer(slots))
             return tuningPromptTokens / estPrefillTokS(chunk: c) + tuningReplyTokens / decode
@@ -404,8 +490,8 @@ public enum Planner {
     }
 
     /// What that retention ceiling costs, which the plan reserves.
-    public static func prefixCacheGB(poolBudgetGB: Double) -> Double {
-        prefixCacheCostGB(tokens: prefixCacheTokensFor(poolBudgetGB: poolBudgetGB))
+    public static func prefixCacheGB(poolBudgetGB: Double, contextCap: Int = ContextPolicy.defaultTokens) -> Double {
+        prefixCacheCostGB(tokens: prefixCacheTokensFor(poolBudgetGB: poolBudgetGB, contextCap: contextCap))
     }
 
     /// PrefixCache evicts before a miss allocation, so no more than four
@@ -445,26 +531,17 @@ public enum Planner {
         // reads about 40% slower than this prompt at every size; these are the
         // acceptance prompt's numbers, as the previous ladder's were.
         switch chunk {
-        case ..<512: return 85
-        case ..<1024: return 125
-        case ..<2048: return 165
-        case ..<4096: return 205
-        default: return 220
+        case ..<512: return PlannerCostModel.prefill256TokensPerSecond
+        case ..<1024: return PlannerCostModel.prefill512TokensPerSecond
+        case ..<2048: return PlannerCostModel.prefill1024TokensPerSecond
+        case ..<4096: return PlannerCostModel.prefill2048TokensPerSecond
+        default: return PlannerCostModel.prefill4096TokensPerSecond
         }
     }
     /// Smallest honest total-memory target: floor pool + footprint + margin.
     public static var minMemoryGB: Double {
         ((Geometry.gb(Geometry.floorSlots) + fixedFootprintGB + planningMarginGB) * 10)
             .rounded(.up) / 10
-    }
-
-    public static func deviceRAMGB() -> Double {
-        Double(ProcessInfo.processInfo.physicalMemory) / 1e9
-    }
-
-    public static func deviceWorkingSetGB() -> Double {
-        let ws = Double(MLX.GPU.deviceInfo().maxRecommendedWorkingSetSize) / 1e9
-        return ws > 0 ? ws : deviceRAMGB() * 0.75
     }
 
     /// Memory reclaimable RIGHT NOW without compressing or swapping any other
@@ -484,21 +561,6 @@ public enum Planner {
     /// with 7 GB took a real 25 GB pool and drove tens of GB of swap. Anything
     /// using this seam must bound the value by `deviceAvailableGB()`.
     public nonisolated(unsafe) static var availabilityOverride: Double?
-
-    public static func deviceAvailableGB() -> Double? {
-        var count = mach_msg_type_number_t(
-            MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
-        var stats = vm_statistics64_data_t()
-        let kr = withUnsafeMutablePointer(to: &stats) { p in
-            p.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
-            }
-        }
-        guard kr == KERN_SUCCESS else { return nil }
-        let pages = Double(stats.free_count) + Double(stats.purgeable_count)
-            + Double(stats.external_page_count)
-        return pages * Double(vm_page_size) / 1e9
-    }
 
     /// Headroom kept between our expected peak and what is reclaimable, so
     /// claiming it doesn't leave the machine at zero.
@@ -571,11 +633,11 @@ public enum Planner {
     /// Where the measured decode curve stops improving: 11.2 tok/s at 120
     /// experts/layer, 11.6 at 150, flat after. Both the estimate and the
     /// prefill-pass sizing key off this one number.
-    public static let decodePlateauPerLayer = 150.0
+    public static let decodePlateauPerLayer = PlannerCostModel.decodePlateauPerLayer
 
     public static func estWarmTokS(expertsPerLayer e: Double) -> Double {
-        let (e0, r0) = (30.0, 6.0)
-        let (e1, r1) = (decodePlateauPerLayer, 11.6)
+        let (e0, r0) = (PlannerCostModel.decodeLowExpertsPerLayer, PlannerCostModel.decodeLowTokensPerSecond)
+        let (e1, r1) = (decodePlateauPerLayer, PlannerCostModel.decodePlateauTokensPerSecond)
         if e >= e1 { return r1 }
         if e <= e0 { return r0 * (max(e, 1) / e0) }
         let t = log(e / e0) / log(e1 / e0)
@@ -584,30 +646,22 @@ public enum Planner {
 
     /// Resident cost of the MTP draft head (mtp.safetensors is 1.47 GB;
     /// activations and cache growth ride the existing margins).
-    public static let mtpResidentGB = 1.6
+    public static let mtpResidentGB = Double(PlannerCostModel.mtpResidentBytes) / 1e9
 
     /// The vision tower's resident cost, paid only by a process that is handed
     /// an image: 333 bf16 tensors, 0.898 GB, measured from the pinned
     /// checkpoint's own header (`VisionTower.residentBytes`), rounded up.
     ///
-    /// **Why this is a conditional charge and not part of the fixed
-    /// footprint.** Every published memory number — the README tier table, the
-    /// 32 GB peak, the planner goldens — is measured against a plan that has no
-    /// tower in it, and the overwhelming majority of requests never send a
-    /// picture. Folding 0.9 GB into the plan would move all of those numbers
-    /// for everyone to buy a capability most runs do not use. So the plan
-    /// states the cost instead of paying it, and `Engine.ensureVisionTower`
-    /// checks the machine can afford it at the moment an image first arrives,
-    /// refusing rather than overcommitting. The one thing that is not allowed
-    /// is what the first version did: allocate it silently and let a printed
-    /// plan be wrong by a gigabyte.
-    public static let visionResidentGB = 0.9
+    /// Engine reserves this inside a target-driven plan before loading the
+    /// tower. A raw pool-size request keeps that explicit pool size and reports
+    /// the additional resident bytes in its expected peak.
+    public static let visionResidentGB = Double(PlannerCostModel.visionResidentBytes) / 1e9
 
     /// Headroom demanded on top of the tower's own bytes before loading it.
-    /// One image's activations are small next to the weights (the fused
-    /// attention never forms an N² matrix), but the load itself briefly holds
-    /// the arrays twice while MLX materializes them.
-    public static let visionLoadMarginGB = 1.0
+    /// The load briefly holds arrays twice while MLX materializes them.
+    /// Attention transients depend on the actual dispatch: the established
+    /// 72-wide fallback can form an N² matrix and are not bounded by this term.
+    public static let visionLoadMarginGB = Double(PlannerCostModel.visionLoadMarginBytes) / 1e9
     /// Auto enables the draft head only when the cache still affords this
     /// many experts per layer AFTER paying for it (M9 design note: below
     /// ~120/layer the displaced experts are worth more than the multiplier;
@@ -619,10 +673,10 @@ public enum Planner {
         targetGB - fixedFootprintGB - planningMarginGB
     }
 
-    public static func slotsForTarget(_ targetGB: Double) -> Int {
+    public static func slotsForTarget(_ targetGB: Double, contextCap: Int = ContextPolicy.defaultTokens) -> Int {
         let budget = poolBudgetGB(targetGB)
-        let pool = budget - prefillCostGB(prefillChunkFor(poolBudgetGB: budget))
-            - prefixCacheGB(poolBudgetGB: budget)
+        let pool = budget - prefillCostGB(prefillChunkFor(poolBudgetGB: budget, contextCap: contextCap))
+            - prefixCacheGB(poolBudgetGB: budget, contextCap: contextCap)
         return Geometry.slotsForPoolGB(pool)
     }
 
@@ -649,12 +703,53 @@ public enum Planner {
         availableGB: Double? = nil, ramPercent: Double? = nil,
         mtp: MTPMode = .off, mtpAvailable: Bool = false,
         vision: VisionMode = .auto, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false,
         maxContextTokens: Int = ContextPolicy.defaultTokens,
         simulated: Bool = false
     ) throws -> MemoryPlan {
-        if let why = ContextPolicy.validationError(maxContextTokens) { throw PlanError(why) }
-        // Price the additional active state and transient reserve before the pool.
+        try plan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            ramGB: ramGB, workingSetGB: workingSetGB, availableGB: availableGB, ramPercent: ramPercent,
+            mtp: mtp, mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens,
+            simulated: simulated, qualification: false, runtimePolicy: nil)
+    }
+
+    public static func plan(
+        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
+        ramGB: Double? = nil, workingSetGB: Double? = nil,
+        availableGB: Double? = nil, ramPercent: Double? = nil,
+        mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        vision: VisionMode = .auto, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
+        simulated: Bool = false, runtimePolicy: RuntimeAllocationPolicy?
+    ) throws -> MemoryPlan {
+        try plan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            ramGB: ramGB, workingSetGB: workingSetGB, availableGB: availableGB, ramPercent: ramPercent,
+            mtp: mtp, mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens,
+            simulated: simulated, qualification: false, runtimePolicy: runtimePolicy)
+    }
+
+    public static func plan(
+        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
+        ramGB: Double? = nil, workingSetGB: Double? = nil,
+        availableGB: Double? = nil, ramPercent: Double? = nil,
+        mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        vision: VisionMode = .auto, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
+        simulated: Bool = false, qualification: Bool, runtimePolicy: RuntimeAllocationPolicy? = nil
+    ) throws -> MemoryPlan {
+        if let why = ContextPolicy.validationError(maxContextTokens, qualification: qualification) { throw PlanError(why) }
+        // The fixed footprint pays for the default context; larger windows
+        // reduce the pool budget by their additional active state and measured
+        // transient envelope, before sizing either the pool or prefill pass.
         let contextCharge = extraContextMemoryGB(maxContextTokens: maxContextTokens)
+            + (visionResidentReserved ? visionResidentGB : 0)
+        let mtpContextCharge = extraContextMemoryGB(maxContextTokens: maxContextTokens, mtp: true)
+            - extraContextMemoryGB(maxContextTokens: maxContextTokens)
+        let mtpTotalCharge = mtpResidentGB + mtpContextCharge
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
         let avail = availableGB ?? deviceAvailableGB()
@@ -687,6 +782,9 @@ public enum Planner {
                     + "text-only model; use --vision auto/off")
         }
         let visionOn = vision != .off && visionAvailable
+        guard !visionResidentReserved || visionOn else {
+            throw PlanError("a loaded vision tower requires an available, enabled vision model")
+        }
         if mtp == .on, !mtpAvailable {
             throw PlanError(
                 "--mtp on, but mtp.safetensors is not next to the model — the draft head "
@@ -696,7 +794,14 @@ public enum Planner {
 
         /// The draft-head decision for a pool of `slots` when the head costs
         /// pool budget (target-driven sources already shrank the pool).
+        if mtp == .on, maxContextTokens > ContextPolicy.mtpLimit, !qualification {
+            throw PlanError("MTP is qualified only through \(ContextPolicy.mtpLimit) tokens; use --mtp off at this window")
+        }
+        if mtp == .auto, maxContextTokens > ContextPolicy.mtpLimit {
+            notes.append("MTP stays off because this context exceeds its qualified window")
+        }
         func resolveMTP(slotsAfterCharge: Int) -> Bool {
+            if mtp == .auto, maxContextTokens > ContextPolicy.mtpLimit { return false }
             switch mtp {
             case .off: return false
             case .on: return true
@@ -708,13 +813,13 @@ public enum Planner {
 
         func finish(
             _ source: MemoryPlan.Source, _ slots: Int, target: Double?, mtpOn: Bool
-        ) -> MemoryPlan {
+        ) throws -> MemoryPlan {
             // An explicit pool knob states the cache size, not the whole budget,
             // so size the prefill pass from the pool the user asked for.
-            let mtpCharge = mtpOn ? mtpResidentGB : 0
+            let mtpCharge = mtpOn ? mtpResidentGB + mtpContextCharge : 0
             let budgetForCaches = target.map { poolBudgetGB($0) - mtpCharge - contextCharge }
                 ?? Geometry.gb(slots)
-            let chunk = prefillChunkFor(poolBudgetGB: budgetForCaches)
+            let chunk = prefillChunkFor(poolBudgetGB: budgetForCaches, contextCap: maxContextTokens)
             let capped = min(slots, Geometry.totalRecords)
             let floored = max(capped, Geometry.floorSlots)
             if floored > capped {
@@ -723,7 +828,7 @@ public enum Planner {
                     Geometry.floorSlots, Geometry.perLayer(Geometry.floorSlots)))
             }
             let peak = Geometry.gb(floored) + fixedFootprintGB + prefillCostGB(chunk)
-                + prefixCacheGB(poolBudgetGB: budgetForCaches) + mtpCharge + contextCharge
+                + prefixCacheGB(poolBudgetGB: budgetForCaches, contextCap: maxContextTokens) + mtpCharge + contextCharge
             if peak > ws, source != .memoryGB {  // memoryGB branch words its own note
                 notes.append(String(
                     format: "expected peak %.1f GB exceeds the %.1f GB Metal working set — expect paging; close other apps or lower the knob",
@@ -735,7 +840,7 @@ public enum Planner {
                     format: "only %.1f GB is reclaimable right now — expect paging until other apps release memory (auto would size to the machine)",
                     a))
             }
-            return MemoryPlan(
+            let base = MemoryPlan(
                 source: source, slots: floored, targetGB: target,
                 ramGB: ram, workingSetGB: ws, ramPercent: pct,
                 availableGB: avail, clamped: clamped,
@@ -744,9 +849,22 @@ public enum Planner {
                     poolBudgetGB: budgetForCaches, contextCap: maxContextTokens),
                 mtpEnabled: mtpOn,
                 visionEnabled: visionOn,
+                visionResidentReserved: visionResidentReserved,
                 maxContextTokens: maxContextTokens,
                 notes: notes,
-                simulated: simulated)
+                simulated: simulated, contextQualification: qualification)
+            let resolved = try runtimePolicy.map { try applyingRuntimePolicy(base, policy: $0) } ?? base
+            let bytes = resolved.memoryLedger.expectedPeakBytes
+            if maxContextTokens > ContextPolicy.defaultTokens || visionResidentReserved {
+                if let target, Double(bytes) > target * 1e9 {
+                    throw PlanError("insufficient_memory: context, resident components, minimum pool and prefill workspace exceed the total-memory target")
+                }
+                let physical = min(ws, (avail ?? ws) - availabilitySlackGB(ramGB: ram))
+                if Double(bytes) > physical * 1e9 {
+                    throw PlanError("insufficient_memory: requested context and expert pool exceed reclaimable memory with safety headroom or the Metal working set")
+                }
+            }
+            return resolved
         }
 
         if let n = expertsPerLayer {
@@ -754,7 +872,7 @@ public enum Planner {
             if poolGB != nil { notes.append("--pool-gb ignored (--experts-per-layer takes precedence)") }
             if memoryGB != nil { notes.append("--memory-gb ignored (--experts-per-layer takes precedence)") }
             let slots = min(n, Geometry.expertsPerLayer) * Geometry.layers
-            return finish(.expertsPerLayer, slots, target: nil, mtpOn: resolveMTP(slotsAfterCharge: slots))
+            return try finish(.expertsPerLayer, slots, target: nil, mtpOn: resolveMTP(slotsAfterCharge: slots))
         }
         if let g = poolGB {
             guard g.isFinite, g > 0 else {
@@ -765,16 +883,11 @@ public enum Planner {
             // raised it; cap before Double->Int so huge finite input is safe.
             let requested = g >= Geometry.gb(Geometry.totalRecords)
                 ? Geometry.totalRecords : Int(g * 1e9 / Geometry.recordBytes)
-            return finish(.poolGB, requested, target: nil, mtpOn: resolveMTP(slotsAfterCharge: requested))
+            return try finish(.poolGB, requested, target: nil, mtpOn: resolveMTP(slotsAfterCharge: requested))
         }
         if let m = memoryGB {
             guard m.isFinite else { throw PlanError("--memory-gb must be finite") }
-            guard m - contextCharge >= minMemoryGB else {
-                if contextCharge > 0 {
-                    throw PlanError(String(format:
-                        "--memory-gb %.1f cannot fit the requested context above the %.1f GB minimum; use at least %.2f GB or lower --max-context",
-                        m, minMemoryGB, minMemoryGB + contextCharge))
-                }
+            guard m >= minMemoryGB else {
                 throw PlanError(String(
                     format: "--memory-gb %.1f is below the minimum %.1f GB (floor cache of ~%.0f experts/layer = %.1f GB pool, plus the %.1f GB fixed footprint of resident weights + n-gram cache, plus %.1f GB margin)",
                     m, minMemoryGB, Geometry.perLayer(Geometry.floorSlots),
@@ -792,17 +905,17 @@ public enum Planner {
                     a))
             }
             var mtpOn = resolveMTP(
-                slotsAfterCharge: slotsForTarget(max(m - mtpResidentGB - contextCharge, minMemoryGB)))
-            if mtpOn, m - mtpResidentGB - contextCharge < minMemoryGB {
+                slotsAfterCharge: slotsForTarget(max(m - mtpTotalCharge - contextCharge, minMemoryGB), contextCap: maxContextTokens))
+            if mtpOn, m - mtpTotalCharge - contextCharge < minMemoryGB {
                 if mtp == .on {
                     throw PlanError(String(
                         format: "--memory-gb %.1f cannot fit the %.1f GB draft head above the %.1f GB minimum — raise the target or drop --mtp on",
-                        m, mtpResidentGB, minMemoryGB))
+                        m, mtpTotalCharge, minMemoryGB))
                 }
                 mtpOn = false
             }
-            let slots = slotsForTarget(m - (mtpOn ? mtpResidentGB : 0) - contextCharge)
-            return finish(.memoryGB, slots, target: m, mtpOn: mtpOn)
+            let slots = slotsForTarget(m - (mtpOn ? mtpTotalCharge : 0) - contextCharge, contextCap: maxContextTokens)
+            return try finish(.memoryGB, slots, target: m, mtpOn: mtpOn)
         }
 
         // auto: the default. The draft head is worth its 1.6 GB only when the
@@ -810,6 +923,7 @@ public enum Planner {
         // past the decode knee that RAM buys nothing else — so when the head
         // is on, the ceiling rises by exactly its cost.
         let mtpWanted = mtp != .off && mtpAvailable
+            && (mtp == .on || maxContextTokens <= ContextPolicy.mtpLimit)
         func autoRaw(ceilingGB: Double) -> (Double, Bool) {
             let c = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: ceilingGB)
             var raw = c
@@ -822,26 +936,26 @@ public enum Planner {
         }
         var mtpOn = false
         if mtpWanted {
-            let (rawM, _) = autoRaw(ceilingGB: usefulCeilingGB + mtpResidentGB)
+            let (rawM, _) = autoRaw(ceilingGB: usefulCeilingGB + mtpTotalCharge)
             let targetM = max(minMemoryGB, rawM)
-            let charged = targetM - mtpResidentGB - contextCharge
+            let charged = targetM - mtpTotalCharge - contextCharge
             mtpOn = charged >= minMemoryGB
                 && (mtp == .on
-                    || Geometry.perLayer(slotsForTarget(charged)) >= mtpAutoFloorPerLayer)
+                    || Geometry.perLayer(slotsForTarget(charged, contextCap: maxContextTokens)) >= mtpAutoFloorPerLayer)
+        }
+        if mtp == .on, !mtpOn {
+            throw PlanError("insufficient_memory: auto cannot keep the requested MTP head loaded at this context; close other apps or use --mtp off")
         }
         // `ceiling` is what this machine's auto would pick unclamped (the
         // notes below compare against it); the knee itself rises by the
         // head's cost when the head is on.
-        let kneeGB = usefulCeilingGB + (mtpOn ? mtpResidentGB : 0)
+        let kneeGB = usefulCeilingGB + (mtpOn ? mtpTotalCharge : 0)
         let ceiling = autoTargetGB(
             ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: kneeGB)
         let raw: Double
         (raw, clamped) = autoRaw(ceilingGB: kneeGB)
         let target = max(minMemoryGB, raw)
-        if maxContextTokens > ContextPolicy.defaultTokens, raw - contextCharge < minMemoryGB {
-            throw PlanError("available memory cannot fit the requested context above the minimum expert pool; close other apps or lower --max-context")
-        }
-        if mtpOn, target - mtpResidentGB - contextCharge < minMemoryGB { mtpOn = false }
+        if mtpOn, target - mtpTotalCharge - contextCharge < minMemoryGB { mtpOn = false }
         // Exactly one note tells the story of why the target is what it is.
         if raw < minMemoryGB, ceiling < minMemoryGB {
             notes.append(String(
@@ -864,7 +978,34 @@ public enum Planner {
                 format: "this machine could hold more, but decode stops improving around here (measured 11.2 tok/s at 120 experts/layer, 11.6 at 150) — auto caps at %.1f GB rather than spend RAM for nothing; --memory-gb N to go further",
                 usefulCeilingGB))
         }
-        let slots = slotsForTarget(target - (mtpOn ? mtpResidentGB : 0) - contextCharge)
-        return finish(.auto, slots, target: target, mtpOn: mtpOn)
+        let slots = slotsForTarget(target - (mtpOn ? mtpTotalCharge : 0) - contextCharge, contextCap: maxContextTokens)
+        return try finish(.auto, slots, target: target, mtpOn: mtpOn)
+    }
+
+    /// Resolve the first image against the existing policy, before allocating
+    /// its tower. The source and target remain the user's original decision.
+    public static func loadingVision(_ p: MemoryPlan) throws -> MemoryPlan {
+        guard p.visionEnabled else { throw PlanError("vision is disabled") }
+        if p.visionResidentReserved { return p }
+        var sized: MemoryPlan
+        if let target = p.targetGB {
+            sized = try plan(expertsPerLayer: nil, poolGB: nil, memoryGB: target,
+                ramGB: p.ramGB, workingSetGB: p.workingSetGB, availableGB: p.availableGB,
+                mtp: p.mtpEnabled ? .on : .off, mtpAvailable: p.mtpEnabled,
+                vision: .on, visionAvailable: true, visionResidentReserved: true,
+                maxContextTokens: p.maxContextTokens, simulated: p.simulated, qualification: p.contextQualification,
+                runtimePolicy: p.runtimeAllocationPolicy)
+        } else { sized = p }
+        // Loading a tower never justifies restoring capacity already donated
+        // by the governor. Its original target can outlive a pressure shrink.
+        return MemoryPlan(source: p.source, slots: min(p.slots, sized.slots), targetGB: p.targetGB,
+            ramGB: p.ramGB, workingSetGB: p.workingSetGB, ramPercent: p.ramPercent,
+            availableGB: p.availableGB, clamped: p.clamped, prefillChunk: min(p.prefillChunk, sized.prefillChunk),
+            prefixCacheTokens: min(p.prefixCacheTokens, sized.prefixCacheTokens), mtpEnabled: p.mtpEnabled,
+            visionEnabled: true, visionResidentReserved: true,
+            maxContextTokens: p.maxContextTokens,
+            notes: p.notes + ["vision tower resident memory reserved before loading"], simulated: p.simulated,
+            runtimeAllocationPolicy: p.runtimeAllocationPolicy,
+            maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification)
     }
 }

@@ -2,34 +2,491 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-06T06:34:04.203085Z
+updated: 2026-09-10T20:44:33.641941Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-10-user-server-small-benchmark-paging-repeat-discarded]] — Discarded timing for the completed resumed summary repeat with system paging
+- [[sources/runs/2026/09/2026-09-10-user-server-small-benchmark-pressure-attempt-discarded]] — Discarded small-benchmark request canceled on memory pressure
+- [[sources/runs/2026/09/2026-09-10-user-server-three-prompts-small-benchmark]] — Small sequential benchmark of three prompts on the existing user server, with repeats and follow-ups
+- [[sources/runs/2026/09/2026-09-10-optimization-final-program-complete]] — Original OPT00–OPT36 program complete with tested sources and installed candidate active
+- [[sources/runs/2026/09/2026-09-10-optimization-final-local-activation-and-all37-outcomes]] — Qualified final source and installed binary activated locally with all thirty-seven outcomes preserved
+- [[sources/runs/2026/09/2026-09-10-optimization-final-preactivation-closure]] — All thirty-seven optimization outcomes and complete exact-candidate gates close before local activation
+- [[sources/runs/2026/09/2026-09-10-optimization-final-empirical-calibration-decision]] — Completed final evidence retains the conservative planner family without new capacity or speed credit
+- [[sources/runs/2026/09/2026-09-10-optimization-final-long-on-complete-pass]] — Complete fixed-MTP sustained cohort qualifies with a measured speed-memory tradeoff
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-thermal-recovery-guarded-launch]] — Full thermal-recovery MTP-on cohort launches after real bounded nominal and capacity readiness
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-thermal-recovery-preparation]] — Prospective full-cohort recovery from excluded completed fair responses passes 86 model-free checks
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-user-directed-thermal-stop]] — Capacity-qualified continuation stops at a completed reference response ending thermally fair
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-user-directed-guarded-launch]] — User-directed full MTP continuation starts after actual memory and nominal thermal readiness
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-quiet-interval-preparation]] — Separate complete MTP repetition prepared with unchanged protocol, awaiting a quiet machine interval
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-distributed-thermal-stop]] — Distributed-cooling MTP cohort stops during reference startup after six complete pairs
+- [[sources/runs/2026/09/2026-09-10-optimization-final-all37-delivery-and-activation-reconciliation]] — All 37 dispositions retained with completed MTP-off and delivery evidence; full MTP-on and activation remain open
+- [[sources/runs/2026/09/2026-09-10-optimization-final-distributed-launch-and-delivery-reconciliation]] — Actual distributed-cooling launch and completed delivery evidence remain tied to the exact candidate
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-distributed-cooling-preparation]] — Same total idle time distributed around both full MTP requests; original acceptance and source proofs retained
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-cooled-thermal-stop]] — Long MTP cohort stops thermally despite before-cell cooling; full completed work and cleanup preserved
+- [[sources/runs/2026/09/2026-09-10-optimization-final-cooled-launch-and-report-binding]] — Cooled MTP cohort passes actual readiness and final report preparation follows its exact identity
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-cooled-cohort-preparation]] — Fresh full MTP cohort prepared with longer cooling and actual polling-overhead validation
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-thermal-stop]] — Final MTP long cohort stops on fair thermal state with full partial work preserved
+- [[sources/runs/2026/09/2026-09-10-optimization-final-prefill-reconciliation-and-calibration-preparation]] — Closed automatic-prefill results reconciled and final calibration report prepared
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-startup-exclusion-preparation]] — Exact final MTP startup method excludes contaminated pairs and preserves resource stops
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-startup-swapin-stop]] — Corrected MTP long cohort stops on eight startup swap-in pages with ample headroom
+- [[sources/runs/2026/09/2026-09-10-optimization-final-mtp-long-delivery-correction]] — Exact final MTP long-workload delivery correction passes49model-free checks and freezes
+- [[sources/runs/2026/09/2026-09-10-optimization-final-long-on-delivery-refusal]] — Final MTP-on long cohort refuses incompatible legacy large-memory protocol before model launch
+- [[sources/runs/2026/09/2026-09-10-optimization-final-long-off-complete-pass]] — Final MTP-off sustained cohort completes all512-output work with13clean pairs
+- [[sources/runs/2026/09/2026-09-09-optimization-current-all37-source-dispositions]] — All thirty-seven current dispositions reconciled with final source and completed evidence
+- [[sources/runs/2026/09/2026-09-09-optimization-final-observed-spreads-and-original-aa-context]] — Final paired request spreads and original A/A variability are reported without rescoring
+- [[sources/runs/2026/09/2026-09-09-optimization-final-calibration-inputs-and-profile-label-correction]] — Exact planner family and all final short-cohort memory caps verified; two profile labels corrected
+- [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-disposition-checkpoint]] — All thirty-seven optimization dispositions retain completed lifetime and control evidence
+- [[sources/runs/2026/09/2026-09-09-optimization-final-control-and-fallback-review]] — Exact final controls preserve selected defaults, reference compatibility and measured platform dispatch
+- [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-on-pass]] — Exact final MTP-on lifetime passes all sixty original requests
+- [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-off-pass]] — Exact final MTP-off lifetime passes all sixty original requests
+- [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-actual-binding]] — Original final lifetimes bind successfully to all eight completed paired studies
+- [[sources/runs/2026/09/2026-09-09-optimization-final-installed-qualification-pass]] — Exact final installed CLI passes all31 checks and full upgrade/rollback qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-final-complete-verification-pass]] — Exact final V519 passes the complete original25-check verification battery
+- [[sources/runs/2026/09/2026-09-09-optimization-final-actual-default-and-eight-paired-complete-pass]] — Exact final actual-default cohort and all eight original paired studies pass
+- [[sources/runs/2026/09/2026-09-09-optimization-final-complete-verification-and-installed-preparation]] — Final coverage audit preserves complete verification and installed qualification before activation
+- [[sources/runs/2026/09/2026-09-09-optimization-final-retention-complete-pass]] — Exact final retention-only cohort passes complete original qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-prospective-long-adaptive-scheduling]] — Prospective long-study thermal scheduling passes 43 checks; frozen paired campaign remains unchanged
+- [[sources/runs/2026/09/2026-09-09-optimization-final-complete-repeat-complete-pass]] — Exact final complete-repeat cohort passes complete original qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-final-distinct-tail-complete-pass]] — Exact final distinct-tail cohort passes complete original qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-final-mtp-resource-complete-pass]] — Exact final mtp-resource cohort passes complete original qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-final-sampled-complete-pass]] — Exact final sampled cohort passes full output, memory, request and startup qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-final-prose-complete-pass]] — Exact final prose cohort passes full work, memory, request and startup qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-final-paired-resumption]] — Full final optimization qualification resumes after material resource recovery
+- [[sources/runs/2026/09/2026-09-09-optimization-final-thermal-impasse-audit]] — Third consecutive thermal impasse preserves the complete unfinished optimization goal
+- [[sources/runs/2026/09/2026-09-09-optimization-final-readiness-thermal-timeout]] — Final readiness times out with sufficient memory and no model launch
+- [[sources/runs/2026/09/2026-09-09-optimization-final-dispositions-and-readiness-checkpoint]] — All37 dispositions retain exact current evidence; bounded readiness observer prepares no model run
+- [[sources/runs/2026/09/2026-09-09-optimization-exact-final-activation-preparation]] — Unapplied final V519 activation patch matches all150source inputs and passes the real workspace apply check
+- [[sources/runs/2026/09/2026-09-09-optimization-final-continuation-and-remaining-delivery-preparation]] — Exact final continuation reuses the passed short cohort and prepares unchanged lifetime, sustained-TPS and activation work
+- [[sources/runs/2026/09/2026-09-09-optimization-final-unique-prose-thermal-stop]] — Original final unique-prose cohort remains unqualified after nominal-state exclusions make five clean pairs impossible
+- [[sources/runs/2026/09/2026-09-09-optimization-final-short-one-complete-pass]] — Exact final composition passes the complete original short-one paired request and startup gates
+- [[sources/runs/2026/09/2026-09-09-optimization-final-eight-paired-serial-preparation]] — Original eight exact final paired studies are queued sequentially with unchanged full work and acceptance
+- [[sources/runs/2026/09/2026-09-09-optimization-final-offline-client-full-pass]] — Exact final candidate passes the complete original Hermes and Ollama client family with isolated offline scanner configuration
+- [[sources/runs/2026/09/2026-09-09-optimization-offline-client-fixture-preparation]] — Pinned Hermes explicit scanner path prevents auxiliary download while preserving all original local client assertions
+- [[sources/runs/2026/09/2026-09-09-optimization-final-resource-pass-and-client-installer-stop]] — Final resource suite passes all seven gates; original Hermes client remains failed for a blocked scanner download attempt
+- [[sources/runs/2026/09/2026-09-09-optimization-final-quiet-resource-repetition-preparation]] — One complete quiet resource repeat preserves every original guard after the recorded global swap-in stop
+- [[sources/runs/2026/09/2026-09-09-optimization-final-resource-global-swapin-stop]] — Original final resource suite retains six passes and an incomplete MTP check after four global swap-ins
+- [[sources/runs/2026/09/2026-09-09-optimization-final-resource-client-exact-binding]] — Original resource and client families bind the exact final binary and seven native proofs
+- [[sources/runs/2026/09/2026-09-09-optimization-final-composition-static-and-external-pass]] — Final exact-source static suite and independent public-library consumer both pass
+- [[sources/runs/2026/09/2026-09-09-optimization-final-lifetime-binding-preparation]] — Exact final lifetime adapter retains both original60request workloads and passes12 model-free checks
+- [[sources/runs/2026/09/2026-09-09-optimization-final-composition-seven-native-pass-and-serving-freeze]] — All5556 final native assertions pass and the original final serving matrix is bound
+- [[sources/runs/2026/09/2026-09-09-optimization-final-composition-build-pure-and-native-freeze]] — Exact selected final composition compiles and passes25360 pure assertions and116 CLI checks
+- [[sources/runs/2026/09/2026-09-09-optimization-final-preparation-binding-amendment-and-source-review]] — Final prerequisite path amendment passes all27 affected checks and bounded source review
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-1024-complete-pass]] — Complete 16 GB public-planner cohort passes with independently audited startup swap-in exclusions
+- [[sources/runs/2026/09/2026-09-09-optimization-final-source-current-profile-binding-preparation]] — Final-source preparation requires the exact qualified profile identities and declared exclusion audit
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-512-complete-pass]] — Complete 12 GB public-planner cohort passes with explicit startup swap-in pair exclusions
+- [[sources/runs/2026/09/2026-09-09-optimization-explicit-startup-swapin-method-and-full-freeze]] — Explicit whole-pair startup swap-in exclusion with unchanged hard limits and fresh full cohorts
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-repeat-startup-swapin-stop]] — Second 12 GB startup swap-in stop with ample headroom, preserved incomplete cohort
+- [[sources/runs/2026/09/2026-09-09-optimization-qualified-fixture-full-planner-cohorts-freeze]] — Full 12 and 16 GB original planner cohorts frozen after independent fixture delivery
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-1024-continuation-delivery-pass]] — Corrected 16 GB planner fixtures pass four-response functional delivery, no timing qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-continuation-fixture-and-full-cohort-preparation]] — Prospective 4099-token continuation delivery and full original cohort adapter preparation
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-1024-first-fixture-short-stop]] — Original 16 GB first fixture stopped at one output; early work guard preserved evidence and drained
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-512-fixture-delivery-pass]] — Corrected 12 GB planner fixture passes four-response functional delivery, no timing qualification
+- [[sources/runs/2026/09/2026-09-09-optimization-first-work-guard-and-fixture-delivery-preparation]] — Early original first-work enforcement and bounded prospective fixture delivery preparation
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-512-resource-stop-and-first-work-failure]] — V515 12 GB planner resource stop and first-job workload failure, unqualified
+- [[sources/runs/2026/09/2026-09-09-optimization-final-static-consumer-preparation]] — Final static lease and external consumer preparation preserve original checks and guards
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-256-complete-pass]] — Original 10 GB public-planner cohort qualifies automatic grouping with exact full responses
+- [[sources/runs/2026/09/2026-09-09-optimization-final-qualification-drivers-preparation]] — Final source qualification drivers preserve original native, paired and long workloads
+- [[sources/runs/2026/09/2026-09-09-optimization-final-source-preparation-checks]] — Final composition source and original build lease preparation pass eight model-free checks
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-metadata-delivery-correction]] — Actual planner metadata collection corrects first-response observation failure
+- [[sources/runs/2026/09/2026-09-09-optimization-public-planner-raw-delivery-correction]] — Raw planner benchmark refuses before model launch; exact request correction is frozen
+- [[sources/runs/2026/09/2026-09-09-optimization-final-component-control-and-vision-override-preparation]] — Final comparison controls preserve original workloads and draft explicit vision override compatibility
+- [[sources/runs/2026/09/2026-09-09-optimization-adaptive-public-planner-cohort-freeze]] — Three original public-planner cohorts rebound to the exact seven-case-qualified candidate
+- [[sources/runs/2026/09/2026-09-09-optimization-adaptive-scope-seven-native-pass]] — All seven smaller-group native cases pass with complete prior coverage
+- [[sources/runs/2026/09/2026-09-09-optimization-qualified-scope-decode-observations]] — Qualified scope cohort retains decode work and lowers end memory while short I/O time rises
+- [[sources/runs/2026/09/2026-09-09-optimization-adaptive-scope-build-pure-and-native-freeze]] — Smaller-group sizing compiles, preserves all prior pure and CLI checks, and freezes seven exact native cases
+- [[sources/runs/2026/09/2026-09-09-optimization-quiet-scope-complete-pass]] — Full original read-scope cohort qualifies startup and request benefit under the unchanged process cap
+- [[sources/runs/2026/09/2026-09-09-optimization-adaptive-scope-qualification-executors]] — Prepared execution code for exact smaller-scope build, pure checks and all seven native cases
+- [[sources/runs/2026/09/2026-09-09-optimization-adaptive-scope-sizing-source]] — Automatic prefill smaller-group sizing draft with preserved original schedule and guards
+- [[sources/runs/2026/09/2026-09-09-optimization-scope-short-decode-observations]] — Scope short-decode observation: identical read work with higher reported I/O time; sustained behavior remains unmeasured
+- [[sources/runs/2026/09/2026-09-09-optimization-vision-mechanism-complete-pass]] — Complete large-image vision mechanism qualifies: exact responses, reduced process peak and lower latency
+- [[sources/runs/2026/09/2026-09-09-optimization-quiet-resource-scope-cohort-freeze]] — Fresh complete scope cohort frozen after material resource recovery, preserving the V467 startup failure
+- [[sources/runs/2026/09/2026-09-09-optimization-explicit-scope-complete-startup-inconclusive]] — Complete explicit-scope cohort: exact outputs and 10 GB cap pass; request gate passes but startup pair count fails
+- [[sources/runs/2026/09/2026-09-08-optimization-public-planner-threshold-cohort-freeze]] — Three original full public planner threshold cohorts frozen with exact current native proof
+- [[sources/runs/2026/09/2026-09-08-optimization-public-planner-serving-driver-preparation]] — Public planner serving measurement driver prepared and model-free checked
+- [[sources/runs/2026/09/2026-09-08-optimization-all-current-native-pass-and-scope-freeze]] — All seven current native cases pass and original full scope cohort freezes
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-recovery-and-scope-preparation]] — Current recovery integration passes and complete explicit-scope successor is prepared
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-resource-resumption-preparation]] — Full vision mechanism successor frozen after verified memory recovery
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-ordinary-mtp-native-pass]] — Current automatic-scope candidate passes original ordinary and MTP integrations
+- [[sources/runs/2026/09/2026-09-08-optimization-resource-resumption-native-preparation]] — Optimization native tests resume after verified memory recovery
+- [[sources/runs/2026/09/2026-09-08-optimization-resource-impasse-audit]] — Optimization resource impasse after current-source delivery qualification
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-exact-source-static-pass]] — Complete static suite passes on V436 binary and all150 exact sources, with tested16-file restoration
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-external-consumer-pass]] — Exact V436 external package passes all original API/planner/diagnostic checks and new automatic-control round trips
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-mtp-pressure-stop]] — Expanded automatic MTP native stops at macOS pressure level2 with no report; all processes drained
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-family-pass-and-integration-preparation]] — V436 passes both original scope geometry families with1634 assertions; three ordinary integration cases rebound exactly
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-lifecycle-pressure-stop]] — Expanded V439 lifecycle stops before report at macOS pressure warning; exact failure footprint and binary locations preserved
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-build-pure-and-native-preparation]] — Automatic scheduler V436 compiles and passes 22840 pure assertions plus116 CLI checks; expanded native gates frozen
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-native-footprint-build-preparation]] — Corrected automatic scope source and exact guarded build preparation; unsigned Mach footprint fails closed on overflow
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-pressure-stop]] — Full vision mechanism V413 stopped at macOS pressure warning; all seven completed responses preserved, no qualification
+- [[sources/runs/2026/09/2026-09-08-optimization-corrected-scope-serving-headroom-stop]] — Corrected scope study stops before round11 scope launch; 42 completed responses preserved, cohort incomplete
+- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-integration-preparation]] — Automatic scope scheduling, local execution controls and atomic memory fallback joined in an isolated draft
+- [[sources/runs/2026/09/2026-09-08-optimization-atomic-workspace-fallback-preparation]] — Atomic preferred-or-fallback workspace reservation implemented in an isolated draft; qualification pending
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-allocation-refusal-native-preparation]] — Scope allocation refusal native checks prepared; compilation and execution pending
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-headroom-resumption-preparation]] — Fresh full24-cell V413vision identity preserves both stopped cohorts;9model-free checks pass
+- [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-integration-pass-and-serving-freeze]] — V402 all1135ordinary/MTP/recovery assertions pass; corrected full32-cell scope cohort frozen
+- [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-native-family-pass]] — V402 all four scope cases pass2949assertions; ordinary integration passes286
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-settling-headroom-stop]] — V395 stops during prelaunch settling below original18GBadmission; no model or measured request
+- [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-allocation-build-and-pure-pass]] — V402 explicit scope allocation guard builds with exact restoration;22,363pure and116CLI assertions pass
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-cache-correctness-and-memory-status]] — V392 scope-family2051 and pure/CLI pass; remaining native admission refused; idle Colima stopped
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-cache-recovery-native-pass]] — Corrected workspace-cache candidate completes all original read-recovery assertions
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-cache-native-progress-and-policy-binding]] — Corrected candidate ordinary and MTP native checks pass; unrun scope guards corrected to original family
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-thermal-settling-preparation]] — Full vision mechanism successor preserves acceptance and adds bounded prelaunch thermal settling
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-buffer-cache-correction-build]] — Scope workspace frees disposable MLX buffers and restores caller cache policy; exact candidate build passes
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-thermal-stop]] — Amended maximum-image mechanism cohort stops at its unchanged thermal gate
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-capacity-failure]] — Complete scope serving cohort preserves exact outputs but fails the original physical cap
+- [[sources/runs/2026/09/2026-09-08-optimization-thermally-settled-scope-executor-preparation]] — Full fixed scope successor executor preserves acceptance and prices thermal waits
+- [[sources/runs/2026/09/2026-09-08-optimization-prelaunch-thermal-settling-preparation]] — Bounded nominal-condition settling prepared for future benchmark cohorts
+- [[sources/runs/2026/09/2026-09-08-optimization-final-resource-client-binding-preparation]] — Model-free final candidate binding for original resource and real-client gates
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-driver-delivery-correction]] — Preserved pre-model driver failure and qualified fixed-cohort delivery correction
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-query-capacity-pass]] — Original seven-cell vision-query capacity study qualifies the10GB target
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-startup-swapin-policy]] — Prospective startup swap-in pair exclusion with stronger live swap-out stop
+- [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-startup-swap-stop]] — Original large-image mechanism study stops on startup swap-ins
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-photo-pass]] — Original full-photo vision-query serving profile passes all25 assertions
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-pass]] — Both complete original vision-query integrations pass after memory is freed
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-resource-resume-preparation]] — Original complete scope serving study prepared after user-freed memory
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-activation-preparation]] — Exact current V360 activation patch is prepared and remains unapplied
+- [[sources/runs/2026/09/2026-09-08-optimization-unique-image-serving-pressure-stop]] — Original unique-image guard stops at OS memory pressure before a measured request
+- [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-pressure-stop]] — Original scope serving study preserves exact output pairs but stops at OS memory pressure
+- [[sources/runs/2026/09/2026-09-08-optimization-duplicate-image-serving-rejected]] — Original duplicate-image study completes with exact outputs but fails the speed gate
+- [[sources/runs/2026/09/2026-09-08-optimization-campaign-path-normalization]] — Unprepared final campaign adapter normalizes source identity across macOS temporary-directory aliases
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-image-serving-preparation]] — Original image comparisons prepared with exact native proof and normalized source paths
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-serving-preparation]] — Original full-photo and maximum-image studies rebound to resumed vision proofs
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-preparation]] — Resumed full vision integrations preserve original component proofs and guards
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-campaign-adapter]] — Fixed-MTP campaign adapter preserves exact original native evidence and eight workload contracts
+- [[sources/runs/2026/09/2026-09-08-optimization-resumed-scope-native-pass]] — Resumed original scope family passes 2698 assertions; original serving study frozen and unrun
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-long-decode-executor]] — Long decoding runner follows corrected fixed-MTP candidate controls
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-native-pass]] — Corrected compact-cache candidate passes all original native suites
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-validation-controls]] — Final study drafts preserve compact rows and the original MTP schedule
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-metadata-pass]] — Corrected fixed-MTP candidate passes pure and CLI checks
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-cache-fixed-mtp-build]] — Compact-cache candidate builds with the original fixed MTP verification shape
+- [[sources/runs/2026/09/2026-09-08-optimization-mtp-verification-shape-correction]] — Combined candidate restores fixed MTP verification shape after exact-output failures
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-native-counterexample]] — Full native qualification rejects the bounded MTP tail while ordinary and recovery pass
+- [[sources/runs/2026/09/2026-09-08-optimization-long-decoding-guarded-executor]] — Long decoding executor preserves fixed workloads and rejects stale qualification
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-complete-static]] — New combined binary passes the complete static acceptance suite
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-external-consumer]] — New combined source passes external public-library and planner contracts
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-activation-preparation]] — Current-source activation patch prepared without applying it
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-metadata-pass]] — New combined binary passes all pure Swift and CLI metadata contracts
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-validation-controls]] — New combined validation controls and long-throughput drafts preserve original workload criteria
+- [[sources/runs/2026/09/2026-09-08-optimization-native-headroom-comparison]] — Native pressure stop compared with the prior successful launch
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-native-pressure-stop]] — New combined native attempt stops on OS pressure with owned physical-footprint evidence
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-combined-build]] — Compact cache and bounded greedy tail compile in the new combined candidate
+- [[sources/runs/2026/09/2026-09-08-optimization-bounded-tail-candidate-integration]] — Qualified bounded greedy tail joins the explicit combined candidate
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-tail-cache-carryover-qualified]] — Fixed-depth greedy MTP tail qualifies in a fresh cache-carryover study
+- [[sources/runs/2026/09/2026-09-08-optimization-native-state-lifetime]] — Integrated native diagnostics isolate retained prefill state before full generation
+- [[sources/runs/2026/09/2026-09-08-optimization-mtp-cache-carryover-preparation]] — Prospective MTP cache-carryover comparison preserves the original failed cohort
+- [[sources/runs/2026/09/2026-09-08-optimization-original-fixed-mtp-serving]] — Original MTP cohorts preserved; sampled guard passes after exact reporting correction
+- [[sources/runs/2026/09/2026-09-08-optimization-compact-cache-candidate-integration]] — Qualified compact cache added to the explicit integration candidate
+- [[sources/runs/2026/09/2026-09-08-optimization-failure-footprint-observer]] — Owned physical-footprint failure observer preserves the original memory guard
+- [[sources/runs/2026/09/2026-09-08-optimization-long-decode-measurement-preparation]] — Bounded long-decode timing and eligibility reporter prepared and tested
+- [[sources/runs/2026/09/2026-09-08-optimization-image-serving-pressure-stop]] — Original duplicate-image study stopped before its first measured cell
+- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-lifecycle-dependency]] — Fixed-tail MTP prerequisites preserve adaptive rejection and isolate passing lifecycle evidence
+- [[sources/runs/2026/09/2026-09-08-optimization-native-memory-pressure-stops]] — Full-model vision and prefill native runs stopped at memory-pressure warnings
+- [[sources/runs/2026/09/2026-09-08-optimization-current-adaptive-policy-counterexample]] — Current adaptive speculation retains its exact-output rejection
+- [[sources/runs/2026/09/2026-09-08-optimization-current-vision-mtp-static-gates]] — Current vision components, fixed MTP work, image reuse and full static suite pass
+- [[sources/runs/2026/09/2026-09-07-optimization-current-maximum-image-gates-preparation]] — Current full-photo and original maximum-image serving gates prepared
+- [[sources/runs/2026/09/2026-09-07-optimization-vision-qualification-profile-correction]] — Full-image qualification command reconciled with the original complete-photo profile
+- [[sources/runs/2026/09/2026-09-07-optimization-current-vision-native-preparation]] — Current query-tiled vision prerequisites prepared; original admission retained
+- [[sources/runs/2026/09/2026-09-07-optimization-current-read-scope-gates-preparation]] — Current bounded read-scope prerequisites and original long-prefill study prepared
+- [[sources/runs/2026/09/2026-09-07-optimization-original-mtp-image-gates-preparation]] — Current MTP and image prerequisites prepared for original serving gates
+- [[sources/runs/2026/09/2026-09-07-optimization-compact-cache-component-and-serving-qualification]] — Compact BF16 cache qualifies; ring variants fail original benefit threshold
+- [[sources/runs/2026/09/2026-09-07-optimization-current-full-cache-component-preparation]] — Current full-cache component keeps the original fixed study
+- [[sources/runs/2026/09/2026-09-07-optimization-current-prose-confirmation-and-startup-reporting-parity]] — Current prose confirmation qualifies; cache prerequisites and startup reporting parity pass
+- [[sources/runs/2026/09/2026-09-07-optimization-resource-subset-and-exact-activation-preparation]] — Original resource gates and exact seven-file activation patch prepared
+- [[sources/runs/2026/09/2026-09-07-optimization-fixed-confirmation-and-lifetime-preparation]] — Fixed confirmation, explicit lifetime provenance and all controls reconciled
+- [[sources/runs/2026/09/2026-09-07-optimization-thermal-static-suite-integration]] — Thermal readiness becomes a mandatory static regression suite
+- [[sources/runs/2026/09/2026-09-07-optimization-foundation-thermal-preflight]] — Additional direct Foundation thermal/power pre-launch observation
+- [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-installed-and-full-tail]] — Installed upgrade/rollback and complete original verification tail pass
+- [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-prose-qualification-exclusions]] — Current prose correctness passes; fixed timing sample is insufficient
+- [[sources/runs/2026/09/2026-09-07-optimization-full-verification-context-exit]] — Preserved full-verification resource failures and context exit handling repair
+- [[sources/runs/2026/09/2026-09-07-optimization-public-consumer-lifetime-preflight]] — Actual public consumer and corrected lifetime planner preflight
+- [[sources/runs/2026/09/2026-09-07-optimization-corrected-lifetime-composition]] — Guarded corrected-lifetime execution and explicit original-evidence composition
+- [[sources/runs/2026/09/2026-09-07-optimization-lifetime-mtp-vision-contract-correction]] — Unrun MTP-plus-vision lifetime contract corrected from source constraints
+- [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-short-request-pair]] — Current joined-evaluation build: fixed short-request latency and memory comparison
+- [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-current-gates]] — Joined-evaluation candidate correctness, portable compatibility and failed long-resource gate
+- [[sources/runs/2026/09/2026-09-07-optimization-joined-state-eval-implementation]] — Joined retained-state evaluation implementation and new-build native acceptance
+- [[sources/runs/2026/09/2026-09-07-optimization-native-retained-window-sync]] — Native Swift retained-window synchronization evidence
+- [[sources/runs/2026/09/2026-09-07-optimization-sync-probe-memory-label-correction]] — Correction to the component probe allocator-peak label
+- [[sources/runs/2026/09/2026-09-07-optimization-retained-window-sync-component]] — Retained-window synchronization component probe and explicit serving qualification boundary
+- [[sources/runs/2026/09/2026-09-07-optimization-current-clients-and-portable-pass]] — Current actual-client compatibility and complete portable-path native acceptance
+- [[sources/runs/2026/09/2026-09-07-optimization-combined-prose-serving-pass]] — Combined nonrepeating prose serving qualification on current V280
+- [[sources/runs/2026/09/2026-09-07-optimization-external-consumer-and-long-preflight]] — Exact-source external Swift consumer pass and preserved long-memory preflight refusals
+- [[sources/runs/2026/09/2026-09-07-optimization-first-combined-pair-and-throughput-reporting]] — First combined paired workload and one-token throughput reporting correction
+- [[sources/runs/2026/09/2026-09-07-optimization-governor-and-mtp-recovery]] — Portable governor acceptance and complete MTP memory/vision recovery
+- [[sources/runs/2026/09/2026-09-07-optimization-full-verification-counterexample]] — Exact candidate full verification: 22 pass and three preserved failures
+- [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-complete-static]] — Current candidate passes complete static, CLI and bounded component gates
+- [[sources/runs/2026/09/2026-09-07-optimization-final-candidate-native-and-build]] — Expanded-diagnostic candidate builds and passes all three exact-build native prerequisites
+- [[sources/runs/2026/09/2026-09-07-optimization-committed-checkpoint-read-failure-recovery]] — Committed prompt checkpoints survive decode errors exactly across every serving dialect
+- [[sources/runs/2026/09/2026-09-07-optimization-native-pass-and-read-failure-checkpoint-counterexample]] — Combined native passes expose stale failed-state checkpoint assertion
+- [[sources/runs/2026/09/2026-09-07-optimization-pressure-failure-cause-reporting]] — Pressure failures retain the observed kernel level without changing eligibility
+- [[sources/runs/2026/09/2026-09-07-optimization-native-comparison-pressure-stop]] — First current-candidate native comparison stops at non-normal OS pressure
+- [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-metadata-and-api]] — Current candidate passes complete metadata, runtime and actual API correctness
+- [[sources/runs/2026/09/2026-09-07-optimization-current-source-candidate-build]] — Current combined source builds with exact shared-state restoration
+- [[sources/runs/2026/09/2026-09-07-optimization-current-source-build-resource-stop]] — Current-source release build stops at its memory floor and restores the checkout
+- [[sources/runs/2026/09/2026-09-07-optimization-current-source-external-consumer]] — Actual external consumer compiles the combined defaults with current planner device extraction
+- [[sources/runs/2026/09/2026-09-07-optimization-planner-device-extraction-rebase]] — Unchanged planner family rebases onto the current device-observer source seam
+- [[sources/runs/2026/09/2026-09-07-optimization-campaign-and-active-throughput-reporting]] — Frozen complete campaign and paired active-emission reporting are executable
+- [[sources/runs/2026/09/2026-09-07-optimization-combined-bounded-components]] — Combined candidate passes bounded read, socket, prefix and RoPE components
+- [[sources/runs/2026/09/2026-09-07-configurable-context-window-cli-matrix]] — Explicit context windows pass model-free CLI checks; native capacity remains unqualified
+- [[sources/runs/2026/09/2026-09-07-configurable-context-portable-software-acceptance]] — Configurable context software proxies and portable native qualification
+- [[sources/runs/2026/09/2026-09-07-optimization-combined-candidate-handoff]] — Combined candidate clean handback and complete37item disposition
+- [[sources/runs/2026/09/2026-09-07-optimization-consumer-build-contract]] — Standalone consumer rejects failed builds; native compilation remains unrun
+- [[sources/runs/2026/09/2026-09-07-optimization-combined-default-sampler-installer]] — Combined candidate passes sampler oracle and real local installer transitions
+- [[sources/runs/2026/09/2026-09-07-optimization-correctness-memory-policy]] — Preserved swap guard stop and explicit correctness-only VM observations
+- [[sources/runs/2026/09/2026-09-07-optimization-combined-default-metadata-and-runtime]] — Combined candidate passes native metadata, exact planner and runtime defaults
+- [[sources/runs/2026/09/2026-09-07-optimization-combined-default-candidate-build]] — Separate combined-default candidate builds and restores the shared checkout
+- [[sources/runs/2026/09/2026-09-07-optimization-api-concurrency-validation]] — Metadata concurrency acceptance requires actual completed generation
+- [[sources/runs/2026/09/2026-09-07-optimization-api-pressure-preflight-refusal]] — Corrected API qualification was not launched after headroom refusal
+- [[sources/runs/2026/09/2026-09-07-optimization-os-pressure-readiness]] — Prospective OS-pressure observation and guarded process receipts
+- [[sources/runs/2026/09/2026-09-07-optimization-api-generation-completion-validation]] — API completion validation rejects matching errors and incomplete responses
+- [[sources/runs/2026/09/2026-09-07-optimization-planner-context-pass-and-api-pressure-failure]] — Planner and context correctness with failed API pressure interval
+- [[sources/runs/2026/09/2026-09-07-optimization-planner-metadata-and-context-boundary]] — Planner metadata and unchanged-context optimization boundary
+- [[sources/runs/2026/09/2026-09-07-configurable-context-openai-release-completion]] — Installed OpenAI successful-completion acceptance
+- [[sources/runs/2026/09/2026-09-07-optimization-full-cache-two-cells-and-refusal]] — Full-cache two-cell execution and resource refusal
+- [[sources/runs/2026/09/2026-09-07-optimization-serial-and-installed-gate-integration]] — Serial build and installed-release validation corrections
+- [[sources/runs/2026/09/2026-09-07-optimization-cached-planner-build-and-typed-parity]] — Cached planner build and441typed parity checks
+- [[sources/runs/2026/09/2026-09-07-optimization-full-cache-first-cell-refusal]] — Original full-cache first-cell resource refusal
+- [[sources/runs/2026/09/2026-09-07-optimization-serial-compiler-guard-failures]] — Serial compiler guard failures and preserved primary errors
+- [[sources/runs/2026/09/2026-09-07-optimization-typed-planner-baseline-and-isolation]] — Typed planner baseline and isolated cost-family implementation
+- [[sources/runs/2026/09/2026-09-07-optimization-resource-readiness-and-restoration]] — Resumed optimization resource readiness and restoration
+- [[sources/runs/2026/09/2026-09-07-optimization-mandatory-sampler-and-final-handoff]] — Mandatory sampler fixture and final acceptance handoff
+- [[sources/runs/2026/09/2026-09-07-optimization-final-completion-metadata]] — Final completion metadata and exact token accounting
+- [[sources/runs/2026/09/2026-09-07-configurable-context-sampler-exit-and-binary-selection]] — Sampler exit-status false passes removed; API and sampler honor the selected binary
+- [[sources/runs/2026/09/2026-09-07-optimization-verification-selected-paths]] — Verification selected-path dispatch and bounded fixture checks
+- [[sources/runs/2026/09/2026-09-07-optimization-selected-artifacts-and-static-suites]] — Selected-artifact acceptance and mandatory optimization suites
+- [[sources/runs/2026/09/2026-09-07-configurable-context-shared-client-fixtures]] — Context consumer, Hermes and published gateway fixtures integrated into shared Tools
+- [[sources/runs/2026/09/2026-09-07-configurable-context-shared-engineering-integration]] — Shared context plan, exact source closure and unreleased documentation integrated
+- [[sources/runs/2026/09/2026-09-07-configurable-context-candidate-selection-acceptance]] — Selected-candidate planner and installer fixes; fixture passes and six headroom-blocked planner checks preserved
+- [[sources/runs/2026/09/2026-09-07-optimization-paired-correctness-independent-of-timing]] — Final response correctness and resource ceilings are independent of timing exclusion
+- [[sources/runs/2026/09/2026-09-07-optimization-static-candidate-selection]] — Static acceptance uses the exact selected candidate
+- [[sources/runs/2026/09/2026-09-07-optimization-current-default-source-review]] — Current default source and complete optimization work reconciliation
+- [[sources/runs/2026/09/2026-09-07-optimization-cache-prelaunch-and-soak-harness]] — Zero-cell cache preflight refusal and pure soak harness checks
+- [[sources/runs/2026/09/2026-09-07-configurable-context-after-component-handoff-readiness]] — Readiness after the bounded component handback still misses the frozen P5 preflight
+- [[sources/runs/2026/09/2026-09-07-optimization-indexer-score-screen]] — Indexer score screen rejects general prefill fusion
+- [[sources/runs/2026/09/2026-09-07-configurable-context-v215-prepared-state-audit]] — V215 runtime source closure survives final harness review; resource campaign held
+- [[sources/runs/2026/09/2026-09-07-configurable-context-installed-gate-discovery-preparation]] — Installed acceptance reads the actual nested discovery cap; no installed run yet
+- [[sources/runs/2026/09/2026-09-07-configurable-context-v215-minimum-and-transition-protocols]] — Exact V215 minimum-target neighbors and prospective C19 capacity matrix
+- [[sources/runs/2026/09/2026-09-07-configurable-context-v215-capacity-protocols]] — Prospective V215 ordinary-target cold and retained capacity protocols; unrun
+- [[sources/runs/2026/09/2026-09-06-optimization-merged-correctness-v202]] — Complete V202 shared inference correctness queue passes
+- [[sources/runs/2026/09/2026-09-07-optimization-actual-default-final-gate]] — Applied eighth actual-default final qualification gate
+- [[sources/runs/2026/09/2026-09-07-optimization-default-and-release-acceptance-review]] — Actual-default comparison draft and release acceptance shell correction
+- [[sources/runs/2026/09/2026-09-07-configurable-context-v215-capacity-preflight-hold]] — Capacity campaign remains unrun: current real availability is below the frozen preflight
+- [[sources/runs/2026/09/2026-09-07-optimization-typed-context-correctness]] — Typed context refusal and shared affected correctness V215
+- [[sources/runs/2026/09/2026-09-07-optimization-typed-context-wire-counterexample]] — Typed context integration reveals OpenAI error.code gap
+- [[sources/runs/2026/09/2026-09-07-configurable-context-v215-idle-swap-control]] — A further no-model idle control observes 16 global swap-ins; capacity held
+- [[sources/runs/2026/09/2026-09-07-configurable-context-ollama-overflow-wire-counterexample]] — Actual HTTP gate exposes stale prose matching and missing structured Ollama overflow codes
+- [[sources/runs/2026/09/2026-09-06-configurable-context-full-image-and-actual-client-pass]] — V202 full image, ordinary quality, actual Hermes and Ollama image correctness pass
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-acceptance-profile]] — Full vision test profile and mandatory acceptance hardening
+- [[sources/runs/2026/09/2026-09-06-optimization-planner-family-refinement]] — Unapplied planner-family refinement preserves direct dispatch
+- [[sources/runs/2026/09/2026-09-06-configurable-context-vision-target-counterexample]] — V202 independent vision reference passes; full image fixture exceeds the 10 GB test target
+- [[sources/runs/2026/09/2026-09-06-configurable-context-full-resource-swap-exclusion]] — V202 full governor drill stops on global swap-ins; idle controls also observe swap-ins
+- [[sources/runs/2026/09/2026-09-06-optimization-indexer-input-delivery]] — Indexer V204 input delivery failure and exact V206 initializer correction
+- [[sources/runs/2026/09/2026-09-06-optimization-planner-family-preparation]] — Unapplied coherent planner-family draft and exact comparison preparation
+- [[sources/runs/2026/09/2026-09-06-optimization-governor-advisory-fixture-correction]] — Governor advisory fixture correction and shared successor
+- [[sources/runs/2026/09/2026-09-06-configurable-context-governor-advisory-fixture-counterexample]] — V198 pure governor matrix exposes physically invalid settled-fixture assumptions
+- [[sources/runs/2026/09/2026-09-06-optimization-advisory-fixture-counterexample]] — V198 shared build and T0 advisory-fixture counterexample
+- [[sources/runs/2026/09/2026-09-06-slotpack-v0211-publication-and-r2-retirement]] — Public v0.2.11 provenance, ordinary installation, installed-model acceptance and verified R2 bucket retirement complete the free Hugging Face migration.
+- [[sources/runs/2026/09/2026-09-06-optimization-activation-and-evidence-preservation]] — V199 actual-default qualification preparation and V200 exact historical evidence recovery
+- [[sources/runs/2026/09/2026-09-06-optimization-public-transport-source-alignment]] — V197 exact public transport source alignment and unrun V198 shared correctness queue
+- [[sources/runs/2026/09/2026-09-06-optimization-portable-integration-gates]] — V196 full native portable deployment path gates prepared
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-full-mac-qualification]] — The native default completes an initially empty Mac installation across a network failure and resume; every original hash verifies, while timing measurements are discarded.
+- [[sources/runs/2026/09/2026-09-06-optimization-final-matrix-workload-binding]] — V195 final matrix binds workloads and controls across native paired and soak evidence
+- [[sources/runs/2026/09/2026-09-06-optimization-live-governor-feasibility]] — V194 live governor rejects ordinary-context advisory overcommit
+- [[sources/runs/2026/09/2026-09-06-optimization-plain-governor-feasibility-counterexample]] — V193 merged correctness and plain-governor feasibility counterexample
+- [[sources/runs/2026/09/2026-09-06-configurable-context-ordinary-governor-feasibility-counterexample]] — Shared V193 exposes ordinary-context governor acceptance after an infeasible replan
+- [[sources/runs/2026/09/2026-09-06-configurable-context-actual-hermes-compression-pass]] — Actual Hermes compression finishes normally and preserves the exact diagnostic fact
+- [[sources/runs/2026/09/2026-09-06-configurable-context-actual-hermes-cli-pass]] — Actual Hermes CLI passes its configured 65K window and reply budget
+- [[sources/runs/2026/09/2026-09-06-optimization-scope-checkpoint-interaction]] — Preserve common-prefix checkpoints across read scopes — V193
+- [[sources/runs/2026/09/2026-09-06-configurable-context-budget-and-schedule-component-pass]] — Explicit diagnostic budgets and actual attention schedule pass component gates
+- [[sources/runs/2026/09/2026-09-06-optimization-bounded-diagnostics-and-schedule]] — Priced governor/MTP diagnostics and actual prefill schedule — V191
+- [[sources/runs/2026/09/2026-09-06-optimization-merged-runtime-correctness]] — Shared combined runtime and corrected MTP tail correctness — V189
+- [[sources/runs/2026/09/2026-09-06-configurable-context-native-regression-and-mtp-plan-counterexample]] — Existing native regression passes through MTP parity; mandatory MTP diagnostic stopped on unpriced head
+- [[sources/runs/2026/09/2026-09-06-optimization-qualification-verification-lock]] — Qualification verification owns model exclusion — V190
+- [[sources/runs/2026/09/2026-09-06-optimization-mtp-tail-sampled-counterexample]] — Shared native checks and sampled MTP-tail counterexample — V186–189
+- [[sources/runs/2026/09/2026-09-06-configurable-context-static-and-sampler-prerequisite]] — Build 19 static suite passes; sampler stops before execution on missing environment prerequisite
+- [[sources/runs/2026/09/2026-09-06-optimization-indexer-exceptions-and-child-cleanup]] — Indexer exceptional arithmetic and owned-process cleanup — V187–188
+- [[sources/runs/2026/09/2026-09-06-optimization-ngram-compile-correction]] — N-gram diagnostic compile failure and unchanged-fixture correction — V185–186
+- [[sources/runs/2026/09/2026-09-06-configurable-context-complete-prompt-epoch-pass]] — Complete prompt MTP and vision reuse passes with one arithmetic epoch
+- [[sources/runs/2026/09/2026-09-06-configurable-context-external-swift-consumer-pass]] — External Swift consumer preserves original APIs and passes the strict compiler gate
+- [[sources/runs/2026/09/2026-09-06-configurable-context-actual-65k-client-pass]] — Actual Hermes Ollama and published AI SDK gateway clients pass the65K contract
+- [[sources/runs/2026/09/2026-09-06-optimization-c07-source-integration]] — Bounded prefill integration and prompt-cache epoch correction — V183–184
+- [[sources/runs/2026/09/2026-09-06-configurable-context-external-consumer-deprecation-counterexample]] — External Swift consumer compiles but strict warning gate exposes deprecated stride metadata
+- [[sources/runs/2026/09/2026-09-06-configurable-context-actual-32k-client-contracts]] — Actual Ollama and AI SDK clients pass at32K; Hermes enforces its64K minimum
+- [[sources/runs/2026/09/2026-09-06-optimization-probe-review-and-pressure-recovery]] — Optimization probe preflight review and typed pressure recovery — V181–182
+- [[sources/runs/2026/09/2026-09-06-configurable-context-retained-functional-swap-exclusion]] — Four conversations complete and reuse exact prefixes; capacity excluded by swap activity
+- [[sources/runs/2026/09/2026-09-06-configurable-context-pressure-feasible-recovery-pass]] — Pressure cancellation and feasible admission recovery pass with fixed MTP
+- [[sources/runs/2026/09/2026-09-06-optimization-mtp-fix-and-cache-qualification]] — Optimization MTP cancellation fix and remaining cache qualification — V178–180
+- [[sources/runs/2026/09/2026-09-06-configurable-context-governor-invocation-prerequisite]] — Pressure fixture invocation stopped because its required option was missing
+- [[sources/runs/2026/09/2026-09-06-configurable-context-unchanged-adaptive-mtp-counterexample]] — Combined candidate preserves the known rejected adaptive MTP counterexample
+- [[sources/runs/2026/09/2026-09-06-configurable-context-mtp-cancellation-recovery-pass]] — MTP cancellation fix passes typed and legacy recovery on the combined candidate
+- [[sources/runs/2026/09/2026-09-06-configurable-context-mtp-cancellation-exclusivity-counterexample]] — Actual MTP cancellation exposes an exclusive stats access abort
+- [[sources/runs/2026/09/2026-09-06-configurable-context-combined-shape-and-http-pass]] — Combined V176 context candidate passes all ten shape witnesses and HTTP contracts
+- [[sources/runs/2026/09/2026-09-06-optimization-indexer-score-preparation]] — Optimization indexer score prototype and guarded contract — V177
+- [[sources/runs/2026/09/2026-09-06-optimization-context-integrated-build]] — Context ownership component integrated and weight-free gates pass
+- [[sources/runs/2026/09/2026-09-06-optimization-maximum-image-capacity-incomplete]] — Maximum-image query tiling: incomplete capacity qualification
+- [[sources/runs/2026/09/2026-09-06-configurable-context-short-tail-and-sparse-prefix-pass]] — Tiny-query shape correction passes short-tail and sparse-prefix controls
+- [[sources/runs/2026/09/2026-09-06-configurable-context-allocation-ownership-pass]] — Per-buffer allocation and aggregate request ownership pass bounded gates
+- [[sources/runs/2026/09/2026-09-06-configurable-context-floor-fixture-counterexample]] — Restored legacy batch floor exposes eight stale diagnostic expectations
+- [[sources/runs/2026/09/2026-09-06-configurable-context-short-tail-counterexample]] — One-row terminal subpass fails two unchanged numerical criteria
+- [[sources/runs/2026/09/2026-09-06-configurable-context-projection-prefix-pass]] — Both small-pass sizes preserve ordinary partial and reused-prefix witnesses
+- [[sources/runs/2026/09/2026-09-06-configurable-context-http-pressure-correction]] — Corrected expanded HTTP matrix passes 835 assertions
+- [[sources/runs/2026/09/2026-09-06-optimization-context-component-review]] — Review context integration: legacy dispatch and per-buffer allocation ownership
+- [[sources/runs/2026/09/2026-09-06-optimization-gdn-prefill-first-job-failure]] — GDN prefill warmed nonregression passes, first-job qualification fails
+- [[sources/runs/2026/09/2026-09-06-configurable-context-components-v3]] — Build 12 passes expanded CPU CLI and planner component contracts
+- [[sources/runs/2026/09/2026-09-06-configurable-context-projection-shape-first-pass]] — First 64-row projection-shape witness passes unchanged C07 criteria
+- [[sources/runs/2026/09/2026-09-06-configurable-context-http-pressure-counterexample]] — Expanded HTTP matrix exposes supplied-controller pressure bypass
+- [[sources/runs/2026/09/2026-09-06-optimization-soak-prerequisite-binding]] — Enforce final native and paired prerequisites before lifetime qualification
+- [[sources/runs/2026/09/2026-09-06-configurable-context-cli-policy-and-driver-v1]] — Candidate context policy defaults and capacity driver failure checks
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-mac-network-interruption]] — Preserve the native Mac DNS-failure attempt, resumable verified progress and cross-client network diagnostics; its timing measurements are discarded.
+- [[sources/runs/2026/09/2026-09-06-configurable-context-key-domain-counterexample]] — Reference-aware key padding preserves nine numerical failures
+- [[sources/runs/2026/09/2026-09-06-configurable-context-components-v2]] — Expanded configurable-context CPU and CLI contracts
+- [[sources/runs/2026/09/2026-09-06-optimization-default-overlay-preparation]] — Prepare qualified-default overlays and explicit reference fallback
+- [[sources/runs/2026/09/2026-09-06-optimization-bounded-build-and-staging-review]] — Combined source build, weight-free checks and staging materiality review
+- [[sources/runs/2026/09/2026-09-06-optimization-scope-combination-preparation]] — Combined-base long-prefill scope qualification preparation
+- [[sources/runs/2026/09/2026-09-06-optimization-lifetime-platform-preparation]] — Optimization lifetime deadline, request pin cleanup and platform policy preparation
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-legacy-compatibility]] — The released v0.2.10 client follows live free static redirects and reconstructs missing original files from Hugging Face with zero raw fallback.
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-linux-and-gates]] — A complete anonymous default download reconstructs every original file from Hugging Face with zero raw fallbacks; independent hashes and release checks pass.
+- [[sources/runs/2026/09/2026-09-06-configurable-context-router-shape-counterexample]] — Router-shape correction and preserved nine-failure numerical counterexample
+- [[sources/runs/2026/09/2026-09-06-optimization-gdn-short-serving]] — GDN shared projection short serving and first-job nonregression V156
+- [[sources/runs/2026/09/2026-09-06-slotpack-hugging-face-publication]] — The unchanged compressed package is public on Hugging Face; committed identities and anonymous object hashes pass, and the original mirror is preserved.
+- [[sources/runs/2026/09/2026-09-06-optimization-final-matrix-preflight]] — Final combined matrix drafts and simultaneous prefix mechanism preflight V165 V166
+- [[sources/runs/2026/09/2026-09-06-configurable-context-small-pass-diagnosis]] — Small-pass grouped successor and first-divergence diagnosis
+- [[sources/runs/2026/09/2026-09-06-optimization-terminal-tail-serving-stop]] — Terminal tail serving qualification stopped without sufficient benefit V155
+- [[sources/runs/2026/09/2026-09-06-configurable-context-small-pass-counterexample]] — Sub-256 context path fails frozen state and rollback numerical gates
+- [[sources/runs/2026/09/2026-09-06-configurable-context-components-v1]] — Configurable context default, HTTP and cleanup component gates
+- [[sources/runs/2026/09/2026-09-06-configurable-context-observations]] — Context diagnostic VM observations and frozen grouped small-pass successor
+- [[sources/runs/2026/09/2026-09-06-optimization-combined-soak-harness]] — Combined runtime bounded lifetime gate preparation V163
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-capacity-gate]] — Frozen vision capacity post-run gate V162
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-preflight-correction]] — Optimization vision protocol preflight correction V161
+- [[sources/runs/2026/09/2026-09-06-optimization-maximum-image-pool-correction]] — Maximum-image pool-size correction and resource stop
+- [[sources/runs/2026/09/2026-09-06-configurable-context-baseline]] — Configurable context default-tier baseline and source ownership freeze
+- [[sources/runs/2026/09/2026-09-06-optimization-maximum-image-reference-stop]] — Maximum-image reference resource stop and fixed-pool successor
+- [[sources/runs/2026/09/2026-09-06-optimization-gdn-projection-shared-backing]] — Shared-backing GDN projection native qualification
+- [[sources/runs/2026/09/2026-09-06-optimization-compute-islands-qualified]] — Quantized projection and GLU component qualification
+- [[sources/runs/2026/09/2026-09-06-optimization-rope-serving-qualified]] — RoPE short and prefill serving nonregression qualification
+- [[sources/runs/2026/09/2026-09-06-optimization-cpu-contiguous-counterexample]] — Contiguous CPU slot writes: exact serving regression
+- [[sources/runs/2026/09/2026-09-06-optimization-rope-component-qualified]] — Direct-stride RoPE component qualifies; serving protocols frozen V149
+- [[sources/runs/2026/09/2026-09-06-optimization-rope-direct-strides]] — Direct-stride RoPE native qualification V147
+- [[sources/runs/2026/09/2026-09-06-optimization-resident-serving-counterexample]] — Resident overlap serving misses gain gate V140 completed V146
+- [[sources/runs/2026/09/2026-09-06-optimization-rope-confirmation-excluded]] — Independent RoPE confirmation stopped on swap V145
+- [[sources/runs/2026/09/2026-09-06-optimization-terminal-tail-and-rope-screen]] — Terminal query tail passes; RoPE screen swap excluded V144
+- [[sources/runs/2026/09/2026-09-06-optimization-terminal-query-counterexample]] — Terminal single-query numerical counterexample V143
+- [[sources/runs/2026/09/2026-09-06-optimization-rope-integration]] — Exact partial RoPE model and MTP integration V142
+- [[sources/runs/2026/09/2026-09-06-optimization-complete-integrated]] — Complete prompt integrated native qualification V141
+- [[sources/runs/2026/09/2026-09-06-optimization-complete-unique-confirmed]] — Complete-prompt unique-request nonregression passes with charged retention
+- [[sources/runs/2026/09/2026-09-06-optimization-partial-rotation-component]] — Exact BF16 partial-rotation component and preserved build corrections
+- [[sources/runs/2026/09/2026-09-06-optimization-prefix-client-capacity]] — Model-bound prefix stores and preserved multi-client capacity
+- [[sources/runs/2026/09/2026-09-06-optimization-complete-repeat-confirmed]] — Independent complete-prompt reuse confirmation passes with ten clean pairs
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-resource-counterexample]] — Whole-request vision resource qualification fails its frozen saving and clean-pair gates
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-serving-nonregression]] — Query-tiled vision: small-image nonregression and swap-excluded maximum request
+- [[sources/runs/2026/09/2026-09-06-optimization-resident-overlap]] — Bounded resident expert overlap: exact mixed-cache computation and checked failure joins
+- [[sources/runs/2026/09/2026-09-06-optimization-state-lineage]] — Model-bound prefix state and live-ancestor checkpoint recovery
 - [[sources/runs/2026/09/2026-09-06-slotpack-v0210-publication-and-installed-acceptance]] — v0.2.10 release and main CI pass; exact public provenance, ordinary installer, download controls, all original hashes and loaded-model response verify.
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-query-mechanism]] — Query-tiled vision: exact maximum tower, executed mechanism and known-content serving
 - [[sources/runs/2026/09/2026-09-06-slotpack-ci-coverage-regression-closure]] — A per-file CI coverage regression is corrected with explicit resumed-byte and CDN-status checks; the unchanged local ratchet passes at 96.87% downloader coverage.
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-query-successor]] — Bounded original vision attention after preserved padding failures
 - [[sources/runs/2026/09/2026-09-06-slotpack-ci-interruption-fixture-correction]] — CI exposes a fixed-time interruption fixture; state-based cancellation and delayed-start compressed/raw checks pass.
+- [[sources/runs/2026/09/2026-09-06-optimization-complete-repeat-guarded-stop]] — Complete-prompt confirmation stopped by renewed competing work
+- [[sources/runs/2026/09/2026-09-06-optimization-vision-tower-counterexample]] — Vision tower numerical counterexample and rebuilt ordinary integration
 - [[sources/runs/2026/09/2026-09-06-slotpack-mac-and-final-candidate-acceptance]] — Complete fresh-to-resumed public Mac installation verifies all original files; final API, HTTP, memory, coverage, external consumer and loaded-model gates pass.
+- [[sources/runs/2026/09/2026-09-06-optimization-guarded-vision-capacity]] — Guarded measurement refusal and maximum vision attention
 - [[sources/runs/2026/09/2026-09-05-slotpack-public-cdn-and-linux-qualification]] — Complete fresh Linux CDN pull and independent original-file hashes pass; cache hits, raw/CDN route probes and actual CLI choices are captured.
+- [[sources/runs/2026/09/2026-09-06-optimization-complete-repeat-contention]] — Complete-prompt repeat study excluded by swap and competing work
+- [[sources/runs/2026/09/2026-09-06-optimization-complete-prompt-integration]] — Complete-prompt checkpoints pass ordinary and MTP integration
+- [[sources/runs/2026/09/2026-09-06-optimization-compute-and-cpu-successors]] — Contiguous CPU correctness and excluded compute screen
 - [[sources/runs/2026/09/2026-09-05-slotpack-memory-counterexample-and-repair]] — A guarded counterexample catches retained completed buffers; the fixed sustained transfer and full original-file reconstruction pass.
 - [[sources/runs/2026/09/2026-09-05-slotpack-package-and-regressions]] — Complete identical Mac/Linux package; codec sanitizers, malformed inputs, manifests, compressed HTTP and raw multi-chunk checks pass.
+- [[sources/runs/2026/09/2026-09-06-optimization-cpu-serving-and-integrated]] — CPU slot serving rejected; rebuilt ordinary integration passes
+- [[sources/runs/2026/09/2026-09-06-optimization-cpu-slot-integration]] — CPU slot-write integration correctness V108
 - [[sources/runs/2026/09/2026-09-05-hermes-release-published-install]] — Hermes 0.2.8: public release and installed-client verification
+- [[sources/runs/2026/09/2026-09-06-optimization-components-and-mtp]] — Native components, dense projection counterexample and combined MTP V107
 - [[sources/runs/2026/09/2026-09-05-hermes-release-client-acceptance]] — Hermes 0.2.8 clean release: real clients and regression acceptance
+- [[sources/runs/2026/09/2026-09-06-optimization-integrated-state-entry]] — Combined ordinary state-entry regression V104
+- [[sources/runs/2026/09/2026-09-06-optimization-native-source-closure]] — Native source closure and pending compute/CPU-slot prototypes
 - [[sources/runs/2026/09/2026-09-05-hermes-release-context-and-gates]] — Hermes clean release candidate: full context and local gates
+- [[sources/runs/2026/09/2026-09-05-optimization-combined-first-pass]] — First combined-runtime correctness pass V103
+- [[sources/runs/2026/09/2026-09-05-optimization-output-queue-confirmation]] — Bounded-output latency nonregression qualification V102
 - [[sources/runs/2026/09/2026-09-05-download-compression-artifact-inspection]] — Both complete shard archives save 16% and restore the pinned hash; 106-window weighted estimate is 105.264 GB to 88.455 GB; no accepted runtime-speed claim
 - [[sources/runs/2026/09/2026-09-05-download-aggressive-lossless-experiments]] — Raw aggressive compression experiments with exact source; runtime timings discarded for concurrent load, deterministic artifact properties independently verified
+- [[sources/runs/2026/09/2026-09-05-optimization-tcp-serving-and-pressure-errors]] — Real TCP serving lifecycle and explicit pressure errors V99-V102
+- [[sources/runs/2026/09/2026-09-05-optimization-larger-prefill-feasibility]] — Larger-prefill-scope reference warmup exclusion V98
+- [[sources/runs/2026/09/2026-09-05-optimization-embedding-resource-serving]] — Embedding serving resource qualification and TCP checks V98
 - [[sources/runs/2026/09/2026-09-05-download-existing-compression-check]] — Actual file-header checks: raw quantized safetensors, gzip installer, Deflate wheels, and BG4-LZ4 Xet storage chunks
 - [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]] — Verified Hermes source build installed locally
 - [[sources/runs/2026/09/2026-09-05-hermes-final-integration-acceptance]] — Final Hermes integration acceptance
+- [[sources/runs/2026/09/2026-09-05-optimization-embedding-runtime-integration]] — Checked embedding row runtime integration V96 V97
 - [[sources/runs/2026/09/2026-09-05-hermes-adapter-regressions-and-vision-discovery]] — Hermes adapter regressions and vision discovery counterexample
+- [[sources/runs/2026/09/2026-09-05-optimization-prefix-serving-confirmation]] — Repeated-prefix serving confirmation V95
 - [[sources/runs/2026/09/2026-09-05-download-first-principles-audit]] — Download audit: current transport probes, complete Xet byte metadata, tensor inventory and lossless compression samples
+- [[sources/runs/2026/09/2026-09-05-optimization-prefix-committed-boundaries]] — Committed prefix boundary and recovery qualification V95
 - [[sources/runs/2026/09/2026-09-05-hermes-context-qualified]] — Full long-context prefill and reply fit the reserved physical-memory envelope
+- [[sources/runs/2026/09/2026-09-05-optimization-lookup-embedding-rows]] — Optimization exact packed lookup embedding row component V93 V94
 - [[sources/runs/2026/09/2026-09-05-hermes-planned-context-counterexample]] — Full long-context prefill completes but its sampled process peak exceeds the planned envelope
 - [[sources/runs/2026/09/2026-09-05-hermes-openai-real-client-gates]] — Released and current Hermes complete real local tool loops, title fallback and bounded compaction; OpenAI and gateway gates pass
+- [[sources/runs/2026/09/2026-09-05-optimization-prefix-client-and-vision-integration]] — Optimization prefix divergent-client and real-image integration V92
+- [[sources/runs/2026/09/2026-09-05-optimization-build-lock-recovery]] — Optimization build lock failure and corrected refusal
+- [[sources/runs/2026/09/2026-09-05-optimization-broader-alternatives-audit]] — Optimization broader alternatives and optional batching source audit
+- [[sources/runs/2026/09/2026-09-05-optimization-prefix-checkpoint-retention]] — Optimization budgeted prefix checkpoint retention V89
 - [[sources/runs/2026/09/2026-09-05-hermes-context-first-counterexample]] — Completed 65,520-token prompt exceeds a plan that still priced the default context
+- [[sources/runs/2026/09/2026-09-05-optimization-prefix-state-fork]] — Prefix state fork V88: COW ownership and exact divergent continuation
+- [[sources/runs/2026/09/2026-09-05-optimization-bf16-word-slot-copies]] — BF16 word slot copies V87: exact state, request speed rejected
+- [[sources/runs/2026/09/2026-09-05-optimization-contiguous-slot-copies]] — Contiguous slot copies V86: exact lifecycle, request speed rejected
+- [[sources/runs/2026/09/2026-09-05-optimization-expert-transfer-profile]] — Expert transfer profile V84–V85: exact managed staging and material scatter
+- [[sources/runs/2026/09/2026-09-05-optimization-gdn-phase-profile]] — GDN phase profile V83: exact traced state and bounded prefill materiality screen
+- [[sources/runs/2026/09/2026-09-05-optimization-ngram-lookahead]] — Bounded n-gram prefill lookahead V80–V82
+- [[sources/runs/2026/09/2026-09-05-optimization-native-packed-layout]] — Native verified expert layout V78–V79
+- [[sources/runs/2026/09/2026-09-05-optimization-packed-read-verification]] — Packed expert per-read verification V77
+- [[sources/runs/2026/09/2026-09-05-optimization-request-read-recovery]] — Recoverable expert/ngram reads, request lifecycle and HTTP failures V73–V76
+- [[sources/runs/2026/09/2026-09-05-optimization-actual-expert-layout]] — Actual-offset expert layout: cache calibration and cold component qualification V70–V72
+- [[sources/runs/2026/09/2026-09-05-optimization-default-acceptance]] — Default-path acceptance V68 and targeted delivery corrections V69
+- [[sources/runs/2026/09/2026-09-05-optimization-compact-indexer-history]] — Compact main indexer history, long restore, MTP and failed resource qualification V64–V67
+- [[sources/runs/2026/09/2026-09-05-optimization-responsive-governor]] — Responsive governor cancellation, resize and serving overhead V61–V63
+- [[sources/runs/2026/09/2026-09-05-optimization-native-floor-cache]] — Native floor cache correctness and serving qualification V59–V60
+- [[sources/runs/2026/09/2026-09-05-optimization-cache-policy-screen]] — Causal cache-policy replay and fresh floor-only confirmation
+- [[sources/runs/2026/09/2026-09-05-optimization-runtime-budget]] — Runtime reservation reallocation and safe vision loading qualification
+- [[sources/runs/2026/09/2026-09-05-optimization-fixed-mtp-serving]] — Fixed-schedule MTP first-entry and GDN recording serving qualification
+- [[sources/runs/2026/09/2026-09-05-optimization-adaptive-speculation-counterexample]] — Adaptive speculation lifecycle and timing-sensitivity counterexample
+- [[sources/runs/2026/09/2026-09-05-optimization-sampler-device-draw]] — Zero-draw sampler correctness and GPU draw qualification
+- [[sources/runs/2026/09/2026-09-05-optimization-duplicate-pool-requests]] — Duplicate pool request ownership and latency non-regression
+- [[sources/runs/2026/09/2026-09-05-optimization-image-source-admission]] — Image source admission and exact request-local reuse
+- [[sources/runs/2026/09/2026-09-05-optimization-all-hit-compute]] — All-hit compute replay and preserved large-pool calibration failures
+- [[sources/runs/2026/09/2026-09-05-optimization-terminal-prefill-demand]] — Terminal prefill demand exact state, bounded lifecycle and subthreshold serving improvement
+- [[sources/runs/2026/09/2026-09-05-optimization-selected-attention-rejection]] — D256 selected attention component passes, full-state failure and component slowdown
+- [[sources/runs/2026/09/2026-09-05-optimization-owned-read-handles]] — Owned tensor read handles exactness and failed serving speed gate
+- [[sources/runs/2026/09/2026-09-05-optimization-compiled-normalization]] — Pointwise normalization fusion correctness and failed serving speed gate
+- [[sources/runs/2026/09/2026-09-05-optimization-checked-read-foundation]] — Checked tensor reads and resident-mode preservation
+- [[sources/runs/2026/09/2026-09-05-optimization-shorter-prefill-workspace-counterexample]] — Shorter prefill reads fewer bytes but takes longer
+- [[sources/runs/2026/09/2026-09-05-optimization-vision-budget-and-cache-bookkeeping]] — Vision budget repair and cache bookkeeping qualification
+- [[sources/runs/2026/09/2026-09-05-optimization-vision-identity-and-router-weights]] — Vision identity and router promotion with an open memory failure
+- [[sources/runs/2026/09/2026-09-05-optimization-vision-padding-probe]] — Bounded vision attention padding numerical and component probe
+- [[sources/runs/2026/09/2026-09-05-optimization-mtp-selector-and-image-reuse]] — Cached MTP selector and request-local image feature reuse
+- [[sources/runs/2026/09/2026-09-05-optimization-smaller-routed-tile]] — Smaller routed tile resource pass and failed paired qualification
+- [[sources/runs/2026/09/2026-09-05-optimization-denormals-and-workspace-peak]] — Subnormal selection contract corrected; compact-frontier and piecewise-write resource probes fail; phase trace identifies routed compute peak
+- [[sources/runs/2026/09/2026-09-05-optimization-exact-256-compute-scopes]] — Larger read scopes preserve 256-token arithmetic but code-review pilot exceeds its memory target and lacks enough clean pairs
+- [[sources/runs/2026/09/2026-09-05-chronological-prefill-numerical-counterexample]] — Larger chronological pass fails full-state and greedy continuation gates despite fewer expert reads
+- [[sources/runs/2026/09/2026-09-05-optimization-corrected-mask-and-shared-overlap]] — Corrected indexer passes independent mask and full-state gates; shared prelaunch pilot fails its benefit and pair-count requirements
+- [[sources/runs/2026/09/2026-09-05-indexer-partial-tail-counterexample]] — Sparse indexer drops the current partial block because tensor true division replaced integer floor division
+- [[sources/runs/2026/09/2026-09-05-optimization-router-selection]] — Exact router and MTP selection checks pass; real request timing gates do not qualify selector or queue adoption
+- [[sources/runs/2026/09/2026-09-05-optimization-bounded-output]] — Socket saturation exposed a blocked send; corrected bounded queue passes 38 socket assertions and 74 live API checks
+- [[sources/runs/2026/09/2026-09-05-optimization-prefill-family-and-serving-intervals]] — Larger chronological prefill remains unqualified; short server A/A passes and all long paired timings are excluded
+- [[sources/runs/2026/09/2026-09-05-optimization-large-tile-and-frontier]] — Large tile and compact frontier exact gates pass; every paired performance comparison is excluded
+- [[sources/runs/2026/09/2026-09-05-optimization-larger-routed-tile]] — Larger routed tile exact checks pass; paired latency pilot excluded for swap activity
+- [[sources/runs/2026/09/2026-09-05-optimization-scope-generation-and-mtp]] — Scope lifecycle and MTP checks pass; first larger-read-scope latency pilot is slower and unqualified
+- [[sources/runs/2026/09/2026-09-05-optimization-read-scope-and-capacity]] — Read-scope numerical correction, exact expert-read reuse and sequence-capacity lifecycle evidence
+- [[sources/runs/2026/09/2026-09-05-optimization-bounded-prefill-and-lifecycle]] — Bounded prefill, GDN recording and lifecycle implementation evidence
+- [[sources/runs/2026/09/2026-09-05-optimization-second-implementation]] — Second optimization implementation and confirmation evidence
+- [[sources/runs/2026/09/2026-09-05-optimization-initial-implementation]] — Initial optimization implementation: raw A/A, final-forward pilot, compact-state confirmation and correctness checks
+- [[sources/runs/2026/09/2026-09-04-prefill-unification-first-principles]] — Prefill unification: pinned full-sort dispatch, 510 block-mask checks, 60 total-order selection checks, 156 checkpoint cases and explicit workspace arithmetic; no model benchmark
+- [[sources/runs/2026/09/2026-09-04-prefill-parallelism-algebra]] — Prefill parallelism: source identities and CPU FP64 gated-delta block algebra, without performance or production parity claims
+- [[sources/runs/2026/09/2026-09-04-first-principles-native-retention]] — First-principles audit: native retained-state compaction and identical logits
+- [[sources/runs/2026/09/2026-09-04-first-principles-primitive-diagnostics]] — First-principles audit: MLX allocation and numerical diagnostics, timings discarded
+- [[sources/runs/2026/09/2026-09-04-first-principles-static-audit]] — First-principles audit: code identities, tensor geometry and schedule arithmetic
+- [[sources/runs/2026/09/2026-09-04-n6-code-and-tensor-audit]] — N6 audit: production MoE dtypes, slice storage retention, scheduling arithmetic, and hashed code closure; no model benchmark
+- [[sources/runs/2026/09/2026-09-04-describing-images-of-known-content]] — Sixteen images of known content described by the served model: quadrants, ordered bands, counts, rendered text, extremes of size, PNG vs JPEG, greyscale, transparency. 16 of 16.
 - [[sources/runs/2026/09/2026-09-04-verify-with-vision-gates-idle]] — verify.sh with the vision gates on an idle machine: 24 passed, 0 failed, including vision parity and 18 serving assertions at the 8.1 GB floor.
 - [[sources/runs/2026/09/2026-09-03-verify-with-vision-gates]] — verify.sh with the vision gates: 23 passed, 1 failed — the serving suite's server was killed by the kernel while an unrelated slotstream serve held the machine.
+- [[sources/runs/2026/09/2026-09-03-prefill-transient-probes]] — PrefillProbe: the pass's three unbounded transients — MoE combine, PLE, QSA indexer — dev Mac, 2026-09-03
+- [[sources/runs/2026/09/2026-09-03-expert-record-read-layout-ab]] — Expert-record read layout: nine pieces against one packed read, by run length, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-router-trace-and-cache-simulation]] — M1 router trace and cache simulation, 220 decode steps at 30 experts/layer, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-pass-memory-phase-trace]] — Where a 2048-token pass peaks: phase memory trace with and without query-blocked attention, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-decode-scatter-mode-and-read-lanes-ab]] — Decode A/B: pool scatter completion mode and pool read lanes, 30 experts/layer, dev Mac, 2026-09-03

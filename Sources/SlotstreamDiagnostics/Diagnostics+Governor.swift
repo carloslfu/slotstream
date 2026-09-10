@@ -142,6 +142,21 @@ extension Diagnostics {
             (slots(P.decide(huge)) ?? 0) <= Geometry.totalRecords,
             "got \(String(describing: slots(P.decide(huge))))")
 
+        // Resident features survive a replan and continue displacing experts.
+        let plain = P.Inputs(currentSlots: steady, availableGB: 30, ramGB: ram, workingSetGB: ws)
+        let image = P.Inputs(currentSlots: steady, availableGB: 30, ramGB: ram, workingSetGB: ws,
+            mtpEnabled: true, visionEnabled: true, visionResidentReserved: true, maxContextTokens: 1024)
+        let combined = P.desiredPlan(image)
+        c.expect("governor preserves loaded MTP", combined?.mtpEnabled == true)
+        c.expect("governor preserves vision allowance", combined?.visionEnabled == true)
+        c.expect("governor preserves vision reservation", combined?.visionResidentReserved == true)
+        c.equal("governor preserves explicit context cap", combined?.maxContextTokens, 1024)
+        c.expect("resident charge is not spent on experts", (combined?.slots ?? Int.max) < (P.desiredPlan(plain)?.slots ?? 0))
+        let starved = P.Inputs(currentSlots: Geometry.floorSlots, availableGB: 0,
+            ramGB: ram, workingSetGB: ws, mtpEnabled: true, visionEnabled: true, visionResidentReserved: true)
+        c.expect("unavailable budget cannot silently unload a resident head",
+            P.desiredPlan(starved) == nil || P.desiredPlan(starved)?.mtpEnabled == true)
+
         return c.report()
     }
 }

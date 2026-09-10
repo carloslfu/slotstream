@@ -48,6 +48,18 @@ its 1.41 tok/s is worked out.
 
 ## How to measure
 
+Context is a startup choice, with a 32,768-token default. Unreleased source
+builds add the feasibility report and request-wait controls described here.
+Use `doctor --json` with the intended `--max-context` and memory policy to inspect the feasible
+window before loading. A memory-feasible window does not promise a short wait:
+the request-to-first-token budget defaults to 30 minutes, including preparation
+and queueing. Setting `--max-prefill-wait 0` disables only that time policy.
+
+Keep the configured window, prompt count and required reply count with each
+result. Capacity evidence needs a complete prompt and reply, sampled physical
+footprint, RSS and unchanged swap counters. Report MTP and vision separately;
+a text-only capacity result does not qualify those modes or answer quality.
+
 Allow about ten minutes once the weights are downloaded. Close other
 memory-heavy apps and check that the Mac is not swapping. Run one model
 process at a time.

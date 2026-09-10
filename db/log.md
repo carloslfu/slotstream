@@ -79,27 +79,804 @@ vision landed: tower cost, parity against an independent float32 reference, and 
 ## [2026-09-04 03:17] update | records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03.md
 clean verify.sh run: 24 passed, 0 failed; floor numbers recorded
 
+## [2026-09-04 04:22] create | records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once.md
+N6 planned: prefill's cost is passes x routed experts, so bound the pass's transients (PLE, QSA indexer, MoE combine — all measured provider-free) and then decouple the expert-read scope from the activation tile. Two runs captured: expert-record read layout A/B and PrefillProbe.
+
+## [2026-09-04 04:22] create | sources/runs/2026/09/2026-09-03-prefill-transient-probes.md
+PrefillProbe: PLE and the QSA indexer block bit-identically (-1.44 and -1.43 GB at a 4096-token pass); the MoE combine folds to a scatter-add at x0.46 peak and 4x lower error.
+
+## [2026-09-04 04:22] create | sources/runs/2026/09/2026-09-03-expert-record-read-layout-ab.md
+Nine-piece expert record costs x1.94 at run length 1 and x1.09 at 16; the sweep is already at 80-90% of what this layout gives, so the repack is a decode lever.
+
+## [2026-09-04 04:44] update | records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once.md
+N6 gains its validation regime: prefillRecords (deterministic from a cold process) is the primary endpoint, peak RSS the secondary, tok/s only ever a median of paired interleaved rounds against an A/A noise floor. Per-phase decision table with revert conditions, a standing deterministic records gate for verify.sh, and Tools/prefill_bench.sh to produce the frozen baseline.
+
+## [2026-09-04 18:07] update | records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once.md
+N6 coverage audit closed four gaps: estPrefillTokS must be re-anchored with prefillCostGB (they feed the same scoring function, so moving one alone makes prefillChunkFor incoherent) and its whole derived family regenerated; one validation cell must go through serve, since cancellation and the progress reporter exist nowhere else; what the plan predicts on 1.5 GB/s base storage, where the two attacks trade places; and SweepTuning.minTokens, the governor's expected peak, and flag lifecycle.
+
+## [2026-09-04 21:51] update | records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once.md
+Verification pass on the four gap fixes found two structural defects and fixed them: the Phase 2 decision row did not gate on 2.3's estimator-family regeneration (so 2.3 was advice, not a gate) and the Phase 4 row did not require the serve cell 0.5 promises. Flag lifecycle moved from a Phase 4 aside to plan-wide policy; the slow-storage subsection moved above Phase 4's exit instead of orphaned after it; Phase 3 says which items are assertions rather than measurements.
+
+## [2026-09-04 22:22] update | records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once.md
+Audited N6 against generator/model/layers/I/O/planner/prefix/MTP/serving and pinned MLX. Captured provider-free dtype, slice-retention and schedule evidence with code hashes. Corrected synthetic MoE accuracy, unconditional speed/read bounds, benchmark validity, attention-budget coupling, tail admission, cancellation and memory accounting. Added deterministic row-bounded scope design, 18 optimisation candidates and 3 broader alternatives; repeated dependency and acceptance reviews. Updated tracker and PLAN projection; brain validation clean, 67 claims checks pass. No engine implementation or model performance benchmark.
+
+## [2026-09-04 23:08] validate | records/analyses/2026-09-04-first-principles-inference-audit.md
+Completed four-pass implementation audit and captured three raw evidence runs. Native state-window compaction preserved all final logits at 1024 and 2048 tokens; timing comparisons excluded. Full-store validation: zero errors, warnings, or info. Production inference source unchanged.
+
+## [2026-09-05 01:57] validate | records/plan/whole-engine-optimization-2026-09-04.md
+Created executable whole-engine optimization program from the first-principles audit: 35 work items across seven stages, dependencies, acceptance and rejection gates, N6 integration, and broader-alternative dispositions. Linked the living tracker and regenerated PLAN.md. Full-store validation clean; projections current; 67 claims checks passed. Implementation unstarted.
+
+## [2026-09-05 02:06] update | records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once.md
+First-principles prefill review integrated existing native carry-allocation evidence and added a dependency/resource contract: shared-expert overlap, resident/missing read-ahead across row tiles, single-owner MLX submission with bounded raw-I/O workers, exact n-gram lookahead, selected-block attention, and chunkwise GDN. Captured CPU FP64 block-algebra evidence: 56 synthetic cases, not Metal performance or production numerical parity. Added remaining-aware tail scheduling and independent/combined timing gates; rechecked causality, buffer reuse, cancellation, zero decay, numerical scope and evidence consistency. Production inference sources unchanged. Full store and projections clean; 67 claim checks pass; git diff --check passes.
+
+## [2026-09-05 02:13] validate | records/plan/whole-engine-optimization-2026-09-04.md
+Re-reviewed whole-engine plan against current source and detailed N6 contract. Closed adaptive-MTP cache validity, optional/rejected dependency handling, combined state-transition and cancellation checks, asynchronous/repack recovery, benchmark comparability and older supported-hardware activation. Explicit dependency check: 35 items, seven stages, no unknown references or cycles; fallback and integration requirements manually reviewed. Projections current, full-store validation clean, 67 claims checks passed. No inference implementation or new model benchmark.
+
+## [2026-09-05 02:37] update | records/plan/whole-engine-optimization-2026-09-04.md
+Joined the whole-engine and N6 prefill plans into one 37-item program with a complete phase/overlap ownership map and a single status/experiment lifecycle. Re-read Swift and pinned Metal source; captured 510 CPU mask cases, 60 finite total-order top-K merge cases, 156 scalar checkpoint cases and payload arithmetic as limited evidence, not model parity or speed. Added OPT35 demanded terminal prefill work and OPT36 full-sort replacement; made MoE output/fold/layer-weight workspace tradeoffs explicit, refined indexer visibility/raw-tail storage, and removed artificial overlap/GDN probe dependencies. Reviewed causal state, terminal MTP/hooks, sorting order/ties, rollback, memory liveness and joint acceptance. Mechanical review: 37 items, seven stages, all N6 phase/overlap families mapped, no unknown references or conservative dependency cycles. Inference/package/backend hashes unchanged. Full-store validation clean, projections current, 67 claims pass and diff whitespace clean. No production optimization or model benchmark ran.
+
+## [2026-09-05 02:42] update | records/plan/whole-engine-optimization-2026-09-04.md
+Verified consolidation and made standalone supersession explicit in the N6 opening, unified-program authority statement and ordered-queue entry. Preserved all optimization work and evidence; no separate N6 queue/baseline/implementation remains authorized by these plans. Existing OPT ownership, prerequisite and acceptance map remains unchanged. Recheck: 37 items, seven stages, all phase/overlap families mapped, no unknown references or dependency cycles; inference hashes unchanged, full-store validation clean, projections current, 67 claims pass, whitespace clean. No files deleted, model benchmarks launched or app tasks stopped.
+
+## [2026-09-05 03:41] update | records/plan/whole-engine-optimization-2026-09-04.md
+Implementation authorized and started. Original baseline rebuilt and frozen; source-bound builds and structured measurement harness implemented. Initial state, generation and serving checks plus compact-state A/B recorded in raw evidence. MTP, n-gram, tail and output-demand controls under qualification. All candidate defaults remain off; no whole-program completion or universal speed claim. Updated unified/N6/tracker progress without creating a second queue.
+
+## [2026-09-05 04:48] change | records/plan/whole-engine-optimization-2026-09-04.md
+Continued unified implementation: source-bound confirmation and bounded-work evidence captured; indexer v1 failure preserved, v2 exact checks pass; lifecycle, GDN recording and PLE tests pass. Controls remain experimental; larger read scope and whole-program qualification remain open.
+
+## [2026-09-05 07:05] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured inconclusive chronological-prefill trials, clean short serving A/A, and bounded-output blocked-send correction with 38 socket and 74 API assertions; planner and optimization defaults unchanged.
+
+## [2026-09-05 08:05] update | records/plan/whole-engine-optimization-2026-09-04.md
+Capture corrected sparse-mask oracle/state gates and shared-projection pilot; preserve excluded pair and failed adoption gate, continue unified implementation.
+
+## [2026-09-05 09:02] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve failed chronological, scope resource, and denormal-selector gates; capture exact 256-token scope and corrected selector evidence; continue peak-directed optimization.
+
+## [2026-09-05 09:45] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved failed long-request qualification, exact smaller-tile resource result, MTP selector and image-reuse gates, and initial vision padding probe. Optimization defaults remain off; full program remains in progress.
+
+## [2026-09-05 10:42] update | records/plan/whole-engine-optimization-2026-09-04
+Captured V25–V28 correctness, retained vision and bookkeeping counterexamples, implemented first-image budget reservation and observation, kept unqualified controls off.
+
+## [2026-09-05 11:33] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured V29 checked reads, V30/V31 normalization correctness and rejected speed gate, and V32 owned descriptors, exact state/MTP, corrected normalization draft comparison and rejected serving speed gate; controls remain off. Started compact selected-block D256 online attention prototype and independent numerical gates.
+
+## [2026-09-05 11:56] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured V33–V36 compact-ID attention tests, initialization and short-query corrections, 208 component passes, 52/807 full-state failures and clean component slowdowns. Rejected scalar online attention without relaxing bands. Started explicit terminal prefill demand with state-only final-cache updates and last-row MoE work; not qualified.
+
+## [2026-09-05 12:50] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved V37–V38 terminal prefill gates and V38–V41 all-hit calibrations/failures; bounded full-model replay passes 109 checks, router and normalization gains miss frozen threshold. Regenerated projections and validated. Continue remaining implementation; defaults remain off.
+
+## [2026-09-05 13:13] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured V42–V44 image metadata admission, checked preprocessing recovery, exact pixel/tower parity and request-local source reuse. Preserved failed delivery/fixture assertions, 30 catalogue groups and live image checks pass. Optimization program remains in progress.
+
+## [2026-09-05 13:26] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved V45/V46 duplicate pool request fix: 160 exact real-weight assertions, all 30 catalogue groups, and six-pair serving latency non-regression pass after one swap exclusion. Cross-binary harness and failed protocol delivery retained; program continues.
+
+## [2026-09-05 13:48] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured V47/V48 zero-draw sampler counterexample/correction, 647 native sampler assertions, independent NumPy gates, 14–27% device-draw component gains and exact sampled-serving non-regression. Defaults remain off pending confirmation/integration. Continuing adaptive speculation and remaining program work.
+
+## [2026-09-05 14:22] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured adaptive speculation V49–V51 state checks and timing-sensitivity counterexample; transparent timing policy stays off and planned performance study did not run. V48 static-gate transcript preserved.
+
+## [2026-09-05 14:48] update | records/plan/whole-engine-optimization-2026-09-04.md
+Recorded the V51 fixed-depth MTP serving results: seven clean exact pairs per candidate, both below the speed gate; no adoption or aggregate speed claim.
+
+## [2026-09-05 15:08] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured V52–V55 runtime-budget math/lifecycle checks and both fixed-total-memory serving studies. Gain gates remain failed; preserved independent swap exclusion and active first-image no-regrowth correction. Validation: zero errors, one historical log warning; claims 67 pass.
+
+## [2026-09-05 15:35] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved V56 frequency and V57 broad layer-local cache screen failures, plus V58 fresh causal trace confirmation for a floor-only successor. Native FLOOR_CACHE qualification remains open.
+
 ## [2026-09-05 15:50] validate | records/claims
 Reviewed README and public guides for clarity and consistency. Preserved registered claim values; 67 claim checks, 53 local links, and syntax checks for 30 shell/Python examples passed. Regenerated llms-full.txt. Full-store validation has zero errors and the existing historical LOG_UNKNOWN_KIND warning.
 
-## [2026-09-06 02:10] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
-Prepared the scoped 0.2.8 Hermes release candidate from public main. Qualified full-window text memory, preserved default planning, verified 637 assertions and the local release gates, and updated public connection guides. The final real-client matrix and CI remain release gates.
+## [2026-09-05 16:25] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved native floor-cache failed qualification and responsive governor V61–V63 correctness/overhead; no defaults adopted, excluded cells retained.
 
-## [2026-09-06 02:34] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
-Completed the clean 0.2.8 release matrix: released and current Hermes tool/follow-up/title flows, CLI, vision and compaction recall; 27 OpenAI checks, 19 clean-source vision checks, native gateway and Ollama image clients, and 74 API regressions passed. Public CI is green at 2a69ac0. All owned servers stopped; final client evidence retained before tagging.
+## [2026-09-05 17:15] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved compact main indexer V64–V67 correctness and MTP; 20 GB all-hit failure and swap-excluded resource study remain unqualified; planner/defaults unchanged.
 
-## [2026-09-06 02:54] update | records/measurements/hermes-context-and-openai-integration-2026-09-05.md
-Published v0.2.8 from f05b15d through release CI 34006921406. Verified the public archive checksum and signed source/workflow provenance, installed the exact CI binary, retained rollback, and verified real Hermes tool/follow-up/title/image flows plus the actual CLI against that install. All owned test servers stopped; issue remains open and no reply was posted.
+## [2026-09-05 18:01] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve complete V68 default acceptance and V69 delivery corrections: 74 API checks pass; long recall completes; long memory remains swap-excluded; combined optimization qualification remains open.
 
-## [2026-09-06 05:03] update | records/measurements/lossless-model-download-2026-09-05
+## [2026-09-05 18:22] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve actual-offset layout V70–V72, zero-disk-read cache counterexample, cold pool-read component gains and failed sweep/resource qualification. No runtime adoption.
+
+## [2026-09-05 18:59] update | records/plan/whole-engine-optimization-2026-09-04.md
+Capture V73–V76 synchronous expert/ngram read recovery, 1322 storage assertions, 151 plain/160 MTP failures, 120 actual HTTP-handler checks, and six clean paired overhead results (+0.1935%, passing 5% non-regression). Packed runtime and combined qualification remain open.
+
+## [2026-09-05 19:43] update | records/plan/whole-engine-optimization-2026-09-04.md
+V77 per-read verification and V78–V79 native load-verified packing implemented and tested; preserve full bytes, failure seams, 36 catalogue groups and seven-pair serving rejection with separate startup costs. Experimental paths remain disabled.
+
+## [2026-09-05 20:24] update | records/plan/whole-engine-optimization-2026-09-04.md
+V80–82: implemented bounded default-off n-gram lookahead with cancellation and joined failure recovery; 37 catalogue checks, 530 row/lifecycle assertions, 255/256-token state parity, 160/169 request recovery assertions and Python MLX parity pass. Seven clean exact prefill pairs reduce exposed row prefetch but regress median request time 0.1981%; speed hypothesis rejected, default remains off. Canonical evidence and master/projections saved.
+
+## [2026-09-05 20:34] update | records/plan/whole-engine-optimization-2026-09-04.md
+V83: 37 catalogue groups and 3600 exact GDN profiling assertions pass across 1/256/1024-token full-model replays, five clean pairs each. Serialized recurrence is 3.08%/4.49% of untraced prefill time; both miss the prospective materiality screen. Preserve profile scheduling overhead; conditionally defer OPT26 at measured regimes and profile staging next. Evidence captured and projections validated.
+
+## [2026-09-05 21:01] update | records/plan/whole-engine-optimization-2026-09-04.md
+V84–86: verified real staging has no managed-constructor copy fallback; bounded all-miss decode profile identifies material scatter. Contiguous slice-copy prototype passes component/pool/storage/state/plain+MTP failure checks, but seven exact clean serving pairs show essentially zero gain and fail frozen speed criteria. Both evidence records captured; master/projections validated. Word-copy BF16 successor under test from pinned atomic-store implementation.
+
+## [2026-09-05 21:09] update | records/plan/whole-engine-optimization-2026-09-04.md
+V87: paired BF16 word scatter passes catalogue39, component350, pool164, storage1322, two full-state1130 and plain/MTP request recovery151/160 assertions. Seven exact clean serving pairs regress median client time1.10399%; frozen speed criteria fail and candidate remains off. Source/raw evidence captured, master/projections validated. Next: required common-prefix checkpoint ownership and budget work.
+
+## [2026-09-05 21:27] update | records/plan/whole-engine-optimization-2026-09-04.md
+V88: exact prefix state COW fork passes12100 assertions across256/1023/2051token main and256token MTP fixtures. Tests cover overlapping divergent sibling/parent writes, capacity growth, completed indexer representation and full continued logits without retained diagnostic MLX readers. Frozen raw evidence captured; OPT29 retention/serving remains in progress. Master/projections validated.
+
+## [2026-09-05 21:50] update | records/plan/whole-engine-optimization-2026-09-04.md
+V89 budgeted prefix retention plain/MTP260 assertions and catalogue41 pass; seven serving pairs preserved, one clean24.22 percent observation, thermal/swap exclusion prevents speed qualification; default off.
+
+## [2026-09-05 22:06] update | records/plan/whole-engine-optimization-2026-09-04.md
+Source/math alternatives pass: optional batching deferred on unmeasured demand; separate lookup embedding candidate quantified without planner credit. V90 build aborted on concurrent model; V91 corrected driver refuses safely, pending vision/long-branch checks unbuilt.
+
+## [2026-09-05 22:21] update | records/plan/whole-engine-optimization-2026-09-04.md
+V92 prefix integration372 assertions pass, including real whole/partial-image exact state/logits and divergent2051-token followup with auxiliary clients. Independent seven-pair cooldown confirmation frozen, no result; embedding-row component in preparation.
+
+## [2026-09-05 23:06] update | records/plan/whole-engine-optimization-2026-09-04
+V95: 1496 native assertions and 31 T0 groups pass committed-boundary protection; T1 preflight refused by other model. V93/V94 embedding row component registered; runtime and independent prefix performance qualification pending.
+
+## [2026-09-05 23:29] ingest | sources/runs/2026/09/2026-09-05-download-first-principles-audit.md
+Capture current-source hashes, exact full-model Xet wire-range metadata, reversible compression samples, and seven bounded Swift transport probes. Preserve temporal drift and component-test limits; no runtime or hosting changes.
+
+## [2026-09-05 23:29] create | records/analyses/2026-09-05-first-download-bottleneck-audit.md
+Complete first-principles download audit. Locate main cost in 105 GB network transfer; qualify historical hosting claims, quantify Xet 2.384% byte savings and sampled 10–11% lossless compression opportunity, identify progress/retry accounting defects, and prioritize measurable client/package experiments. Full-store validation: zero errors, one pre-existing unknown-kind warning at log.md:124.
+
+## [2026-09-05 23:30] update | records/plan/whole-engine-optimization-2026-09-04
+V95 prefix serving confirmation passes: six clean pairs, 35.7637% median paired client reduction, exact outputs across all 14 cells, max qualified sampled peak 6.9331 GB. Preserve round 4 swap exclusion and scoped startup/memory tradeoffs; integrated activation pending.
+
+## [2026-09-05 23:59] update | records/plan/whole-engine-optimization-2026-09-04
+V96/V97: checked row-cache runtime reaches main/MTP/vision/prefix paths; 527 assertions pass. Preserve build refusals, diagnostic compile failure and two TCP disconnect-oracle failures. Load snapshots are descriptive; resource/latency and larger-scope protocols remain unrun, defaults and planner credit unchanged.
+
+## [2026-09-06 00:11] update | records/measurements/hermes-context-and-openai-integration-2026-09-05
+Complete Hermes integration fixes and qualification: preserved context counterexamples and passing reservation measurement; released/current real agents, CLI, title fallback, image discovery/inference, bounded compaction and recall pass on frozen source build. OpenAI 27, image 25, ordinary API 74 and catalogue regressions retained with exact build identities. Final validation zero errors, one pre-existing log-kind warning, 76 claim checks pass. Installed release unchanged; no GitHub reply or publication.
+
+## [2026-09-06 00:26] update | records/measurements/hermes-context-and-openai-integration-2026-09-05
+User-authorized local installation now activates the exact Hermes-qualified 80050269 binary and matching Metal library through the normal slotstream command. Previous install preserved for rollback. Installed runtime and 65536-context planner checks pass; no model launched and no release published. Installation receipt and source capture recorded; validation has zero errors and the one pre-existing warning.
+
+## [2026-09-06 00:29] update | records/analyses/2026-09-05-first-download-bottleneck-audit.md
+Inspect actual headers of all model files, live raw range responses, gzip release signature, wheel central directories and three BG4-LZ4 Xet chunk headers. Record quantization versus file/transport compression and avoid double-counting Xet versus Zstandard savings. Raw evidence preserved; full-store validation zero errors and one pre-existing log-kind warning.
+
+## [2026-09-06 00:42] update | records/plan/whole-engine-optimization-2026-09-04
+V98 embedding serving memory/nonregression gate passes in five clean pairs; preserve two swap exclusions, exact outputs, TCP correction and scope/vision checks. Larger-scope and integrated qualification remain open.
+
+## [2026-09-06 00:47] update | docs/CLIENTS.md
+Add shared app/agent connection guide and prominent README links to it and Hermes. Document OpenAI versus Ollama settings, source-build requirements, actual tool-result verification, context/timeout/auxiliary pitfalls, capability limits and useful issue evidence. Cross-link API and Hermes, include guide in llms index/full docs, and extend existing context claims. Local links/anchors, shell examples, request JSON, generated docs and 78 claim checks pass; zero validation errors with the existing log-kind warning. Documentation only; no model test or publication.
+
+## [2026-09-06 01:02] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V98 larger-prefill reference warmup exclusion: generator swap-ins and fair thermal state; stopped before measurement or candidate, no comparative result.
+
+## [2026-09-06 01:10] update | records/plan/whole-engine-optimization-2026-09-04
+V102 passes 306 TCP/HTTP/governor/read-recovery assertions and 42 catalogue groups. Correct pressure false-success bug; preserve failed diagnostic setups. Independent queue confirmation frozen; integrated optimization qualification remains open.
+
+## [2026-09-06 01:20] update | records/analyses/2026-09-05-first-download-aggressive-lossless-compression.md
+Complete aggressive lossless compression probe: 377 screen checks, 654 checks across 106 windows and all 12 shards, two complete 2.192 GB archives with exact pinned SHA-256, and native rANS follow-up. Weighted model estimate 105.264 to 88.455 GB, about 16% fewer bytes; simpler Zstandard profile about 14.5%. Preserve source closure and failed PPMd candidate; discard runtime timings for concurrent work and independently verify deterministic artifact properties. Supersede prior compression estimate. No model/source-downloader/hosting changes. Store validation zero errors and the one pre-existing log-kind warning.
+
+## [2026-09-06 01:20] validate | records/analyses/2026-09-05-first-download-bottleneck-audit.md
+Trim the revised audit summary to the 200-character limit. Final validation now confirms zero errors and only the pre-existing LOG_UNKNOWN_KIND warning at log.md:124; the intermediate validation also reported that now-corrected summary-length warning.
+
+## [2026-09-06 01:33] update | records/plan/whole-engine-optimization-2026-09-04
+V102 queue latency nonregression passes all seven clean exact-work pairs (0.5006% median paired reduction). OPT32 begins combined state, sampled generation, image, prefix and cancellation qualification; production defaults remain unchanged.
+
+## [2026-09-06 01:53] update | records/plan/whole-engine-optimization-2026-09-04
+V103 first combined ordinary candidate passes 151 exact state/logit/sampling/image/prefix/cancellation checks. V104 adds public-state validation, awaiting build reservation; MTP and combined serving qualification remain unrun.
+
+## [2026-09-06 02:25] update | records/plan/whole-engine-optimization-2026-09-04
+V104 native-source archive gap preserved; corrected provenance builder passes four tests and five reservation tests. Projection/GLU and CPU slot-write components prepared; native and integrated qualification remain pending.
+
+## [2026-09-06 02:33] update | records/plan/whole-engine-optimization-2026-09-04
+V104 combined ordinary regression passes all 167 assertions, including atomic invalid-state refusal. Preserved as diagnostic feedback under its disclosed source-closure limitation; rebuilt ordinary/MTP qualification is next.
+
+## [2026-09-06 02:49] update | records/plan/whole-engine-optimization-2026-09-04
+V107 complete native source closure; CPU slot component passes 174 checks and combined MTP passes 181. Dense B/A fusion has a preserved numerical failure; quantized/GLU successor and CPU pool/runtime integration proceed separately.
+
+## [2026-09-06 03:07] update | records/plan/whole-engine-optimization-2026-09-04
+V108 CPU slot integration passes 3,113 component/pool/storage/state/plain+MTP recovery checks; quantized/GLU successor passes 55. Seven-pair CPU serving protocol frozen with exact-work and mechanism gates; no performance run yet.
+
+## [2026-09-06 03:28] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V108 CPU serving failure and 167 rebuilt ordinary integration assertions; defaults and combined performance remain pending.
+
+## [2026-09-06 03:49] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V110 CPU copy prerequisites and excluded compute screen; add explicit full-prompt reuse implementation and qualification contract under OPT29.
+
+## [2026-09-06 04:10] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V114 complete-prompt ordinary/MTP integration, failed test setups, 33 passing harness tests and frozen repeated/unique serving protocols; no performance result or activation yet.
+
+## [2026-09-06 04:39] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve excluded V114 repeat study, exact work/output observations and overlapping pull timestamps; V115 sampled contention guard passes pure and live refusal checks.
+
+## [2026-09-06 05:01] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve guarded repeat refusal, V116 source closure, 48 maximum-geometry attention checks, 36 image-harness tests and frozen unrun image-serving protocols.
+
+## [2026-09-06 05:02] update | records/measurements/lossless-model-download-2026-09-05
 Qualified lossless CDN default: complete public Mac/Linux reconstruction, restored Swift API compatibility, bounded memory, fault gates, line coverage and loaded-model response; v0.2.9 publication follows.
+
+## [2026-09-06 05:08] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V116 integrated 167-pass result and V117 trained vision-tower 2/19 numerical counterexamples; padding stays disabled pending independent oracle diagnosis.
+
+## [2026-09-06 05:26] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V118 two-clean-pair result and guarded stop without a qualified speed claim; add query-prescaling numerical successor under OPT27.
 
 ## [2026-09-06 05:33] update | records/measurements/lossless-model-download-2026-09-05
 Preserved the failed v0.2.9 CI fixture and corrected cancellation to wait for durable progress. Delayed-start compressed/raw fixtures and bounded memory pass; v0.2.10 publication remains pending.
+
+## [2026-09-06 05:54] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve query-prescaling failures and V123 query-tiled vision 193-pass prerequisites, unchanged defaults, 37 harness tests and an independent frozen sixteen-pair repeat protocol.
 
 ## [2026-09-06 06:07] update | records/measurements/lossless-model-download-2026-09-05
 Preserved the v0.2.10 main-CI coverage counterexample after functional gates passed; added direct original-byte resume and CDN cache-status checks. Local coverage passes unchanged floors; production code and installed release remain identical.
 
 ## [2026-09-06 06:31] update | records/measurements/lossless-model-download-2026-09-05
 Published v0.2.10 through passing release and main CI; verified signed provenance, ordinary installation, actual CLI download controls, every original file hash and an installed loaded-model response. Retained the prior installed release.
+
+## [2026-09-06 06:32] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V125 query-tile execution, 637 native and 25 known-content serving checks, maximum-reference exactness, and three unrun frozen resource/latency protocols. Recovery lineage successor builds but remains unqualified.
+
+## [2026-09-06 06:50] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V127 model/checkpoint ownership and 1,948 passing native assertions; V128 adds pending misaligned-draft and bounded resident-overlap qualification. No defaults or measured speed claims changed.
+
+## [2026-09-06 07:01] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V128 inactive-mechanism counterexample, V129 resident overlap 2,351-pass closure, explicit failure joins, 38 harness tests and unrun frozen serving protocol. All optimization defaults remain off.
+
+## [2026-09-06 07:35] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V130 swap-excluded maximum image and V131 six-pair small-image nonregression (1.15583 percent median regression, exact outputs). Corrected full-request peak aggregation before the unrun V132 resource study; 39 harness tests pass.
+
+## [2026-09-06 08:09] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V132 failed larger-image resource gate and futility stop; no query-tiling activation or qualified speed claim.
+
+## [2026-09-06 08:55] update | records/plan/whole-engine-optimization-2026-09-04
+V133 independent repeat confirmation: 10 clean pairs, 71.95368447 percent median client reduction; preserve 6 exclusions and pending retention/combined gates.
+
+## [2026-09-06 09:21] update | records/plan/whole-engine-optimization-2026-09-04
+V134–V136 preserve cache counterexamples, fix owner/count/eviction invariants, pass 43 catalogue groups and 656 final targeted assertions; freeze unique-prompt successor before measurement.
+
+## [2026-09-06 09:26] update | records/plan/whole-engine-optimization-2026-09-04
+V139 exact partial-rotation component passes 208 assertions; preserve failed builds and unrun unique-prompt protocol; no production fusion or speed claim.
+
+## [2026-09-06 10:14] update | records/plan/whole-engine-optimization-2026-09-04
+V140 unique-request full-retention gate passes six clean pairs with effectively flat median latency; preserve charged 261 MB and all exclusions; explicit complete integration pending.
+
+## [2026-09-06 10:28] update | records/plan/whole-engine-optimization-2026-09-04
+V141 complete-prompt joint native qualification: 596 assertions pass; full hits and distinct-tail partial fallback exercised; combined serving and defaults still pending.
+
+## [2026-09-06 10:41] update | records/plan/whole-engine-optimization-2026-09-04
+V142 exact fused/shared RoPE full-model and MTP integration passes2665 native assertions; performance still open. V143 independent terminal final-query candidate awaiting gates.
+
+## [2026-09-06 10:49] update | records/plan/whole-engine-optimization-2026-09-04
+V143 single final query fails3of3491 native assertions: two ordered-route mismatches and lifecycle spread1.156percent. Reject; V14464-row successor preserves unchanged gates.
+
+## [2026-09-06 10:57] update | records/plan/whole-engine-optimization-2026-09-04
+V144 terminal64-row tail passes3491 assertions. RoPE421checks pass but12global swapins exclude timing; independent V145confirmation frozen without pooling. Harness41PASS.
+
+## [2026-09-06 11:00] update | records/plan/whole-engine-optimization-2026-09-04
+V145 independent RoPE confirmation stops on interval swap; all timing excluded and no gain claimed. Advancing unchanged frozen resident-serving study.
+
+## [2026-09-06 11:22] update | records/plan/whole-engine-optimization-2026-09-04
+Resident serving V140 completes14cells:6clean exact pairs,0.1972percent median gain,613submitted/joined each request. Fails5percent gate; remains off. V146 raw preserved.
+
+## [2026-09-06 11:33] update | records/plan/whole-engine-optimization-2026-09-04
+V147 direct-stride RoPE2687nativePASS; quiet component screen pending. FreezeV148max-image paired resource protocol with original strict gates; no measured saving yet.
+
+## [2026-09-06 11:47] update | records/plan/whole-engine-optimization-2026-09-04
+V147RoPEcomponent421PASS, zeroVM; combined18.2/17.5/35.0percent gains qualify.43cataloguePASS. FreezeV149serving nonregression before observation; defaults unchanged.
+
+## [2026-09-06 12:12] update | records/plan/whole-engine-optimization-2026-09-04
+V150 completes CPU contiguous serving: six clean exact pairs, all slower, 6.59494 percent median regression; candidate remains disabled. Evidence registered; unified plan v81, final gates remain open.
+
+## [2026-09-06 12:56] update | records/plan/whole-engine-optimization-2026-09-04
+V151/V152 qualify short and prefill RoPE serving nonregression with exact outputs and work; component gains remain scoped. Unified plan v82, defaults and remaining final gates open.
+
+## [2026-09-06 13:04] update | records/plan/whole-engine-optimization-2026-09-04
+V153 qualifies compute measurement with 303 native assertions and zero process swap; most benefits fail. One-token GDN fusion earns a memory-accounted prototype; no projection default enabled. Plan v83.
+
+## [2026-09-06 13:28] update | records/plan/whole-engine-optimization-2026-09-04
+V154 GDN shared backing passes 2296 native assertions and 43 catalogue groups with equal active resident bytes; freezes V155 terminal and V156 GDN serving with first-job gate. Plan v84; defaults/final gates open.
+
+## [2026-09-06 13:55] update | records/plan/whole-engine-optimization-2026-09-04
+V157 stops maximum-image reference above 10GB with swap; no candidate or valid pair. Freezes independent V158 fixed640-slot, same10GB ceiling study;44harness tests pass. Plan v85, final gates open.
+
+## [2026-09-06 14:14] update | records/plan/whole-engine-optimization-2026-09-04
+V158 reference again exceeds10GB; correct prior pool assumption because both runs already used640slots. Freeze separate12GBmechanism and10GBcandidate capacity protocols;45harness tests. Context task owns model/build interval. Plan v86.
+
+## [2026-09-06 14:29] update | records/plan/whole-engine-optimization-2026-09-04
+V161 preserves a failing large-vision preflight regression, fixes image admission through the complete bounded contract, passes 46 harness tests and all five frozen protocol static preflights; no model/build run and Sources unchanged while context task owns the interval.
+
+## [2026-09-06 14:34] update | records/plan/whole-engine-optimization-2026-09-04
+V162 automates the frozen one-arm capacity assessment with five passing edge-case tests; V160 remains unrun, no protocol or model/default changed.
+
+## [2026-09-06 14:46] update | records/plan/whole-engine-optimization-2026-09-04
+V163 prepares the required long-lived-server lifetime harness and pinned unrun draft; seven focused tests pass; final plain/MTP soaks remain open.
+
+## [2026-09-06 15:10] update | records/plan/whole-engine-optimization-2026-09-04
+V155 stops for futility after three swap-excluded pairs; two clean pairs show 1.8716% median gain below 5%, so terminal-tail remains OFF. V164 soak requires real retained prefix state, seven tests pass. Interval released to context task.
+
+## [2026-09-06 15:27] update | records/plan/whole-engine-optimization-2026-09-04
+V165/V166 preserve seven unrun final matrix drafts, explicit controls/first-job gates, simultaneous partial/full warmup validation, 48 passing harness tests and seven static draft checks. All final executable bindings remain open.
+
+## [2026-09-06 15:56] update | records/plan/whole-engine-optimization-2026-09-04
+V156 short GDN completes: six clean warmed and five clean first-job pairs pass nonregression with 0.8572%/1.0659% regressions, exact outputs and equal allocation; no speed gain/default adoption. Interval handed to transport for bounded rebuild/download/smoke.
+
+## [2026-09-06 16:13] update | records/plan/whole-engine-optimization-2026-09-04
+V167 soak deadline and full-driver cleanup pass ten Python tests. V168 request pin cleanup and V169 hardware/OS fallback policy added with expanded native assertions, unbuilt/unrun while transport owns interval. OPT33 in progress; defaults remain OFF.
+
+## [2026-09-06 16:32] update | records/plan/whole-engine-optimization-2026-09-04
+V170 prepares combined-base 10GB long-prefill scope diagnostics and a static-validated unbound16-pair draft, preserving V22/V98 exclusions. Native checks and final bindings pending; transport still owns local interval.
+
+## [2026-09-06 16:54] update | records/plan/whole-engine-optimization-2026-09-04
+V171 bounded combined build and 32 T0 groups/20145 assertions pass; V172 staging materiality re-analysis preserved; model gates and defaults remain pending
+
+## [2026-09-06 16:58] update | records/plan/whole-engine-optimization-2026-09-04
+V173 prepare environment overlays and 34 native fallback assertions; unbuilt and defaults unchanged
+
+## [2026-09-06 17:07] update | records/plan/whole-engine-optimization-2026-09-04
+V174 enforce final-source native/paired soak prerequisites and observed row-cache enablement; 23 focused tests pass; live qualification pending
+
+## [2026-09-06 17:45] update | records/plan/whole-engine-optimization-2026-09-04
+V156 prefill: all14cells preserved; 5 clean warmed pairs nonregression pass at1.76006pct reduction; first-job min-count fails; GDN remains OFF and interval returned
+
+## [2026-09-06 17:57] update | records/plan/whole-engine-optimization-2026-09-04
+V175 preserve unapplied context merge review; odd dispatch and aggregate allocation-credit gaps identified; 835 HTTP assertions apply only to prior isolated snapshot
+
+## [2026-09-06 18:47] update | records/plan/whole-engine-optimization-2026-09-04
+V160 is preserved as incomplete after mathematical futility: one clean maximum-image cell, three swap exclusions, fifth interrupted; capacity/default qualification fails and transport interval returned.
+
+## [2026-09-06 18:51] update | records/plan/whole-engine-optimization-2026-09-04
+V176 applies reviewed context v3 by three-way merge and passes merged build plus33 T0 groups/22242 assertions. Full-model/HTTP and final qualification remain pending; closure audit preserves four smaller unfinished substeps.
+
+## [2026-09-06 19:10] update | records/plan/whole-engine-optimization-2026-09-04
+V177 prepares bounded four-head indexer score probe and five pure passing tests; no GPU launch. Combined context MTP qualification held on reported exclusivity abort; final program remains open.
+
+## [2026-09-06 19:40] update | records/plan/whole-engine-optimization-2026-09-04
+V178 applies MTP exclusivity correction; separate context build17 prefix-retention198 passes and adaptive mismatch is unchanged historical evidence. V179 five serving drafts and V180 full-cache component are unrun;55 pure tests pass. Explicit conditional policy dispositions; final program remains open.
+
+## [2026-09-06 19:49] update | records/plan/whole-engine-optimization-2026-09-04
+V181 tightens unrun ngram control activation and indexer finite bounds;22 pure checks pass. V182 merges only typed pressure observations and explicit recovery diagnostic; separate build18 passes80/835. Shared native source remains unbuilt and final optimization qualification open.
+
+## [2026-09-06 20:05] update | records/plan/whole-engine-optimization-2026-09-04
+V183–184 merge bounded C07 source, fix shared prompt-cache arithmetic epoch, preserve exact supported stride assertion, capture seven pure tests; all shared native/performance acceptance remains open.
+
+## [2026-09-06 20:23] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V185 failed shared compile, no native launch, returned lock; V186 fixture expression is unchanged but explicitly typed and awaits rebuild.
+
+## [2026-09-06 20:29] update | records/plan/whole-engine-optimization-2026-09-04
+V187–188 match unrun indexer exceptional arithmetic and harden owned descendant cleanup;64 pure/process groups pass, default-tail no-op domain derived, no native/GPU/performance claim.
+
+## [2026-09-06 20:42] update | records/plan/whole-engine-optimization-2026-09-04
+V186 shared build/T0/ngram/cache gates pass; preserve sampled-tail2/260 counterexample, V189 greedy-only optional tail and sampled reference fallback remain unbuilt; full joint acceptance still pending.
+
+## [2026-09-06 20:50] update | records/plan/whole-engine-optimization-2026-09-04
+V190 owns model exclusion throughout full verification; nine provider-free groups pass; native and final qualification remain pending.
+
+## [2026-09-06 21:20] update | records/plan/whole-engine-optimization-2026-09-04
+V189 shared ordinary/MTP/prefix/read-recovery correctness passes; preserve batch boundary and exclusions. V191 prices full diagnostics and reports canonical schedule; new native qualification pending.
+
+## [2026-09-06 21:35] update | records/plan/whole-engine-optimization-2026-09-04
+V193 preserves existing prefix checkpoints in optional read groups, including disabled-cache exclusion; new pure/native interaction checks are unrun and final qualification remains open.
+
+## [2026-09-06 21:54] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V193 plain-governor counterexample and passing bounded checks; apply source-only V194 complete live-feasibility guard, retain all refusal criteria and transport hold.
+
+## [2026-09-06 22:01] update | records/plan/whole-engine-optimization-2026-09-04
+Bind final native commands, paired workload/control protocols and both soak modes through a pre-run matrix contract;21 focused Python tests pass; actual qualification remains unrun.
+
+## [2026-09-06 22:07] update | records/plan/whole-engine-optimization-2026-09-04
+Add diagnostic-only complete portable plain/MTP integration variants through the actual deployment selector, preserving existing public signature; native build and execution remain held and unrun.
+
+## [2026-09-06 22:15] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve exact public transport3 source integration and143-file shared/context equality; prepare unrun V198 common correctness queue with governor-first failure stop and bounded scope preflight; all heavy work still held.
+
+## [2026-09-06 22:34] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve unapplied actual-default qualification draft and byte-exact recovery of three pre-existing absent Hermes evidence sources; raw IDs/timestamps/hashes retained, sources index repaired, no native/default change or heavy launch.
+
+## [2026-09-06 22:37] update | records/measurements/hugging-face-lossless-download-2026-09-06.md
+Integrate verified public Hugging Face release 2ed2d5a558ddea8eaa9114ae26c9fc0433e5f6b5 through a reviewed merge; preserve unrelated working changes, original source bytes, and historical deletions.
+
+## [2026-09-06 22:53] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve failed V198 T0/doctor evidence; import fixture-only V201 correction and freeze V202 shared correctness successor.
+
+## [2026-09-06 23:11] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve unapplied V203 coherent planner-family draft and441-case exact comparison; qualification and current defaults remain unchanged.
+
+## [2026-09-06 23:17] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve complete V20219-group shared correctness pass, exact source/build/Metal identity and clean machine handback; final measurement/activation gates remain open.
+
+## [2026-09-06 23:44] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V204 zero-cell MLX input delivery failure; apply exact-value V206 initializer correction and prepare unrun V207 successor without relaxing any criterion.
+
+## [2026-09-06 23:50] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V208 unapplied cost-family refinement with original scalar switch dispatch and unchanged441-case comparison.
+
+## [2026-09-07 00:01] update | records/plan/whole-engine-optimization-2026-09-04
+Preserve V209 full-image profile, strict response predicate and mandatory vision-skip acceptance failures;9 provider-free checks pass and runtime source remains unchanged.
+
+## [2026-09-07 00:20] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V210 typed refusal integration and V211 first OpenAI error.code counterexample; T0/CLI pass, native854/856; both HTTP suites unrun. No defaults or numerical criteria changed.
+
+## [2026-09-07 00:27] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V214 additive OpenAI error.code correction and V215 one-build five-group correctness pass; no performance/default/capacity claim. Optional and final qualification remain open.
+
+## [2026-09-07 00:44] update | records/plan/whole-engine-optimization-2026-09-04
+Corrected unpublished V211/V215 discarded metadata under DB.md swapping-machine contract; raw/body bytes unchanged, correctness preserved, timing/capacity excluded.
+
+## [2026-09-07 01:00] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V217 eighth actual-default guard draft with13pure tests and V218 applied release-script correction with20shell cases; no model/performance/default/cap change.
+
+## [2026-09-07 01:03] update | records/plan/whole-engine-optimization-2026-09-04
+Applied V219 mandatory eighth actual-default guard with13passing pure receipt tests; original7preserved, runtime143unchanged, all final performance/soak/resource gates remain open.
+
+## [2026-09-07 01:07] update | records/plan/whole-engine-optimization-2026-09-04
+Applied the same swapping-machine discarded metadata correction to unpublished V202;19group correctness pass and complete body/raw bytes unchanged,167swapins across10intervals exclude timing/capacity.
+
+## [2026-09-07 01:18] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V20725case score screen: single-query34.0958percent local gain, prefill3.78x/6.13xslower; whole run761swapins discarded, no inference/default activation.
+
+## [2026-09-07 01:41] update | records/plan/whole-engine-optimization-2026-09-04
+Preserved V205 outer preflight refusal at10.72GB/12GB with zero cells and immediate machine return; V222 eleven pure soak tests pass. No launch retry/default or completed-program claim.
+
+## [2026-09-07 01:52] update | records/plan/whole-engine-optimization-2026-09-04
+Reconciled all37items through V224; reviewed current default workspace allowance and final8 dependency, regenerated llms-full from prior accepted source edits. No runtime/protocol/default activation.
+
+## [2026-09-07 01:59] update | records/plan/whole-engine-optimization-2026-09-04
+V226 fixes static battery candidate selection after six preserved shell counterexamples; six durable model-free cases and syntax pass,143runtime and frozen drivers unchanged. Full acceptance remains unrun.
+
+## [2026-09-07 02:19] update | records/plan/whole-engine-optimization-2026-09-04
+V229 separates final correctness/absolute peaks from timing eligibility, binds all warmup receipts;25prerequisite+11soak tests pass. V227 finds0mismatches in445comparisons/55prior studies without rescoring. Runtime and frozen drivers unchanged.
+
+## [2026-09-07 02:31] update | records/plan/configurable-context-window-2026-09-06.md
+Integrated the context-owned engineering authority into this shared repository during the coordinated curator interval:74 byte-exact source/artifact files,2context records,6newclaims and2bounded vision-claim corrections via native dbmd;11reviewed documentation deltas retain transport/Hermes release history and mark new controls unreleased. Preserved every unrelated optimization record/source/log. Native projections and95claims pass; validation0errors with the historical log-kind warning. Runtime143Sources remain exactV215; P5/P6, full resource, real installed/rollback and262144 qualification remain open. Five-file selected-candidate acceptance is separately reviewed/imported by the optimization owner; fixture passes do not erase the6current planner headroom failures.
+
+## [2026-09-07 02:35] update | records/plan/whole-engine-optimization-2026-09-04
+V230 reviewed selected-binary/Metal packet imported with25pure checks; V231 adds mandatory nine optimization suites117tests plus9static entry tests, preserving3pre-change failures. Runtime143/frozen drivers unchanged; final studies/resource/delivery unrun and defaults off.
+
+## [2026-09-07 02:36] update | records/plan/whole-engine-optimization-2026-09-04
+V232 imports context client fixture source byte-exact and verifies three shared Tools after-images. Seven owner pure checks only; prior actual client/consumer evidence remains prior-build. No final consumer/installed gate or default activation claimed.
+
+## [2026-09-07 02:42] update | records/plan/whole-engine-optimization-2026-09-04
+V233 corrects selected binary/output paths in full verify; final9shell fixture tests reproduce5original failures and pass after correction; static9pass. Runtime143/frozen3unchanged. Preserve first fixture canonicalization error. All37dispositions retained; final model/resource/delivery still unrun.
+
+## [2026-09-07 02:46] update | records/plan/whole-engine-optimization-2026-09-04
+V234 final receipt completion rejects runtimeError and inconsistent computed/reused/token accounting;3before failures preserved,30prereq+11soakpure tests pass. Frozen drivers/runtime and earlier studies unchanged. Final8/2realsoaks and resource/delivery remain open.
+
+## [2026-09-07 02:49] update | records/plan/whole-engine-optimization-2026-09-04
+V235 closes reviewed Tools/client handoffs; sampler8/static9pure pass, owner native17evidence imported exact, source143/frozen3unchanged. Master all37dispositions retained; final8/2soaks and component/resource/planner/default/delivery work blocked on sufficient headroom, defaults off.
+
+## [2026-09-07 02:51] update | records/plan/configurable-context-window-2026-09-06.md
+Recorded final verification/API/sampler acceptance corrections and mandatory static wiring with immutable V233/V235 and context counterexamples. Focused sampler8/static9/syntax3 and actual no-model V215 sampler17 pass; six planner checks remain blocked by real startup headroom. Shared plan/evidence/docs/client fixtures are integrated. Validation0errors and95claims pass with historical log warning. No runtime/frozen-driver/cap/default change; P5 all16rungs and remaining full-resource/final-client/release/installed/rollback gates remain open. No VM approval received, no VM or application stopped.
+
+## [2026-09-07 03:32] update | records/plan/whole-engine-optimization-2026-09-04
+V236 preserves insufficient-resource snapshots and verifies optional VM restoration; active browser remains open, zero cache cells. V237 completes typed441-case V215 metadata baseline,7 comparator fixtures and scalar Swift typecheck, then applies exact3-file V208 family only to an isolated source snapshot. Full13GB build/paired comparison remains unrun at9.77GB; shared143runtime/frozen3/P5/defaults unchanged. Masterv139 and raw evidence recorded; validation0errors,95claims and projections/diff checks pass. No new performance, default or completion claim.
+
+## [2026-09-07 05:10] update | records/plan/whole-engine-optimization-2026-09-04
+V238-V250raw failures and successes preserved. Cached V241family build/restoration passes; V243typed441, V247T022346/CLI116, V249planner64/context856 pass, then API38/36fails underpressure and typed4unrun. V244two exact-output cachecells leave no clean pair. Serial12/static11/release28validation and e2e executable correction integrated. Separate262Kcampaign removed as an unrelated unchanged-cap prerequisite; every applicable original optimization/resource/client gate retained. Masterv140/contextaddenda/projections current; validation0errors,95claims/diff pass; existing log warning retained. Defaults off; APIseed predicate and pressure-readiness correction next.
+
+## [2026-09-07 06:13] update | records/plan/whole-engine-optimization-2026-09-04
+V251-V264 raw evidence and masterv141/projection preserved. V255 candidate builds/restores exact7source and release/build lease; T022346/CLI116/planner441/runtime104/sampler17/local installer pass. API9, pressure4/guard14, consumer4/static15 fixtures pass. V258swapguard stop, V260API and V263consumer preflight refusals remain unresolved actual acceptance. V264all37inventory/8.014GB handback is canonical; no jobs/waiter, lock free, Chrome untouched. Separate262KP5scope unchanged; final8paired/2soak/native/resource/client/consumer/activation open. Full DB0errors/historical1warning,95claims,projections/diff checks pass. Prior log attempt rejected LOG_USAGE before mutation because log does not accept dir; retried from db root.
+
+## [2026-09-07 07:24] update | records/plan/configurable-context-window-2026-09-06.md
+Carlos explicitly deferred native model/hardware qualification. Delivered pure-policy device seam, make context-test, CI proxy workflow, strict delivery/evidence fixes and portable source/bind/native campaign. Final nine Python suites79tests and964167geometry/controller assertions pass; source-only export/extraction and stale-candidate refusal pass. Public/default/mode limits unchanged; no model/full SwiftPM build/client/release run. Full brain validation0errors/1historicalwarning,95claims and projections pass. Source evidence recorded before transcription.
+
+## [2026-09-07 07:44] update | records/plan/configurable-context-window-2026-09-06.md
+Recorded immutable V215 window-matrix evidence:93 model-free CLI checks across9windows and3adversarial validator tests pass; preserved initial test-only ledger multiplier error. Public limit65536/default32768 unchanged, no model/compiler launch or native-capacity claim. Reusable driver/docs delivered, source/candidate drift checked, all95claims and generated projections pass. Full brain validation0errors with1historical log-kind warning; no memory waiter.
+
+## [2026-09-07 07:48] update | records/plan/whole-engine-optimization-2026-09-04
+V265-V271 immutable evidence and masterv142 preserved. Actual V255 bounded components363, rebased current-source planner proxy964167 and real external consumer pass. New sequential13-stage campaign/active-emission reporter preserve8paired+2soak contracts; simulated fixture suites30+11+13+8+17pass; actual V269all stages unrun. V271release build stops at original6GB live floor and restores source/release/build state exactly, no model or published candidate. All37dispositions retained. Full DB0errors/1historicalwarning,95claims/projections/diff pass. Current-source finalbuild/native/API/resource/client/performance/lifetime/adoption remain open. Other apps untouched.
+
+## [2026-09-07 08:52] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved V273 current-source build and V274/V275 actual metadata/API passes, V276 pressure stop, V277 cause reporting, and V278 ordinary/MTP passes with14 stale empty-cache assertions. Updated unified master v143 and all37-item disposition without dropping pending work. Added diagnostic-only independent checkpoint and same-HTTP retry checks; new V280 build restores shared state exactly. Database validation0errors,95claims and projections pass; new native campaign still in progress.
+
+## [2026-09-07 09:09] update | records/plan/whole-engine-optimization-2026-09-04.md
+Registered V279/V284 exact committed-checkpoint recovery522, V280 guarded build and V281 ordinary242/MTP256 passes, and V282 T022346/CLI116/fullstatic/components363. All3same-build native prerequisites pass on binary eba9ee89; all8paired and2soaks remain unrun. Master v144 preserves all37items and prior failures. Fullstatic classification corrected to acknowledge small C/Swift transport-fixture compilation. Validation0errors,95claims,projections and diff checks pass. Heavy-work handback08:55UTC; waiting for next coordinated full-suite interval; no app closed.
+
+## [2026-09-07 09:59] update | records/plan/whole-engine-optimization-2026-09-04.md
+V145: preserved V283 full verification22pass/3fail; V286 real BSD-sed and false-PASS parser correction15tests; V287 actual governor and V289 complete12GB MTP/original-image memory gates pass on V280, MTP peak10.333721952GB and zeroVM. Long-memory recall correct but four swapins exclude resource; V290quiet and consumer timepreflights refuse before launch. All37items retained, final8paired/2soaks and remaining full/client/consumer/activation open. Root earlyhandback09:55:28UTC, apps open. Validation0errors/historical warning1; claims95 and projections/diff checks pass.
+
+## [2026-09-07 11:16] update | records/plan/whole-engine-optimization-2026-09-04.md
+V146: recorded first combined fixed32-cell study (15clean pairs, completion-12.9725%, peak-6.2374%, firstprotocol+3.6128%, no one-token TPS); fixed reporter9tests; exact150file external consumer/22assertions passes. Preserved long preflight refusals. Seven paired studies/two soaks and final gates remain. All37items retained; validation0errors,95claims pass, projections and diff clean.
+
+## [2026-09-07 12:41] update | records/plan/whole-engine-optimization-2026-09-04.md
+V147: second combined32-cell prose study passes15clean pairs (visible-1.8134%, activeTPS+1.4569%, sampledpeak-7.3960%); actualOllama/SDK32K65K+Hermes65K and portable242/256 pass. Recorded48clean synchronization componentpairs with native/serving qualification still pending and corrected unsupported allocator label separately. All37items retained; six paired/two soaks remain. Source unchanged; handed back12:25. Validation0errors,95claims pass; projections/diff clean.
+
+## [2026-09-07 14:05] update | records/plan/whole-engine-optimization-2026-09-04.md
+V148 records preserved V302 compile failure, V303 native joined-eval 48 clean pairs and 12 byte-exact edge cases, V304 actual runtime implementation and exact build/restoration, and V305 ordinary242/MTP256 passes. Recovery and V306 extension stayed unrun. Current V304 qualification is separated from all historical V280 evidence; all37 items retained. Drained handback at13:58UTC. DB validates with0errors/1historical warning, claims95pass, projections and diff clean. Goal active; defaults off; apps open.
+
+## [2026-09-07 15:57] update | records/plan/whole-engine-optimization-2026-09-04.md
+V307 current V304 recovery, core, static, components, clients, API and portable gates pass. First 32-cell paired workload: completion 15.3310% lower and sampled peak 6.2496% lower; no visible-preview or one-token TPS claim. Long recall passes but four swap-ins exclude the original resource gate. V308 preserves and prospectively corrects the unrun MTP-plus-vision lifetime budget with exact wire parity and 16 negative cases. All 37 items retained; remaining gates and activation open. Drained handback at 15:44 UTC; next quiet interval unreserved. Master v149.
+
+## [2026-09-07 16:49] update | records/plan/whole-engine-optimization-2026-09-04.md
+V310–V314: preserve failed consumer fixture; exact150-source consumer and actual12GB MTP/vision planner proof pass; corrected lifetime executor validated. Preserve full verification VM exclusions and context set-e truncation; shell fix16tests/9cases passes. Remaining tail refused before load at12.03GB versus21GB. Hard18:00 handback; allappsopen, activation and wholeprogram remain unfinished.
+
+## [2026-09-07 18:19] update | records/plan/whole-engine-optimization-2026-09-04.md
+V315–V319: preserve complete32cell prose with exact outputs/caps but insufficient4request/3startup pairs after thermal/VM exclusions. Installed5phases/31E2E/rollback and original quality15/API74/tower/vision25 pass. Foundation thermal readiness8tests/live and mandatory static dispatch19tests pass; initial fixture failure preserved. Handback17:54:55; no new reservation or activation, all37items retained.
+
+## [2026-09-07 18:45] update | records/plan/whole-engine-optimization-2026-09-04.md
+V320 fixed confirmation preserves original inconclusive prose and imports four qualified original executions byte-for-byte; V321 corrected lifetime composition and V322 all-control/source audit pass model-free checks. Seven paired studies, two lifetimes and remaining resource/client/calibration/activation work remain. No model interval granted.
+
+## [2026-09-07 19:05] update | records/plan/whole-engine-optimization-2026-09-04.md
+V323 original four-resource/seven-assertion subset prepared with unchanged contracts and expired-deadline refusal. Client dependencies 13,308/13,308 exact. V324 exact unapplied seven-file activation patch passes dry-run;143other sources match. No native execution or activation; interval still pending.
+
+## [2026-09-07 20:14] update | records/plan/whole-engine-optimization-2026-09-04.md
+V320 fixed prose confirmation qualifies with 15 clean pairs; V325 current cache prerequisites pass 2323 assertions; V326 startup reporter matches original acceptance. Preserved exclusions and superseded report. Six paired workloads and remaining resource/client/lifetime/optional/calibration/activation work remain.
+
+## [2026-09-07 22:05] update | records/plan/whole-engine-optimization-2026-09-04
+V327/V328 original fixed cache studies complete: compact BF16 storage qualifies, both ring variants fail benefit. V329 recomputes raw results and exact source math; all exclusions and prior wrappers preserved. Master v156 and37 dispositions updated. No activation.
+
+## [2026-09-07 22:22] update | records/plan/whole-engine-optimization-2026-09-04
+V330 current native MTP/image prerequisite and original fixed serving preparation passes seven no-model tests; every model study remains unrun. Master v157 and37 dispositions updated; no source/default activation.
+
+## [2026-09-07 22:39] update | records/plan/whole-engine-optimization-2026-09-04
+V331 exact current scope native and original long-prefill serving preparation passes seven no-model tests; all real stages unrun. Master v158 and37 dispositions preserve every original workload, capacity and acceptance gate; no activation.
+
+## [2026-09-07 23:03] update | records/plan/whole-engine-optimization-2026-09-04.md
+Register V332 original vision native preparation; preserve actual insufficient admission without a model attempt; reconcile next execution order.
+
+## [2026-09-07 23:14] update | records/plan/whole-engine-optimization-2026-09-04.md
+Register V333 full-image qualification profile fix and five plus twenty-one regression checks; preserve pending native/resource acceptance.
+
+## [2026-09-07 23:37] update | records/plan/whole-engine-optimization-2026-09-04.md
+Register V334 current full-photo and original maximum-image gate preparation, nine model-free tests and explicit early handback; next fixed interval 00:30–02:30 UTC.
+
+## [2026-09-08 00:18] update | records/plan/whole-engine-optimization-2026-09-04.md
+V337 captures current vision157/MTP284/image76 and full static acceptance passes, preserves adaptive policy counterexample and two OS-pressure native interruptions, and freezes original image studies without activation. Validation has zero errors; projections/95 claims/diff pass.
+
+## [2026-09-08 00:38] update | records/plan/whole-engine-optimization-2026-09-04.md
+V339 preserves interrupted image study and later verified drain; V338 corrects fixed-tail lifecycle dependency without changing failed adaptive result or original serving gates. Both MTP studies frozen/unrun. Heavy work paused, peer handback complete, resource question pending. Store/projections/claims/diff pass.
+
+## [2026-09-08 01:00] update | records/plan/whole-engine-optimization-2026-09-04.md
+V340 adds bounded 512-output active and late decode reporting with final-control materialization; thirteen model-free methods pass. Both actual studies remain unrun and require final binding and safe resources. No model launch or activation. Store validation has zero errors; projections, 95 claims and diff checks pass.
+
+## [2026-09-08 03:18] update | records/plan/whole-engine-optimization-2026-09-04.md
+V341/V342 observer and compact candidate source recorded; original V338 two-token and sampled cohorts each completed32cells plus32firstrequests. Greedy primary remains excluded for unequal prefill reads; V345 fixes only absent optional-constraint reporting and sampled16-pair guard passes unchanged criteria. Five reporter and seven amended V343 helper methods pass. V344 native state lifetime source is unbuilt. Three new immutable sources capture455artifacts/399unique blobs, all recovered byte-exactly. Returned Mac03:01:54; peer subsequently granted only V343 through04:15 after fresh locked-Mac native check failed. Full program remains active; no activation.
+
+## [2026-09-08 04:35] update | records/plan/whole-engine-optimization-2026-09-04.md
+V343 fresh greedy MTP cache-carryover study passes32 measured cells plus32 first requests and16 clean pairs: paired request time11.8760%lower and first-job5.1830%lower, short workload only. V347 bounded tail joins compact cache; V349 exact150-source combined build passes138.8631s and restores shared state. V350 ordinary native stops on OS pressure before a report; actual failure footprint7.202GB captured and owned group independently drained. No grant remains after04:25:17UTC handback. V351 raises next-native readiness screen to22.2GB while retaining original guards; V352 eight paired/two512-output long drafts pass6 model-free tests, unrun. Six new immutable sources preserve all raw evidence and reconstructed artifact bytes; originals remain unchanged. Masterv168 retains all37items and open final gates. Full DB validation0errors/1known historical warning; generated projections current,95claims pass,git diff clean. No activation or user-app closure.
+
+## [2026-09-08 05:03] update | records/plan/whole-engine-optimization-2026-09-04.md
+V353–V356: exact V349 passes 33 pure checks / 22,350 assertions, 116 CLI checks, the actual external public-library consumer from all 150 archived inputs, and complete static acceptance (294.0524 s). V355 seven-file activation patch is exact and unapplied. All raw artifacts reconstruct byte-for-byte; the V356 initial verifier error was universal-newline conversion of three preserved CR bytes, not source corruption. All 37 items remain tracked in master v169. Native V350 remains interrupted; paired, lifetime, resource/client, sustained TPS, calibration and final delivery/activation are incomplete. No Mac-heavy grant or running model/build/test remains; peer retains reservation. Reclaimable memory 17.2744 GB is below the additional 22.2 GB native screen. Chrome and other apps stay open, all 149 shared source inputs and the V215 shared release remain unchanged. DB validates with 0 errors / 1 historical warning; projections current, 95 claim checks and git diff --check pass. Same native resource blocker has persisted for two goal turns despite meaningful non-model progress; goal remains active.
+
+## [2026-09-08 05:23] update | records/plan/whole-engine-optimization-2026-09-04.md
+V357 implements the guarded 512-output long-decoding runner: 20 model-free methods pass and the real CLI rejects the old V304 campaign. Existing V340 reporter, V352 controls and all frozen drivers remain unchanged. No prospective study is bound or executed. All ten captured artifacts reconstruct exactly from the new immutable source. Master v170 preserves all 37 items. DB validation has 0 errors / 1 historical warning; projections, 95 claim checks, diff whitespace and all 149 shared source inputs / V215 release pass unchanged. The same native-resource blocker has persisted for three consecutive goal turns: latest reclaimable memory 15.4753 GB is below the added 22.2 GB native screen, peer retains the Mac reservation, and no model/build/test process is live. Earlier and current independent work is complete and recorded; remaining option/final-composition decisions and qualification require actual model evidence. Goal tool now confirms blocked, preserving the whole objective. Resume needs a meaningful memory change, a fresh explicit testing interval and a new prospective identity for interrupted native; no app closure, threshold relaxation, replacement run, installation or activation occurred.
+
+## [2026-09-08 14:26] update | records/plan/whole-engine-optimization-2026-09-04.md
+Continued the full optimization program. Preserved six V349 MTP output counterexamples, excluded bounded tail shortening from the candidate, and built corrected V360. All 1135 original native assertions, 22349 pure assertions and 116 CLI checks pass. The original scope family passes 2698 assertions with independent cleanup; its unchanged serving protocol is frozen and awaits original admission in the coordinated interval. V367 exact native-evidence campaign adapter passes 16 model-free tests; V368 and V369 resumed vision preparation passes 8 plus 9 methods. Captured and verified immutable raw artifacts. All 37 items remain in scope; final composition measurements, lifetimes, resource/client checks, calibration, delivery and activation remain open. User apps remain open; no installation or activation.
+
+## [2026-09-08 17:29] update | records/plan/whole-engine-optimization-2026-09-04.md
+Continued unified optimization: original scope serving stopped at OS pressure after29/32 measured cells,14 exact output pairs and1 timing-eligible pair; original unique-image guard stopped before first request. Preserved both failed cohorts and cleanup diagnostics, independently verified all owned groups drained, and returned the Mac reservation at17:14UTC. Refreshed exact V360 seven-file activation patch, apply-check passed, unapplied. All37 items remain in scope; final runtime gates remain incomplete. No user apps closed or defaults activated.
+
+## [2026-09-08 19:43] update | records/plan/whole-engine-optimization-2026-09-04
+User-freed memory and authorized idle Colima stop enabled both original full vision integrations (270 ordinary, 284 MTP) and all 25 photo-serving assertions to pass. Exact sources captured and original failures preserved. Fresh complete scope cohort prepared and frozen with seven model-free checks. Maximum-image serving refused non-nominal preflight without claiming an attempt; later nominal admission launched the original study at 19:42 UTC. Final matrix, lifetimes, resources, clients, sustained TPS, calibration and activation remain open. Validation has zero errors and one historical log warning; all 95 claims, projections and diff checks pass.
+
+## [2026-09-08 20:37] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured the original vision mechanism startup stop and qualified 10 GB capacity result. Preserved the V383 pre-model helper delivery failure; captured the exact helper correction, actual-entrypoint probe and passing V385 binding tests. V377 full scope comparison is running. All 37 items and remaining final gates retained; no activation.
+
+## [2026-09-08 20:47] update | records/plan/whole-engine-optimization-2026-09-04.md
+Prepared and tested exact final candidate/native-proof rebinding for the original resource subset and real Hermes/Ollama extensions. Seven model-free checks pass, including intercepted actual client startup. Captured the initial synthetic path-alias test failure and correction. No final packet, model run or activation; V377 scope remains live and V385 mechanism is next.
+
+## [2026-09-08 21:12] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured isolated bounded thermal-settling preparation and thirteen passing model-free checks on Python 3.9.6 and 3.12.9. Existing shared driver and live V377 protocol are unchanged. The new helper is unbound/unrun and requires a prospectively frozen complete cohort and adequate total time. All 37 optimization items remain; no activation.
+
+## [2026-09-08 21:53] update | records/plan/whole-engine-optimization-2026-09-04.md
+V390 preserves complete V377 scope capacity failure and exact 64-response diagnosis; V389 cooling-only successor remains unrun; V385 vision mechanism runs under its frozen 24-cell protocol.
+
+## [2026-09-08 22:58] update | records/plan/whole-engine-optimization-2026-09-04.md
+V392 passes original1135integrated plus817scope2051 and22349pure/116CLI checks. Remaining scope natives refused by original headroom; idle Colima stopped after container completion. V395full24vision study admitted with unchanged guards; all37dispositions and final gates retained.
+
+## [2026-09-08 23:20] update | records/plan/whole-engine-optimization-2026-09-04.md
+V402 explicit scope allocation build/restoration passes;22363pure/116CLI, all2949scope-native and286ordinary integrations pass. V395vision stopped before model launch below18GB; preserve identity. Colima remains stopped. V405MTP waits for nominal thermal; V409full corrected scope draft preserves original32cells/cap/acceptance and requires all7natives. All37dispositions retained; no activation.
+
+## [2026-09-08 23:42] update | records/plan/whole-engine-optimization-2026-09-04.md
+ExactV402 all4084native plus22363pure/116CLI assertions pass. V409full32-cell scope cohort frozen/executing with original10GBcap and full15060second interval. V413fresh full24vision identity frozen/unrun;9model-free checks pass, both old stopped cohorts retained. Colima remains stopped; no activation and all37dispositions/final gates retained.
+
+## [2026-09-09 00:12] update | records/plan/whole-engine-optimization-2026-09-04.md
+V416 native allocation-refusal diagnostic delta preserved as uncompiled/unrun; V418 corrects all relevant per-item V402 status. V409 full original scope cohort remains live, 10/32 measured cells and 9 eligible at capture. Colima remains stopped. V413 ready and unrun; all 37 items and final gates retained.
+
+## [2026-09-09 00:27] update | records/plan/whole-engine-optimization-2026-09-04.md
+V419 atomic preferred/fallback workspace reservation and meaningful pure edge tests implemented in isolated sources; V420 exact source capture verified. Uncompiled/unrun and Generator wiring pending. V421 inventory retains all 37 items. Live V409 observed 15/32 cells and 12 eligible; full assessment pending; V413 remains ready and unrun.
+
+## [2026-09-09 00:59] update | records/plan/whole-engine-optimization-2026-09-04.md
+V422 automatic Generator/Engine scope selection joins V416/V419 with local execution controls, actual plan ceiling and atomic fallback. Public-option mutation race removed; MTP direct-draft dispatch restored. Ten-source apply/reverse proof and exact V423 capture pass; all new code/tests remain uncompiled/unrun and defaults unchanged. V424 retains all37items. V409 live22/32 measured cells at capture; V413 still frozen/unrun.
+
+## [2026-09-09 01:06] update | records/plan/whole-engine-optimization-2026-09-04.md
+V409 original fixed scope study terminal headroom stop before round11scope:21measured+21first preserved, all42 observed responses exact/work-bounded/under10GB, zero new swap-outs, clean shutdown. Cohort and startup gate unqualified; no retry. V413 starts01:00:33UTC with original18GBadmission and full12600+60sec reservation before06:00UTC; live18468. V422 actual source integration remains uncompiled/unrun; all37items/final gates retained.
+
+## [2026-09-09 01:31] update | records/plan/whole-engine-optimization-2026-09-04.md
+V413 vision stopped at macOS pressure2; seven completed responses preserved without cohort qualification. CorrectedV436 builds/restores and passes22840pure/116CLI; V439expanded actual lifecycle running. Colima stopped, no activation.
+
+## [2026-09-09 01:40] update | records/plan/whole-engine-optimization-2026-09-04.md
+V436scope2051/4096 pass1634 assertions. V439expanded lifecycle pressure-stopped without report; captured cleanup and distinct shared-release/PATH-installed identities. ExpandedMTP running alone; V444ordinary integrations prepared. No activation.
+
+## [2026-09-09 01:43] update | records/plan/whole-engine-optimization-2026-09-04.md
+ExpandedV439MTP pressure-stopped110.244883seconds, no report; exact evidence and cleanup preserved. No active process remains. V436build/pure/CLI and two native families pass; further model launches wait for actual room. Colima stopped, Chrome/Wispr background processes remain; no activation.
+
+## [2026-09-09 01:57] update | records/design/sevra-maintained-model-integration
+Recorded owner-approved engineering direction for maintained hardware-specific model choices and full-stack qualification. Updated the planned Sevra README teaser and agent entry point, and regenerated PLAN.md and llms-full.txt. Existing model defaults, claims and runtime code preserved; 95 claims checks and projection checks passed. Working-set validation has zero errors/warnings; full-store retains the pre-existing historical change log-label warning. No model run, adoption or release.
+
+## [2026-09-09 02:08] update | records/plan/whole-engine-optimization-2026-09-04.md
+V451external consumer and V452complete static pass on all150 exactV436sources. Six source-lease failure fixtures pass;16shared sources restore exactly. No models loaded or activation. Live18.625GBreclaimable below next22.2GBnative preflight; same resource blocker persists while independent delivery gates advanced.
+
+## [2026-09-09 02:16] update | records/plan/whole-engine-optimization-2026-09-04.md
+Third consecutive resource blocker verified; no model/build job remains. V444 exact native executor ready but17.534GBreclaimable below unchanged22.2GBadmission. Prior V451consumer/V452full exact-source static passes preserved. Backend goal blocked with all37items and all final gates retained; no source/default activation.
+
+## [2026-09-09 03:57] update | records/plan/whole-engine-optimization-2026-09-04.md
+User-requested native execution resumes with29.569GBreclaimable and originalguards. V444ordinary running; V459preserves both pressure stops and prepares full successors. Eleven model-freechecks pass, original execution/assessment functions unchanged. All37items retained; no activation.
+
+## [2026-09-09 04:11] update | records/plan/whole-engine-optimization-2026-09-04.md
+All three original V444integrations pass1135assertions onV436, for2769current native assertions with prior geometry cases. Exact proofs and cleanup pass. V462vision frozen with nine runner checks; V467complete scope successor has twelve checks and awaits remaining expanded natives. Full37items retained and no activation.
+
+## [2026-09-09 04:42] update | records/plan/whole-engine-optimization-2026-09-04.md
+V473/V474: captured all seven exact V436 native passes totaling 5300 assertions, V467 original full scope freeze and V472 public-planner driver preparation. Full scope study now running under original guards; all 37 items and final gates remain. Validation has zero errors and one historical LOG_UNKNOWN_KIND warning.
+
+## [2026-09-09 04:58] update | records/plan/whole-engine-optimization-2026-09-04.md
+V475–V477: three separate full real-public-planner threshold cohorts frozen after ten model-free checks. Actual source/native, workload, resource and first-job evidence remains required. Original V467 continues; no new model, adoption or speed claim.
+
+## [2026-09-09 06:37] update | records/plan/whole-engine-optimization-2026-09-04.md
+V467 completes all 64 original responses with exact output/work and 10 GB cap. Five clean request pairs pass benefit, but only three startup pairs remain, so no full qualification. Exact terminal and descriptive evidence captured before master 211; all 37 items retained. V462 original vision cohort is running after fresh normal-pressure/nominal admission; Chrome and Wispr already absent. Validation has zero errors and the existing historical unknown-log-kind warning.
+
+## [2026-09-09 06:44] update | records/plan/whole-engine-optimization-2026-09-04.md
+V484 fresh complete original scope cohort is frozen and unrun, preserving V467 startup failure and all original workloads/guards/criteria. Five model-free binding/dispatch/refusal checks pass; exact preparation captured before master 212. V462 vision continues alone. All 37 items and final gates retained; no activation.
+
+## [2026-09-09 07:58] update | records/plan/whole-engine-optimization-2026-09-04.md
+V462 original vision mechanism qualifies: 48 exact output/work/cap responses, eight clean pairs, 30.2487% lower sampled process peak and 4.3979% lower request time. All original exclusions and the generic child exit 1 are preserved; the unchanged dedicated assessor passes. Query tile 256 selected for final combined candidate qualification only. Raw evidence captured before master 213. V484 full original scope is now running on session 90494 after fresh 40.092 GB reclaimable admission. All 37 items and final gates remain; validation has zero errors and one historical log-kind warning.
+
+## [2026-09-09 08:37] update | records/plan/whole-engine-optimization-2026-09-04.md
+V491 isolated smaller-scope sizing draft and original assertion preservation captured before master214. Compilation/native execution remain unrun while V484 original fixed cohort continues. All37 items and original gates preserved; V475 source-bound unrun protocols require explicit fresh bindings after code changes. Validation has zero errors and the unchanged historical log-kind warning.
+
+## [2026-09-09 08:52] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured smaller-scope qualification executors before master215. Five model-free adapter checks pass; original lease, seven native workloads, guard policies, prior assertions and full intervals remain. New build/native preparation remains unrun while V484 completes its frozen cohort. Validation: zero errors and unchanged historical log-kind warning.
+
+## [2026-09-09 09:54] update | records/plan/whole-engine-optimization-2026-09-04.md
+V484 full original scope qualifies request and startup; all64 exact output/work/compute and10GB caps pass. Raw audit captured before master216. V492 smaller-group source compiles and restores exactly;25337pure and116CLI pass. V496 seven native cases frozen; lifecycle now running under original guards. Vision remains qualified; all37 items and final gates retained. Validation: zero errors and unchanged historical log-kind warning.
+
+## [2026-09-09 10:23] update | records/plan/whole-engine-optimization-2026-09-04.md
+V496 all seven original native cases pass, 5556 assertions with full prior coverage and exact guard/cleanup proofs. V505 pre-model raw/template delivery refusal preserved; V511 removes only incompatible raw think field, passes eight checks, freezes all three original profiles and starts planner-256 under full original allowance. V506 final controls and V508 vision override compatibility remain prospective. All 37 items and final gates retained; installed defaults unchanged. Validation: zero errors, one existing historical log-kind warning.
+
+## [2026-09-09 10:36] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve V511 first-response observation refusal with no measured response or paired result. V514 actual public metadata driver passes all twelve original and four new checks; V515 five binding checks pass and three original workloads freeze. V515 planner-256 begins under its complete original reservation. All prior raw failures and native proofs retained; no output or acceptance changes, defaults remain unchanged. Validation zero errors, one historical log-kind warning.
+
+## [2026-09-09 10:58] update | records/plan/whole-engine-optimization-2026-09-04.md
+V518/V519 prospective final source/build preparation passes eight model-free checks and is captured exactly before master219 update. All three original planner qualifications remain prerequisites; current V515 planner-256 continues. No final source, build protocol or activation exists. All37 items and final gates retained. Validation zero errors, one unchanged historical log-kind warning.
+
+## [2026-09-09 11:08] update | records/plan/whole-engine-optimization-2026-09-04.md
+Capture prospective V522 pure/CLI, V523 seven-native, V524 paired/long controls and V525 campaign drivers exactly before master220. Five native, five control and seventeen campaign preparation tests pass without model execution. All original workloads, assertions, guards, complete intervals and final gates remain; V515 continues with original exclusions. No final compilation, qualification or activation claimed. Validation zero errors and one unchanged historical log-kind warning.
+
+## [2026-09-09 12:02] update | records/plan/whole-engine-optimization-2026-09-04.md
+V515 planner-256 completes all64 first/measured responses and qualifies both original gates with14 clean requestpairs and13 clean startup pairs. Independent exact output/work/compute/cap and actual endpoint-byte audit passes; no swapouts, all guards/proofs/cleanup pass. Captured raw source before master221 and retained all exclusions/generic child exit1. Planner-512 starts under original full allowance;1024 remains unrun. V528/V529 delivery preparation captured, actual final execution still pending. All37 items and final gates retained. Validation zero errors, one historical log-kind warning.
+
+## [2026-09-09 12:30] update | records/plan/whole-engine-optimization-2026-09-04.md
+V515 planner-512 terminal incomplete after original startup swap guard, eight measured and nine first responses. Independent V532 audit preserves all17 caps, four exact measured pairs, zero eligible first pairs because every first response ended at five rather than sixteen outputs. Captured discarded evidence before master222. No model/compiler or activation; original criteria, failed identity and all37 items retained. Correct early first-work validation and qualify fixture delivery before fresh full execution. Validation zero errors, one existing historical log-kind warning.
+
+## [2026-09-09 12:37] update | records/plan/whole-engine-optimization-2026-09-04.md
+V533 early original first-work gate passes19checks, V534 same-dimension distinct first fixture prepared, V535 five adapter checks pass and two bounded functional deliveries frozen. Exact preparation captured before master223.512 delivery starts under original12GBspatialguards; this four-response diagnostic cannot qualify or replace full cohort. Consumed V515512failure, original16outputs, fullcohorts and all37items retained. No activation or secondmodel. Validation zeroerrors, one historical log-kind warning.
+
+## [2026-09-09 12:56] update | records/plan/whole-engine-optimization-2026-09-04.md
+Captured V535512four-response functional pass and original1024oneoutput earlystop before master224. V5391024fixedcontinuationcue preserves4099tokens, V540fiveadapterchecks/freeze and V537sixfull-cohortchecks captured; V5401024delivery running. No pilotperformanceclaim or pooling; all full16pair/16output/guard/criteria/allowances remain. Qualified256notrepeated, finalsourceproofbinding stillpending, all37items retained. Validationzeroerrors, onehistoricallogkindwarning.
+
+## [2026-09-09 13:07] update | records/plan/whole-engine-optimization-2026-09-04.md
+V5401024four-response correctedfixture functional pass captured; no performance qualification. Bothactualfunctionalproofs now allow V537 originalfull12/16GBcohort freeze, sixadapterchecks and V542exactterminalauditor captured before master225. Full512 starts13:05:42UTC session26861 with39.3236GBreclaimable, alloriginal16pairs64responses/work/guards/criteria/full15000+60allowance.1024frozenunrun; qualified256andpilots notrepeated. Oldfailuresunpooled, all37items/finalgatesretained, installeddefaultsunchanged. Validationzeroerrors, onehistoricalwarning.
+
+## [2026-09-09 14:13] update | records/plan/whole-engine-optimization-2026-09-04.md
+V537512 full study remains failed after startup swap-ins with no swap-outs; exact failed evidence captured. V545 explicitly replaces only declared startup swap-in abort with whole-pair timing exclusion, preserving physical and correctness limits and original acceptance thresholds. Twenty-six driver tests and eight V546 adapter tests pass; both full cohorts and V547 auditor frozen and captured before master226. V546512 started at 14:08:21 UTC in session48973 with30.429GB reclaimable;1024 remains unrun. Qualified256 and pilots not repeated, failed rows unpooled, all37 items and final gates retained. Validation zero errors and one existing historical log-kind warning.
+
+## [2026-09-09 15:41] update | records/plan/whole-engine-optimization-2026-09-04.md
+V546512 completed all64 responses in5274.917663458 seconds and qualifies both declared gates with11 clean pairs. Independent V547 audit verifies every output/work/geometry/public-plan/cap and startup exclusion; no swap-outs, exact proofs and cleanup. Raw child exit1 retained. Captured before master227: preview20.9056percent earlier, request18.6499percent lower, short activeTPS0.4618percent lower and sampled peak12.6860percent higher, all profile-specific. V549 retains original composition and8 tests plus3 current-identity/exclusion checks; setup-only mock failure preserved. V5461024 starts15:39:38UTC session46319 with35.893GB reclaimable and original full interval/limits. All37 items and final gates retained; no activation. Validation zero errors and one historical log warning.
+
+## [2026-09-09 17:17] update | records/plan/whole-engine-optimization-2026-09-04.md
+V552: full16GB cohort and independent64-response audit qualify; all three planner profiles complete. V551 exact prerequisite path amendment passes27 current checks. Source/terminal evidence roundtrips exactly. V549 final source preparation started; all original final gates and37 items remain. Validation has zero errors and one existing LOG_UNKNOWN_KIND warning.
+
+## [2026-09-09 17:26] update | records/plan/whole-engine-optimization-2026-09-04.md
+V553: exact final source selection and V519 build pass with restoration; V522 passes25360 pure assertions and116 CLI checks. Closed evidence reconstructs exactly. V523 allseven originalnative cases frozen and running, both817-assertion geometrycases pass. All37items and remaining final gates retained; no activation.
+
+## [2026-09-09 17:56] update | records/plan/whole-engine-optimization-2026-09-04.md
+V556: allseven finalnative cases pass5556 assertions and independent raw/source/guard audit. Original preflight thermal refusal and successful bounded cooling preserved. V525 servingmatrix prepared; V555 lifetime12model-free checks pass. Native/control/source evidence roundtrips exactly. V528static running, V529externalsource prepared; all remaining gates and37items retained.
+
+## [2026-09-09 18:08] update | records/plan/whole-engine-optimization-2026-09-04.md
+V559/V560: full final static317.44s and exact independent public consumer252.41s pass, with original guards and restoration/source proofs. Actual final planner verifier passes. V557 preserves original resource/client execution bytes beyond exact bindings and is now running resources before final timing cohorts. All37items and remaining final gates retained; no activation.
+
+## [2026-09-09 18:18] update | records/plan/whole-engine-optimization-2026-09-04.md
+V561/V563: preserve final resource6pass1MTPglobal-swapin failure with incomplete MTP/image work and no attribution. Same final binary/source/native proofs and original resource checks remain. One full V562 quiet repeat prepared after bounded120s nominal settling, with evidence processing paused; clients only afterresourcepass. No guard change, pooling or activation.
+
+## [2026-09-09 18:41] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve V562 complete resource pass and client outbound-attempt failure; prepare original full client family with isolated supported offline scanner path, unchanged gates.
+
+## [2026-09-09 18:57] update | records/plan/whole-engine-optimization-2026-09-04.md
+Full original client family passes on exact final candidate; queue original eight paired cohorts with unchanged work, proofs, acceptance and full reservations.
+
+## [2026-09-09 19:39] update | records/plan/whole-engine-optimization-2026-09-04.md
+First complete final paired short-one study passes original request/startup gates; retain startup round3 exclusion and exact closed evidence. Seven paired plus lifetimes/TPS/calibration/activation remain.
+
+## [2026-09-09 20:44] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve failed thermal/VM cohort and all52completed-response checks; prepare exact passed-evidence continuation, original lifetime/TPS work and checked16path activation patch; refresh every37item disposition and bound model-free readiness.
+
+## [2026-09-09 21:02] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserved completed thermal-readiness timeout and fresh read-only audit. Memory admission fits, but all 295 bounded samples and current observation remain thermally fair. Seven-stage continuation stays unrun; qualified evidence and exact candidate, installed, shared release and unapplied activation identities remain unchanged.
+
+## [2026-09-09 21:03] update | records/plan/whole-engine-optimization-2026-09-04.md
+Marked full optimization goal blocked after the same independently observed thermal impasse on three consecutive goal turns. Preserved exact evidence, all37 dispositions, seven remaining paired workloads, both lifetimes, both sustained-throughput studies and calibration/activation. No model, compiler, app shutdown, source activation or installation occurred.
+
+## [2026-09-09 22:27] update | records/plan/whole-engine-optimization-2026-09-04.md
+Resumed full OPT00–OPT36 qualification after actual nominal thermal and material memory recovery. V573 live coordinator starts original bounded admission for seven remaining paired cohorts. All prior qualified work and failures remain. No app shutdown, source/default activation, stage, commit, push or release.
+
+## [2026-09-09 23:15] update | records/plan/whole-engine-optimization-2026-09-04.md
+Final V569 prose completes all64responses and passes original memory, paired request and startup gates. Fourteen measured and13startup pairs qualify; original exclusions preserved. Independent assessment and exact source/raw capture pass. V573 continues to six remaining paired stages; both lifetimes, both sustained studies, calibration and exact activation remain.
+
+## [2026-09-09 23:57] update | records/plan/whole-engine-optimization-2026-09-04.md
+Final sampled-generation cohort completes all 64 responses and qualifies original output, memory, request and startup gates. Fifteen measured and thirteen startup pairs qualify; original exclusions remain. Independent reassessment and exact capture pass. Three final paired workloads now pass; V573 continues to MTP and four further paired stages. Lifetimes, sustained TPS, calibration and activation remain.
+
+## [2026-09-10 02:13] update | records/plan/whole-engine-optimization-2026-09-04.md
+Six final paired cohorts now qualify. Captured complete original MTP, distinct-tail and complete-repeat evidence with independent reassessment, all64 exact outputs and16 clean measured/startup pairs each. Recorded MTP request regression alongside memory saving. Captured43-check prospective thermal scheduling only for unfrozen long studies and original serial lifetime/decode handoff. All frozen paired/lifetime work and original acceptance preserved; V573 continues retention then actual-default. No source/default activation, app shutdown, stage, commit, push or release. Validation zero errors, one existing historical log-kind warning.
+
+## [2026-09-10 02:54] update | records/plan/whole-engine-optimization-2026-09-04.md
+Seven final paired studies pass. Captured complete retention-only cohort:64 exact responses,16 clean measured and startup pairs, original work/capacity/source/cleanup/reservation. Recorded0.8351percent request reduction,0.2065percent later preview and4.9999percent sampled peak saving without sustained-TPS claim. Source audit identifies complete final battery and exact-final installed proof as still required; captured unchanged original full25-check and31-check isolated installed preparations plus all37 inventory. V573 continues actual-default; original lifetimes,long studies,calibration and exactactivation remain. No activation, app closure, stage, commit, push or release.
+
+## [2026-09-10 03:38] update | records/plan/whole-engine-optimization-2026-09-04.md
+All8 original final paired cohorts now pass and V573 exits0 with cleanup. Captured final actual-default64 exact one-output responses,16 clean measured/startup pairs, original assessment and independent complete-matrix equality. Scoped request2.9826percent lower and sampled peak7.0868percent lower; whitespace output has no visible-preview metric or active TPS. Preserved initial descriptive-report failure and exact reversible null-preview correction without rerunning any model or changing acceptance. Original complete final25-check verification and31-check installed suites run next, before both lifetimes/long studies, calibration and exactactivation. No stage, commit, push, release or activation.
+
+## [2026-09-10 03:58] update | records/plan/whole-engine-optimization-2026-09-04.md
+Exact finalV519 completes unchanged fullTools/verify.sh:25top-level passes,zero failures/skips,including every pinned weight,independent parity,all15quality/all74API probes,fullgovernor,MTP/image,long/context memory andoriginalvisionserving. All source/driver/native/eight-paired identities and cleanup/reservation pass in1030.115082792seconds. Capturedallrawvisionpixels/embeddings,legacyoutputs andresource samples with exactpersisted-byte recovery. OldV307failurepreserved. Installedqualification,2lifetimes,2longstudies,calibration,all37closureandactivationremain. No stage,commit,push,releaseoractivation.
+
+## [2026-09-10 04:03] update | records/plan/whole-engine-optimization-2026-09-04.md
+Exact finalV519 installed qualification passes all31 checks andall5original install/upgrade/E2E/rollback phases in83.706180625seconds. Actualrollback generation, originalfull allowance/resourceguards, source/prerequisite identity andcleanup qualify. Captured closedrecords/outputs/checksums andrefreshed all37inventory with exactpersisted-byte recovery. Realuserinstalledbinaryunchanged. NextunchangedV583queue preserves both60requestlifetimes andboth512outputsustainedstudies; calibration/finalartifactclosure/exactactivationremain. No stage,commit,push,releaseoractivation.
+
+## [2026-09-10 04:11] update | records/plan/whole-engine-optimization-2026-09-04.md
+ActualV570 preparation succeeds against exactfinal native/eight-paired/publicconsumer proofs. Captured closed contracts,driver,bindingandpreparation receipt with exactpersisted-byte recovery. UnchangedV583 queue passesreadiness and startsoriginal60requestMTP-off lifetime,then MTP-on andbothfull512output studies. No lifetime/sustained/activation resultyet; all originalwork,limits,criteria andsourceidentitiesretained. Full25-check andinstalled31-check suites alreadyqualified. No stage,commit,push,releaseoractivation.
+
+## [2026-09-10 04:27] update | records/plan/whole-engine-optimization-2026-09-04.md
+Both exact original sixty-request lifetimes pass; preserve the MTP-off swap-in exclusion, current control/reference retention and all37 disposition checkpoint. Sustained, empirical envelope and exact activation remain.
+
+## [2026-09-10 04:39] update | records/plan/whole-engine-optimization-2026-09-04.md
+Verify exact planner-family continuity and all512 final paired resource caps; correct two prose/sampled profile labels from10GB to8.1GB/827slots without changing raw data or acceptance. Both sustained cohorts and empirical closure remain.
+
+## [2026-09-10 04:42] create | records/measurements/optimization-final-composition-2026-09-09.md
+Record exact final short-request performance, both bounded lifetimes and full/installed compatibility with scoped limits; sustained/calibration/activation remain pending.
+
+## [2026-09-10 04:52] update | records/measurements/optimization-final-composition-2026-09-09.md
+Add original A/A variability context, observed paired request ranges and faster-pair counts; preserve original eligibility and avoid population-p95 or significance claims.
+
+## [2026-09-10 04:56] update | records/plan/whole-engine-optimization-2026-09-04.md
+Reconcile all37 current candidate dispositions and completed lifetime status, link the consolidated measured results and observed A/A/spread context, and preserve original rejected/deferred history. Sustained/calibration/activation remain open.
+
+## [2026-09-10 11:47] update | records/plan/whole-engine-optimization-2026-09-04.md
+Record the complete MTP-off sustained result, preserve the MTP-on delivery refusal, and track the exact corrected MTP-on cohort with unchanged work and stricter startup headroom.
+
+## [2026-09-10 12:05] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve the MTP startup swap-in stop and record the prospective exact-workload correction: contaminated pairs stay excluded, all hard resource and numerical checks remain, and no partial observations are reused.
+
+## [2026-09-10 12:51] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve the failed MTP thermal cohort, reconcile all 192 automatic-prefill prerequisite responses, and freeze the unchanged full MTP workload with longer cooling and corrected real polling evidence. Calibration and exact activation remain open.
+
+## [2026-09-10 12:53] update | records/measurements/optimization-final-composition-2026-09-09.md
+Record actual cooled-cohort launch and preserve exact downstream report rebinding. All original completion gates remain required and local activation is unapplied.
+
+## [2026-09-10 13:12] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve the failed longer-cooled MTP cohort and exact four-response audit. Full outputs, paired identities, sampled caps, source proofs and cleanup pass; thermal transition prevents qualification. Record the back-to-back request schedule for prospective correction; calibration and local activation remain open.
+
+## [2026-09-10 13:30] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve and start the prospectively qualified full MTP cohort with unchanged total minimum idle time distributed around both complete requests. Reconcile 194 completed delivery artifacts and exact installation assets; bind downstream reports without executing them. Sustained MTP-on, final calibration, dispositions and actual activation remain open.
+
+## [2026-09-10 13:42] update | records/plan/whole-engine-optimization-2026-09-04.md
+Reconcile all37 original dispositions against completed MTP-off and delivery evidence, recheck exact source activation preimages without applying them, and preserve recurrence attribution scope. Live MTP-on, final calibration and actual activation remain unqualified.
+
+## [2026-09-10 14:46] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve the terminal V637 distributed-cooling failure and exact 25-response audit. All12800 outputs, six complete pairs, sampled caps and source/artifact/cleanup/reservation proofs pass; round7 reference first response changes nominal to fair and prevents complete qualification. Captured all103 closed files and regenerated projections. No partial timing comparison or activation. A quiet external interval is required before any fresh full MTP-on comparison; other passed gates and all37 dispositions remain intact.
+
+## [2026-09-10 14:53] update | records/plan/whole-engine-optimization-2026-09-04.md
+Prepare and freeze V653 as a separate full MTP-on repetition awaiting a user-confirmed quiet interval. Same protocol, driver, helper, candidate, cooling and acceptance; sole runner output-path change is exactly reversible. All70 model-free checks pass. Capture46 preparation files including unchanged readiness and final-report/calibration rebinding. No model, deadline, activation or prior partial reuse. Projections regenerated; validation zero errors and one existing historical log-kind warning.
+
+## [2026-09-10 15:10] update | records/plan/whole-engine-optimization-2026-09-04.md
+User directs continuation now based on available capacity, superseding the quiet-window availability hold. V656 records121.419873333 sampled nominal seconds with normal pressure and no competing model/compiler, then starts the complete frozen V653 cohort. Captured only closed readiness/launch evidence. Workload, memory/thermal guards, exclusions and acceptance unchanged; no app closure or prior partial reuse. Reporting must retain background-load limits. Full MTP-on, calibration and exact activation remain open; validation zero errors and one existing historical log-kind warning.
+
+## [2026-09-10 16:19] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preserve V653 incomplete thermal stop; capture and record V667 prospective full-work recovery with all 86 model-free checks passed. Continue under actual bounded readiness without changing timing eligibility, acceptance, inference sources or installation.
+
+## [2026-09-10 19:50] update | records/plan/whole-engine-optimization-2026-09-04.md
+Completed all required OPT00–OPT36 qualification and exact local activation. Preserved every original disposition and failed attempt; reported scoped preview gains, lower sampled memory, flat plain TPS and the fixed-MTP slowdown. No stage, commit, push or release.
+
+## [2026-09-10 19:50] update | records/measurements/optimization-final-composition-2026-09-09.md
+Published both full sustained cohorts, conservative empirical calibration, actual installed verification and final scoped measurements with exact captured evidence.
+
+## [2026-09-10 20:46] create | records/measurements/user-server-throughput-2026-09-10.md
+Documented the nine completed three-prompt cases, eight clean timings, canceled and paging-discarded attempts, exact raw evidence, auto-cache resize and expected-versus-observed throughput. Distinguished current 10 to 16 tok/s observations from planner estimates and prior fixed-memory sustained qualification; preserved immutable source bytes.
+
+## [2026-09-10 20:46] update | records/plan/whole-engine-optimization-2026-09-04.md
+Linked final program completion and the readable live-server benchmark from the canonical plan and integrated results. Added CLI throughput instructions and regenerated projections/full documentation. Claims gate passes all 95 checks; database validation has zero errors and one unchanged historical log-kind warning. No inference or server changes.
 

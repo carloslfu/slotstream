@@ -1,0 +1,1 @@
+Explain why appending to a dynamic array is usually fast even though it sometimes needs to allocate a larger array and copy all existing elements.

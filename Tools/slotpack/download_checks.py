@@ -98,6 +98,8 @@ def run():
             if mode in ['good','cache-miss']:headers['CF-Cache-Status']='HIT' if mode=='good' else 'MISS'
             if mode=='missing' or (mode=='optional-missing' and optional in path):payload=b'not found';status=404
             elif mode=='throttle' and attempt==1:payload=b'busy';status=429;headers['Retry-After']='0'
+            elif mode=='hf-throttle' and attempt==1:payload=b'busy';status=429;headers['RateLimit']='"resolvers";r=0;t=0'
+            elif mode=='hf-throttle-long':payload=b'busy';status=429;headers['RateLimit']='"resolvers";r=0;t=299'
             elif mode=='transient' and attempt==1:payload=b'busy';status=503
             elif mode=='redirect':
                 payload=b'';status=307;headers['Location']='/good/'+path
@@ -157,6 +159,10 @@ def run():
         assert not (optional_bad/'mtp.safetensors').exists()
         check('bad-object-fails','bad-digest',success=False)
         check('retry-after','throttle')
+        check('hugging-face-rate-limit','hf-throttle')
+        assert results[-1]['seconds'] >= 1
+        check('cancel-during-hugging-face-rate-limit','hf-throttle-long',success=False,cancel=0.3)
+        assert results[-1]['seconds'] < 3
         check('transient-retry','transient')
         check('wrong-length-fallback','wrong-length,good')
         check('short-body-fallback','short,good')

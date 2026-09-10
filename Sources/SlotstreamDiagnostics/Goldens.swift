@@ -32,6 +32,9 @@ public enum Goldens {
         let arr = MLXArray(samplerLogits(vocab: vocab, seed: logitSeed))
         let p = params.sanitized()
         var sampler = Sampler(seed: seed)
+        let optimizations = try InferenceOptimizations.environment()
+        sampler.valueOnlyTopK = optimizations.valueOnlySamplerThreshold
+        sampler.deviceDraw = optimizations.deviceSamplerDraw
         var generated = Set<Int>()
         var picks: [Int] = []
         for _ in 0 ..< draws {
@@ -78,6 +81,52 @@ extension Diagnostics {
         c.expect("out-of-range knobs do not collapse to token 0", Set(w) != [0], "\(w)")
 
         c.equal("an empty draw count returns nothing", try Goldens.sampler(draws: 0), [])
+        let distributions: [[Float]] = [
+            [Float(0)], [0, -0.0, 0, 1, 1, 1, -1, -1],
+            [.infinity, 1, -.infinity, 0], [.nan, 2, 1, 0],
+            [-.infinity, -.infinity, -.infinity],
+            Goldens.samplerLogits(vocab: 257, seed: 99),
+            Goldens.samplerLogits(vocab: 248320, seed: 13),
+        ]
+        for values in distributions {
+            for k in [1, 2, 20, values.count - 1, values.count] {
+                for topP: Float in [0.1, 0.8, 1] {
+                    var p = SampleParams(); p.topK = k; p.topP = topP
+                    p.minP = 0.1; p.presencePenalty = 1.5
+                    p = p.sanitized()
+                    var ref = Sampler(seed: 7), got = Sampler(seed: 7)
+                    var draw = Sampler(seed: 7), both = Sampler(seed: 7)
+                    got.valueOnlyTopK = true
+                    draw.deviceDraw = true
+                    both.deviceDraw = true; both.valueOnlyTopK = true
+                    let logits = MLXArray(values)
+                    var seen = Set<Int>(), rp: [Int] = [], gp: [Int] = [], dp: [Int] = [], bp: [Int] = []
+                    for _ in 0 ..< 8 {
+                        let r = ref.next(logits, params: p, generated: seen)
+                        let g = got.next(logits, params: p, generated: seen)
+                        dp.append(draw.next(logits, params: p, generated: seen))
+                        bp.append(both.next(logits, params: p, generated: seen))
+                        rp.append(r); gp.append(g); seen.insert(r)
+                    }
+                    c.equal("value-only threshold: n\(values.count) k\(k) p\(topP)", gp, rp)
+                    c.equal("threshold RNG: n\(values.count) k\(k) p\(topP)", got.rngState, ref.rngState)
+                    c.equal("device draw: n\(values.count) k\(k) p\(topP)", dp, rp)
+                    c.equal("device RNG: n\(values.count) k\(k) p\(topP)", draw.rngState, ref.rngState)
+                    c.equal("combined draw: n\(values.count) k\(k) p\(topP)", bp, rp)
+                    c.equal("combined RNG: n\(values.count) k\(k) p\(topP)", both.rngState, ref.rngState)
+                }
+            }
+        }
+        for device in [false, true] {
+            for threshold in [false, true] {
+                var sampler = Sampler(seed: 7_046_029_254_386_353_130)
+                sampler.deviceDraw = device; sampler.valueOnlyTopK = threshold
+                var p = SampleParams(); p.temperature = 1; p.topK = 1; p.topP = 1; p.presencePenalty = 0
+                let picked = sampler.next(MLXArray([-Float.infinity, Float(0), -Float.infinity]), params: p, generated: [])
+                c.equal("zero draw skips leading zero mass, device=\(device), threshold=\(threshold)", picked, 1)
+                c.equal("zero draw preserves exact RNG transition, device=\(device), threshold=\(threshold)", sampler.rngState, 0)
+            }
+        }
         c.measure("vocab", 256)
         return c.report()
     }

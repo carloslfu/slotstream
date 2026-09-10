@@ -1,0 +1,83 @@
+{
+  "classification": "Frozen combined lifetime qualification",
+  "purpose": "Bounded lifetime qualification of the final combined runtime in one long-lived server",
+  "memory_gb": 10,
+  "max_context": 32768,
+  "warmup_cycles": 2,
+  "measured_cycles": 8,
+  "maximum_duration_seconds_per_mode": 900,
+  "maximum_prompt_tokens": 1024,
+  "maximum_output_tokens": 8,
+  "sequence": [
+    {
+      "name": "short",
+      "fixture": "@ROOT@/Tools/fixtures/optimization/short.txt",
+      "raw": true,
+      "outputs": 8,
+      "fixture_sha256": "e8e144318a8c13a209ec2967bc282ff6e4c3aa2363bbc49a6c43b801ed2b24b9"
+    },
+    {
+      "name": "prose",
+      "fixture": "@ROOT@/Tools/fixtures/optimization/prose.txt",
+      "raw": true,
+      "outputs": 8,
+      "fixture_sha256": "3e24e245accdfb9c3b4482a3079eec4787b0746adfc6a65714eb6e6213de630b"
+    },
+    {
+      "name": "prose-repeat",
+      "fixture": "@ROOT@/Tools/fixtures/optimization/prose.txt",
+      "raw": true,
+      "outputs": 8,
+      "fixture_sha256": "3e24e245accdfb9c3b4482a3079eec4787b0746adfc6a65714eb6e6213de630b"
+    },
+    {
+      "name": "prose-distinct-tail",
+      "fixture": "@ROOT@/Tools/fixtures/optimization/prose-distinct-tail.txt",
+      "raw": true,
+      "outputs": 8,
+      "fixture_sha256": "d13b427927e9266ae8a9949b85a704ff6439df50aea54bfd7b5bf46f12b7c784"
+    },
+    {
+      "name": "sampled-short",
+      "fixture": "@ROOT@/Tools/fixtures/optimization/short.txt",
+      "raw": true,
+      "outputs": 8,
+      "sampling": {
+        "temperature": 0.7,
+        "top_k": 40,
+        "top_p": 0.8,
+        "min_p": 0.05,
+        "presence_penalty": 1.1
+      },
+      "fixture_sha256": "e8e144318a8c13a209ec2967bc282ff6e4c3aa2363bbc49a6c43b801ed2b24b9"
+    },
+    {
+      "name": "image",
+      "fixture": "@ROOT@/Tools/fixtures/optimization/vision/prompt.txt",
+      "image": "@ROOT@/Tools/fixtures/optimization/vision/red-512.png",
+      "raw": false,
+      "think": false,
+      "outputs": 1,
+      "fixture_sha256": "ea487dbfa3274ba2ed440cc62cd740d05c8219de8b4588856d8f16413d1bbd09",
+      "image_sha256": "5eafcdbe57b88e9c12ef8ac4cc3eee45f9c3433b7f929d867e5dd4d7832a8aed"
+    }
+  ],
+  "acceptance": {
+    "all_expected_requests_complete": true,
+    "exact_per_position_replay_after_warmup": true,
+    "maximum_sampled_physical_peak_bytes": 10000000000,
+    "maximum_active_growth_bytes_per_position": 67108864,
+    "maximum_physical_end_growth_bytes_per_position": 268435456,
+    "maximum_cached_embedding_payload_bytes": 11796480,
+    "maximum_prefix_entries": 4,
+    "prefix_charge_within_declared_capacity": true,
+    "minimum_clean_observations_per_position": 5,
+    "minimum_clean_early_observations_per_position": 2,
+    "minimum_clean_late_observations_per_position": 2,
+    "nominal_power_and_unchanged_request_vm_for_resource_observations": true,
+    "replacement_cycles": 0
+  },
+  "binary": "@BINARY@",
+  "model": "@MODEL@",
+  "env": {}
+}

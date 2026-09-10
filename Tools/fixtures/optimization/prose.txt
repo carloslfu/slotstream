@@ -1,0 +1,13 @@
+The observatory stood above a coastal valley. Its oldest instrument was a brass telescope, assembled by a watchmaker who had never seen the sea. Every spring the staff compared its readings with the electronic instruments in the newer dome. They expected the older device to drift, yet the largest errors usually came from software that treated a missing observation as zero.
+
+Mara kept a paper ledger beside the weather station. She recorded the time, the temperature, the wind direction, and whether a measurement had been taken at all. A blank cell was deliberately different from a calm wind. When the computer reported six hours without a breeze, she checked the ledger and found that a cable had disconnected during a storm. The distinction between absence and zero changed their estimate of the season's prevailing winds.
+
+The next project involved two cameras watching the same patch of sky. Their clocks agreed at noon, but diverged as the equipment cooled overnight. Rather than subtracting two wall-clock timestamps, the team measured intervals with a monotonic counter. They preserved the original exposures, calibration frames, and exact processing settings. An attractive picture could now be traced back to the raw sensor data that produced it.
+
+Storage became the next constraint. The cameras created more images than the workstation could hold in memory. An assistant suggested loading each image again for every analysis. Mara instead arranged the work so that one loaded image served several independent measurements. The arithmetic stayed the same. The order of disk access changed, and the team measured whether the reduced reading actually shortened the nightly job.
+
+They tried a second optimization that combined arithmetic operations. Its isolated benchmark ran faster, but faint stars near the detection threshold moved in and out of the catalogue. The team retained the experiment as evidence and restored the original path. Their report distinguished the result they had hoped for from the result they had observed.
+
+At the end of the season, the observatory published the complete record: successful changes, failed trials, uncertainty, and the remaining limitations. Another station could repeat the work using different equipment. Reproducibility depended on preserving those details, not on choosing the most impressive single night.
+
+Explain the main engineering lessons from this account in three sentences.

@@ -84,6 +84,27 @@ public struct VisionPreprocess {
     /// can carry. A larger one is refused before any pixel is touched.
     public static let maxImageBytes = 24 << 20
 
+    /// Bound retained source pixels separately from the resized tower input.
+    /// Sixteen bytes per source pixel conservatively charge an 8/16-bit RGB(A)
+    /// decode, an upright RGBA8 copy and decoder overhead. This is an admission
+    /// bound, not a measurement of ImageIO's peak allocation.
+    public static let maxDecodedImageBytes = 1 << 30
+
+    public static func decodedImageCharge(width: Int, height: Int) throws -> Int {
+        guard width > 0, height > 0, width <= Int(UInt32.max), height <= Int(UInt32.max) else {
+            throw VisionError.msg("image dimensions are invalid or unsupported")
+        }
+        guard Double(max(width, height)) / Double(min(width, height)) <= maxAspectRatio else {
+            throw VisionError.msg("image aspect ratio exceeds \(Int(maxAspectRatio)):1")
+        }
+        let (pixels, overflow) = width.multipliedReportingOverflow(by: height)
+        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 16)
+        guard !overflow, !byteOverflow, bytes <= maxDecodedImageBytes else {
+            throw VisionError.msg("decoded source image exceeds the 1 GiB image budget; resize it before sending")
+        }
+        return bytes
+    }
+
     /// The encoded bytes behind an image argument. Separate from decoding
     /// because the prefix cache keys an image on exactly these bytes.
     ///
@@ -170,7 +191,18 @@ public struct VisionPreprocess {
     /// reports `complete` for that file, because all the data it was given was
     /// given at once — so the container's end marker is checked instead.
     public static func decodeCGImage(_ data: Data) throws -> CGImage {
-        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+        try decodeCGImage(data, maximumDecodedBytes: maxDecodedImageBytes).image
+    }
+
+    /// Metadata admission precedes CGImage creation and EXIF rotation. The
+    /// returned charge lets a caller enforce one budget across all images.
+    package static func decodeCGImage(_ data: Data, maximumDecodedBytes: Int, request: RequestController? = nil,
+                                      alreadyChargedBytes: Int = 0) throws -> (image: CGImage, charge: Int) {
+        guard !data.isEmpty, data.count <= maxImageBytes else {
+            throw VisionError.msg("encoded image exceeds the 24 MiB limit or is empty")
+        }
+        let options = [kCGImageSourceShouldCache: false, kCGImageSourceShouldAllowFloat: false] as CFDictionary
+        guard let src = CGImageSourceCreateWithData(data as CFData, options),
             CGImageSourceGetCount(src) > 0
         else {
             throw VisionError.msg("failed to decode image")
@@ -181,12 +213,24 @@ public struct VisionPreprocess {
                 "image data is incomplete — it ends mid-file, so it was probably "
                     + "truncated in transit; send the whole picture")
         }
-        guard let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+            let width = props[kCGImagePropertyPixelWidth] as? Int,
+            let height = props[kCGImagePropertyPixelHeight] as? Int
+        else { throw VisionError.msg("image has no valid dimensions") }
+        let charge = try decodedImageCharge(width: width, height: height)
+        guard charge <= maximumDecodedBytes else {
+            throw VisionError.msg("images together exceed the 1 GiB decoded-source budget; resize them before sending")
+        }
+        try request?.reservePreparedImageBytes(ContextBytes.sum(alreadyChargedBytes, charge))
+        guard let cg = CGImageSourceCreateImageAtIndex(src, 0, options) else {
             throw VisionError.msg("failed to decode image")
         }
-        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
-        let orientation = (props?[kCGImagePropertyOrientation] as? UInt32) ?? 1
-        return try upright(cg, orientation: orientation)
+        guard cg.width == width, cg.height == height, cg.bitsPerComponent <= 16,
+            cg.bitsPerPixel <= 64 else {
+            throw VisionError.msg("decoded image does not match its supported metadata geometry")
+        }
+        let orientation = (props[kCGImagePropertyOrientation] as? UInt32) ?? 1
+        return (try upright(cg, orientation: orientation), charge)
     }
 
     /// Does the file end where its container says it should?
@@ -279,12 +323,22 @@ public struct VisionPreprocess {
 
     /// Resize via CoreGraphics bicubic (high) and normalize to [-1,1] CHW float32.
     public static func resizeAndNormalize(cg: CGImage, targetH: UInt32, targetW: UInt32) -> [Float] {
+        do { return try resizeAndNormalizeChecked(cg: cg, targetH: targetH, targetW: targetW) }
+        catch { preconditionFailure("\(error)") }
+    }
+
+    /// Throwing counterpart used by request processing. Retain the original
+    /// nonthrowing public entry point for source compatibility.
+    public static func resizeAndNormalizeChecked(cg: CGImage, targetH: UInt32, targetW: UInt32) throws -> [Float] {
         let w = Int(targetW), h = Int(targetH)
+        guard w > 0, h > 0, UInt64(targetW) * UInt64(targetH) <= UInt64(engineMaxPixels) else {
+            throw VisionError.msg("resized image is empty or exceeds the engine pixel budget")
+        }
         let bytesPerRow = w * 4
         var raw = [UInt8](repeating: 0, count: h * bytesPerRow)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(data: &raw, width: w, height: h, bitsPerComponent: 8, bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue) else {
-            return [Float](repeating: 0, count: 3 * h * w)
+            throw VisionError.msg("could not allocate a context to resize the image")
         }
         ctx.interpolationQuality = .high
         // Composite onto white, not onto the zeroed buffer.
@@ -363,9 +417,42 @@ public struct VisionPreprocess {
     }
 }
 
+/// Source decoding is request-local. Exact encoded bytes are checked as well
+/// as their hash, so a collision cannot substitute another image's pixels.
+package final class DecodedImageBatch {
+    private let deduplicate: Bool
+    private let maximumBytes: Int
+    private var entries: [ImageHash: (Data, CGImage)] = [:]
+    package private(set) var chargedBytes = 0
+    package private(set) var decodedImages = 0
+    package private(set) var reusedImages = 0
+
+    package init(deduplicate: Bool, maximumBytes: Int = VisionPreprocess.maxDecodedImageBytes) {
+        self.deduplicate = deduplicate
+        self.maximumBytes = max(0, min(maximumBytes, VisionPreprocess.maxDecodedImageBytes))
+    }
+
+    package func decode(_ data: Data, request: RequestController? = nil) throws -> (cg: CGImage, hash: ImageHash) {
+        let hash = ImageHash(hashing: data)
+        if deduplicate, let (prior, image) = entries[hash], prior == data {
+            reusedImages += 1
+            return (image, hash)
+        }
+        let result = try VisionPreprocess.decodeCGImage(data, maximumDecodedBytes: maximumBytes - chargedBytes,
+            request: request, alreadyChargedBytes: chargedBytes)
+        chargedBytes += result.charge
+        decodedImages += 1
+        if deduplicate { entries[hash] = (data, result.image) }
+        return (result.image, hash)
+    }
+}
+
 // MARK: - VisionTower
 
 public final class VisionTower: TensorSource {
+    /// Prefix states never cross immutable tower instances, even when their
+    /// token geometry and image bytes happen to match.
+    package let featureNamespace = UUID().uuidString
     public let arrays: [String: MLXArray]
     public let config: ModelConfig
     public let vcfg: VisionConfig
@@ -414,10 +501,9 @@ public final class VisionTower: TensorSource {
         name.hasPrefix("vision_tower.") || name.hasPrefix("model.visual.")
     }
 
-    public init(index: CheckpointIndex) throws {
-        self.config = index.config
+    package static func configuration(directory: URL) throws -> (VisionConfig, (min: UInt32, max: UInt32)) {
         var vc = VisionConfig()
-        let data = try Data(contentsOf: index.dir.appendingPathComponent("config.json"))
+        let data = try Data(contentsOf: directory.appendingPathComponent("config.json"))
         if let root = try JSONSerialization.jsonObject(with: data) as? [String: Any], let v = root["vision_config"] as? [String: Any] {
             if let x = v["hidden_size"] as? Int { vc.hiddenSize = x }
             if let x = v["depth"] as? Int { vc.depth = x }
@@ -428,12 +514,11 @@ public final class VisionTower: TensorSource {
             if let x = v["out_hidden_size"] as? Int { vc.outHiddenSize = x }
             if let x = v["num_position_embeddings"] as? Int { vc.numPositionEmbeddings = x }
         }
-        self.vcfg = vc
         // The processor's own bounds. `size.shortest_edge` is min_pixels and
         // `size.longest_edge` is max_pixels in every Qwen*VL processor; the
         // engine cap is applied on top by `effectiveBounds`.
         var cfgMin: UInt32 = 0, cfgMax: UInt32 = 0
-        let procPath = index.dir.appendingPathComponent("preprocessor_config.json")
+        let procPath = directory.appendingPathComponent("preprocessor_config.json")
         if let pdata = try? Data(contentsOf: procPath),
             let proc = try? JSONSerialization.jsonObject(with: pdata) as? [String: Any],
             let size = proc["size"] as? [String: Any]
@@ -441,7 +526,14 @@ public final class VisionTower: TensorSource {
             if let v = size["shortest_edge"] as? Int, v > 0 { cfgMin = UInt32(clamping: v) }
             if let v = size["longest_edge"] as? Int, v > 0 { cfgMax = UInt32(clamping: v) }
         }
-        self.pixelBounds = VisionPreprocess.effectiveBounds(cfgMin: cfgMin, cfgMax: cfgMax)
+        return (vc, VisionPreprocess.effectiveBounds(cfgMin: cfgMin, cfgMax: cfgMax))
+    }
+
+    public init(index: CheckpointIndex) throws {
+        self.config = index.config
+        let (vc, bounds) = try Self.configuration(directory: index.dir)
+        self.vcfg = vc
+        self.pixelBounds = bounds
         var kept: [String: MLXArray] = [:]
         let files = Set(index.tensors.values.map { $0.file })
         for f in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
@@ -669,13 +761,13 @@ public final class VisionTower: TensorSource {
     /// One block's attention. Full bidirectional attention over every patch —
     /// this tower has no windowing and no mask.
     ///
-    /// **The fused kernel is load-bearing, for the same reason it is in
-    /// `Layers.attend`.** Written as `softmax(q·kᵀ)·v` this materializes an
-    /// `[heads, N, N]` score matrix and a second one for the probabilities. In
-    /// float32 at the engine's largest image (9,216 patches) that is 5.4 GB
-    /// each, twice, per block — on a machine whose whole promise is a memory
-    /// plan. `MLXFast.scaledDotProductAttention` never forms it.
-    private func attention(_ normed: MLXArray, _ blk: Block, cos: MLXArray, sin: MLXArray) -> MLXArray {
+    /// The pinned backend falls back to materialized attention at head width
+    /// 72. The experimental padding path reaches supported 80/128-wide kernels;
+    /// its model-quality and request-memory gates are separate from algebra.
+    private func attention(_ normed: MLXArray, _ blk: Block, cos: MLXArray, sin: MLXArray,
+                           padding: Int, preserveQueryRounding: Bool = false,
+                           queryTile: Int = 0, onQueryTile: (() -> Void)? = nil,
+                           request: RequestController? = nil) throws -> MLXArray {
         let N = normed.dim(0)
         let heads = vcfg.numHeads
         let hd = vcfg.headDim
@@ -693,8 +785,8 @@ public final class VisionTower: TensorSource {
         let qh = applyRope(q).transposed(1, 0, 2).reshaped([1, heads, N, hd])
         let kh = applyRope(k).transposed(1, 0, 2).reshaped([1, heads, N, hd])
         let vh = v.transposed(1, 0, 2).reshaped([1, heads, N, hd])
-        let o = MLXFast.scaledDotProductAttention(
-            queries: qh, keys: kh, values: vh, scale: 1.0 / sqrt(Float(hd)), mask: .none)
+        let o = try VisionAttention.applyChecked(queries: qh, keys: kh, values: vh, padding: padding,
+            preserveQueryRounding: preserveQueryRounding, queryTile: queryTile, onQueryTile: onQueryTile, request: request)
         let ctt = o.reshaped([heads, N, hd]).transposed(1, 0, 2).reshaped([N, vcfg.hiddenSize])
         return dense(ctt, blk.projW, blk.projB)
     }
@@ -703,6 +795,23 @@ public final class VisionTower: TensorSource {
 
     /// Encode one image: pixelValues [N, 1536] float32 -> [1, N/4, outHidden] bf16
     public func forward(pixelValues: MLXArray, gridH: UInt32, gridW: UInt32) -> MLXArray {
+        forward(pixelValues: pixelValues, gridH: gridH, gridW: gridW, attentionPadding: 0)
+    }
+
+    package func forward(pixelValues: MLXArray, gridH: UInt32, gridW: UInt32,
+                         attentionPadding: Int, preserveQueryRounding: Bool = false,
+                         queryTile: Int = 0, onQueryTile: (() -> Void)? = nil) -> MLXArray {
+        checkpointCompatibility {
+            try forwardChecked(pixelValues: pixelValues, gridH: gridH, gridW: gridW,
+                attentionPadding: attentionPadding, preserveQueryRounding: preserveQueryRounding,
+                queryTile: queryTile, onQueryTile: onQueryTile)
+        }
+    }
+
+    private func forwardChecked(pixelValues: MLXArray, gridH: UInt32, gridW: UInt32,
+                         attentionPadding: Int, preserveQueryRounding: Bool = false,
+                         queryTile: Int = 0, onQueryTile: (() -> Void)? = nil,
+                         request: RequestController? = nil) throws -> MLXArray {
         let N = Int(gridH * gridW)
         var x = pixelValues.asType(.bfloat16)
         x = dense(x, patchW, patchB) // [N, hidden]
@@ -710,9 +819,13 @@ public final class VisionTower: TensorSource {
         x = x + pos
         let (cos, sin) = buildRope(gridH: gridH, gridW: gridW)
         for blk in blocks {
+            let workspace = ContextWorkspace.visionBytes(patches: N, hidden: vcfg.hiddenSize,
+                heads: vcfg.numHeads, queryTile: queryTile, padding: attentionPadding)
+            try request?.check(nextAllocationBytes: workspace, phase: "vision block")
             // attn
             let n1 = layerNorm(x, blk.norm1W, blk.norm1B)
-            let attnOut = attention(n1, blk, cos: cos, sin: sin)
+            let attnOut = try attention(n1, blk, cos: cos, sin: sin, padding: attentionPadding,
+                preserveQueryRounding: preserveQueryRounding, queryTile: queryTile, onQueryTile: onQueryTile, request: request)
             x = x + attnOut
             // mlp
             let n2 = layerNorm(x, blk.norm2W, blk.norm2B)
@@ -743,7 +856,7 @@ public final class VisionTower: TensorSource {
     /// cache key, can be built before any image is encoded. The tower is the
     /// expensive part (27 blocks with full attention over the patches); the
     /// geometry is arithmetic.
-    public struct ImagePlan: Sendable {
+    public struct ImagePlan: Hashable, Sendable {
         public let height: UInt32
         public let width: UInt32
         public let gridH: UInt32
@@ -752,6 +865,12 @@ public final class VisionTower: TensorSource {
         public let patches: Int
         /// Tokens after the merge — the length of this image's placeholder run.
         public let mergedTokens: Int
+
+        package init(height: UInt32, width: UInt32, gridH: UInt32, gridW: UInt32, patches: Int, mergedTokens: Int) {
+            self.height = height; self.width = width
+            self.gridH = gridH; self.gridW = gridW
+            self.patches = patches; self.mergedTokens = mergedTokens
+        }
     }
 
     public func plan(for cg: CGImage) throws -> ImagePlan {
@@ -764,7 +883,13 @@ public final class VisionTower: TensorSource {
         height: Int, width: Int, cfg: VisionConfig, bounds: (min: UInt32, max: UInt32)
     ) throws -> ImagePlan {
         let h = height, w = width
-        guard h > 0, w > 0 else { throw VisionError.msg("image has a zero dimension") }
+        _ = try VisionPreprocess.decodedImageCharge(width: w, height: h)
+        guard cfg.patchSize > 0, cfg.patchSize <= 32,
+            cfg.spatialMergeSize > 0, cfg.spatialMergeSize <= 32,
+            cfg.patchSize * cfg.spatialMergeSize == Int(VisionPreprocess.factor),
+            bounds.min > 0, bounds.min <= bounds.max,
+            bounds.max <= VisionPreprocess.engineMaxPixels
+        else { throw VisionError.msg("unsupported image geometry or pixel bounds") }
         let ratio = Double(max(h, w)) / Double(min(h, w))
         guard ratio <= VisionPreprocess.maxAspectRatio else {
             throw VisionError.msg(
@@ -786,14 +911,30 @@ public final class VisionTower: TensorSource {
 
     /// Run the tower for one image against a plan already computed for it.
     public func encode(_ cg: CGImage, plan p: ImagePlan) -> MLXArray {
-        let chw = VisionPreprocess.resizeAndNormalize(cg: cg, targetH: p.height, targetW: p.width)
+        encode(cg, plan: p, attentionPadding: 0)
+    }
+
+    package func encode(_ cg: CGImage, plan p: ImagePlan, attentionPadding: Int) -> MLXArray {
+        do { return try encodeChecked(cg, plan: p, attentionPadding: attentionPadding) }
+        catch { preconditionFailure("\(error)") }
+    }
+
+    package func encodeChecked(_ cg: CGImage, plan p: ImagePlan, attentionPadding: Int,
+                              preserveQueryRounding: Bool = false, queryTile: Int = 0,
+                              onQueryTile: (() -> Void)? = nil, request: RequestController? = nil) throws -> MLXArray {
+        guard queryTile == 0 || (queryTile == 256 && attentionPadding == 0 && !preserveQueryRounding) else {
+            throw VisionError.msg("vision query tiling requires the independent 256-row original-attention path")
+        }
+        try request?.check(nextAllocationBytes: Int(p.height) * Int(p.width) * 32, phase: "image normalization")
+        let chw = try VisionPreprocess.resizeAndNormalizeChecked(cg: cg, targetH: p.height, targetW: p.width)
         let tps: UInt32 = UInt32(vcfg.temporalPatchSize)
         let pixelFlat = VisionPreprocess.buildPixelValues(
             chw: chw, h: p.height, w: p.width, patch: UInt32(vcfg.patchSize),
             merge: UInt32(vcfg.spatialMergeSize), tps: tps)
         let feat = 3 * Int(tps) * vcfg.patchSize * vcfg.patchSize
         let pv = MLXArray(pixelFlat, [p.patches, feat])
-        return forward(pixelValues: pv, gridH: p.gridH, gridW: p.gridW)
+        return try forwardChecked(pixelValues: pv, gridH: p.gridH, gridW: p.gridW, attentionPadding: attentionPadding,
+            preserveQueryRounding: preserveQueryRounding, queryTile: queryTile, onQueryTile: onQueryTile, request: request)
     }
 
 }

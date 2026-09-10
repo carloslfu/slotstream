@@ -18,9 +18,26 @@ func computeGatedDeltaG(_ aLog: MLXArray, _ a: MLXArray, _ dtBias: MLXArray) -> 
 
 // MARK: - Metal Kernel
 
-private func makeGatedDeltaKernel(hasMask: Bool) -> MLXFast.MLXFastKernel? {
+private func makeGatedDeltaKernel(hasMask: Bool, recordCount: Int = 0) -> MLXFast.MLXFastKernel? {
     let maskSource = hasMask ? "mask[b_idx * T + t]" : "true"
 
+    let recordSource = (0 ..< recordCount).map { t in
+        """
+        if (t == \(t)) {
+          for (int j = 0; j < n_per_t; ++j) {
+            auto s_idx = n_per_t * dk_idx + j;
+            state_\(t)[(n * Dv + dv_idx) * Dk + s_idx] = state[j];
+          }
+        }
+        """
+    }.joined(separator: "\n")
+    let finalPointer = recordCount == 0 ? "auto o_state = state_out + (n * Dv + dv_idx) * Dk;" : ""
+    let finalWrite = recordCount == 0 ? """
+        for (int i = 0; i < n_per_t; ++i) {
+          auto s_idx = n_per_t * dk_idx + i;
+          o_state[s_idx] = static_cast<StT>(state[i]);
+        }
+        """ : ""
     let source = """
             auto n = thread_position_in_grid.z;
             auto b_idx = n / Hv;
@@ -45,7 +62,7 @@ private func makeGatedDeltaKernel(hasMask: Bool) -> MLXFast.MLXFastKernel? {
 
             // state_in, state_out: [B, Hv, Dv, Dk]
             auto i_state = state_in + (n * Dv + dv_idx) * Dk;
-            auto o_state = state_out + (n * Dv + dv_idx) * Dk;
+            \(finalPointer)
 
             float state[n_per_t];
             for (int i = 0; i < n_per_t; ++i) {
@@ -88,6 +105,7 @@ private func makeGatedDeltaKernel(hasMask: Bool) -> MLXFast.MLXFastKernel? {
               } else {
                 y[dv_idx] = static_cast<InT>(0);
               }
+              \(recordSource)
               // Increment data pointers to next time step
               q_ += Hk * Dk;
               k_ += Hk * Dk;
@@ -96,10 +114,7 @@ private func makeGatedDeltaKernel(hasMask: Bool) -> MLXFast.MLXFastKernel? {
               g_ += Hv;
               beta_ += Hv;
             }
-            for (int i = 0; i < n_per_t; ++i) {
-              auto s_idx = n_per_t * dk_idx + i;
-              o_state[s_idx] = static_cast<StT>(state[i]);
-            }
+            \(finalWrite)
         """
 
     var inputNames = ["q", "k", "v", "g", "beta", "state_in", "T"]
@@ -107,12 +122,12 @@ private func makeGatedDeltaKernel(hasMask: Bool) -> MLXFast.MLXFastKernel? {
         inputNames.append("mask")
     }
 
-    let suffix = hasMask ? "_mask" : ""
+    let suffix = (hasMask ? "_mask" : "") + (recordCount > 0 ? "_record_\(recordCount)" : "")
 
     return MLXFast.metalKernel(
         name: "gated_delta_step\(suffix)",
         inputNames: inputNames,
-        outputNames: ["y", "state_out"],
+        outputNames: recordCount > 0 ? ["y"] + (0 ..< recordCount).map { "state_\($0)" } : ["y", "state_out"],
         source: source
     )
 }
@@ -127,6 +142,14 @@ private final class GatedDeltaKernelManager: Sendable {
         kernel = makeGatedDeltaKernel(hasMask: false)
         kernelMasked = makeGatedDeltaKernel(hasMask: true)
     }
+}
+
+/// Instantiated only if recording is requested, so the ordinary path pays no
+/// initialization cost for experimental kernel variants.
+private final class GatedDeltaRecordingManager: Sendable {
+    static let shared = GatedDeltaRecordingManager()
+    let recording = (1 ... 17).map { makeGatedDeltaKernel(hasMask: false, recordCount: $0) }
+    let recordingMasked = (1 ... 17).map { makeGatedDeltaKernel(hasMask: true, recordCount: $0) }
 }
 
 // MARK: - Kernel Dispatch
@@ -324,4 +347,42 @@ public func gatedDeltaUpdate(
     }
 
     return gatedDeltaOps(q: q, k: k, v: v, g: g, beta: beta, state: state, mask: mask)
+}
+
+
+/// The same chronological FP32 recurrence, with one independently owned
+/// output buffer per recorded position. No replay and no parent allocation
+/// retained by the final state after rejected positions are released.
+/// Bounded to the supported verify depth; other shapes use the established
+/// one-step implementation before any state is published to the caller.
+public func gatedDeltaUpdateRecording(
+    q: MLXArray, k: MLXArray, v: MLXArray, a: MLXArray, b: MLXArray,
+    aLog: MLXArray, dtBias: MLXArray, state: MLXArray? = nil,
+    mask: MLXArray? = nil
+) -> (output: MLXArray, states: [MLXArray]) {
+    let (B, T, Hk, Dk, Hv, Dv) = (q.dim(0), q.dim(1), k.dim(2), k.dim(3), v.dim(2), v.dim(3))
+    precondition(T > 0)
+    let initial = (state ?? MLXArray.zeros([B, Hv, Dv, Dk], dtype: .float32)).asType(.float32)
+    let manager = GatedDeltaRecordingManager.shared
+    if T <= 17, Dk > 0, Dk % 32 == 0, Dv % 4 == 0, Hk > 0, Hv % Hk == 0,
+       let kernel = (mask == nil ? manager.recording : manager.recordingMasked)[T - 1] {
+        var inputs = [q, k, v, computeGatedDeltaG(aLog, a, dtBias), sigmoid(b).asType(.float32), initial, MLXArray(T)]
+        if let mask { inputs.append(mask) }
+        let outputs = kernel(inputs,
+            template: [("InT", q.dtype), ("StT", DType.float32), ("Dk", Dk), ("Dv", Dv), ("Hk", Hk), ("Hv", Hv)],
+            grid: (32, Dv, B * Hv), threadGroup: (32, 4, 1),
+            outputShapes: [[B, T, Hv, Dv]] + Array(repeating: initial.shape, count: T),
+            outputDTypes: [q.dtype] + Array(repeating: .float32, count: T))
+        return (outputs[0], Array(outputs.dropFirst()))
+    }
+    var current: MLXArray? = initial
+    var ys: [MLXArray] = [], states: [MLXArray] = []
+    for t in 0 ..< T {
+        let (y, next) = gatedDeltaUpdate(
+            q: q[0..., t ..< (t + 1)], k: k[0..., t ..< (t + 1)], v: v[0..., t ..< (t + 1)],
+            a: a[0..., t ..< (t + 1)], b: b[0..., t ..< (t + 1)], aLog: aLog, dtBias: dtBias,
+            state: current, mask: mask?[0..., t ..< (t + 1)])
+        ys.append(y); states.append(next); current = next
+    }
+    return (concatenated(ys, axis: 1), states)
 }

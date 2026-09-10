@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m1hhwmw2fj49hd8h7mq80pkk
 created: 2026-09-02T17:15:26.978326+00:00
-updated: 2026-09-02T17:15:26.978326+00:00
+updated: 2026-09-05T03:40:54.172091+00:00
 summary: 0. Status tracker (living)
 date: 2026-08-28
 doc: plan
@@ -13,7 +13,6 @@ order: '10'
 source: '[[sources/docs/2026/09/plan-md-2026-09-02]]'
 title: 0. Status tracker (living)
 ---
-
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
 
@@ -34,6 +33,7 @@ design and the estimates it replaces.
 | N1 Conversation prefix cache | ✅ **done 2026-08-29** (0.1.6) | TTFT flat in conversation length — 6.0 s at turn 8 against 25.8 s uncached. Gated by `prefix-check` against a prefill-rechunk control |
 | N2 Prefill sweep | ✅ **done 2026-09-02** | passes of 256+ tokens sweep each layer's experts through staging groups and MLX's grouped GEMM (sorted indices), read consecutive experts as one `pread` per piece, never write the pool, and admit the prompt's hot experts on the last pass; n-gram rows read in parallel. 8k prompt 91 → 184 tok/s at 16 GB, prose 66 → 140, floor 51 → 93 at a 1.5 GB lower peak, `context-check` 64 → 152. Gated by `sweep-check` (3.3% of logit spread vs a 5.1% rechunk control; bit-identical cold and warm pool) |
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
+| N6 Prefill: bound the pass, then read each expert once | ◐ **unified implementation in progress** | Detailed prefill chapter of the 37-item whole-engine program: one baseline/status map, explicit output/fold/weight workspace alternatives, bounded indexer/attention/GDN, shared/resident read overlap, terminal work pruning and specialized top-K. The first ownership and final-forward candidates have native parity, serving and bounded A/B evidence; remaining acceptance and every OPT status live in the unified program. |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
 | M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, so the default is now 1 and auto's floor stands; with the rebuild eliminated (per-position recorded state) depth 1 reads ×1.24 there and ×1.18 sampled. Gates: `mtp-parity`, `mtp-check` |
 
@@ -42,3 +42,5 @@ build-out phases; §8.1 is the live queue, ordered by what decides whether a per
 using slotstream after their first session rather than by what completes the milestone map.
 
 ---
+
+Optimization execution follows [[records/plan/whole-engine-optimization-2026-09-04]]; [[records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once]] supplies its detailed prefill contract. These are one program, with OPT status tracked once.

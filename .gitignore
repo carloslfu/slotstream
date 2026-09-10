@@ -9,6 +9,7 @@ __pycache__/
 bench/traces/*.npz
 
 Tools/coldread
+Tools/layoutbench
 Tools/diskbench
 bench/parity*/
 /tmp/
@@ -36,3 +37,6 @@ Tools/lib/*.metallib
 db/**/*.lock
 db/*.lock
 db/.dbmd/
+
+# Local Cloudflare CLI account and runtime cache.
+.wrangler/

@@ -8,6 +8,13 @@
 
 import Foundation
 
+/// Preserve existing nonthrowing library entry points. Request execution uses
+/// the additive checked APIs and handles their errors at the serving boundary.
+func checkpointCompatibility<T>(_ operation: () throws -> T) -> T {
+    do { return try operation() }
+    catch { preconditionFailure(String(describing: error)) }
+}
+
 public enum SlotstreamError: Error, CustomStringConvertible, Sendable {
     /// The weights are absent or incomplete at this directory.
     case weightsMissing(directory: URL, remainingBytes: Int64, freeDiskBytes: Int64)

@@ -4,6 +4,9 @@ This page covers everyday commands, memory settings, and common diagnostics.
 Run `slotstream <command> --help` for the options in your installed version.
 Only one model process can run per user at a time.
 
+The shared `run` context option, request-wait controls, feasibility metadata
+and expanded `context-check` flags below are unreleased source additions.
+
 <a id="where-things-live"></a>
 
 ## File locations
@@ -16,6 +19,24 @@ Only one model process can run per user at a time.
 | `/usr/local/bin/slotstream`, or a PATH line in `~/.zshrc` / `~/.bash_profile` | How the installer puts the command on your PATH (the wrapper when `/usr/local/bin` is writable, the profile line otherwise). |
 | `/tmp/slotstream-model-<uid>.lock` | The one-process lock, held while a model is loaded. |
 
+## Reading tokens per second
+
+`slotstream run` prints a `-- decode` line with average `tok/s` after the
+response, and a separate prefill rate for reading the prompt. Add
+`--stats-json stats.json` to save the raw generation measurements.
+
+When using an existing `slotstream serve`, the Ollama-compatible `/api/chat`
+and `/api/generate` endpoints return `eval_count` and `eval_duration` in the
+final response. For streaming, read the final frame. Duration is in
+nanoseconds: divide the count by `eval_duration / 1e9` when that duration is
+positive. This measures the decode phase and excludes prefill. The ordinary
+OpenAI-compatible response supplies token usage without these duration fields.
+
+These are end-of-response statistics. A planner's expected speed is an
+estimate; it is separate from the measured rate of a completed request.
+[The serving benchmark and throughput expectations](../MEASUREMENTS.md#three-prompt-serving-benchmark-and-throughput-expectations)
+show the observed variation, prompt-reuse behavior and measurement limits.
+
 ## Everyday commands
 
 ### `slotstream run`
@@ -25,6 +46,8 @@ Generate once from a prompt, with no server.
 | Flag | Meaning |
 |---|---|
 | `--prompt <text>` | The prompt (default: "Why is the sky blue?"). |
+| `--max-context <n>` | Window shared by the final templated input and reply; uses the same planning and bounds as `serve`. |
+| `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including preparation. Default 30 minutes; `0` disables only the time policy. |
 | `--max-tokens <n>` | Tokens to generate; `<= 0` means as many as the context allows (default 128). |
 | `--greedy` | Deterministic greedy sampling. |
 | `--raw` | Send the prompt without the chat template. |
@@ -42,6 +65,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
 | `--max-context <n>` | Maximum tokens shared by prompt and reply. Default: 32768; ceiling: 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Context state uses about 27 KiB per token. |
+| `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
 
@@ -49,7 +73,7 @@ Plus the memory options.
 
 ### `slotstream pull [model]`
 
-Download losslessly compressed model weights from the CDN, reconstructing
+Download losslessly compressed model weights from Hugging Face, reconstructing
 the original files with resumable transfers and hash verification.
 The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 
@@ -57,7 +81,7 @@ The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
 |---|---|
 | `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
 | `--connections <n>` | Fixed independent connections, 1–32. Omit to start at 8 and test increases only while throughput improves. |
-| `--transport automatic\|compressed\|raw` | Automatic uses compressed CDN objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
+| `--transport automatic\|compressed\|raw` | Automatic uses compressed Hugging Face objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
 | `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
 
 The complete compressed package uses **16.12% fewer bytes**. Decode and writes
@@ -79,7 +103,8 @@ never loads the model and can run while the server is working.
 | `--sim-ram <gb>` | Preview a Mac with this much RAM. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
 | `--sim-working-set <gb>` | Use this Metal working-set limit in the simulation. |
 | `--sim-available <gb>` | Use this much available memory in the simulation. |
-| `--max-context <n>` | Preview the plan `serve --max-context n` would announce. |
+| `--max-context <n>` | Preview the same allocation and report the largest memory-feasible window under these inputs. |
+| `--max-prefill-wait <minutes>` | Preview the request deadline separately from memory feasibility; default 30 minutes, `0` disables only time. |
 | `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
 
 Plus the memory options, so `doctor --memory-gb 16` shows exactly what
@@ -89,22 +114,33 @@ wait for a prompt filling the whole context.
 
 ### `slotstream context-check`
 
-Measure how long a synthetic prompt takes on your Mac, with conversation
-reuse disabled. It reports seconds, tokens per second, and peak process
-memory against the plan. It checks available memory between passes and
-stops if it falls below the threshold.
+Run an explicit capacity diagnostic with a synthetic prompt. Conversation
+reuse is disabled by default; the retained-state mode first fills distinct
+conversations and exercises their interleaved follow-ups. The report includes
+actual prompt and reply IDs, compute shapes, sampled physical footprint and
+swap observations. Incomplete or contaminated runs fail qualification.
 
 Stop any running model process first. Results are printed without writing
 files; contributors can register them in the measurement records under `db/`.
 
 | Flag | Meaning |
 |---|---|
-| `--tokens <n>` | Prompt length (default 8192; at most 262144). |
+| `--tokens <n>` | Prompt length (default 8192); prompt plus the required reply must fit the model limit. |
+| `--reply-tokens <n>` | Required nonempty output, reserved before model loading (default 16). An early stop is incomplete qualification. |
+| `--max-prefill-wait <minutes>` | The same request deadline; `0` disables only this deadline. |
+| `--wall-seconds <seconds>` | Independent hard duration bound per rung (default 7200). |
+| `--plan-only` | Print the unqualified memory plan and resolved runtime controls without loading an engine. |
+| `--warm-conversations <n>` | Fill and revisit retained conversations before the main request. Requires a single rung and enough configured room. |
+| `--warm-tokens <n>` | Length of each distinct warm-up prompt. Its reply and follow-up must also fit the configured window. |
+| `--sample-footprint` | Compatibility flag; this diagnostic always samples physical footprint in addition to lifetime process RSS and allocator telemetry. |
 | `--ladder` | Run 2048, 4096, … up to `--tokens`, stopping at the first rung that leaves the plan. |
 | `--min-free-gb <gb>` | Abort a pass when reclaimable memory falls below this (default: the planner's slack, 5% of RAM, at least 1.5 GB). |
 | `--json` | One JSON object per rung. |
 
 Plus the memory options; give it the same target you would give `serve`.
+With retained conversations, the wall-clock ceiling covers both warm-up and
+the main request. Diagnostic access above the public implementation ceiling
+does not make that window supported by `serve` or `run`.
 
 ## Memory options
 
@@ -123,9 +159,40 @@ Memory section).
 | `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Lowers the target for other apps; cannot raise it past the ~33 GB ceiling. Ignored when an explicit size is given. |
 
 Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
-which beats `--memory-gb`. An explicit size stays fixed and
-bypasses automatic availability checks. Preview it with `doctor` and make
-sure the memory is available before loading the model.
+which beats `--memory-gb`. An explicit size keeps its expert-pool policy. Physical headroom is still
+checked before model loading and request growth. Preview it with `doctor`;
+an unavailable window is reported separately from a request that may take
+too long to prefill.
+
+
+A larger context reserves allocated cache capacity, retained conversations,
+resident components and transient work before assigning the expert pool.
+`doctor --json` includes the byte ledger and a discrete feasibility result;
+a smaller history does not turn unused long-context reservation into free RAM.
+Unknown prefill estimates appear as JSON `null` and remain deadline-bound.
+Neither a fixed pool nor `--no-elastic` disables request memory checks.
+
+## Optimization defaults in the unreleased source build
+
+The CLI resolves the selected optimization family automatically: compact
+runtime state and n-gram rows, bounded prompt-read grouping, committed prompt
+checkpoints, bounded output buffering and memory-governor response. Long
+prompt grouping is admitted only when its additional workspace fits; ordinary
+chronological passes remain the fallback. Explicit prefill and optimization
+controls retain their precedence and validation.
+
+Prompt checkpoints help only when the token and image history actually
+matches. Use `--no-prefix-cache` for comparisons that require fresh prompt
+computation. Query tiling bounds vision attention workspace; it does not grant
+extra permanent expert-cache capacity. The specialized fused rotation keeps
+its qualified platform and shape checks, with the original rotation elsewhere.
+
+The `SLOTSTREAM_OPT_` switches remain available for reference comparisons and
+qualification. They include experimental paths that were rejected or remain
+conditional. Enabling every switch is not the selected configuration.
+[Integrated measurements](../MEASUREMENTS.md#final-integrated-optimization-results)
+report the tested workloads and limits; [the unified plan](../PLAN.md) retains
+the disposition of each candidate.
 
 ## Environment variables
 
@@ -161,14 +228,14 @@ See [Testing](TESTING.md) for the full suites.
 | `governor-check` | The elastic resize policy across pressure, availability, and cooldowns. |
 | `sampler-golden` | Sampling from reproducible synthetic logits, compared against `Tools/sampler_ref.py`. Flags: `--vocab`, `--draws`, `--seed`, `--logit-seed`, `--temperature`, `--top-p`, `--top-k`, `--min-p`, `--presence-penalty`, `--accumulate`. |
 | `pull-check` | Same-size corruption detection and HTTP range validation in the downloader. |
-| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same arithmetic `doctor` and the 400 message use. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
+| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same wait arithmetic `doctor` and the 400 message use. JSON includes actual canonical pass sizes, physical query rows and key extents, including numerical padding. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
 
 **Load the model**
 
 | Command | Proves |
 |---|---|
 | `elastic-check` | Greedy output is byte-identical across a live pool grow and shrink. `--max-tokens` (24), `--big-slots` (960; lower it on small machines). |
-| `elastic-drill` | The live governor shrinks under pressure, honors the grow cooldown, grows back, and output never changes. `--slots` (4000), `--quick` skips the 60 s cooldown wait. |
+| `elastic-drill` | Drives the live governor through controlled polls: shrink, grow cooldown, regrowth and exact output. `--slots` (4000), `--max-memory-gb` (10), `--quick` skips regrowth. The unchanged deadbands need a larger starting arena: the full test uses `--slots 1000 --max-memory-gb 13`, requires the derived target plus 3 GB physically reclaimable, and reports sampled memory and swap. An insufficient ceiling refuses before model allocation. |
 | `prefix-check` | Conversation prefix reuse is equivalent, bounded, and deterministic. `--slots` (640), `--max-tokens` (24). |
 | `sweep-check` | The prefill sweep (passes of 256 tokens or more) stays inside the prefill-rechunk band against the pool path, is deterministic, gives bit-identical logits on a cold and a warm pool, and leaves the pool consistent after admission. `--slots` (640). |
 | `parity` | N truncated layers match the Python reference dumps. `--layers` (4), `--tokens`, `--compare <dir>`, `--out <dir>`. |

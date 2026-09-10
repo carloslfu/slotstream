@@ -40,7 +40,9 @@ public enum MemTrace {
     public static func mark(_ phase: String, _ out: MLXArray?) {
         guard on else { return }
         if let o = out { eval(o) }
-        let peak = MLX.Memory.peakMemory
+        // A phase that allocates nothing can leave the explicitly reset
+        // high-water counter at zero; its live resident arrays still count.
+        let peak = max(MLX.Memory.activeMemory, MLX.Memory.peakMemory)
         MLX.Memory.peakMemory = 0
         lock.lock()
         defer { lock.unlock() }
@@ -63,7 +65,7 @@ public enum MemTrace {
         var lines = ["mem trace: high-water MLX active memory during each phase (GB)"]
         for key in order.sorted(by: { (peaks[$0]?.peak ?? 0) > (peaks[$1]?.peak ?? 0) }) {
             guard let v = peaks[key] else { continue }
-            let name = key.padding(toLength: 18, withPad: " ", startingAt: 0)
+            let name = key.padding(toLength: 32, withPad: " ", startingAt: 0)
             lines.append(String(format: "  %@ %6.2f  (worst at layer %d)",
                                 name, Double(v.peak) / 1e9, v.layer))
         }

@@ -1,0 +1,23 @@
+name: context-proxies
+on:
+  pull_request:
+    paths: ["Sources/**", "Tools/**", "Makefile", ".github/workflows/context-proxies.yml"]
+  push:
+    branches: [main]
+    paths: ["Sources/**", "Tools/**", "Makefile", ".github/workflows/context-proxies.yml"]
+permissions:
+  contents: read
+jobs:
+  software-contracts:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Context source and transport proxies, without MLX or weights
+        run: make context-test CONTEXT_TEST_OUT=.build/context-proxy-ci
+      - name: Context evidence and deferred native cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-software-proxy
+          path: .build/context-proxy-ci

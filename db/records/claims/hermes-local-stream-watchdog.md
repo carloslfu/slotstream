@@ -1,8 +1,8 @@
 ---
 type: claim
-id: 01m1t5ee0aabz28za65bn74196
-created: 2026-09-06T01:31:08.170220+00:00
-updated: 2026-09-06T01:31:08.170220+00:00
+id: 01m1swa0t6jv145csdy6crphyx
+created: 2026-09-05T22:51:26.406407+00:00
+updated: 2026-09-05T22:51:26.406407+00:00
 summary: Hermes example sets a bounded local stream watchdog
 basis: derived
 gate: Tools/hermes_integration_gate.py

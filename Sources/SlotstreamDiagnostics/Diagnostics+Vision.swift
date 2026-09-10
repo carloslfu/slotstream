@@ -64,6 +64,16 @@ extension Diagnostics {
         c.expect("a zero dimension is refused", tokens(0, 100) == nil)
         c.expect("an extreme aspect ratio is refused", tokens(1, 4000) == nil)
         c.expect("199:1 is still accepted", tokens(1, 199) != nil)
+        c.expect("oversized integer dimensions are refused without conversion", tokens(Int.max, Int.max) == nil)
+        c.expect("decoded source pixel budget is distinct from resized pixels", tokens(65_535, 65_535) == nil)
+        c.equal("48 megapixel source has bounded admission charge",
+            try? VisionPreprocess.decodedImageCharge(width: 8000, height: 6000), 768_000_000)
+        c.equal("source exactly at budget fits", try? VisionPreprocess.decodedImageCharge(width: 8192, height: 8192), 1 << 30)
+        c.expect("source beyond budget fails", (try? VisionPreprocess.decodedImageCharge(width: 8193, height: 8192)) == nil)
+        for pair: (UInt32, UInt32) in [(0, 65_536), (65_536, 1), (1, UInt32.max)] {
+            c.expect("invalid processor bounds \(pair) are refused",
+                (try? VisionTower.plan(height: 32, width: 32, cfg: cfg, bounds: pair)) == nil)
+        }
 
         // MARK: image sources
         //
@@ -115,6 +125,52 @@ extension Diagnostics {
         // A real (tiny) PNG decodes; a truncated one does not.
         let png = (try? VisionPreprocess.loadImageData(from: onePixelPNG)) ?? Data()
         c.expect("the fixture decodes to an image", (try? VisionPreprocess.decodeCGImage(png)) != nil)
+        c.expect("request's remaining image budget is enforced", (try? VisionPreprocess.decodeCGImage(png, maximumDecodedBytes: 15)) == nil)
+        c.equal("exact remaining budget permits a tiny source", try? VisionPreprocess.decodeCGImage(png, maximumDecodedBytes: 16).charge, 16)
+        let deniedPixels = RequestController(configuration: try! ContextConfiguration(),
+            slackBytes: 0, availableGB: { 0 })
+        c.expect("pixel allocation checks request memory before decoding", (try? VisionPreprocess.decodeCGImage(
+            png, maximumDecodedBytes: 16, request: deniedPixels)) == nil)
+        c.equal("pixel allocation memory error stays typed", deniedPixels.failure?.code, .insufficientMemory)
+        var pixelClock: UInt64 = 0
+        let expiredPixels = RequestController(configuration: try! ContextConfiguration(maxPrefillWaitMinutes: 1),
+            slackBytes: 0, clock: { pixelClock }, availableGB: { 10 })
+        pixelClock = 61_000_000_000
+        c.expect("source decoding inherits request deadline", (try? VisionPreprocess.decodeCGImage(
+            png, maximumDecodedBytes: 16, request: expiredPixels)) == nil)
+        c.equal("source decoding deadline stays typed", expiredPixels.failure?.code, .prefillDeadlineExceeded)
+        let reusedSources = DecodedImageBatch(deduplicate: true, maximumBytes: 16)
+        let firstSource = try? reusedSources.decode(png)
+        let secondSource = try? reusedSources.decode(png)
+        c.expect("duplicate source shares exact CGImage ownership", firstSource != nil && secondSource != nil
+            && firstSource!.cg === secondSource!.cg)
+        c.equal("duplicate source is decoded once", reusedSources.decodedImages, 1)
+        c.equal("duplicate source reuse is counted", reusedSources.reusedImages, 1)
+        c.equal("shared source pixels are charged once", reusedSources.chargedBytes, 16)
+        c.expect("malformed image cannot reuse old source", (try? reusedSources.decode(Data([1, 2, 3]))) == nil)
+        c.equal("failed decoding preserves source budget", reusedSources.chargedBytes, 16)
+        let independentSources = DecodedImageBatch(deduplicate: false, maximumBytes: 16)
+        c.expect("first independent source fits", (try? independentSources.decode(png)) != nil)
+        c.expect("second independent source is refused by cumulative budget", (try? independentSources.decode(png)) == nil)
+        // A CRC-correct oversized IHDR with deliberately inconsistent IDAT.
+        // ImageIO may refuse its metadata before our size guard is reached;
+        // neither rejection is allowed to create a decoded CGImage.
+        var oversized = [UInt8](png)
+        oversized.replaceSubrange(16 ..< 24, with: [0, 0, 255, 255, 0, 0, 255, 255])
+        var crc: UInt32 = 0xffff_ffff
+        for byte in oversized[12 ..< 29] {
+            crc ^= UInt32(byte)
+            for _ in 0 ..< 8 { crc = (crc >> 1) ^ (crc & 1 == 1 ? 0xedb8_8320 : 0) }
+        }
+        crc ^= 0xffff_ffff
+        oversized.replaceSubrange(29 ..< 33, with: (0 ..< 4).map { UInt8(truncatingIfNeeded: crc >> (24 - 8 * $0)) })
+        do {
+            _ = try VisionPreprocess.decodeCGImage(Data(oversized))
+            c.expect("oversized source refused before image creation", false)
+        } catch {
+            c.expect("oversized source refused before image creation",
+                "\(error)".contains("decoded source image exceeds") || "\(error)".contains("no valid dimensions"), "\(error)")
+        }
         c.expect(
             "half a PNG does not",
             (try? VisionPreprocess.decodeCGImage(png.prefix(20))) == nil)
@@ -134,6 +190,12 @@ extension Diagnostics {
             let clear = try? VisionPreprocess.decodeCGImage(bytes)
         {
             let pixels = VisionPreprocess.resizeAndNormalize(cg: clear, targetH: 32, targetW: 32)
+            c.equal("checked preprocessing preserves exact pixels",
+                try? VisionPreprocess.resizeAndNormalizeChecked(cg: clear, targetH: 32, targetW: 32), pixels)
+            c.expect("zero resize fails instead of emitting blank pixels",
+                (try? VisionPreprocess.resizeAndNormalizeChecked(cg: clear, targetH: 0, targetW: 32)) == nil)
+            c.expect("oversized resize fails before allocation",
+                (try? VisionPreprocess.resizeAndNormalizeChecked(cg: clear, targetH: UInt32.max, targetW: UInt32.max)) == nil)
             c.expect(
                 "a transparent pixel composites onto white, not onto black",
                 pixels.allSatisfy { $0 > 0.99 })
@@ -367,6 +429,40 @@ extension Diagnostics {
                 PlanRequest(expertsPerLayer: 60, vision: .auto),
                 on: Machine(ramGB: 48, workingSetGB: 36, availableGB: 40, isSimulated: false),
                 visionAvailable: true))?.visionEnabled == true)
+
+        for budget in [8.1, 9.0, 10.0, 16.0, 33.0] {
+            let text = try! Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: budget,
+                ramGB: 48, workingSetGB: 40, availableGB: 40, visionAvailable: true)
+            let image = try? Planner.loadingVision(text)
+            if budget < Planner.minMemoryGB + Planner.visionResidentGB {
+                c.expect("\(budget) GB refuses an image before allocation", image == nil)
+            } else if let image {
+                c.expect("\(budget) GB reserves the tower", image.visionResidentReserved)
+                c.equal("\(budget) GB preserves the total target", image.targetGB, text.targetGB)
+                c.expect("\(budget) GB charges peak within target", image.expectedPeakGB <= budget)
+                c.expect("\(budget) GB does not enlarge the pool", image.slots <= text.slots)
+                c.expect("\(budget) GB preserves pool floor", image.slots >= Geometry.floorSlots)
+                c.equal("\(budget) GB reservation is idempotent", (try? Planner.loadingVision(image))?.slots, image.slots)
+            } else { c.expect("\(budget) GB image plan exists", false) }
+        }
+        if let raw = withVision, let loaded = try? Planner.loadingVision(raw) {
+            c.equal("raw pool request keeps its exact slots on image load", loaded.slots, raw.slots)
+            c.expect("raw pool peak includes tower", abs(loaded.expectedPeakGB - raw.expectedPeakGB - Planner.visionResidentGB) < 1e-9)
+            c.equal("raw pool still has no total target", loaded.targetGB, nil)
+        } else { c.expect("raw image reservation exists", false) }
+        if let disabled = without {
+            c.expect("cannot reserve disabled vision", (try? Planner.loadingVision(disabled)) == nil)
+        }
+        for head in [false, true] {
+            let text = try! Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: 12,
+                ramGB: 48, workingSetGB: 40, availableGB: 40,
+                mtp: head ? .on : .off, mtpAvailable: head, visionAvailable: true,
+                maxContextTokens: 1024)
+            let image = try! Planner.loadingVision(text)
+            c.equal("image reservation keeps MTP=\(head)", image.mtpEnabled, head)
+            c.equal("image reservation keeps context cap MTP=\(head)", image.maxContextTokens, 1024)
+            c.expect("combined resident charge fits MTP=\(head)", image.expectedPeakGB <= 12)
+        }
 
         return c.report()
     }

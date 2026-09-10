@@ -20,6 +20,7 @@ public struct ModelConfig {
     public var numAttentionHeads = 24
     public var numKVHeads = 2
     public var headDim = 256
+    public var maxPositionEmbeddings = ContextPolicy.modelLimit
     public var vocabSize = 248_320
     public var rmsNormEps: Float = 1e-6
     public var fullAttentionInterval = 4
@@ -94,6 +95,7 @@ public struct ModelConfig {
         c.numAttentionHeads = i("num_attention_heads", c.numAttentionHeads)
         c.numKVHeads = i("num_key_value_heads", c.numKVHeads)
         c.headDim = i("head_dim", c.headDim)
+        c.maxPositionEmbeddings = i("max_position_embeddings", c.maxPositionEmbeddings)
         c.vocabSize = i("vocab_size", c.vocabSize)
         c.rmsNormEps = f("rms_norm_eps", c.rmsNormEps)
         c.fullAttentionInterval = i("full_attention_interval", c.fullAttentionInterval)
@@ -171,7 +173,7 @@ public struct ModelConfig {
         func bad(_ detail: String) throws -> Never {
             throw ModelError("unsupported or invalid text_config (\(detail)) — check --model")
         }
-        guard hiddenSize == 2560, numLayers == 48,
+        guard hiddenSize == 2560, numLayers == 48, maxPositionEmbeddings == ContextPolicy.modelLimit,
             numAttentionHeads == 24, numKVHeads == 2, headDim == 256,
             vocabSize == 248_320, fullAttentionInterval == 4,
             numExperts == 512, topK == 10, moeIntermediate == 640,
@@ -257,6 +259,33 @@ public struct TensorRef {
             bytes = next
         }
         return bytes
+    }
+}
+
+/// Immutable descriptor plus tensor identity. Retaining the index owns the
+/// descriptor's lifetime; a worker never borrows a descriptor from a cache
+/// that another request can close or reuse while its read is pending.
+package struct TensorReadHandle {
+    private let owner: CheckpointIndex
+    private let descriptor: Int32
+    private let base: Int
+    private let length: Int
+    init(owner: CheckpointIndex, descriptor: Int32, ref: TensorRef) {
+        self.owner = owner; self.descriptor = descriptor; self.base = ref.byteOffset; self.length = ref.byteCount
+    }
+    package func readChecked(into dst: UnsafeMutableRawPointer, offset: Int, count: Int,
+        shouldContinue: () -> Bool = { true }) throws {
+        let absolute = try ExactRead.tensorOffset(base: base, length: length, offset: offset, count: count)
+        try withExtendedLifetime(owner) {
+            try ExactRead.transfer(into: dst, offset: absolute, count: count, shouldContinue: shouldContinue) { pointer, remaining, position in
+                let got = Foundation.pread(descriptor, pointer, remaining, off_t(position))
+                return .init(count: got, error: got < 0 ? errno : 0)
+            }
+        }
+    }
+    package func read(into dst: UnsafeMutableRawPointer, offset: Int, count: Int) {
+        do { try readChecked(into: dst, offset: offset, count: count) }
+        catch { preconditionFailure(String(describing: error)) }
     }
 }
 
@@ -477,25 +506,46 @@ public final class CheckpointIndex {
     }
 
     public func fd(for file: URL) -> Int32 {
+        do { return try checkedFD(for: file) }
+        catch { preconditionFailure(String(describing: error)) }
+    }
+
+    package func readHandle(for ref: TensorRef) -> TensorReadHandle {
+        TensorReadHandle(owner: self, descriptor: fd(for: ref.file), ref: ref)
+    }
+
+    private func checkedFD(for file: URL) throws -> Int32 {
         fdLock.lock()
         defer { fdLock.unlock() }
         if let f = fds[file] { return f }
-        let f = open(file.path, O_RDONLY)
-        precondition(f >= 0, "open \(file.path) failed")
+        var f: Int32
+        repeat { f = open(file.path, O_RDONLY) } while f < 0 && errno == EINTR
+        guard f >= 0 else { throw ModelError("open \(file.path) failed: \(String(cString: strerror(errno)))") }
         _ = fcntl(f, F_NOCACHE, 1)
         _ = fcntl(f, F_RDAHEAD, 0)
         fds[file] = f
         return f
     }
 
-    /// pread `count` bytes at absolute `offset` of `ref`'s file into `dst`.
+    /// Compatibility wrapper. A corrupt checkpoint still fails closed; it
+    /// cannot return incomplete bytes as weights. Recoverable callers use
+    /// preadChecked and publish their destination only after it succeeds.
     public func pread(into dst: UnsafeMutableRawPointer, _ r: TensorRef, offset: Int, count: Int) {
-        var done = 0
-        let f = fd(for: r.file)
-        while done < count {
-            let got = Foundation.pread(f, dst + done, count - done, off_t(r.byteOffset + offset + done))
-            precondition(got > 0, "pread failed at \(r.byteOffset + offset + done): \(String(cString: strerror(errno)))")
-            done += got
-        }
+        do { try preadChecked(into: dst, r, offset: offset, count: count) }
+        catch { preconditionFailure(String(describing: error)) }
+    }
+
+    /// Read within one tensor. Positive short reads and EINTR are handled;
+    /// EOF, syscall errors and cancellation never publish a partial record.
+    public func preadChecked(into dst: UnsafeMutableRawPointer, _ r: TensorRef,
+        offset: Int, count: Int, shouldContinue: () -> Bool = { true }) throws {
+        let absolute = try ExactRead.tensorOffset(base: r.byteOffset, length: r.byteCount, offset: offset, count: count)
+        if count == 0 { return }
+        let f = try checkedFD(for: r.file)
+        try ExactRead.transfer(into: dst, offset: absolute, count: count,
+            shouldContinue: shouldContinue) { pointer, remaining, absolute in
+                let got = Foundation.pread(f, pointer, remaining, off_t(absolute))
+                return ExactRead.Outcome(count: got, error: got < 0 ? errno : 0)
+            }
     }
 }

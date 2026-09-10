@@ -6,7 +6,8 @@
 # Usage: Tools/api_robustness.sh [port] [experts-per-layer]
 set -u
 cd "$(dirname "$0")/.."
-BIN=.build/release/slotstream
+BIN=${SLOTSTREAM_TEST_BINARY:-${BIN:-.build/release/slotstream}}
+SERVER_LOG=${SLOTSTREAM_TEST_LOG:-/tmp/ssrob.log}
 PORT=${1:-11466}
 EPL=${2:-13}
 PASS=0; FAIL=0
@@ -21,18 +22,29 @@ say() { printf '%s\n' "$*"; }
 ok()  { say "PASS  $1"; PASS=$((PASS+1)); }
 bad() { say "FAIL  $1${2:+  ($2)}"; FAIL=$((FAIL+1)); }
 
-$BIN serve --port "$PORT" --experts-per-layer "$EPL" >/tmp/ssrob.log 2>&1 &
+SERVER_ARGS=()
+[ -n "${SLOTSTREAM_TEST_MEMORY_GB:-}" ] && SERVER_ARGS+=(--memory-gb "$SLOTSTREAM_TEST_MEMORY_GB" --no-elastic)
+[ -n "${SLOTSTREAM_TEST_MTP:-}" ] && SERVER_ARGS+=(--mtp "$SLOTSTREAM_TEST_MTP")
+# Bash 3.2 treats an empty array as unbound under set -u. Expand it only
+# when populated, and clear stale logs before any expansion can fail.
+: >"$SERVER_LOG"
+"$BIN" serve --port "$PORT" --experts-per-layer "$EPL" ${SERVER_ARGS[@]+"${SERVER_ARGS[@]}"} >"$SERVER_LOG" 2>&1 &
 SRV=$!
-trap 'kill $SRV 2>/dev/null' EXIT
+cleanup() { kill "$SRV" 2>/dev/null || true; wait "$SRV" 2>/dev/null || true; }
+trap cleanup EXIT
 for _ in $(seq 1 90); do
   curl -s --max-time 2 "http://127.0.0.1:$PORT/api/version" >/dev/null 2>&1 && break
   sleep 1
 done
 alive() { kill -0 $SRV 2>/dev/null; }
-alive || { say "FAIL  server never came up"; cat /tmp/ssrob.log; exit 1; }
+alive || { say "FAIL  server never came up"; cat "$SERVER_LOG"; exit 1; }
 
 post() { curl -s --max-time 300 -X POST "http://127.0.0.1:$PORT$1" -d "$2"; }
-content() { python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("message",{}).get("content", d.get("error","")))'; }
+post_success() { curl -fsS --max-time 300 -X POST "http://127.0.0.1:$PORT$1" -d "$2"; }
+completed_content() (
+  set -o pipefail
+  post_success "$1" "$2" | python3 Tools/api_generation.py "${3:-ollama-chat}"
+)
 
 # Browser origins are loopback-only; arbitrary websites must not be able to
 # drive a costly localhost model through CORS/private-network preflight.
@@ -97,15 +109,18 @@ else bad "mid-stream disconnect killed the server"; fi
 # straddle a token boundary.
 if python3 - "$PORT" <<'PYEOF'
 import json, sys, http.client
+from Tools.api_generation import ollama_text
 P = int(sys.argv[1])
 def call(body, stream):
     b = dict(body); b["stream"] = stream
     c = http.client.HTTPConnection("127.0.0.1", P, timeout=300)
     c.request("POST", "/api/chat", json.dumps(b), {"Content-Type": "application/json"})
-    d = c.getresponse().read().decode(); c.close()
+    response = c.getresponse()
+    assert response.status == 200, "generation HTTP failure"
+    d = response.read().decode(); c.close()
     if not stream:
-        return json.loads(d)["message"]["content"]
-    return "".join(json.loads(l)["message"]["content"] for l in d.splitlines() if l.strip())
+        return ollama_text(json.loads(d))
+    return ollama_text([json.loads(l) for l in d.splitlines() if l.strip()], stream=True)
 cases = [
  ("plain",           "Say exactly: hello world", {}),
  ("emoji only",      "Reply with exactly these five emoji and nothing else: rocket, fire, star, heart, tree", {}),
@@ -133,11 +148,13 @@ then ok "streamed deltas reassemble to the non-streamed text (10 cases)"
 else bad "streaming does not reassemble to the non-streamed text"; fi
 
 for BADP in '"top_p":0' '"top_p":-1' '"min_p":1.5'; do
-  R=$(post /api/chat "{\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"options\":{\"num_predict\":6,\"temperature\":1,$BADP}}" | content)
-  case "$R" in
+  R_STATUS=0
+  R=$(completed_content /api/chat "{\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}],\"options\":{\"num_predict\":6,\"temperature\":1,$BADP}}") || R_STATUS=$?
+  if [ "$R_STATUS" -ne 0 ]; then bad "out-of-range $BADP did not complete generation"
+  else case "$R" in
     *'!!!'*|'') bad "out-of-range $BADP produces garbage" "got '$R'" ;;
     *) ok "out-of-range $BADP falls back sanely (got '$R')" ;;
-  esac
+  esac; fi
 done
 
 # An empty prompt is Ollama's documented "load" request (the CLI sends one when
@@ -150,33 +167,43 @@ case "$R" in
     *) bad "load acknowledgment carried text" "$R" ;; esac ;;
   *) bad "empty prompt was answered or refused instead of acknowledged" "$R" ;; esac
 
-R=$(post /v1/chat/completions '{"messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: ARRAYOK"}]}],"max_tokens":8,"temperature":0}' \
-    | python3 -c 'import json,sys;print(json.load(sys.stdin)["choices"][0]["message"]["content"])')
-case "$R" in *ARRAYOK*) ok "OpenAI array-form content is read, not dropped" ;;
-  *) bad "array-form content dropped" "got '$R'" ;; esac
+R_STATUS=0
+R=$(completed_content /v1/chat/completions '{"messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: ARRAYOK"}]}],"max_tokens":8,"temperature":0}' openai) || R_STATUS=$?
+if [ "$R_STATUS" -ne 0 ]; then bad "array-form content did not complete generation"
+else case "$R" in *ARRAYOK*) ok "OpenAI array-form content is read, not dropped" ;;
+  *) bad "array-form content dropped" "got '$R'" ;; esac; fi
 
-R=$(post /api/chat '{"stream":false,"messages":[{"role":"user","content":"Count from 1 to 9, digits only, one per line."}],"options":{"num_predict":40,"temperature":0,"stop":["4"]}}' | content)
-case "$R" in *4*) bad "stop sequence ignored" "got '$(printf %s "$R" | tr '\n' ' ')'" ;;
-  *) ok "stop sequence honored (got '$(printf %s "$R" | tr '\n' ' ')')" ;; esac
+R_STATUS=0
+R=$(completed_content /api/chat '{"stream":false,"messages":[{"role":"user","content":"Count from 1 to 9, digits only, one per line."}],"options":{"num_predict":40,"temperature":0,"stop":["4"]}}') || R_STATUS=$?
+if [ "$R_STATUS" -ne 0 ]; then bad "stop sequence request did not complete generation"
+else case "$R" in *4*) bad "stop sequence ignored" "got '$(printf %s "$R" | tr '\n' ' ')'" ;;
+  *) ok "stop sequence honored (got '$(printf %s "$R" | tr '\n' ' ')')" ;; esac; fi
 
 # --- limits and protocol ---
-BIG=$(python3 -c 'print("word "*40000)')
-R=$(python3 - "$PORT" "$BIG" <<'PY'
+R=$(python3 - "$PORT" <<'PY'
 import json,sys,urllib.request
-port,big=sys.argv[1],sys.argv[2]
+port,big=sys.argv[1],"word "*40000
 req=urllib.request.Request(f"http://127.0.0.1:{port}/api/chat",
     data=json.dumps({"stream":False,"messages":[{"role":"user","content":big}]}).encode(),
     headers={"Content-Type":"application/json"})
-try: print(urllib.request.urlopen(req,timeout=120).read().decode())
-except urllib.error.HTTPError as e: print(e.read().decode())
+try:
+    with urllib.request.urlopen(req,timeout=120) as response:
+        status, body = response.status, response.read().decode()
+except urllib.error.HTTPError as e:
+    status, body = e.code, e.read().decode()
+print(json.dumps({"status": status, "body": json.loads(body)}))
 PY
 )
-case "$R" in *"over this server's limit"*) ok "over-length prompt is refused with a 400, not a silent stall" ;;
-  *) bad "no context limit enforced" "$(printf %.90s "$R")" ;; esac
+if printf '%s' "$R" | python3 -c 'import json,sys; r=json.load(sys.stdin); b=r["body"]; assert r["status"]==400 and b.get("code")=="context_length_exceeded" and isinstance(b.get("error"),str) and b.get("done") is not True'; then
+  ok "over-length prompt is refused with a typed 400, not a silent stall"
+else
+  bad "over-length prompt lacks the typed HTTP 400 refusal" "$(printf %.180s "$R")"
+fi
 
 V=$(curl -s --max-time 20 "http://127.0.0.1:$PORT/api/version" | python3 -c 'import json,sys;print(json.load(sys.stdin)["version"])')
-B=$($BIN --version)
-[ "$V" = "$B" ] && ok "/api/version ($V) matches the binary" || bad "/api/version stale" "api=$V binary=$B"
+B_STATUS=0
+B=$("$BIN" --version) || B_STATUS=$?
+[ "$B_STATUS" -eq 0 ] && [ "$V" = "$B" ] && ok "/api/version ($V) matches the binary" || bad "/api/version stale or binary version check failed" "api=$V binary=$B exit=$B_STATUS"
 
 S=$(curl -s --max-time 20 "http://127.0.0.1:$PORT/api/tags" | python3 -c 'import json,sys;print(json.load(sys.stdin)["models"][0]["size"])')
 [ "$S" = "$TOTAL_WEIGHT_BYTES" ] && ok "/api/tags size matches the pinned manifest" || bad "/api/tags size wrong" "$S != $TOTAL_WEIGHT_BYTES"
@@ -197,13 +224,17 @@ case "$R" in *"not supported"*) ok "/api/show refuses a non-empty system overrid
 R=$(post /api/show '{"model":"qwen3.8-flash-next:4bit","foo":1}')
 case "$R" in *"unsupported request field"*) ok "/api/show still rejects unknown fields" ;;
   *) bad "/api/show accepted an unknown field" "$(printf %.90s "$R")" ;; esac
-R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"keep_alive":"5m","options":null,"messages":[{"role":"user","content":"Reply with exactly: pong"}]}' | content)
-case "$R" in ""|*"unsupported"*|*"must be"*) bad "/api/chat rejects keep_alive or null options" "$(printf %.90s "$R")" ;;
-  *) ok "/api/chat accepts keep_alive and null options (the CLI's defaults)" ;; esac
+R_STATUS=0
+R=$(completed_content /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"keep_alive":"5m","options":null,"messages":[{"role":"user","content":"Reply with exactly: pong"}]}') || R_STATUS=$?
+if [ "$R_STATUS" -ne 0 ]; then bad "/api/chat rejects keep_alive or null options without a completed generation"
+else case "$R" in ""|*"unsupported"*|*"must be"*) bad "/api/chat rejects keep_alive or null options" "$(printf %.90s "$R")" ;;
+  *) ok "/api/chat accepts keep_alive and null options (the CLI's defaults)" ;; esac; fi
 # One-shot `ollama run model "prompt"` uses /api/generate with empty suffix/system/template.
-R=$(post /api/generate '{"model":"qwen3.8-flash-next:4bit","prompt":"Reply with exactly: pong","suffix":"","system":"","template":"","options":{},"stream":false}' | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("response", d.get("error","")))')
-case "$R" in ""|*"unsupported"*|*"must be"*) bad "/api/generate rejects the Ollama CLI one-shot shape" "$(printf %.90s "$R")" ;;
-  *) ok "/api/generate accepts the Ollama CLI one-shot shape (empty suffix/system/template)" ;; esac
+R_STATUS=0
+R=$(completed_content /api/generate '{"model":"qwen3.8-flash-next:4bit","prompt":"Reply with exactly: pong","suffix":"","system":"","template":"","options":{},"stream":false}' ollama-generate) || R_STATUS=$?
+if [ "$R_STATUS" -ne 0 ]; then bad "/api/generate rejects the Ollama CLI one-shot shape without a completed generation"
+else case "$R" in ""|*"unsupported"*|*"must be"*) bad "/api/generate rejects the Ollama CLI one-shot shape" "$(printf %.90s "$R")" ;;
+  *) ok "/api/generate accepts the Ollama CLI one-shot shape (empty suffix/system/template)" ;; esac; fi
 R=$(post /api/generate '{"model":"qwen3.8-flash-next:4bit","prompt":"def f(","suffix":"return 1","stream":false}')
 case "$R" in *"not supported"*) ok "/api/generate refuses a non-empty suffix instead of ignoring it" ;;
   *) bad "/api/generate silently accepted a suffix" "$(printf %.90s "$R")" ;; esac
@@ -228,45 +259,79 @@ C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST "http://127.0.0
 # server answering anything at all. A polling GUI saw a working server as dead.
 if python3 - "$PORT" <<'PYEOF'
 import http.client, json, socket, sys, threading, time
+from Tools.api_generation import ollama_text
 P = int(sys.argv[1]); M = "qwen3.8-flash-next:4bit"
+observed = threading.Event()
+content_times = []; generation_errors = []; generation_complete = []
 def gen():
     c = http.client.HTTPConnection("127.0.0.1", P, timeout=600)
-    c.request("POST", "/api/chat", json.dumps({"model": M, "stream": False,
-        "messages": [{"role": "user", "content": "Write a long poem about the sea."}],
-        "options": {"num_predict": 60, "temperature": 0}}), {"Content-Type": "application/json"})
-    c.getresponse().read(); c.close()
-t = threading.Thread(target=gen); t.start(); time.sleep(2.5)
-problems = []
+    try:
+        c.request("POST", "/api/chat", json.dumps({"model": M, "stream": True,
+            "messages": [{"role": "user", "content": "Write a long poem about the sea."}],
+            "options": {"num_predict": 60, "temperature": 0}}), {"Content-Type": "application/json"})
+        response = c.getresponse()
+        assert response.status == 200, "generation HTTP failure"
+        frames = []
+        for raw in response:
+            if not raw.strip(): continue
+            frame = json.loads(raw); frames.append(frame)
+            if (frame.get("done") is False and "error" not in frame
+                    and isinstance(frame.get("message"), dict)
+                    and frame["message"].get("role") == "assistant"
+                    and isinstance(frame["message"].get("content"), str)
+                    and frame["message"]["content"]):
+                content_times.append(time.monotonic()); observed.set()
+        ollama_text(frames, stream=True)
+        generation_complete.append(True)
+    except Exception as e:
+        generation_errors.append("generation failed: %s: %s" % (type(e).__name__, e))
+    finally:
+        c.close(); observed.set()
+t = threading.Thread(target=gen, daemon=True); t.start()
+problems = []; probe_intervals = []
 def timed(method, path, body=None):
-    t0 = time.time()
+    t0 = time.monotonic()
     try:
         c = http.client.HTTPConnection("127.0.0.1", P, timeout=8)
         c.request(method, path, json.dumps(body) if body else None,
                   {"Content-Type": "application/json"})
         r = c.getresponse(); r.read(); c.close()
-        return r.status, time.time() - t0
+        status = r.status
     except Exception as e:
-        return type(e).__name__, time.time() - t0
-for method, path, body in [("GET", "/api/version", None), ("GET", "/api/tags", None),
-                           ("GET", "/api/ps", None), ("GET", "/v1/models", None),
-                           ("POST", "/api/show", {"model": M})]:
-    st, el = timed(method, path, body)
-    if st != 200 or el > 2.0:
-        problems.append("%s %s -> %s in %.1fs" % (method, path, st, el))
-hold = []
-for _ in range(34):   # more than maxConcurrentConnections
+        status = type(e).__name__
+    end = time.monotonic(); probe_intervals.append((t0, end))
+    return status, end - t0
+if not observed.wait(60) or not content_times:
+    problems.append("generation did not produce content before metadata probes")
+else:
+    for method, path, body in [("GET", "/api/version", None), ("GET", "/api/tags", None),
+                               ("GET", "/api/ps", None), ("GET", "/v1/models", None),
+                               ("POST", "/api/show", {"model": M})]:
+        st, el = timed(method, path, body)
+        if st != 200 or el > 2.0:
+            problems.append("%s %s -> %s in %.1fs" % (method, path, st, el))
+    hold = []
     try:
-        k = socket.create_connection(("127.0.0.1", P), timeout=5)
-        k.sendall(b"GET /api/tags HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
-        hold.append(k)
-    except Exception:
-        pass
-st, el = timed("GET", "/api/version")
-if st != 200:
-    problems.append("/api/version under connection load -> %s in %.1fs" % (st, el))
-for k in hold:
-    k.close()
-t.join()
+        for _ in range(34):   # more than maxConcurrentConnections
+            try:
+                k = socket.create_connection(("127.0.0.1", P), timeout=5)
+                hold.append(k)
+                k.sendall(b"GET /api/tags HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+            except Exception:
+                pass
+        st, el = timed("GET", "/api/version")
+        if st != 200:
+            problems.append("/api/version under connection load -> %s in %.1fs" % (st, el))
+    finally:
+        for k in hold: k.close()
+t.join(timeout=120)
+problems.extend(generation_errors)
+if t.is_alive() or generation_complete != [True]:
+    problems.append("concurrent generation did not finish successfully")
+if (not probe_intervals or not content_times
+        or content_times[0] > probe_intervals[0][0]
+        or content_times[-1] < probe_intervals[-1][1]):
+    problems.append("generated content did not span all metadata probes")
 for line in problems:
     print(line, file=sys.stderr)
 sys.exit(1 if problems else 0)
@@ -303,10 +368,14 @@ for F in '"n":2' '"frequency_penalty":0.5' '"logprobs":true' '"tools":[{"type":"
 done
 
 # --- think: reasoning belongs in `thinking`, not in the answer --------------
-R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"think":true,"messages":[{"role":"user","content":"What is 2+2?"}],"options":{"num_predict":80,"temperature":0}}')
-if printf '%s' "$R" | python3 -c '
+R_STATUS=0
+R=$(post_success /api/chat '{"model":"qwen3.8-flash-next:4bit","stream":false,"think":true,"messages":[{"role":"user","content":"What is 2+2?"}],"options":{"num_predict":80,"temperature":0}}') || R_STATUS=$?
+if [ "$R_STATUS" -eq 0 ] && printf '%s' "$R" | python3 -c '
 import json, sys
-m = json.load(sys.stdin)["message"]
+from Tools.api_generation import ollama_text
+response = json.load(sys.stdin)
+ollama_text(response)
+m = response["message"]
 c, t = m.get("content", ""), m.get("thinking", "")
 sys.exit(0 if t.strip() and c.strip() and "</think>" not in c and "</think>" not in t else 1)'; then
   ok "think:true splits reasoning into message.thinking and leaves the answer clean"
@@ -315,13 +384,17 @@ else bad "think:true leaked reasoning into content" "$(printf %.120s "$R")"; fi
 # --- a short reply streams token by token -----------------------------------
 if python3 - "$PORT" <<'PYEOF'
 import http.client, json, sys
+from Tools.api_generation import ollama_text
 P = int(sys.argv[1])
 c = http.client.HTTPConnection("127.0.0.1", P, timeout=600)
 c.request("POST", "/api/chat", json.dumps({"model": "qwen3.8-flash-next:4bit", "stream": True,
     "messages": [{"role": "user", "content": "Count from 1 to 8, digits only, comma separated."}],
     "options": {"num_predict": 16, "temperature": 0}}), {"Content-Type": "application/json"})
-objs = [json.loads(l) for l in c.getresponse().read().decode().splitlines() if l.strip()]
+response = c.getresponse()
+assert response.status == 200, "generation HTTP failure"
+objs = [json.loads(l) for l in response.read().decode().splitlines() if l.strip()]
 c.close()
+ollama_text(objs, stream=True)
 deltas = [o for o in objs if not o["done"] and o["message"]["content"]]
 evals = objs[-1]["eval_count"]
 print("%d content deltas for %d tokens" % (len(deltas), evals), file=sys.stderr)
@@ -336,12 +409,16 @@ else bad "streaming is still batched into multi-token bursts"; fi
 # the fact itself, so a 12-token window reported a working sampler as a stuck
 # one about as often as not.
 FUN='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":40,"temperature":1.0}}'
-A=$(post /api/chat "$FUN" | content); B=$(post /api/chat "$FUN" | content); D=$(post /api/chat "$FUN" | content)
-if [ "$A" = "$B" ] && [ "$B" = "$D" ]; then bad "unseeded requests replay one fixed stream" "$(printf %.60s "$A")"
+A_STATUS=0; A=$(completed_content /api/chat "$FUN") || A_STATUS=$?
+B_STATUS=0; B=$(completed_content /api/chat "$FUN") || B_STATUS=$?
+D_STATUS=0; D=$(completed_content /api/chat "$FUN") || D_STATUS=$?
+if [ "$A_STATUS" -ne 0 ] || [ "$B_STATUS" -ne 0 ] || [ "$D_STATUS" -ne 0 ]; then bad "unseeded requests did not complete generation"
+elif [ "$A" = "$B" ] && [ "$B" = "$D" ]; then bad "unseeded requests replay one fixed stream" "$(printf %.60s "$A")"
 else ok "unseeded requests vary, as the API documents"; fi
 SEEDED='{"model":"qwen3.8-flash-next:4bit","stream":false,"messages":[{"role":"user","content":"Tell me a fun fact."}],"options":{"num_predict":12,"temperature":1.0,"seed":7}}'
-S1=$(post /api/chat "$SEEDED" | content); S2=$(post /api/chat "$SEEDED" | content)
-[ "$S1" = "$S2" ] && ok "an explicit seed still reproduces exactly" || bad "seeded requests are not reproducible"
+S1_STATUS=0; S1=$(completed_content /api/chat "$SEEDED") || S1_STATUS=$?
+S2_STATUS=0; S2=$(completed_content /api/chat "$SEEDED") || S2_STATUS=$?
+[ "$S1_STATUS" -eq 0 ] && [ "$S2_STATUS" -eq 0 ] && [ "$S1" = "$S2" ] && ok "an explicit seed still reproduces exactly" || bad "seeded requests are not reproducible completed generations"
 
 # --- HTTP: routing, framing, and honest status codes ------------------------
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://127.0.0.1:$PORT/api/tags?x=1")

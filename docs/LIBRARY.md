@@ -84,6 +84,14 @@ original-file verification; an immediate second `verify()` is unnecessary.
 `status()` reports remaining reconstructed model bytes, not compressed wire
 bytes, and permits an absent optional draft head.
 
+The default uses the compressed CDN and tunes connection count. Explicit
+`connections` fixes that count. `transport: .raw` selects raw mirrors;
+setting `sources` also selects raw mirrors in automatic mode. Existing raw
+partial downloads continue automatically. Download returns only after final
+original-file verification; an immediate second `verify()` is unnecessary.
+`status()` reports remaining reconstructed model bytes, not compressed wire
+bytes, and permits an absent optional draft head.
+
 <a id="what-will-it-do-on-this-mac"></a>
 
 ## Plan memory
@@ -135,9 +143,53 @@ print(report.name, report.passed, report.items.count)
 
 <a id="what-is-not-here-yet"></a>
 
+## Optimization controls
+
+`InferenceOptimizations()` retains the explicit reference configuration.
+`try InferenceOptimizations.environment()` resolves the deployment defaults
+and validated environment overrides. These are deliberately different entry
+points: an existing caller that constructs reference controls keeps those
+semantics. Ordinary engine construction resolves the environment defaults.
+
+Automatic prompt-read grouping requires the request memory controller and a
+compatible chronological schedule. `Engine.generate` creates a controller
+when the caller does not supply one. The lower-level `Generator.generate`
+overload without a controller keeps ordinary chronological processing.
+Begin and pass the controller before preparation, as described below, to
+include that work in the same request deadline and memory reservation.
+Explicit controls, saved control sets and public initializers retain their
+compatibility behavior; no numerical or capacity guarantee follows from
+enabling an experimental control.
+
 ## API stability
 
 `Engine.generate` currently uses callbacks. A typed delta stream, dedicated
 executor, and `Conversation` API are planned but not available. For now,
 `slotstream run` shows how the CLI calls the engine; the HTTP API is also
 available for callers in another process.
+
+## Context and request control
+
+These additive APIs are available in the unreleased source build.
+
+Construct an engine with the plan that prices its context. Shared
+`ContextConfiguration` validates `maxContextTokens` and
+`maxPrefillWaitMinutes` before loading. Attach it using
+`MemoryPlan.withRequestPolicy`, then use `Engine(modelDir:plan:)`.
+Call `beginRequest` before tokenization or images, pass that controller to
+`encodeChatWithVision`/`encodeWithVision` and `generate`, and use its
+`connected` callback for cancellation. The request clock includes the generation
+queue; it stops counting the deadline at the first sampled token.
+
+Legacy call signatures remain available. `GenStats.requestFailure` adds a
+structured code, elapsed/limit/estimate or memory details when applicable;
+`runtimeError` and `finishReason` continue to expose failure to older callers.
+Check these before using generated tools. An invalid legacy assignment to
+`maxContextTokens` keeps the advertised window unchanged and refuses subsequent
+work until corrected; a larger allocation requires a newly planned engine.
+
+`Planner.contextFeasibility` searches actual discrete windows under frozen
+machine inputs and runtime allocation controls. It returns the requested plan,
+largest fitting plan and refusal, independently of the time policy. Diagnostic
+qualification is explicit; it never changes the public implementation or
+MTP/vision limits advertised by ordinary serving.

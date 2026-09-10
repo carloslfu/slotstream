@@ -1,15 +1,15 @@
 ---
 type: measurement
-id: 01m1t5edyhtkshayqdcbx6php4
-created: 2026-09-06T01:31:08.113169+00:00
-updated: 2026-09-06T02:54:17.450571+00:00
+id: 01m1srcqkvyq3fd3z1k3wg093y
+created: 2026-09-05T21:43:00.987629+00:00
+updated: 2026-09-06T00:26:32.688542+00:00
 summary: 'Hermes integration: context qualification and OpenAI agent protocol'
 date: 2026-09-05
 doc: measurements
 level: '3'
 machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
 order: '780'
-runs: '[[sources/runs/2026/09/2026-09-05-hermes-release-published-install]]'
+runs: '[[sources/runs/2026/09/2026-09-05-hermes-final-integration-acceptance]]'
 title: 'Hermes integration: context qualification and OpenAI agent protocol'
 status: measured
 ---
@@ -61,34 +61,4 @@ The final candidate differs from `39d236e8` only in Server.swift's vision capabi
 
 The earlier real-client checks remain preserved, including the first compression fixture that grew instead of shrinking: [[sources/runs/2026/09/2026-09-05-hermes-openai-real-client-gates]]. Regression results and the vision-discovery counterexample are in [[sources/runs/2026/09/2026-09-05-hermes-adapter-regressions-and-vision-discovery]]. Final acceptance is in [[sources/runs/2026/09/2026-09-05-hermes-final-integration-acceptance]].
 
-At qualification time the installed release was unchanged. The user subsequently requested installation; the normal local `slotstream` command was first switched to the exact verified local Hermes binary and matching Metal library, with the previous install preserved for rollback. The installed runtime and context-planning checks passed; see [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]]. At that point no issue reply or release had been published. The first verified local binary, source archive, identity and complete client captures are retained under `.build/hermes-integration/`. This qualification applies to that frozen source closure; separate ongoing engine optimizations in the working tree are not silently included in these results.
-
-#### Clean release candidate, 0.2.8
-
-The release candidate starts from public main `770dba6` and includes the Hermes adapter, its context-budget support, and the connection documentation. Concurrent engine experiments are excluded. The default context and neural implementation remain unchanged. Elastic replanning retains the selected larger window, and undersized explicit or automatic targets are rejected before allocation. The full-context diagnostic samples physical footprint and requires complete prefill plus a reply.
-
-On this clean candidate, 65,520 prompt tokens plus one reply completed at the 10 GB text-only target, using 256-token prefill passes. The sampled physical peak was 9.651146928 GB against the 9.742730496 GB plan; RSS alone was 8.472694984 GB. Prefill took 1,323.152083992958 seconds. No abort or additional system swap-out occurred. This independently qualifies the release's bounded text capacity and memory configuration; it does not extend the result to full-window images, other hardware, or answer quality.
-
-The final local fast gates pass: 24 optimized catalogue groups with 637 assertions, 64 planner checks, installer/static gates, 16 sampler/governor gates, and an external Swift package consumer. All existing coverage floors are preserved; the HTTP server's measured coverage rises from 10.51% to 12.91%, with separate floors for the new adapter files. The clean brain and generated projections pass, including 78 registered claim checks. The completed real-client release matrix follows below.
-
-Raw outputs, source hashes, and the small validator-test visibility bridge between the context and final local binaries are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-context-and-gates]].
-
-#### Clean release client acceptance
-
-The clean release candidate passed the complete real-client matrix and [public CI run 34005877377](https://github.com/carloslfu/slotstream/actions/runs/34005877377) at commit `2a69ac0be4148a6f351cc18159c8dbff49ba3f7e`. Both the released Hermes agent and the recorded main snapshot executed the actual terminal fixture and recalled its code on a follow-up; the released CLI returned `OK`. Vision discovery, the image answer, and the title fallback passed.
-
-The released Hermes compressor reduced the same forced fixture from 39 to 25 messages and from 99,684 to 87,082 characters. Its local auxiliary request had a 4,096-token allowance and completed with `stop` after 859 output tokens. The exact diagnostic code occurred only in the handoff at index 4, and the subsequent actual agent turn recovered it from an 18,243-token prompt. This remains a forced-compaction test rather than an automatic-threshold stress test.
-
-The release server also passed 27 OpenAI wire checks, all 19 existing image-serving checks in the clean public source, the native gateway's real tool/result round trip, and the actual Ollama image CLI. The final local binary passed all 74 ordinary API robustness checks. The larger historical counts above include other source in the earlier frozen workspace and are not substituted for this release's results. Complete clean-source checks and their identities are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-client-acceptance]].
-
-All owned test servers were stopped. The clean brain has zero validation errors and warnings. CI passed its build, static gates, sampler/governor checks, optimized catalogue, external Swift consumer, and coverage ratchet. This acceptance qualified the unchanged tested implementation for release; the published CI asset and installation verification follow below.
-
-#### Published release and verified installation
-
-[Slotstream v0.2.8](https://github.com/carloslfu/slotstream/releases/tag/v0.2.8) is public. [Release workflow 34006921406](https://github.com/carloslfu/slotstream/actions/runs/34006921406) built and attested it from tag commit `f05b15dfa4d109ae32b882688ce615c3454cffe1`. The only changes after the full code CI commit are documentation and engineering evidence, and that tag's documentation CI also passed.
-
-The downloaded archive's SHA-256 is `d1266daed642951cbfba22f75c1bcd7b321c5356738c14a0858d15f2ec4da817`. Checksum and signed-provenance verification passed, including the workflow, tag, source commit, and artifact digest. The public installer activated binary `3ccf3e9e8b5989e3f4bb85e3ba5ec51c48e9dba7fea68c2e7811bcc27a2316c8` and the matching pinned Metal library. The normal `slotstream` command returns `0.2.8` outside the repository, and the previous local Hermes installation remains intact for rollback.
-
-The exact installed CI binary passed runtime checks and context/vision planning, then served the actual released Hermes client. Terminal fixture execution, follow-up recall, title fallback, vision discovery, the `Dog` image answer, and the actual CLI's `OK` response all passed. The bounded server used `--memory-gb 11 --max-context 65536 --vision on --mtp off` after measuring 36.269719552 GB reclaimable and waiting for the shared model/build lock. Its test server was stopped afterward. Full-window memory, forced compaction, and the broader wire matrix remain the separate qualification results above; this additional run verifies the published artifact and installation.
-
-Publication, installer, provenance, runtime, and installed-client outputs are preserved in [[sources/runs/2026/09/2026-09-05-hermes-release-published-install]]. The source, raw synthetic captures and downloaded CI package are also retained locally under `.build/hermes-release-v0.2.8/`. The release was published from an isolated worktree while concurrent engine experiments were preserved in the canonical development workspace. The issue remains open, and no reply was posted.
+At qualification time the installed release was unchanged. The user subsequently requested installation; the normal local `slotstream` command now points to the exact verified Hermes binary and matching Metal library, with the previous install preserved for rollback. The installed runtime and context-planning checks passed; see [[sources/runs/2026/09/2026-09-05-hermes-local-install-verified]]. No issue reply or release has been published. A verified local binary, source archive, identity and complete client captures are retained under `.build/hermes-integration/`. This qualification applies to that frozen source closure; separate ongoing engine optimizations in the working tree are not silently included in these results.

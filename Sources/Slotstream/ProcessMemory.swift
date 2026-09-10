@@ -6,6 +6,48 @@ import Darwin
 import Foundation
 
 public enum ProcessMemory {
+    public struct OperatingConditions: Codable, Equatable, Sendable {
+        public let thermalState: String
+        public let lowPowerModeEnabled: Bool
+    }
+    /// Instantaneous OS policy state, distinct from pmset warning history.
+    /// Neither value is a temperature sensor or an energy measurement.
+    public static func operatingConditions() -> OperatingConditions {
+        let process = ProcessInfo.processInfo
+        let thermal: String
+        switch process.thermalState {
+        case .nominal: thermal = "nominal"
+        case .fair: thermal = "fair"
+        case .serious: thermal = "serious"
+        case .critical: thermal = "critical"
+        @unknown default: thermal = "unknown"
+        }
+        return OperatingConditions(thermalState: thermal, lowPowerModeEnabled: process.isLowPowerModeEnabled)
+    }
+
+    public struct VMActivity: Codable, Equatable, Sendable {
+        public let swapins: UInt64
+        public let swapouts: UInt64
+        public let reclaimableBytes: UInt64
+    }
+    private static let hostPort = mach_host_self()
+
+    /// Global VM counters at a named request boundary. These are separate
+    /// from process startup and still reject any swap activity in that interval.
+    public static func vmActivity() -> VMActivity? {
+        var info = vm_statistics64_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
+        let result = withUnsafeMutablePointer(to: &info) { p in
+            p.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(hostPort, HOST_VM_INFO64, $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        let pages = UInt64(info.free_count) + UInt64(info.purgeable_count) + UInt64(info.external_page_count)
+        return VMActivity(swapins: UInt64(info.swapins), swapouts: UInt64(info.swapouts),
+            reclaimableBytes: pages * UInt64(vm_page_size))
+    }
+
     /// Current physical footprint as reported by Mach. `phys_footprint` is the
     /// number Activity Monitor uses and includes non-MLX allocations.
     public static func residentBytes() -> UInt64 {
@@ -20,11 +62,19 @@ public enum ProcessMemory {
         return kr == KERN_SUCCESS ? UInt64(info.phys_footprint) : 0
     }
 
-    /// Lifetime high-water RSS. On Darwin, `ru_maxrss` is reported in bytes.
-    public static func peakResidentBytes() -> UInt64 {
+    /// Lifetime high-water RSS alone. It is not physical footprint and cannot
+    /// be reset between requests. On Darwin, ru_maxrss is reported in bytes.
+    public static func lifetimeRSSPeakBytes() -> UInt64 {
         var usage = rusage()
-        guard getrusage(RUSAGE_SELF, &usage) == 0 else { return residentBytes() }
-        return max(UInt64(max(0, usage.ru_maxrss)), residentBytes())
+        guard getrusage(RUSAGE_SELF, &usage) == 0 else { return 0 }
+        return UInt64(max(0, usage.ru_maxrss))
+    }
+
+    /// Legacy observation: lifetime RSS or current footprint, whichever is
+    /// larger. This can miss an earlier physical-footprint peak; it is not an
+    /// upper bound. Use sampled footprint and the separate observations too.
+    public static func peakResidentBytes() -> UInt64 {
+        max(lifetimeRSSPeakBytes(), residentBytes())
     }
 
     public static var residentGB: Double { Double(residentBytes()) / 1e9 }
