@@ -7,7 +7,7 @@
 > Experts stream from SSD through a fixed slot cache; one Swift binary serves
 > Ollama- and OpenAI-compatible chat APIs on 127.0.0.1:11434.
 
-The README, user guides, and changelog are combined in
+The README, user guides, engineering notes, and changelog are combined in
 [llms-full.txt](https://raw.githubusercontent.com/carloslfu/slotstream/main/llms-full.txt).
 
 ## Facts
@@ -19,7 +19,7 @@ The README, user guides, and changelog are combined in
 - Images work on every dialect: Ollama `images` (base64) on `/api/chat` and `/api/generate`, OpenAI `image_url` parts, AI-SDK `file` parts on the fx gateway, `run --image`. Inline bytes only — a `data:` URL or bare base64; `http://` and `file://` URLs are refused and never fetched. A picture is one token per 32x32 pixels of its resized self, at most 2,304 tokens, out of the same context as the text; the vision tower is 0.9 GB and loads on the first image, on top of the announced memory plan.
 - Expert-cache size changes speed, never output: greedy decode is byte-identical across cache sizes and live resizes.
 - One model process per user (`/tmp/slotstream-model-<uid>.lock`). The server binds 127.0.0.1 only, accepts browser origins from loopback only, and has no auth.
-- Hardware reports include a 48 GB M5 Pro, a 16 GB M2, and a 128 GB M5 Max. The 8, 24, and 32 GB tiers remain estimates. Runtime testing on macOS 14/15 is still needed. Ollama CLI and symlinked-weight-directory bugs in 0.2.0 were fixed in 0.2.1.
+- Hardware reports include a 48 GB M5 Pro, a 16 GB M2, a 32 GB M5 Air, and a 128 GB M5 Max. The latter three are community reports with different settings; the separate memory-tier table remains estimated from the M5 Pro. The 8 and 24 GB sizes still need reports. Runtime testing on macOS 14/15 is still needed. Ollama CLI and symlinked-weight-directory bugs in 0.2.0 were fixed in 0.2.1.
 
 ## Commands
 
@@ -30,6 +30,7 @@ The README, user guides, and changelog are combined in
 - Unreleased source builds: `run`, `serve` and `doctor` share `--max-context` and `--max-prefill-wait`. The wait defaults to 30 minutes from accepted request to first sampled token, including queueing and preparation. `0` disables only time; memory and cancellation guards remain. Memory feasibility is separate from the request deadline.
 - `slotstream context-check --tokens N [--ladder]`: measures a synthetic prompt plus its required reply, reserving both before load; preserves exact counts, memory, swap and abort observations. Incomplete work fails qualification. `slotstream prefill-schedule --chunk C --tokens N` prints the bounded pass ladder; unmeasured durations remain unknown.
 - Memory options on `run`, `serve`, `doctor`: `--memory-gb G` (total for the process, minimum 8.1 for default context, higher for larger windows; the usual manual option), `--experts-per-layer N` (1–512; pool = N × 0.133 GB), `--pool-gb G`, `--max-ram-percent P` (auto only, default 70). Precedence: experts-per-layer beats pool-gb beats memory-gb. Explicit sizes are pinned and bypass auto's availability clamp. Auto takes the lowest of 33 GB, 70% of RAM, and the Metal working set minus 2 GB (34.6 GB with the draft head on), and resizes between requests every 15 s.
+- That ceiling is an intentional model-specific default based on measured tradeoffs, not a universal optimum or a hard limit on explicit targets. Keep it until comparable real measurements justify revision; unused RAM and flat estimator output alone do not establish a defect or a performance plateau. See [measured operating policies](db/records/design/measured-operating-policies.md) for evidence, scope, override and revision requirements for important tuning values.
 - `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the model's draft head, `mtp.safetensors`, which `pull` fetches with the weights (optional, mirror-hosted). `auto` (default) turns it on when the cache still reaches 120 experts per layer after the head's 1.6 GB, a 28 GB target, and stays off below that, where it measured a loss. Measured at that size: ×1.24 decode greedy, ×1.18 with the server's default sampling, one draft (`SLOTSTREAM_DRAFT_DEPTH`, default 1). MEASUREMENTS.md M9 has the ladder and the ceiling.
 - Checks that need no weights: `runtime-check`, `governor-check`, `sampler-golden`, `pull-check`. Checks that load the model (give them `--memory-gb 8.1` to `10`): `elastic-check`, `elastic-drill`, `prefix-check`, `sweep-check`, `parity`, `template-check`, `ngram-golden`, `dequant-golden`, `mtp-parity`, `mtp-accept`, `mtp-check`. The battery is `Tools/verify.sh`; release acceptance is `Tools/e2e_release.sh`.
 - Environment: `SLOTSTREAM_WEIGHTS_SOURCES`, `SLOTSTREAM_PULL_CONNECTIONS`, `SLOTSTREAM_PREFIX_CACHE=0`, `SLOTSTREAM_PREFILL_CHUNK`, `SLOTSTREAM_IO_QUEUE_DEPTH`, `SLOTSTREAM_EXPERT_LOAD_BATCH`, `SLOTSTREAM_SWEEP=0`, `SLOTSTREAM_SWEEP_ADMIT=0`, `SLOTSTREAM_SWEEP_TRACE=1`, `SLOTSTREAM_PREFILL_CACHE_MB`, `SLOTSTREAM_DRAFT_DEPTH`; installer: `SLOTSTREAM_ROOT_DIR`, `SLOTSTREAM_RELEASE_BASE`.
@@ -42,15 +43,19 @@ The README, user guides, and changelog are combined in
 
 ## Docs
 
+- [docs/GETTING-STARTED.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/GETTING-STARTED.md): installation, first reply, model download, pictures, updates, and common questions
+- [docs/ENGINEERING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/ENGINEERING.md): developer index, performance, context and memory, architecture, project history, and credits
+- [docs/HERMES-NOTES.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HERMES-NOTES.md): Hermes protocol, configuration rationale, discovery, images, summary fallback, and integration checks
+
 - [docs/CLIENTS.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLIENTS.md): connection settings for OpenAI and Ollama clients, Hermes and fx setup links, integration checks, troubleshooting, and issue evidence
-- [docs/HERMES.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HERMES.md): Hermes local setup, explicit context and output budgets, auxiliary title fallback and compaction, real-client validation
-- [README.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/README.md): what it is, hardware tiers, install, first run, speed, memory model, how it works, speculative decode
+- [docs/HERMES.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HERMES.md): first-time Hermes setup, complete tested configuration, file-reading example, and troubleshooting
+- [README.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/README.md): project overview, requirements, measured speed, quick start, guides, a plain explanation, limitations, FAQs, community, and star history
 - [docs/CLI.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLI.md): everyday commands, common diagnostics, memory-option precedence, environment variables, file locations, the diagnostic checks
 - [docs/API.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
 - [docs/LIBRARY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/LIBRARY.md): using slotstream as a Swift package — the two products, the Metal library requirement, weights, planning, serving
 - [docs/TESTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TESTING.md): the check catalogue and its tiers, what runs in CI against what needs the real weights, coverage and its ratchet
 - [docs/TROUBLESHOOTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TROUBLESHOOTING.md): port clashes, the one-process rule, paging, slow decode, moving or verifying weights, and fixes for old versions
-- [docs/HARDWARE.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HARDWARE.md): credited results from real Macs and a procedure to add yours
+- [docs/HARDWARE.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/HARDWARE.md): requirements, speed explained, credited results from real Macs, and separate estimates; measurement steps are in docs/TESTING.md
 - [CHANGELOG.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/CHANGELOG.md): what each release changed
 
 ## Design and evidence
@@ -63,6 +68,6 @@ The README, user guides, and changelog are combined in
 
 ## Source map
 
-- [Sources/Slotstream/](https://github.com/carloslfu/slotstream/tree/main/Sources/SlotstreamCore): the engine: memory planner (Plan.swift), expert streaming (ExpertStore.swift), HTTP server (Server.swift), sampling (Generate.swift), elastic governor (Governor.swift), conversation reuse (PrefixCache.swift), speculative decode (MTP.swift), the one-process lock (ProcessMemory.swift)
-- [Sources/slotstream-cli/](https://github.com/carloslfu/slotstream/tree/main/Sources/slotstream): the CLI: subcommands in main.swift and the command files; the download engine and pinned manifest live in the Slotstream library
+- [Sources/Slotstream/](https://github.com/carloslfu/slotstream/tree/main/Sources/Slotstream): the engine: memory planner (Plan.swift), expert streaming (ExpertStore.swift), HTTP server (Server.swift), sampling (Generate.swift), elastic governor (Governor.swift), conversation reuse (PrefixCache.swift), speculative decode (MTP.swift), the one-process lock (ProcessMemory.swift)
+- [Sources/slotstream-cli/](https://github.com/carloslfu/slotstream/tree/main/Sources/slotstream-cli): the CLI: subcommands in main.swift and the command files; the download engine and pinned manifest live in the Slotstream library
 - [Tools/verify.sh](https://raw.githubusercontent.com/carloslfu/slotstream/main/Tools/verify.sh): the acceptance battery; [Tools/e2e_release.sh](https://raw.githubusercontent.com/carloslfu/slotstream/main/Tools/e2e_release.sh) re-tests the installed binary; [Tools/llms_full.sh](https://raw.githubusercontent.com/carloslfu/slotstream/main/Tools/llms_full.sh) regenerates llms-full.txt

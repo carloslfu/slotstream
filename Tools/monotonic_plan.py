@@ -12,9 +12,10 @@ in the one unit that matters.
 Reads `doctor --json`, not the banner: the banner rounds tok/s to whole numbers,
 so two plans either side of a rounding boundary look like a step that is not
 there -- an earlier version of this check reported exactly that phantom.
-Components may still trade against each other (a bigger pass buying prefill
-with cache the decode plateau cannot use is correct), so the total request time
-is asserted, not either half.
+Components may still trade against each other: the bounded estimator can favor
+a bigger prefill pass over cache beyond its last decode anchor. Assert the
+total estimated request time, not either half. This checks model consistency;
+neither a passing sweep nor flat predictions establish real-hardware speed.
 """
 import json
 import os

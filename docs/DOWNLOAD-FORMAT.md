@@ -17,6 +17,25 @@ the objects. This is a measured byte reduction, not a promised reduction in
 total installation time. Decoding and writing overlap downloads; a slow CPU
 or disk can limit a very fast connection.
 
+## Download behavior and measured checks
+
+The installed model has 25 files, including the optional 1.5 GB draft head.
+A missing draft head still allows inference with speculative decode off.
+Decoding and disk writes overlap the transfer. The client starts at eight
+independent connections and increases concurrency only when measured
+throughput improves. `--connections` fixes the count; `--transport raw`
+selects the original file-based download. Existing raw partial downloads
+keep their progress automatically.
+
+Each compressed object, reconstructed chunk, and final file is hash-checked.
+Unavailable objects fall back to the pinned Hugging Face files.
+
+For historical context, the raw downloader measured 112 MB/s for a complete
+install on a 1 Gbit/s datacenter link. A full `slotstream pull --verify`
+measured 8 s on the development Mac. These measurements do not predict a
+new user's download or verification time. See the [download measurements](../db/records/measurements/lossless-model-download-2026-09-05.md)
+and [current hosting acceptance](../db/records/measurements/hugging-face-lossless-download-2026-09-06.md).
+
 ## Integrity and publication
 
 `PinnedModel.swift` remains the authority for original paths, lengths, SHA-256

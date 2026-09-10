@@ -1471,6 +1471,19 @@ whole numbers, so 11.58 prints as 12 and 11.19 as 11. `doctor --json` now emits
 `est_warm_tok_s` and `est_prefill_tok_s` unrounded, and the gate reads those.
 Anything asserting on a plan should.
 
+### Automatic memory default: evidence scope and retained policy (2026-09-09)
+This clarification keeps the current automatic memory policy and every historical run unchanged. It separates the evidence behind the policy from the predictions produced by that same policy.
+
+The preceding [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] describes a sweep using `doctor --json`. Its flat larger-target speed values are planner predictions, whose decode curve already stops extrapolating at its upper verified anchor. They are not an independent benchmark of larger allocations. The historical wording that nothing larger decoded or prefilled faster must be read as a statement about those estimates, not a measured universal result.
+
+The real ladder in [[records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08]] records 11.2 tok/s at 120 experts/layer and 11.6 at 150 on the development Mac. It shows diminishing gains over that measured interval. The larger-cache observation at 181 was not reproducible without memory-pressure contamination and remains excluded from a stronger throughput claim.
+
+The 33 GB base target remains the best-supported operating choice so far for the implemented model and planning objective, accommodating expert cache and prefill workspace without consuming more memory solely because a machine has it. This is a policy judgment, not proof of an optimum on every hardware/workload pair. The 70% RAM share is an upper bound on auto, not a lower bound. The draft charge and the existing availability/Metal bounds remain separate.
+
+A better comparable hardware/workload result can justify changing the default. Until then, explicit sizing is the supported way to explore another tradeoff, with its documented fixed-cache behavior. A model-free planner gate proves target selection, arithmetic and diagnostics; it does not measure allocation, physical peaks or speed. No new benchmark or numerical default is introduced by this clarification.
+
+Controlling decision: [[records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram]]. General engineering contract: [[records/design/measured-operating-policies]].
+
 ### The --memory-gb promise did not hold on real prompts (2026-08-31; resolved below)
 
 `--memory-gb 10` **peaked at 12.4 GB** on a 7,960-token prompt. Characterised
@@ -2455,6 +2468,71 @@ sequential ceiling has far less of that to give. The prediction on record is
 that this machine gains from the grouped GEMM's share of the pass and little
 from the reads — well under the dev Mac's 2x.
 
+## C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)
+Reported by `@waterliu1981` in [issue #6](https://github.com/carloslfu/slotstream/issues/6).
+The original report and its follow-up are preserved in
+[[sources/community/2026/09/2026-09-03-macbook-pro-m5-max-128gb-waterliu1981]].
+
+MacBook Pro 16-inch (Mac17,7), M5 Max, 128 GB, internal 2 TB SSD,
+macOS 26.6.2. The reporter described an idle machine. The auto plan was
+34.6 GB with about 152 experts per layer and speculative decoding enabled.
+
+The first report used Slotstream 0.2.1 and summarized warm decode at about
+19 to 21 tok/s. The same author then remeasured with Slotstream 0.2.3,
+reporting a checksum-verified binary replacement and unchanged weights.
+That [follow-up](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176)
+is the source of the current hardware row:
+
+| Repeated 256-token request | Reply speed |
+|---|---|
+| 1 | 21.02 tok/s |
+| 2 | 21.53 tok/s |
+| 3 | 22.11 tok/s |
+
+The report summarizes this as **21–22 tok/s** with the auto plan and
+speculative decoding. Two longer warm runs returned 22.83 and 22.10 tok/s.
+The current surface uses the reported range instead of a best run.
+
+The report's prefill and peak figures were planner estimates, not measured
+long-prompt speed or process RSS. Keep both columns unmeasured. Cache-size
+sweeps in the source use manual settings and are not the automatic result.
+
+This is one community report, not an independent rerun or a comparison made
+under the same conditions as the M5 Pro and M2 measurements. It supports a
+machine-specific row, not a promise for all Macs with that memory capacity.
+
+## C3: MacBook Air M5, 32 GB (community, 2026-09-07)
+Reported by `@arczhi` in [issue #12](https://github.com/carloslfu/slotstream/issues/12),
+preserved in [[sources/community/2026/09/2026-09-07-macbook-air-m5-32gb-arczhi]].
+
+MacBook Air M5 (2026), 32 GB, 1 TB SSD, macOS 26.6.2, reported Slotstream
+0.2.11. The report does not specify whether the model was on internal or
+external storage. It uses a 22 GB plan, with about 75 experts per layer
+planned and a 2048-token prefill chunk.
+
+Three identical requests to one running server returned **6.29, 6.28, and
+6.22 tok/s**. The public hardware row uses **6.22 tok/s**, the third request,
+matching the measurement procedure. The short cold run returned 6.60 tok/s
+and a 15.7 GB process RSS peak; it is not the warm result or long-prompt peak.
+
+The long-prompt command explicitly sets a 22 GB target, vision off, MTP off,
+8192 tokens, and physical-footprint sampling. The reported JSON completed
+without aborting: 8192 prefill tokens in 64.8707 seconds at 126.28197 tok/s,
+process RSS peak 17.75475 GB, and sampled physical-footprint peak 20.58214 GB.
+The full hardware row rounds prefill to **126.28 tok/s** and process RSS to
+**17.75 GB**. RSS and physical footprint are different metrics, not interchangeable
+versions of the same peak. The exact command and output remain in the source.
+
+The reported maximum context and memory plan differ from the default setup;
+these results do not establish the cost of the default or every larger
+conversation. The warm requests' full launch command and system load were
+not supplied. This review verified that `--sample-footprint` exists in the
+published v0.2.11 source, but did not independently rerun the reporter's binary.
+
+This adds a real 32 GB Mac to the hardware reports. It does not turn the
+planner's roughly 9 tok/s estimate into a measurement, or isolate the effects
+of chip, cooling, storage, context, and settings from one another.
+
 ## Decode: where the time goes, and the two knobs that moved it (2026-09-03)
 Decode had no equivalent of the prefill split, so "decode is slow" could not be
 attributed without guessing. `run` now prints one, and it says decode at a small
@@ -3065,6 +3143,52 @@ Automatic residency changes across the interruption, so the resumed cases are no
 **How to see your own numbers.** `slotstream run` prints separate prefill and decode rates after generation; its `--stats-json <path>` option saves the raw measurements. When using the existing server, `/api/chat` and `/api/generate` provide `eval_count` and nanosecond `eval_duration` in their successful final response; streaming clients receive them in the final frame. Calculate the ratio above when the duration is positive. The ordinary OpenAI-compatible response carries token usage without these Ollama duration fields. These are end-of-response observations, not a built-in continuously updating counter. See the CLI guide for commands.
 
 **Long-session context.** The original first-principles optimization program, all OPT00–OPT36 selected/rejected/deferred outcomes, superseded progress, failed attempts, resource and thermal-control changes, qualification evidence and actual local activation remain in [[records/plan/whole-engine-optimization-2026-09-04]]. Integrated preview, prefill, sustained throughput, memory and lifetime results remain in [[records/measurements/optimization-final-composition-2026-09-09]]. The final exact-source and installed-artifact closure is [[sources/runs/2026/09/2026-09-10-optimization-final-program-complete]]. This later user-server benchmark is observational follow-up evidence, not a replacement for that qualification.
+
+### Hermes configuration correction and regression checks
+The earlier guide placed the main output limit in `model.max_tokens`, but Hermes CLI initialization did not forward that field to the agent. The earlier live integration gate passed a limit directly to `AIAgent`, so its successful requests did not establish that the copied guide applied the same limit. This was a documentation and test-coverage error on our side. It did not establish a Slotstream decoder failure.
+
+The revised guide defines a provider named `slotstream`, with its endpoint, placeholder credential, chat-completions mode and `extra_body.max_tokens` together. Main requests carry 4,096 output tokens; compression requests independently carry 4,096, and title requests carry 64. Both auxiliary tasks explicitly receive a 1,800-second timeout. The main stream watchdog remains separately configured. Reasoning stays an optional user preference.
+
+#### Configuration regression checks
+
+Unmodified Hermes commits `b1f003e18633298d549668b8e186af84cca45b76` and `4a39a3ff8bea45ab5a6b646ce26ced88a8fed079` each pass eleven cases through the real CLI configuration and request code, with synthetic HTTP and all real socket connections disabled. The guide's YAML is the input, not a separately maintained test configuration.
+
+The cases cover the clean guide, legacy and current providers named `custom` plus conflicting environment settings, optional reasoning, an edited main output cap, missing and disabled providers, local HTTP 503 and 401 responses, truncated and empty summaries, and the explicit default-profile diagnostic command with a conflicting sticky profile. Main requests preserve the configured endpoint and 65,536-token context. Failure cases make no cloud inference request, failed summaries preserve history, and titles successfully retry after unsupported constrained output is rejected. These are configuration and transport-construction tests, not real-model results.
+
+Raw configuration results: [[sources/runs/2026/09/2026-09-08-hermes-config-latest]] and [[sources/runs/2026/09/2026-09-08-hermes-config-reported-version]].
+
+#### Real-model follow-through
+
+Released Slotstream 0.2.11, binary SHA-256 `7f540b73b5ff4cf48975ff122a3d17f57e53103e616ad84a76cfc71d551be5b8`, served unmodified latest Hermes using the revised guide through CLI initialization. The bounded server used `--max-context 65536 --mtp off --memory-gb 10`, with 30.4 GB reclaimable observed before launch and only one model process. This functional run is not a throughput or memory-capacity benchmark.
+
+With stale generic-provider settings present, the real terminal read executed once, the follow-up recalled the code without another read, and the tool-free length probe completed the full list after 1,095 generated tokens with `finish_reason: stop`. The request carried `max_tokens: 4096`. Every captured inference request stayed on loopback. A metadata connection was blocked by the test's network guard; this is not a claim that every Hermes feature is offline.
+
+The real compressor reduced the 39-message, 99,684-character fixture to 25 messages and 86,585 characters. Its 4,096-token request completed with `stop` after 724 generated tokens. The diagnostic code appeared only in the generated summary at index 4. An actual subsequent turn read 18,659 prompt tokens and recovered the exact code without executing another tool. This is forced compression and recall evidence, not an automatic-threshold stress test. The observed compression threshold was 55,705 tokens.
+
+The length request's cap, complete list and summary-only recall assertions were also checked against the preserved original captures after tightening those assertions in the gate. The multi-turn run used `127.0.0.1`; final CLI smoke runs preserve the guide's `localhost` spelling. Raw receipt: [[sources/runs/2026/09/2026-09-08-hermes-live-hardening]].
+
+Both final CLI smoke runs returned exactly `OK`, exited zero and sent a 4,096-token main limit to `http://localhost:11434/v1/chat/completions`, with auxiliary requests independently capped and timed. The diagnostic command explicitly selects the default profile and classic CLI; the ordinary fresh guide also selects that frontend by default. This does not qualify every alternative Hermes frontend. Their wire captures are in [[sources/runs/2026/09/2026-09-08-hermes-cli-hardening]].
+
+The unchanged released server passed 24 live OpenAI protocol checks, including streamed and ordinary tool-result loops, parallel call identity with reversed results, reasoning separation, invalid histories and unsupported format rejection. A deliberately truncated required tool produced an inference error; its streamed form published neither an executable partial call nor a successful completion terminator. Raw requests and responses are in [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]]. No new inference-engine behavior was needed for these configuration fixes.
+
+Both complete configuration suites passed again after final failure-assertion review, with the final gate and YAML hashes preserved. The owned test server was stopped and its port had no listener. Final verification: [[sources/runs/2026/09/2026-09-08-hermes-final-config-regression]].
+
+#### Scope and remaining boundaries
+
+A named provider protects this setup from collisions with the generic `custom` path; editing that named provider or explicitly configuring a fallback can still change routing. A wrong active profile can still select different settings; the diagnostic command uses `--profile default` to select the configured root. Neither the screenshot nor these reproductions identify which setting was present on another person's laptop.
+
+The request override repairs the wire limit. It does not repair Hermes's separate internal reservation accounting. Keep compression enabled, allow room for input and follow the server's advertised maximum when adjusting limits. Tests of failed summary publication do not prove general memory quality or every long-conversation path. The server still rejects unsupported constrained JSON, and Hermes's successful plain-text title retry does not provide schema guarantees.
+
+The first long-output fixture left tools enabled and triggered calculator calls. The guard refused them and the run was interrupted; it is retained as discarded fixture evidence in [[sources/runs/2026/09/2026-09-08-hermes-long-output-fixture-discarded]]. The replacement disables tools only for its length probe. Earlier protocol, vision and memory-capacity qualifications remain separate; their direct-agent output-limit checks are not evidence for the old guide's CLI configuration path.
+
+#### Explicit proxy environments
+
+A final source and pure-function check on both Hermes versions confirmed that an explicit HTTP proxy is selected for the local endpoint unless its hostname is excluded. Setting both NO_PROXY and no_proxy to include localhost and 127.0.0.1 selects a direct connection for both spellings. The guide now documents preserving existing exclusions and checking the profile .env, which can override the shell. This is an additional environment condition; it does not explain a log whose resolved endpoint already names OpenRouter. No proxy server or inference request was used in this check. Raw result: [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]].
+
+#### Automatic MTP guide correction
+The Hermes server command now leaves MTP on Slotstream’s normal automatic default. The public CLI already selected automatic MTP; the guide unnecessarily forced it off. The model-provider YAML and Hermes launch command are unchanged. The integration gate now captures the running server’s memory plan, checks the configured context, and accepts --expect-mtp on/off to require the selected state before any inference request.
+
+Planning-only inspection and synthetic metadata rejection checks passed; the evidence is [[sources/runs/2026/09/2026-09-09-hermes-automatic-mtp-preflight]]. No live Hermes inference was performed for this change because another benchmark held the model-process reservation. The earlier live Hermes runs remain explicitly MTP-off evidence. Automatic MTP integration, including the enabled path, is pending and must not be claimed from this planner output.
 
 ### Hermes integration: context qualification and OpenAI agent protocol
 The integration failure in [issue #11](https://github.com/carloslfu/slotstream/issues/11) has two independent causes: the released OpenAI endpoint rejects agent tool semantics before inference, and Hermes requires a context larger than the served default. The issue does not include the reporter's trace, versions, or configuration; these are independently reproduced failures, not a claim to have identified their exact first request.

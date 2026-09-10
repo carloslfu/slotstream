@@ -2,13 +2,13 @@
 type: claim
 id: 01m1mtw5tpz4596vnmj705t6y9
 created: 2026-09-03T23:50:12.054182+00:00
-updated: 2026-09-03T23:51:28.936508+00:00
+updated: 2026-09-08T22:35:06.535171+00:00
 summary: A picture costs at most 2,304 tokens
 basis: derived
 gate: vision-check pins the geometry for three sizes including the cap
 needle: 2,304 tokens
 supported_by: '[[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]]'
-surfaces: README.md, docs/API.md, llms.txt
+surfaces: docs/API.md, llms.txt, docs/ENGINEERING.md
 title: A picture costs at most 2,304 tokens
 status: current
 ---

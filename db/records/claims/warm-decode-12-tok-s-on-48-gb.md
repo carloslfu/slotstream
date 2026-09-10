@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwp4vgemyhf448srq7bth
 created: 2026-09-02T17:15:28.283311+00:00
-updated: 2026-09-02T17:15:28.283311+00:00
+updated: 2026-09-09T01:48:49.830413+00:00
 summary: Warm decode is about 12 tok/s on the 48 GB dev Mac
 basis: measured
 gate: none
@@ -10,7 +10,7 @@ needle: 12 tok/s
 supported_by:
 - '[[records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08]]'
 - '[[records/measurements/the-rebuild-eliminated-and-the-numbers-that-ship-2026-09-02]]'
-surfaces: README.md, llms.txt, docs/HARDWARE.md
+surfaces: README.md, llms.txt, docs/HARDWARE.md, docs/ENGINEERING.md
 title: Warm decode is about 12 tok/s on the 48 GB dev Mac
 status: current
 ---

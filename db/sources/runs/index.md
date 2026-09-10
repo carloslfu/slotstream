@@ -74,6 +74,7 @@ updated: 2026-09-10T20:44:33.641941Z
 - [[sources/runs/2026/09/2026-09-09-optimization-final-composition-build-pure-and-native-freeze]] — Exact selected final composition compiles and passes25360 pure assertions and116 CLI checks
 - [[sources/runs/2026/09/2026-09-09-optimization-final-preparation-binding-amendment-and-source-review]] — Final prerequisite path amendment passes all27 affected checks and bounded source review
 - [[sources/runs/2026/09/2026-09-09-optimization-public-planner-1024-complete-pass]] — Complete 16 GB public-planner cohort passes with independently audited startup swap-in exclusions
+- [[sources/runs/2026/09/2026-09-09-hermes-automatic-mtp-preflight]] — Hermes automatic MTP guide and preflight verification
 - [[sources/runs/2026/09/2026-09-09-optimization-final-source-current-profile-binding-preparation]] — Final-source preparation requires the exact qualified profile identities and declared exclusion audit
 - [[sources/runs/2026/09/2026-09-09-optimization-public-planner-512-complete-pass]] — Complete 12 GB public-planner cohort passes with explicit startup swap-in pair exclusions
 - [[sources/runs/2026/09/2026-09-09-optimization-explicit-startup-swapin-method-and-full-freeze]] — Explicit whole-pair startup swap-in exclusion with unchanged hard limits and fresh full cohorts
@@ -110,6 +111,14 @@ updated: 2026-09-10T20:44:33.641941Z
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-resource-resumption-preparation]] — Full vision mechanism successor frozen after verified memory recovery
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-ordinary-mtp-native-pass]] — Current automatic-scope candidate passes original ordinary and MTP integrations
 - [[sources/runs/2026/09/2026-09-08-optimization-resource-resumption-native-preparation]] — Optimization native tests resume after verified memory recovery
+- [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]] — Hermes local endpoint proxy exclusions
+- [[sources/runs/2026/09/2026-09-08-hermes-final-config-regression]] — Final Hermes configuration regression and cleanup verification
+- [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]] — OpenAI tool protocol regression for the Hermes configuration correction
+- [[sources/runs/2026/09/2026-09-08-hermes-cli-hardening]] — Hermes reported and latest CLI acceptance
+- [[sources/runs/2026/09/2026-09-08-hermes-live-hardening]] — Hermes real-model output budget, tools and compression acceptance
+- [[sources/runs/2026/09/2026-09-08-hermes-long-output-fixture-discarded]] — Discarded tool-enabled long-output fixture
+- [[sources/runs/2026/09/2026-09-08-hermes-config-reported-version]] — Hermes reported-version configuration regression gate
+- [[sources/runs/2026/09/2026-09-08-hermes-config-latest]] — Hermes latest configuration regression gate
 - [[sources/runs/2026/09/2026-09-08-optimization-resource-impasse-audit]] — Optimization resource impasse after current-source delivery qualification
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-exact-source-static-pass]] — Complete static suite passes on V436 binary and all150 exact sources, with tested16-file restoration
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-external-consumer-pass]] — Exact V436 external package passes all original API/planner/diagnostic checks and new automatic-control round trips
@@ -498,5 +507,8 @@ updated: 2026-09-10T20:44:33.641941Z
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-ladder-60-per-layer]] — prefill pass-size ladder at a matched 60-per-layer pool, sweep and 0.2.2 code, plus 4096 at 16 GB, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-floor-and-10gb]] — prefill sweep at the 8.1 GB floor and at 10 GB, 7,960-token prompt, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-ab-prose-16gb]] — prefill sweep A/B, 10,490-token prose prompt at a 16 GB target, dev Mac, 2026-09-02
-- [[sources/runs/2026/09/2026-09-02-prefill-sweep-ab-8k-16gb]] — prefill sweep A/B, 8k acceptance prompt at a 16 GB target, dev Mac, 2026-09-02
-- [[sources/runs/2026/09/2026-09-02-doctor-json-macbook-pro-m5-pro-48gb]] — slotstream doctor --json on the dev Mac on 2026-09-02: the auto plan with other apps holding memory (availability clamped), binary 0.2.1, local build.
+
+## More
+
+This folder has 502 files. The 500 most recent are listed above.
+Use `dbmd query --type run --in sources` for the complete catalog.

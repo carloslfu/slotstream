@@ -9,10 +9,15 @@ updated: 2026-09-10T20:46:08.838921Z
 
 - [[records/measurements/optimization-final-composition-2026-09-09]] — Completed and locally activated integration: scoped preview gains, lower process peaks, flat plain TPS and slower fixed-MTP TPS within the original acceptance allowance
 - [[records/measurements/user-server-throughput-2026-09-10]] — Eight clean user-server timings: observed decode rate 10.28 to 15.80 tokens/sec, separate planner estimates, exact repeats, interruptions and limits
+- [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
+- [[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]] — Automatic memory default: evidence scope and retained policy (2026-09-09)
+- [[records/measurements/hermes-configuration-hardening-2026-09-08]] — Hermes configuration correction and regression checks
+- [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
+- [[records/measurements/c3-macbook-air-m5-32gb-community]] — C3: MacBook Air M5, 32 GB (community, 2026-09-07)
+- [[records/measurements/c2-macbook-pro-m5-max-128gb-community]] — C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)
 - [[records/measurements/configurable-context-component-contracts-2026-09-06]] — Configurable context component and interface contracts
 - [[records/measurements/lossless-model-download-2026-09-05]] — Historical v0.2.10 lossless package and deployment qualification; the codec remains unchanged and current Hugging Face hosting is recorded separately.
 - [[records/measurements/hugging-face-lossless-download-2026-09-06]] — v0.2.11 publishes the free Hugging Face default; complete public reconstruction, installed acceptance and model-only R2 retirement are verified.
-- [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/optimization-first-owned-state-and-terminal-forward-2026-09-05]] — Optimization — retained state and terminal-forward confirmation
 - [[records/measurements/v1-the-vision-tower-cost-and-correctness-2026-09-03]] — V1 — the vision tower: 0.898 GB resident, 702 tokens for an 846x859 photograph, and agreement with an independent float32 reference inside the bfloat16 band.
 - [[records/measurements/m1-expert-locality-on-a-real-trace-2026-09-03]] — M1 closed: expert locality on a real trace, and the eviction policy is not the lever (2026-09-03)
@@ -51,7 +56,6 @@ updated: 2026-09-10T20:46:08.838921Z
 - [[records/measurements/m9-mtp-self-speculative-decode-conversion-parity-accept-curve-and-where]] — M9 — MTP self-speculative decode: conversion, parity, accept curve, and where it pays (2026-09-01)
 - [[records/measurements/resolution-bound-expert-load-staging-2026-08-31]] — Resolution: bound expert-load staging (2026-08-31)
 - [[records/measurements/the-memory-gb-promise-did-not-hold-on-real-prompts-2026-08-31-resolved]] — The --memory-gb promise did not hold on real prompts (2026-08-31; resolved below)
-- [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
 - [[records/measurements/one-more-toolchain-constraint-found-the-hard-way]] — One more toolchain constraint (found the hard way)
 - [[records/measurements/summary-what-m0-settled]] — Summary — what M0 settled
 - [[records/measurements/reference-implementation]] — Reference implementation

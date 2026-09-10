@@ -880,3 +880,42 @@ Documented the nine completed three-prompt cases, eight clean timings, canceled 
 ## [2026-09-10 20:46] update | records/plan/whole-engine-optimization-2026-09-04.md
 Linked final program completion and the readable live-server benchmark from the canonical plan and integrated results. Added CLI throughput instructions and regenerated projections/full documentation. Claims gate passes all 95 checks; database validation has zero errors and one unchanged historical log-kind warning. No inference or server changes.
 
+## [2026-09-06 16:06] update | records/measurements/hugging-face-lossless-download-2026-09-06
+Published unchanged Slotpack on public Hugging Face; verified complete default Linux reconstruction, independent original hashes and native transport/installer gates. Legacy hostname now uses free static redirects. Fresh Mac and earlier-client acceptance continue before R2 retirement and v0.2.11 publication.
+
+## [2026-09-06 22:06] update | records/measurements/hugging-face-lossless-download-2026-09-06.md
+Capture complete native Mac Hugging Face reconstruction across a network-failure resume and passing public main CI; release installation and R2 retirement follow.
+
+## [2026-09-06 22:35] update | records/measurements/hugging-face-lossless-download-2026-09-06.md
+Close v0.2.11 signed release, ordinary installer and installed-model acceptance; verify redundant model-only R2 bucket deletion and retained free compatibility redirects.
+
+## [2026-09-08 22:39] update | records/decisions/newcomer-documentation
+Reorganized public docs into a short README index, practical first-use and Hermes guides, and linked engineering references. Preserved the tested Hermes YAML and launch command, relocated claim coverage without changing measurements, retained old entry-page anchors, checked 115 local links, shell syntax and the practice-file commands, and reviewed rendered desktop and narrow mobile layouts. No model integration rerun was performed for this documentation change.
+
+## [2026-09-09 00:34] update | records/decisions/newcomer-documentation
+Completed another newcomer pass: reduced README navigation from 26 to 13 links, verified destinations, simplified hardware and troubleshooting, and moved the measurement procedure to testing. Captured issue 6 and issue 12 verbatim before updating credited hardware rows. Internal link and legacy-anchor checks passed (111 links); Hermes YAML and launch remain unchanged, shell syntax and practice-file checks passed. Reviewed desktop and 390/320-pixel layouts. Brain validation and generated-document/claim gates pass. No model integration rerun was performed.
+
+## [2026-09-09 01:52] update | records/decisions/newcomer-documentation
+Applied Carlos’s balance correction: restored the live star and release badges, weekly star chart, measured speed table, plain mechanism, limitations, FAQs, origin story, community/support and author context. Kept detailed recipes and engineering references in the guides, restored README claim coverage, and changed the standing rule from minimum length to completeness with clear hierarchy. Checked 127 local links and image sources, legacy anchors, external destinations, shell syntax and unchanged Hermes configuration. Desktop, 390 px and 320 px browser previews passed; badges and chart loaded and the tables/page did not overflow. Documentation and claim gates passed; no inference code changed or model run was performed.
+
+## [2026-09-09 03:27] update | records/measurements/hermes-configuration-hardening-2026-09-08
+Corrected the ignored Hermes CLI output budget with a named provider, separate auxiliary caps and timeouts, migration and diagnostics. Replaced direct-agent test bypass with guide-derived CLI setup. Both recorded Hermes versions passed eleven configuration cases and real CLI smoke checks; latest passed real file execution, follow-up, 1095-token output, forced compression and summary-only recall. Released Slotstream passed 24 protocol checks. Preserved the discarded tool-enabled length fixture and earlier evidence; corrected the old output-reservation claim. Owned model process stopped; validation, projections and claims pass.
+
+## [2026-09-09 03:32] update | records/measurements/hermes-configuration-hardening-2026-09-08
+Checked explicit HTTP proxy routing on both recorded Hermes versions without network requests. Confirmed local host exclusions select direct transport; documented preserving NO_PROXY/no_proxy exclusions and checking profile .env. This is separate from an OpenRouter endpoint selection. No YAML or runtime code changed; brain/projection/claim gates pass.
+
+## [2026-09-09 16:36] update | records/measurements/hermes-configuration-hardening-2026-09-08
+Removed the guide override that forced MTP off. Preserved YAML and the Hermes launch command. Added server-plan capture, context checks and optional expected-MTP assertions. Four synthetic rejection cases, planner inspection, syntax, projections and claim checks passed. No model launched because another benchmark owns the model reservation. Live automatic-MTP integration remains pending; prior MTP-off evidence is preserved.
+
+## [2026-09-09 22:44] update | records/claims/auto-memory-target-ceiling-33-gb.md
+Documented the intentional automatic memory ceiling and manual total-process target in the README. Clarified that the current default reflects supported tradeoffs and will follow real hardware/workload measurements; distinguished historical planner estimates from larger-allocation benchmarks. Registered the base ceiling and README draft-head claim, regenerated combined documentation, and passed full validation with zero warnings, projection checks, 120 claim checks and whitespace checks. No engine behavior or performance measurement changed.
+
+## [2026-09-09 23:06] update | records/design/measured-operating-policies.md
+Documented measured operating defaults as a maintained engineering responsibility across planner comments, CLI help and diagnostics, contributor/agent guidance, canonical decisions and user documentation. Preserved numerical policies and historical measurement bodies; clarified that larger-target planner estimates are not benchmarks. Swift parsing, diagnostic formatting, unchanged-allocation comparison, shell/Python syntax, 120 claim checks, projections, generated docs and database validation passed. Full build and runtime gates are left to CI to avoid interfering with the active model benchmark.
+
+## [2026-09-10 15:07] update | records/decisions/guillermo-rauch-grant-acknowledgment.md
+Added Guillermo Rauch's official GitHub profile photo and full name to the README with the official Slotstream grant link. Preserved public recipient-list excerpts, personal grant terms and profile metadata. GitHub Markdown rendering retained the image, alt text, name and links. Generated documentation, full database validation, projections, 120 claim checks and whitespace checks passed.
+
+## [2026-09-10 21:04] update | records/plan/whole-engine-optimization-2026-09-04.md
+Preparing v0.2.12: preserve the complete optimization source and evidence, merge the intervening public branch, and retain both append-only log histories. The merge places the remote historical tail after the local tail; the resulting out-of-order warning is provenance of concurrent histories, not a rewritten or discarded entry. Release CI and public-artifact local acceptance are pending.
+

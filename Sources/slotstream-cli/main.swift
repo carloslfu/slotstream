@@ -49,9 +49,11 @@ struct ModelOptions: ParsableArguments {
                 expert cache gets what remains after the conservatively charged \
                 resident/runtime/context footprint and a 1 GB margin. Run \
                 `slotstream doctor --memory-gb N` for the exact cache size. \
-                Default: auto -- 70% of RAM, kept 2 GB under \
-                the Metal working-set limit; the chosen plan is announced at \
-                startup. --experts-per-layer / --pool-gb take precedence.
+                Default: auto -- a model-specific target based on measured \
+                tradeoffs, bounded by 70% of RAM, the Metal working set minus \
+                2 GB, and live availability. The chosen plan is announced at \
+                startup. An explicit target pins the cache and disables auto \
+                resizing. --experts-per-layer / --pool-gb take precedence.
                 """))
     var memoryGB: Double?
 
@@ -82,9 +84,10 @@ struct ModelOptions: ParsableArguments {
             discussion: """
                 Lower it to keep more of the machine for your other apps; auto \
                 still sizes down on its own when they are actually holding \
-                memory. It cannot raise the target past the point where more \
-                cache stops buying decode speed (~33 GB) — use --memory-gb for \
-                that. Ignored when an explicit memory knob is given.
+                memory. It cannot raise the model's default ceiling, which \
+                reflects measured tradeoffs on tested hardware. Use \
+                --memory-gb for an explicit target beyond that ceiling. \
+                Ignored when an explicit memory knob is given.
                 """))
     var maxRAMPercent: Double?
 

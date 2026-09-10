@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwpb4qv7765c7qxe1d1mh
 created: 2026-09-02T17:15:28.484119+00:00
-updated: 2026-09-02T17:15:28.484119+00:00
+updated: 2026-09-08T22:35:06.404401+00:00
 summary: A full 32k prompt waits about 5.5 min before its first token on a 48 GB Mac
 basis: derived
 gate: Tools/planner_gates.sh
@@ -10,7 +10,7 @@ needle: 5.5 min
 supported_by:
 - '[[records/measurements/prefill-a-bigger-pass-really-is-faster-measured-at-a-matched-pool-2026]]'
 - '[[records/measurements/prefill-second-pass-2026-08-30-the-cost-model-was-wrong-read-ahead-does]]'
-surfaces: README.md, docs/TROUBLESHOOTING.md
+surfaces: README.md, docs/TROUBLESHOOTING.md, docs/ENGINEERING.md, docs/GETTING-STARTED.md, docs/HARDWARE.md, docs/DOWNLOAD-FORMAT.md, docs/HERMES-NOTES.md
 title: A full 32k prompt waits about 5.5 min before its first token on a 48 GB Mac
 status: withdrawn
 ---

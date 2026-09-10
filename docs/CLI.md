@@ -5,7 +5,7 @@ Run `slotstream <command> --help` for the options in your installed version.
 Only one model process can run per user at a time.
 
 The shared `run` context option, request-wait controls, feasibility metadata
-and expanded `context-check` flags below are unreleased source additions.
+and expanded `context-check` flags below are available starting in Slotstream 0.2.12.
 
 <a id="where-things-live"></a>
 
@@ -172,7 +172,7 @@ a smaller history does not turn unused long-context reservation into free RAM.
 Unknown prefill estimates appear as JSON `null` and remain deadline-bound.
 Neither a fixed pool nor `--no-elastic` disables request memory checks.
 
-## Optimization defaults in the unreleased source build
+## Optimization defaults
 
 The CLI resolves the selected optimization family automatically: compact
 runtime state and n-gram rows, bounded prompt-read grouping, committed prompt
@@ -193,6 +193,14 @@ conditional. Enabling every switch is not the selected configuration.
 [Integrated measurements](../MEASUREMENTS.md#final-integrated-optimization-results)
 report the tested workloads and limits; [the unified plan](../PLAN.md) retains
 the disposition of each candidate.
+
+The automatic ceiling is an intentional default for this model, based on the
+best speed/memory tradeoff supported by development-Mac measurements so far.
+It is separate from the RAM-share and physical-memory bounds. Defaults can
+change as comparable real measurements justify better choices; extra RAM
+alone is not evidence that the current choice is wrong. See
+[why auto retains a ceiling](ENGINEERING.md#memory) and the
+[operating-policy contract](../db/records/design/measured-operating-policies.md).
 
 ## Environment variables
 

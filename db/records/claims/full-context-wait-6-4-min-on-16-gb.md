@@ -2,13 +2,13 @@
 type: claim
 id: 01m1ht96baf3y8y36fn613yf6r
 created: 2026-09-02T19:42:06.698657+00:00
-updated: 2026-09-02T19:42:06.698657+00:00
+updated: 2026-09-08T22:35:06.421504+00:00
 summary: A full 32k prompt waits about 6.4 min on a 16 GB Mac
 basis: estimated
 gate: Tools/planner_gates.sh
 needle: 6.4 min
 supported_by: '[[records/measurements/n2-the-prefill-sweep-grouped-gemm-over-staging-contiguous-reads-no-pool-writes-2026-09-02]]'
-surfaces: README.md, docs/TROUBLESHOOTING.md
+surfaces: docs/TROUBLESHOOTING.md, docs/ENGINEERING.md
 title: A full 32k prompt waits about 6.4 min on a 16 GB Mac
 status: current
 ---

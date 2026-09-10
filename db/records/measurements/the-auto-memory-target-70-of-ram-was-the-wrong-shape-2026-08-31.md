@@ -2,13 +2,14 @@
 type: measurement
 id: 01m1hhwm2z5f7r1a5tq95cjd8x
 created: 2026-09-02T17:15:26.175770+00:00
-updated: 2026-09-02T17:15:26.175770+00:00
+updated: 2026-09-09T22:59:04.540193+00:00
 summary: 'The auto memory target: 70% of RAM was the wrong shape (2026-08-31)'
 date: 2026-08-31
 doc: measurements
 level: '3'
 machines:
 - '[[records/machines/macbook-pro-m5-pro-48gb]]'
+note: The larger-target sweep inspected already-capped planner estimates, not real speed at those allocations; see records/measurements/automatic-memory-default-evidence-scope-2026-09-09.md. Historical body and operating default are preserved.
 order: '390'
 source: '[[sources/docs/2026/09/measurements-md-2026-09-02]]'
 title: 'The auto memory target: 70% of RAM was the wrong shape (2026-08-31)'

@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwpc0twa126aay6nbqs5v
 created: 2026-09-02T17:15:28.512460+00:00
-updated: 2026-09-02T17:15:28.512460+00:00
+updated: 2026-09-08T22:35:06.569585+00:00
 summary: Greedy output is byte-identical across cache sizes and live resizes
 basis: measured
 gate: Tools/verify.sh
@@ -10,7 +10,7 @@ needle: byte-identical
 supported_by:
 - '[[records/measurements/the-headline-the-full-125b-51b-model-generates-on-this-48-gb-machine]]'
 - '[[records/measurements/the-elastic-pool-2026-08-28-serve-resizes-itself-while-running]]'
-surfaces: README.md, llms.txt
+surfaces: llms.txt, docs/ENGINEERING.md
 title: Greedy output is byte-identical across cache sizes and live resizes
 status: current
 ---

@@ -1,14 +1,14 @@
 ---
 type: claim
-id: 01m1swa0pt3p8edd4n48gtkp3x
-created: 2026-09-05T22:51:26.295499+00:00
-updated: 2026-09-06T00:46:59.088373+00:00
+id: 01m1t5edz7vmdf8wqr1wftpn9t
+created: 2026-09-06T01:31:08.135324+00:00
+updated: 2026-09-08T22:35:06.291166+00:00
 summary: Opt-in served context of 65536 tokens
 basis: derived
 gate: Tools/planner_gates.sh and Tools/openai_tools_gate.py
 needle: '65536'
 supported_by: '[[records/measurements/hermes-context-and-openai-integration-2026-09-05]]'
-surfaces: README.md, docs/API.md, docs/CLI.md, docs/CLIENTS.md, docs/HERMES.md, llms.txt
+surfaces: docs/API.md, docs/CLI.md, docs/CLIENTS.md, docs/HERMES.md, llms.txt, docs/ENGINEERING.md, docs/DOWNLOAD-FORMAT.md, docs/HERMES-NOTES.md
 title: Opt-in served context of 65536 tokens
 status: current
 ---

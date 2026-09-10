@@ -2,13 +2,13 @@
 type: claim
 id: 01m1td69kfw455dvdmbp0759dh
 created: 2026-09-06T03:46:30.127445+00:00
-updated: 2026-09-06T03:46:30.127445+00:00
+updated: 2026-09-08T22:35:06.454504+00:00
 summary: The complete package byte count is verified independently on Mac and Linux.
 basis: measured
 gate: Tools/slotpack/checks.py; complete package build and public CLI qualification
 needle: 16.12% fewer bytes
 supported_by: '[[records/measurements/lossless-model-download-2026-09-05]]'
-surfaces: README.md, docs/CLI.md, docs/DOWNLOAD-FORMAT.md, llms.txt, CHANGELOG.md
+surfaces: docs/CLI.md, docs/DOWNLOAD-FORMAT.md, llms.txt, CHANGELOG.md
 title: Complete lossless package uses 16.12% fewer bytes
 status: current
 ---

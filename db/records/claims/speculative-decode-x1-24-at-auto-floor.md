@@ -2,14 +2,14 @@
 type: claim
 id: 01m1hhwp8w1rc9x8482r7zrwrk
 created: 2026-09-02T17:15:28.412916+00:00
-updated: 2026-09-02T17:15:28.412916+00:00
+updated: 2026-09-08T22:35:06.739161+00:00
 summary: Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 basis: measured
 gate: none
 needle: ×1.24
 supported_by:
 - '[[records/measurements/the-rebuild-eliminated-and-the-numbers-that-ship-2026-09-02]]'
-surfaces: README.md, docs/CLI.md, llms.txt
+surfaces: docs/CLI.md, llms.txt, docs/ENGINEERING.md
 title: Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 status: current
 ---

@@ -61,6 +61,13 @@ surface or a withdrawn claim's needle is still present. When a measurement
 is superseded, update or withdraw its claims in the same session. An
 estimated number must read as an estimate on every surface.
 
+**Operating defaults and limits.** Follow [[records/design/measured-operating-policies]]
+for important tuning values: purpose/units, type of limit, evidence and scope,
+tradeoff, override semantics and revision criterion. Keep code comments,
+diagnostics, tests and public documentation aligned. A justified operating cap
+can remain when new hardware is unmeasured; a bounded estimate is not
+independent performance evidence.
+
 **Decisions.** A choice that closes a line of work (a milestone skipped, a
 queue item removed, a default changed) gets a `decision` with the evidence
 links and the condition that would reverse it, so the question is not

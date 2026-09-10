@@ -3,7 +3,25 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.12 - 2026-09-10
+
+- Faster repeated and continued prompts through committed prompt checkpoints,
+  bounded prefill read grouping, and reuse of completed prompt state.
+- Lower runtime memory through compact state and n-gram storage, bounded output
+  buffering, and reduced temporary allocations. Expert reads and transfers
+  retain checked bounds, exact ownership, and recovery after failure.
+- Qualified rotation and projection paths reduce avoidable work while keeping
+  reference fallbacks for unsupported shapes and platforms. Vision attention
+  workspace and memory reservations are bounded independently.
+- More responsive memory handling, cancellation, and serving recovery. Preserve
+  the independent CLI, Swift library, and OpenAI/Ollama serving contracts.
+- Publish the complete optimization evidence, including rejected experiments,
+  performance limits, sustained generation comparisons, and practical serving
+  results. [Integrated measurements](MEASUREMENTS.md#final-integrated-optimization-results)
+  compare selected and reference paths in the same build; they are not a
+  direct comparison with the previous public release. Prompt reuse improved
+  responsiveness, while sustained decode was flat or slightly slower in the
+  measured profiles. There is no universal tokens-per-second speedup claim.
 
 - Shared context and request-wait configuration across run, serve, doctor and
   the Swift library. Exact allocation accounting includes retention and loaded

@@ -90,6 +90,31 @@ the public context ceiling changes only after its native qualification. There
 is no background model waiter and no automatic hardware fallback from the
 software command.
 
+
+## Building from source
+
+To build from source, install Apple's Command Line Tools, then run:
+
+```bash
+git clone https://github.com/carloslfu/slotstream
+cd slotstream
+make build
+make checks
+```
+
+`make checks` runs without weights, network access, or a GPU. `make checks-all`
+adds the MLX tests. `Tools/verify.sh` tests against the real model, including
+reference comparisons, cache resizes, speculative decode, and server
+regressions. [Testing](TESTING.md) explains the suites and coverage gaps;
+[Contributing](../CONTRIBUTING.md) covers the development workflow.
+
+Release builds come from tagged commits in GitHub Actions. After downloading
+a release archive, you can verify its provenance with the GitHub CLI:
+
+```bash
+gh attestation verify slotstream-arm64.tar.gz --repo carloslfu/slotstream
+```
+
 ## Why there is no `swift test`
 
 The supported Command Line Tools setup lacks XCTest and Swift Testing.
@@ -205,15 +230,33 @@ serving code.
 For an installed Hermes source checkout with its own environment:
 
 ```sh
+/path/to/hermes/.venv/bin/python Tools/hermes_config_gate.py \
+  /path/to/hermes /tmp/hermes-config-check
 /path/to/hermes/.venv/bin/python Tools/hermes_integration_gate.py \
-  /path/to/hermes /tmp/hermes-slotstream-check --compress
+  /path/to/hermes /tmp/hermes-slotstream-check --compress --long-output --contaminated
 ```
 
-This requires the larger context in the Hermes guide. It creates an isolated
+Both gates read the configuration from the guide and use Hermes's CLI agent
+initialization. The configuration gate uses synthetic HTTP responses with real
+network access disabled. It checks output limits, optional reasoning, stale
+custom-provider settings, an explicit profile override, missing/disabled providers, unavailable endpoints,
+title fallback, auxiliary timeouts, and preservation after failed summaries.
+Run it separately against each supported Hermes checkout.
+
+The integration gate uses a real model and requires the larger context in the
+Hermes guide. To check the guide's automatic planning, start the server with
+`slotstream serve --max-context 65536`, following the repository's model-process
+and memory-safety rules. The gate records the running server's memory plan and
+checks its context. Add `--expect-mtp on` or `--expect-mtp off` to require the
+selected state when qualifying that path; a planning-only `doctor` result does
+not prove which path an integration run exercised. It creates an isolated
 Hermes home, denies non-loopback Python network connections, permits only the
 fixture's `cat` command through the actual Hermes tool dispatcher, and checks
-the real agent, title fallback, compaction, and recall. `--cli` checks the
-actual CLI instead. Raw HTTP and result records stay in the output directory.
+the real agent, title fallback, compaction, and recall. `--long-output` also
+requires a complete reply beyond the ordinary server default, with tools disabled
+for that probe. `--contaminated` adds stale generic-provider settings.
+`--cli` checks the actual CLI entry point instead of the multi-turn scenario;
+run it separately. Raw HTTP and result records stay in the output directory.
 Add `--image Tools/assets/vision_test/secret1.jpg` to check Hermes's own vision
 discovery and an actual image turn. The server must have enough memory for both
 the configured context and the vision tower. The OpenAI gate's `--vision` option
@@ -308,3 +351,71 @@ records their versions and checks discovery, streaming and a complete tool
 round trip through an allowlisted fixture read. Requests stay on the selected
 loopback server. This successful-client check does not replace the strict
 receiving-side terminal and authority gates.
+
+## Measure your Mac
+
+Allow about ten minutes once the weights are downloaded. Close other
+memory-heavy apps and check that the Mac is not swapping. Run one model
+process at a time.
+
+1. Install or upgrade, then record the version:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+   slotstream --version
+   ```
+
+2. Print the plan. Copy the whole `slotstream memory plan` block; it carries
+   the device line, the target, and the cache size:
+
+   ```bash
+   slotstream doctor
+   ```
+
+3. One cold generation. This offers the download on first use. When it
+   finishes, `run` prints `--` lines to stderr: prefill, decode, and the
+   expert-cache line that ends with the peak. Copy all of them.
+
+   ```bash
+   slotstream run --greedy --max-tokens 128 --prompt "Explain how a hash map works, in about 200 words."
+   ```
+
+4. Warm decode. Start the server in one terminal:
+
+   ```bash
+   slotstream serve
+   ```
+
+   In another, send the same request three times and keep all three
+   results. The third is the warm number. If you would rather not run the
+   Python one-liner, the JSON carries `eval_count` and `eval_duration` in
+   nanoseconds; decode tok/s is the first divided by the second, times a
+   billion.
+
+   ```bash
+   for i in 1 2 3; do
+     curl -s localhost:11434/api/generate -d '{
+       "model": "qwen3.8-flash-next:4bit",
+       "prompt": "Explain how a hash map works, in about 200 words.",
+       "stream": false,
+       "options": {"temperature": 0, "num_predict": 128}
+     }' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("decode %.2f tok/s, prefill %.1f tok/s" % (d["eval_count"]/d["eval_duration"]*1e9, d["prompt_eval_count"]/d["prompt_eval_duration"]*1e9))'
+   done
+   ```
+
+   Press **Ctrl+C** in the server terminal before the next step.
+
+5. Measure a long prompt. It reports time, speed, and peak memory, checking
+   available memory between passes. Use 4096 tokens on a small Mac.
+
+   ```bash
+   slotstream context-check --tokens 8192
+   ```
+
+6. Open a [measurement report](https://github.com/carloslfu/slotstream/issues/new?template=measurement-report.yml)
+   and paste the raw output from steps 1 to 5, plus the Mac model, the SSD,
+   the macOS version, what else was open, and whether the fans ran or the
+   machine throttled.
+
+Single runs vary by 15% or more on a loaded machine. If two runs disagree by
+that much, say so rather than picking the better one.

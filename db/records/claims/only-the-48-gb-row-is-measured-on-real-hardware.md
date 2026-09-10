@@ -2,12 +2,12 @@
 type: claim
 id: 01m1hhwpd9ptq53n0xqzd95sj5
 created: 2026-09-02T17:15:28.553209+00:00
-updated: 2026-09-03T04:01:04.724010+00:00
+updated: 2026-09-08T22:35:06.552502+00:00
 summary: Only the 48 GB row is measured on real hardware
 basis: measured
 gate: none
 needle: measured on real hardware
-surfaces: README.md, docs/HARDWARE.md
+surfaces: README.md, docs/HARDWARE.md, docs/ENGINEERING.md, docs/GETTING-STARTED.md, docs/DOWNLOAD-FORMAT.md, docs/HERMES-NOTES.md
 title: Only the 48 GB row is measured on real hardware
 status: withdrawn
 ---

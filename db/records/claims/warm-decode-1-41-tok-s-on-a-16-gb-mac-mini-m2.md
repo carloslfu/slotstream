@@ -2,7 +2,7 @@
 type: claim
 id: 01m1jpreawk11zaeesw8wedvfk
 created: 2026-09-03T03:59:46.524613+00:00
-updated: 2026-09-03T03:59:46.524613+00:00
+updated: 2026-09-09T01:48:49.849713+00:00
 summary: Warm decode 1.41 tok/s on a base-storage Mac mini M2, 16 GB — the first community measurement of a tier row.
 basis: measured
 gate: none

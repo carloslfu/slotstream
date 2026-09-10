@@ -7,13 +7,17 @@ p = argparse.ArgumentParser()
 p.add_argument('source', type=Path)
 p.add_argument('output', type=Path)
 p.add_argument('--port', type=int, default=11434)
-p.add_argument('--context', type=int, default=65536,
+p.add_argument('--context', type=int,
                help='Exact configured server window expected from discovery and CLI settings')
+p.add_argument('--expect-mtp', choices=('on', 'off'),
+    help='Require the running server to report the selected MTP state')
 p.add_argument('--cli', action='store_true')
 p.add_argument('--compress', action='store_true')
+p.add_argument('--long-output', action='store_true', help='Require a complete reply longer than the server default')
+p.add_argument('--contaminated', action='store_true', help='Add stale custom-provider and environment settings')
 p.add_argument('--image', type=Path, help='JPEG fixture for real Hermes vision discovery and inference')
 a = p.parse_args()
-if not 64000 <= a.context <= 262144:
+if a.context is not None and not 64000 <= a.context <= 262144:
     p.error('--context must satisfy Hermes Agent’s 64000-token minimum and fit the pinned model limit')
 source = a.source.resolve()
 image_path = a.image.resolve() if a.image else None
@@ -22,8 +26,7 @@ fixture = out / 'fixture'; fixture.mkdir(exist_ok=True)
 marker = 'HERMES_SLOTSTREAM_INTEGRATION_42'
 (fixture / 'diagnostic.txt').write_text(marker + '\n')
 os.chdir(fixture)
-os.environ.update(HERMES_HOME=str(out / 'home'), OPENAI_API_KEY='local-test-placeholder',
-    OPENAI_BASE_URL=f'http://127.0.0.1:{a.port}/v1', NO_PROXY='*',
+os.environ.update(HERMES_HOME=str(out / 'home'), NO_PROXY='*',
     TERMINAL_CWD=str(fixture), TERMINAL_ENV='local')
 sys.path.insert(0, str(source))
 blocked = []
@@ -37,20 +40,32 @@ def audit(event, args):
             raise PermissionError('Hermes gate permits only loopback network connections')
 sys.addaudithook(audit)
 import yaml, httpx
-home = Path(os.environ['HERMES_HOME']); home.mkdir(exist_ok=True)
-cfg = {'model': {'default': 'qwen3.8-flash-next:4bit', 'provider': 'custom',
-        'base_url': os.environ['OPENAI_BASE_URL'], 'max_tokens': 4096},
-    'agent': {'max_iterations': 4, 'local_stream_stale_timeout': 1800}, 'compression': {'enabled': True},
-    'auxiliary': {'compression': {'provider': 'main', 'extra_body': {'max_tokens': 4096, 'temperature': 0.2, 'presence_penalty': 0}}, 'title_generation': {'provider': 'main'}},
-    'memory': {'memory_enabled': False, 'user_profile_enabled': False},
-    'terminal': {'cwd': str(fixture), 'env_type': 'local'}, 'display': {'show_reasoning': False}}
-# The agent gate checks discovery; the CLI gate checks the explicit guide setting.
-if a.cli: cfg['model']['context_length'] = a.context
+home = Path(os.environ['HERMES_HOME']); home.mkdir(exist_ok=False)
+# The public guide is the configuration source. Do not bypass its provider or
+# output-budget resolution by passing a base URL / max_tokens to AIAgent.
+guide = (Path(__file__).resolve().parents[1] / 'docs/HERMES.md').read_text()
+cfg = yaml.safe_load(guide.split('```yaml\n', 1)[1].split('```', 1)[0])
+provider = cfg['model']['provider']
+endpoint = cfg['providers'][provider]
+if a.port != 11434:
+    endpoint['base_url'] = f'http://127.0.0.1:{a.port}/v1'
+output_budget = endpoint['extra_body']['max_tokens']
+if a.context is not None:
+    cfg['model']['context_length'] = a.context
+context = cfg['model']['context_length']
+cfg['terminal'] = {'cwd': str(fixture), 'env_type': 'local'}
+if a.contaminated:
+    cfg['providers']['custom'] = {'base_url': 'https://openrouter.ai/api/v1', 'api_key': 'unused'}
+    cfg['custom_providers'] = [{'name': 'custom', 'base_url': 'https://openrouter.ai/api/v1', 'api_key': 'unused'}]
+    (home / '.env').write_text('CUSTOM_BASE_URL=https://openrouter.ai/api/v1\n'
+                              'OPENAI_BASE_URL=https://openrouter.ai/api/v1\n'
+                              'OPENROUTER_API_KEY=unused\n')
 (home / 'config.yaml').write_text(yaml.safe_dump(cfg))
 requests = []; executions = []; summary = {}; agent = None
 send = httpx.Client.send
 def capture(self, request, *args, **kwargs):
-    record = {'method': request.method, 'url': str(request.url)}
+    record = {'method': request.method, 'url': str(request.url),
+        'timeout': request.extensions.get('timeout')}
     try: record['request'] = json.loads(request.content) if request.content else None
     except Exception: record['request'] = '<stream>'
     requests.append(record)
@@ -75,15 +90,28 @@ def capture(self, request, *args, **kwargs):
     return response
 httpx.Client.send = capture
 try:
+    # Preserve the actual server plan, rather than inferring it from a doctor
+    # run or assuming the caller launched the same configuration as before.
+    with httpx.Client(trust_env=False, timeout=10) as client:
+        response = client.get(endpoint['base_url'].removesuffix('/v1') + '/api/ps')
+        response.raise_for_status()
+        card = next(model for model in response.json()['models']
+                    if model['name'] == cfg['model']['default'])
+    plan = summary['server_plan'] = card['details']['memory_plan']
+    assert plan['max_context_tokens'] == context, 'Server context differs from the Hermes guide'
+    assert type(plan['mtp']) is bool, 'Server did not report its MTP state'
+    if a.expect_mtp:
+        assert plan['mtp'] == (a.expect_mtp == 'on'), f'Expected MTP {a.expect_mtp}: {plan}'
     if a.cli:
         import model_tools
         def refuse_cli_tool(*args, **kwargs):
             raise RuntimeError('The CLI greeting gate permits no tool execution')
         model_tools.handle_function_call = refuse_cli_tool
-        from hermes_cli.main import main
-        sys.argv = ['hermes', 'chat', '--cli', '--oneshot', '--ignore-rules', '--provider', 'custom',
-            '--model', cfg['model']['default'], '--toolsets', 'terminal', '--reasoning', 'none',
+        sys.argv = ['hermes', '--profile', 'default', 'chat', '--cli', '--verbose',
+            '--oneshot', '--ignore-rules', '--provider', provider,
+            '--model', cfg['model']['default'], '--toolsets', 'terminal',
             '--max-turns', '2', '--run-budget', '300', '-Q', '-q', 'Reply with exactly OK. Do not call a tool.']
+        from hermes_cli.main import main
         try: summary['cli_return'] = main()
         except SystemExit as e: summary['cli_exit'] = e.code
         summary['passed'] = summary.get('cli_exit', summary.get('cli_return')) in (None, 0)
@@ -112,17 +140,19 @@ try:
             executions.append({'name': function_name, 'args': function_args, 'result': result})
             return result
         model_tools.handle_function_call = guarded_tool
-        from run_agent import AIAgent
-        agent = AIAgent(model=cfg['model']['default'], provider='custom', api_mode='chat_completions',
-            base_url=os.environ['OPENAI_BASE_URL'], api_key='local-test-placeholder',
-            max_iterations=4, max_tokens=4096, reasoning_config={'enabled': False, 'effort': 'none'},
-            enabled_toolsets=['terminal'], quiet_mode=True, skip_context_files=True,
-            skip_memory=True, skip_background_review=True, run_budget_seconds=300)
+        import hermes_cli.main  # Apply the same environment/profile bootstrap as the CLI.
+        from cli import HermesCLI
+        cli = HermesCLI(model=cfg['model']['default'], provider=provider,
+            toolsets=['terminal'], max_turns=4, run_budget=1800, verbose=False, ignore_rules=True)
+        cli._single_query_mode = True
+        assert cli._init_agent(), 'Hermes CLI could not resolve the documented provider'
+        agent = cli.agent
+        assert agent.base_url.rstrip('/') == endpoint['base_url'], agent.base_url
         summary.update(context_length=agent.context_compressor.context_length,
             compression_threshold=agent.context_compressor.threshold_tokens,
             ollama_num_ctx=agent._ollama_num_ctx)
-        assert summary['context_length'] == a.context, summary
-        assert 0 < summary['compression_threshold'] < a.context, summary
+        assert summary['context_length'] == context, summary
+        assert 0 < summary['compression_threshold'] < context, summary
         result = agent.run_conversation(user_message='Use the terminal tool to run exactly `cat diagnostic.txt` in the current directory. Then reply with only the file contents. Do not infer or invent them.')
         summary['tool_turn'] = result
         assert executions and marker in executions[0]['result'], executions
@@ -132,14 +162,33 @@ try:
             conversation_history=result['messages'])
         summary['followup'] = result2
         assert result2.get('completed') and marker in result2.get('final_response', ''), result2
+        assert len(executions) == 1, 'Follow-up unexpectedly read the fixture again'
+        if a.long_output:
+            # Isolate output-length delivery from the model's preference to use a
+            # calculator. This client still resolves the same guide/provider cap.
+            long_cli = HermesCLI(model=cfg['model']['default'], provider=provider,
+                toolsets=[], max_turns=2, run_budget=1800, verbose=False, ignore_rules=True)
+            long_cli._single_query_mode = True
+            assert long_cli._init_agent(), 'Could not initialize long-output client'
+            long_agent = long_cli.agent
+            try:
+                assert not long_agent.tools, 'Length probe must not execute tools'
+                long_result = long_agent.run_conversation(user_message='Print every integer from 1 through 300, '
+                    'one integer per line. No omissions, ellipses, commentary, or tools. '
+                    'After 300, print END_OF_LIST on its own line.', conversation_history=[])
+            finally:
+                long_agent.close()
+            summary['long_output'] = long_result
+            assert long_result.get('completed') and not long_result.get('failed'), long_result
+            assert 'END_OF_LIST' in long_result.get('final_response', ''), long_result
         from agent.title_generator import generate_title
-        summary['title'] = generate_title('Diagnose a local Hermes and Slotstream integration', timeout=120,
+        summary['title'] = generate_title('Diagnose a local Hermes and Slotstream integration',
             main_runtime=agent._current_main_runtime())
         assert summary['title'], 'Title generation failed'
         if image_path:
             from agent.model_metadata import query_ollama_supports_vision
             summary['vision_discovered'] = query_ollama_supports_vision(
-                cfg['model']['default'], os.environ['OPENAI_BASE_URL'], 'local-test-placeholder')
+                cfg['model']['default'], endpoint['base_url'], endpoint['api_key'])
             assert summary['vision_discovered'] is True, 'Hermes did not discover vision support'
             image_url = 'data:image/jpeg;base64,' + base64.b64encode(image_path.read_bytes()).decode()
             vision = agent.run_conversation(user_message=[
@@ -163,6 +212,11 @@ try:
                 'telemetry': getattr(compressor, '_last_compression_telemetry', None)}
             assert len(requests) > before, 'Compression did not exercise the local model'
             assert len(json.dumps(compacted)) < len(json.dumps(transcript)), 'Compression did not reduce the transcript'
+            marker_messages = [m for m in compacted if marker in str(m.get('content', ''))]
+            summary['compression']['marker_only_in_summary'] = (
+                len(marker_messages) == 1 and compressor._is_context_summary_message(marker_messages[0]))
+            assert summary['compression']['marker_only_in_summary'], (
+                'Recall must rely on the generated summary, not the original fixture observation')
             finishes = []
             for record in requests[before:]:
                 for line in record.get('response', '').splitlines():
@@ -174,6 +228,7 @@ try:
             after = agent.run_conversation(user_message='What is the exact diagnostic code? Answer from the conversation without a tool.', conversation_history=compacted)
             summary['after_compression'] = after
             assert after.get('completed') and marker in after.get('final_response', ''), after
+            assert len(executions) == 1, 'Recall after compression unexpectedly read the fixture again'
         summary['passed'] = True
 except Exception as exc:
     summary.update(passed=False, error_type=type(exc).__name__, error=str(exc), traceback=traceback.format_exc())
@@ -183,13 +238,30 @@ finally:
         main_requests = [r['request'] for r in requests if (r.get('request') or {}).get('stream')
             and (r.get('request') or {}).get('tools')]
         summary['main_output_budgets'] = [r.get('max_tokens') for r in main_requests]
-        if not main_requests or any(r.get('max_tokens') != 4096 for r in main_requests):
+        if not main_requests or any(r.get('max_tokens') != output_budget for r in main_requests):
             summary.update(passed=False, error='The documented main output budget was not used')
+        if a.long_output:
+            completions = []
+            for record in requests:
+                if not (record.get('request') or {}).get('stream'): continue
+                if 'END_OF_LIST' not in json.dumps(record['request'].get('messages', [])): continue
+                usage, finish = {}, None
+                for line in record.get('response', '').splitlines():
+                    if line.startswith('data: ') and line != 'data: [DONE]':
+                        chunk = json.loads(line[6:]); usage.update(chunk.get('usage') or {})
+                        for choice in chunk.get('choices', []):
+                            finish = choice.get('finish_reason') or finish
+                completions.append({'usage': usage, 'finish_reason': finish,
+                    'max_tokens': record['request'].get('max_tokens')})
+            summary['long_output_completions'] = completions
+            if not any(x['usage'].get('completion_tokens', 0) > 512 and x['finish_reason'] == 'stop'
+                    and x['max_tokens'] == output_budget for x in completions):
+                summary.update(passed=False, error='No complete reply exceeded the server default output limit')
     if agent:
         try: agent.close()
         except Exception: pass
     summary.update(executions=executions, blocked_nonlocal_connections=blocked, expected_context=a.context)
     (out / 'result.json').write_text(json.dumps(summary, default=str, indent=2))
     (out / 'http.json').write_text(json.dumps(requests, default=str, indent=2))
-    print(json.dumps({k: v for k, v in summary.items() if k not in ('tool_turn', 'followup', 'compression', 'after_compression', 'image_turn')}, default=str, indent=2), flush=True)
+    print(json.dumps({k: v for k, v in summary.items() if k not in ('tool_turn', 'followup', 'compression', 'after_compression', 'image_turn', 'long_output')}, default=str, indent=2), flush=True)
 sys.exit(0 if summary.get('passed') else 1)

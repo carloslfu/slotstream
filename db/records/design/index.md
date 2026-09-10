@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/design
-updated: 2026-09-09T01:52:44.837037Z
+updated: 2026-09-09T22:59:04.454986Z
 ---
 
 # records/design
 
+- [[records/design/measured-operating-policies]] — Measured operating policies and revision criteria
 - [[records/design/sevra-maintained-model-integration]] — Sevra integration: versioned hardware/model profiles, full-stack qualification, maintained updates and documentation tied to implementation.
 - [[records/design/vision-how-a-picture-becomes-tokens]] — The vision path: one placeholder becomes a run, Rust-free splicing by contiguous spans, inline bytes only, and a conditional memory charge.
 - [[records/design/13-references]] — 13. References

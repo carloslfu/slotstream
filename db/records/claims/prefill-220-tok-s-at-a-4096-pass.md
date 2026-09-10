@@ -2,13 +2,13 @@
 type: claim
 id: 01m1ht96a8gadh55hch7pj8hd0
 created: 2026-09-02T19:42:06.664317+00:00
-updated: 2026-09-02T19:42:06.664317+00:00
+updated: 2026-09-08T22:35:06.619184+00:00
 summary: Prefill at a 4096-token pass is about 220 tok/s on the dev Mac (estimated from the sweep's ladder)
 basis: estimated
 gate: Tools/planner_gates.sh
 needle: 220 tok/s
 supported_by: '[[records/measurements/n2-the-prefill-sweep-grouped-gemm-over-staging-contiguous-reads-no-pool-writes-2026-09-02]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md, docs/ENGINEERING.md
 title: Prefill at a 4096-token pass is about 220 tok/s on the dev Mac (estimated from the sweep's ladder)
 status: current
 ---

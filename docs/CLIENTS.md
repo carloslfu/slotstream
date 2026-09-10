@@ -1,76 +1,68 @@
 # Connect apps and agents to Slotstream
 
-Slotstream supplies the local model through an HTTP API. Your chat app or agent
-is installed separately; an agent executes its own tools and sends their results
-back to Slotstream. Choose the API that your client implements, then use the
-matching connection settings below.
+Slotstream runs the model; your app provides the chat interface or tools.
+Install both separately, then connect the app to the running Slotstream server.
 
 ## Choose a connection
 
-| Client | Connection type | Setup |
-|---|---|---|
-| Hermes | Custom provider using OpenAI Chat Completions | [Hermes guide](HERMES.md), including its context, timeout, and summary settings |
-| Other clients with OpenAI-compatible chat or function tools | OpenAI Chat Completions | [Common settings](#openai-compatible-clients) below, then check the client's supported features |
-| Open WebUI or the Ollama CLI | Ollama-compatible chat | [Ollama settings](#ollama-compatible-clients) below |
-| fx | AI SDK gateway | [fx guide](FX.md), including permission-review and compaction limits |
+| I use… | Follow… |
+|---|---|
+| Hermes | [Hermes setup](HERMES.md), which includes all the settings it needs |
+| Open WebUI or the Ollama CLI | [Ollama-compatible clients](#ollama-compatible-clients) below |
+| An app with an OpenAI-compatible or custom provider | [OpenAI-compatible clients](#openai-compatible-clients) below |
+| fx | [fx setup](FX.md), including its permission and long-session limitations |
 
-OpenAI function tools and reasoning support require the **unreleased source
-build** described in the [changelog](../CHANGELOG.md#unreleased). The public
-installer fetches the published release. Changing a client setting cannot add
-missing support to an older server. See [building from source](../README.md#testing)
-and start the executable you built; a local build can share the published
-release's version string.
+Start with [Get started](GETTING-STARTED.md) if Slotstream isn't installed.
+For agents that use tools, you need **Slotstream 0.2.8 or later**. Check with
+`slotstream --version`; run the [installer](../README.md#install) again to update.
 
 ## Start one server
 
-For ordinary chat, start the installed server and leave it running:
+**Hermes and fx users:** follow your app's guide above for the server command
+and configuration. For an ordinary chat app, open Terminal and run:
 
 ```sh
 slotstream serve
 ```
 
-If you built the source without installing it, use
-`.build/release/slotstream serve` from the repository instead. For Hermes, use
-the startup command in its [guide](HERMES.md#start-slotstream), which selects
-the larger context. Stop the server with Ctrl+C when finished.
+On first use, accept the model download and wait for it to finish.
+Once you see `slotstream listening on http://127.0.0.1:11434`, leave this
+window open. Stop the server with **Control+C** when finished.
 
-The addresses below apply to clients running directly on the same Mac. A
-container's or remote machine's `localhost` refers to that environment, so it
-needs separate networking configuration to reach the Mac. Slotstream binds to
-the Mac's loopback interface and accepts browser origins from loopback only;
-see [Security](../SECURITY.md).
+The settings below are for an app running directly on the same Mac.
+Apps running in Docker or on another computer need separate networking
+configuration. See [Security](../SECURITY.md) for the server's local-access limits.
 
 ## OpenAI-compatible clients
 
-Choose the client's **OpenAI-compatible** or **custom OpenAI** provider, with
-**Chat Completions** as the API mode:
+In your app's provider settings, choose **OpenAI-compatible** or **custom
+OpenAI**, then enter:
 
 | Setting | Value |
 |---|---|
+| API mode, if offered | Chat Completions |
 | Base URL | `http://127.0.0.1:11434/v1` |
 | Model | `qwen3.8-flash-next:4bit` |
-| API key, if required by the client | `unused` |
-| Full chat endpoint, if the client asks for an endpoint instead of a base URL | `http://127.0.0.1:11434/v1/chat/completions` |
+| API key, if required | `unused` |
 
-Use the base URL when the client appends its own route. Slotstream does not
-authenticate the placeholder key. The OpenAI **Responses API** is unsupported;
-a client that requires it needs a Chat Completions mode to connect.
+No OpenAI account or key is needed for this local connection. Leave `unused`
+as written. An app that requires the OpenAI Responses API cannot use this
+connection unless it also offers a Chat Completions mode.
 
-For an agent, enable client-executed function tools. Slotstream returns tool
-calls; the client validates arguments, performs the requested action using its
-own permissions, and returns the result with the matching call ID. The
-[API reference](API.md#v1chatcompletions) describes the exact fields and
-streaming format.
+If the app asks for a **full endpoint** instead of a base URL, use:
 
-Set an explicit output budget appropriate for the task. Also configure title
-generation, summarization, and any fallback model to use the local endpoint
-when you want the whole conversation to stay local. A main-model URL alone
-does not configure every auxiliary request. Hermes's tested settings are in
-its [guide](HERMES.md#configure-hermes).
+```text
+http://127.0.0.1:11434/v1/chat/completions
+```
+
+Apps may have separate model settings for conversation titles, summaries,
+and fallbacks. Set those to the same local provider if you want those model
+requests to stay on your Mac. Hermes's [configuration](HERMES.md#configure-hermes)
+already does this. Tools that use web services still need their own connections.
 
 ## Ollama-compatible clients
 
-Use these settings for Ollama-style chat, including Open WebUI:
+In Open WebUI or another app with an Ollama provider, use:
 
 | Setting | Value |
 |---|---|
@@ -78,66 +70,45 @@ Use these settings for Ollama-style chat, including Open WebUI:
 | Server URL | `http://127.0.0.1:11434` |
 | Model | `qwen3.8-flash-next:4bit` |
 
-An installed Ollama CLI can use the running Slotstream server:
+These settings support chat and images. For agents that use tools, choose
+OpenAI Chat Completions or follow the [Hermes guide](HERMES.md).
+
+If you already have the Ollama CLI installed, you can also open a chat in
+a second Terminal window:
 
 ```sh
 OLLAMA_HOST=http://127.0.0.1:11434 ollama run qwen3.8-flash-next:4bit
 ```
 
-The Ollama endpoints support chat, streaming, and images. They reject function
-tools. For an agent that offers both provider types, select OpenAI Chat
-Completions when using tools, following the source-build requirement above.
-
 ## Check the connection
 
-In another terminal, confirm that the model is discoverable:
+Select the model in your app and send a short message, such as “Hello.”
+You should see activity in the Slotstream terminal, followed by a reply in
+your app. A first reply may take a while to begin.
 
-```sh
-curl -sS http://127.0.0.1:11434/v1/models
-```
-
-Then send a plain chat request:
-
-```sh
-curl -sS http://127.0.0.1:11434/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "qwen3.8-flash-next:4bit",
-    "messages": [{"role": "user", "content": "Hello"}],
-    "stream": false
-  }'
-```
-
-For an agent, follow this with a real tool round trip: put a distinctive code
-in a test file, ask the agent to read it using its file or terminal tool, then
-ask it to recall the code from the conversation. Check the client's tool log
-and returned file contents. If you use summaries or images, check those paths
-as well. The [testing guide](TESTING.md) provides automated integration gates.
+For an agent, try the [file-reading example](HERMES.md#try-it). Check that
+it actually reads the file and returns its contents.
 
 ## Troubleshooting
 
-| Symptom | What to check |
+| Problem | What to check |
 |---|---|
-| Connection refused or the wrong model appears | Confirm the server is running, the port matches, and another server is not answering there. Check the executable you started and `/v1/models`. |
-| A tool request is rejected | Confirm the client uses OpenAI Chat Completions and the server includes the unreleased tool support. The Ollama endpoints reject tools. |
-| The client calls `/v1/responses` | Select its Chat Completions mode. Responses-only clients are unsupported. |
-| Context is rejected or the client guesses a huge window | Match the client's limit to the served window, which includes instructions, tool definitions, history, images, and output. The ordinary default is 32,768; Hermes uses an explicit `--max-context 65536`. |
-| The first answer times out | Read the server's prefill progress. Large standing prompts can take minutes; configure the client's local stream watchdog using measured waits. See the Hermes and fx guides for their different timeout behavior. |
-| Summaries stop early or auxiliary requests leave the local provider | Configure auxiliary routing and an explicit summary output budget. Hermes has a tested configuration; fx has known compaction limits. |
-| Structured output or strict schemas are rejected | JSON-schema constrained output and `strict: true` tool schemas are unsupported. Disable that requirement only if the client supports a fallback; otherwise the feature is incompatible. |
-| An image request fails | Enable vision and send inline image bytes in the API's format. Slotstream does not fetch remote image URLs or read API-supplied file paths. See [Images](API.md#images). |
+| Connection refused or the wrong model appears | Keep the Slotstream server running and copy the address and model name exactly. Check for [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
+| Tools don't work | Use OpenAI Chat Completions with Slotstream 0.2.8 or later. The Ollama connection does not support tools. |
+| The app calls `/v1/responses` | Select Chat Completions mode. Responses-only apps are unsupported. |
+| The conversation is too long | The ordinary limit is 32,768 tokens, including instructions, history, and reply. Hermes needs the larger `--max-context 65536` setup in its guide. |
+| The first answer times out | Check progress in the Slotstream window. Long prompts can take minutes. See your agent's guide for its timeout settings. |
+| Summaries stop early or use a cloud model | Check the separate summary-provider and reply-length settings. Use the full configuration in the Hermes guide; fx has known summary limitations. |
+| The app requires strict structured output | JSON-schema constrained output and strict tool schemas are unsupported. The app needs a mode that works without that requirement. |
+| An image fails | Check available memory and that you haven't started Slotstream with `--vision off`. Developers can check the [image request format](API.md#images). |
 
-The [API reference](API.md) lists supported fields and errors. The
-[troubleshooting guide](TROUBLESHOOTING.md) covers server startup, port conflicts,
-memory, and weight files. Successful checks with Hermes, fx, or a chat client
-qualify those tested versions and request paths; another client's optional
-features can require additional support.
+<a id="reporting-an-integration-problem"></a>
 
-## Reporting an integration problem
+[General troubleshooting](TROUBLESHOOTING.md) covers startup, memory, and
+model files. For a bug report, include the app and Slotstream versions, Mac
+model and memory, server command, connection settings, and error text.
+Remove credentials and private conversation or file contents.
 
-Include the client version, Slotstream release or source commit, Mac model and
-RAM, exact server command, provider/API mode, base URL, model ID, and the full
-error text. Say whether model discovery, plain chat, the tool call, the returned
-tool result, or a later summary failed. A minimal request and response help
-separate a protocol problem from a client setting. Remove real credentials and
-private conversation or file contents before posting them.
+Developers: see the [API reference](API.md) for supported fields and request
+examples, and [integration tests](TESTING.md#openai-agent-integration) for
+protocol and real-client checks.

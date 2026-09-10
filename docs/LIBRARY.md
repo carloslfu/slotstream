@@ -170,7 +170,7 @@ available for callers in another process.
 
 ## Context and request control
 
-These additive APIs are available in the unreleased source build.
+These additive APIs are available starting in Slotstream 0.2.12.
 
 Construct an engine with the plan that prices its context. Shared
 `ContextConfiguration` validates `maxContextTokens` and

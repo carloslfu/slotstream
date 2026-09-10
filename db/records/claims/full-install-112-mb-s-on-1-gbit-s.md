@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwp75pjdehj9dk1ne67hd
 created: 2026-09-02T17:15:28.357070+00:00
-updated: 2026-09-02T17:15:28.357070+00:00
+updated: 2026-09-08T22:35:06.437803+00:00
 summary: A full install runs at 112 MB/s from a 1 Gbit/s datacenter link
 basis: measured
 gate: none
@@ -10,7 +10,7 @@ needle: 112 MB/s
 supported_by:
 - '[[records/measurements/the-fix-and-its-gates]]'
 - '[[records/measurements/post-release-0-2-1-installed-through-install-sh-2026-09-01]]'
-surfaces: README.md, docs/CLI.md
+surfaces: docs/CLI.md, docs/DOWNLOAD-FORMAT.md
 title: A full install runs at 112 MB/s from a 1 Gbit/s datacenter link
 status: current
 ---

@@ -17,6 +17,20 @@ Update README/docs, canonical plan/support records and generated projections
 alongside verified implementation. Do not present this direction as shipped
 model selection or new hardware support.
 
+## Public documentation
+
+Keep `README.md` approachable and complete: purpose, capabilities, measured
+results with limits, requirements, quick start, a plain explanation, FAQs,
+community/support, author, star count/history, and links to guides. Preserve
+useful sections and project character; do not optimize for minimum word or
+link count. Write setup guides for newcomers with complete commands, expected
+results, and practical troubleshooting. Put protocol details, full benchmark
+methods, implementation rationale, and test procedures in linked engineering
+pages, starting at `docs/ENGINEERING.md`.
+Preserve the tested configuration and move its explanation instead of
+removing settings. Keep old public anchors usable when moving sections.
+Canonical decision: [newcomer documentation](db/records/decisions/newcomer-documentation.md).
+
 ## The brain (`db/`) — read before touching MEASUREMENTS.md or PLAN.md
 
 `db/` is a public db.md store and the authority for what this project knows:
@@ -60,6 +74,15 @@ regenerates them and stages the result with the commit; a six-line README FAQ
 that landed without the regenerate on 2026-09-03 is why it exists.
 
 ## Claims and measurement discipline (mistakes made 2026-08-29/30)
+
+**Operating defaults and limits.** Follow the canonical
+[measured operating policies](db/records/design/measured-operating-policies.md).
+For each important tuning value, document its purpose, units, kind of limit,
+evidence and tested scope, tradeoff, override behavior, and revision criterion
+beside the code and in the linked brain record. Keep justified defaults when
+new hardware cannot be measured; unused capacity alone is not a defect.
+An estimator's clamp is not evidence of a physical performance plateau.
+Update code/help, gates, claims and user docs together when the policy changes.
 
 Every rule here is one this project already got wrong. They share a root:
 **asserting from a document instead of checking the system.**
