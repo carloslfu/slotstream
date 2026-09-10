@@ -925,3 +925,6 @@ Preserved clean-build failure and full coverage artifacts before recording the r
 ## [2026-09-10 21:52] update | records/measurements/release-qualification-0-2-12.md
 Preserved the CI memory refusal; independently verified exact malformed checkpoint parsing and regression-tested the planner gate. Final CI and public artifact acceptance remain pending.
 
+## [2026-09-10 21:55] update | records/measurements/release-qualification-0-2-12.md
+Captured all 27381 instrumented assertions passing; raised restored production floors and reconciled added negative-assertion scaffolding in the diagnostic floor. Preserved raw CI reports and exact unchanged-line comparison.
+

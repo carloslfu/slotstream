@@ -21,7 +21,7 @@
     "Sources/Slotstream/GDNPhaseProfile.swift": 0.0,
     "Sources/Slotstream/GatewayDialect.swift": 84.45,
     "Sources/Slotstream/Generate.swift": 8.74,
-    "Sources/Slotstream/Governor.swift": 26.76,
+    "Sources/Slotstream/Governor.swift": 28.8,
     "Sources/Slotstream/LayerLocalVictim.swift": 100.0,
     "Sources/Slotstream/Layers.swift": 0.0,
     "Sources/Slotstream/MTP.swift": 0.0,
@@ -40,9 +40,9 @@
     "Sources/Slotstream/PartialRotation.swift": 0.0,
     "Sources/Slotstream/PinnedModel.swift": 100.0,
     "Sources/Slotstream/PinnedTransport.swift": 30.0,
-    "Sources/Slotstream/Plan.swift": 76.42,
+    "Sources/Slotstream/Plan.swift": 80.14,
     "Sources/Slotstream/PlannerDevice.swift": 100.0,
-    "Sources/Slotstream/PrefixCache.swift": 80.19,
+    "Sources/Slotstream/PrefixCache.swift": 86.83,
     "Sources/Slotstream/PressureBoundary.swift": 77.14,
     "Sources/Slotstream/ProcessMemory.swift": 55.81,
     "Sources/Slotstream/RequestControl.swift": 90.04,
@@ -51,7 +51,7 @@
     "Sources/Slotstream/RouterSelection.swift": 100.0,
     "Sources/Slotstream/RouterTrace.swift": 0.0,
     "Sources/Slotstream/SelectedAttention.swift": 0.0,
-    "Sources/Slotstream/Server.swift": 10.51,
+    "Sources/Slotstream/Server.swift": 11.64,
     "Sources/Slotstream/SlotWritePlan.swift": 100.0,
     "Sources/Slotstream/SlotpackDownload.swift": 91.85,
     "Sources/Slotstream/SlotpackManifest.swift": 98.72,
@@ -100,7 +100,7 @@
     "Sources/SlotstreamDiagnostics/Diagnostics+PartialRotation.swift": 0.0,
     "Sources/SlotstreamDiagnostics/Diagnostics+PoolRequests.swift": 0.0,
     "Sources/SlotstreamDiagnostics/Diagnostics+PrefillQualification.swift": 0.0,
-    "Sources/SlotstreamDiagnostics/Diagnostics+PrefixCapacity.swift": 93.43,
+    "Sources/SlotstreamDiagnostics/Diagnostics+PrefixCapacity.swift": 91.44,
     "Sources/SlotstreamDiagnostics/Diagnostics+PrefixFork.swift": 0.0,
     "Sources/SlotstreamDiagnostics/Diagnostics+PrefixRetention.swift": 0.0,
     "Sources/SlotstreamDiagnostics/Diagnostics+PrefixVision.swift": 0.0,
@@ -126,5 +126,5 @@
     "Sources/SlotstreamDiagnostics/Diagnostics.swift": 89.87,
     "Sources/SlotstreamDiagnostics/Goldens.swift": 94.03
   },
-  "note": "Per-file T0/T1 line coverage floors. v0.2.12 adds measured floors and separately reviewed native-code denominator growth; existing covered paths remain required. See db/records/measurements/release-qualification-0-2-12.md."
+  "note": "Per-file T0/T1 line coverage floors. v0.2.12 adds measured floors and separately reviewed native-code denominator growth; existing covered paths remain required. See db/records/measurements/release-qualification-0-2-12.md. Restored production server/prefix/context checks raise their measured floors; the prefix diagnostic denominator correction is individually reviewed in that same record."
 }

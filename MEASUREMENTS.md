@@ -3725,3 +3725,21 @@ creation. All six actual malformed fixtures also passed locally with their
 exact diagnoses. Production memory guards and inference code are unchanged.
 Final CI confirmation remains pending. Evidence:
 [[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]].
+
+## Restored coverage confirmation
+
+The next instrumented CI job passed all 44 groups and 27,381 assertions, with
+no failure or skip. PrefixCache coverage rose to 86.83% and Server to 11.64%,
+clearing both retained floors. Their floors now rise to these measurements,
+alongside Plan at 80.14% and Governor at 28.80%.
+
+One remaining percentage flag concerned Diagnostics+PrefixCapacity itself.
+Its added negative-input assertions enlarged LLVM's counted denominator from
+137 to 187 lines while hit lines grew from 128 to 171. No covered unchanged
+line lost a hit. The assertion that would report unexpected success for an
+invalid image correctly remains unexecuted. This diagnostic floor is updated
+individually to 91.44%; the production floors are not reduced. Applying these
+floors to the preserved CI report passes the full ratchet.
+
+Evidence: [[sources/runs/2026/09/2026-09-10-release-0-2-12-restored-coverage]].
+Final static CI and installed public-artifact acceptance remain pending.
