@@ -937,3 +937,6 @@ Captured a complete 100% decode wall-time partition from one clean 512-output pa
 ## [2026-09-10 22:52] update | records/measurements/release-qualification-0-2-14.md
 Prepared exact startup refusal checks with visible failures, qualified the archive verifier, and bound release publication to the same archive from successful main CI. Preserve both unpublished tags; require green CI before tagging v0.2.14.
 
+## [2026-09-10 22:53] update | records/measurements/decode-wall-time-attribution-2026-09-10.md
+Carlos requested durable preservation in both brains. Added the global CLOCK cache, pinning, miss deduplication and MTP byte-accounting explanation to the complete measured breakdown; raw timing evidence remains unchanged.
+

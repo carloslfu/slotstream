@@ -2,7 +2,7 @@
 type: measurement
 id: 01m26qfx8tk5y5dwprygzhegmy
 created: 2026-09-10T22:37:24.122552+00:00
-updated: 2026-09-10T22:38:19.474256+00:00
+updated: 2026-09-10T22:53:02.803974+00:00
 summary: Decode wall-time attribution with natural GPU boundaries
 date: 2026-09-10
 doc: measurements
@@ -40,6 +40,8 @@ The 512-output pair takes 43.943496584 seconds disabled and 42.447254083 seconds
 | Total before display rounding | 100% | 100% |
 
 **What loading means.** On a miss, `ExpertStore.readBatchChecked` dispatches and joins worker lanes issuing `pread` calls into aligned temporary RAM buffers. Each complete quantized expert record is 2,764,800 bytes across nine pieces. Staging is wrapped as MLX arrays; later GPU scatter kernels copy the quantized bytes into persistent cache slots. The CPU and GPU share physical RAM, so this is SSD to staging RAM, then a copy within RAM, then GPU reads/calculations. There is no discrete-GPU PCIe upload stage in this Mac path. The file layer requests `F_NOCACHE` and disables read-ahead. The ordinary checkpoint path ignores those calls' return values, so this trace establishes file-read-path latency and requested bytes, not a hardware measurement of NAND service time or guaranteed physical SSD bytes. The read row includes worker scheduling, syscall/OS work and waits, with separately measured staging allocation/wrapping removed.
+
+**Cache behavior behind the timing.** These profiles use one global slot pool shared across layers. Each slot holds one quantized expert record identified by its layer and expert ID. A hit sets its reference bit and pins the slot for the active readers. Misses are deduplicated within the request, assigned unpinned victims by the CLOCK scan, read in bounded batches, and installed through dependent scatter graphs. The scan skips pinned slots and clears reference bits before reconsidering recently used entries. The optional layer-local floor branch was not exercised in these measurements. Layer completion releases the lifetime dependency that permits subsequent slot reuse. This policy preserves recently reused experts without keeping all 512 experts of every layer resident; the hit rate depends on the actual routing sequence. Under MTP, batched verification, duplicate expert requests and accepted output counts differ, so compute bytes per emitted token from the native read counter rather than assuming one ordinary forward per output. The ngram lookup path has separate storage/caching and timing; its measured decode work is included in the smaller CPU/GPU categories.
 
 **Why the GPU/CPU rows are honest but not individual-kernel timers.** CPU host scopes, MLX Metal command-preparation spans, and native GPU encoder timestamps share a checked clock. Analysis sweeps all endpoints and counts each interval once: observed GPU execution first; then host read/staging/ngram-fetch phases; then CPU Metal encoding; then the remaining host scope. Concurrent CPU work is represented under the GPU category during that overlap. This is a declared wall-time attribution, not a unique causal decomposition, the sum of CPU utilization and GPU utilization, or pure arithmetic time. A GPU encoder's envelope includes memory access, scheduling and barriers. CPU evaluation/synchronization means time in that host scope after observed GPU execution and Metal encoding have been removed; it is not all active CPU computation or all sleeping.
 

@@ -2,14 +2,14 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-10T22:51:50.463277Z
+updated: 2026-09-10T22:53:02.803974Z
 ---
 
 # records/measurements
 
+- [[records/measurements/decode-wall-time-attribution-2026-09-10]] — Decode wall-time attribution with natural GPU boundaries
 - [[records/measurements/release-qualification-0-2-13]] — Public v0.2.13 release qualification and installed-artifact acceptance
 - [[records/measurements/release-qualification-0-2-14]] — v0.2.14 exact CI archive publication and local installed-artifact qualification
-- [[records/measurements/decode-wall-time-attribution-2026-09-10]] — Decode wall-time attribution with natural GPU boundaries
 - [[records/measurements/release-qualification-0-2-12]] — Public release preparation, coverage reconciliation and installed-artifact acceptance for v0.2.12
 - [[records/measurements/optimization-final-composition-2026-09-09]] — Completed and locally activated integration: scoped preview gains, lower process peaks, flat plain TPS and slower fixed-MTP TPS within the original acceptance allowance
 - [[records/measurements/user-server-throughput-2026-09-10]] — Eight clean user-server timings: observed decode rate 10.28 to 15.80 tokens/sec, separate planner estimates, exact repeats, interruptions and limits
