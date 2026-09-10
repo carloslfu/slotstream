@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m1qmfn82qv2avgdyk96x1crn
 created: 2026-09-05T01:56:13.698129+00:00
-updated: 2026-09-10T20:46:08.799221+00:00
+updated: 2026-09-10T23:52:52.103747+00:00
 summary: 'Completed OPT00–OPT36 program: exact qualified sources and local installation active; all final outcomes and prerequisite-dependent deferrals preserved'
 date: 2026-09-04
 doc: plan
@@ -12,6 +12,10 @@ level: '3'
 order: '334'
 title: Unified whole-engine optimization program — 2026-09-04
 ---
+**Public release follow-up, September 10:** v0.2.14 now publishes the completed optimization work and is installed and serving locally. The exact successful CI archive, public provenance and installation are verified. Public-artifact acceptance currently qualifies 23 of 25 original model gates and all 31 installed-release checks. The full governor and long-prompt zero-swap memory intervals remain unqualified after system swap-ins; every excluded attempt is preserved and no assertion was relaxed. Current release identity, evidence and the two remaining acceptance actions are in [[records/measurements/release-qualification-0-2-14]]. This supersedes the installed-binary and publication state in the preserved optimization-activation snapshot below, without changing the completed OPT00–OPT36 dispositions or their original evidence.
+
+**Preserved optimization closure and source-qualified activation:**
+
 **Final status, September 10: the approved OPT00–OPT36 optimization program is complete and the exact qualified candidate is active locally.** Every required execution gate is closed. All thirty-seven outcomes are accounted for; selected changes are implemented and tested, rejected candidates stay disabled, and explicitly prerequisite-dependent research remains deferred. This is completion of the approved program, not a claim that every possible future optimization has been implemented.
 
 **Session record and later live-server benchmark.** The completed session's exact final closure is [[sources/runs/2026/09/2026-09-10-optimization-final-program-complete]]. The original work, all-item outcomes, accepted and rejected experiments, failed runs, resource/thermal scheduling corrections and activation history remain preserved below. The later three-prompt benchmark, every clean timing, explicit discarded attempts and observed-versus-estimated tokens/sec are now documented separately in [[records/measurements/user-server-throughput-2026-09-10]]. It does not change the original qualification or the conservative calibration decision.

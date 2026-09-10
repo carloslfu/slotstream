@@ -2,11 +2,16 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-10T22:50:53.983151Z
+updated: 2026-09-10T23:50:40.975212Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-10-release-0-2-14-installed-api-and-serving]] — v0.2.14 installed API acceptance and restored normal demo server
+- [[sources/runs/2026/09/2026-09-10-release-0-2-14-local-requalification]] — v0.2.14 local requalification with preserved swap-invalidated attempts
+- [[sources/runs/2026/09/2026-09-10-release-0-2-14-initial-local-acceptance]] — v0.2.14 first installed-public acceptance pass and swap-invalidated memory intervals
+- [[sources/runs/2026/09/2026-09-10-release-0-2-14-governor-invalid-interval]] — v0.2.14 governor swap-invalidated interval and prospective targeted rerun
+- [[sources/runs/2026/09/2026-09-10-release-0-2-14-publication]] — v0.2.14 successful CI, exact public archive, provenance and installer evidence
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-candidate-gates]] — v0.2.14 startup refusal checks and exact CI archive reuse
 - [[sources/runs/2026/09/2026-09-10-decode-attribution-discarded-attempts]] — Decode attribution discarded attempts and rejected profiler
 - [[sources/runs/2026/09/2026-09-10-decode-wall-time-attribution]] — Decode wall-time attribution on the M5 Pro, with production untouched
@@ -502,13 +507,8 @@ updated: 2026-09-10T22:50:53.983151Z
 - [[sources/runs/2026/09/2026-09-04-verify-with-vision-gates-idle]] — verify.sh with the vision gates on an idle machine: 24 passed, 0 failed, including vision parity and 18 serving assertions at the 8.1 GB floor.
 - [[sources/runs/2026/09/2026-09-03-verify-with-vision-gates]] — verify.sh with the vision gates: 23 passed, 1 failed — the serving suite's server was killed by the kernel while an unrelated slotstream serve held the machine.
 - [[sources/runs/2026/09/2026-09-03-prefill-transient-probes]] — PrefillProbe: the pass's three unbounded transients — MoE combine, PLE, QSA indexer — dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-03-expert-record-read-layout-ab]] — Expert-record read layout: nine pieces against one packed read, by run length, dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-03-router-trace-and-cache-simulation]] — M1 router trace and cache simulation, 220 decode steps at 30 experts/layer, dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-03-pass-memory-phase-trace]] — Where a 2048-token pass peaks: phase memory trace with and without query-blocked attention, dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-03-decode-scatter-mode-and-read-lanes-ab]] — Decode A/B: pool scatter completion mode and pool read lanes, 30 experts/layer, dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-03-pass-cost-and-attention-block-ab]] — Pass cost by chunk with and without query-blocked attention, pinned 20 experts/layer, dev Mac, 2026-09-03
 
 ## More
 
-This folder has 509 files. The 500 most recent are listed above.
+This folder has 514 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -940,3 +940,6 @@ Prepared exact startup refusal checks with visible failures, qualified the archi
 ## [2026-09-10 22:53] update | records/measurements/decode-wall-time-attribution-2026-09-10.md
 Carlos requested durable preservation in both brains. Added the global CLOCK cache, pinning, miss deduplication and MTP byte-accounting explanation to the complete measured breakdown; raw timing evidence remains unchanged.
 
+## [2026-09-10 23:54] update | records/measurements/release-qualification-0-2-14.md
+Published v0.2.14 from successful complete CI and verified exact public archive, source identity, GitHub attestation and ordinary local installation. Preserved the initial 20/5 model battery and every targeted rerun: MTP/vision and context qualify, bringing unique model gates to 23/25; governor and long-prompt zero-swap memory gates remain unqualified after system swap-ins with no new swap-outs. All 31 installed-release checks passed, and the normal v0.2.14 demo server was restored and answered OK. No app was closed and no acceptance assertion was relaxed. Compiled sources and immutable evidence remain exact; validation has zero errors and two unchanged historical log warnings.
+

@@ -37,6 +37,12 @@ startup-memory error checks, while preserving those tags and their evidence.
 The release now signs and publishes the exact archive from successful main
 CI, with checksum, source-identity and version verification.
 
+The public artifact is installed and serving locally. Its installed-release
+API suite passed, while full local acceptance still has outstanding zero-swap
+governor and long-prompt memory gates. The observed system paging, preserved
+attempts and remaining checks are explicit in the
+[release qualification record](db/records/measurements/release-qualification-0-2-14.md).
+
 ## 0.2.11 — 2026-09-06
 
 - Compressed model downloads now come directly from the public Hugging Face
