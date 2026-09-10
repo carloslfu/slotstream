@@ -215,6 +215,19 @@ to help others know what to expect. Reports are credited to their authors.
 Code and documentation contributions are welcome; see
 [Contributing](CONTRIBUTING.md) for the workflow.
 
+## Grants and sponsors
+
+<p>
+  <a href="https://github.com/rauchg">
+    <img src="https://avatars.githubusercontent.com/u/13041?v=4&amp;s=160" width="80" height="80" alt="Guillermo Rauch's GitHub profile photo"><br>
+    <strong>Guillermo Rauch</strong>
+  </a>
+</p>
+
+Slotstream was selected for [Guillermo Rauch's personal grants for foundational
+open-source software](https://rauchg-oss-grants.vercel.app/).
+Thank you for supporting its development.
+
 ## Who made this
 
 I'm [Carlos Galarza](https://www.carlosgalarza.com). I work on efficient AI

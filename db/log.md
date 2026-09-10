@@ -136,3 +136,6 @@ Documented the intentional automatic memory ceiling and manual total-process tar
 ## [2026-09-09 23:06] update | records/design/measured-operating-policies.md
 Documented measured operating defaults as a maintained engineering responsibility across planner comments, CLI help and diagnostics, contributor/agent guidance, canonical decisions and user documentation. Preserved numerical policies and historical measurement bodies; clarified that larger-target planner estimates are not benchmarks. Swift parsing, diagnostic formatting, unchanged-allocation comparison, shell/Python syntax, 120 claim checks, projections, generated docs and database validation passed. Full build and runtime gates are left to CI to avoid interfering with the active model benchmark.
 
+## [2026-09-10 15:07] update | records/decisions/guillermo-rauch-grant-acknowledgment.md
+Added Guillermo Rauch's official GitHub profile photo and full name to the README with the official Slotstream grant link. Preserved public recipient-list excerpts, personal grant terms and profile metadata. GitHub Markdown rendering retained the image, alt text, name and links. Generated documentation, full database validation, projections, 120 claim checks and whitespace checks passed.
+
