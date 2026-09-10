@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-10T20:44:33.641941Z
+updated: 2026-09-10T21:40:03.530243Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]] — Release build identity and coverage corrections before v0.2.12 publication
 - [[sources/runs/2026/09/2026-09-10-user-server-small-benchmark-paging-repeat-discarded]] — Discarded timing for the completed resumed summary repeat with system paging
 - [[sources/runs/2026/09/2026-09-10-user-server-small-benchmark-pressure-attempt-discarded]] — Discarded small-benchmark request canceled on memory pressure
 - [[sources/runs/2026/09/2026-09-10-user-server-three-prompts-small-benchmark]] — Small sequential benchmark of three prompts on the existing user server, with repeats and follow-ups
@@ -506,9 +507,8 @@ updated: 2026-09-10T20:44:33.641941Z
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-tuning]] — prefill sweep tuning: group size, read lanes, admission on/off, 8k prompt at 16 GB, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-ladder-60-per-layer]] — prefill pass-size ladder at a matched 60-per-layer pool, sweep and 0.2.2 code, plus 4096 at 16 GB, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-floor-and-10gb]] — prefill sweep at the 8.1 GB floor and at 10 GB, 7,960-token prompt, dev Mac, 2026-09-02
-- [[sources/runs/2026/09/2026-09-02-prefill-sweep-ab-prose-16gb]] — prefill sweep A/B, 10,490-token prose prompt at a 16 GB target, dev Mac, 2026-09-02
 
 ## More
 
-This folder has 502 files. The 500 most recent are listed above.
+This folder has 503 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

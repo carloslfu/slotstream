@@ -919,3 +919,6 @@ Added Guillermo Rauch's official GitHub profile photo and full name to the READM
 ## [2026-09-10 21:04] update | records/plan/whole-engine-optimization-2026-09-04.md
 Preparing v0.2.12: preserve the complete optimization source and evidence, merge the intervening public branch, and retain both append-only log histories. The merge places the remote historical tail after the local tail; the resulting out-of-order warning is provenance of concurrent histories, not a rewritten or discarded entry. Release CI and public-artifact local acceptance are pending.
 
+## [2026-09-10 21:41] update | records/measurements/release-qualification-0-2-12.md
+Preserved clean-build failure and full coverage artifacts before recording the release corrections. Restored omitted serving and context-budget checks, added image-checkpoint boundary cases, retained server/prefix floors, and reviewed eight native-code denominator changes with unchanged covered-line evidence. Publication and installed-release acceptance remain pending.
+

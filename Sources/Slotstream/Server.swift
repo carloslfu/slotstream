@@ -809,7 +809,7 @@ public final class Server {
     /// has. A client sending the default is asking for exactly what it gets, so
     /// refusing it breaks stock SDKs for no semantic reason; any other value is
     /// a real feature and stays a 400. Nothing is silently dropped either way.
-    private static func openAINoOpError(_ json: [String: Any]) -> String? {
+    package static func openAINoOpError(_ json: [String: Any]) -> String? {
         if json["n"] != nil, int(json["n"]) != 1 {
             return "n must be 1; this server returns a single choice"
         }

@@ -87,6 +87,50 @@ extension Diagnostics {
             c.equal("\(adoption): three retained plus active producer", cache.json()["conversations"] as? Int, 3)
             c.equal("\(adoption): valuable checkpoint survives", cache.heldCheckpoints, 1)
         }
+        // A checkpoint ending inside an image must keep its source identity.
+        // These states carry no tensors and never run image or model inference.
+        let imageCache = PrefixCache(maxTokens: 8192)
+        let imageHash = ImageHash(hi: 7, lo: 11)
+        let image = ImageSegment(start: 1, count: 20, hash: imageHash,
+            preparationIdentity: "processor-a")
+        c.equal("image extent is exclusive", image.end, 21)
+        c.expect("partial image checkpoint admitted", try imageCache.storeReusableCheckpoint(
+            state: state(prompts[0]), tokens: prompts[0], images: [image],
+            reserveTokens: 18, reserveSequenceBytes: 0))
+        c.expect("same image identity reuses a partial checkpoint",
+            imageCache.take(matching: prompts[0] + [907], images: [image], reserveTokens: 18) != nil)
+        let changedImage = ImageSegment(start: 1, count: 20, hash: imageHash,
+            preparationIdentity: "processor-b")
+        c.expect("same bytes from a different image processor do not reuse",
+            imageCache.take(matching: prompts[0] + [907], images: [changedImage], reserveTokens: 18) == nil)
+        c.equal("partial image hit counted", imageCache.checkpointHits, 1)
+        c.equal("image mismatch counted", imageCache.misses, 1)
+        for invalid in [
+            [ImageSegment(start: -1, count: 1, hash: imageHash)],
+            [ImageSegment(start: 0, count: 0, hash: imageHash)],
+            [ImageSegment(start: Int.max, count: 1, hash: imageHash)],
+            [ImageSegment(start: 0, count: 3, hash: imageHash),
+             ImageSegment(start: 2, count: 1, hash: imageHash)],
+        ] {
+            let held = imageCache.heldTokens
+            do {
+                try imageCache.storeReusableCheckpoint(state: state(prompts[0]), tokens: prompts[0],
+                    images: invalid, reserveTokens: 18, reserveSequenceBytes: 0)
+                c.expect("invalid image extent refused", false)
+            } catch {
+                c.expect("invalid image extent refused", true)
+            }
+            c.equal("invalid image extent preserves retained state", imageCache.heldTokens, held)
+        }
+        let retained = imageCache.heldTokens
+        imageCache.resetStats()
+        c.equal("resetting observations preserves cached state", imageCache.heldTokens, retained)
+        c.equal("reset clears hit count", imageCache.hits, 0)
+        c.equal("reset clears miss count", imageCache.misses, 0)
+        c.equal("reset clears checkpoint observations", imageCache.checkpointStores, 0)
+        imageCache.drop()
+        c.equal("explicit drop releases retained state", imageCache.heldTokens, 0)
+        c.expect("drop preserves the enabled policy", imageCache.enabled)
         return c.report()
     }
 }

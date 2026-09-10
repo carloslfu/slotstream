@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-10T20:46:08.838921Z
+updated: 2026-09-10T21:41:15.278010Z
 ---
 
 # records/measurements
 
+- [[records/measurements/release-qualification-0-2-12]] — Public release preparation, coverage reconciliation and installed-artifact acceptance for v0.2.12
 - [[records/measurements/optimization-final-composition-2026-09-09]] — Completed and locally activated integration: scoped preview gains, lower process peaks, flat plain TPS and slower fixed-MTP TPS within the original acceptance allowance
 - [[records/measurements/user-server-throughput-2026-09-10]] — Eight clean user-server timings: observed decode rate 10.28 to 15.80 tokens/sec, separate planner estimates, exact repeats, interruptions and limits
 - [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
