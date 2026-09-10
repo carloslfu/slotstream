@@ -931,3 +931,9 @@ Captured all 27381 instrumented assertions passing; raised restored production f
 ## [2026-09-10 22:19] update | records/measurements/release-qualification-0-2-13.md
 Preserved the unpublished v0.2.12 tag and failed CI; corrected the isolated planner-test fixture, added pre-build self-checks, ran local harness/installer qualification, and prepared v0.2.13 with only its version string changed in compiled source.
 
+## [2026-09-10 22:39] update | records/measurements/decode-wall-time-attribution-2026-09-10.md
+Captured a complete 100% decode wall-time partition from one clean 512-output pair, three clean 128-output pairs and smaller-cache controls; preserved raw traces, excluded attempts and isolated instrumentation. Restored the original installed server. Validation: zero errors, two unchanged historical log warnings; projections, 131 claim checks and diff whitespace pass.
+
+## [2026-09-10 22:52] update | records/measurements/release-qualification-0-2-14.md
+Prepared exact startup refusal checks with visible failures, qualified the archive verifier, and bound release publication to the same archive from successful main CI. Preserve both unpublished tags; require green CI before tagging v0.2.14.
+

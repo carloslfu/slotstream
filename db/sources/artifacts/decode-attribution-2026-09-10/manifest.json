@@ -1,0 +1,84 @@
+{
+  "inventory": [
+    {
+      "source": ".build/decode-attribution-20260910/natural-smoke-32/round-1-mode-4/trace-1.json",
+      "raw_bytes": 15826175,
+      "raw_sha256": "1a37941aa5f6803f20331b34203c5840481f007965f7a90afb271f1db2ddb69a",
+      "artifact": "natural-smoke-32-round-1-trace.json.xz",
+      "bytes": 2642156,
+      "sha256": "9af65c70b1f7d38d416248fc85b8d11e16f6da3c792a0474d26aa5aaa7d40da6",
+      "lossless_roundtrip": true
+    },
+    {
+      "source": ".build/decode-attribution-20260910/final-small-128/round-1-mode-4/trace-1.json",
+      "raw_bytes": 64851338,
+      "raw_sha256": "40bbc38d08744d3fb8cf90c630d7d433e4ea34d26e460a7a31399cc3ec0f9bc4",
+      "artifact": "final-small-128-round-1-trace.json.xz",
+      "bytes": 10822592,
+      "sha256": "801f66afabaa3a164aa74b8a22fda7fe3b40c4345a8c6ac03dcb43127f5ce116",
+      "lossless_roundtrip": true
+    },
+    {
+      "source": ".build/decode-attribution-20260910/final-large-mtp-128-v2/round-1-mode-4/trace-1.json",
+      "raw_bytes": 45943293,
+      "raw_sha256": "81105337d3ed1f06261d56571d1681a77a0bcad569a84664d73b31b2e886931a",
+      "artifact": "final-large-mtp-128-v2-round-1-trace.json.xz",
+      "bytes": 7721744,
+      "sha256": "5a050dfd9811dd45170f85440fcb1931efae8ff62b30a3ad8a77d3c246e27ca2",
+      "lossless_roundtrip": true
+    },
+    {
+      "source": ".build/decode-attribution-20260910/final-large-mtp-128-v2/round-2-mode-4/trace-1.json",
+      "raw_bytes": 45944466,
+      "raw_sha256": "b6cc358fb026454e63e286910bf02b75ec15fb8ec4f92af2af6308db32c4e2a3",
+      "artifact": "final-large-mtp-128-v2-round-2-trace.json.xz",
+      "bytes": 7716692,
+      "sha256": "379188735abfad1f5c4efd3ee0ac29140b310b9cc6a215a2d673ad384232e750",
+      "lossless_roundtrip": true
+    },
+    {
+      "source": ".build/decode-attribution-20260910/final-large-mtp-128-v2/round-4-mode-4/trace-1.json",
+      "raw_bytes": 45939287,
+      "raw_sha256": "7fbc67b09c72cb30b99d3417ca53724781b8031507152d574011b19f765121c7",
+      "artifact": "final-large-mtp-128-v2-round-4-trace.json.xz",
+      "bytes": 7904408,
+      "sha256": "2c257ba3185f95c260c3a10bcc6334145f778a691000c35233eaa9c0b68e8698",
+      "lossless_roundtrip": true
+    },
+    {
+      "source": ".build/decode-attribution-20260910/final-large-mtp-512-v2/round-3-mode-4/trace-1.json",
+      "raw_bytes": 187160666,
+      "raw_sha256": "b09c996181989fb66a2a709dec9dae83aabff117d6bcf626ecd76781a59fbb38",
+      "artifact": "final-large-mtp-512-v2-round-3-trace.json.xz",
+      "bytes": 31498308,
+      "sha256": "a077efbf9d9d593d0825e98c95faf342738e381858d2f28d5f94cd0006614825",
+      "lossless_roundtrip": true
+    },
+    {
+      "artifact": "analysis.json",
+      "bytes": 109534,
+      "sha256": "6a87ddead2d5b928c76a015739690e66ca2fb159184929517bedbdf22d6a5b73"
+    },
+    {
+      "artifact": "profiled-source.tar.gz",
+      "bytes": 28875,
+      "sha256": "487454dac7b9c3407c8d267e09dd604a5c73abc43bba55ef305f284b16b703aa"
+    },
+    {
+      "artifact": "raw-results-and-driver.tar.gz",
+      "bytes": 533054,
+      "sha256": "c496e5ecf0b83eaec8d5dba0e110f68180645b0f5c7e0c3381d67ed09606dbd1"
+    },
+    {
+      "artifact": "restoration-proof.json",
+      "bytes": 2443,
+      "sha256": "20e5e132d34f72002fe2610130240502daeab3eb1311e248138a2dfbc5a5cea1"
+    }
+  ],
+  "slotstream_base": "449f3841d65cbca8346ab6ae8092eb0948d92dbd",
+  "binary_sha256": "3121d93bdd1040cdb0500b4444a043cc0e59fb51c6b3ad12696a2dad0250471c",
+  "final_head": "63583180e154517a4f7785fc6d1d7ee1e9ff28e0",
+  "raw_trace_policy": "All measured traces from clean matched pairs are losslessly archived. Raw request results, resource counters and errors from all studies are retained, including discarded attempts. Unqualified and warmup traces remain in the local ignored build directory.",
+  "source_policy": "profiled-source.tar.gz freezes actual native code. The raw-results archive contains the later driver contention checks and final offline analysis. Native binary did not change after the source freeze.",
+  "mode_label_correction": "The original per-study manifest prose omits mode4. The actual modes array, arguments, source and trace headers are authoritative. Mode4 uses original natural Metal encoder boundaries, without added within-decode evals, waits or splits."
+}

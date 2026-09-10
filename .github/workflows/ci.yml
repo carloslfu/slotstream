@@ -20,6 +20,7 @@ jobs:
         run: |
           python3 Tools/static_gates_binary_test.py
           python3 Tools/planner_gates_test.py
+          python3 Tools/release_candidate_test.py
       - name: toolchain
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
       - name: pinned Metal library
@@ -28,6 +29,20 @@ jobs:
         # `make build` also colocates the pinned metallib with the binary;
         # sampler-golden executes MLX kernels and a bare SwiftPM build does not.
         run: make build
+      - name: preserve the candidate before testing
+        run: |
+          mkdir ci-candidate
+          tar -czf ci-candidate/slotstream-arm64.tar.gz -C .build/release \
+            slotstream mlx.metallib build-identity.json build-source.tar.gz
+          (cd ci-candidate && shasum -a 256 slotstream-arm64.tar.gz > slotstream-arm64.tar.gz.sha256)
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: slotstream-ci-candidate
+          path: ci-candidate/
+          if-no-files-found: error
+      - name: planner startup and checkpoint gates (fail early)
+        run: Tools/planner_gates.sh
       - name: pinned dbmd (the brain gates inside static_gates.sh need it)
         run: Tools/dbmd_install.sh
       - name: static and runtime safety gates
@@ -41,6 +56,12 @@ jobs:
         # where MLX looks for it: beside the executable that is running. The
         # runner sits in that same directory, so T1 finds the shaders too.
         run: .build/release/slotstream-checks --tier t0 --tier t1
+      - name: the tested bytes still match the candidate
+        run: |
+          python3 Tools/release_candidate.py --archive ci-candidate/slotstream-arm64.tar.gz --output .build/checked-candidate
+          for file in slotstream mlx.metallib build-identity.json build-source.tar.gz; do
+            cmp ".build/release/$file" ".build/checked-candidate/$file"
+          done
   public-library:
     runs-on: macos-26
     steps:

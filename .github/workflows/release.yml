@@ -1,56 +1,40 @@
-# Release build in CI: every asset traces to a public commit and build log,
-# with signed provenance (verify: gh attestation verify <asset> --repo <repo>).
-# Cut a release by pushing a tag: git tag vX.Y.Z && git push origin vX.Y.Z.
-# The binary's --version must match the tag or the build fails.
+# Publish exactly the archive already built and tested by successful main CI.
+# The source commit, full CI conclusion, archive hashes and reconstructed source
+# must all agree. Failed or unfinished CI candidates cannot become releases.
 name: release
 on:
   push:
     tags: ["v*"]
 permissions:
   contents: write
+  actions: read
   id-token: write
   attestations: write
 jobs:
-  build:
+  publish:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
-      - name: harness entry points (before the native build)
+      - name: archive verifier regression checks
+        run: python3 Tools/release_candidate_test.py
+      - name: find and download the successful main CI candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 Tools/static_gates_binary_test.py
-          python3 Tools/planner_gates_test.py
-      - name: toolchain (newest Xcode on the image; mlx-swift needs Swift >= 6.3)
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+            --commit "$GITHUB_SHA" --event push --status success --limit 20 \
+            --json databaseId,headBranch --jq '[.[] | select(.headBranch == "main")][0].databaseId')
+          [[ "$RUN" =~ ^[0-9]+$ ]] || { echo "No successful main CI run for $GITHUB_SHA; wait for CI before tagging" >&2; exit 1; }
+          gh run download "$RUN" --repo "$GITHUB_REPOSITORY" \
+            --name slotstream-ci-candidate --dir dist
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+      - name: verify archive identity, source and version
         run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
-          sw_vers
-          swift --version
-      - name: metal library (pinned mlx-metal 0.31.1 wheel, macOS 26 build)
-        run: SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
-      - name: build
-        run: |
-          make build
-      - name: smoke
-        run: |
+          python3 Tools/release_candidate.py --archive dist/slotstream-arm64.tar.gz --output .build/release
           V=$(.build/release/slotstream --version)
           echo "binary $V, tag $GITHUB_REF_NAME"
           [ "v$V" = "$GITHUB_REF_NAME" ]
-      - name: pinned dbmd (the brain gates inside static_gates.sh need it)
-        run: Tools/dbmd_install.sh
-      - name: static gates — planner, brain, installer (no weights needed)
-        run: Tools/static_gates.sh
-      - name: sampler golden + governor policy (no weights needed)
-        run: |
-          python3 -m pip install --quiet --break-system-packages numpy
-          Tools/sampler_gates.sh
-      - name: package
-        run: |
-          mkdir dist
-          # Preserve the before/after source binding used by native acceptance.
-          # The attested archive binds these receipts to this exact CI binary.
-          tar -czf dist/slotstream-arm64.tar.gz -C .build/release \
-            slotstream mlx.metallib build-identity.json build-source.tar.gz
-          (cd dist && shasum -a 256 slotstream-arm64.tar.gz > slotstream-arm64.tar.gz.sha256)
-          cat dist/slotstream-arm64.tar.gz.sha256
       - name: attest provenance
         uses: actions/attest-build-provenance@v4
         with:
@@ -58,15 +42,18 @@ jobs:
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ steps.candidate.outputs.run }}
         run: |
           SHA=$(cut -d' ' -f1 < dist/slotstream-arm64.tar.gz.sha256)
           gh release create "$GITHUB_REF_NAME" \
             dist/slotstream-arm64.tar.gz dist/slotstream-arm64.tar.gz.sha256 \
             --title "$GITHUB_REF_NAME" \
-            --notes "Built by CI from commit $GITHUB_SHA (build log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).
+            --notes "Built and tested by CI from commit $GITHUB_SHA (build and complete CI log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN).
+
+          This release publishes that exact archive after source verification and signing (release log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).
 
           sha256: $SHA
 
-          Verify provenance: download slotstream-arm64.tar.gz, then: gh attestation verify slotstream-arm64.tar.gz --repo $GITHUB_REPOSITORY
+          Verify provenance: gh attestation verify slotstream-arm64.tar.gz --repo $GITHUB_REPOSITORY
 
           Install or upgrade: curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/install.sh | sh"

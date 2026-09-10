@@ -135,7 +135,7 @@ error and your `slotstream doctor` output.
 ## A long request is refused or interrupted
 
 The feasibility report and request deadlines below are available starting
-in Slotstream 0.2.13. Check `slotstream --version` and the installed command's `--help`.
+in Slotstream 0.2.14. Check `slotstream --version` and the installed command's `--help`.
 
 Inspect `slotstream doctor --max-context N --json` with the same memory options
 as the server. `context_feasibility` reports what fits in memory; an estimate

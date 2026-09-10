@@ -5,7 +5,7 @@ Run `slotstream <command> --help` for the options in your installed version.
 Only one model process can run per user at a time.
 
 The shared `run` context option, request-wait controls, feasibility metadata
-and expanded `context-check` flags below are available starting in Slotstream 0.2.13.
+and expanded `context-check` flags below are available starting in Slotstream 0.2.14.
 
 <a id="where-things-live"></a>
 

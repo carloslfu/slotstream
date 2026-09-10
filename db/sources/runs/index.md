@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-10T22:18:05.195931Z
+updated: 2026-09-10T22:50:53.983151Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-10-release-0-2-14-candidate-gates]] — v0.2.14 startup refusal checks and exact CI archive reuse
+- [[sources/runs/2026/09/2026-09-10-decode-attribution-discarded-attempts]] — Decode attribution discarded attempts and rejected profiler
+- [[sources/runs/2026/09/2026-09-10-decode-wall-time-attribution]] — Decode wall-time attribution on the M5 Pro, with production untouched
 - [[sources/runs/2026/09/2026-09-10-release-0-2-13-harness-correction]] — Unpublished v0.2.12 harness failure and corrected v0.2.13 preparation
 - [[sources/runs/2026/09/2026-09-10-release-0-2-12-restored-coverage]] — Restored serving and prefix checks pass in instrumented CI
 - [[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]] — Malformed checkpoint gates independent of CI inference headroom
@@ -504,11 +507,8 @@ updated: 2026-09-10T22:18:05.195931Z
 - [[sources/runs/2026/09/2026-09-03-pass-memory-phase-trace]] — Where a 2048-token pass peaks: phase memory trace with and without query-blocked attention, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-decode-scatter-mode-and-read-lanes-ab]] — Decode A/B: pool scatter completion mode and pool read lanes, 30 experts/layer, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-03-pass-cost-and-attention-block-ab]] — Pass cost by chunk with and without query-blocked attention, pinned 20 experts/layer, dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-03-attention-query-block-probe]] — AttnProbe: query-blocked QSA attention, exactness and transient by shape, dev Mac, 2026-09-03
-- [[sources/runs/2026/09/2026-09-02-prefill-sweep-context-check-8192-16gb]] — context-check --tokens 8192 --memory-gb 16 --json, sweep and 0.2.2 code, dev Mac, 2026-09-02
-- [[sources/runs/2026/09/2026-09-02-prefill-sweep-check]] — sweep-check transcripts on the final code, dev Mac, 2026-09-02
 
 ## More
 
-This folder has 506 files. The 500 most recent are listed above.
+This folder has 509 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

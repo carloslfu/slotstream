@@ -13,7 +13,13 @@ fi
 # Keep executable paths out of the shell snippets evaluated by check().
 run_binary() { "$BIN" "$@"; }
 PASS=0; FAIL=0
-check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); else echo "FAIL  $1"; FAIL=$((FAIL+1)); fi }
+check() {
+  if eval "$2" > "$T/check-output" 2>&1; then
+    echo "PASS  $1"; PASS=$((PASS+1))
+  else
+    echo "FAIL  $1"; cat "$T/check-output"; FAIL=$((FAIL+1))
+  fi
+}
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 
 # Parsing a deliberately tiny invalid fixture must not depend on the host
@@ -26,15 +32,22 @@ checkpoint_rejection() {
   local directory="$1" expected="$2" metadata_status startup_status
   run_binary pack-experts --model "$directory" --destination "$T/unused-packed" --verify-only > "$T/metadata-error" 2>&1
   metadata_status=$?
+  printf 'metadata exit=%s\n' "$metadata_status"
+  cat "$T/metadata-error"
   [ "$metadata_status" -ne 0 ] && [ "$metadata_status" -lt 128 ] || return 1
   grep -Fq "$expected" "$T/metadata-error" || return 1
   ! grep -q 'Fatal error' "$T/metadata-error" || return 1
   [ ! -e "$T/unused-packed" ] || return 1
   run_binary run --model "$directory" --prompt hi > "$T/startup-error" 2>&1
   startup_status=$?
+  printf 'startup exit=%s\n' "$startup_status"
+  cat "$T/startup-error"
   [ "$startup_status" -ne 0 ] && [ "$startup_status" -lt 128 ] || return 1
   ! grep -q 'Fatal error' "$T/startup-error" || return 1
-  grep -Fq "$expected" "$T/startup-error" || grep -q '^Error: insufficient_memory:' "$T/startup-error"
+  grep -Fq "$expected" "$T/startup-error" || grep -q '^Error: insufficient_memory:' "$T/startup-error" ||
+    grep -Fxq 'Error: insufficient reclaimable memory for model allocation and safety headroom; close other apps or lower the memory/context target' "$T/startup-error" ||
+    grep -Fxq 'Error: memory pressure interrupted model allocation; retry after memory becomes available' "$T/startup-error" ||
+    grep -Fxq 'Error: reclaimable memory is unreadable; refusing additional long-context allocation during model allocation' "$T/startup-error"
 }
 
 run_binary doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/p48" 2>&1

@@ -280,7 +280,7 @@ endpoints read a separate snapshot and remain responsive during generation.
 ## Request deadlines and resource failures
 
 The request policy and structured resource failures in this section are
-available starting in Slotstream 0.2.13.
+available starting in Slotstream 0.2.14.
 
 `--max-prefill-wait` bounds the interval from accepting a complete request to
 sampling its first model token. Its default is 30 minutes; `0` disables only

@@ -1,0 +1,20 @@
+{
+  "pid": 17362,
+  "command": [
+    "/Users/carlos/.slotstream/bin/slotstream",
+    "serve"
+  ],
+  "cwd": "/Users/carlos/slotstream-demo",
+  "binary_sha256": "9268e4b2a3371e78a71d493d7788559a06a22498e8061a89278c4918c6764673",
+  "matches_original_binary": true,
+  "ready": true,
+  "profiler_environment": {},
+  "preflight": {
+    "page_bytes": 16384,
+    "reclaimable_bytes": 35629301760,
+    "swapins": 44488078,
+    "swapouts": 78184590,
+    "raw": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                  1246945.\nPages active:                                 627196.\nPages inactive:                               563084.\nPages speculative:                            126062.\nPages throttled:                                   0.\nPages wired down:                             236865.\nPages purgeable:                                3710.\n\"Translation faults\":                    20405568512.\nPages copy-on-write:                      1304638435.\nPages zero filled:                       32451900102.\nPages reactivated:                        6436624252.\nPages purged:                              106545078.\nFile-backed pages:                            923985.\nAnonymous pages:                              392357.\nPages stored in compressor:                  1069615.\nPages occupied by compressor:                 278331.\nDecompressions:                           1610610443.\nCompressions:                             1960026293.\nPageins:                                 10774940760.\nPageouts:                                   11779394.\nSwapins:                                    44488078.\nSwapouts:                                   78184590.\nPages tagged:                                 170396.\nPages tagged resident:                        125320.\nPages tagged compressed:                       45076.\nPages tag-storage:                             98304.\nPages tag-storage holding tags:                 7112.\nPages tag-storage free:                         7093.\nPages tag-storage non-tag pageable:            84091.\nPages tag-storage non-tag wired:                   8.\nBytes of compressed tags:                    7639808.\nTagged compressions:                        16416855.\nTagged decompressions:                      15294963.\n"
+  },
+  "log": "/Users/carlos/Projects/slotstream/.build/decode-attribution-20260910/restored-demo-server.log"
+}

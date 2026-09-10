@@ -495,10 +495,15 @@ still quoted in commit history and both are wrong.
   source for `--version`, `/api/version` and
   the CI tag check) to match the tag, commit, then
   `git tag vX.Y.Z && git push origin vX.Y.Z` —
-  `.github/workflows/release.yml` builds on a macos-26 runner, fails unless
-  `--version` equals the tag, packages, attests provenance
-  (`gh attestation verify <asset> --repo carloslfu/slotstream`), and
-  publishes. Never build release assets locally except as a documented
+  Wait for the commit's complete main CI run to pass before pushing the tag.
+  CI builds on macos-26, preserves the binary, metallib, source archive and
+  build identity, runs every static/golden/catalogue/coverage/library gate,
+  and confirms its tested bytes still match that archive.
+  `.github/workflows/release.yml` requires successful main CI for that exact
+  commit, verifies the archive hashes and reconstructed source, requires
+  `--version` to equal the tag, attests provenance
+  (`gh attestation verify <asset> --repo carloslfu/slotstream`), and publishes
+  those same bytes without another compilation. Never build release assets locally except as a documented
   emergency fallback. Asset names are stable (the installer uses
   `releases/latest/download/`), so never rename them. The tarball's metallib
   is the macOS 26 build (CI pins it via `SLOTSTREAM_METALLIB_MACOS=26`);

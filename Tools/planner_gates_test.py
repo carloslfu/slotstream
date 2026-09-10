@@ -49,6 +49,20 @@ class CheckpointRejectionGate(unittest.TestCase):
         self.assertEqual(self.check_gate([1, "expected parser diagnosis"],
                                         [1, "Error: insufficient_memory: fixture"]), 0)
 
+    def test_live_allocation_guards_use_their_human_readable_descriptions(self):
+        for message in (
+            "insufficient reclaimable memory for model allocation and safety headroom; close other apps or lower the memory/context target",
+            "memory pressure interrupted model allocation; retry after memory becomes available",
+            "reclaimable memory is unreadable; refusing additional long-context allocation during model allocation",
+        ):
+            with self.subTest(message=message):
+                self.assertEqual(self.check_gate([1, "expected parser diagnosis"],
+                                                [1, "Error: " + message]), 0)
+
+    def test_a_later_allocation_refusal_cannot_substitute_for_startup(self):
+        self.assertNotEqual(self.check_gate([1, "expected parser diagnosis"],
+            [1, "Error: insufficient reclaimable memory for generation and safety headroom; close other apps or lower the memory/context target"]), 0)
+
     def test_invalid_metadata_result_never_passes(self):
         for result in ([0, "expected parser diagnosis"], [1, "wrong error"], [1, ""],
                        [133, "expected parser diagnosis"],

@@ -2,18 +2,19 @@
 type: measurement
 id: 01m26pdqnj22mvw0gr3c1zq9pb
 created: 2026-09-10T22:18:44.274063+00:00
-updated: 2026-09-10T22:18:44.274063+00:00
+updated: 2026-09-10T22:51:50.463277+00:00
 summary: Public v0.2.13 release qualification and installed-artifact acceptance
 date: 2026-09-10
 doc: measurements
 level: '3'
 machines: '[[records/machines/github-actions-macos-26]], [[records/machines/macbook-pro-m5-pro-48gb]]'
+note: Unpublished candidate; preserved failed tag, corrected startup refusal gate and exact CI archive reuse continue in v0.2.14.
 order: '1130'
 runs: '[[sources/runs/2026/09/2026-09-10-release-0-2-13-harness-correction]]'
 title: v0.2.13 release qualification
 status: analysis
 ---
-**Status: v0.2.13 release preparation; public publication and local artifact acceptance are pending.**
+**Status: candidate closed without publication. See [[records/measurements/release-qualification-0-2-14]].**
 
 This release carries the completed unified optimization campaign and the
 intervening public integration/documentation work. The preparation history,
@@ -47,3 +48,13 @@ and [[records/measurements/user-server-throughput-2026-09-10]]. These comparison
 are between selected/reference paths within the same build, not a direct A/B
 against the previous public release. Sustained decode was flat or slightly
 slower in its measured profiles; this release makes no universal TPS claim.
+
+## Candidate closed without publication
+
+The hosted static suite again failed six startup-path fixture checks after
+its preceding gates passed. The fixture did not recognize RequestFailure's
+human-readable model-allocation errors, accepting only coded planner errors.
+The old wrapper hid the precise command output; the revised gate preserves it.
+The failed v0.2.13 tag is unchanged. The corrected gate and build-once release
+flow are tracked in [[records/measurements/release-qualification-0-2-14]], with
+evidence in [[sources/runs/2026/09/2026-09-10-release-0-2-14-candidate-gates]].
