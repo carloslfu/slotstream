@@ -2,18 +2,19 @@
 type: measurement
 id: 01m26m86458wn87fxaj6bp506h
 created: 2026-09-10T21:40:45.317682+00:00
-updated: 2026-09-10T21:55:56.602615+00:00
+updated: 2026-09-10T22:19:18.701818+00:00
 summary: Public release preparation, coverage reconciliation and installed-artifact acceptance for v0.2.12
 date: 2026-09-10
 doc: measurements
 level: '3'
 machines: '[[records/machines/github-actions-macos-26]], [[records/machines/macbook-pro-m5-pro-48gb]]'
+note: Unpublished candidate; failed static fixture corrected in v0.2.13. The tag and failed CI evidence are preserved.
 order: '1120'
 runs: '[[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]], [[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]], [[sources/runs/2026/09/2026-09-10-release-0-2-12-restored-coverage]]'
 title: v0.2.12 release qualification
 status: analysis
 ---
-**Status: preparing the public release; final CI and installed-artifact acceptance remain pending.**
+**Status: candidate closed without publication. See [[records/measurements/release-qualification-0-2-13]] for the corrected release.**
 
 The original unified optimization campaign is complete in its recorded scope.
 This release binds that implementation to the intervening public documentation,
@@ -113,3 +114,13 @@ floors to the preserved CI report passes the full ratchet.
 
 Evidence: [[sources/runs/2026/09/2026-09-10-release-0-2-12-restored-coverage]].
 Final static CI and installed public-artifact acceptance remain pending.
+
+## Candidate closed without publication
+
+This candidate did not publish a release archive. Its instrumented CI passed
+all 44 groups and 27,381 assertions and the coverage ratchet, but the isolated
+static-entry-point fixture omitted the newly added planner test dependency.
+The release workflow stopped before packaging. The v0.2.12 tag remains at
+4ccb2cf and is not moved or deleted. The corrected release is tracked in
+[[records/measurements/release-qualification-0-2-13]]. Evidence:
+[[sources/runs/2026/09/2026-09-10-release-0-2-13-harness-correction]].

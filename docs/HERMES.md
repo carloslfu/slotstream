@@ -144,7 +144,7 @@ open your working folder and run the same Hermes command, including
 When finished, exit Hermes with `/exit`, then press **Control+C** in the
 Slotstream window to stop the server.
 
-Slotstream 0.2.12 defaults to 30 minutes from accepting a request to the first
+Slotstream 0.2.13 defaults to 30 minutes from accepting a request to the first
 sampled token, including queueing and preparation. If you change the server's
 `--max-prefill-wait`, keep Hermes's client timeouts compatible with it. See
 [server request deadlines](HERMES-NOTES.md#server-request-deadlines).

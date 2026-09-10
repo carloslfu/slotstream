@@ -48,6 +48,7 @@ BIN=${BIN:-.build/release/slotstream}
                      'Tools/reference/fixture.py', 'Tools/slotpack/checks.py']:
             self.write(path, '# Model-free dependency fixture.\n')
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
+        self.write('Tools/planner_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PLANNER') == '1' else 0)\n")
         self.write('Tools/api_generation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_API_GENERATION') == '1' else 0)\n")
         self.write('Tools/consumer_smoke_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CONSUMER') == '1' else 0)\n")
         for suite in OPTIMIZATION_SUITES:
@@ -102,6 +103,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 
     def test_default_release_is_used_and_forwarded(self):
         self.expect_selected({}, 'release')
+
+    def test_failed_planner_fixture_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_PLANNER': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
 
     def test_legacy_bin_override_is_used_and_forwarded(self):
         self.expect_selected({'BIN': str(self.binaries['legacy'])}, 'legacy')

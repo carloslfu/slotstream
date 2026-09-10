@@ -112,7 +112,7 @@ not establish that larger allocations cannot help another Mac. See
 
 ## How to measure
 
-Context is a startup choice, with a 32,768-token default. Slotstream 0.2.12
+Context is a startup choice, with a 32,768-token default. Slotstream 0.2.13
 adds the feasibility report and request-wait controls described here.
 Use `doctor --json` with the intended `--max-context` and memory policy to inspect the feasible
 window before loading. A memory-feasible window does not promise a short wait:

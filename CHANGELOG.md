@@ -3,7 +3,7 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## 0.2.12 - 2026-09-10
+## 0.2.13 - 2026-09-10
 
 - Faster repeated and continued prompts through committed prompt checkpoints,
   bounded prefill read grouping, and reuse of completed prompt state.
@@ -30,6 +30,10 @@ release; anything under **Unreleased** is on `main` only.
   before bounded work, typed errors in every serving dialect and safe cleanup.
 - Checked context diagnostics preserve reply room and enforce bounded late
   prefill passes. Larger public windows remain gated on full qualification.
+
+The v0.2.12 tag stopped at a prepublication test-harness failure and has no
+release archive. This release includes the corrected isolated planner-test
+fixture and preserves that failed tag and its CI evidence.
 
 ## 0.2.11 — 2026-09-06
 

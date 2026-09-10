@@ -928,3 +928,6 @@ Preserved the CI memory refusal; independently verified exact malformed checkpoi
 ## [2026-09-10 21:55] update | records/measurements/release-qualification-0-2-12.md
 Captured all 27381 instrumented assertions passing; raised restored production floors and reconciled added negative-assertion scaffolding in the diagnostic floor. Preserved raw CI reports and exact unchanged-line comparison.
 
+## [2026-09-10 22:19] update | records/measurements/release-qualification-0-2-13.md
+Preserved the unpublished v0.2.12 tag and failed CI; corrected the isolated planner-test fixture, added pre-build self-checks, ran local harness/installer qualification, and prepared v0.2.13 with only its version string changed in compiled source.
+

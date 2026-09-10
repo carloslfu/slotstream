@@ -15,6 +15,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
+      - name: harness entry points (before the native build)
+        run: |
+          python3 Tools/static_gates_binary_test.py
+          python3 Tools/planner_gates_test.py
       - name: toolchain (newest Xcode on the image; mlx-swift needs Swift >= 6.3)
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"

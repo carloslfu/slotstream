@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-10T21:55:31.984936Z
+updated: 2026-09-10T22:18:05.195931Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-10-release-0-2-13-harness-correction]] — Unpublished v0.2.12 harness failure and corrected v0.2.13 preparation
 - [[sources/runs/2026/09/2026-09-10-release-0-2-12-restored-coverage]] — Restored serving and prefix checks pass in instrumented CI
 - [[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]] — Malformed checkpoint gates independent of CI inference headroom
 - [[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]] — Release build identity and coverage corrections before v0.2.12 publication
@@ -506,9 +507,8 @@ updated: 2026-09-10T21:55:31.984936Z
 - [[sources/runs/2026/09/2026-09-03-attention-query-block-probe]] — AttnProbe: query-blocked QSA attention, exactness and transient by shape, dev Mac, 2026-09-03
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-context-check-8192-16gb]] — context-check --tokens 8192 --memory-gb 16 --json, sweep and 0.2.2 code, dev Mac, 2026-09-02
 - [[sources/runs/2026/09/2026-09-02-prefill-sweep-check]] — sweep-check transcripts on the final code, dev Mac, 2026-09-02
-- [[sources/runs/2026/09/2026-09-02-prefill-sweep-tuning]] — prefill sweep tuning: group size, read lanes, admission on/off, 8k prompt at 16 GB, dev Mac, 2026-09-02
 
 ## More
 
-This folder has 505 files. The 500 most recent are listed above.
+This folder has 506 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

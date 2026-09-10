@@ -898,7 +898,7 @@ Run `slotstream <command> --help` for the options in your installed version.
 Only one model process can run per user at a time.
 
 The shared `run` context option, request-wait controls, feasibility metadata
-and expanded `context-check` flags below are available starting in Slotstream 0.2.12.
+and expanded `context-check` flags below are available starting in Slotstream 0.2.13.
 
 <a id="where-things-live"></a>
 
@@ -1449,7 +1449,7 @@ endpoints read a separate snapshot and remain responsive during generation.
 ## Request deadlines and resource failures
 
 The request policy and structured resource failures in this section are
-available starting in Slotstream 0.2.12.
+available starting in Slotstream 0.2.13.
 
 `--max-prefill-wait` bounds the interval from accepting a complete request to
 sampling its first model token. Its default is 30 minutes; `0` disables only
@@ -1662,7 +1662,7 @@ available for callers in another process.
 
 ## Context and request control
 
-These additive APIs are available starting in Slotstream 0.2.12.
+These additive APIs are available starting in Slotstream 0.2.13.
 
 Construct an engine with the plan that prices its context. Shared
 `ContextConfiguration` validates `maxContextTokens` and
@@ -1988,7 +1988,7 @@ open your working folder and run the same Hermes command, including
 When finished, exit Hermes with `/exit`, then press **Control+C** in the
 Slotstream window to stop the server.
 
-Slotstream 0.2.12 defaults to 30 minutes from accepting a request to the first
+Slotstream 0.2.13 defaults to 30 minutes from accepting a request to the first
 sampled token, including queueing and preparation. If you change the server's
 `--max-prefill-wait`, keep Hermes's client timeouts compatible with it. See
 [server request deadlines](HERMES-NOTES.md#server-request-deadlines).
@@ -2591,7 +2591,7 @@ error and your `slotstream doctor` output.
 ## A long request is refused or interrupted
 
 The feasibility report and request deadlines below are available starting
-in Slotstream 0.2.12. Check `slotstream --version` and the installed command's `--help`.
+in Slotstream 0.2.13. Check `slotstream --version` and the installed command's `--help`.
 
 Inspect `slotstream doctor --max-context N --json` with the same memory options
 as the server. `context_feasibility` reports what fits in memory; an estimate
@@ -2962,7 +2962,7 @@ not establish that larger allocations cannot help another Mac. See
 
 ## How to measure
 
-Context is a startup choice, with a 32,768-token default. Slotstream 0.2.12
+Context is a startup choice, with a 32,768-token default. Slotstream 0.2.13
 adds the feasibility report and request-wait controls described here.
 Use `doctor --json` with the intended `--max-context` and memory policy to inspect the feasible
 window before loading. A memory-feasible window does not promise a short wait:
@@ -2994,7 +2994,7 @@ time, memory use, and the methods behind the performance claims.
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## 0.2.12 - 2026-09-10
+## 0.2.13 - 2026-09-10
 
 - Faster repeated and continued prompts through committed prompt checkpoints,
   bounded prefill read grouping, and reuse of completed prompt state.
@@ -3021,6 +3021,10 @@ release; anything under **Unreleased** is on `main` only.
   before bounded work, typed errors in every serving dialect and safe cleanup.
 - Checked context diagnostics preserve reply room and enforce bounded late
   prefill passes. Larger public windows remain gated on full qualification.
+
+The v0.2.12 tag stopped at a prepublication test-harness failure and has no
+release archive. This release includes the corrected isolated planner-test
+fixture and preserves that failed tag and its CI evidence.
 
 ## 0.2.11 — 2026-09-06
 
