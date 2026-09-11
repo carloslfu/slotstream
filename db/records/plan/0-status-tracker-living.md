@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m1hhwmw2fj49hd8h7mq80pkk
 created: 2026-09-02T17:15:26.978326+00:00
-updated: 2026-09-05T03:40:54.172091+00:00
+updated: 2026-09-11T09:02:49.936429+00:00
 summary: 0. Status tracker (living)
 date: 2026-08-28
 doc: plan
@@ -35,7 +35,7 @@ design and the estimates it replaces.
 | N5 Real GUI client | ✅ **done 2026-08-30** | Open WebUI driven through its own UI. It found a real bug: its interleaved title request defeated the single-slot prefix cache, which now holds four |
 | N6 Prefill: bound the pass, then read each expert once | ◐ **unified implementation in progress** | Detailed prefill chapter of the 37-item whole-engine program: one baseline/status map, explicit output/fold/weight workspace alternatives, bounded indexer/attention/GDN, shared/resident read overlap, terminal work pruning and specialized top-K. The first ownership and final-forward candidates have native parity, serving and bounded A/B evidence; remaining acceptance and every OPT status live in the unified program. |
 | N3 Download size · N4 Quality vs FP8 | **removed from the queue 2026-08-30** | hosting is not the download's bottleneck and partial-start is worse than a progress bar; the FP8 gate needs a credential that is not provisioned. Findings kept in MEASUREMENTS.md |
-| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, so the default is now 1 and auto's floor stands; with the rebuild eliminated (per-position recorded state) depth 1 reads ×1.24 there and ×1.18 sampled. Gates: `mtp-parity`, `mtp-check` |
+| M9 MTP self-speculative decode | ✅ **done 2026-09-01** | the head's 31 tensors converted from the official release (the pinned conversion drops them); Swift port **bit-exact** vs the Python reference; measured accept 85.8% at depth 1, 41.3% for a 4-chain; auto enables only ≥120 experts/layer after its 1.6 GB. A/B on 0.2.0 (four drafts): ×0.55 / 0.69 / 0.88 / 0.96 at 20 / 29 / 42 / 57 experts/layer, all below break-even; at 122/layer (auto's size) depth 4 reads ×0.88, depth 2 ×1.13, depth 1 ×1.17, which selected the historical default of 1; the current adopted default is 2 ([[records/decisions/draft-depth-defaults-to-two]]) and auto's floor stands; with the rebuild eliminated (per-position recorded state) depth 1 reads ×1.24 there and ×1.18 sampled. Gates: `mtp-parity`, `mtp-check` |
 
 **What is actually next: [§8.1](#81-next--the-ordered-queue-post-015).** M0–M8 are the
 build-out phases; §8.1 is the live queue, ordered by what decides whether a person keeps

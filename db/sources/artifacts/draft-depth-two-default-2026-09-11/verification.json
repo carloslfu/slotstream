@@ -1,0 +1,47 @@
+{
+  "classification": "configuration and implementation checks; no new speed claim",
+  "build": {
+    "command": "python3 Tools/optimization_build.py --out .build/draft-default-two-20260911/build --jobs 2",
+    "exit_code": 0
+  },
+  "t0": {
+    "command": ".build/draft-default-two-20260911/build/candidate/slotstream-checks --tier t0 --json",
+    "exit_code": 0
+  },
+  "default_policy": {
+    "command": ".build/draft-default-two-20260911/build/candidate/slotstream-checks --tier t0 --filter adaptive-speculation-policy --json",
+    "exit_code": 0
+  },
+  "static_gates": {
+    "command": "SLOTSTREAM_TEST_BINARY=.build/draft-default-two-20260911/build/candidate/slotstream Tools/static_gates.sh",
+    "exit_code": 0
+  },
+  "mtp-check": {
+    "discarded": true,
+    "reason": "native resource guard detected global swap activity; incomplete full MTP qualification",
+    "memory_validated": false
+  },
+  "mtp-check-retry": {
+    "discarded": true,
+    "reason": "native resource guard detected global swap activity after clean readiness; incomplete full MTP qualification",
+    "memory_validated": false
+  },
+  "serving": {
+    "scope": "one fresh process per arm, 10 GB target, MTP on, vision off, 32 greedy output tokens, no warmup; not timing qualification",
+    "instrumentation": "SLOTSTREAM_BENCH_DETAILS=1 only in owned child environments; no global profile change",
+    "inherited_overrides": "SLOTSTREAM_* and SS_DEBUG_* removed before the explicit child environment",
+    "assertions_passed": true,
+    "arms": [
+      {
+        "environment": "default, no SLOTSTREAM_DRAFT_DEPTH",
+        "drafted_tokens": 28,
+        "verify_passes": 14
+      },
+      {
+        "environment": "SLOTSTREAM_DRAFT_DEPTH=1",
+        "drafted_tokens": 16,
+        "verify_passes": 16
+      }
+    ]
+  }
+}

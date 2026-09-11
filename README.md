@@ -146,6 +146,13 @@ see [request limits and errors](docs/API.md#request-deadlines-and-resource-failu
 
 ## FAQ
 
+### How many draft tokens does speculative decoding use?
+
+It proposes two tokens per round when enabled (default 2). This is the current
+choice for mixed workloads; more guesses can add verification work without
+making generation faster. The [CLI guide](docs/CLI.md#speculative-decode)
+explains the override and how automatic activation works.
+
 ### Does it work offline?
 
 Yes, after downloading the model. Inference runs on your Mac. Connected

@@ -154,6 +154,13 @@ see [request limits and errors](docs/API.md#request-deadlines-and-resource-failu
 
 ## FAQ
 
+### How many draft tokens does speculative decoding use?
+
+It proposes two tokens per round when enabled (default 2). This is the current
+choice for mixed workloads; more guesses can add verification work without
+making generation faster. The [CLI guide](docs/CLI.md#speculative-decode)
+explains the override and how automatic activation works.
+
 ### Does it work offline?
 
 Yes, after downloading the model. Inference runs on your Mac. Connected
@@ -471,14 +478,17 @@ prompt improved from 91 → 184 tok/s and prose from 66 → 140 tok/s. At the
 about 220 tok/s for a 4,096-token pass on the M5 Pro. These results depend on
 the prompt and configuration; they aren't measurements on a 16 GB Mac.
 
-Speculative decode uses a small draft head to propose a token for the main
-model to verify. The draft was accepted 86% of the time in the measured test.
-At a 28 GB target, one draft improved greedy decode by ×1.24
+Speculative decode uses a small draft head to propose tokens for the main
+model to verify. The current operating choice is two drafts (default 2).
+The [adoption decision](../db/records/decisions/draft-depth-defaults-to-two.md)
+records the workload tradeoff and the limits of the recent comparison.
+In the historical one-draft test, the draft was accepted 86% of the time.
+At a 28 GB target, that one-draft configuration improved greedy decode by ×1.24
 (10.3 → 12.8 tok/s); the improvement was ×1.18 with default server sampling.
 
 `--mtp auto` enables this when the expert cache can still hold 120 experts
 per layer after allocating 1.6 GB for the head. Below that threshold it stays
-off, because the tested smaller caches lost speed. The automatic ceiling is
+off under the existing conservative activation policy. The automatic ceiling is
 34.6 GB with the head enabled. `--mtp off` disables it.
 
 [MEASUREMENTS.md](../MEASUREMENTS.md) includes the configurations, comparisons,
@@ -1153,16 +1163,20 @@ See [Testing](TESTING.md) for the full suites.
   weights. The file is optional; downloads can complete without it. `on`
   without the file is an error; `auto`, the default, turns it on when the
   cache still reaches 120 experts per layer after the head's 1.6 GB (a 28 GB
-  target) and stays off below that, where it reduced speed in tests. At that size
-  it measured ×1.24 decode; MEASUREMENTS.md M9 has the ladder and the
-  ceiling.
+  target). This conservative activation floor is separate from draft depth.
+  The historical one-draft measurement at that size was ×1.24 decode;
+  MEASUREMENTS.md M9 preserves its configuration, ladder and ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
-- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 1, by
-  measurement: longer verification passes cost more, and one draft was best or tied
-  at the tested cache sizes; MEASUREMENTS.md M9). Rejected drafts roll
-  back to recorded state. This override is for experiments.
+- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 2).
+  Two drafts are the adopted operating choice for mixed workloads. The recent
+  automatic-memory comparison found two and three effectively tied overall;
+  this is not a universal performance optimum. Rejected drafts roll back to
+  recorded state. Explicit valid overrides still work; invalid values fall
+  back to the default. See the [decision and evidence](../db/records/decisions/draft-depth-defaults-to-two.md).
+  This changes draft depth when MTP is enabled, not the automatic activation
+  floor or the RAM-share default.
 
 
 <!-- ===== docs/API.md ===== -->

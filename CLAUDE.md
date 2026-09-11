@@ -465,13 +465,20 @@ still quoted in commit history and both are wrong.
   depth.** `mtp-bench` on 0.2.0 (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96
   at 20 / 29 / 42 / 57 experts per layer and ×0.88 at 122, all below
   break-even; depths 1 and 2 read ×1.13 / ×1.12 at 57 and ×1.17 / ×1.13 at
-  122, the size auto enables the head at, which is why the default is 1 and
-  the 120/layer floor stands; with the rebuild eliminated depth 1 reads
+  122, the size auto enables the head at, which explained the former default
+  of 1; with the rebuild eliminated depth 1 reads
   ×1.20 at 57 and ×1.24 at 122 (×1.18 sampled). The "×1.5–1.9" once written here assumed a
   five-token verify pass costs one token's pass; `mtp-passcost` measured
   1.65 with every expert resident (a sixth of a pass per extra token), so
   the ceiling is ×1.4 at depth 1 and the estimate is withdrawn. Quote the
-  ladder and the ceiling, never the launch-bound arithmetic.
+  ladder and the ceiling, never the launch-bound arithmetic. Carlos adopted
+  **two drafts as the default on 2026-09-11**; the 120/layer activation floor
+  remains unchanged. The automatic-40%-RAM study found two and three effectively
+  tied overall and did not qualify a universal optimum. Keep the adoption
+  decision separate from those measurement limits:
+  [current draft-depth policy](db/records/decisions/draft-depth-defaults-to-two.md).
+  New experiments use the adopted depth unless they explicitly study another
+  depth; preserve frozen historical fixtures and raw evidence.
 
 ## Repo facts
 

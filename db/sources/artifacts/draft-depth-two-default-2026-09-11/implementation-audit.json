@@ -1,0 +1,16 @@
+{
+  "observed_at_utc": "2026-09-11T09:11:19.507188+00:00",
+  "source_files": 150,
+  "source_mismatches": [],
+  "candidate_binary_sha256": "e32e9cd33b569984bc5c15f21b79ae2cb601f99392ffb6ea6e5aedf12f460be7",
+  "candidate_checks_sha256": "0e3f2b408e2cc76900c8e9592aae75b61aad117663304107755b33883bd8156d",
+  "candidate_metal_sha256": "198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597",
+  "installed_binary_sha256": "49d36b8057a79c013ef0d91b93b67ea0a987efb32e6dd5df6f03b6843b76e9f7",
+  "installed_release_unchanged": true,
+  "model_processes": [],
+  "serving_pids_stopped": {
+    "default": true,
+    "explicit-one": true
+  },
+  "native_model_lock_free": true
+}

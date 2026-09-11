@@ -68,14 +68,17 @@ prompt improved from 91 → 184 tok/s and prose from 66 → 140 tok/s. At the
 about 220 tok/s for a 4,096-token pass on the M5 Pro. These results depend on
 the prompt and configuration; they aren't measurements on a 16 GB Mac.
 
-Speculative decode uses a small draft head to propose a token for the main
-model to verify. The draft was accepted 86% of the time in the measured test.
-At a 28 GB target, one draft improved greedy decode by ×1.24
+Speculative decode uses a small draft head to propose tokens for the main
+model to verify. The current operating choice is two drafts (default 2).
+The [adoption decision](../db/records/decisions/draft-depth-defaults-to-two.md)
+records the workload tradeoff and the limits of the recent comparison.
+In the historical one-draft test, the draft was accepted 86% of the time.
+At a 28 GB target, that one-draft configuration improved greedy decode by ×1.24
 (10.3 → 12.8 tok/s); the improvement was ×1.18 with default server sampling.
 
 `--mtp auto` enables this when the expert cache can still hold 120 experts
 per layer after allocating 1.6 GB for the head. Below that threshold it stays
-off, because the tested smaller caches lost speed. The automatic ceiling is
+off under the existing conservative activation policy. The automatic ceiling is
 34.6 GB with the head enabled. `--mtp off` disables it.
 
 [MEASUREMENTS.md](../MEASUREMENTS.md) includes the configurations, comparisons,

@@ -96,8 +96,9 @@ struct ModelOptions: ParsableArguments {
         help: ArgumentHelp(
             "Speculative decode with the MTP draft head: auto | on | off (default auto).",
             discussion: """
-                The model's own next-next-token head drafts a few tokens \
-                and the main model verifies them in one batched pass. Costs \
+                The model's own next-next-token head drafts \(Generator.defaultDraftDepth) tokens by default \
+                and the main model verifies them in one batched pass. \
+                SLOTSTREAM_DRAFT_DEPTH overrides the depth (1...16). Costs \
                 a fixed 1.6 GB of memory; auto enables it only when the \
                 expert cache still reaches ~120 experts/layer after paying, \
                 which is where the multiplier beats spending the same RAM on \

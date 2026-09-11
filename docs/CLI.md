@@ -260,13 +260,17 @@ See [Testing](TESTING.md) for the full suites.
   weights. The file is optional; downloads can complete without it. `on`
   without the file is an error; `auto`, the default, turns it on when the
   cache still reaches 120 experts per layer after the head's 1.6 GB (a 28 GB
-  target) and stays off below that, where it reduced speed in tests. At that size
-  it measured ×1.24 decode; MEASUREMENTS.md M9 has the ladder and the
-  ceiling.
+  target). This conservative activation floor is separate from draft depth.
+  The historical one-draft measurement at that size was ×1.24 decode;
+  MEASUREMENTS.md M9 preserves its configuration, ladder and ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
-- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 1, by
-  measurement: longer verification passes cost more, and one draft was best or tied
-  at the tested cache sizes; MEASUREMENTS.md M9). Rejected drafts roll
-  back to recorded state. This override is for experiments.
+- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 2).
+  Two drafts are the adopted operating choice for mixed workloads. The recent
+  automatic-memory comparison found two and three effectively tied overall;
+  this is not a universal performance optimum. Rejected drafts roll back to
+  recorded state. Explicit valid overrides still work; invalid values fall
+  back to the default. See the [decision and evidence](../db/records/decisions/draft-depth-defaults-to-two.md).
+  This changes draft depth when MTP is enabled, not the automatic activation
+  floor or the RAM-share default.

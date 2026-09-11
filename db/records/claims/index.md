@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-09T22:59:04.556748Z
+updated: 2026-09-11T09:13:46.732026Z
 ---
 
 # records/claims
 
+- [[records/claims/draft-depth-default-two]] — The adopted speculative draft-chain default is two tokens
+- [[records/claims/speculative-decode-x1-24-at-auto-floor]] — Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 - [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
 - [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling becomes 34.6 GB with the draft head on
 - [[records/claims/hermes-auxiliary-timeout]] — Hermes guide sets explicit auxiliary timeouts
@@ -21,7 +23,6 @@ updated: 2026-09-09T22:59:04.556748Z
 - [[records/claims/vision-tower-0-9-gb-resident]] — The vision tower costs 0.9 GB, and only when an image arrives
 - [[records/claims/vision-follow-up-turn-reuses-the-state]] — A follow-up turn about the same picture takes 1.8 s where the first took 15.4 s
 - [[records/claims/tier-rows-are-estimates-from-the-48-gb-curve]] — The 8, 16, 24, and 32 GB tier rows are estimates from the 48 GB curve
-- [[records/claims/speculative-decode-x1-24-at-auto-floor]] — Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 - [[records/claims/pull-verify-re-hashes-in-8-s]] — pull --verify re-hashes the whole copy in about 8 s on the dev Mac
 - [[records/claims/prefix-cache-flat-time-to-first-token]] — Time to first token stays flat across a conversation: 6.0 s at turn eight against 25.8 s uncached
 - [[records/claims/prefill-prose-66-to-140-tok-s-at-16-gb]] — The sweep reads a 10,490-token prose prompt at 140 tok/s at a 16 GB target, against 66 for the 0.2.2 code

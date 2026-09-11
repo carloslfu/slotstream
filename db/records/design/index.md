@@ -2,17 +2,17 @@
 type: index
 scope: type-folder
 folder: records/design
-updated: 2026-09-09T22:59:04.454986Z
+updated: 2026-09-11T09:02:49.953692Z
 ---
 
 # records/design
 
+- [[records/design/m9-addendum-built-and-measured-2026-09-01]] — M9 addendum — built and measured (2026-09-01)
 - [[records/design/measured-operating-policies]] — Measured operating policies and revision criteria
 - [[records/design/sevra-maintained-model-integration]] — Sevra integration: versioned hardware/model profiles, full-stack qualification, maintained updates and documentation tied to implementation.
 - [[records/design/vision-how-a-picture-becomes-tokens]] — The vision path: one placeholder becomes a run, Rust-free splicing by contiguous spans, inline bytes only, and a conditional memory charge.
 - [[records/design/13-references]] — 13. References
 - [[records/design/10-dev-mac-reference-measured-2026-08-28-full-data-in-measurements-md]] — 10. Dev-Mac reference (measured 2026-08-28 — full data in MEASUREMENTS.md)
-- [[records/design/m9-addendum-built-and-measured-2026-09-01]] — M9 addendum — built and measured (2026-09-01)
 - [[records/design/m9-design-note-mtp-self-speculative-decode-when-it-pays-and-when]] — M9 design note — MTP self-speculative decode: when it pays, and when experts win
 - [[records/design/7-test-matrix-iteration-protocol-test-them-all-tractably]] — 7. Test matrix & iteration protocol ("test them all", tractably)
 - [[records/design/6-correctness-strategy-non-negotiable-invariants]] — 6. Correctness strategy (non-negotiable invariants)

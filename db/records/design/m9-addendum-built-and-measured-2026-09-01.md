@@ -3,7 +3,7 @@ type: design
 meta-type: conclusion
 id: 01m1hhwnyxd0ej8776wxn9xpqr
 created: 2026-09-02T17:15:28.093371+00:00
-updated: 2026-09-02T17:15:28.093371+00:00
+updated: 2026-09-11T09:02:49.953692+00:00
 summary: M9 addendum — built and measured (2026-09-01)
 date: 2026-09-01
 doc: plan
@@ -12,6 +12,7 @@ order: '360'
 source: '[[sources/docs/2026/09/plan-md-2026-09-02]]'
 title: M9 addendum — built and measured (2026-09-01)
 ---
+**Current operating choice, September 11:** Two drafts are now adopted in [[records/decisions/draft-depth-defaults-to-two]]. The dated measurements and former choices below remain historical evidence; the automatic activation floor is unchanged.
 
 The analysis above survived contact with implementation almost intact; the
 corrections are recorded here and in MEASUREMENTS.md (M9 section).

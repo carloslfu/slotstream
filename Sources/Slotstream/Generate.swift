@@ -358,17 +358,24 @@ public final class Generator {
         if let ceiling { prefillChunk = min(max(1, prefillChunk), ceiling) }
     }
     /// Draft tokens per speculative round when the MTP head is enabled.
-    /// Depth 1 by measurement (MEASUREMENTS M9). At 122 experts/layer, the
-    /// size auto enables the head at, depth 1 reads ×1.17, depth 2 ×1.13 and
-    /// depth 4 ×0.88; at 57/layer ×1.13 / ×1.12 / ×0.96. A k-token verify
-    /// pass costs about 1 + 0.16k single passes with every expert resident
-    /// and verified recurrent states are recorded for exact rollback.
-    /// SLOTSTREAM_DRAFT_DEPTH overrides for experiments.
-    public var draftDepth: Int = {
-        if let s = ProcessInfo.processInfo.environment["SLOTSTREAM_DRAFT_DEPTH"],
-            let n = Int(s), n >= 1, n <= 16 { return n }
-        return 1
-    }()
+    /// Operating choice: two drafts balance target passes against rejected work.
+    /// The automatic-40%-RAM M5 Pro study tied depths two and three overall;
+    /// it did not establish a universal optimum. Explicitly adopted 2026-09-11:
+    /// db/records/decisions/draft-depth-defaults-to-two.md.
+    /// Revisit with clean paired workload/context evidence. This does not change
+    /// the separate MTP activation floor, memory policy or context bounds.
+    public static let defaultDraftDepth = 2
+
+    /// Preserve the 1...16 experimental override and fallback for invalid input.
+    package static func resolveDraftDepth(_ environmentValue: String?) -> Int {
+        if let value = environmentValue, let depth = Int(value), (1 ... 16).contains(depth) {
+            return depth
+        }
+        return defaultDraftDepth
+    }
+
+    public var draftDepth: Int = Generator.resolveDraftDepth(
+        ProcessInfo.processInfo.environment["SLOTSTREAM_DRAFT_DEPTH"])
     /// Gate for the speculative path — `mtp-check` compares speculative
     /// against plain decode on the same loaded model by flipping this.
     public var speculationEnabled = true

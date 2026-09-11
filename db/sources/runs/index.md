@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T03:40:00.073219Z
+updated: 2026-09-11T09:13:46.651611Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-retry]] — Two-draft full MTP check: swap-limited retry attempt
+- [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-first]] — Two-draft full MTP check: swap-limited first attempt
+- [[sources/runs/2026/09/2026-09-11-draft-depth-two-default]] — Two-draft default implementation checks
 - [[sources/runs/2026/09/2026-09-11-mtp-multitask-auto40]] — Complete automatic 40% RAM MTP depth comparison with all 54 experiments and all exclusions preserved
 - [[sources/runs/2026/09/2026-09-11-mtp-depth-fixed-total]] — Inconclusive MTP depth comparison at equal total RAM, with all exclusions preserved
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-installed-api-and-serving]] — v0.2.14 installed API acceptance and restored normal demo server
@@ -504,11 +507,8 @@ updated: 2026-09-11T03:40:00.073219Z
 - [[sources/runs/2026/09/2026-09-04-first-principles-native-retention]] — First-principles audit: native retained-state compaction and identical logits
 - [[sources/runs/2026/09/2026-09-04-first-principles-primitive-diagnostics]] — First-principles audit: MLX allocation and numerical diagnostics, timings discarded
 - [[sources/runs/2026/09/2026-09-04-first-principles-static-audit]] — First-principles audit: code identities, tensor geometry and schedule arithmetic
-- [[sources/runs/2026/09/2026-09-04-n6-code-and-tensor-audit]] — N6 audit: production MoE dtypes, slice storage retention, scheduling arithmetic, and hashed code closure; no model benchmark
-- [[sources/runs/2026/09/2026-09-04-describing-images-of-known-content]] — Sixteen images of known content described by the served model: quadrants, ordered bands, counts, rendered text, extremes of size, PNG vs JPEG, greyscale, transparency. 16 of 16.
-- [[sources/runs/2026/09/2026-09-04-verify-with-vision-gates-idle]] — verify.sh with the vision gates on an idle machine: 24 passed, 0 failed, including vision parity and 18 serving assertions at the 8.1 GB floor.
 
 ## More
 
-This folder has 516 files. The 500 most recent are listed above.
+This folder has 519 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

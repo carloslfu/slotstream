@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-10T15:07:24.356065Z
+updated: 2026-09-11T09:13:46.750785Z
 ---
 
 # records/decisions
 
+- [[records/decisions/draft-depth-defaults-to-two]] — Two draft tokens are the adopted operating default; activation and memory policies remain separate
+- [[records/decisions/draft-depth-defaults-to-one-and-auto-floor-120-per-layer]] — Speculative decode drafts one token by default and auto enables it only at 120 experts per layer and up
 - [[records/decisions/guillermo-rauch-grant-acknowledgment]] — Credit Guillermo Rauch personally using his official GitHub photo, full name and the verified Slotstream grant listing.
 - [[records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram]] — Auto retains the evidence-based 33 GB default; larger-target predictions do not prove a universal performance plateau.
 - [[records/decisions/benchmark-startup-swapin-exclusion-2026-09-09]] — Explicit paired benchmark startup swap-in exclusion with unchanged hard resource limits
@@ -25,7 +27,6 @@ updated: 2026-09-10T15:07:24.356065Z
 - [[records/decisions/bench-rig-m8-deprioritized-behind-retention-work]] — The M8 bench rig and full tier validation are deprioritized behind what decides whether a person keeps using slotstream
 - [[records/decisions/custom-metal-kernels-are-not-blocked-on-xcode]] — Writing a new Metal kernel is not blocked on Xcode; only mlx-swift's bundled shader library is, and it is vendored
 - [[records/decisions/prefix-cache-holds-four-conversations-extend-only]] — The conversation prefix cache holds four states and only ever extends, never rewinds
-- [[records/decisions/draft-depth-defaults-to-one-and-auto-floor-120-per-layer]] — Speculative decode drafts one token by default and auto enables it only at 120 experts per layer and up
 - [[records/decisions/cross-layer-read-ahead-removed]] — Cross-layer read-ahead was built, measured slower in every paired run, and removed
 - [[records/decisions/quality-gate-against-fp8-needs-a-credential]] — The quality comparison against the FP8 reference (N4) waits for a paid inference credential
 - [[records/decisions/download-hosting-is-not-a-lever-below-3-gbit-s]] — Hosting the weights elsewhere is not a download-speed lever below about 3 Gbit/s per client

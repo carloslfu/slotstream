@@ -46,6 +46,14 @@ extension Diagnostics {
 
     public static func optimizationAdaptivePolicy() -> CheckReport {
         var c = CheckBuilder("optimization-adaptive-policy")
+        c.equal("adopted default drafts two tokens", Generator.defaultDraftDepth, 2)
+        c.equal("absent override uses two drafts", Generator.resolveDraftDepth(nil), 2)
+        for value in ["", "0", "17", "-1", "two", "2.0", "999999999999999999999999"] {
+            c.equal("invalid draft override falls back/\(value)", Generator.resolveDraftDepth(value), 2)
+        }
+        for depth in [1, 2, 3, 16] {
+            c.equal("explicit draft override remains supported/\(depth)", Generator.resolveDraftDepth(String(depth)), depth)
+        }
         func calibrated(_ depth: Int) -> AdaptiveSpeculationPolicy {
             var p = AdaptiveSpeculationPolicy(maximumDepth: depth)
             for context in 1 ... 3 {

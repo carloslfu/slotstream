@@ -3,7 +3,7 @@ type: measurement
 meta-type: conclusion
 id: 01m278tdvz3w25zpbdth5eaqqs
 created: 2026-09-11T03:40:14.591119+00:00
-updated: 2026-09-11T03:40:14.591119+00:00
+updated: 2026-09-11T09:02:49.898986+00:00
 summary: 'Complete multitasking study: two is a practical mixed-workload choice, two and three tie in clean repeated comparisons, and no universal default qualifies'
 date: 2026-09-11
 doc: measurements
@@ -76,3 +76,5 @@ SLOTSTREAM_DRAFT_DEPTH=2 slotstream serve --max-ram-percent 40 --mtp on
 Leave elasticity enabled and avoid an explicit memory/pool override for this profile. Three is a reasonable alternative for code-heavy use, but the clean repeated difference from two is small. The study does not justify larger depths, another machine, sampled decoding or a universal setting. It also does not guarantee stability under arbitrary additional memory/compute load.
 
 **Evidence and cleanup.** Raw data, all exclusions, frozen drivers, exact requests, reproducible analysis and cleanup proof are in [[sources/runs/2026/09/2026-09-11-mtp-multitask-auto40]]. All 54 owned model PIDs exited, no model remained, and the native model lock was free. The installed executable and Metal hashes were unchanged and all 150 compiled-identity files still matched. Diagnostics existed only in terminated test-child environments. The demo was not restarted. This complete automatic-memory study remains separate from the earlier fixed-memory attempts in [[records/measurements/mtp-depth-fixed-total-inconclusive-2026-09-11]] and does not replace their evidence or published historical speed claims.
+
+**Subsequent operating decision, September 11:** After this measurement was recorded, Carlos explicitly adopted two drafts as the default and requested implementation alignment. See [[records/decisions/draft-depth-defaults-to-two]]. Statements above about the unchanged one-draft default describe the state at measurement closure; they are not the current operating policy. The adoption does not change these results, exclusions or failed performance-qualification conditions.

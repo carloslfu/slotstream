@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m1qmfn82qv2avgdyk96x1crn
 created: 2026-09-05T01:56:13.698129+00:00
-updated: 2026-09-10T23:52:52.103747+00:00
+updated: 2026-09-11T09:02:49.972440+00:00
 summary: 'Completed OPT00–OPT36 program: exact qualified sources and local installation active; all final outcomes and prerequisite-dependent deferrals preserved'
 date: 2026-09-04
 doc: plan
@@ -12,6 +12,8 @@ level: '3'
 order: '334'
 title: Unified whole-engine optimization program — 2026-09-04
 ---
+**Draft-depth follow-up, September 11:** [[records/decisions/draft-depth-defaults-to-two]] adopts two drafts for new work. The default-change implementation is separate from the frozen OPT00–OPT36 program below: keep its explicit one-draft controls and historical identities unchanged. New default-path qualification must bind a fresh source identity and declare depth two rather than inheriting an old protocol.
+
 **Public release follow-up, September 10:** v0.2.14 now publishes the completed optimization work and is installed and serving locally. The exact successful CI archive, public provenance and installation are verified. Public-artifact acceptance currently qualifies 23 of 25 original model gates and all 31 installed-release checks. The full governor and long-prompt zero-swap memory intervals remain unqualified after system swap-ins; every excluded attempt is preserved and no assertion was relaxed. Current release identity, evidence and the two remaining acceptance actions are in [[records/measurements/release-qualification-0-2-14]]. This supersedes the installed-binary and publication state in the preserved optimization-activation snapshot below, without changing the completed OPT00–OPT36 dispositions or their original evidence.
 
 **Preserved optimization closure and source-qualified activation:**

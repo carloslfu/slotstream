@@ -2,13 +2,14 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-11T03:40:14.591119Z
+updated: 2026-09-11T09:13:46.713403Z
 ---
 
 # records/measurements
 
-- [[records/measurements/mtp-depth-auto40-multitasking-2026-09-11]] — Complete multitasking study: two is a practical mixed-workload choice, two and three tie in clean repeated comparisons, and no universal default qualifies
+- [[records/measurements/draft-depth-two-default-2026-09-11]] — Two-draft default implementation and bounded checks
 - [[records/measurements/mtp-depth-fixed-total-inconclusive-2026-09-11]] — Fixed-total-memory MTP depth testing did not qualify a new default
+- [[records/measurements/mtp-depth-auto40-multitasking-2026-09-11]] — Complete multitasking study: two is a practical mixed-workload choice, two and three tie in clean repeated comparisons, and no universal default qualifies
 - [[records/measurements/release-qualification-0-2-14]] — Published v0.2.14: CI and installed API passed; two local zero-swap model gates remain unqualified
 - [[records/measurements/decode-wall-time-attribution-2026-09-10]] — Decode wall-time attribution with natural GPU boundaries
 - [[records/measurements/release-qualification-0-2-13]] — Public v0.2.13 release qualification and installed-artifact acceptance

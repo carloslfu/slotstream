@@ -1,0 +1,116 @@
+{
+  "classification": "configuration and implementation checks; no new speed claim",
+  "members": {
+    "build/build.txt": {
+      "sha256": "7e37f55ea2439be4b7558ce99e963e766643fa5af1410957c9bacbe639a6381b",
+      "bytes": 12005
+    },
+    "build/candidate/build-identity.json": {
+      "sha256": "02588ea4de30c88c47582457c2869d31b5563b0125966aa0fc31929fbaf3e974",
+      "bytes": 18603
+    },
+    "build/candidate/build-source.tar.gz": {
+      "sha256": "7b6c69f3fd83827db00f083522d50d6674a84f5b2f185c252bbc682b701e9c26",
+      "bytes": 960137
+    },
+    "build/manifest.json": {
+      "sha256": "7d394e2b50ba4abd4c85da8a7d829bbe5a16aa934494ba63d9b2399d6ee0d08a",
+      "bytes": 24002
+    },
+    "draft-policy-check.json": {
+      "sha256": "503d6fe4e5b2c88994575257c26faed872c0cce321e560045518cf0070dd7998",
+      "bytes": 8348
+    },
+    "implementation-audit.json": {
+      "sha256": "3080ce295405707526283e28e41478b955116a6ea02a9a89c736deec971a27eb",
+      "bytes": 674
+    },
+    "mtp-check/before.json": {
+      "sha256": "8e7e315ed36ad2761ff712da71ffca506b8d934878683b463936379516df8bd0",
+      "bytes": 2652
+    },
+    "mtp-check/stderr.txt": {
+      "sha256": "5fb7b2c4c99be0c5a04e402e3f47f0b45024bd7aedd68fd3f48b9d9d58cb10ff",
+      "bytes": 1293
+    },
+    "mtp-check/stdout.txt": {
+      "sha256": "44ed0d9087c29b2c7fd74a3bec6ea13bf648a94d6f6e8426f70a895cd8207143",
+      "bytes": 347
+    },
+    "mtp-check-retry/before.json": {
+      "sha256": "f65338af4a92a7ac43274813f3b0b161ccab488417ea264f518965a1617f28c5",
+      "bytes": 6195
+    },
+    "mtp-check-retry/stderr.txt": {
+      "sha256": "2f60f68095d973114d0891aef8d7a5dad39d653d3cf4e353b6fdbd995eac5cd4",
+      "bytes": 1293
+    },
+    "mtp-check-retry/stdout.txt": {
+      "sha256": "0351a2125c52d02a17c2f16d612506774198d60fe77d78eafd822b875ac811d6",
+      "bytes": 287
+    },
+    "serve-help.txt": {
+      "sha256": "7a55ecfa356f5e3fe99823daa309126c37671dd48e6db4531b17aed588f3b9b5",
+      "bytes": 5366
+    },
+    "serving-default/default/request.json": {
+      "sha256": "63a081c487f81cc48dbc0216faa7a43ce0331798e28419a7c788cc292658ef63",
+      "bytes": 473
+    },
+    "serving-default/default/response.ndjson": {
+      "sha256": "f0f5d585ff9f01a1cd5cd16583493b88bf85c12e86b51a234017cb99bae6cd00",
+      "bytes": 9859
+    },
+    "serving-default/default/result.json": {
+      "sha256": "c5b41ae2cc970e08af234d3391703e26e8369f0152c62492dc0ecfcf8d647802",
+      "bytes": 12141
+    },
+    "serving-default/default/stderr.txt": {
+      "sha256": "b50681fccecd0df5c5809618b44cdd2728eb35440788947608889e7bc749371b",
+      "bytes": 1184
+    },
+    "serving-default/default/stdout.txt": {
+      "sha256": "93fc1b35bf38496ce556fd074b260df7e0070c2d2640930ecd643e83badc4812",
+      "bytes": 244
+    },
+    "serving-default/explicit-one/request.json": {
+      "sha256": "63a081c487f81cc48dbc0216faa7a43ce0331798e28419a7c788cc292658ef63",
+      "bytes": 473
+    },
+    "serving-default/explicit-one/response.ndjson": {
+      "sha256": "02ed3278e1c7bb314c9cbc3c25e4a2f11768e702a9f3adeea7bbb20d9368e3f9",
+      "bytes": 9835
+    },
+    "serving-default/explicit-one/result.json": {
+      "sha256": "ddd8739bff3891905d280d589ca554241d8b5e9ed1f9eabf01e7737a399e7eb8",
+      "bytes": 12209
+    },
+    "serving-default/explicit-one/stderr.txt": {
+      "sha256": "9bd9028434afc7b548ce8a579e83dee4d463a052fe12ea933f60694019740a13",
+      "bytes": 1184
+    },
+    "serving-default/explicit-one/stdout.txt": {
+      "sha256": "f7918cdd70af79afa03e58d6db8f9344cd609e777e69b4026857c9254e638768",
+      "bytes": 244
+    },
+    "serving-default/results.json": {
+      "sha256": "3a086589e5faf37e0dab3d4e57b2f3cd6c017a5df1c2100283484925427233f3",
+      "bytes": 25893
+    },
+    "static-gates.txt": {
+      "sha256": "bd7554ef37a72445aa699d66a99c24de714271434a4b4f8e4dec9fc5a3e12a9b",
+      "bytes": 21731
+    },
+    "t0.json": {
+      "sha256": "540febe512dc183587a9e305d130376600b3ffe0b16dc585e7bb8d3e77afc9ec",
+      "bytes": 2567752
+    },
+    "verification.json": {
+      "sha256": "992e98e5264d05741da93413c98bf747034abac6726c1e8a7cbc0b5d558221b0",
+      "bytes": 1795
+    }
+  },
+  "archive_sha256": "a4a63faacb5a3bbbe12b0c0b0de00ada0c1176737d62fbb705a79e88c8905238",
+  "member_count": 27,
+  "roundtrip_verified": true
+}

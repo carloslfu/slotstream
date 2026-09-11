@@ -3,7 +3,7 @@ type: measurement
 meta-type: conclusion
 id: 01m27310j3f9e4fepfrhgqdwqg
 created: 2026-09-11T01:58:58.883851+00:00
-updated: 2026-09-11T02:03:20.302621+00:00
+updated: 2026-09-11T09:02:49.917795+00:00
 summary: Fixed-total-memory MTP depth testing did not qualify a new default
 date: 2026-09-11
 doc: measurements
@@ -49,3 +49,5 @@ A larger draft can reduce target-model traversals per emitted token, but it also
 **Next qualifying test.** Use a new frozen cohort after the Mac is quiet, with nominal thermal state, stable swap counters and the declared memory headroom. Repeat all four depths in balanced order, keep the actual-code fixture and same total RAM, then confirm any eligible improvement with the prospectively described longer output. Preserve these attempts and do not replace their failed rows. Until then, the correct statement is that one remains the default and the optimum is unproven.
 
 **Cleanup and evidence.** Every launched test process exited, the native model lock was free, no competing model/build job remained in the scoped inventory, and the installed executable and Metal hashes matched their pre-test identities. The demo server was not restarted. Raw evidence, reproducible analysis, protocol limits and the stop reason are in [[sources/runs/2026/09/2026-09-11-mtp-depth-fixed-total]]. The earlier depth study remains historical evidence in [[records/measurements/the-rebuild-eliminated-and-the-numbers-that-ship-2026-09-02]]; this incomplete study neither supersedes it nor changes any published speed claim.
+
+**Subsequent operating decision, September 11:** After this measurement was recorded, Carlos explicitly adopted two drafts as the default and requested implementation alignment. See [[records/decisions/draft-depth-defaults-to-two]]. Statements above about the unchanged one-draft default describe the state at measurement closure; they are not the current operating policy. The adoption does not change these results, exclusions or failed performance-qualification conditions.
