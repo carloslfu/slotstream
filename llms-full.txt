@@ -3036,12 +3036,15 @@ the request-to-first-token budget defaults to 30 minutes, including preparation
 and queueing. Setting `--max-prefill-wait 0` disables only that time policy.
 
 Keep the configured window, prompt count and required reply count with each
-result. Capacity evidence needs a complete prompt and reply, sampled physical
-footprint, RSS and unchanged swap counters. Report MTP and vision separately;
+result. Capacity evidence needs a complete prompt and reply and process memory
+within budget, including sampled footprint and lifetime peaks. Record global
+paging separately; it does not identify which application caused it. Report MTP and vision separately;
 a text-only capacity result does not qualify those modes or answer quality.
 
 Allow about ten minutes once the weights are downloaded. Close other
-memory-heavy apps and check that the Mac is not swapping. Run one model
+memory-heavy apps if you want clean speed measurements, and exclude timing
+intervals affected by paging. Functional checks can run with other apps open
+when the memory and pressure safeguards permit it. Run one model
 process at a time.
 
 To share your Mac's results, follow the [measurement steps](TESTING.md#measure-your-mac),

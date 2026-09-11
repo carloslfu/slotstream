@@ -29,7 +29,7 @@ def main():
         'build': build, 'previous': str(previous), 'memory_gb': 10,
         'required_reclaimable_gb': 13, 'experimental_controls': 'all default off',
         'long_prompt_sha256': digest(out/'long-prompt.txt'),
-        'contract': 'Short and long requests explicitly sample physical footprint; unchanged 10 GB byte/swap gate. The unchanged long source is passed through the normal non-thinking chat template, with the same 16-token allowance; require a completed standalone recalled value and at least 7000 prompt tokens. Repair Bash 3.2 empty optional arguments; run the complete API robustness script. Do not rerun passing V68 gates. No replacement or relaxed memory gate.',
+        'contract': 'Short and long requests explicitly sample physical footprint and retain the 10 GB process ceiling. Global macOS paging is diagnostic under the current functional-acceptance policy; historical V68 verdicts stay unchanged. The unchanged long source is passed through the normal non-thinking chat template, with the same 16-token allowance; require a completed standalone recalled value and at least 7000 prompt tokens. Repair Bash 3.2 empty optional arguments; run the complete API robustness script. Do not rerun passing V68 gates. No replacement or relaxed process-memory ceiling.',
         'source_hashes': {}, 'results': [], 'completed': False}
     for name in sources:
         path = ROOT/'Tools'/name; record['source_hashes'][name] = digest(path)
