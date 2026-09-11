@@ -3,6 +3,12 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- Fix peak-memory reporting after GPU buffers are freed by reading macOS's
+  lifetime physical-footprint high-water. Keep current usage and sampled
+  request peaks distinct, and report memory on early failures and cancellations.
+
 ## 0.2.14 - 2026-09-10
 
 - Faster repeated and continued prompts through committed prompt checkpoints,

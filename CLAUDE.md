@@ -166,8 +166,10 @@ multi-GB. These rules are mandatory:
    `MLX.Memory.cacheLimit`). Do not remove it: without the cap a 10 GB-target
    server held 15.1 GB of real RSS (freed transients hoarded by the
    allocator); with it, 6.0 GB flat at identical speed. `GenStats.peakMemoryGB`
-   and the verification gate now use the Mach/getrusage process RSS high-water;
-   the MLX-only peak is diagnostic only.
+   combines the kernel lifetime physical-footprint peak, lifetime RSS and current
+   footprint. RSS alone misses released GPU allocations. Verification also keeps
+   sampled request intervals and swap observations; the lifetime peak includes
+   loading and earlier requests. The MLX-only peak is diagnostic only.
 7. **No memory-hog stress experiments without Carlos's explicit go.** The
    2026-08-28 hog experiments are done and documented in MEASUREMENTS.md;
    never rerun them casually.

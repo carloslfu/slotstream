@@ -14,8 +14,23 @@ extension Diagnostics {
             c.expect("request VM reclaimable bytes are available", before.reclaimableBytes > 0)
         } else { c.expect("request VM counters are available", false) }
         c.expect("process physical footprint is readable", ProcessMemory.residentBytes() > 0)
-        c.expect("process RSS high-water is readable", ProcessMemory.peakResidentBytes() > 0)
+        c.expect("process compatibility high-water is readable", ProcessMemory.peakResidentBytes() > 0)
         c.expect("lifetime RSS is separately readable", ProcessMemory.lifetimeRSSPeakBytes() > 0)
+        let currentFootprint = ProcessMemory.residentBytes()
+        c.expect("kernel lifetime footprint includes current allocation",
+            ProcessMemory.lifetimePhysicalFootprintPeakBytes() >= currentFootprint)
+        var memoryStats = GenStats()
+        memoryStats.recordProcessMemory()
+        c.expect("statistics publish current and lifetime observations",
+            memoryStats.physicalFootprintEndBytes > 0
+                && (memoryStats.lifetimePhysicalFootprintPeakBytes ?? 0) >= memoryStats.physicalFootprintEndBytes
+                && memoryStats.peakMemoryGB >= Double(memoryStats.lifetimeRSSPeakBytes) / 1e9)
+        var oldStats = try JSONSerialization.jsonObject(with: JSONEncoder().encode(memoryStats)) as! [String: Any]
+        oldStats.removeValue(forKey: "lifetimePhysicalFootprintPeakBytes")
+        let oldDecoded = try JSONDecoder().decode(GenStats.self,
+            from: JSONSerialization.data(withJSONObject: oldStats))
+        c.expect("statistics predating the lifetime footprint field still decode",
+            oldDecoded.lifetimePhysicalFootprintPeakBytes == nil && oldDecoded.peakMemoryGB == memoryStats.peakMemoryGB)
         let start = RuntimeClock.now()
         c.expect("monotonic duration is nonnegative", RuntimeClock.seconds(since: start) >= 0)
         let sampler = FootprintSampler()

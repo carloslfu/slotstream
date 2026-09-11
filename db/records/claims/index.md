@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-11T09:13:46.732026Z
+updated: 2026-09-11T10:48:38.354513Z
 ---
 
 # records/claims
 
+- [[records/claims/peak-memory-32-gb-at-auto]] — The 32 GB automatic-plan figure is an estimate, not a measured lifetime footprint peak
 - [[records/claims/draft-depth-default-two]] — The adopted speculative draft-chain default is two tokens
 - [[records/claims/speculative-decode-x1-24-at-auto-floor]] — Speculative decode multiplies decode by 1.24 at auto's floor on the dev Mac
 - [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
@@ -30,7 +31,6 @@ updated: 2026-09-11T09:13:46.732026Z
 - [[records/claims/prefill-8k-prompt-91-to-184-tok-s-at-16-gb]] — The sweep reads the 8k acceptance prompt at 184 tok/s at a 16 GB target, against 91 for the 0.2.2 code
 - [[records/claims/prefill-220-tok-s-at-a-4096-pass]] — Prefill at a 4096-token pass is about 220 tok/s on the dev Mac (estimated from the sweep's ladder)
 - [[records/claims/prefill-125-tok-s-at-a-4096-pass]] — Prefill at a 4096-token pass is about 125 tok/s on the dev Mac
-- [[records/claims/peak-memory-32-gb-at-auto]] — Peak memory at the auto plan is 32 GB on the dev Mac
 - [[records/claims/output-byte-identical-across-cache-sizes]] — Greedy output is byte-identical across cache sizes and live resizes
 - [[records/claims/only-the-48-gb-row-is-measured-on-real-hardware]] — Only the 48 GB row is measured on real hardware
 - [[records/claims/one-picture-at-most-2304-tokens]] — A picture costs at most 2,304 tokens

@@ -86,6 +86,7 @@ public struct SampleParams {
 }
 
 public struct GenStats: Codable {
+    package init() {}
     public var requestSeconds = 0.0
     public var queueSeconds = 0.0
     public var imageEncodeSeconds = 0.0
@@ -153,6 +154,9 @@ public struct GenStats: Codable {
     public var reconciledHeadTokens = 0
     public var reusedHeadTokens = 0
     public var lifetimeRSSPeakBytes: UInt64 = 0
+    /// Kernel lifetime peak, separate from the current request's sampled peak.
+    /// Optional so statistics saved before this field existed remain decodable.
+    public var lifetimePhysicalFootprintPeakBytes: UInt64?
     public var physicalFootprintEndBytes: UInt64 = 0
     public var sampledFootprint: FootprintSampler.Result?
     public var imagePreparation: ImagePreparationObservation?
@@ -211,9 +215,9 @@ public struct GenStats: Codable {
     public var draftAcceptRate: Double {
         draftedTokens > 0 ? Double(acceptedDrafts) / Double(draftedTokens) : 0
     }
-    /// Legacy observation: max(lifetime RSS, current physical footprint).
-    /// It is not an upper bound on physical-footprint peaks. The separate
-    /// sampledFootprint observation is required for memory qualification.
+    /// Process-lifetime high-water: max(physical-footprint peak, RSS peak,
+    /// current footprint). Includes earlier requests and model loading.
+    /// sampledFootprint remains the separate request-interval observation.
     public var peakMemoryGB = 0.0
     /// MLX-only high-water retained as a diagnostic, never as the RAM gate.
     public var mlxPeakMemoryGB = 0.0
@@ -247,6 +251,14 @@ public struct GenStats: Codable {
     public var prefillTPS: Double { prefillSeconds > 0 ? Double(prefillTokens) / prefillSeconds : 0 }
     public var prefixHit: Bool { reusedPrefixTokens > 0 }
     public var decodeTPS: Double { decodeSeconds > 0 ? Double(decodeTokens) / decodeSeconds : 0 }
+
+    package mutating func recordProcessMemory() {
+        physicalFootprintEndBytes = ProcessMemory.residentBytes()
+        lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
+        let peak = ProcessMemory.lifetimePhysicalFootprintPeakBytes()
+        lifetimePhysicalFootprintPeakBytes = peak > 0 ? peak : nil
+        peakMemoryGB = Double(max(physicalFootprintEndBytes, lifetimeRSSPeakBytes, peak)) / 1e9
+    }
 }
 
 /// Token sampling, split out from the decode loop so it can be exercised on
@@ -478,6 +490,9 @@ public final class Generator {
         let embeddingHitsStart = model.resident.embeddingRowHits
         let embeddingMissesStart = model.resident.embeddingRowMisses
         func finish(_ output: [Int]) -> ([Int], GenStats) {
+            // Every completion, cancellation and early refusal publishes the
+            // same memory observations. Several early exits used to leave zero.
+            stats.recordProcessMemory()
             stats.smallPrefillSweeps = model.smallPrefillSweeps - smallSweepStart
             stats.embeddingRowsEnabled = model.resident.usesEmbeddingRows
             stats.embeddingRowHits = model.resident.embeddingRowHits - embeddingHitsStart
@@ -504,8 +519,6 @@ public final class Generator {
         // the API boundary; this is the backstop.
         guard !promptIds.isEmpty else {
             stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
-            stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-            stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
             stats.sampledFootprint = footprint?.finish()
             stats.terminalQueryRowsSkipped = model.terminalQueryRowsSkipped - terminalQueryStart
             stats.terminalMoERowsSkipped = model.terminalMoERowsSkipped - terminalMoEStart
@@ -674,9 +687,6 @@ public final class Generator {
             stats.imageEncodeSeconds = RuntimeClock.seconds(since: imageStart)
             stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
             stats.sampledFootprint = footprint?.finish()
-            stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-            stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
-            stats.peakMemoryGB = ProcessMemory.peakResidentGB
             stats.generatorVMAfter = footprintSampling ? ProcessMemory.vmActivity() : nil
             stats.generatorSystemAfter = footprintSampling ? ProcessMemory.operatingConditions() : nil
             return finish([])
@@ -718,7 +728,6 @@ public final class Generator {
                 stats.finishReason = "stop"
                 stats.prefillTokens = i - reused
                 stats.prefillSeconds = RuntimeClock.seconds(since: t0)
-                stats.peakMemoryGB = ProcessMemory.peakResidentGB
                 stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
                 stats.prefillRecords = model.pool.recordsFetched
                 stats.prefillLocalVictims = model.pool.floorLocalVictims
@@ -726,8 +735,6 @@ public final class Generator {
                 stats.allocatedSequenceBytes = state.allocatedSequenceBytes
                 stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
                 stats.sampledFootprint = footprint?.finish()
-                stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-                stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
                 model.pool.admitOnSweep = false
                 // Each completed chronological pass is a whole-stack commit.
                 // Publish only that boundary; a partial image keeps its digest
@@ -912,9 +919,6 @@ public final class Generator {
                 stats.prefillReadBytes = model.pool.recordsFetched * model.pool.recordBytes
                 stats.allocatedSequenceBytes = state.allocatedSequenceBytes
                 stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
-                stats.peakMemoryGB = ProcessMemory.peakResidentGB
-                stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-                stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
                 stats.sampledFootprint = footprint?.finish()
                 stats.generatorVMAfter = footprintSampling ? ProcessMemory.vmActivity() : nil
                 stats.generatorSystemAfter = footprintSampling ? ProcessMemory.operatingConditions() : nil
@@ -1097,9 +1101,6 @@ public final class Generator {
         stats.cachedRouterBytes = model.cachedRouterBytes
         stats.ngramCachePayloadBytes = model.ngram.cachedPayloadBytes
         stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
-        stats.peakMemoryGB = ProcessMemory.peakResidentGB
-        stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-        stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
         stats.mlxActiveEndBytes = MLX.Memory.activeMemory
         stats.mlxCacheEndBytes = MLX.Memory.cacheMemory
         stats.sampledFootprint = footprint?.finish()

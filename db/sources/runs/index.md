@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T09:29:41.700421Z
+updated: 2026-09-11T10:56:12.425163Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-long-memory-excluded]] — Repeated long-prompt memory intervals excluded by swap-ins
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-live-budget-integration]] — Live fixed-budget integration with one excluded resource interval
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-initial-acceptance-excluded]] — Initial memory-reporting acceptance with swap exclusions
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-and-fixed-budget-audit]] — Native lifetime footprint correction and fixed-budget audit
 - [[sources/runs/2026/09/2026-09-11-release-0-2-14-final-memory-acceptance]] — v0.2.14 final memory acceptance: both unchanged gates pass, 25 of 25 model gates qualified
 - [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-retry]] — Two-draft full MTP check: swap-limited retry attempt
 - [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-first]] — Two-draft full MTP check: swap-limited first attempt
@@ -503,12 +507,8 @@ updated: 2026-09-11T09:29:41.700421Z
 - [[sources/runs/2026/09/2026-09-05-optimization-bounded-prefill-and-lifecycle]] — Bounded prefill, GDN recording and lifecycle implementation evidence
 - [[sources/runs/2026/09/2026-09-05-optimization-second-implementation]] — Second optimization implementation and confirmation evidence
 - [[sources/runs/2026/09/2026-09-05-optimization-initial-implementation]] — Initial optimization implementation: raw A/A, final-forward pilot, compact-state confirmation and correctness checks
-- [[sources/runs/2026/09/2026-09-04-prefill-unification-first-principles]] — Prefill unification: pinned full-sort dispatch, 510 block-mask checks, 60 total-order selection checks, 156 checkpoint cases and explicit workspace arithmetic; no model benchmark
-- [[sources/runs/2026/09/2026-09-04-prefill-parallelism-algebra]] — Prefill parallelism: source identities and CPU FP64 gated-delta block algebra, without performance or production parity claims
-- [[sources/runs/2026/09/2026-09-04-first-principles-native-retention]] — First-principles audit: native retained-state compaction and identical logits
-- [[sources/runs/2026/09/2026-09-04-first-principles-primitive-diagnostics]] — First-principles audit: MLX allocation and numerical diagnostics, timings discarded
 
 ## More
 
-This folder has 520 files. The 500 most recent are listed above.
+This folder has 524 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

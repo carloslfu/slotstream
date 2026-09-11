@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-11T09:31:18.677329Z
+updated: 2026-09-11T10:55:11.601790Z
 ---
 
 # records/measurements
 
+- [[records/measurements/lifetime-footprint-reporting-and-fixed-budgets-2026-09-11]] — Released-GPU peak underreporting fixed; fixed budgets enlarge actual caches; long zero-swap acceptance remains excluded
 - [[records/measurements/release-qualification-0-2-14]] — Published v0.2.14: CI, all 25 original model gates and all 31 installed-release checks passed
 - [[records/measurements/draft-depth-two-default-2026-09-11]] — Two-draft default implementation and bounded checks
 - [[records/measurements/mtp-depth-fixed-total-inconclusive-2026-09-11]] — Fixed-total-memory MTP depth testing did not qualify a new default

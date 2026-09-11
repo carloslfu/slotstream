@@ -11,7 +11,17 @@ make checks-all      # adds the MLX tier
 make test            # Tools/verify.sh, the acceptance battery against real weights
 make context-test    # isolated context policy + proxy fixtures; no MLX or weights
 make coverage        # line coverage of the library
+python3 Tools/process_memory_gate.py  # native CPU/GPU peak accounting, no model
+python3 Tools/memory_override_gate.py # CLI override matrix on simulated Macs
 ```
+
+The native process-memory regression compiles the production counter and uses
+small Metal buffers. It checks that peaks survive buffer release, persistent
+and temporary allocations remain distinguishable, concurrent reads retain the
+high-water, and an older or invalid kernel reply cannot become a bogus peak.
+The static gates run it automatically. Request samples remain separate from
+the process-lifetime counter; the memory acceptance gate checks both when the
+native lifetime observation is present.
 
 ## Configurable context without a model
 

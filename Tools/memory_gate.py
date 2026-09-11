@@ -19,6 +19,12 @@ def check_memory(payload, limit_gb):
     integer(sample['intervalMilliseconds'], 'sample interval', True)
     rss = integer(stats['lifetimeRSSPeakBytes'], 'lifetime RSS', True)
     end = integer(stats['physicalFootprintEndBytes'], 'end footprint', True)
+    # Older observations predate the native lifetime footprint counter. When
+    # supplied, it catches peaks between timer samples and before generation.
+    # It includes earlier requests, so this is a process-wide acceptance bound.
+    lifetime_footprint = stats.get('lifetimePhysicalFootprintPeakBytes')
+    if lifetime_footprint is not None:
+        lifetime_footprint = integer(lifetime_footprint, 'lifetime footprint peak', True)
     for name in ['swapins', 'swapouts']:
         before = integer(stats['generatorVMBefore'][name], 'VM before ' + name)
         after = integer(stats['generatorVMAfter'][name], 'VM after ' + name)
@@ -38,11 +44,12 @@ def check_memory(payload, limit_gb):
             before = integer(preparation['vmBefore'][name], 'image VM before ' + name)
             after = integer(preparation['vmAfter'][name], 'image VM after ' + name)
             if before != after: raise ValueError('swap activity during image preparation')
-    peak = max(sampled, rss, end, preparation_peak)
+    peak = max(sampled, rss, end, preparation_peak, lifetime_footprint or 0)
     if peak > limit: raise ValueError(f'observed {peak} bytes exceeds {limit} byte target')
     return {'passed': True, 'maximum_observed_bytes': peak,
             'sampled_footprint_bytes': sampled, 'image_preparation_peak_bytes': preparation_peak, 'lifetime_rss_bytes': rss,
-            'physical_footprint_end_bytes': end, 'sampling_interval_ms': sample['intervalMilliseconds']}
+            'physical_footprint_end_bytes': end, 'lifetime_footprint_peak_bytes': lifetime_footprint,
+            'sampling_interval_ms': sample['intervalMilliseconds']}
 
 
 def main():

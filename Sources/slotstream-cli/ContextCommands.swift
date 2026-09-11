@@ -342,7 +342,7 @@ struct ContextCheck: ParsableCommand {
                         print(String(decoding: data, as: UTF8.self))
                     } else {
                         print(String(
-                            format: "context-check %6d tokens: %@ in %@ (%.0f tok/s), peak RSS %.1f GB vs plan %.1f GB — %@",
+                            format: "context-check %6d tokens: %@ in %@ (%.0f tok/s), process peak %.1f GB vs plan %.1f GB: %@",
                             n, aborted == nil ? "read" : "stopped",
                             PrefillSchedule.describe(seconds: stats.prefillSeconds), stats.prefillTPS,
                             peak, plan.expectedPeakGB, verdict))

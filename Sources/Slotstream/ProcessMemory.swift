@@ -1,4 +1,4 @@
-// Process-wide safety helpers: real RSS accounting and a single model-bearing
+// Process-wide safety helpers: physical footprint, RSS and a single model-bearing
 // Slotstream process per user. MLX allocator counters are useful diagnostics,
 // but they do not include Swift heaps, mmap residency, or raw I/O buffers.
 
@@ -48,9 +48,7 @@ public enum ProcessMemory {
             reclaimableBytes: pages * UInt64(vm_page_size))
     }
 
-    /// Current physical footprint as reported by Mach. `phys_footprint` is the
-    /// number Activity Monitor uses and includes non-MLX allocations.
-    public static func residentBytes() -> UInt64 {
+    private static func vmInfo() -> (task_vm_info_data_t, mach_msg_type_number_t)? {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(
             MemoryLayout<task_vm_info_data_t>.stride / MemoryLayout<natural_t>.stride)
@@ -59,7 +57,31 @@ public enum ProcessMemory {
                 task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
             }
         }
-        return kr == KERN_SUCCESS ? UInt64(info.phys_footprint) : 0
+        return kr == KERN_SUCCESS ? (info, count) : nil
+    }
+
+    /// Current physical footprint as reported by Mach. `phys_footprint` is the
+    /// number Activity Monitor uses and includes non-MLX allocations.
+    public static func residentBytes() -> UInt64 {
+        vmInfo().map { UInt64($0.0.phys_footprint) } ?? 0
+    }
+
+    // task_info may return an older revision than the SDK's structure. Check
+    // the returned byte count before using the rev3 ledger field. Swift cannot
+    // import TASK_VM_INFO_REV3_COUNT, so derive this field's extent from its ABI.
+    static func footprintPeak(info: task_vm_info_data_t, count: mach_msg_type_number_t) -> UInt64 {
+        guard let offset = MemoryLayout<task_vm_info_data_t>.offset(of: \.ledger_phys_footprint_peak),
+              Int(count) * MemoryLayout<integer_t>.stride >= offset + MemoryLayout<Int64>.size,
+              info.ledger_phys_footprint_peak > 0 else { return 0 }
+        return UInt64(info.ledger_phys_footprint_peak)
+    }
+
+    /// Kernel-recorded lifetime physical-footprint high-water, including GPU
+    /// allocations that have since been freed. Zero means unavailable. This is
+    /// process-wide, not resettable or attributable to an individual request.
+    public static func lifetimePhysicalFootprintPeakBytes() -> UInt64 {
+        guard let (info, count) = vmInfo() else { return 0 }
+        return footprintPeak(info: info, count: count)
     }
 
     /// Lifetime high-water RSS alone. It is not physical footprint and cannot
@@ -70,11 +92,14 @@ public enum ProcessMemory {
         return UInt64(max(0, usage.ru_maxrss))
     }
 
-    /// Legacy observation: lifetime RSS or current footprint, whichever is
-    /// larger. This can miss an earlier physical-footprint peak; it is not an
-    /// upper bound. Use sampled footprint and the separate observations too.
+    /// Compatibility high-water: maximum of lifetime physical footprint,
+    /// lifetime RSS and current footprint. RSS alone misses released GPU
+    /// buffers. Keep per-request sampled observations separate from this
+    /// process-lifetime value. If Mach is unavailable, retain the RSS fallback.
     public static func peakResidentBytes() -> UInt64 {
-        max(lifetimeRSSPeakBytes(), residentBytes())
+        let rss = lifetimeRSSPeakBytes()
+        guard let (info, count) = vmInfo() else { return rss }
+        return max(rss, UInt64(info.phys_footprint), footprintPeak(info: info, count: count))
     }
 
     public static var residentGB: Double { Double(residentBytes()) / 1e9 }

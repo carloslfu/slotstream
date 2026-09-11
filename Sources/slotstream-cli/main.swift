@@ -421,6 +421,9 @@ struct Run: ParsableCommand {
                 let memoryObservation: String
                 if let sample = stats.sampledFootprint {
                     memoryObservation = String(format: "sampled footprint peak %.3f GB", Double(sample.peakBytes) / 1e9)
+                } else if let peak = stats.lifetimePhysicalFootprintPeakBytes {
+                    memoryObservation = String(format: "lifetime footprint peak %.3f GB, current footprint %.3f GB",
+                        Double(peak) / 1e9, Double(stats.physicalFootprintEndBytes) / 1e9)
                 } else {
                     memoryObservation = String(format: "RSS high-water %.3f GB, current footprint %.3f GB",
                         Double(stats.lifetimeRSSPeakBytes) / 1e9, Double(stats.physicalFootprintEndBytes) / 1e9)

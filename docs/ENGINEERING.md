@@ -45,7 +45,12 @@ On the 48 GB M5 Pro:
 |---|---|
 | Reply generation after the cache warms up | ~12 tok/s |
 | Engine start, before processing the prompt | ~2 s |
-| Peak memory with automatic sizing | 32 GB |
+| Planned memory with automatic sizing | 32 GB (estimate) |
+
+That memory figure is the historical planner estimate, not a measurement of
+the corrected kernel lifetime peak. Older reported values can miss GPU memory
+freed before the observation. Current usage, lifetime peaks and request samples
+are explained in the [memory controls](CLI.md#memory-options).
 
 **Long prompts take time before the first reply token.** Processing the prompt
 is called *prefill*. The estimates for this Mac are about 9 s for 2,000 tokens

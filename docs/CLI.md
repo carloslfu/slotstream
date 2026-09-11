@@ -172,6 +172,20 @@ a smaller history does not turn unused long-context reservation into free RAM.
 Unknown prefill estimates appear as JSON `null` and remain deadline-bound.
 Neither a fixed pool nor `--no-elastic` disables request memory checks.
 
+The target is a budget, so current usage can be lower while reserved context
+and temporary workspace are unused. `doctor` previews a new plan; it does not
+change an already running server. `/api/ps` includes that server's actual
+`details.memory_plan`, including its sizing source, target and expert pool.
+
+For `run`, the default memory summary separates the **lifetime footprint peak**
+from **current footprint**. The lifetime value includes loading and all earlier
+requests in that process, including GPU memory already freed. With
+`--sample-footprint`, the summary instead labels the sampled generation peak.
+Saved statistics retain `peakMemoryGB` as the maximum of lifetime footprint,
+lifetime RSS and current footprint; `lifetimePhysicalFootprintPeakBytes` exposes
+the native footprint peak separately. Sampling remains useful for attributing
+memory to a particular request and can miss allocations between samples.
+
 ## Optimization defaults
 
 The CLI resolves the selected optimization family automatically: compact
