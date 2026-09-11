@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T11:58:21.116981Z
+updated: 2026-09-11T15:12:05.105154Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-candidate-api-passed]] — v0.2.15 candidate API suite: all 31 checks passed with apps open
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-open-apps-mtp-excluded]] — v0.2.15 MTP retries with apps open: four resource exclusions retained
 - [[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]] — v0.2.15 prepublication: CI passed, original resource exclusions and reruns
 - [[sources/runs/2026/09/2026-09-11-lifetime-footprint-long-memory-excluded]] — Repeated long-prompt memory intervals excluded by swap-ins
 - [[sources/runs/2026/09/2026-09-11-lifetime-footprint-live-budget-integration]] — Live fixed-budget integration with one excluded resource interval
@@ -505,10 +507,8 @@ updated: 2026-09-11T11:58:21.116981Z
 - [[sources/runs/2026/09/2026-09-05-optimization-larger-routed-tile]] — Larger routed tile exact checks pass; paired latency pilot excluded for swap activity
 - [[sources/runs/2026/09/2026-09-05-optimization-scope-generation-and-mtp]] — Scope lifecycle and MTP checks pass; first larger-read-scope latency pilot is slower and unqualified
 - [[sources/runs/2026/09/2026-09-05-optimization-read-scope-and-capacity]] — Read-scope numerical correction, exact expert-read reuse and sequence-capacity lifecycle evidence
-- [[sources/runs/2026/09/2026-09-05-optimization-bounded-prefill-and-lifecycle]] — Bounded prefill, GDN recording and lifecycle implementation evidence
-- [[sources/runs/2026/09/2026-09-05-optimization-second-implementation]] — Second optimization implementation and confirmation evidence
 
 ## More
 
-This folder has 525 files. The 500 most recent are listed above.
+This folder has 527 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

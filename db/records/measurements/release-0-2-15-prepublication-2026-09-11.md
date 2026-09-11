@@ -2,17 +2,20 @@
 type: measurement
 id: 01m285cqbd1j8yf6ptkgrpm222
 created: 2026-09-11T11:59:34.253714+00:00
-updated: 2026-09-11T11:59:34.253714+00:00
+updated: 2026-09-11T15:12:05.205397+00:00
 summary: 'v0.2.15 prepared, not published: CI passed and 24 of 25 model gates qualify; final paging gate and app restoration pending'
 date: 2026-09-11
 doc: measurements
 level: '3'
 machines: '[[records/machines/macbook-pro-m5-pro-48gb]], [[records/machines/github-actions-macos-26]]'
+note: Follow-up API testing passed with apps left running; strict MTP resource qualification remains open.
 order: '1190'
 runs: '[[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]]'
 title: v0.2.15 prepublication qualification
 status: measured
 ---
+**Testing follow-up, September 11:** [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] records all 31 additional candidate API checks passing and four retained MTP paging exclusions with every user application left running. Chrome and Wispr Flow have been reopened; the earlier pause request is superseded by the instruction to leave other work alone. Publication and installation remain pending. The earlier checkpoint below is preserved as history.
+
 **v0.2.15 is prepared and pushed, but not published or installed. Complete main CI passed. Of the 25 original model gates, 24 now qualify; the combined MTP/vision diagnostic still lacks a zero-swap memory interval.**
 
 Release source: `ee4d1af5b3d63c2b5670c814b40b25432415eb46`. [Main CI 34592671081](https://github.com/carloslfu/slotstream/actions/runs/34592671081) passed every coverage, weights-free and public-library job. The exact downloaded CI archive passed source and identity verification. Archive SHA-256: `4f28e283daadcde7020789718e94f757190625c88297c78952d365e0c5454af0`; binary SHA-256: `31eefbbb4791beddb0f8674ab1c1875c2eb1c4a034f5cdd0fa1abcba31e373cf`. Its 150 compiled inputs match the tagged-version preparation source. There is no v0.2.15 tag yet.

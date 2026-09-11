@@ -2,12 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-11T11:59:34.253714Z
+updated: 2026-09-11T15:12:05.205397Z
 ---
 
 # records/measurements
 
 - [[records/measurements/release-0-2-15-prepublication-2026-09-11]] — v0.2.15 prepared, not published: CI passed and 24 of 25 model gates qualify; final paging gate and app restoration pending
+- [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] — v0.2.15 testing with apps open: API passes, strict MTP resource gate remains unqualified
 - [[records/measurements/lifetime-footprint-reporting-and-fixed-budgets-2026-09-11]] — Released-GPU peak underreporting fixed; fixed budgets enlarge actual caches; long zero-swap acceptance remains excluded
 - [[records/measurements/release-qualification-0-2-14]] — Published v0.2.14: CI, all 25 original model gates and all 31 installed-release checks passed
 - [[records/measurements/draft-depth-two-default-2026-09-11]] — Two-draft default implementation and bounded checks
