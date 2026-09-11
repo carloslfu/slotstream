@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T10:56:12.425163Z
+updated: 2026-09-11T11:58:21.116981Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]] — v0.2.15 prepublication: CI passed, original resource exclusions and reruns
 - [[sources/runs/2026/09/2026-09-11-lifetime-footprint-long-memory-excluded]] — Repeated long-prompt memory intervals excluded by swap-ins
 - [[sources/runs/2026/09/2026-09-11-lifetime-footprint-live-budget-integration]] — Live fixed-budget integration with one excluded resource interval
 - [[sources/runs/2026/09/2026-09-11-lifetime-footprint-initial-acceptance-excluded]] — Initial memory-reporting acceptance with swap exclusions
@@ -506,9 +507,8 @@ updated: 2026-09-11T10:56:12.425163Z
 - [[sources/runs/2026/09/2026-09-05-optimization-read-scope-and-capacity]] — Read-scope numerical correction, exact expert-read reuse and sequence-capacity lifecycle evidence
 - [[sources/runs/2026/09/2026-09-05-optimization-bounded-prefill-and-lifecycle]] — Bounded prefill, GDN recording and lifecycle implementation evidence
 - [[sources/runs/2026/09/2026-09-05-optimization-second-implementation]] — Second optimization implementation and confirmation evidence
-- [[sources/runs/2026/09/2026-09-05-optimization-initial-implementation]] — Initial optimization implementation: raw A/A, final-forward pilot, compact-state confirmation and correctness checks
 
 ## More
 
-This folder has 524 files. The 500 most recent are listed above.
+This folder has 525 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

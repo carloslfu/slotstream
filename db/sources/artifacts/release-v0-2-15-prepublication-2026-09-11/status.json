@@ -1,0 +1,155 @@
+{
+  "state": "prepared_not_published",
+  "release": "v0.2.15",
+  "commit": "ee4d1af5b3d63c2b5670c814b40b25432415eb46",
+  "ci_run": 34592671081,
+  "ci_conclusion": "success",
+  "initial_model_gates": {
+    "passed": 23,
+    "failed": 2
+  },
+  "qualified_unique_model_gates": 24,
+  "remaining_gate": "Original 12 GB mtp-check with vision and strict zero-swap memory interval",
+  "targeted_results": [
+    {
+      "gate": "elastic",
+      "attempt": 1,
+      "passed": false,
+      "memory": [
+        {
+          "ceiling_gb": 13,
+          "complete": false,
+          "lifetime_rss_peak_bytes": 3171696640,
+          "output_ids": [
+            [
+              45,
+              448,
+              11,
+              7919,
+              11,
+              23699,
+              83,
+              2891
+            ],
+            [
+              45,
+              448,
+              11,
+              7919,
+              11,
+              23699,
+              83,
+              2891
+            ]
+          ],
+          "physical_footprint_end_bytes": 7231982928,
+          "sampled_peak_bytes": 8282033464,
+          "samples": 1770,
+          "swapins_after": 44552980,
+          "swapins_before": 44552976,
+          "swapouts_after": 78197471,
+          "swapouts_before": 78197471,
+          "target_gb": 12.554587904
+        }
+      ]
+    },
+    {
+      "gate": "elastic",
+      "attempt": 2,
+      "passed": true,
+      "memory": [
+        {
+          "ceiling_gb": 13,
+          "complete": true,
+          "lifetime_rss_peak_bytes": 3203039232,
+          "output_ids": [
+            [
+              45,
+              448,
+              11,
+              7919,
+              11,
+              23699,
+              83,
+              2891
+            ],
+            [
+              45,
+              448,
+              11,
+              7919,
+              11,
+              23699,
+              83,
+              2891
+            ],
+            [
+              45,
+              448,
+              11,
+              7919,
+              11,
+              23699,
+              83,
+              2891
+            ]
+          ],
+          "physical_footprint_end_bytes": 10010349000,
+          "sampled_peak_bytes": 10386689384,
+          "samples": 3616,
+          "swapins_after": 44552984,
+          "swapins_before": 44552984,
+          "swapouts_after": 78197471,
+          "swapouts_before": 78197471,
+          "target_gb": 12.554587904
+        }
+      ]
+    },
+    {
+      "gate": "mtp",
+      "attempt": 1,
+      "passed": false,
+      "memory": [
+        {
+          "lifetime_rss_peak_bytes": 5842468864,
+          "memory_validated": false,
+          "physical_footprint_end_bytes": 2342030552,
+          "sampled_peak_bytes": 10320090464,
+          "samples": 7220,
+          "swapins_after": 44552996,
+          "swapins_before": 44552984,
+          "swapouts_after": 78197471,
+          "swapouts_before": 78197471,
+          "target_gb": 12
+        }
+      ]
+    },
+    {
+      "gate": "mtp",
+      "attempt": 2,
+      "passed": false,
+      "memory": [
+        {
+          "lifetime_rss_peak_bytes": 4779999232,
+          "memory_validated": false,
+          "physical_footprint_end_bytes": 6082875448,
+          "sampled_peak_bytes": 8496484840,
+          "samples": 374,
+          "swapins_after": 44553000,
+          "swapins_before": 44552996,
+          "swapouts_after": 78206403,
+          "swapouts_before": 78206403,
+          "target_gb": 12
+        }
+      ]
+    }
+  ],
+  "binary_sha256": "31eefbbb4791beddb0f8674ab1c1875c2eb1c4a034f5cdd0fa1abcba31e373cf",
+  "installed_version": "0.2.14",
+  "tag_created": false,
+  "publication_started": false,
+  "owned_models_stopped": true,
+  "model_lock_free": true,
+  "app_restoration": "Blocked: CUA reports Mac is locked. Both apps were already closed at the initial inspection. User must unlock before restoration.",
+  "approval_pending": "Temporary pause of the active external verification container; previous authorization covers Chrome and Wispr Flow only."
+}

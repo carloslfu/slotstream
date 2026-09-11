@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m27533r0pfx8hzadnvadhz2a
 created: 2026-09-11T02:35:04.831717+00:00
-updated: 2026-09-11T09:18:01.144238+00:00
+updated: 2026-09-11T11:59:34.275371+00:00
 summary: 'Local expert lookahead: causal capture, small predictors, bounded prefetch, exactness and held-out speed gates'
 date: 2026-09-10
 doc: plan
@@ -41,7 +41,7 @@ Code review baseline: repository commit `4ab794a3bc5afce9092db7db5a0e3e0a12258bd
 | [[records/measurements/mtp-depth-fixed-total-inconclusive-2026-09-11]] | Neither 24 GB nor 20 GB obtained enough clean matched pairs to qualify a new depth. Swap activity, thermal state and headroom caused exclusions. | These historical attempts did not qualify a new default. The later explicit adoption fixes new arms at depth two; see [[records/decisions/draft-depth-defaults-to-two]] and [[records/measurements/mtp-depth-auto40-multitasking-2026-09-11]]. Readiness, finite attempts and clean paired eligibility must be specified before testing. A failed resource gate is not a negative predictor result. |
 | [[records/measurements/optimization-final-composition-2026-09-09]] | Accepted whole-engine work includes memory/performance tradeoffs, not a general sustained speedup. | Compare against the actual current deployment family, not a slower historical or all-default reference. |
 | [[sources/runs/2026/09/2026-09-05-optimization-ngram-lookahead]] | A large improvement in the exposed prefetch stage did not improve total request time. | Prefetch timing and classifier accuracy cannot substitute for an end-to-end gain. |
-| [[records/measurements/release-qualification-0-2-14]] | Public artifact qualification still records two resource-sensitive local acceptance gaps. | Preserve them. The new experiment cannot retrospectively mark those gates passed. |
+| [[records/measurements/release-qualification-0-2-14]] | All original v0.2.14 public-artifact gates subsequently qualified through unchanged clean reruns; the original exclusions remain preserved. | Keep release acceptance separate from predictor qualification. The newer two-draft candidate still has one paging-sensitive gate open; see [[records/measurements/release-0-2-15-prepublication-2026-09-11]]. |
 
 Requested file bytes are not measured physical NAND traffic. The Mac uses SSD to raw RAM staging, then GPU scatter within shared RAM, then expert computation. There is no separate host-to-VRAM PCIe transfer. Prior discrete-GPU papers provide architectural ideas, not transferable throughput numbers.
 
