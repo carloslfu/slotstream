@@ -4296,10 +4296,9 @@ The acceptance interval observed 271 system-wide swap-ins and zero swap-outs, wi
 The installed-release probe ran with no depth override and drafted 30 tokens over 15 verification passes, exactly two per pass, accepting 16. This is the two-draft default from [[records/decisions/draft-depth-defaults-to-two]] arriving through a published artifact rather than a local build. Its lifetime physical-footprint peak was 7,203,164,480 bytes against a 10 GB target, and that generator interval observed no paging in either direction.
 
 ## Limits
-
 No clean-timing or throughput qualification is claimed here. The acceptance interval deliberately shared the machine with ordinary work, which is what functional acceptance is now allowed to do and what a speed measurement still is not. The depth-two choice remains a mixed-workload preference, not a universal improvement.
 
-Two documentation commits, `6b94628` and `4ee5023`, landed on `main` after the released build. Neither touches `Sources/` or `Package.swift`, so the published artifact remains the exact build of `48d11f2`.
+Every commit that has landed on `main` after the released build changes documentation, projections and store records only. None touches `Sources/`, `Package.swift`, `Package.resolved` or the `Makefile`, so the published artifact remains the exact build of `48d11f2`.
 
 Expert lookahead and expert prefetching are reviewed, planned and unimplemented. This release ships the plan, not that acceleration.
 

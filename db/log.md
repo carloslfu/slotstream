@@ -1000,3 +1000,6 @@ Marked superseded by the published record. Its 31 API checks stand as recorded; 
 ## [2026-09-11 18:48] update | records/decisions/global-paging-is-diagnostic.md
 Added the downstream confirming evidence so the standing decision no longer cites only the superseded open-apps record: the local native validation and the published-artifact acceptance now sit alongside it. Policy text unchanged.
 
+## [2026-09-11 18:51] update | records/measurements/release-0-2-15-published-2026-09-11.md
+Replaced the post-build commit note with a statement that holds as main advances: every commit after the released build changes documentation, projections and store records only, and none touches Sources, Package.swift, Package.resolved or the Makefile, so the published artifact remains the exact build of 48d11f2. The original wording counted two such commits and went stale as soon as this closure work was committed.
+
