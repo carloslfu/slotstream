@@ -2,16 +2,18 @@
 type: measurement
 id: 01m28gd7hehzj0n7mmgvsa10a0
 created: 2026-09-11T15:12:05.166921+00:00
-updated: 2026-09-11T15:12:05.166921+00:00
+updated: 2026-09-11T18:47:24.806849+00:00
 summary: 'v0.2.15 testing with apps open: API passes, strict MTP resource gate remains unqualified'
 date: 2026-09-11
 doc: measurements
 level: '3'
 machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
+note: The 31 API checks stand as recorded. The four MTP exclusions were produced by the zero-swap acceptance rule retired the same day by records/decisions/global-paging-is-diagnostic; that gate later completed on the published artifact.
 order: '1195'
 runs: '[[sources/runs/2026/09/2026-09-11-release-0-2-15-open-apps-mtp-excluded]], [[sources/runs/2026/09/2026-09-11-release-0-2-15-candidate-api-passed]]'
+superseded_by: '[[records/measurements/release-0-2-15-published-2026-09-11]]'
 title: 'v0.2.15 testing with apps open: API passes, strict MTP resource gate remains unqualified'
-status: measured
+status: superseded
 ---
 **Testing with applications left running has finished its bounded runs: all 31 candidate API checks passed. The original model suite remains 24 of 25 gates qualified because all four new full MTP/vision attempts were rejected by the strict system-wide swap guard. Full model acceptance, publication and installation are not complete.**
 

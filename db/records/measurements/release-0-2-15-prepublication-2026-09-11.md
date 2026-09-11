@@ -2,17 +2,18 @@
 type: measurement
 id: 01m285cqbd1j8yf6ptkgrpm222
 created: 2026-09-11T11:59:34.253714+00:00
-updated: 2026-09-11T15:12:05.205397+00:00
+updated: 2026-09-11T18:47:24.755972+00:00
 summary: 'v0.2.15 prepared, not published: CI passed and 24 of 25 model gates qualify; final paging gate and app restoration pending'
 date: 2026-09-11
 doc: measurements
 level: '3'
 machines: '[[records/machines/macbook-pro-m5-pro-48gb]], [[records/machines/github-actions-macos-26]]'
-note: Follow-up API testing passed with apps left running; strict MTP resource qualification remains open.
+note: The candidate described here, commit ee4d1af at 24 of 25 gates, is not the build that shipped. v0.2.15 was tagged on 48d11f2 and passed all 25 gates after the zero-swap acceptance rule was retired; the release identity and digests here are superseded.
 order: '1190'
 runs: '[[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]]'
+superseded_by: '[[records/measurements/release-0-2-15-published-2026-09-11]]'
 title: v0.2.15 prepublication qualification
-status: measured
+status: superseded
 ---
 **Testing follow-up, September 11:** [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] records all 31 additional candidate API checks passing and four retained MTP paging exclusions with every user application left running. Chrome and Wispr Flow have been reopened; the earlier pause request is superseded by the instruction to leave other work alone. Publication and installation remain pending. The earlier checkpoint below is preserved as history.
 

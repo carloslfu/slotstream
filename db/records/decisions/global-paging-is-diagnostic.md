@@ -2,10 +2,10 @@
 type: decision
 id: 01m28pnn6stvtxnghzajs59zkp
 created: 2026-09-11T17:01:32.760934+00:00
-updated: 2026-09-11T17:01:32.760934+00:00
+updated: 2026-09-11T18:47:56.003709+00:00
 summary: Treat host-wide paging as diagnostics, separate from functional and process-memory acceptance; preserve actual headroom, pressure and budget safeguards.
 decided_on: 2026-09-11
-evidence: '[[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]]'
+evidence: '[[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]], [[records/measurements/global-paging-policy-native-checks-2026-09-11]], [[records/measurements/release-0-2-15-published-2026-09-11]]'
 reversible_if: Process-attributed evidence and a concrete contract justify a paging bound; system-wide activity alone is insufficient.
 title: Global macOS paging is diagnostic for functional acceptance
 status: standing

@@ -1,0 +1,88 @@
+{
+  "at": "2026-09-11T18:44:19.241318+00:00",
+  "state": "published_installed_and_accepted",
+  "release": {
+    "tag": "v0.2.15",
+    "commit": "48d11f288237e9b697264621297890eead7ffb0a",
+    "url": "https://github.com/carloslfu/slotstream/releases/tag/v0.2.15",
+    "published_at": "2026-09-11T17:42:30Z",
+    "draft": false,
+    "prerelease": false,
+    "archive_sha256": "d9ea8246d7868620a0c9e0766f7ba637522739d66da8e5fa5d44b2190fc6d4fa",
+    "binary_sha256": "8abb02b639285335b4fc3113819ebc6fe084bbf017fab2b4a52de3e471a551e3",
+    "matches_ci_archive": true,
+    "identity_matches_ci": true,
+    "attestation_verified": true,
+    "main_ci_run": 34626184507,
+    "main_ci_conclusion": "success",
+    "release_workflow_run": 34629147966,
+    "release_workflow_conclusion": "success"
+  },
+  "ci_model_acceptance": {
+    "binary_sha256": "8abb02b639285335b4fc3113819ebc6fe084bbf017fab2b4a52de3e471a551e3",
+    "summary": [
+      "passed 25, failed 0"
+    ],
+    "passed": true,
+    "exit_code": 0,
+    "elapsed_seconds": 1103.765867948532,
+    "sources_unchanged": true,
+    "drivers_unchanged": true,
+    "constraint": "Leave all user applications and unrelated workloads open and untouched.",
+    "memory_policy": "Global paging is diagnostic; original numerical/work, actual process ceilings and headroom guards remain.",
+    "global_swapins_delta": 271,
+    "global_swapouts_delta": 0,
+    "reclaimable_bytes_before": 28482207744,
+    "reclaimable_bytes_after": 30258495488,
+    "model_lock_free": true
+  },
+  "installation": {
+    "previous_binary": "/Users/carlos/.slotstream/releases/2fd5bfab8073b29095148274b0e5857a43dc20bc530bcacb4c9180ccc5ac2b52-macos26/slotstream",
+    "previous_version": "0.2.14",
+    "exit_code": 0,
+    "installed_binary": "/Users/carlos/.slotstream/releases/d9ea8246d7868620a0c9e0766f7ba637522739d66da8e5fa5d44b2190fc6d4fa-macos26/slotstream",
+    "installed_version": "0.2.15"
+  },
+  "installed_acceptance": {
+    "binary": "/Users/carlos/.slotstream/releases/d9ea8246d7868620a0c9e0766f7ba637522739d66da8e5fa5d44b2190fc6d4fa-macos26/slotstream",
+    "command": [
+      "/Users/carlos/.slotstream/releases/d9ea8246d7868620a0c9e0766f7ba637522739d66da8e5fa5d44b2190fc6d4fa-macos26/slotstream",
+      "serve",
+      "--memory-gb",
+      "10",
+      "--mtp",
+      "on",
+      "--vision",
+      "off",
+      "--port",
+      "59816"
+    ],
+    "e2e_exit_code": 0,
+    "e2e_summary": "passed 31, failed 0",
+    "server_stopped": true,
+    "default_probe_no_override": {
+      "drafted_tokens": 30,
+      "verify_passes": 15,
+      "drafts_per_pass": 2.0,
+      "accepted_drafts": 16,
+      "decode_tokens": 32,
+      "lifetime_physical_footprint_peak_bytes": 7203164480,
+      "lifetime_rss_peak_bytes": 4730060800,
+      "target_gb": 10,
+      "generator_swapins_delta": 0,
+      "generator_swapouts_delta": 0
+    }
+  },
+  "final_local_state": {
+    "model_lock_free": true,
+    "slotstream_processes": [],
+    "installed_version": "0.2.15",
+    "installed_binary_sha256": "8abb02b639285335b4fc3113819ebc6fe084bbf017fab2b4a52de3e471a551e3",
+    "apps_untouched": true,
+    "persistent_instrumentation_changed": false
+  },
+  "claims_not_made": [
+    "No clean-timing or throughput qualification is claimed from these runs.",
+    "Expert lookahead and expert prefetching remain unimplemented planned work."
+  ]
+}

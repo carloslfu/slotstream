@@ -985,3 +985,18 @@ Implemented the user-approved removal of global paging as a correctness and proc
 ## [2026-09-11 17:16] update | records/measurements/global-paging-policy-native-checks-2026-09-11.md
 Full static suite and all affected local native checks pass with apps left open: MTP/vision finishes every original numerical check, including speculative cross-request state reuse, at 10,349,041,736 observed process bytes under 12 GB despite 600 native swap-ins; full governor shrink/cooldown/regrowth preserves identical outputs under 13 GB despite 32 swap-ins; 2,048-token context completes under 10 GB. Preserved native lifetime peaks and raw VM boundaries, archived exact logs plus source with round-trip verification, and kept historical excluded runs unchanged. Every local test model exited. Updated CI artifact validation and release/install acceptance remain pending; no clean-performance claim is made. Brain gates pass with zero errors and the two pre-existing log warnings.
 
+## [2026-09-11 18:48] create | sources/runs/2026/09/2026-09-11-release-0-2-15-published-and-installed.md
+Preserved the complete publication phase that was run but never recorded before the previous session ended: model acceptance on the downloaded CI binary (25 of 25 gates, 0 failures, 1,103.77 seconds, 271 global swap-ins and zero swap-outs, 150 compiled inputs and 8 frozen drivers unchanged), tag publication of v0.2.15 on 48d11f2 with main CI 34626184507 and release workflow 34629147966 both successful, independent re-download and digest match of the public archive with gh attestation verification, installation replacing 0.2.14, and installed-release acceptance at 31 of 31 checks. The no-override probe recorded 30 drafted tokens over 15 verification passes with a 7,203,164,480-byte lifetime peak under a 10 GB target and no generator-interval paging. Archived 80 raw members with round-trip hash verification; 11 large binaries are identified by digest rather than shipped. No process, lock or user application was left changed.
+
+## [2026-09-11 18:48] create | records/measurements/release-0-2-15-published-2026-09-11.md
+Recorded the closing release measurement: v0.2.15 published, installed and functionally accepted, with the CI candidate, the re-downloaded public archive and the installed binary byte-identical at 8abb02b. States explicitly that the twenty-fifth gate passes because the zero-swap acceptance rule was retired as a test-design defect, not because that condition was met, and that the earlier exclusions stand as recorded. Makes no clean-timing or throughput claim and notes that the two post-build commits are documentation only, so the artifact remains the exact build of 48d11f2.
+
+## [2026-09-11 18:48] update | records/measurements/release-0-2-15-prepublication-2026-09-11.md
+Marked superseded by the published record. The candidate it describes, commit ee4d1af at 24 of 25 gates with archive 4f28e28 and binary 31eefbb, is not the build that shipped; v0.2.15 was tagged on 48d11f2. Body preserved verbatim.
+
+## [2026-09-11 18:48] update | records/measurements/release-0-2-15-open-apps-testing-2026-09-11.md
+Marked superseded by the published record. Its 31 API checks stand as recorded; its four MTP exclusions were produced by the zero-swap acceptance rule retired the same day, and that gate later completed on the published artifact. Body preserved verbatim.
+
+## [2026-09-11 18:48] update | records/decisions/global-paging-is-diagnostic.md
+Added the downstream confirming evidence so the standing decision no longer cites only the superseded open-apps record: the local native validation and the published-artifact acceptance now sit alongside it. Policy text unchanged.
+
