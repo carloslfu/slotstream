@@ -1,0 +1,192 @@
+{
+  "id": "mtp-depth-fixed-total-v1",
+  "memory_gb": 24,
+  "headroom_gb": 29,
+  "max_tokens": 128,
+  "warm_tokens": 128,
+  "rounds": 4,
+  "depths": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "orders": [
+    [
+      0,
+      1,
+      3,
+      2
+    ],
+    [
+      1,
+      2,
+      0,
+      3
+    ],
+    [
+      2,
+      3,
+      1,
+      0
+    ],
+    [
+      3,
+      0,
+      2,
+      1
+    ]
+  ],
+  "seed": 42,
+  "raw": false,
+  "think": false,
+  "sampling": {
+    "temperature": 0,
+    "top_p": 1,
+    "top_k": 0,
+    "min_p": 0,
+    "presence_penalty": 0
+  },
+  "prompts": {
+    "prose": "Write a detailed explanation of how a modern city provides clean drinking water, from the source to household taps. Explain filtration, disinfection, storage, pressure, monitoring, maintenance, and responses to contamination. Use at least 600 words, with concrete examples and clear sections.",
+    "code": "Write a detailed Python tutorial implementing a small least-recently-used cache. Explain the data structures, then provide a complete implementation with get and put, capacity validation, replacement behavior, and several examples and tests. Discuss time complexity and common mistakes. Use at least 600 words including the code.",
+    "reasoning": "A workshop has three machines. Machine A makes 12 parts per hour, B makes 8, and C makes 5. Each part must be inspected, and one inspector can inspect 18 parts per hour. There are two inspectors. A is unavailable for the first two hours of an eight-hour shift; B stops for one hour at midday. Explain step by step how to plan production and inspection, calculate the daily totals and spare inspection capacity, then discuss how the plan changes if one inspector is absent. Give a detailed explanation of at least 600 words."
+  },
+  "prefill_chunk": 256,
+  "max_context": 32768,
+  "cooldown_seconds": 15,
+  "thermal_wait_limit_seconds": 300,
+  "timeout_per_request": 180,
+  "deadline_seconds": 3600,
+  "minimum_clean_pairs_per_workload": 3,
+  "minimum_median_gain_to_change_default": 0.03,
+  "primary_metric": "median paired decode seconds per emitted token, equal weight across the three workloads",
+  "baseline_depth": 1,
+  "selection": "Require at least 3 clean depth1/candidate pairs per workload, >=3% geometric-mean paired throughput gain overall, and no workload median slowdown >5%; otherwise retain depth1 as conservative default. Cross-depth token differences are reported, not relabeled as exact equivalence.",
+  "exclusions": "Incomplete output, malformed metrics or failed generation; global swap changes over client or generator interval; non-nominal thermal state; low power mode; footprint over24GB; competing model/build. Preserve all rows; exclude the corresponding pair. Fixed rounds, no replacement rows. Stop on new swapouts, pressure, footprint violation, lost headroom or deadline.",
+  "scope": "Fresh process per cell, same-prompt warmup; target includes MTP head so plain mode may have more cache. First requests reported separately. This is a short-output text/greedy comparison, not long-context or sampled quality qualification.",
+  "binary": "/Users/carlos/Projects/slotstream/.build/mtp-depth-study-20260911/binary/slotstream",
+  "binary_sha256": "49d36b8057a79c013ef0d91b93b67ea0a987efb32e6dd5df6f03b6843b76e9f7",
+  "metal_sha256": "198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597",
+  "model": "/Users/carlos/.slotstream/models/qwen38-flash-next-mlx-4bit",
+  "git_head": "022cf32ed0264ae50e9bb6c6e95c71940fb7a679",
+  "before": {
+    "page_bytes": 16384,
+    "reclaimable_bytes": 30619418624,
+    "swapins": 44504123,
+    "swapouts": 78184590,
+    "raw": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                  1594887.\nPages active:                                 463388.\nPages inactive:                               469002.\nPages speculative:                             15785.\nPages throttled:                                   0.\nPages wired down:                             269222.\nPages purgeable:                               14935.\n\"Translation faults\":                    20471109656.\nPages copy-on-write:                      1308711666.\nPages zero filled:                       32609974310.\nPages reactivated:                        6476702971.\nPages purged:                              107451351.\nFile-backed pages:                            259039.\nAnonymous pages:                              689136.\nPages stored in compressor:                  1015333.\nPages occupied by compressor:                 268546.\nDecompressions:                           1623432439.\nCompressions:                             1975917407.\nPageins:                                 10930660223.\nPageouts:                                   11798995.\nSwapins:                                    44504123.\nSwapouts:                                   78184590.\nPages tagged:                                 176961.\nPages tagged resident:                        133356.\nPages tagged compressed:                       43605.\nPages tag-storage:                             98304.\nPages tag-storage holding tags:                 9234.\nPages tag-storage free:                         4559.\nPages tag-storage non-tag pageable:            84499.\nPages tag-storage non-tag wired:                  12.\nBytes of compressed tags:                    6873536.\nTagged compressions:                        16562467.\nTagged decompressions:                      15436698.\n"
+  },
+  "model_identity": {
+    "chat_template.jinja": {
+      "bytes": 8952,
+      "mtime_ns": 1788227262420608630,
+      "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+    },
+    "config.json": {
+      "bytes": 33408,
+      "mtime_ns": 1788227262365742673,
+      "sha256": "0da22a8ed4323fbe969bf982aeb054743b315206791f28ef74a309c707080ba5"
+    },
+    "generation_config.json": {
+      "bytes": 202,
+      "mtime_ns": 1788227262233341994,
+      "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+    },
+    "model-00001.safetensors": {
+      "bytes": 10039592993,
+      "mtime_ns": 1788228748798695327,
+      "header_sha256": "475ce8af9dea80570da09375a5e1039090610ae77373bffcb8d95bb0be3a9ddc"
+    },
+    "model-00002.safetensors": {
+      "bytes": 10000066971,
+      "mtime_ns": 1788229557877052892,
+      "header_sha256": "430d68993347bf804c7ccc0a09b4811d503377fc9af4f524b0db0884790a12bf"
+    },
+    "model-00003.safetensors": {
+      "bytes": 10000066984,
+      "mtime_ns": 1788229795251654179,
+      "header_sha256": "28b4f8f5a8606a84f5dd5de3c061130a6a65e767edb86355ae35859a525426d6"
+    },
+    "model-00004.safetensors": {
+      "bytes": 10170248438,
+      "mtime_ns": 1788230029083645564,
+      "header_sha256": "c9df41567d842f9fbdf9ff53a3584ffacb1b220b43e9c9b49c0be96be6f2156d"
+    },
+    "model-00005.safetensors": {
+      "bytes": 10194989755,
+      "mtime_ns": 1788230267432612830,
+      "header_sha256": "c189a7de6a617e0a0f7d3e60576b363ae0d8c240e277d8726a4ab467b30e596c"
+    },
+    "model-00006.safetensors": {
+      "bytes": 10262727991,
+      "mtime_ns": 1788230565482789975,
+      "header_sha256": "b51ae1ca1c4c754dae0426f85c0f3e6c1539240bce1ae77fba8102cb08ebb977"
+    },
+    "model-00007.safetensors": {
+      "bytes": 10190937668,
+      "mtime_ns": 1788230945388951904,
+      "header_sha256": "b64d4e3ba45e61f2463c6357bdca894926f19db595d4e9dd189b04822a9c611d"
+    },
+    "model-00008.safetensors": {
+      "bytes": 10231122683,
+      "mtime_ns": 1788231233782376452,
+      "header_sha256": "ab49328405f98104ffab180748eba510fc6f31ba2bfa263a1d23e8b59ce261c9"
+    },
+    "model-00009.safetensors": {
+      "bytes": 10250305804,
+      "mtime_ns": 1788231584813847653,
+      "header_sha256": "326333ed9d0b8df41fb3ecca875d5b7eecb29f36d674f5edf8c969bb3e71e75d"
+    },
+    "model-00010.safetensors": {
+      "bytes": 10237786674,
+      "mtime_ns": 1788231912822219158,
+      "header_sha256": "962f992ebc7098380e89df4e6abd0dd5921a1702dc612eebee9d70bcc3035f37"
+    },
+    "model-00011.safetensors": {
+      "bytes": 2192353120,
+      "mtime_ns": 1788231963854477586,
+      "header_sha256": "db46770964a73082aeb4e714c0b6b4da30646146f3330a5b40d26cfd4f12a608"
+    },
+    "model.safetensors.index.json": {
+      "bytes": 317973,
+      "mtime_ns": 1788231961214440193,
+      "sha256": "072cc2c60b8af6cce82a387f62e39ca88754c3a6fccae0816dd21bb89d27470d"
+    },
+    "mtp.provenance.json": {
+      "bytes": 4514,
+      "mtime_ns": 1788285565619137302,
+      "sha256": "6e574308bd68dcf6611e84c312ba388f7eb205e0e09dff086e14f6df86262db6"
+    },
+    "mtp.safetensors": {
+      "bytes": 1470955171,
+      "mtime_ns": 1788285565030586634,
+      "header_sha256": "836ae4156c99452e932c7a81322bcca959ac6f7ed86d6270cfd56ff94c62f4b9"
+    },
+    "preprocessor_config.json": {
+      "bytes": 390,
+      "mtime_ns": 1788231961438795679,
+      "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+    },
+    "tokenizer.json": {
+      "bytes": 12809320,
+      "mtime_ns": 1788231963144872066,
+      "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+    },
+    "tokenizer_config.json": {
+      "bytes": 17928,
+      "mtime_ns": 1788231962481057833,
+      "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+    },
+    "video_preprocessor_config.json": {
+      "bytes": 385,
+      "mtime_ns": 1788231962565955466,
+      "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+    },
+    "vocab.json": {
+      "bytes": 6722759,
+      "mtime_ns": 1788231962924355528,
+      "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "time_utc": "2026-09-11T01:56:10.250457+00:00",
+  "jobs": [],
+  "vm": {
+    "page_bytes": 16384,
+    "reclaimable_bytes": 27225948160,
+    "swapins": 44518015,
+    "swapouts": 78184590,
+    "raw": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                  1097296.\nPages active:                                 797768.\nPages inactive:                               816772.\nPages speculative:                              2853.\nPages throttled:                                   0.\nPages wired down:                             254800.\nPages purgeable:                               11254.\n\"Translation faults\":                    20499340487.\nPages copy-on-write:                      1309871262.\nPages zero filled:                       32664565869.\nPages reactivated:                        6476741102.\nPages purged:                              107545055.\nFile-backed pages:                            553190.\nAnonymous pages:                             1064203.\nPages stored in compressor:                   677626.\nPages occupied by compressor:                 114557.\nDecompressions:                           1623629807.\nCompressions:                             1975922043.\nPageins:                                 10931257970.\nPageouts:                                   11799861.\nSwapins:                                    44518015.\nSwapouts:                                   78184590.\nPages tagged:                                 195045.\nPages tagged resident:                        173111.\nPages tagged compressed:                       21934.\nPages tag-storage:                             98304.\nPages tag-storage holding tags:                10320.\nPages tag-storage free:                         1846.\nPages tag-storage non-tag pageable:            86127.\nPages tag-storage non-tag wired:                  11.\nBytes of compressed tags:                    3365184.\nTagged compressions:                        16562471.\nTagged decompressions:                      15454531.\n"
+  },
+  "conditions": {
+    "provider": "Foundation NSProcessInfo",
+    "observed_at_utc": "2026-09-11T01:56:10.299952+00:00",
+    "conditions": {
+      "thermalState": "nominal",
+      "lowPowerModeEnabled": false
+    },
+    "ready": true,
+    "scope": "One pre-launch policy observation; all original request and qualification gates remain required."
+  },
+  "model_lock_free": true,
+  "installed_binary": {
+    "sha256": "49d36b8057a79c013ef0d91b93b67ea0a987efb32e6dd5df6f03b6843b76e9f7"
+  },
+  "installed_metallib": {
+    "sha256": "198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597"
+  },
+  "installed_sources_match": true,
+  "git_head": "022cf32ed0264ae50e9bb6c6e95c71940fb7a679",
+  "git_status": ""
+}

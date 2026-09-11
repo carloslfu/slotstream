@@ -943,3 +943,6 @@ Carlos requested durable preservation in both brains. Added the global CLOCK cac
 ## [2026-09-10 23:54] update | records/measurements/release-qualification-0-2-14.md
 Published v0.2.14 from successful complete CI and verified exact public archive, source identity, GitHub attestation and ordinary local installation. Preserved the initial 20/5 model battery and every targeted rerun: MTP/vision and context qualify, bringing unique model gates to 23/25; governor and long-prompt zero-swap memory gates remain unqualified after system swap-ins with no new swap-outs. All 31 installed-release checks passed, and the normal v0.2.14 demo server was restored and answered OK. No app was closed and no acceptance assertion was relaxed. Compiled sources and immutable evidence remain exact; validation has zero errors and two unchanged historical log warnings.
 
+## [2026-09-11 02:03] create | records/measurements/mtp-depth-fixed-total-inconclusive-2026-09-11.md
+Captured two separate fixed-total-memory MTP-depth cohorts and all exclusions. 26 measured responses,12 individually clean, insufficient matched pairs;24GB headroom stop and20GB resource-futility stop. No new default qualified. All owned model processes stopped; installed binary and Metal hashes unchanged. Full validation:0 errors,2 pre-existing log warnings.
+

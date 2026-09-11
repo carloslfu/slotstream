@@ -1,0 +1,55 @@
+{
+  "captured_utc": "2026-09-11T01:57:04.421258+00:00",
+  "status": "inconclusive; no MTP-depth winner qualified",
+  "entries": [
+    {
+      "artifact": "24gb-raw-results-and-drivers.tar.gz",
+      "bytes": 302972,
+      "sha256": "61e9ef6fb80573a1b90eb5643112bcec28ab68518d1906361a162e409bf7b7d1",
+      "roundtrip_verified_files": 103
+    },
+    {
+      "artifact": "24gb-analysis.json",
+      "bytes": 19387,
+      "sha256": "72595e26e3c8c8c3f8f6e074553000a9d654b8c829871bd234f707f4f3a4e0e1"
+    },
+    {
+      "artifact": "24gb-protocol.json",
+      "bytes": 9717,
+      "sha256": "f53d299677aeac05f684b7fee3f13cd40102b69d01f1cfd5ccfb47fbd009a8d0"
+    },
+    {
+      "artifact": "20gb-raw-results-and-drivers.tar.gz",
+      "bytes": 378456,
+      "sha256": "7259a7292027e18385065c7c896325c3c9149337a684fc11ae160659090da315",
+      "roundtrip_verified_files": 124
+    },
+    {
+      "artifact": "20gb-analysis.json",
+      "bytes": 20072,
+      "sha256": "b222a73fb0ff7dced89641e2693250b92ec40823da54f12dd2991dcef842801a"
+    },
+    {
+      "artifact": "20gb-protocol.json",
+      "bytes": 10281,
+      "sha256": "1dc47d1770bd92c49762a9783106fd4e6a7500df7401d505de592d35422d3417"
+    },
+    {
+      "artifact": "build-identity.json",
+      "bytes": 18603,
+      "sha256": "41962b7e6a63f095d6bfb7350e5704bf4bf99803cdf753dbc926a07ce94aa83a"
+    },
+    {
+      "artifact": "cleanup-proof.json",
+      "bytes": 2801,
+      "sha256": "d68ab3a237c2818cba11ef2f7c3c930f19b8e7bedfd3cdd97e79b55255f1c57d"
+    },
+    {
+      "artifact": "futility-stop.json",
+      "bytes": 824,
+      "sha256": "fad545fa49592fa7b61f69eff2fe13ec47dabbbc1342ab90d253d1fa2e7f4caa"
+    }
+  ],
+  "binary_preservation": "Installed and frozen binary/Metal hashes match; build-identity preserves every compiled source hash. Binary copies remain in the ignored local build folder; archives preserve drivers, protocols, every request wire, results, observations, analysis and exclusions.",
+  "model_identity_limit": "config/tokenizer hashes and safetensors header hashes, file sizes and modification times; this run did not rehash all104GB of weight payloads."
+}

@@ -1,0 +1,655 @@
+{
+  "scope": "Fresh process per cell, same-prompt warmup; target includes MTP head so plain mode may have more cache. First requests reported separately. This is a short-output text/greedy comparison, not long-context or sampled quality qualification.",
+  "completed_cells": 16,
+  "planned_cells": 48,
+  "valid_cells": 5,
+  "summaries": {
+    "prose": {
+      "0": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4834
+        ],
+        "unique_output_sequences": 0
+      },
+      "1": {
+        "runs": 1,
+        "clean_runs": 1,
+        "median_tps": 10.775703049691963,
+        "median_decode_seconds": 11.878575292,
+        "median_client_seconds": 14.206532874999994,
+        "median_first_visible_seconds": 2.326259458999999,
+        "median_read_MB_per_output": 346.2048,
+        "median_acceptance": 0.7297297297297297,
+        "median_output_tokens_per_verify": 1.7297297297297298,
+        "median_draft_fraction": 0.014347532916239565,
+        "median_verify_fraction": 0.9536339316406963,
+        "median_reconciliation_fraction": 0.02763099327417219,
+        "maximum_sampled_footprint_gb": 17.346679512,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      },
+      "2": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "3": {
+        "runs": 1,
+        "clean_runs": 1,
+        "median_tps": 11.282558375643019,
+        "median_decode_seconds": 11.344944625,
+        "median_client_seconds": 13.748489290999984,
+        "median_first_visible_seconds": 2.402417082999989,
+        "median_read_MB_per_output": 366.5952,
+        "median_acceptance": 0.5306122448979592,
+        "median_output_tokens_per_verify": 2.6122448979591835,
+        "median_draft_fraction": 0.02960394952126089,
+        "median_verify_fraction": 0.9392775830318345,
+        "median_reconciliation_fraction": 0.026988809211574274,
+        "maximum_sampled_footprint_gb": 17.597600568,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      }
+    },
+    "code": {
+      "0": {
+        "runs": 2,
+        "clean_runs": 1,
+        "median_tps": 10.79013044861565,
+        "median_decode_seconds": 11.862692542,
+        "median_client_seconds": 14.90808683299997,
+        "median_first_visible_seconds": 3.0430509999999913,
+        "median_read_MB_per_output": 231.9624,
+        "median_acceptance": 0,
+        "median_output_tokens_per_verify": 1,
+        "median_draft_fraction": 0.0,
+        "median_verify_fraction": 0.0,
+        "median_reconciliation_fraction": 0.0,
+        "maximum_sampled_footprint_gb": 17.225731816,
+        "effective_pool_slots": [
+          4834
+        ],
+        "unique_output_sequences": 1
+      },
+      "1": {
+        "runs": 2,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "2": {
+        "runs": 2,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "3": {
+        "runs": 2,
+        "clean_runs": 1,
+        "median_tps": 9.025543265584856,
+        "median_decode_seconds": 14.181971792,
+        "median_client_seconds": 19.624338208999973,
+        "median_first_visible_seconds": 5.439357041999983,
+        "median_read_MB_per_output": 316.0728,
+        "median_acceptance": 0.8425925925925926,
+        "median_output_tokens_per_verify": 3.5555555555555554,
+        "median_draft_fraction": 0.02567455628457789,
+        "median_verify_fraction": 0.9427494102436442,
+        "median_reconciliation_fraction": 0.024837592766804174,
+        "maximum_sampled_footprint_gb": 17.912058848,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      }
+    },
+    "reasoning": {
+      "0": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4834
+        ],
+        "unique_output_sequences": 0
+      },
+      "1": {
+        "runs": 1,
+        "clean_runs": 1,
+        "median_tps": 11.037240482613766,
+        "median_decode_seconds": 11.597101667,
+        "median_client_seconds": 15.006183249999992,
+        "median_first_visible_seconds": 3.4074671250000392,
+        "median_read_MB_per_output": 337.9536,
+        "median_acceptance": 0.8028169014084507,
+        "median_output_tokens_per_verify": 1.8028169014084507,
+        "median_draft_fraction": 0.014609527265085073,
+        "median_verify_fraction": 0.9629086133456931,
+        "median_reconciliation_fraction": 0.01796951850417887,
+        "maximum_sampled_footprint_gb": 17.628468096,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      },
+      "2": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "3": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      }
+    }
+  },
+  "comparisons_to_depth1": {
+    "0": {
+      "workloads": {
+        "prose": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        },
+        "code": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        },
+        "reasoning": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        }
+      },
+      "enough_clean_pairs": false,
+      "geomean_median_ratio": null,
+      "passes_frozen_selection": false
+    },
+    "2": {
+      "workloads": {
+        "prose": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        },
+        "code": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        },
+        "reasoning": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        }
+      },
+      "enough_clean_pairs": false,
+      "geomean_median_ratio": null,
+      "passes_frozen_selection": false
+    },
+    "3": {
+      "workloads": {
+        "prose": {
+          "pairs": [
+            {
+              "round": 1,
+              "ratio_to_depth1": 1.0470368683707876,
+              "client_speed_ratio": 1.0333159210663132,
+              "output_ids_equal": false
+            }
+          ],
+          "count": 1,
+          "median_ratio": 1.0470368683707876
+        },
+        "code": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        },
+        "reasoning": {
+          "pairs": [],
+          "count": 0,
+          "median_ratio": null
+        }
+      },
+      "enough_clean_pairs": false,
+      "geomean_median_ratio": null,
+      "passes_frozen_selection": false
+    }
+  },
+  "first_requests": {
+    "prose": {
+      "0": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4834
+        ],
+        "unique_output_sequences": 0
+      },
+      "1": {
+        "runs": 1,
+        "clean_runs": 1,
+        "median_tps": 10.687561182765261,
+        "median_decode_seconds": 11.976539625,
+        "median_client_seconds": 14.761620041000008,
+        "median_first_visible_seconds": 2.7843383749999973,
+        "median_read_MB_per_output": 353.3544,
+        "median_acceptance": 0.7297297297297297,
+        "median_output_tokens_per_verify": 1.7297297297297298,
+        "median_draft_fraction": 0.015856162626773754,
+        "median_verify_fraction": 0.9537877476024299,
+        "median_reconciliation_fraction": 0.02594946142467258,
+        "maximum_sampled_footprint_gb": 17.337012928,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      },
+      "2": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "3": {
+        "runs": 1,
+        "clean_runs": 1,
+        "median_tps": 11.133157403996648,
+        "median_decode_seconds": 11.497187667,
+        "median_client_seconds": 14.279059458999996,
+        "median_first_visible_seconds": 2.7820375419999976,
+        "median_read_MB_per_output": 366.6816,
+        "median_acceptance": 0.5306122448979592,
+        "median_output_tokens_per_verify": 2.6122448979591835,
+        "median_draft_fraction": 0.031628887214197036,
+        "median_verify_fraction": 0.9370416106125129,
+        "median_reconciliation_fraction": 0.027024050750410353,
+        "maximum_sampled_footprint_gb": 17.595339552,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      }
+    },
+    "code": {
+      "0": {
+        "runs": 2,
+        "clean_runs": 1,
+        "median_tps": 10.528984113724242,
+        "median_decode_seconds": 12.156918333,
+        "median_client_seconds": 15.65750837500002,
+        "median_first_visible_seconds": 3.4891678330000104,
+        "median_read_MB_per_output": 235.44,
+        "median_acceptance": 0,
+        "median_output_tokens_per_verify": 1,
+        "median_draft_fraction": 0.0,
+        "median_verify_fraction": 0.0,
+        "median_reconciliation_fraction": 0.0,
+        "maximum_sampled_footprint_gb": 17.409216328,
+        "effective_pool_slots": [
+          4834
+        ],
+        "unique_output_sequences": 1
+      },
+      "1": {
+        "runs": 2,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "2": {
+        "runs": 2,
+        "clean_runs": 1,
+        "median_tps": 9.412202557392881,
+        "median_decode_seconds": 13.599367334,
+        "median_client_seconds": 16.932696625000005,
+        "median_first_visible_seconds": 3.331505959000026,
+        "median_read_MB_per_output": 321.7536,
+        "median_acceptance": 0.8913043478260869,
+        "median_output_tokens_per_verify": 2.782608695652174,
+        "median_draft_fraction": 0.021889829261082298,
+        "median_verify_fraction": 0.9519230880420898,
+        "median_reconciliation_fraction": 0.020424102767308924,
+        "maximum_sampled_footprint_gb": 17.651635168,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      },
+      "3": {
+        "runs": 2,
+        "clean_runs": 1,
+        "median_tps": 8.75369149273897,
+        "median_decode_seconds": 14.622402458,
+        "median_client_seconds": 18.204774541000006,
+        "median_first_visible_seconds": 3.5813384580000047,
+        "median_read_MB_per_output": 322.704,
+        "median_acceptance": 0.8425925925925926,
+        "median_output_tokens_per_verify": 3.5555555555555554,
+        "median_draft_fraction": 0.030048319779326923,
+        "median_verify_fraction": 0.9373219074203109,
+        "median_reconciliation_fraction": 0.026473585316222185,
+        "maximum_sampled_footprint_gb": 17.8089706,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 1
+      }
+    },
+    "reasoning": {
+      "0": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4834
+        ],
+        "unique_output_sequences": 0
+      },
+      "1": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "2": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      },
+      "3": {
+        "runs": 1,
+        "clean_runs": 0,
+        "median_tps": null,
+        "median_decode_seconds": null,
+        "median_client_seconds": null,
+        "median_first_visible_seconds": null,
+        "median_read_MB_per_output": null,
+        "median_acceptance": null,
+        "median_output_tokens_per_verify": null,
+        "median_draft_fraction": null,
+        "median_verify_fraction": null,
+        "median_reconciliation_fraction": null,
+        "maximum_sampled_footprint_gb": null,
+        "effective_pool_slots": [
+          4255
+        ],
+        "unique_output_sequences": 0
+      }
+    }
+  },
+  "exclusions": [
+    {
+      "round": 1,
+      "prompt": "prose",
+      "depth": 0,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "prose",
+      "depth": 2,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "code",
+      "depth": 0,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "code",
+      "depth": 1,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "code",
+      "depth": 2,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "reasoning",
+      "depth": 0,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "reasoning",
+      "depth": 3,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 1,
+      "prompt": "reasoning",
+      "depth": 2,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 2,
+      "prompt": "code",
+      "depth": 1,
+      "reasons": [
+        "swap activity during request"
+      ],
+      "error": null
+    },
+    {
+      "round": 2,
+      "prompt": "code",
+      "depth": 2,
+      "reasons": [
+        "generator OS thermal/power state unavailable or non-nominal",
+        "non-nominal thermal/power observation"
+      ],
+      "error": null
+    },
+    {
+      "round": 2,
+      "prompt": "code",
+      "depth": 3,
+      "reasons": null,
+      "error": "KeyboardInterrupt: signal 2"
+    }
+  ],
+  "within_cell_warm_measure_output_differences": [],
+  "finished_processes": true
+}

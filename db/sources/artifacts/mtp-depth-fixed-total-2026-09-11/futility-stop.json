@@ -1,0 +1,12 @@
+{
+  "time_utc": "2026-09-11T01:55:26.346759+00:00",
+  "reason": "Resource-futility stop: round1 and round2 baseline-depth1 code measured requests both had swap activity. At most2 clean pairs remain possible out of4 fixed rounds, below the predeclared minimum3 per workload for every candidate. Round2 depth2 code additionally had a nonnominal thermal observation. Do not replace rows or select a winner from contaminated timings.",
+  "not_a_planned_speed_based_early_stop": true,
+  "stopped_drivers": [
+    {
+      "pid": 56603,
+      "command": "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python .build/mtp-depth-study-20gb-20260911/bench.py"
+    }
+  ],
+  "remaining_rows": "Unrun, not silently omitted; no confirmation candidate qualifies."
+}
