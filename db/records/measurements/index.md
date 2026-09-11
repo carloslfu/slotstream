@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-11T15:12:05.205397Z
+updated: 2026-09-11T17:15:25.562531Z
 ---
 
 # records/measurements
 
+- [[records/measurements/global-paging-policy-native-checks-2026-09-11]] — The previously interrupted MTP/vision check now passes with paging present; governor, context and static checks pass with actual memory safeguards intact.
 - [[records/measurements/release-0-2-15-prepublication-2026-09-11]] — v0.2.15 prepared, not published: CI passed and 24 of 25 model gates qualify; final paging gate and app restoration pending
 - [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] — v0.2.15 testing with apps open: API passes, strict MTP resource gate remains unqualified
 - [[records/measurements/lifetime-footprint-reporting-and-fixed-budgets-2026-09-11]] — Released-GPU peak underreporting fixed; fixed budgets enlarge actual caches; long zero-swap acceptance remains excluded

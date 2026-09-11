@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T15:12:05.105154Z
+updated: 2026-09-11T17:15:55.372016Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-global-paging-policy-native-pass]] — Full MTP/vision, governor and context checks pass under the paging-diagnostic policy with real memory ceilings intact.
 - [[sources/runs/2026/09/2026-09-11-release-0-2-15-candidate-api-passed]] — v0.2.15 candidate API suite: all 31 checks passed with apps open
 - [[sources/runs/2026/09/2026-09-11-release-0-2-15-open-apps-mtp-excluded]] — v0.2.15 MTP retries with apps open: four resource exclusions retained
 - [[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]] — v0.2.15 prepublication: CI passed, original resource exclusions and reruns
@@ -506,9 +507,8 @@ updated: 2026-09-11T15:12:05.105154Z
 - [[sources/runs/2026/09/2026-09-05-optimization-large-tile-and-frontier]] — Large tile and compact frontier exact gates pass; every paired performance comparison is excluded
 - [[sources/runs/2026/09/2026-09-05-optimization-larger-routed-tile]] — Larger routed tile exact checks pass; paired latency pilot excluded for swap activity
 - [[sources/runs/2026/09/2026-09-05-optimization-scope-generation-and-mtp]] — Scope lifecycle and MTP checks pass; first larger-read-scope latency pilot is slower and unqualified
-- [[sources/runs/2026/09/2026-09-05-optimization-read-scope-and-capacity]] — Read-scope numerical correction, exact expert-read reuse and sequence-capacity lifecycle evidence
 
 ## More
 
-This folder has 527 files. The 500 most recent are listed above.
+This folder has 528 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
