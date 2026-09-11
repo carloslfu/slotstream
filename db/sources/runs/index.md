@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T02:02:21.475051Z
+updated: 2026-09-11T03:40:00.073219Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-mtp-multitask-auto40]] — Complete automatic 40% RAM MTP depth comparison with all 54 experiments and all exclusions preserved
 - [[sources/runs/2026/09/2026-09-11-mtp-depth-fixed-total]] — Inconclusive MTP depth comparison at equal total RAM, with all exclusions preserved
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-installed-api-and-serving]] — v0.2.14 installed API acceptance and restored normal demo server
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-local-requalification]] — v0.2.14 local requalification with preserved swap-invalidated attempts
@@ -506,9 +507,8 @@ updated: 2026-09-11T02:02:21.475051Z
 - [[sources/runs/2026/09/2026-09-04-n6-code-and-tensor-audit]] — N6 audit: production MoE dtypes, slice storage retention, scheduling arithmetic, and hashed code closure; no model benchmark
 - [[sources/runs/2026/09/2026-09-04-describing-images-of-known-content]] — Sixteen images of known content described by the served model: quadrants, ordered bands, counts, rendered text, extremes of size, PNG vs JPEG, greyscale, transparency. 16 of 16.
 - [[sources/runs/2026/09/2026-09-04-verify-with-vision-gates-idle]] — verify.sh with the vision gates on an idle machine: 24 passed, 0 failed, including vision parity and 18 serving assertions at the 8.1 GB floor.
-- [[sources/runs/2026/09/2026-09-03-verify-with-vision-gates]] — verify.sh with the vision gates: 23 passed, 1 failed — the serving suite's server was killed by the kernel while an unrelated slotstream serve held the machine.
 
 ## More
 
-This folder has 515 files. The 500 most recent are listed above.
+This folder has 516 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

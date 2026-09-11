@@ -1,0 +1,200 @@
+{
+  "primary_expected": 48,
+  "primary_rows": 48,
+  "confirmation_expected": 6,
+  "confirmation_rows": 6,
+  "primary_unique_cells": 48,
+  "all_rows_completed": true,
+  "all_owned_children_stopped": true,
+  "all_frozen_drivers_exact": true,
+  "protocol_exact": true,
+  "executed_binary_exact": true,
+  "installed_binary_exact": true,
+  "installed_metal_exact": true,
+  "watchdog_safety_stops": [],
+  "sampled_pressure_states": [
+    "normal"
+  ],
+  "sampled_thermal_states": [
+    "fair",
+    "nominal"
+  ],
+  "sampled_low_power_values": [
+    false
+  ],
+  "minimum_sampled_reclaimable_gb": 7.972814848,
+  "memory_pressure_cancellations": 0,
+  "output_tokens_by_phase": {
+    "primary": [
+      128
+    ],
+    "confirmation": [
+      512
+    ]
+  },
+  "short_warmup_equals_measured": true,
+  "short_token_paths_by_setting": {
+    "prose-d0": 1,
+    "prose-d1": 1,
+    "prose-d3": 1,
+    "prose-d2": 1,
+    "code-d0": 1,
+    "code-d1": 1,
+    "code-d3": 1,
+    "code-d2": 1,
+    "reasoning-d0": 1,
+    "reasoning-d1": 1,
+    "reasoning-d3": 1,
+    "reasoning-d2": 1
+  },
+  "primary_acceptance_by_setting": {
+    "prose-d0": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          0,
+          0
+        ]
+      ],
+      "verify_passes": [
+        0
+      ]
+    },
+    "prose-d1": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          54,
+          74
+        ]
+      ],
+      "verify_passes": [
+        74
+      ]
+    },
+    "prose-d3": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          78,
+          147
+        ]
+      ],
+      "verify_passes": [
+        49
+      ]
+    },
+    "prose-d2": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          69,
+          116
+        ]
+      ],
+      "verify_passes": [
+        58
+      ]
+    },
+    "code-d0": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          0,
+          0
+        ]
+      ],
+      "verify_passes": [
+        0
+      ]
+    },
+    "code-d1": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          59,
+          69
+        ]
+      ],
+      "verify_passes": [
+        69
+      ]
+    },
+    "code-d3": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          91,
+          108
+        ]
+      ],
+      "verify_passes": [
+        36
+      ]
+    },
+    "code-d2": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          82,
+          92
+        ]
+      ],
+      "verify_passes": [
+        46
+      ]
+    },
+    "reasoning-d0": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          0,
+          0
+        ]
+      ],
+      "verify_passes": [
+        0
+      ]
+    },
+    "reasoning-d1": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          57,
+          71
+        ]
+      ],
+      "verify_passes": [
+        71
+      ]
+    },
+    "reasoning-d3": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          76,
+          156
+        ]
+      ],
+      "verify_passes": [
+        52
+      ]
+    },
+    "reasoning-d2": {
+      "observations": 4,
+      "accepted_drafted_pairs": [
+        [
+          72,
+          110
+        ]
+      ],
+      "verify_passes": [
+        55
+      ]
+    }
+  },
+  "final_remaining_models": [],
+  "study_swapin_pages_delta": 2038,
+  "study_swapout_pages_delta": 0,
+  "interrupted": false
+}

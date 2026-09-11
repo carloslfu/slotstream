@@ -1,0 +1,12 @@
+{
+  "utc": "2026-09-11T03:36:33.377986+00:00",
+  "owned_model_pid_count": 54,
+  "owned_model_pids_still_live": [],
+  "remaining_models": [],
+  "native_model_lock_free": true,
+  "compiled_identity_file_count": 150,
+  "compiled_identity_mismatches": [],
+  "installed_binary_and_metal_exact": true,
+  "git_head_after_study": "9a1bd0a251aeddbf7868003663accdae6ad891cd",
+  "instrumentation_scope": "Existing BENCH_DETAILS diagnostics only in terminated test-child environments; no production setting or source changed."
+}

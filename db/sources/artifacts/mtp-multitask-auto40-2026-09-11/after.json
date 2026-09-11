@@ -1,0 +1,22 @@
+{
+  "utc": "2026-09-11T03:35:10.425091+00:00",
+  "vm": {
+    "page_bytes": 16384,
+    "reclaimable_bytes": 26488602624,
+    "swapins": 44533832,
+    "swapouts": 78185876,
+    "raw": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                  1021991.\nPages active:                                 718515.\nPages inactive:                               702737.\nPages speculative:                             14389.\nPages throttled:                                   0.\nPages wired down:                             233945.\nPages purgeable:                                4182.\n\"Translation faults\":                    20587423801.\nPages copy-on-write:                      1315146334.\nPages zero filled:                       32769297621.\nPages reactivated:                        6478984894.\nPages purged:                              108097483.\nFile-backed pages:                            590563.\nAnonymous pages:                              845078.\nPages stored in compressor:                  1038560.\nPages occupied by compressor:                 390831.\nDecompressions:                           1625316165.\nCompressions:                             1978404918.\nPageins:                                 10934804224.\nPageouts:                                   11811136.\nSwapins:                                    44533832.\nSwapouts:                                   78185876.\nPages tagged:                                 171469.\nPages tagged resident:                        129404.\nPages tagged compressed:                       42065.\nPages tag-storage:                             98304.\nPages tag-storage holding tags:                 7693.\nPages tag-storage free:                         2787.\nPages tag-storage non-tag pageable:            87813.\nPages tag-storage non-tag wired:                  11.\nBytes of compressed tags:                    6569408.\nTagged compressions:                        16624451.\nTagged decompressions:                      15492615.\n"
+  },
+  "conditions": {
+    "provider": "Foundation NSProcessInfo",
+    "observed_at_utc": "2026-09-11T03:35:10.428414+00:00",
+    "conditions": {
+      "thermalState": "fair",
+      "lowPowerModeEnabled": false
+    },
+    "ready": false,
+    "scope": "One pre-launch policy observation; all original request and qualification gates remain required."
+  },
+  "remaining_models": [],
+  "interrupted": false
+}
