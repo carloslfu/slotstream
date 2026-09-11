@@ -88,11 +88,12 @@ the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
   running server, once the expert cache has warmed up. The first generation
   in a fresh process is colder and slower; report it too.
 - **Long prompt**: prefill tokens per second from `context-check`, which
-  reads a synthetic prompt through the real engine and stops before the
-  machine swaps.
-- **Peak**: the highest resident memory used by the process (RSS), printed
-  by `run` and `context-check`. This is measured separately from the plan's
-  estimate.
+  reads a synthetic prompt through the real engine with process-budget and
+  real-headroom safeguards. Keep paging observations with any timing result.
+- **Peak**: the process-memory bound reported by `run` and `context-check`,
+  combining native lifetime physical-footprint and RSS peaks with current
+  usage; request samples are separate observations. This is measured separately
+  from the plan's estimate.
 
 </details>
 

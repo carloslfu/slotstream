@@ -118,7 +118,9 @@ Run an explicit capacity diagnostic with a synthetic prompt. Conversation
 reuse is disabled by default; the retained-state mode first fills distinct
 conversations and exercises their interleaved follow-ups. The report includes
 actual prompt and reply IDs, compute shapes, sampled physical footprint and
-swap observations. Incomplete or contaminated runs fail qualification.
+swap observations. Incomplete output, exceeded process budgets and missing
+required process-memory evidence fail qualification. Global paging is recorded
+separately and does not fail capacity acceptance; it can exclude clean timing.
 
 Stop any running model process first. Results are printed without writing
 files; contributors can register them in the measurement records under `db/`.

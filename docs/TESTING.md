@@ -178,7 +178,7 @@ The full live-governor drill is a separate bounded exception: its normal
 ordinary 10 GB tests. `verify.sh` uses `elastic-drill --slots 1000
 --max-memory-gb 13`, after checking 16 GB reclaimable. The command independently
 checks its derived total target plus 3 GB spare, each controlled poll and
-generation, sampled physical footprint, RSS and swap. It preserves the real
+generation and actual process-memory peaks, and records global paging separately. It preserves the real
 cooldown and exact output checks. A skipped drill fails full acceptance.
 Run this gate without other heavy work. Full model hashing holds the same
 process exclusion lock as inference and must pass before native acceptance.
@@ -359,15 +359,15 @@ demonstrate answer quality.
 
 `Tools/context_qualification.py` accepts a frozen binary/model-window protocol
 and advances through strictly increasing prompt lengths only when the preceding
-rung completes its required output within its planned memory, measured swap
-and independent wall-clock limits. The protocol binds the driver files,
+rung completes its required output within its planned memory and independent
+wall-clock limits. Global paging remains diagnostic. The protocol binds the driver files,
 reconstructible build, pinned model manifest and model directory observations;
 the runner fully verifies model payload hashes before inference. It checks
 actual physical query rows and padded key extents as well as prompt and
 delivered output IDs. The retained protocol additionally requires completed,
 interleaved warm conversations and exact observed cache ownership.
 `Tools/context_qualification_checks.py` verifies refusal of incomplete,
-over-budget and contaminated evidence, including stopping after a failed rung.
+over-budget and malformed evidence, including stopping after a failed rung.
 It preserves the first counterexample and
 never retries or changes the protocol. Full-window capacity, numerical parity,
 latency calibration, advertised MTP/vision combinations and real clients remain
@@ -382,9 +382,10 @@ receiving-side terminal and authority gates.
 
 ## Measure your Mac
 
-Allow about ten minutes once the weights are downloaded. Close other
-memory-heavy apps and check that the Mac is not swapping. Run one model
-process at a time.
+Allow about ten minutes once the weights are downloaded. For comparable speed
+results, reduce competing load and exclude timing intervals affected by paging.
+Functional checks may run with apps open when real memory safeguards permit
+them. Run one model process at a time.
 
 1. Install or upgrade, then record the version:
 
