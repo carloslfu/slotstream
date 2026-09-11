@@ -37,10 +37,11 @@ startup-memory error checks, while preserving those tags and their evidence.
 The release now signs and publishes the exact archive from successful main
 CI, with checksum, source-identity and version verification.
 
-The public artifact is installed and serving locally. Its installed-release
-API suite passed, while full local acceptance still has outstanding zero-swap
-governor and long-prompt memory gates. The observed system paging, preserved
-attempts and remaining checks are explicit in the
+The public artifact is installed and serving locally. Local acceptance completed
+on September 11: all 25 original model gates and all 31 installed-release
+checks passed against the same published binary. The final unchanged governor
+and long-prompt memory tests completed with zero swap activity. Earlier failed
+intervals and the passing reruns remain preserved in the
 [release qualification record](db/records/measurements/release-qualification-0-2-14.md).
 
 ## 0.2.11 — 2026-09-06

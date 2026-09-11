@@ -3891,7 +3891,7 @@ flow are tracked in [[records/measurements/release-qualification-0-2-14]], with
 evidence in [[sources/runs/2026/09/2026-09-10-release-0-2-14-candidate-gates]].
 
 ### v0.2.14 release qualification
-**Status: v0.2.14 is published, installed and serving locally. CI passed; 23 of 25 original model gates and all 31 installed-release checks are qualified. Full local public-artifact acceptance remains incomplete because the governor and long-prompt memory gates have not completed a zero-swap interval.**
+**Status, September 11: v0.2.14 is published, installed and serving locally. CI, all 25 original model gates and all 31 installed-release checks pass. The final unchanged governor and long-prompt memory tests completed with zero swap activity. Full local public-artifact acceptance is complete for this exact release.**
 
 Release: [v0.2.14](https://github.com/carloslfu/slotstream/releases/tag/v0.2.14),
 tagged at `ac7d7e53ca2397bb8840a97f028509fbb0a8f688` after the complete
@@ -3905,8 +3905,9 @@ The public download matched the CI artifact exactly, passed GitHub attestation
 verification, and reconstructed every source file with matching hashes. The
 ordinary public installer installed those exact binary, Metal, identity and
 source-archive bytes. The previous installation remains available for rollback.
-The restored normal demo server reports `0.2.14` and returned `OK` to the
-bounded smoke request. That response is not a performance benchmark.
+The normal demo server was restored after the September 11 checks, reports
+`0.2.14` and returned `OK` to the bounded smoke request. Chrome and Wispr Flow
+were reopened. That response is not a performance benchmark.
 
 ## Release and CI qualification
 
@@ -3951,13 +3952,13 @@ still rejected them; these are preserved failures, not passing measurements.
 
 | Area | Current public-artifact evidence |
 | --- | --- |
-| Original model battery | 23 of 25 unique gates qualified across the initial pass and unchanged targeted reruns |
+| Original model battery | 25 of 25 unique gates qualified across the initial pass and unchanged targeted reruns |
 | Speculation and vision | Complete original 12 GB diagnostic passed determinism, exercised vision and validated its zero-swap memory interval |
 | Context diagnostic | Original 2,048-token, 10 GB check passed both fit and zero-swap memory assertions |
 | Quality and serving | 15 quality probes, 74 API robustness checks and 25 vision-serving checks passed in the original full suite |
 | Installed-release suite | All 31 checks passed, including concurrent clients, prefix reuse and disconnect recovery |
-| Full live-governor memory interval | Unqualified after the initial attempt and three unchanged reruns; system swap-ins interrupted each interval |
-| Long-prompt memory interval | Unqualified after the initial attempt and two unchanged reruns; recall passed, but system swap-ins invalidated each memory interval |
+| Full live-governor memory interval | Passed September 11 with zero swap activity; all four earlier invalid intervals remain preserved |
+| Long-prompt memory interval | Passed September 11 with zero swap activity and exact recall; all three earlier invalid intervals remain preserved |
 
 Reruns retained the exact installed identity, original driver hashes, targets,
 prompts, token limits, full cooldown and acceptance assertions. Each used a
@@ -3970,29 +3971,60 @@ The passed installed-release suite was reused by exact binary identity instead
 of being repeated.
 
 System-wide counters do not identify the process responsible for swap-ins.
-Chrome and Wispr Flow were running; neither was closed. Their presence is not
+During the September 10 attempts, Chrome and Wispr Flow were running; neither
+was closed. Their presence is not
 proof that either caused a particular event. The normal demo was restored
 after all test processes stopped. A quiet preflight by itself does not prove
 that the subsequent interval stayed quiet, which is why the rejected attempts
-remain unqualified.
+remain invalidated.
 
 Exact initial run and prospective correction:
 [[sources/runs/2026/09/2026-09-10-release-0-2-14-governor-invalid-interval]] and
 [[sources/runs/2026/09/2026-09-10-release-0-2-14-initial-local-acceptance]].
-All later attempts and current qualification:
+September 10 targeted attempts:
 [[sources/runs/2026/09/2026-09-10-release-0-2-14-local-requalification]].
 Installed API and normal-service restoration:
 [[sources/runs/2026/09/2026-09-10-release-0-2-14-installed-api-and-serving]].
 
-## Remaining release acceptance and performance scope
+## Final memory acceptance, September 11
 
-Only the full live-governor and long-prompt zero-swap memory gates remain.
-Resume when a sufficiently quiet interval is available, or after Carlos
-authorizes temporarily interrupting active apps. Pause only the verified
-normal demo process, rerun those exact two workloads and assertions, preserve
-every result, then restore normal serving. Already passed gates do not need
-repetition unless the binary, drivers or another relevant condition changes.
-Do not report complete public-artifact model acceptance until both pass.
+Carlos authorized temporarily closing Chrome and Wispr Flow. Both apps and
+their helpers exited before testing. No Slotstream server was listening at
+startup. Each model ran alone after the original 30-second stable-swap,
+normal-pressure readiness check, requiring at least 16 GB reclaimable for the
+governor and 13 GB for the long prompt. Governor startup observed 30.06 GB
+reclaimable. The twelve original driver hashes match the frozen protocol and
+the release tag; only output and frozen-driver paths changed in the wrapper.
+No workload, cooldown, token limit, memory ceiling or assertion changed.
+
+| Final check | Result | Maximum observed process memory | Ceiling |
+| --- | --- | --- | --- |
+| Full governor drill | Shrink, full 60-second cooldown and regrowth passed; all three nonempty output-ID sequences identical; zero swap-ins and swap-outs | 10,984,885,632 bytes | 13,000,000,000 bytes |
+| Original long prompt | 7,972 prompt tokens; four output tokens; completed answer `SEVENTEEN`; both memory and recall gates passed; zero swap-ins and swap-outs | 8,094,469,432 bytes | 10,000,000,000 bytes |
+
+Both process-memory intervals contain complete 20 ms sampling. The maximum
+also considers the lifetime RSS high-water mark and final physical footprint.
+These are bounded-memory observations, not memory-saving percentages.
+
+The aggregate is the initial 20 passing gates, three previously qualified
+targeted gates, and these two new passes. All are tied to the same published
+binary and original acceptance drivers; the separate 31-check installed suite
+is reused by exact identity. Earlier failed attempts remain failed. Closing
+apps allowed this attempt to qualify, but system-wide counters cannot assign
+the earlier swap-ins to either app or establish a causal diagnosis.
+
+After both model processes exited, normal `slotstream serve` was restored and
+answered `OK`; both authorized apps were reopened. Exact raw results, frozen
+driver identity, unchanged assertions and restoration receipts are in
+[[sources/runs/2026/09/2026-09-11-release-0-2-14-final-memory-acceptance]].
+
+## Acceptance and performance scope
+
+No required local v0.2.14 release-acceptance gate remains open. This conclusion
+covers the published artifact at `ac7d7e53ca2397bb8840a97f028509fbb0a8f688`.
+The later adoption of two draft tokens and the prospective Expert Lookahead
+plan are separate source identities and work. This rerun neither installs nor
+qualifies those changes; the public v0.2.14 binary remains unchanged.
 
 The completed optimization campaign and its original qualified candidate are
 separate evidence from this new public-artifact acceptance. Established

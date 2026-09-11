@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m1qmfn82qv2avgdyk96x1crn
 created: 2026-09-05T01:56:13.698129+00:00
-updated: 2026-09-11T09:02:49.972440+00:00
+updated: 2026-09-11T09:31:18.696259+00:00
 summary: 'Completed OPT00–OPT36 program: exact qualified sources and local installation active; all final outcomes and prerequisite-dependent deferrals preserved'
 date: 2026-09-04
 doc: plan
@@ -14,7 +14,7 @@ title: Unified whole-engine optimization program — 2026-09-04
 ---
 **Draft-depth follow-up, September 11:** [[records/decisions/draft-depth-defaults-to-two]] adopts two drafts for new work. The default-change implementation is separate from the frozen OPT00–OPT36 program below: keep its explicit one-draft controls and historical identities unchanged. New default-path qualification must bind a fresh source identity and declare depth two rather than inheriting an old protocol.
 
-**Public release follow-up, September 10:** v0.2.14 now publishes the completed optimization work and is installed and serving locally. The exact successful CI archive, public provenance and installation are verified. Public-artifact acceptance currently qualifies 23 of 25 original model gates and all 31 installed-release checks. The full governor and long-prompt zero-swap memory intervals remain unqualified after system swap-ins; every excluded attempt is preserved and no assertion was relaxed. Current release identity, evidence and the two remaining acceptance actions are in [[records/measurements/release-qualification-0-2-14]]. This supersedes the installed-binary and publication state in the preserved optimization-activation snapshot below, without changing the completed OPT00–OPT36 dispositions or their original evidence.
+**Public release follow-up, September 11:** v0.2.14 publishes the completed optimization work and is installed and serving locally. The exact successful CI archive, public provenance and installation are verified. All 25 original model gates and all 31 installed-release checks now pass. The final unchanged governor and long-prompt tests completed with zero swap activity after Carlos authorized temporarily closing Chrome and Wispr Flow. Every excluded earlier attempt is preserved and no assertion was relaxed. Normal serving and both apps were restored. Current release identity and complete evidence are in [[records/measurements/release-qualification-0-2-14]]. This closes public v0.2.14 acceptance without changing the completed OPT00–OPT36 dispositions or their original evidence. Later depth-two default changes and prospective Expert Lookahead work remain separate from this exact published artifact.
 
 **Preserved optimization closure and source-qualified activation:**
 

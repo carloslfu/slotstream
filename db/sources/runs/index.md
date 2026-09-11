@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T09:13:46.651611Z
+updated: 2026-09-11T09:29:41.700421Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-release-0-2-14-final-memory-acceptance]] — v0.2.14 final memory acceptance: both unchanged gates pass, 25 of 25 model gates qualified
 - [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-retry]] — Two-draft full MTP check: swap-limited retry attempt
 - [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-first]] — Two-draft full MTP check: swap-limited first attempt
 - [[sources/runs/2026/09/2026-09-11-draft-depth-two-default]] — Two-draft default implementation checks
@@ -506,9 +507,8 @@ updated: 2026-09-11T09:13:46.651611Z
 - [[sources/runs/2026/09/2026-09-04-prefill-parallelism-algebra]] — Prefill parallelism: source identities and CPU FP64 gated-delta block algebra, without performance or production parity claims
 - [[sources/runs/2026/09/2026-09-04-first-principles-native-retention]] — First-principles audit: native retained-state compaction and identical logits
 - [[sources/runs/2026/09/2026-09-04-first-principles-primitive-diagnostics]] — First-principles audit: MLX allocation and numerical diagnostics, timings discarded
-- [[sources/runs/2026/09/2026-09-04-first-principles-static-audit]] — First-principles audit: code identities, tensor geometry and schedule arithmetic
 
 ## More
 
-This folder has 519 files. The 500 most recent are listed above.
+This folder has 520 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
