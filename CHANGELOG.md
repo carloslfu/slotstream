@@ -3,11 +3,20 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
-## Unreleased
+## 0.2.15 - 2026-09-11
 
+- Use two draft tokens by default when speculative decoding is enabled. Valid
+  `SLOTSTREAM_DRAFT_DEPTH` overrides remain supported. The choice follows the
+  mixed-workload comparison; it is not a universal throughput improvement.
 - Fix peak-memory reporting after GPU buffers are freed by reading macOS's
   lifetime physical-footprint high-water. Keep current usage and sampled
   request peaks distinct, and report memory on early failures and cancellations.
+- Add native memory-counter and explicit-budget regression checks, preserve
+  older saved-statistics decoding, and clarify memory budgets and historical
+  estimates in the documentation.
+- Include the draft-depth studies, decode bottleneck evidence, and the reviewed
+  Expert Lookahead plan. Learned expert prediction and expert prefetching remain
+  planned work; this release does not implement them.
 
 ## 0.2.14 - 2026-09-10
 
