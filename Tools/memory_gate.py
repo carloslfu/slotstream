@@ -1,14 +1,29 @@
 #!/usr/bin/env python3
-"""Check sampled process memory from structured generation observations."""
+"""Check process-memory bounds; report host-wide paging separately."""
 import argparse
 from decimal import Decimal, InvalidOperation
 import json
+
+
+def swap_deltas(before, after):
+    """Optional host telemetry, never a process-memory or correctness verdict."""
+    if before is None or after is None:
+        return None
+    result = {}
+    for name in ('swapins', 'swapouts'):
+        start, end = before[name], after[name]
+        if type(start) is not int or start < 0 or type(end) is not int or end < start:
+            raise ValueError('invalid or non-monotonic global VM observation')
+        result[name] = end - start
+    return result
 
 
 def check_memory(payload, limit_gb):
     limit = Decimal(str(limit_gb)) * 1_000_000_000
     if not limit.is_finite() or limit <= 0: raise ValueError('memory limit must be finite and positive')
     stats = payload['stats']
+    if stats.get('runtimeError') or stats.get('requestFailure') or stats.get('memoryPressureCancelled'):
+        raise ValueError('request failed or was cancelled under memory pressure')
     sample = stats['sampledFootprint']
     def integer(value, name, positive=False):
         if type(value) is not int or value < (1 if positive else 0):
@@ -25,10 +40,7 @@ def check_memory(payload, limit_gb):
     lifetime_footprint = stats.get('lifetimePhysicalFootprintPeakBytes')
     if lifetime_footprint is not None:
         lifetime_footprint = integer(lifetime_footprint, 'lifetime footprint peak', True)
-    for name in ['swapins', 'swapouts']:
-        before = integer(stats['generatorVMBefore'][name], 'VM before ' + name)
-        after = integer(stats['generatorVMAfter'][name], 'VM after ' + name)
-        if before != after: raise ValueError('swap activity during generator interval')
+    global_swap = {'generator': swap_deltas(stats.get('generatorVMBefore'), stats.get('generatorVMAfter'))}
     preparation_peak = 0
     preparation = stats.get('imagePreparation')
     image_work = sum(integer(stats.get(name, 0), name) for name in
@@ -40,16 +52,13 @@ def check_memory(payload, limit_gb):
         preparation_peak = integer(prep_sample['peakBytes'], 'image preparation peak', True)
         integer(prep_sample['samples'], 'image preparation samples', True)
         integer(prep_sample['intervalMilliseconds'], 'image preparation interval', True)
-        for name in ['swapins', 'swapouts']:
-            before = integer(preparation['vmBefore'][name], 'image VM before ' + name)
-            after = integer(preparation['vmAfter'][name], 'image VM after ' + name)
-            if before != after: raise ValueError('swap activity during image preparation')
+        global_swap['image_preparation'] = swap_deltas(preparation.get('vmBefore'), preparation.get('vmAfter'))
     peak = max(sampled, rss, end, preparation_peak, lifetime_footprint or 0)
     if peak > limit: raise ValueError(f'observed {peak} bytes exceeds {limit} byte target')
     return {'passed': True, 'maximum_observed_bytes': peak,
             'sampled_footprint_bytes': sampled, 'image_preparation_peak_bytes': preparation_peak, 'lifetime_rss_bytes': rss,
             'physical_footprint_end_bytes': end, 'lifetime_footprint_peak_bytes': lifetime_footprint,
-            'sampling_interval_ms': sample['intervalMilliseconds']}
+            'sampling_interval_ms': sample['intervalMilliseconds'], 'global_swap_deltas': global_swap}
 
 
 def main():

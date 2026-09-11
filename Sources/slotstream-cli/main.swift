@@ -963,10 +963,13 @@ struct ElasticDrill: ParsableCommand {
                         "sampled_peak_bytes": sample.peakBytes, "samples": sample.samples,
                         "physical_footprint_end_bytes": observed.physical,
                         "lifetime_rss_peak_bytes": observed.rss,
+                        "lifetime_physical_footprint_peak_bytes": ProcessMemory.lifetimePhysicalFootprintPeakBytes(),
                         "swapins_before": vmBefore.map { $0.swapins as Any } ?? NSNull(),
                         "swapins_after": vmAfter.map { $0.swapins as Any } ?? NSNull(),
                         "swapouts_before": vmBefore.map { $0.swapouts as Any } ?? NSNull(),
                         "swapouts_after": vmAfter.map { $0.swapouts as Any } ?? NSNull(),
+                        "swap_clean": vmBefore != nil && vmAfter != nil
+                            && vmBefore?.swapins == vmAfter?.swapins && vmBefore?.swapouts == vmAfter?.swapouts,
                         "output_ids": outputs,
                     ]
                     if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
@@ -989,12 +992,8 @@ struct ElasticDrill: ParsableCommand {
                     }
                     let physical = ProcessMemory.residentBytes(), rss = ProcessMemory.lifetimeRSSPeakBytes()
                     guard physical > 0, rss > 0,
-                          Double(max(physical, rss)) <= memoryCeiling * 1e9 else {
+                          ProcessMemory.peakResidentGB <= memoryCeiling else {
                         throw PlanError("elastic-drill physical memory observation is unavailable or exceeds its explicit ceiling")
-                    }
-                    guard let current = ProcessMemory.vmActivity(), let before = vmBefore,
-                          current.swapins == before.swapins, current.swapouts == before.swapouts else {
-                        throw PlanError("elastic-drill memory interval is unavailable or contains swap activity")
                     }
                 }
                 try checkMemory()
@@ -1148,12 +1147,8 @@ struct ElasticDrill: ParsableCommand {
                 let finalPhysical = ProcessMemory.residentBytes(), finalRSS = ProcessMemory.lifetimeRSSPeakBytes()
                 finalObservation = (finalSample, finalVM, finalPhysical, finalRSS)
                 if finalSample.peakBytes == 0 || finalPhysical == 0 || finalRSS == 0
-                    || Double(max(finalSample.peakBytes, max(finalPhysical, finalRSS))) > memoryCeiling * 1e9 {
+                    || Double(max(finalSample.peakBytes, ProcessMemory.peakResidentBytes())) > memoryCeiling * 1e9 {
                     fail.append("final sampled footprint, physical footprint or RSS is unavailable or exceeds the ceiling")
-                }
-                if vmBefore == nil || finalVM == nil || finalVM?.swapins != vmBefore?.swapins
-                    || finalVM?.swapouts != vmBefore?.swapouts {
-                    fail.append("the complete memory interval is unavailable or contains swap activity")
                 }
 
                 if fail.isEmpty {

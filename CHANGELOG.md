@@ -5,6 +5,10 @@ release; anything under **Unreleased** is on `main` only.
 
 ## 0.2.15 - 2026-09-11
 
+- Stop treating system-wide macOS paging as a failed correctness or memory-budget
+  check. Preserve paging diagnostics and the real process-memory, headroom,
+  cancellation and completed-output safeguards. Clean performance measurements
+  remain a separate qualification.
 - Use two draft tokens by default when speculative decoding is enabled. Valid
   `SLOTSTREAM_DRAFT_DEPTH` overrides remain supported. The choice follows the
   mixed-workload comparison; it is not a universal throughput improvement.

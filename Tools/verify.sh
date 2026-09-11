@@ -176,7 +176,7 @@ fi
 
 echo "== memory target keeps its promise =="
 run_model "$BIN" run --prompt "Why is the sky blue?" --max-tokens 24 --greedy --memory-gb $BIG_MEMORY --sample-footprint --stats-json /tmp/ssv_mem.json 2>/tmp/ssv_mem.err > /tmp/ssv_mem.txt
-check "--memory-gb $BIG_MEMORY sampled footprint and RSS stay under target without swap" \
+check "--memory-gb $BIG_MEMORY process footprint and RSS stay under target" \
       "python3 Tools/memory_gate.py /tmp/ssv_mem.json --limit-gb $BIG_MEMORY"
 check "--memory-gb $BIG_MEMORY output is stable" "diff /tmp/ssv_mem.txt /tmp/ssv_big.txt"
 
@@ -197,7 +197,7 @@ PYEOF
 run_model "$BIN" run --prompt-file /tmp/ssv_long.txt --max-tokens 16 --greedy --memory-gb $BIG_MEMORY \
   --sample-footprint --stats-json /tmp/ssv_longmem.json \
   2>/tmp/ssv_longmem.err > /tmp/ssv_longmem.txt
-check "--memory-gb $BIG_MEMORY sampled footprint and RSS under target on the long prompt without swap" \
+check "--memory-gb $BIG_MEMORY process footprint and RSS under target on the long prompt" \
       "python3 Tools/memory_gate.py /tmp/ssv_longmem.json --limit-gb $BIG_MEMORY"
 check "long-context answer still correct (sparse indexer active)" \
       "python3 Tools/long_context_gate.py /tmp/ssv_longmem.json /tmp/ssv_longmem.txt --expected SEVENTEEN --minimum-prompt-tokens 7000 --maximum-output-tokens 16"
@@ -214,7 +214,7 @@ printf '%s\n' "$CONTEXT_STATUS" > "$VERIFY_OUT/context-check.exit-status.txt"
 check "context-check: 2k rung reads inside the plan and reports it" \
       "[ \"\$CONTEXT_STATUS\" -eq 0 ] && python3 -c 'import json; d=json.loads(open(\"/tmp/ssv_ctx.json\").read().strip().splitlines()[-1]); assert d[\"fits\"] and d[\"aborted\"] is None and d[\"prefill_tokens\"]==2048, d'"
 
-check "context-check: sampled memory remains under target without swap" \
+check "context-check: process memory remains under target" \
       "python3 Tools/memory_gate.py /tmp/ssv_ctx.json --limit-gb $BIG_MEMORY"
 
 echo "== serving robustness (inputs that used to crash or corrupt output) =="

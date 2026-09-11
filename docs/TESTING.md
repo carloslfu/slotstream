@@ -23,6 +23,24 @@ The static gates run it automatically. Request samples remain separate from
 the process-lifetime counter; the memory acceptance gate checks both when the
 native lifetime observation is present.
 
+## Memory acceptance and macOS paging
+
+Correctness and process-memory acceptance do not require unchanged system-wide
+swap counters. Those counters include every app on the Mac and cannot attribute
+paging to Slotstream. The speculative, governor and context diagnostics record
+`swap_clean` separately; the memory assessor reports `global_swap_deltas`.
+Neither field overrides a completed correctness check or an observed process
+footprint within its budget. Unavailable paging observations are not evidence
+of a clean interval.
+
+Real headroom checks, process-memory ceilings, OS pressure cancellation,
+allocation safeguards and required output remain mandatory. Paging can still
+indicate system contention, so retain the observations and investigate actual
+pressure or loss of responsiveness. A passing functional run with paging does
+not qualify clean benchmark timings. Performance studies keep their declared
+exclusion rules; frozen historical results are not regraded under this policy.
+See the [decision](../db/records/decisions/global-paging-is-diagnostic.md).
+
 ## Configurable context without a model
 
 `make context-test` compiles the production planner, feasibility solver,

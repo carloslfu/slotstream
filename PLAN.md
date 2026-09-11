@@ -527,6 +527,10 @@ The original larger-target sweep evaluated an already-bounded prediction curve. 
 
 Keep code comments, CLI help/diagnostics, policy checks, canonical decisions/claims and relevant README/guides aligned. Regenerate PLAN.md, MEASUREMENTS.md and llms-full.txt from their declared sources. Preserve historical source bytes and annotate interpretations through records. This policy documents ongoing engineering responsibility; it does not claim a completed audit of every existing constant or authorize new benchmarks, spending, telemetry or background tuning.
 
+## Functional memory acceptance and benchmark eligibility
+
+Global macOS paging is diagnostic for ordinary correctness, context-capacity and process-budget acceptance. It cannot attribute system activity to Slotstream. Keep process ceilings, real headroom, OS pressure handling, allocation safeguards and complete numerical/work checks; report paging separately. Performance comparisons retain declared clean-interval rules, and historical frozen results stay unchanged. The controlling decision is [[records/decisions/global-paging-is-diagnostic]].
+
 ## 5. The configuration space (the tradeoffs to test)
 
 Axes — every named preset is a point in this space:

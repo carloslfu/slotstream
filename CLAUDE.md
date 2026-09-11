@@ -119,6 +119,14 @@ Every rule here is one this project already got wrong. They share a root:
   one pair read 137.6 against 90.7 for the same config. Check reclaimable
   memory first, interleave A/B rounds, and discard anything measured while the
   machine is swapping. Report medians of paired rounds, never a best-of.
+- **Global paging is not a correctness or process-memory gate (2026-09-11).**
+  macOS swap counters cover every application. Preserve them as diagnostics;
+  never abort or fail ordinary release, context-capacity or governor checks
+  solely because they increase. Keep actual process-footprint ceilings, real
+  headroom, OS pressure cancellation, allocation guards and completed-work
+  checks. Clean benchmark eligibility is separate from functional acceptance.
+  Historical frozen studies keep their original verdicts and protocols.
+  [Canonical policy](db/records/decisions/global-paging-is-diagnostic.md).
 - **Explicit knobs bypass the safety clamp — that is their purpose, and it
   makes them dangerous.** `--experts-per-layer 181` is never resized by the
   availability clamp, and forcing it against 26.6 GB reclaimable drove the

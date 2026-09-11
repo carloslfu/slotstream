@@ -234,15 +234,15 @@ struct ContextCheck: ParsableCommand {
                             let peak = max(stats.peakMemoryGB, Double(stats.sampledFootprint?.peakBytes ?? 0) / 1e9)
                             let observed = (stats.sampledFootprint?.samples ?? 0) > 0
                                 && (stats.sampledFootprint?.peakBytes ?? 0) > 0 && stats.lifetimeRSSPeakBytes > 0
-                            let fits = complete && noSwap && observed && peak <= plan.expectedPeakGB && warmupFailure == nil
+                            let fits = complete && observed && peak <= plan.expectedPeakGB && warmupFailure == nil
                             warmup.append([
                                 "conversation": index, "phase": phase, "prompt_ids": ids,
                                 "output_ids": delivery.ids, "text": delivery.text, "expected_reuse": expectedReuse,
                                 "stats": try JSONSerialization.jsonObject(with: JSONEncoder().encode(stats)),
-                                "retained": engine.prefixCache.json(), "fits": fits,
+                                "retained": engine.prefixCache.json(), "fits": fits, "swap_clean": noSwap,
                             ])
                             if !fits {
-                                warmupFailure = warmupFailure ?? "retained warm-up failed completion, reuse, memory or swap contract"
+                                warmupFailure = warmupFailure ?? "retained warm-up failed completion, reuse or process-memory contract"
                                 break
                             }
                         }
@@ -285,7 +285,7 @@ struct ContextCheck: ParsableCommand {
                                 aborted = "diagnostic wall-clock ceiling exceeded"
                                 control.cancel(); return false
                             }
-                            // The guard: stop before the machine pays in swap.
+                            // Preserve real headroom independently of global paging.
                             if let a = Planner.deviceAvailableGB(), a < slack {
                                 aborted = String(format: "reclaimable memory fell to %.1f GB (floor %.1f)", a, slack)
                                 return false
@@ -303,14 +303,14 @@ struct ContextCheck: ParsableCommand {
                         && stats.generatorVMBefore?.swapouts == stats.generatorVMAfter?.swapouts
                     let observed = (stats.sampledFootprint?.samples ?? 0) > 0
                         && (stats.sampledFootprint?.peakBytes ?? 0) > 0 && stats.lifetimeRSSPeakBytes > 0
-                    let fits = aborted == nil && completed && observed && peak <= plan.expectedPeakGB && noSwap
+                    let fits = aborted == nil && completed && observed && peak <= plan.expectedPeakGB
                     let verdict: String
                     if let a = aborted {
                         verdict = "ABORTED at \(stats.prefillTokens) tokens: \(a)"
                     } else if !completed {
                         verdict = "INCOMPLETE: \(stats.runtimeError ?? "prompt or reply did not complete")"
-                    } else if !noSwap || !observed {
-                        verdict = "EXCLUDED: swap activity or missing memory observations during the request"
+                    } else if !observed {
+                        verdict = "EXCLUDED: missing process-memory observations during the request"
                     } else if fits {
                         verdict = "OK"
                     } else {
@@ -323,6 +323,7 @@ struct ContextCheck: ParsableCommand {
                             "prefill_seconds": stats.prefillSeconds, "prefill_tok_s": stats.prefillTPS,
                             "peak_rss_gb": Double(stats.lifetimeRSSPeakBytes) / 1e9,
                             "process_peak_bound_gb": peak,
+                            "swap_clean": noSwap,
                             "plan_expected_peak_gb": plan.expectedPeakGB,
                             "stats": try JSONSerialization.jsonObject(with: JSONEncoder().encode(stats)),
                             "optimizations": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.model.optimizations)),

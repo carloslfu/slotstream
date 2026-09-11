@@ -26,7 +26,9 @@ POLICY = {
     'sample_interval_seconds': .2,
     'maximum_build_seconds': 1200,
     'compiler_jobs': 1,
-    'stop_on_new_swapouts': True,
+    # The compiler cannot attribute macOS paging to its own process tree.
+    # Frozen studies may still opt into clean-interval exclusion explicitly.
+    'stop_on_new_swapouts': False,
 }
 
 
@@ -46,7 +48,7 @@ def owned_processes(output, root_pid):
 
 
 def check_sample(snapshot, rss_bytes, initial_swapouts, policy=POLICY):
-    stop_on_swapouts = policy.get('stop_on_new_swapouts', True)
+    stop_on_swapouts = policy.get('stop_on_new_swapouts', False)
     if type(stop_on_swapouts) is not bool or type(initial_swapouts) is not int or initial_swapouts < 0:
         raise ValueError('invalid VM policy or initial swapout observation')
     for key in ['reclaimable_bytes', 'swapouts']:

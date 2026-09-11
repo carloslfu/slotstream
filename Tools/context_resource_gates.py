@@ -7,6 +7,7 @@ import time
 
 from context_qualification import quiet_preflight
 from prefill_bench import digest, run_child, vm_snapshot
+from memory_gate import swap_deltas
 
 
 def validate_receipt(name, text, exit_code):
@@ -36,12 +37,14 @@ def validate_receipt(name, text, exit_code):
     for key in ('samples', 'sampled_peak_bytes', 'physical_footprint_end_bytes', 'lifetime_rss_peak_bytes'):
         if type(r.get(key)) is not int or r[key] <= 0:
             raise ValueError('invalid physical memory observation: ' + key)
-    if max(r[k] for k in ('sampled_peak_bytes', 'physical_footprint_end_bytes', 'lifetime_rss_peak_bytes')) > limit * 1e9:
+    lifetime = r.get('lifetime_physical_footprint_peak_bytes')
+    if lifetime is not None and (type(lifetime) is not int or lifetime <= 0):
+        raise ValueError('invalid lifetime physical-footprint peak')
+    if max(lifetime or 0, *(r[k] for k in ('sampled_peak_bytes', 'physical_footprint_end_bytes', 'lifetime_rss_peak_bytes'))) > limit * 1e9:
         raise ValueError('physical memory exceeded the fixed resource ceiling')
-    for key in ('swapins', 'swapouts'):
-        before, after = r.get(key + '_before'), r.get(key + '_after')
-        if type(before) is not int or before < 0 or type(after) is not int or before != after:
-            raise ValueError('invalid VM observation or swap activity')
+    if all(r.get(key + boundary) is not None for key in ('swapins', 'swapouts') for boundary in ('_before', '_after')):
+        swap_deltas({key: r[key + '_before'] for key in ('swapins', 'swapouts')},
+                    {key: r[key + '_after'] for key in ('swapins', 'swapouts')})
     return r
 
 
@@ -64,8 +67,7 @@ def run(binary, model, image, out):
             text = (cell / 'stdout.txt').read_text() + (cell / 'stderr.txt').read_text()
             row['receipt'] = validate_receipt(name, text, row['exit_code'])
             row['after'] = vm_snapshot()
-            if any(row['before'][key] != row['after'][key] for key in ('swapins', 'swapouts')):
-                raise ValueError('swap activity across complete resource interval')
+            row['global_swap_deltas'] = swap_deltas(row['before'], row['after'])
             row['passed'] = True
         except Exception as error:
             row['error'] = f'{type(error).__name__}: {error}'

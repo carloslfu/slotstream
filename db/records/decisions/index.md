@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-11T09:13:46.750785Z
+updated: 2026-09-11T17:01:32.760934Z
 ---
 
 # records/decisions
 
+- [[records/decisions/global-paging-is-diagnostic]] — Treat host-wide paging as diagnostics, separate from functional and process-memory acceptance; preserve actual headroom, pressure and budget safeguards.
 - [[records/decisions/draft-depth-defaults-to-two]] — Two draft tokens are the adopted operating default; activation and memory policies remain separate
 - [[records/decisions/draft-depth-defaults-to-one-and-auto-floor-120-per-layer]] — Speculative decode drafts one token by default and auto enables it only at 120 experts per layer and up
 - [[records/decisions/guillermo-rauch-grant-acknowledgment]] — Credit Guillermo Rauch personally using his official GitHub photo, full name and the verified Slotstream grant listing.

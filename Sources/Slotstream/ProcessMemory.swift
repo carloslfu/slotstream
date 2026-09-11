@@ -32,8 +32,9 @@ public enum ProcessMemory {
     }
     private static let hostPort = mach_host_self()
 
-    /// Global VM counters at a named request boundary. These are separate
-    /// from process startup and still reject any swap activity in that interval.
+    /// Global VM counters at a named request boundary. Paging is diagnostic:
+    /// these host-wide counters cannot attribute activity to this process and
+    /// must not decide functional correctness or process-budget acceptance.
     public static func vmActivity() -> VMActivity? {
         var info = vm_statistics64_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)

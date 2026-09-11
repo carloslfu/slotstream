@@ -1,9 +1,9 @@
 ---
 type: db-md
-scope: engineering
+updated: 2026-09-11T17:03:43.067101+00:00
 owner: Carlos Galarza
+scope: engineering
 ---
-
 # slotstream brain
 
 The public db.md store for slotstream: every measurement with its method,
@@ -35,11 +35,15 @@ never matters. `--check` fails CI when the files and the records disagree. `READ
 output first: the `--json` or transcript of `doctor`, `context-check`,
 `mtp-bench`, `prefix-check`, `coldread`, `pull`, `verify.sh`, saved under
 `sources/runs/YYYY/MM/` as a `run` with the exact command, the binary it ran,
-and the machine. The measurement record then links it in `runs`. A run made
-on a loaded or swapping machine is kept and marked `discarded: true` with the
-reason, never deleted. Exact bytes live in the run file, never retyped into a
-record body. Records lifted from the documents on 2026-09-02 predate this
-rule: their runs were not preserved, and the frozen document under
+and the machine. The measurement record then links it in `runs`. A timing or
+performance run made on a loaded or swapping machine is kept and marked `discarded: true` with the
+reason, never deleted. Functional and process-memory acceptance may succeed
+with global paging when the actual safety and completed-work checks pass;
+record paging separately and make no clean-timing claim. Preserve historical
+frozen verdicts. The September 11 correction is
+[[records/decisions/global-paging-is-diagnostic]]. Exact bytes live in the run
+file, never retyped into a record body. Records lifted from the documents on
+2026-09-02 predate this rule: their runs were not preserved, and the frozen document under
 `sources/docs/` is their evidence.
 
 **Status is part of the record.** A `measurement` is `measured` while its
