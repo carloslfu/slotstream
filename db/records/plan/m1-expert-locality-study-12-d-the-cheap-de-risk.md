@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m1hhwngmy3nesj4k8dxby8v2
 created: 2026-09-02T17:15:27.636615+00:00
-updated: 2026-09-02T17:15:27.636615+00:00
+updated: 2026-09-11T02:39:48.817+00:00
 summary: M1 — Expert-locality study (1–2 d, the cheap de-risk)
 date: 2026-08-28
 doc: plan
@@ -13,6 +13,8 @@ order: '210'
 source: '[[sources/docs/2026/09/plan-md-2026-09-02]]'
 title: M1 — Expert-locality study (1–2 d, the cheap de-risk)
 ---
+**Current local expert-prediction experiment (September 10):** [[records/plan/expert-lookahead-local-experiment-2026-09-10]] defines the causal native capture, training, bounded prefetch and speed qualification now requested. Its first run uses the actual checkpoint on the existing Mac. The proxy/cloud collection route below belongs to the historical M1 proposal and is not a prerequisite or spending instruction for this local experiment.
+
 Traces: instrument the Python reference (mlx-lm branch) to dump per-layer top-k ids.
 (a) **Proxy, free, local**: Qwen3-Next-80B-A3B (same 512-expert/top-10 routing family)
 fits this Mac at 3–4-bit — collect traces across chat/code/long-doc/agentic corpora.

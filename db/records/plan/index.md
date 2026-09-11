@@ -2,16 +2,18 @@
 type: index
 scope: type-folder
 folder: records/plan
-updated: 2026-09-10T23:52:52.103747Z
+updated: 2026-09-11T02:42:31.881915Z
 ---
 
 # records/plan
 
+- [[records/plan/expert-lookahead-local-experiment-2026-09-10]] — Local expert lookahead: causal capture, small predictors, bounded prefetch, exactness and held-out speed gates
+- [[records/plan/8-1-next-the-ordered-queue-post-0-1-5]] — 8.1 Next — the ordered queue (post-0.1.5)
+- [[records/plan/m1-expert-locality-study-12-d-the-cheap-de-risk]] — M1 — Expert-locality study (1–2 d, the cheap de-risk)
 - [[records/plan/whole-engine-optimization-2026-09-04]] — Completed OPT00–OPT36 program: exact qualified sources and local installation active; all final outcomes and prerequisite-dependent deferrals preserved
 - [[records/plan/configurable-context-window-2026-09-06]] — Configurable context through the model limit: shared byte accounting, request guards, bounded prefill and staged qualification
 - [[records/plan/0-status-tracker-living]] — 0. Status tracker (living)
 - [[records/plan/n6-prefill-bound-the-pass-then-read-each-expert-once]] — Standalone N6 execution superseded; retained as the unified optimization program’s detailed prefill chapter, with every mechanism mapped to an OPT owner
-- [[records/plan/8-1-next-the-ordered-queue-post-0-1-5]] — 8.1 Next — the ordered queue (post-0.1.5)
 - [[records/plan/12-open-questions-answer-at-the-milestone-noted]] — 12. Open questions (answer at the milestone noted)
 - [[records/plan/11-definition-of-done-v0-1-updated-with-2026-08-28-results]] — 11. Definition of Done — v0.1 (updated with 2026-08-28 results)
 - [[records/plan/9-risk-register]] — 9. Risk register
@@ -28,6 +30,5 @@ updated: 2026-09-10T23:52:52.103747Z
 - [[records/plan/m4-slot-streaming-decode-first-full-model-run-35-d-the-gating-milestone]] — M4 — Slot streaming decode → first full-model run (3–5 d) — the gating milestone
 - [[records/plan/m3-swift-engine-resident-path-correctness-35-d-revised-down-after-m0]] — M3 — Swift engine, resident-path correctness (3–5 d, revised down after M0)
 - [[records/plan/m2-container-repack-12-d]] — M2 — Container + repack (1–2 d)
-- [[records/plan/m1-expert-locality-study-12-d-the-cheap-de-risk]] — M1 — Expert-locality study (1–2 d, the cheap de-risk)
 - [[records/plan/m0-ground-truth-feasibility-0-51-d]] — M0 — Ground truth & feasibility (0.5–1 d)
 - [[records/plan/8-milestones]] — 8. Milestones

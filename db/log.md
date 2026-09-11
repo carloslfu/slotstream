@@ -946,3 +946,6 @@ Published v0.2.14 from successful complete CI and verified exact public archive,
 ## [2026-09-11 02:03] create | records/measurements/mtp-depth-fixed-total-inconclusive-2026-09-11.md
 Captured two separate fixed-total-memory MTP-depth cohorts and all exclusions. 26 measured responses,12 individually clean, insufficient matched pairs;24GB headroom stop and20GB resource-futility stop. No new default qualified. All owned model processes stopped; installed binary and Metal hashes unchanged. Full validation:0 errors,2 pre-existing log warnings.
 
+## [2026-09-11 02:42] create | records/plan/expert-lookahead-local-experiment-2026-09-10.md
+Prepared the local Expert Lookahead execution plan and completed four review passes. Seven work packages cover causal MTP-aware capture, bounded raw staging, small MLX predictors, exactness, fair memory controls and held-out speed qualification. Corrected pilot/test accounting, dense-prefill capture, failure exclusions and full-campaign time estimates; linked the current queue and historical M1. Projections, 131 claim checks, link/arithmetic audit and whitespace checks pass. Full validation has zero errors and the same two historical log warnings. Planning only: no training, model launch, installed-binary change or paid work.
+
