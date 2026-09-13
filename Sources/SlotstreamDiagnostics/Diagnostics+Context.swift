@@ -134,6 +134,41 @@ extension Diagnostics {
             control = nil
             c.equal("\(label): completion releases every lease", pool.reservedBytes, 0)
         }
+        // A refused prefill pass is re-priced, not fatal. The refusal describes
+        // the allocation, so the caller clears it and asks for the pass the
+        // same rows fit in; this is what lets a long prompt read in smaller
+        // passes instead of failing the request outright. The numbers are the
+        // live long-context case: a 1024-token pass over a 24,496-token prompt.
+        do {
+            let slack = 1_000_000
+            let planned = ContextWorkspace.prefillBytes(pass: 1024, context: 24_496, attentionHeads: 24)
+            let reduced = ContextWorkspace.prefillBytes(pass: 512, context: 24_496, attentionHeads: 24)
+            c.expect("prefill pass pricing falls with the pass", reduced > 0 && planned > reduced)
+            let roomBytes = reduced + slack + 100_000_000
+            let room = Double(roomBytes) / 1e9
+            let control = RequestController(configuration: reservationPolicy, slackBytes: slack,
+                availableGB: { room })
+            do {
+                try control.check(nextAllocationBytes: planned, phase: "prefill pass")
+                c.expect("a pass larger than the free memory refuses", false)
+            } catch let error as RequestFailure {
+                c.equal("typed pass refusal", error.code, .insufficientMemory)
+                c.equal("refusal prices the pass plus slack", error.requiredBytes, planned + slack)
+                c.equal("refusal reports the reading it used", error.availableBytes, Int(room * 1e9))
+            }
+            c.expect("a memory refusal is clearable for a smaller pass", control.clearMemoryRefusal())
+            c.equal("clearing a refusal leaves no failure", control.failure, nil)
+            try control.check(nextAllocationBytes: reduced, phase: "prefill pass")
+            c.equal("the reduced pass is admitted", control.failure, nil)
+            c.expect("an admitted request may still retain state", control.mayRetainState)
+        }
+        do {
+            let cancelled = RequestController(configuration: reservationPolicy, slackBytes: 1_000_000,
+                availableGB: { 0.010 })
+            cancelled.cancel()
+            c.expect("a cancellation is not clearable as a memory refusal", !cancelled.clearMemoryRefusal())
+            c.equal("a cancellation stays recorded", cancelled.failure?.code, .clientCancelled)
+        }
         do {
             let pool = RequestMemoryReservations()
             var queued: RequestController? = RequestController(configuration: reservationPolicy,

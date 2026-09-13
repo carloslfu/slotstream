@@ -178,6 +178,19 @@ public final class RequestController: @unchecked Sendable {
         }
     }
     public func cancel() { fail(RequestFailure(.clientCancelled, "the client cancelled this request")) }
+    /// Clear a memory refusal so the caller can retry with a smaller
+    /// allocation. Only `insufficientMemory` may be cleared: a refusal says the
+    /// asked-for bytes do not fit, which asking for fewer bytes can answer,
+    /// while a cancellation, a deadline or a geometry error cannot be. A
+    /// rejected selection reserves nothing, so there is nothing to release.
+    @discardableResult
+    package func clearMemoryRefusal() -> Bool {
+        lock.withLock {
+            guard let refusal = failureValue, refusal.code == .insufficientMemory else { return false }
+            failureValue = nil
+            return true
+        }
+    }
     public func sampledFirstToken() { lock.withLock { firstToken = true } }
 
     /// Check before an allocation, not after it. Only actually reusable bytes
