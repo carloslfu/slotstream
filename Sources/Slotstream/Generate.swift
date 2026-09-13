@@ -193,6 +193,11 @@ public struct GenStats: Codable {
     public var prefillTokens = 0
     /// Prompt tokens served from the retained state of a previous request.
     public var reusedPrefixTokens = 0
+    /// Times admission refused the planned prefill pass and the schedule ran a
+    /// smaller one instead. A non-zero count means the reply came from a pass
+    /// smaller than the announced plan; it is a diagnosis, not a failure.
+    /// Optional so statistics saved before this field existed stay decodable.
+    public var prefillPassReductions: Int?
     public var prefillSeconds = 0.0
     public var decodeTokens = 0
     public var decodeSeconds = 0.0
@@ -564,7 +569,10 @@ public final class Generator {
                 prefillChunk: prefillChunk, mtp: speculationEnabled && model.mtpHead != nil) : nil
         let hit = cache?.takeForGeneration(
             matching: promptIds, images: images,
-            reserveTokens: promptIds.count + params.maxTokens)
+            reserveTokens: promptIds.count + params.maxTokens,
+            reserveSequenceBytes: model.sequenceCapacityBytes(tokens: promptIds.count + params.maxTokens,
+                mtp: speculationEnabled && model.mtpHead != nil), completePromptKey: completeKey,
+            modelIdentity: model.promptCheckpointIdentity)
         // Disk cache: try the longest chunk-aligned prefix on disk before the
         // RAM cache — a cold conversation that was here before beats anything
         // in flight. Guarded by enabled so a default run never opens the DB
@@ -601,7 +609,14 @@ public final class Generator {
         // saved at the prompt boundary holds exactly the post-prefill state.
         func saveDiskNode(to hi: Int, state: Qwen4ExpModel.State, tokens: [Int]) {
             let lo = diskParentTokenCount
-            guard lo < hi, let deltaEmbeds = diskEmbedRange(lo, hi) else { return }
+            guard lo < hi else { return }
+            // A delta shorter than the floor is not worth ~113 MB of recurrent
+            // state, so skip the write and leave the chain where it is: the
+            // next node then covers this delta too, which is what keeps the
+            // chain intact (advancing past an unwritten node would dangle the
+            // next node's parent_sha).
+            guard hi - lo >= DiskCache.minNodeTokens else { return }
+            guard let deltaEmbeds = diskEmbedRange(lo, hi) else { return }
             let key = ChunkIndex.makeKey(parentSha: diskParentKey, embeddings: deltaEmbeds)
             DiskCache.saveAsync(
                 state: state, tokenIds: Array(tokens[0..<hi]), key: key,
@@ -676,7 +691,55 @@ public final class Generator {
             state = hit?.state ?? model.makeState()
             reused = hit?.reused ?? 0
         }
-        stats.promptTokens = promptIds.count
+        // A disk-tier hit arrives with hit == nil but a state that already
+        // consumed tokens, so "no RAM hit" alone must not imply a fresh head:
+        // speculate only over a state whose draft cache is actually aligned
+        // with its consumed prefix (hasValidMTP also requires the pre-mixer
+        // multi row, which a disk-loaded state never carries).
+        let stateKnowsMTP = reused == 0 || state.hasValidMTP
+        let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
+        model.smallPrefillReferenceStart = reused
+        model.smallPrefillReferenceEnd = promptIds.count
+        var smallReferenceStart: Int?
+        func allocationBytes(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0) -> Int {
+            let allocated = model.sequenceAllocationBytes(tokens: end, draftTokens: draftEnd, state: state,
+                sharedBacking: (cache?.heldCheckpoints ?? 0) > 0 || hit?.logits != nil)
+            return ContextBytes.sum(allocated, workspaceBytes)
+        }
+        func checkAllocation(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0, phase: String) throws {
+            try request?.check(nextAllocationBytes: allocationBytes(end: end, draftEnd: draftEnd,
+                workspaceBytes: workspaceBytes), phase: phase)
+        }
+        let canContinue: () -> Bool = {
+            // Sampling and cancellation checks do not imply a forward. Each
+            // actual prefill, decode or speculative allocation is priced at
+            // its real end position immediately before that work starts.
+            do { try request?.check(phase: "inference boundary") }
+            catch { return false }
+            if shouldContinue?() == false {
+                let failure = request?.failure ?? RequestFailure(.clientCancelled, "inference was cancelled by its caller")
+                request?.fail(failure)
+                callerCancellation = failure
+                return false
+            }
+            return true
+        }
+        do {
+            try request?.admit(missingTokens: promptIds.count - reused, from: reused,
+                maxChunk: prefillChunk, tailAware: model.optimizations.tailAwarePrefill)
+            let initialEnd = min(promptIds.count, reused + prefillChunk)
+            try checkAllocation(end: initialEnd, draftEnd: mtpHead != nil ? max(0, initialEnd - 1) : nil,
+                phase: "initial state allocation")
+            if onAdmitted?() == false {
+                request?.cancel()
+                stats.sampledFootprint = footprint?.finish()
+                return finish([])
+            }
+        } catch {
+            stats.sampledFootprint = footprint?.finish()
+            stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
+            return finish([])
+        }
         stats.reusedPrefixTokens = reused
         stats.prefixCheckpointForks = (cache?.checkpointHits ?? 0) - checkpointHitsBefore
         stats.completePromptHits = hit?.logits == nil ? 0 : 1
@@ -702,14 +765,6 @@ public final class Generator {
         // main model actually saw. A state produced by a plain vision request
         // still runs plain, since its head cache would claim positions the
         // main state no longer matches.
-        //
-        // A disk-tier hit arrives with hit == nil but a state that already
-        // consumed tokens, so "no RAM hit" alone must not imply a fresh head:
-        // speculate only over a state whose draft cache actually covers it
-        // (offset == tokenCount - 1, the invariant the prefill loop keeps).
-        let stateKnowsMTP = reused == 0
-            || (state.mtp != nil && state.mtp!.offset == max(0, state.tokenCount - 1))
-        let mtpHead = speculationEnabled && stateKnowsMTP ? model.mtpHead : nil
         if mtpHead != nil && state.mtp == nil { state.mtp = MTPState() }
         if mtpHead == nil { state.invalidateMTP() }
         // Vision: the tower runs here and not at tokenize time, so an image the
@@ -783,6 +838,11 @@ public final class Generator {
         }
         if i < promptIds.count { progress(0, 0) }
         var cancelledPrefill = false
+        // The chunk the schedule actually runs with. It starts at the planned
+        // size and only shrinks when admission refuses the planned pass: the
+        // reservation is priced from the pass, so a smaller pass over the same
+        // rows can fit the memory the machine has free right now.
+        var effectivePrefillChunk = prefillChunk
         while i < promptIds.count {
             if cancelledPrefill || !canContinue() {
                 MLX.Memory.cacheLimit = savedCacheLimit
@@ -838,10 +898,10 @@ public final class Generator {
             // against the rechunking numerical contract, not assumed exact.
             var passes = executionOptimizations.readScopeEnabled
                 ? PrefillSchedule.scopePasses(remaining: promptIds.count - i, at: i,
-                    maxChunk: prefillChunk, maxScope: executionOptimizations.readScopeTokens,
+                    maxChunk: effectivePrefillChunk, maxScope: executionOptimizations.readScopeTokens,
                     tailAware: executionOptimizations.tailAwarePrefill)
                 : [PrefillSchedule.next(remaining: promptIds.count - i, at: i,
-                    maxChunk: prefillChunk, tailAware: executionOptimizations.tailAwarePrefill)]
+                    maxChunk: effectivePrefillChunk, tailAware: executionOptimizations.tailAwarePrefill)]
             if let cache, executionOptimizations.readScopeEnabled, cache.enabled, cache.maxTokens > 0 {
                 // A read scope may otherwise step over the intended reusable
                 // checkpoint. End the group at an existing compute boundary;
@@ -906,7 +966,7 @@ public final class Generator {
                    !configuredOptimizations.workspacePiecewiseWrites && !configuredOptimizations.compactScopeFrontier,
                    !model.smallPrefillSweep,
                    let groups = PrefillSchedule.automaticScopeChoices(remaining: promptIds.count - i, at: i,
-                       maxChunk: prefillChunk, checkpoint: cache?.enabled == true && (cache?.maxTokens ?? 0) > 0
+                       maxChunk: effectivePrefillChunk, checkpoint: cache?.enabled == true && (cache?.maxTokens ?? 0) > 0
                            ? configuredOptimizations.prefixCheckpointTokens : nil) {
                     var scoped = configuredOptimizations
                     scoped.layerExpertWorkspace = true; scoped.readScopeTokens = 4096
@@ -928,7 +988,31 @@ public final class Generator {
                     }
                 }
                 if !checked { try request?.check(nextAllocationBytes: ordinaryBytes, phase: "prefill pass") }
-            } catch { cancelledPrefill = true; continue }
+            } catch {
+                // Admission refuses a pass by pricing its reservation against
+                // the context it attends over, not by predicting the process
+                // peak. The same rows in a smaller pass cost proportionally
+                // less, so this refusal is recoverable: halve the chunk and
+                // re-price instead of failing work a smaller pass completes.
+                // The reduction sticks for the rest of this request and stops
+                // at the schedule's own floor, so the chain is bounded and a
+                // prompt that cannot fit at any pass size still fails.
+                if let failure = error as? RequestFailure, failure.code == .insufficientMemory,
+                   effectivePrefillChunk > PrefillSchedule.minChunk,
+                   request?.clearMemoryRefusal() ?? true
+                {
+                    let planned = effectivePrefillChunk
+                    effectivePrefillChunk = max(PrefillSchedule.minChunk, planned / 2)
+                    stats.prefillPassReductions = (stats.prefillPassReductions ?? 0) + 1
+                    let required = failure.requiredBytes.map { String(format: "%.2f GB", Double($0) / 1e9) } ?? "unreported"
+                    let available = failure.availableBytes.map { String(format: "%.2f GB", Double($0) / 1e9) } ?? "unreported"
+                    let notice = "prefill: pass \(planned) -> \(effectivePrefillChunk) tokens after an admission refusal "
+                        + "(required \(required), available \(available)); reading the prompt in smaller passes\n"
+                    FileHandle.standardError.write(Data(notice.utf8))
+                    continue
+                }
+                cancelledPrefill = true; continue
+            }
             let hi = i + passes.reduce(0, +)
             guard hi > i else {
                 request?.fail(RequestFailure(.contextLengthExceeded, "no bounded prefill pass fits the remaining model context"))
@@ -971,16 +1055,50 @@ public final class Generator {
                 let h = try model.hiddenStatesChecked(chunk, state: state, vision: chunkVision)
                 eval(h)
             }
-            // Split a long prompt delta at chunk boundaries (only when
-            // SLOTSTREAM_DISK_KV_SPLIT_LONG_PROMPTS asks for it) so no single
-            // data.kv grows to the whole prompt. By default nothing is saved
-            // here: the prompt boundary itself is the save point below.
+            try request?.check(phase: "prefill commit")
+            } catch {
+                discardFailedState(error)
+                if executionOptimizations.readScopeEnabled, passes.count > 1 { stats.abortedReadScopes += 1 }
+                stats.prefillTokens = i - reused
+                stats.prefillSeconds = RuntimeClock.seconds(since: t0)
+                stats.prefillIOSeconds = model.pool.ioSeconds
+                stats.prefillScatterSeconds = model.pool.scatterSeconds
+                stats.prefillRecords = model.pool.recordsFetched
+                stats.prefillReadBytes = model.pool.recordsFetched * model.pool.recordBytes
+                stats.allocatedSequenceBytes = state.allocatedSequenceBytes
+                stats.mlxPeakMemoryGB = Double(MLX.Memory.peakMemory) / 1e9
+                stats.peakMemoryGB = ProcessMemory.peakResidentGB
+                stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
+                stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
+                stats.sampledFootprint = footprint?.finish()
+                stats.generatorVMAfter = footprintSampling ? ProcessMemory.vmActivity() : nil
+                stats.generatorSystemAfter = footprintSampling ? ProcessMemory.operatingConditions() : nil
+                stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
+                return finish([])
+            }
+            // Split a long prompt delta at chunk boundaries so no single
+            // data.kv grows to the whole prompt. On by default — the threshold
+            // is 0 unless SLOTSTREAM_DISK_KV_SPLIT_LONG_PROMPTS sets one, and
+            // only a negative value disables it. The prompt boundary below is
+            // saved either way; the split decides how many nodes lead to it.
             // Text-only (see useDiskTier above): a vision state's KV carries
             // tower output the embedding-derived key cannot fingerprint.
             if useDiskTier, promptWillSplit,
                hi % prefillChunk == 0, hi < promptIds.count
             {
                 saveDiskNode(to: hi, state: state, tokens: promptIds)
+            }
+            stats.prefillPasses.append(chunk.count)
+            stats.prefillComputePasses.append(contentsOf: passes)
+            var keyEnd = i
+            for pass in passes {
+                keyEnd += pass
+                stats.prefillComputeQueryRows.append(model.smallPrefillSweep && model.stableSmallPrefillAttention
+                    ? ContextWorkspace.queryRows(pass: pass, context: keyEnd,
+                        referenceStart: model.smallPrefillReferenceStart, referenceEnd: model.smallPrefillReferenceEnd) : pass)
+                stats.prefillComputeKeyExtents.append(model.smallPrefillSweep && model.stableSmallPrefillAttention
+                    ? ContextWorkspace.keyExtent(pass: pass, context: keyEnd,
+                        referenceStart: model.smallPrefillReferenceStart, referenceEnd: model.smallPrefillReferenceEnd) : keyEnd)
             }
             i = hi
             if let cache, i == model.optimizations.prefixCheckpointTokens,
@@ -1011,8 +1129,11 @@ public final class Generator {
                 // A strict-prefix hit can have been produced without a draft
                 // state. That request deliberately finishes plain; stamp the
                 // mode actually used, so a later MTP request rebuilds its head.
+                // The chunk is stamped from the schedule that ran, so a
+                // checkpoint a reduced pass produced is never published as the
+                // planned pass's state.
                 let producedKey = PromptCheckpointKey(model: completeKey.model,
-                    optimizations: completeKey.optimizations, prefillChunk: completeKey.prefillChunk,
+                    optimizations: completeKey.optimizations, prefillChunk: effectivePrefillChunk,
                     mtp: mtpHead != nil, contextArithmetic: completeKey.contextArithmetic)
                 let retained = try cache.storeCompletePrompt(state: state, tokens: promptIds, images: images,
                     reserveTokens: promptIds.count + params.maxTokens,
@@ -1119,12 +1240,16 @@ public final class Generator {
                 stats.decodeModelTokens += 1
                 consumed.append(tok)
                 eval(logits)
-                // Split a long decode delta at chunk boundaries (only when
-                // SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES asks for it). The
-                // state has consumed exactly `consumed.count` tokens here —
-                // a token is sampled before it is fed, and it was fed just
-                // above. The speculative path saves at decode end only: its
-                // state carries unverified draft tokens between rounds.
+                // Split a long decode delta at chunk boundaries, so no single
+                // data.kv gets huge and a stopped turn leaves a waypoint. The
+                // threshold defaults to 2048 (SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES
+                // overrides, negative disables), coarser than the prompt split
+                // because these nodes have no reader of their own — the decode
+                // endpoint below covers the same reuse. The state has consumed
+                // exactly `consumed.count` tokens here — a token is sampled
+                // before it is fed, and it was fed just above. The speculative
+                // path saves at decode end only: its state carries unverified
+                // draft tokens between rounds.
                 if let threshold = decodeSplitThreshold,
                    consumed.count % diskChunk == 0,
                    consumed.count - diskParentTokenCount > threshold
@@ -1133,14 +1258,19 @@ public final class Generator {
                 }
             }
         }
-        cache?.store(state: state, tokens: consumed, images: images)
+        } catch {
+            discardFailedState(error)
+            reason = "error"
+        }
+        if stats.runtimeError == nil, request?.mayRetainState != false { cache?.store(state: state, tokens: consumed, images: images) }
         // The decode endpoint is a turn node: the delta since the prompt
         // node (or, when the prompt was a full hit, since that node itself).
         // It chains onto the deepest saved node, so a later request that
         // shares this conversation's prefix — even one that arrived exactly
         // here — picks up where we stopped. Text-only (see useDiskTier
-        // above).
-        if useDiskTier {
+        // above). A failed or unretainable state must not be published to
+        // disk, exactly as it is not published to the RAM prefix cache.
+        if useDiskTier, stats.runtimeError == nil, request?.mayRetainState != false {
             saveDiskNode(to: consumed.count, state: state, tokens: consumed)
         }
         stats.finishReason = reason

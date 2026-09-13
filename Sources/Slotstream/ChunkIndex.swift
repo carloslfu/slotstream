@@ -15,18 +15,24 @@
 //
 // The metadata DB (SQLite, journal_mode=WAL) holds:
 //   - last_used: timestamp of most recent save or load
+//   - hits: times this content matched again (a load walk, or a re-save of
+//     the identical node); the value signal the eviction score is built from
 //   - size_bytes: total bytes occupied by this chunk's directory
 //   - parent_sha: parent's key (NULL for depth 0)
 //
 // Eviction: when total size exceeds the quota (--kv-cache-size, else env
 // SLOTSTREAM_KVCACHE_MAX_GB, default 20), the saver deletes leaves whose
 // combined size clears the deficit. Leaves are binned into four age
-// quartiles by last_used; the oldest bin goes first — all of it one tier,
-// ordered shallowest depth first, then LRU — and younger bins only if the
-// quota still demands it, so a freshly saved node is never the first thing
-// its own saver evicts. A parent with live children is protected: its value
-// is the max of its own and all its descendants' last_used. Passes repeat
-// until the quota holds, so a dead turn chain drains to its root.
+// quartiles by last_used; the oldest bin goes first — all of it one tier —
+// and younger bins only if the quota still demands it, so a freshly saved
+// node is never the first thing its own saver evicts. Within a tier the
+// victim is the least valuable checkpoint by `ChunkIndex.evictionScore`
+// (decayed hit count times token density, the score ds4's KV store evicts
+// by), oldest then shallowest breaking a tie: a node that keeps being
+// matched, or that stores many tokens per byte, outlives a fat one that is
+// never read. A parent with live children is protected: its value is the max
+// of its own and all its descendants' last_used. Passes repeat until the
+// quota holds, so a dead turn chain drains to its root.
 // DiskCache.enforceQuota runs the same policy at startup when the CLI flag
 // lowers the quota; it also sweeps the evicted chunks' directories off the
 // disk.
@@ -62,10 +68,18 @@ public final class ChunkIndex {
     private let serial = DispatchQueue(label: "slotstream.chunkindex")
     private let dbPath: URL
 
-    private init() {
-        dbPath = DiskCache.dir.appendingPathComponent("metadata.db")
+    private convenience init() {
+        self.init(directory: DiskCache.dir)
+    }
+
+    /// Open (or create) the metadata database under `directory`. A directory
+    /// that cannot hold it — read-only, full, or otherwise unwritable — leaves
+    /// the index closed instead of failing the process: reads answer "no rows",
+    /// writes are dropped, and `isOpen` reports which happened.
+    package init(directory: URL) {
+        dbPath = directory.appendingPathComponent("metadata.db")
         try? FileManager.default.createDirectory(
-            at: DiskCache.dir, withIntermediateDirectories: true)
+            at: directory, withIntermediateDirectories: true)
         if sqlite3_open(dbPath.path, &db) != SQLITE_OK {
             FileHandle.standardError.write(
                 Data("[kvcache] metadata.db open failed: \(String(cString: sqlite3_errmsg(db))) — disk cache disabled\n".utf8))
@@ -84,6 +98,7 @@ public final class ChunkIndex {
           parent_token_count INTEGER,
           token_count INTEGER,
           size_bytes INTEGER NOT NULL,
+          hits INTEGER NOT NULL DEFAULT 0,
           last_used REAL NOT NULL
         );
         CREATE INDEX IF NOT EXISTS chunks_parent ON chunks(parent_sha);
@@ -104,6 +119,10 @@ public final class ChunkIndex {
         // columns keep those rows readable while new saves populate boundaries.
         sqlite3_exec(db, "ALTER TABLE chunks ADD COLUMN parent_token_count INTEGER;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE chunks ADD COLUMN token_count INTEGER;", nil, nil, nil)
+        // v4 indexes predate hit counting; those rows start at 0 hits and are
+        // scored on density alone, which is the honest reading of a node
+        // whose reads were never recorded.
+        sqlite3_exec(db, "ALTER TABLE chunks ADD COLUMN hits INTEGER NOT NULL DEFAULT 0;", nil, nil, nil)
         sqlite3_exec(
             db,
             "CREATE INDEX IF NOT EXISTS chunks_boundary ON chunks(parent_sha, parent_token_count, token_count);",
@@ -250,11 +269,36 @@ public final class ChunkIndex {
     }
 
     private func touchInternal(key: String) {
-        let stmt = prepare("UPDATE chunks SET last_used = ? WHERE key = ?;")
+        let stmt = prepare("UPDATE chunks SET last_used = ?, hits = hits + 1 WHERE key = ?;")
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_double(stmt, 1, Date().timeIntervalSince1970)
         sqlite3_bind_text(stmt, 2, key, -1, SQLITE_TRANSIENT)
         sqlite3_step(stmt)
+    }
+
+    /// Weight-free gates park a leaf at a chosen age and hit count, and read
+    /// back what the live path recorded; the live path only ever writes "now"
+    /// and increments. Both are `package` like `DiskWriteTrace`, and neither
+    /// can create a row.
+    package func setActivity(key: String, hits: Int, lastUsed: Double) {
+        serial.sync {
+            let stmt = prepare("UPDATE chunks SET hits = ?, last_used = ? WHERE key = ?;")
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int(stmt, 1, Int32(hits))
+            sqlite3_bind_double(stmt, 2, lastUsed)
+            sqlite3_bind_text(stmt, 3, key, -1, SQLITE_TRANSIENT)
+            sqlite3_step(stmt)
+        }
+    }
+
+    package func activity(key: String) -> (hits: Int, lastUsed: Double)? {
+        serial.sync {
+            let stmt = prepare("SELECT hits, last_used FROM chunks WHERE key = ? LIMIT 1;")
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, key, -1, SQLITE_TRANSIENT)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return (Int(sqlite3_column_int64(stmt, 0)), sqlite3_column_double(stmt, 1))
+        }
     }
 
     /// Total disk usage summed across rows. Includes the directory itself,
@@ -268,17 +312,45 @@ public final class ChunkIndex {
         }
     }
 
+    /// One eviction candidate: a chunk with no children.
+    private typealias Leaf = (
+        key: String, size: Int, depth: Int, lastUsed: Double, tokens: Int, hits: Int
+    )
+
+    /// ds4's KV-store value: `(decayed hits + 1) x tokens / bytes`. Hits decay
+    /// with a six-hour half-life (ds4's DS4_KVSTORE_HIT_HALF_LIFE_SECONDS), so
+    /// a node that earned its keep this morning has lost most of that claim by
+    /// the evening, and one untouched for days scores as if never matched
+    /// (below `minEffectiveHits`). The `+ 1` keeps unmatched nodes comparable:
+    /// they are then ranked on density alone — tokens of reusable context per
+    /// byte — which is the right order for two checkpoints of one age, because
+    /// a decode endpoint carrying a handful of tokens pays the same ~113 MB of
+    /// recurrent state as a chunk node carrying a thousand. A size- or
+    /// token-less row scores 0 and is taken first.
+    public static let hitHalfLifeSeconds: Double = 6 * 60 * 60
+    public static let minEffectiveHits: Double = 0.01
+
+    public static func evictionScore(
+        hits: Int, tokenCount: Int, sizeBytes: Int, lastUsed: Double, now: Double
+    ) -> Double {
+        guard sizeBytes > 0, tokenCount > 0 else { return 0 }
+        var effectiveHits = Double(hits) * exp2(-max(0, now - lastUsed) / hitHalfLifeSeconds)
+        if effectiveHits < minEffectiveHits { effectiveHits = 0 }
+        return (effectiveHits + 1) * Double(tokenCount) / Double(sizeBytes)
+    }
+
     /// Evict leaves to free at least `bytesNeeded` bytes. Returns bytes
     /// actually freed. Candidates are leaves only — a parent with a live
     /// child is never dangled, and its value is the max of its own and all
     /// its descendants' last_used, recomputed before selection. Leaves are
     /// binned into four age quartiles by last_used: the oldest quartile goes
-    /// first, all of it one tier (within a tier, shallowest depth first, then
-    /// LRU), and younger tiers only if the quota still demands it. Recency
-    /// must dominate depth because a live conversation's tip is also its
-    /// shallowest leaf — depth-first ordering evicted the node the saver had
-    /// just written. Passes repeat until the quota holds, so a dead turn
-    /// chain drains to its root.
+    /// first, all of it one tier (within a tier, `evictionScore` then LRU then
+    /// shallowest depth), and younger tiers only if the quota still demands
+    /// it. Recency must dominate depth because a live conversation's tip is
+    /// also its shallowest leaf — depth-first ordering evicted the node the
+    /// saver had just written — which is why age tiering is kept above the
+    /// score rather than folded into it. Passes repeat until the quota holds,
+    /// so a dead turn chain drains to its root.
     public func evictLeaves(bytesNeeded: Int, maxBytes: Int) -> Int {
         serial.sync {
             var freed = 0
@@ -316,37 +388,45 @@ public final class ChunkIndex {
                 // Select the current leaves — only chunks with no children
                 // are candidates, so a live parent is never dangled.
                 let stmt = prepare("""
-                SELECT key, size_bytes, depth, last_used FROM chunks
+                SELECT key, size_bytes, depth, last_used, COALESCE(token_count, 0), hits
+                FROM chunks
                 WHERE NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_sha = chunks.key);
                 """)
                 defer { sqlite3_finalize(stmt) }
-                var leaves: [(key: String, size: Int, depth: Int, lastUsed: Double)] = []
+                var leaves: [Leaf] = []
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     guard let keyC = sqlite3_column_text(stmt, 0) else { continue }
                     leaves.append((
                         String(cString: keyC),
                         Int(sqlite3_column_int64(stmt, 1)),
                         Int(sqlite3_column_int64(stmt, 2)),
-                        sqlite3_column_double(stmt, 3)))
+                        sqlite3_column_double(stmt, 3),
+                        Int(sqlite3_column_int64(stmt, 4)),
+                        Int(sqlite3_column_int64(stmt, 5))))
                 }
 
                 // Age quartiles over the leaf frontier, oldest tier first:
-                // within a tier every age counts the same, and shallowest
-                // depth then LRU break the tie. A node saved seconds ago
-                // lands in the youngest tier and cannot go while an older
-                // tier still has a leaf — which is what stops the saver from
-                // evicting the node it just wrote.
+                // within a tier every age counts the same — decay alone would
+                // let an old favourite outrank the node just written — and the
+                // score then LRU then shallowest depth order the victims. A
+                // node saved seconds ago lands in the youngest tier and cannot
+                // go while an older tier still has a leaf.
+                let now = Date().timeIntervalSince1970
+                func score(_ leaf: Leaf) -> Double {
+                    ChunkIndex.evictionScore(
+                        hits: leaf.hits, tokenCount: leaf.tokens,
+                        sizeBytes: leaf.size, lastUsed: leaf.lastUsed, now: now)
+                }
                 let byAge = leaves.sorted { $0.lastUsed < $1.lastUsed }
-                var tiers:
-                    [[(key: String, size: Int, depth: Int, lastUsed: Double)]] =
-                    [[], [], [], []]
+                var tiers: [[Leaf]] = [[], [], [], []]
                 for (i, leaf) in byAge.enumerated() {
                     tiers[min(3, 4 * i / max(byAge.count, 1))].append(leaf)
                 }
                 var progressed = false
                 tierLoop: for tier in tiers {
                     for leaf in tier.sorted(by: {
-                        ($0.depth, $0.lastUsed) < ($1.depth, $1.lastUsed)
+                        (score($0), $0.lastUsed, $0.depth)
+                            < (score($1), $1.lastUsed, $1.depth)
                     }) {
                         if freed >= bytesNeeded && totalBytesScalar() <= maxBytes {
                             break tierLoop
@@ -355,7 +435,9 @@ public final class ChunkIndex {
                         freed += leaf.size
                         progressed = true
                         FileHandle.standardError.write(
-                            Data("[kvcache] evicted \(leaf.key.prefix(12)) (\(leaf.size) bytes)\n".utf8))
+                            Data(("[kvcache] evicted \(leaf.key.prefix(12)) (\(leaf.size) bytes, "
+                                + "\(leaf.tokens) tokens, \(leaf.hits) hits, score "
+                                + String(format: "%.4f", score(leaf)) + ")\n").utf8))
                     }
                     if freed >= bytesNeeded && totalBytesScalar() <= maxBytes { break }
                 }
@@ -398,9 +480,19 @@ public final class ChunkIndex {
         }
     }
 
+    /// False when the metadata database could not be opened. The tier is then
+    /// disabled: every query is answered from nothing and every write dropped.
+    package var isOpen: Bool { db != nil }
+
     // MARK: - low-level
 
     private func prepare(_ sql: String) -> OpaquePointer? {
+        // A failed open leaves no handle. `sqlite3_prepare_v2(nil, ...)` reports
+        // SQLITE_MISUSE and `sqlite3_errmsg(nil)` answers "out of memory", so an
+        // unwritable cache directory looked like memory exhaustion and repeated
+        // that line on every query. The open failure is already reported once at
+        // startup; a closed index is simply empty.
+        guard let db = self.db else { return nil }
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
             FileHandle.standardError.write(

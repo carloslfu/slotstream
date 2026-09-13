@@ -30,12 +30,15 @@ public enum ContextPolicy {
 
     /// nil when `tokens` is an acceptable --max-context, otherwise the reason.
     public static func validationError(_ tokens: Int) -> String? {
-        return nil;
-        if tokens >= 1, tokens <= maxTokens { return nil }
-        return "--max-context must be between 1 and \(maxTokens): that ceiling is the "
-            + "largest context slotstream has measured on this hardware, not a memory limit "
-            + "(context state costs ~27 KiB per token). Measure a longer one with "
-            + "`slotstream context-check --tokens N` before the ceiling moves; see README, Context."
+        validationError(tokens, qualification: false)
+    }
+
+    public static func validationError(_ tokens: Int, qualification: Bool) -> String? {
+        let limit = qualification ? modelLimit : implementationLimit
+        if (1 ... limit).contains(tokens) { return nil }
+        return "--max-context must be between 1 and \(limit) (prompt plus reply). "
+            + "The pinned model limit is \(modelLimit); the released implementation limit is "
+            + "\(implementationLimit). A model limit does not guarantee memory fit or answer quality."
     }
 }
 

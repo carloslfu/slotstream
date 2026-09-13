@@ -192,7 +192,16 @@ struct ModelOptions: ParsableArguments {
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
     /// place a stranger hits with no weights — offer the download right there.
-    func announcedPlan(maxContext: Int = ContextPolicy.maxTokens) throws -> MemoryPlan {
+    func announcedPlan(maxContext: Int = ContextPolicy.defaultTokens, prefixCacheEnabled: Bool = true,
+                       maxPrefillWait: Double = 30, qualification: Bool = false,
+                       requireMTP: Bool = false) throws -> MemoryPlan {
+        let configuration = try ContextConfiguration(maxContextTokens: maxContext,
+            maxPrefillWaitMinutes: maxPrefillWait, qualification: qualification)
+        let policy = try runtimePolicy(prefixCacheEnabled: prefixCacheEnabled)
+        let requestedMTP = try mtpMode(); _ = try visionMode()
+        if requireMTP, requestedMTP == .off {
+            throw PlanError("this diagnostic requires the MTP draft head; --mtp off is incompatible")
+        }
         if diskKVCacheSize != nil, let gb = kvCacheSizeGB, !gb.isFinite || gb <= 0 {
             throw PlanError("--disk-kv-cache-size must be a size greater than 0 (MB, or with a G/GB or M/MB suffix) (got \(diskKVCacheSize ?? ""))")
         }
@@ -218,7 +227,7 @@ struct ModelOptions: ParsableArguments {
                 Data(String(format: "disk-kv-cache-size %.1f GB: store is %.2f GB%@\n",
                             gb, Double(total) / 1e9, note).utf8))
         }
-        let plan = try Planner.plan(
+        let base = try Planner.plan(
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
             ramPercent: maxRAMPercent,
             mtp: requireMTP ? .on : requestedMTP, mtpAvailable: MTPWeights.present(modelDir: modelURL),

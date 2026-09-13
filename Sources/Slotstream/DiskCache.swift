@@ -19,6 +19,50 @@ import Foundation
 import CryptoKit
 import MLX
 
+/// What the disk tier has written, for the `save done` line. How often a cache
+/// is written is what says whether it is working at all: one that writes
+/// faster than it is ever read is pure cost, and the quota is the other half of
+/// that judgement, because an always-full cache is churning rather than
+/// caching. Both ride the save line, so judging either needs no extra probe.
+///
+/// Save completions run on `saveQueue`, so the counters need no lock. The type
+/// is `package` so the weight-free gates can check what the line promises
+/// without loading a model just to write a node.
+package struct DiskWriteTrace {
+    package private(set) var nodes = 0
+    package private(set) var bytes = 0
+    package private(set) var started: Date?
+    package private(set) var lastSave: Date?
+
+    package init() {}
+
+    /// Record one completed save and describe the trace so far. `onDisk` and
+    /// `quota` are read after the write, so the line reports the position the
+    /// save actually left the cache in.
+    package mutating func note(bytes: Int, onDisk: Int, quota: Int, at now: Date) -> String {
+        let gap = lastSave.map {
+            String(format: "+%.1fs since the last save, ", now.timeIntervalSince($0))
+        } ?? ""
+        if started == nil { started = now }
+        lastSave = now
+        nodes += 1
+        self.bytes += bytes
+        var totals = "\(nodes) node\(nodes == 1 ? "" : "s") / "
+            + String(format: "%.2f GB", Double(self.bytes) / 1e9)
+        // A single save is a single sample: a rate over it would report that
+        // write's duration, not the cadence this line exists to show.
+        if let first = started, nodes > 1 {
+            let minutes = max(1.0 / 60, now.timeIntervalSince(first) / 60)
+            totals += String(format: " in %.1f min (%.1f nodes/min, disk %.2f of %.2f GB)",
+                minutes, Double(nodes) / minutes, Double(onDisk) / 1e9, Double(quota) / 1e9)
+        } else {
+            totals += String(format: " (disk %.2f of %.2f GB)",
+                Double(onDisk) / 1e9, Double(quota) / 1e9)
+        }
+        return gap + totals
+    }
+}
+
 public enum DiskCache {
     /// The disk tier is OFF unless someone asks for it: the CLI flags
     /// (--disk-kv-cache / --disk-kv-cache-size), the env vars
@@ -79,16 +123,54 @@ public enum DiskCache {
     /// N ≥ 0 splits only deltas longer than N; a negative value disables
     /// splitting. Purely env-driven, like the rest of the disk tier's knobs,
     /// so offline gates stay hermetic.
-    static var promptSplitTokens: Int? {
-        splitThreshold("SLOTSTREAM_DISK_KV_SPLIT_LONG_PROMPTS")
+    package static var promptSplitTokens: Int? {
+        splitThreshold("SLOTSTREAM_DISK_KV_SPLIT_LONG_PROMPTS", default: 0)
     }
-    /// Same for the post-decode delta.
-    static var decodeSplitTokens: Int? {
-        splitThreshold("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES")
+    /// Same for the post-decode delta, at the coarser default `decodeSplitDefaultTokens`.
+    package static var decodeSplitTokens: Int? {
+        splitThreshold("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES", default: decodeSplitDefaultTokens)
     }
-    private static func splitThreshold(_ name: String) -> Int? {
+    /// A generation's intermediate nodes are the one kind of disk node with no
+    /// reader: reuse of a live conversation continues from the *end* node, and
+    /// a new prompt that shares a prefix of an interrupted generation is a
+    /// retry, whose own prompt stops at the prompt node. Under leaf-first
+    /// eviction they are also ancestors of the end node, so they are not
+    /// evicted either while it lives — pure occupancy, ~113 MB of recurrent
+    /// state each plus ~60 KB per token of delta. ds4's KV store writes its
+    /// continued checkpoints every
+    /// DS4_KVSTORE_CONTINUED_INTERVAL_TOKENS (10,000) instead of at every
+    /// prefill-chunk boundary; this is that idea at a size chosen for our
+    /// loader, which still reads a whole node into memory, so 2048 tokens
+    /// keeps a node near 240 MB. The prompt default stays 0 (every chunk
+    /// boundary) because those nodes do have readers: an arbitrary shared
+    /// prefix — a client's system prompt, an article already seen — is reused
+    /// at whatever boundary it happens to end on, and 0 stores the finest
+    /// chain that can match it.
+    package static let decodeSplitDefaultTokens = 2048
+    /// Don't write a node whose delta is shorter than this: ~113 MB of fixed
+    /// recurrent state plus ~60 KB per token is a lot of occupancy for the
+    /// little reuse a short node buys. ds4's KV store floors at 512
+    /// (DS4_KVSTORE_DEFAULT_MIN_TOKENS); 1024 is measured better on a real
+    /// 22,528-token agent prompt (30 messages, 25 tools, `run` at
+    /// `--memory-gb 10`): the cold chain went from 34 nodes / 5.26 GB to
+    /// 19 nodes / 3.49 GB, while the next turn reused the same prefix
+    /// (22,528 of 22,913 tokens, zero writes) — the floor merges two
+    /// pass-boundary nodes into one without moving the reuse point. 2048 wrote
+    /// 10 nodes / 2.37 GB but moved that reuse point back by 1,024 tokens, so
+    /// it is the choice for write volume over re-prefill. The saver enforces
+    /// this before the key is chained — advancing the chain past a node that
+    /// was not written would leave the next node's parent_sha dangling.
+    /// `SLOTSTREAM_DISK_KV_MIN_TOKENS=512` restores ds4's floor, `0` writes
+    /// every pass boundary again.
+    package static var minNodeTokens: Int {
+        guard let s = ProcessInfo.processInfo.environment["SLOTSTREAM_DISK_KV_MIN_TOKENS"],
+              !s.isEmpty, let v = Int(s), v >= 0
+        else { return 1024 }
+        return v
+    }
+    private static func splitThreshold(_ name: String, default fallback: Int) -> Int? {
         guard let s = ProcessInfo.processInfo.environment[name], !s.isEmpty,
-              let v = Int(s) else { return 0 }
+              let v = Int(s) else { return fallback }
         return v >= 0 ? v : nil
     }
 
@@ -115,6 +197,10 @@ public enum DiskCache {
     /// write one at a time instead of three ~1 GB flushes racing each other
     /// and the running prefill for memory and disk bandwidth.
     static let saveQueue = DispatchQueue(label: "slotstream.kvcache.save", qos: .utility)
+
+    /// The write-side trace behind every `save done` line. Only save
+    /// completions touch it, and they run on `saveQueue`.
+    private static var writeTrace = DiskWriteTrace()
 
     /// Bytes the cache volume can still take (important-usage capacity), for
     /// the disk-full guard. Best-effort: nil when the volume is unreadable.
@@ -206,10 +292,19 @@ public enum DiskCache {
         let base = dir.appendingPathComponent(key, isDirectory: true)
         let cp = state.checkpoint()
         let tokenCount = tokenIds.count
+        // Semantic-drift guard. `committedBoundaryValid`/`mtpBoundaryValid` and
+        // the lifetime ticket are main's newest StateCheckpoint fields and are
+        // deliberately NOT part of the on-disk format: a node stores arrays plus
+        // offsets and the loader rebuilds a fresh committed state. That is only
+        // sound if a node can never capture a forward that did not commit, or a
+        // draft head that is not aligned with the prefix it rides on. The fork's
+        // save path predates both flags, so the contract is stated here.
         guard parentTokenCount >= 0, parentTokenCount < tokenCount,
-              cp.tokenCount == tokenCount
+              cp.tokenCount == tokenCount,
+              cp.committedBoundaryValid,
+              cp.mtpKV == nil || cp.mtpBoundaryValid
         else {
-            log("SAVE FAILED for \(tokenCount) tokens depth=\(depth): invalid parent/token boundary")
+            log("SAVE FAILED for \(tokenCount) tokens depth=\(depth): invalid parent/token boundary or uncommitted state")
             return
         }
         log("save queued: \(tokenIds.count) tokens depth=\(depth) key=\(key.prefix(12))")
@@ -379,7 +474,9 @@ public enum DiskCache {
 
                     log("save done: \(tokenIds.count) tokens depth=\(depth) key=\(key.prefix(12)) "
                         + "\(String(format: "%.1f", Double(dirSize) / 1e6)) MB in "
-                        + String(format: "%.1fs", -t0.timeIntervalSinceNow))
+                        + String(format: "%.1fs", -t0.timeIntervalSinceNow) + ", "
+                        + writeTrace.note(bytes: dirSize, onDisk: ChunkIndex.shared.totalBytes(),
+                            quota: maxBytes, at: Date()))
                 } catch {
                     // The payload could not be written. On the first failure,
                     // free space by evicting and try exactly once more — the
@@ -461,9 +558,14 @@ public enum DiskCache {
                 log("chain break: depth=\(depth + 1) key=\(key.prefix(12)) index row missing; only data.kv.partial exists")
             } else if FileManager.default.fileExists(atPath: base.path) {
                 log("chain break: depth=\(depth + 1) key=\(key.prefix(12)) index row and data.kv missing; key directory exists")
-            } else {
-                log("chain break: depth=\(depth + 1) key=\(key.prefix(12)) absent from index and disk")
             }
+            // A plain miss is the normal way this walk ends. It probes at the
+            // current pass size, while the stored chain is as coarse as the node
+            // floor, so the first probe usually misses and the variable-length
+            // walk then loads the real chain. Reporting that as a "chain break"
+            // printed a corruption-shaped line on every request; the two
+            // branches above stay loud because they mean a half-written or
+            // stale node on disk.
             break
         }
         return depth == 0 ? nil : depth * chunk
@@ -593,74 +695,17 @@ public enum DiskCache {
             log("load: bad version \(meta["version"] ?? -1) for key=\(key.prefix(12))")
             return false
         }
-        var body = data.subdata(in: (nlIndex + 1)..<data.count)
-
-        // Read the body one array at a time. `body` is re-based to index 0
-        // so the offsets below are correct. Each array on disk is
-        // `<len:u32-le><header:len bytes of JSON><floats:shape-product*4 bytes>`,
-        // and the float byte count is derived from the parsed shape so we
-        // never consume into the next array's header.
-        var arraysByName: [String: MLXArray] = [:]
-        var bodyFailure: String? = nil
-        while body.count >= 4 {
-            let len = body[0..<4]
-                .withUnsafeBytes { $0.load(as: UInt32.self).littleEndian }
-            let headerSize = 4 + Int(len)
-            guard body.count >= headerSize else {
-                bodyFailure = "truncated array header"
-                break
-            }
-            let headerData = body[4..<headerSize]
-            guard let header = try? JSONSerialization.jsonObject(with: headerData) as? [String: Any],
-                  let name = header["name"] as? String,
-                  let shape = header["shape"] as? [Int]
-            else {
-                bodyFailure = "invalid array header JSON"
-                break
-            }
-            var elementCount = 1
-            var shapeIsValid = true
-            for dim in shape {
-                guard dim >= 0 else {
-                    shapeIsValid = false
-                    break
-                }
-                let (next, overflow) = elementCount.multipliedReportingOverflow(by: dim)
-                guard !overflow else {
-                    shapeIsValid = false
-                    break
-                }
-                elementCount = next
-            }
-            let (dataBytes, byteOverflow) = elementCount.multipliedReportingOverflow(by: 4)
-            guard shapeIsValid, !byteOverflow else {
-                bodyFailure = "invalid or overflowing shape for \(name)"
-                break
-            }
-            guard dataBytes <= body.count - headerSize else {
-                bodyFailure = "truncated array data for \(name)"
-                break
-            }
-            let raw = body[headerSize..<(headerSize + dataBytes)]
-            body = body.subdata(in: (headerSize + dataBytes)..<body.count)
-            let floats = raw.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-            // Restore to the dtype the live model held (liveDtype, added in
-            // v3 headers): the SSM state must come back as float32 or the
-            // recurrence diverges. Older headers without the field restore
-            // as bfloat16, which only the bf16 arrays did hold.
-            let dt: DType
-            switch header["liveDtype"] as? String {
-            case "float32": dt = .float32
-            case "float16": dt = .float16
-            default: dt = .bfloat16
-            }
-            arraysByName[name] = MLXArray(floats, shape).asType(dt)
-        }
-        if bodyFailure == nil, !body.isEmpty {
-            bodyFailure = "trailing \(body.count) bytes"
-        }
-        if let failure = bodyFailure {
-            log("load failed: depth=\(depth) key=\(key.prefix(12)) \(failure)")
+        // The array framing lives in NodeBody so the weight-free gate can
+        // exercise it with synthetic bytes. The file itself is still read
+        // whole here; `body` is the payload after the header line.
+        let arraysByName: [String: MLXArray]
+        do {
+            arraysByName = try NodeBody.arrays(in: data, from: nlIndex + 1)
+        } catch let failure as NodeBody.Failure {
+            log("load failed: depth=\(depth) key=\(key.prefix(12)) \(failure.message)")
+            return false
+        } catch {
+            log("load failed: depth=\(depth) key=\(key.prefix(12)) unreadable array framing")
             return false
         }
 
@@ -790,6 +835,15 @@ public enum DiskCache {
         state.ngramCtx = ngram
         state.tokenCount = tokenCount
         state.lastMulti = arraysByName["lastMulti"]
+        // A loaded node is a committed prefix by construction: every delta was
+        // appended in order and every bound was checked above. The lifetime
+        // ticket and the boundary bits are absent from the format on purpose —
+        // this state was freshly built by `makeState()`, so the next
+        // `checkpoint()` mints a ticket for its own identity, and
+        // `hasValidMTP` is derived from the arrays restored here rather than
+        // trusted from disk. `mtpBoundaryValid` has no State counterpart; a
+        // foreign or in-flight template must not leak its own verdict in.
+        state.committedBoundaryValid = true
 
         var materialize = Array(arraysByName.values)
         for cache in state.kv.values {
@@ -797,12 +851,12 @@ public enum DiskCache {
             if let v = cache.values { materialize.append(v) }
         }
         for cache in state.indexer.values {
-            if let b = cache.snapshot() { materialize.append(b) }
+            if let b = cache.rawBuffer { materialize.append(b) }
         }
         if let mtp = state.mtp {
             if let k = mtp.kv.keys { materialize.append(k) }
             if let v = mtp.kv.values { materialize.append(v) }
-            if let b = mtp.indexer.snapshot() { materialize.append(b) }
+            if let b = mtp.indexer.rawBuffer { materialize.append(b) }
         }
         eval(materialize)
         ChunkIndex.shared.touch(key: key)

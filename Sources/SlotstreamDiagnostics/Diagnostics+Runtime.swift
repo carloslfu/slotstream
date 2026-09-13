@@ -375,6 +375,196 @@ extension Diagnostics {
         c.expect("lookup does not resurrect an evicted chunk", resurrected == nil)
         DiskCache.maxBytesOverride = nil
 
+        // The save line is the operator's only window into how often the disk
+        // tier writes, so what it promises is a contract: cadence and quota
+        // position must be readable from it, and a single sample must not claim
+        // a rate. The write path itself needs a model; this does not.
+        var writeTrace = DiskWriteTrace()
+        let firstSave = writeTrace.note(bytes: 100_000_000, onDisk: 100_000_000,
+            quota: 20_000_000_000, at: Date(timeIntervalSince1970: 1_000))
+        c.expect("a first save reports the quota position",
+            firstSave.contains("1 node / 0.10 GB") && firstSave.contains("disk 0.10 of 20.00 GB"))
+        c.expect("a single save makes no cadence or rate claim",
+            !firstSave.contains("since the last save") && !firstSave.contains("nodes/min"))
+        let secondSave = writeTrace.note(bytes: 200_000_000, onDisk: 300_000_000,
+            quota: 20_000_000_000, at: Date(timeIntervalSince1970: 1_022))
+        c.expect("a later save reports the gap since the previous one",
+            secondSave.contains("+22.0s since the last save"))
+        c.expect("the trace accumulates the stored nodes, bytes and rate",
+            secondSave.contains("2 nodes / 0.30 GB") && secondSave.contains("nodes/min")
+                && secondSave.contains("disk 0.30 of 20.00 GB"))
+
+        // The eviction score decides which checkpoint survives a full quota, so
+        // its branches are a contract: hits decay with the half-life, a node
+        // untouched for days falls back to density alone, and density is what
+        // separates two never-read nodes of one age. Kept a pure function so
+        // this needs no model.
+        let scoreNow = Date().timeIntervalSince1970
+        let hour: Double = 3600
+        func densityScore(hits: Int, lastUsed: Double, size: Int = 1_000_000) -> Double {
+            ChunkIndex.evictionScore(
+                hits: hits, tokenCount: 1024, sizeBytes: size, lastUsed: lastUsed, now: scoreNow)
+        }
+        let denseFat = densityScore(hits: 0, lastUsed: scoreNow, size: 2_000_000)
+        let denseLean = densityScore(hits: 0, lastUsed: scoreNow)
+        c.expect("a never-matched node is scored on token density alone",
+            abs(denseFat - Double(1024) / 2_000_000) < 1e-15 && denseLean > denseFat)
+        c.expect("hits decay by half per half-life",
+            abs(densityScore(hits: 4, lastUsed: scoreNow - ChunkIndex.hitHalfLifeSeconds)
+                - densityScore(hits: 8, lastUsed: scoreNow - 2 * ChunkIndex.hitHalfLifeSeconds))
+                < 1e-15)
+        c.expect("a matched node outranks an unmatched one of the same age",
+            densityScore(hits: 4, lastUsed: scoreNow - ChunkIndex.hitHalfLifeSeconds)
+                > densityScore(hits: 0, lastUsed: scoreNow))
+        c.expect("hits below the floor leave density alone",
+            abs(densityScore(hits: 100, lastUsed: scoreNow - 20 * ChunkIndex.hitHalfLifeSeconds)
+                - Double(1024) / 1_000_000) < 1e-15)
+        c.expect("a row with no size or no tokens is taken first",
+            ChunkIndex.evictionScore(
+                hits: 9, tokenCount: 0, sizeBytes: 0, lastUsed: scoreNow, now: scoreNow) == 0)
+
+        // Hits are recorded on every match (the live path writes "now" and
+        // increments) and are what eviction then ranks by: of the two oldest
+        // leaves, the one that keeps being matched must outlive the never-read
+        // one, even though it is older and was the first victim under the old
+        // shallowest-then-LRU order.
+        var scored: [String] = []
+        for i in 0 ..< 8 {
+            let k = ChunkIndex.makeKey(parentSha: nil, embeddings: [Float(i), 0.25])
+            let dir = kvDir.appendingPathComponent(k, isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? Data("{\"version\":4}\n".utf8).write(to: dir.appendingPathComponent("data.kv"))
+            ChunkIndex.shared.register(
+                key: k, parentSha: nil, depth: 0,
+                parentTokenCount: 0, tokenCount: 1024, sizeBytes: 1_000_000)
+            ChunkIndex.shared.setActivity(
+                key: k, hits: 0, lastUsed: scoreNow - Double(8 - i) * hour)
+            scored.append(k)
+        }
+        ChunkIndex.shared.touch(key: scored[0])
+        ChunkIndex.shared.touch(key: scored[0])
+        c.equal("a match records a hit on the node it matched",
+            ChunkIndex.shared.activity(key: scored[0])?.hits ?? -1, 2)
+        ChunkIndex.shared.setActivity(key: scored[0], hits: 10, lastUsed: scoreNow - 8 * hour)
+        DiskCache.maxBytesOverride = 7.0 / 1024.0  // 7 MB quota for 8 x 1 MB leaves
+        _ = DiskCache.enforceQuota()
+        let reusedLeaf = ChunkIndex.shared.contains(key: scored[0])
+        let neverReadLeaf = ChunkIndex.shared.contains(key: scored[1])
+        c.expect("the reused leaf outlives the older never-read one",
+            reusedLeaf && !neverReadLeaf)
+        DiskCache.maxBytesOverride = nil
+        for k in scored { ChunkIndex.shared.remove(key: k) }
+
+        // The write throttle's defaults are policy, not accident: the floor
+        // stops a short delta from buying ~113 MB of recurrent state, and the
+        // decode split is coarser than the prompt split because intermediate
+        // decode nodes have no reader of their own.
+        let savedMin = getenv("SLOTSTREAM_DISK_KV_MIN_TOKENS").map { String(cString: $0) }
+        let savedDecode = getenv("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES").map { String(cString: $0) }
+        func restoreKnobs() {
+            if let s = savedMin { setenv("SLOTSTREAM_DISK_KV_MIN_TOKENS", s, 1) }
+            else { unsetenv("SLOTSTREAM_DISK_KV_MIN_TOKENS") }
+            if let s = savedDecode { setenv("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES", s, 1) }
+            else { unsetenv("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES") }
+        }
+        unsetenv("SLOTSTREAM_DISK_KV_MIN_TOKENS")
+        unsetenv("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES")
+        c.expect("a short delta is not written at the measured floor",
+            DiskCache.minNodeTokens == 1024)
+        c.expect("the prompt split stays at every chunk boundary by default",
+            DiskCache.promptSplitTokens == 0)
+        c.expect("the decode split is coarser than the prompt split by default",
+            DiskCache.decodeSplitTokens == DiskCache.decodeSplitDefaultTokens
+                && DiskCache.decodeSplitDefaultTokens > 0)
+        setenv("SLOTSTREAM_DISK_KV_MIN_TOKENS", "64", 1)
+        setenv("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES", "-1", 1)
+        c.expect("the write throttle reads its env overrides",
+            DiskCache.minNodeTokens == 64 && DiskCache.decodeSplitTokens == nil)
+        setenv("SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES", "4096", 1)
+        c.expect("a non-negative decode split threshold is honored",
+            DiskCache.decodeSplitTokens == 4096)
+        restoreKnobs()
+
+        // A cache directory that cannot hold the database — read-only, full, or
+        // an unwritable path — has to leave a closed index that answers every
+        // read as empty. It used to call `sqlite3_prepare_v2(nil, ...)`, whose
+        // SQLITE_MISUSE made `sqlite3_errmsg(nil)` answer "out of memory" and
+        // repeat that line on every query, so an unwritable cache read as memory
+        // exhaustion. `/dev/null/...` cannot be created or opened.
+        let closed = ChunkIndex(
+            directory: URL(fileURLWithPath: "/dev/null/slotstream-kvcache"))
+        c.expect("a metadata directory that cannot open leaves the index closed",
+            !closed.isOpen)
+        c.expect("a closed index holds no key", !closed.contains(key: "closed"))
+        c.expect("a closed index answers no parent", closed.parentSha(key: "closed") == nil)
+        c.expect("a closed index answers no activity", closed.activity(key: "closed") == nil)
+        c.equal("a closed index reports no bytes", closed.totalBytes(), 0)
+        closed.register(key: "closed", parentSha: nil, depth: 0,
+            parentTokenCount: 0, tokenCount: 4, sizeBytes: 16)
+        closed.touch(key: "closed")
+        c.expect("a closed index drops writes without trapping",
+            !closed.contains(key: "closed") && closed.totalBytes() == 0)
+        c.expect("a writable directory opens the index",
+            ChunkIndex(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("ss-index-\(UUID().uuidString)")).isOpen)
+
+        // The node body framing is what makes a saved chunk readable at all, so
+        // the walk that reads it is a contract: it must find every named array
+        // at the right offset (it now keeps an offset into the one file buffer
+        // instead of re-copying the remainder after each array) and refuse a
+        // truncated header, a truncated payload and leftover bytes. Framed with
+        // the writer's own byte layout, no model needed.
+        func framed(_ arrays: [(String, [Int], [Float])], trailing: Int = 0) -> Data {
+            var out = Data()
+            for (name, shape, values) in arrays {
+                let header = try! JSONSerialization.data(
+                    withJSONObject: ["name": name, "shape": shape, "dtype": "float32"])
+                var len = UInt32(header.count).littleEndian
+                withUnsafeBytes(of: &len) { out.append(contentsOf: $0) }
+                out.append(header)
+                out.append(contentsOf: values.withUnsafeBufferPointer { Data(buffer: $0) })
+            }
+            out.append(Data(repeating: 0x7f, count: trailing))
+            return out
+        }
+        let cleanBody = framed(
+            [("conv_0", [1, 4], [1, 2, 3, 4]), ("kv_k_0", [1, 2, 2], [5, 6, 7, 8])])
+        do {
+            let parsed = try NodeBody.arrays(in: cleanBody, from: 0)
+            c.expect("a node body frames into its named arrays",
+                parsed.count == 2
+                    && parsed["conv_0"]?.asArray(Float.self) == [1, 2, 3, 4]
+                    && parsed["kv_k_0"]?.shape == [1, 2, 2]
+                    && parsed["kv_k_0"]?.asArray(Float.self) == [5, 6, 7, 8])
+        } catch {
+            c.expect("a node body frames into its named arrays", false, "\(error)")
+        }
+        var cutBody = cleanBody
+        cutBody.removeLast(6)
+        c.expect("a truncated node body names the array it stopped in", {
+            do { _ = try NodeBody.arrays(in: cutBody, from: 0); return false }
+            catch let failure as NodeBody.Failure {
+                return failure.message == "truncated array data for kv_k_0"
+            } catch { return false }
+        }())
+        var badHeader = Data()
+        var badLen = UInt32(3).littleEndian
+        withUnsafeBytes(of: &badLen) { badHeader.append(contentsOf: $0) }
+        badHeader.append(Data("not".utf8))
+        c.expect("a malformed array header is refused", {
+            do { _ = try NodeBody.arrays(in: badHeader, from: 0); return false }
+            catch let failure as NodeBody.Failure {
+                return failure.message == "invalid array header JSON"
+            } catch { return false }
+        }())
+        c.expect("leftover bytes after the last array are refused", {
+            do { _ = try NodeBody.arrays(in: framed(
+                [("conv_0", [1, 4], [1, 2, 3, 4])], trailing: 2), from: 0); return false }
+            catch let failure as NodeBody.Failure {
+                return failure.message == "trailing 2 bytes"
+            } catch { return false }
+        }())
+
         // Turn-boundary chains (one variable node per prompt, one per decode)
         // are walked by longestVariableChain over childEndpoints from the
         // deepest fixed boundary, each candidate re-verified against THIS

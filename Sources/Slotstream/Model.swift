@@ -296,6 +296,7 @@ public final class Qwen4ExpModel {
 
     public func makeState() -> State {
         let s = State()
+        s.modelIdentity = promptCheckpointIdentity
         s.expectedPLELayers = Set(ple.keys)
         s.expectedConvShape = [
             1, cfg.convKernel - 1,
@@ -915,11 +916,15 @@ extension Qwen4ExpModel.State {
             if let a = c.ssmState { ssm[l] = a }
             if let a = c.pleConvState { pleConv[l] = a }
         }
+        checkpointLifetimes.removeAll { $0.value == nil }
+        let lifetime = StateCheckpointLifetime(owner: checkpointIdentity, tokens: tokenCount,
+            mtpOffset: mtp?.offset ?? 0)
+        checkpointLifetimes.append(WeakStateCheckpointLifetime(lifetime))
         for (l, c) in kv {
             if let k = c.keys, let v = c.values { kvArrays[l] = (k, v) }
         }
         for (l, c) in indexer {
-            if let b = c.snapshot() { indexerArrays[l] = b }
+            if let b = c.rawBuffer { indexerArrays[l] = b }
         }
         // MTP draft head KV/indexer carry the same persistent-state role as
         // the main model's caches: their offsets are derived from the
@@ -928,15 +933,18 @@ extension Qwen4ExpModel.State {
         var mtpIdx: MLXArray? = nil
         if let m = mtp, let k = m.kv.keys, let v = m.kv.values {
             mtpKV = (k, v)
-            mtpIdx = m.indexer.snapshot()
+            mtpIdx = m.indexer.rawBuffer
         }
         return StateCheckpoint(
-            conv: conv, ssm: ssm, pleConv: pleConv,
+            lifetime: lifetime, conv: conv, ssm: ssm, pleConv: pleConv,
             kv: kvArrays, indexer: indexerArrays,
             kvOffsets: kv.mapValues { $0.offset },
             indexerOffsets: indexer.mapValues { $0.offset },
             indexerSnapshots: indexer.compactMapValues { $0.snapshot() },
             ngramCtx: ngramCtx, tokenCount: tokenCount,
+            committedBoundaryValid: committedBoundaryValid,
+            mtpBoundaryValid: mtp == nil || hasValidMTP
+                || (tokenCount == 0 && mtp?.offset == 0 && lastMulti == nil),
             mtpOffset: mtp?.offset ?? 0, lastMulti: lastMulti,
             mtpKV: mtpKV, mtpIndexer: mtpIdx)
     }
@@ -1039,6 +1047,8 @@ extension Qwen4ExpModel.State {
         mtp?.trim(to: c.mtpOffset)
         mtp?.materialize()
         lastMulti = c.lastMulti
+        invalidateCheckpoints(after: tokenCount, mtpOffset: c.mtpOffset)
+        setRecording(false)
         // Restore the MTP draft head's KV/indexer in lockstep with its offset,
         // otherwise the next consume() writes at row 0 while rope expects
         // position tokenCount-1 — exactly the trap that segfaulted before.

@@ -230,11 +230,10 @@ package final class IndexerCache {
     package let compactRaw: Bool
     private var preserveRaw = false
     let step = 1024
-    func snapshot() -> MLXArray? { buf }
-    func restore(from arr: MLXArray, offset: Int) {
-        self.buf = arr
-        self.offset = offset
-    }
+    package var allocatedBytes: Int { (buf?.nbytes ?? 0) + (pooledBuf?.nbytes ?? 0) }
+    package var rawAllocatedBytes: Int { buf?.nbytes ?? 0 }
+    package var pooledAllocatedBytes: Int { pooledBuf?.nbytes ?? 0 }
+    package init(compactRaw: Bool = false) { self.compactRaw = compactRaw }
 
     func copyForPrefix(to target: IndexerCache) {
         precondition(target.compactRaw == compactRaw)
@@ -287,6 +286,14 @@ package final class IndexerCache {
         preserveRaw = on
         if !on { compactCompletedRaw() }
     }
+    /// The buffer as stored, without the compact-only guard `snapshot()`
+    /// carries: the disk tier persists an indexer delta by slicing rows out
+    /// of it, and an MTP draft indexer is never compact.
+    package var rawBuffer: MLXArray? { buf }
+    func restore(from arr: MLXArray, offset: Int) {
+        self.buf = arr
+        self.offset = offset
+    }
 
     package func update(_ k: MLXArray) -> MLXArray {
         let s = k.dim(1)
@@ -314,6 +321,50 @@ package final class IndexerCache {
         pooledCount = min(pooledCount, offset / pooledRatio)
     }
 
+    package func completedBlocks(
+        count: Int, ratio: Int, transform: (Int, Int) -> MLXArray
+    ) -> MLXArray {
+        precondition(count > 0 && ratio > 0)
+        if pooledRatio != ratio {
+            precondition(rawBase == 0, "released indexer history cannot change compression ratio")
+            pooledBuf = nil; pooledCount = 0; pooledRatio = ratio
+        }
+        if count > pooledCount {
+            let added = transform(pooledCount, count)
+            if pooledBuf == nil || pooledBuf!.dim(1) < count {
+                let capacity = ((count + 255) / 256) * 256
+                let grown = MLXArray.zeros([added.dim(0), capacity, added.dim(2)], dtype: added.dtype)
+                if let old = pooledBuf, pooledCount > 0 {
+                    grown[0..., 0 ..< pooledCount, 0...] = old[0..., 0 ..< pooledCount, 0...]
+                }
+                pooledBuf = grown
+            }
+            pooledBuf![0..., pooledCount ..< count, 0...] = added
+            pooledCount = count
+        }
+        compactCompletedRaw()
+        return pooledBuf![0..., 0 ..< count, 0...]
+    }
+
+    private func compactCompletedRaw() {
+        guard compactRaw, !preserveRaw, let old = buf, pooledCount > 0 else { return }
+        // Only completed keys can replace raw rows. Retain a small aligned
+        // tail and amortize copies; a StateCheckpoint owns any earlier undo.
+        let first = min(pooledCount * pooledRatio, max(0, offset - 32) / pooledRatio * pooledRatio)
+        guard first - rawBase >= 256 else { return }
+        let live = offset - first
+        let capacity = max(256, ((live + 255) / 256) * 256)
+        let owned = MLXArray.zeros([old.dim(0), capacity, old.dim(2)], dtype: old.dtype)
+        if live > 0 { owned[0..., 0 ..< live, 0...] = old[0..., (first - rawBase) ..< (offset - rawBase), 0...] }
+        // Complete both dependents before dropping their oversized parent.
+        if let pooledBuf { eval(owned, pooledBuf) } else { eval(owned) }
+        buf = owned; rawBase = first
+    }
+
+    package func materializeStorage() {
+        if let b = buf { eval(b) }
+        if let p = pooledBuf { eval(p) }
+    }
     func append(_ arr: MLXArray) -> Bool {
         guard arr.ndim == 3 else { return false }
         if let old = buf {
@@ -321,11 +372,6 @@ package final class IndexerCache {
         }
         _ = update(arr)
         return true
-    }
-
-    func materializeStorage() {
-        if let b = buf { eval(b) }
-        if let p = pooledBuf { eval(p) }
     }
 
     package func diagnosticValues() -> MLXArray? {
