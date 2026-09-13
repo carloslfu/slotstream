@@ -3,6 +3,15 @@
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
 
+## Unreleased
+
+- Read a prompt in smaller prefill passes when the planned pass does not fit the
+  reclaimable memory the machine has free, instead of refusing the whole
+  request. The schedule halves the pass down to the schedule's own floor,
+  reports the reduction in the request statistics, and names the refusal and the
+  pass it replaced on stderr. A prompt that fits no pass size still refuses as
+  before.
+
 ## 0.2.14 - 2026-09-10
 
 - Faster repeated and continued prompts through committed prompt checkpoints,
