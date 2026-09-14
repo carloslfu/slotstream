@@ -17,8 +17,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCES = [f'Sources/Slotstream/{name}.swift' for name in (
-    'Plan', 'Machine', 'Context', 'ContextMemory', 'ContextFeasibility',
-    'RequestControl', 'ToolCallSplitter', 'PinnedModel', 'Version')]
+    'Plan', 'Machine', 'Context', 'ContextMemory', 'ContextFeasibility', 'ContextWindowPolicy',
+    'RequestControl', 'ToolCallSplitter', 'PinnedModel', 'Version', 'DecodeLookahead')]
 SECTIONS = [
     ('Checkpoint.swift', 'public struct ModelError:', '// MARK: - Safetensors header parsing'),
     ('Governor.swift', 'public enum GovernorPolicy {', 'public final class MemoryGovernor:'),
@@ -43,7 +43,8 @@ def selected_sources():
     paths = policy_sources() + ['Sources/Slotstream/' + row[0] for row in SECTIONS]
     paths += ['Sources/Slotstream/PrefixCache.swift', 'Sources/Slotstream/PlannerDevice.swift',
               'Tools/context_proxy.py', 'Tools/context_proxy.swift',
-              'Tools/fixtures/context-default-v1.json']
+              'Tools/fixtures/context-default-v1.json', 'Tools/fixtures/context-default-v2.json',
+              'Tools/fixtures/context-automatic-v1.json']
     return {p: sha(ROOT / p) for p in sorted(paths)}
 
 

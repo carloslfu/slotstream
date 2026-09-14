@@ -126,6 +126,54 @@ public final class ExpertStore {
         if let handle = readHandles?[layer][piece] { try handle.readChecked(into: dst, offset: offset, count: count) }
         else { try index.preadChecked(into: dst, refs[layer][piece], offset: offset, count: count) }
     }
+    /// One piece of one record into a caller-owned aligned buffer. This is
+    /// the speculative prefetch read seam: the same checked read, fault seam
+    /// and packed-layout selection as demand reads, one piece at a time so a
+    /// cancelled ticket stops between pieces. A failure here never touches
+    /// the packed-layout fallback state that demand reads own.
+    package func readPieceChecked(into destination: UnsafeMutableRawPointer, key: ExpertKey, piece: Int,
+                                  shouldContinue: () -> Bool) throws {
+        guard piece >= 0, piece < pieceRowBytes.count, key.layer >= 0, key.layer < cfg.numLayers,
+              key.expert >= 0, key.expert < cfg.numExperts else { throw SlotPoolError.invalidKey(key) }
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
+        let bytes = pieceRowBytes[piece]
+        if usePackedLayout, let packedLayout {
+            try packedLayout.readPiece(key, piece: piece, into: destination)
+        } else {
+            try read(into: destination, layer: key.layer, piece: piece, offset: key.expert * bytes, count: bytes)
+        }
+    }
+
+    /// Whole-record speculative reads exist only on the packed layout, where a
+    /// record is one contiguous range. The original checkpoint keeps each piece in
+    /// its own tensor, so that path stays piece-by-piece.
+    package var supportsRecordReads: Bool { usePackedLayout && packedLayout != nil }
+
+    /// Bytes in one complete record, the size a whole-record scratch buffer needs.
+    package var speculativeRecordBytes: Int { pieceRowBytes.reduce(0, +) }
+
+    /// The whole-record speculative read seam: same checked read, fault seam and
+    /// stamp check as `readPieceChecked`, but one call for the whole record. A
+    /// cancelled ticket now stops between records rather than between pieces,
+    /// which loses nothing because a partial record is discarded either way.
+    package func readRecordChecked(into destination: UnsafeMutableRawPointer, key: ExpertKey,
+                                   shouldContinue: () -> Bool) throws {
+        guard key.layer >= 0, key.layer < cfg.numLayers,
+              key.expert >= 0, key.expert < cfg.numExperts else { throw SlotPoolError.invalidKey(key) }
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
+        guard usePackedLayout, let packedLayout else {
+            throw ModelError("whole-record speculative reads require the packed layout")
+        }
+        try packedLayout.readRecord(key, into: destination)
+    }
+
+    /// Row shape and dtype of each staging piece, for single-record adoption.
+    package var stagingPieceSpecs: [(shape: [Int], dtype: DType)] {
+        refs[0][0 ..< 9].map { r in
+            (Array(r.shape.dropFirst()), r.dtype == "U32" ? DType.uint32 : DType.bfloat16)
+        }
+    }
+
     public private(set) var pieceRowBytes: [Int] = []  // bytes per expert per piece
     public var recordBytes: Int {
         var total = 0
@@ -438,6 +486,8 @@ public final class SlotPool {
     /// forward has finished; leaves tensor storage and capacity untouched.
     package func diagnosticDiscardResidency() throws {
         guard pinned.count == 0 else { throw ModelError("cannot discard pinned diagnostic residency") }
+        drainReturnedSlots()
+        guard inFlightCount == 0 else { throw ModelError("cannot discard residency with speculative slots in flight") }
         eval(pools)
         for key in keyOf.compactMap({ $0 }) { map.removeValue(forKey: key) }
         keyOf = Array(repeating: nil, count: slots)
@@ -464,6 +514,35 @@ public final class SlotPool {
         didSet { if oldValue != directReadHandles { store.configureReadHandles(directReadHandles) } }
     }
     private var hand = 0
+    /// Expert Lookahead session (owned by the model): demand events, residency
+    /// snapshots and raw-staging adoption. Nil costs nothing on the hot path.
+    package weak var lookahead: ExpertLookaheadSession?
+    /// Slot adoption (speculative reads straight into pool memory): slots
+    /// reserved for an in-flight speculative record. A reserved slot has no
+    /// key, is skipped by every victim scan and counts against capacity until
+    /// the worker leaves it (returned through `returnedSlots` from any thread
+    /// and drained on the model thread) or the record is published.
+    private var inFlight: [Bool] = []
+    private var inFlightCount = 0
+    /// Slots given back unused (no key): the next reservation takes one of
+    /// these before evicting anything, so wasted forecasts recycle their own
+    /// slots instead of draining the pool of live keys.
+    private var freeSlots: [Int] = []
+    private let returnedLock = NSLock()
+    private var returnedSlots: [Int] = []
+    /// Bumped on every pool write or replacement; the cached piece base
+    /// pointers are recomputed when it changes, and a reservation whose bases
+    /// differ from the current ones at adoption is refused.
+    private var poolWriteEpoch: UInt64 = 0
+    private var basesCache: (epoch: UInt64, bases: [UnsafeMutableRawPointer])?
+    public private(set) var speculativeSlotReservations = 0
+    public private(set) var speculativeSlotAdoptions = 0
+    public private(set) var speculativeSlotStale = 0
+    package var expertStore: ExpertStore { store }
+    /// Records whose bytes came from an adopted speculative ticket instead of
+    /// a demand read. They are still misses for the hit rate.
+    public private(set) var recordsAdopted = 0
+    public private(set) var adoptSeconds = 0.0
     public private(set) var hits = 0
     public private(set) var misses = 0
 
@@ -494,6 +573,7 @@ public final class SlotPool {
         self.keyOf = Array(repeating: nil, count: slots)
         self.refBit = Array(repeating: false, count: slots)
         self.pinned = SlotPins(count: slots)
+        self.inFlight = Array(repeating: false, count: slots)
         pools = Self.poolShapes(slots, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
         eval(pools)
     }
@@ -515,6 +595,14 @@ public final class SlotPool {
         let n = max(newSlots, 1)
         if n == slots { return }
         unpinAll()
+        // The scheduler was invalidated (workers joined) before any resize;
+        // whatever came back is drained and the reservation state restarts.
+        drainReturnedSlots()
+        inFlight = Array(repeating: false, count: n)
+        inFlightCount = 0
+        freeSlots.removeAll()
+        poolWriteEpoch &+= 1
+        basesCache = nil
         if n > slots {
             // grow, preserving contents in the slot-index prefix
             let occupied = (0 ..< slots).filter { keyOf[$0] != nil }
@@ -536,6 +624,7 @@ public final class SlotPool {
             keyOf = newKeyOf
             refBit = newRef
             pinned = SlotPins(count: n, sparse: sparsePinClearing)
+            pinned.configure(depth: pinGenerations)
             hand = occupied.count % n
         } else {
             // shrink: free first, allocate after, start cold
@@ -544,6 +633,7 @@ public final class SlotPool {
             keyOf = Array(repeating: nil, count: n)
             refBit = Array(repeating: false, count: n)
             pinned = SlotPins(count: n, sparse: sparsePinClearing)
+            pinned.configure(depth: pinGenerations)
             hand = 0
             pools = Self.poolShapes(n, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
             eval(pools)
@@ -554,7 +644,7 @@ public final class SlotPool {
     private func victim(preferLayer: Int? = nil) -> Int {
         if layerLocalFloorEviction, slots == Geometry.floorSlots, let layer = preferLayer,
            let selected = LayerLocalVictim.choose(count: slots, hand: hand, layer: layer,
-               keyAt: { keyOf[$0] }, isPinned: { pinned[$0] }) {
+               keyAt: { keyOf[$0] }, isPinned: { pinned[$0] || inFlight[$0] }) {
             if keyOf[selected] != nil { floorLocalVictims += 1 }
             hand = (selected + 1) % slots
             return selected
@@ -563,7 +653,7 @@ public final class SlotPool {
         while true {
             let s = hand
             hand = (hand + 1) % slots
-            if pinned[s] {
+            if pinned[s] || inFlight[s] {
                 scanned += 1
                 precondition(
                     scanned < 3 * slots,
@@ -628,9 +718,11 @@ public final class SlotPool {
                 missPos.append((i, j))
             }
         }
+        drainReturnedSlots()
+        lookahead?.prefetch?.noteLayerDemand(misses: missKeys.count)
         let needed = hitSlots.reduce(0) { $0 + (pinned[$1] ? 0 : 1) } + missKeys.count
-        guard needed <= slots - pinned.count else {
-            throw SlotPoolError.exhausted(requiredNewPins: needed, available: slots - pinned.count)
+        guard needed <= slots - pinned.count - inFlightCount else {
+            throw SlotPoolError.exhausted(requiredNewPins: needed, available: slots - pinned.count - inFlightCount)
         }
         let newHitPins = hitSlots.filter { !pinned[$0] }
         var reservedPins: [Int] = []
@@ -644,100 +736,291 @@ public final class SlotPool {
         for slot in hitSlots { refBit[slot] = true; pinned.pin(slot) }
         hits += requestHits
         misses += missPos.count
+        let session = lookahead
+        let observed = session?.observer != nil
+        var event: ExpertLookaheadDemandEvent? = nil
+        if observed, let session {
+            let first = keys.first?.layer ?? -1
+            var unique: [Int32] = []
+            var seenKeys = Set<ExpertKey>()
+            var hitList: [Int32] = []
+            for k in keys where seenKeys.insert(k).inserted {
+                unique.append(Int32(k.expert))
+                if map[k] != nil { hitList.append(Int32(k.expert)) }
+            }
+            event = ExpertLookaheadDemandEvent(pass: session.currentPass, layer: first,
+                mixedLayers: keys.contains { $0.layer != first }, uniqueExperts: unique, hitExperts: hitList,
+                missExperts: missKeys.map { Int32($0.expert) }, victimSlots: [], adoptedExperts: [],
+                promotedExperts: [], startNanos: RuntimeClock.now(), readNanos: 0, adoptNanos: 0, endNanos: 0)
+        }
         if !missKeys.isEmpty {
             let tMiss = RuntimeClock.now()
-            // choose victims first (so scatter is one batched op)
+            // Slot adoption: complete speculative records are already in the
+            // pool memory of their reserved slots; publishing one is a map
+            // insert. Records still being read keep their slot and are joined
+            // after the demand batch. Everything else gets a victim now.
             var slotIdx: [Int32] = []
-            for k in missKeys {
-                let s = victim(preferLayer: k.layer)
-                pinned.pin(s)
-                reservedPins.append(s)
-                slotIdx.append(Int32(s))
+            var slotClaim: ExpertPrefetchScheduler.ClaimResult? = nil
+            var slotScheduler: ExpertPrefetchScheduler? = nil
+            var slotDemandOrder: [Int] = []
+            var slotBases: [UnsafeMutableRawPointer]? = nil
+            if let session, let active = session.prefetch, session.inMainPass, active.usesSlotAdoption, active.liveTickets > 0 {
+                slotScheduler = active
+                let claimed = active.claimSplit(missKeys)
+                slotClaim = claimed
+                let tAdopt = RuntimeClock.now()
+                // The pool memory is materialized here (the previous layer's
+                // sync evaluated it); the join path below reuses these bases
+                // rather than forcing this layer's lazy scatter to run early.
+                let bases = currentPoolBases()
+                slotBases = bases
+                for (j, k) in missKeys.enumerated() {
+                    if let ticket = claimed.ready[k] {
+                        if let bases, publishSpeculativeSlot(ticket, key: k, bases: bases, scheduler: active) {
+                            slotIdx.append(Int32(map[k]!))
+                            reservedPins.append(map[k]!)
+                            continue
+                        }
+                        active.noteSlotStale()
+                        speculativeSlotStale += 1
+                        ticket.discard()
+                    } else if claimed.reading[k] != nil {
+                        // Deferred: its own slot if it completes, a victim otherwise.
+                        slotIdx.append(-1)
+                        continue
+                    }
+                    let s = victim(preferLayer: k.layer)
+                    pinned.pin(s)
+                    reservedPins.append(s)
+                    slotIdx.append(Int32(s))
+                    slotDemandOrder.append(j)
+                }
+                adoptSeconds += RuntimeClock.seconds(since: tAdopt)
+                event?.adoptNanos = RuntimeClock.now()
+            } else {
+                // choose victims first (so scatter is one batched op)
+                for k in missKeys {
+                    let s = victim(preferLayer: k.layer)
+                    pinned.pin(s)
+                    reservedPins.append(s)
+                    slotIdx.append(Int32(s))
+                }
             }
+            event?.victimSlots = slotIdx
             reservedHits?(result)
             var readersPending = reservedHits != nil
             func finishResidentReaders() {
                 if readersPending { readersPending = false; finishReaders?() }
             }
             defer { finishResidentReaders() }
+            // Speculative raw tickets: a complete matching ticket's nine
+            // buffers become that record's own staging arrays and are
+            // scattered into the slot the victim scan chose above, in the
+            // logical demand order. Everything else takes the demand path.
+            var demandOrder: [Int] = []
+            var scheduler: ExpertPrefetchScheduler? = nil
+            var pendingReads: [ExpertKey: ExpertPrefetchTicket] = [:]
+            let specs = store.stagingPieceSpecs
+            /// Adopt complete tickets into the slots the victim scan chose, in
+            /// the logical demand order; returns the miss indices that could
+            /// not be adopted and must be read on the demand path.
+            func adoptTickets(_ ready: [ExpertKey: ExpertPrefetchTicket]) -> [Int] {
+                var fallback: [Int] = []
+                var adoptedSlots: [Int32] = []
+                var stagedPieces: [[MLXArray]] = Array(repeating: [], count: 9)
+                for (j, k) in missKeys.enumerated() where ready[k] != nil {
+                    guard let ticket = ready[k], let staged = ticket.makeStagingArrays(shapes: specs) else {
+                        fallback.append(j); continue
+                    }
+                    let s = Int(slotIdx[j])
+                    for p in 0 ..< 9 { stagedPieces[p].append(staged[p]) }
+                    if let old = keyOf[s] { map.removeValue(forKey: old) }
+                    keyOf[s] = k
+                    map[k] = s
+                    refBit[s] = true
+                    adoptedSlots.append(Int32(s))
+                    event?.adoptedExperts.append(Int32(k.expert))
+                }
+                if !adoptedSlots.isEmpty {
+                    // One scatter per piece for the whole adopted batch, like the
+                    // demand path: the concatenation reads each ticket's own
+                    // buffers (their finalizers fire once it has), so the pool
+                    // write is a single indexed assignment instead of one per record.
+                    let idx = MLXArray(adoptedSlots)
+                    for p in 0 ..< 9 {
+                        pools[p][idx] = stagedPieces[p].count == 1 ? stagedPieces[p][0] : concatenated(stagedPieces[p], axis: 0)
+                    }
+                    poolWriteEpoch &+= 1
+                    switch Self.scatterMode {
+                    case .sync: eval(pools)
+                    case .async: asyncEval(pools)
+                    case .none: break
+                    }
+                    recordsAdopted += adoptedSlots.count
+                    slotScatterBatches += 1
+                }
+                return fallback
+            }
+            if let slotScheduler, let slotClaim {
+                scheduler = slotScheduler
+                pendingReads = slotClaim.reading
+                demandOrder = slotDemandOrder
+            } else if let session, let active = session.prefetch, session.inMainPass, active.liveTickets > 0 {
+                scheduler = active
+                let claimed = active.claimSplit(missKeys)
+                pendingReads = claimed.reading
+                var readyFallback = Set<Int>()
+                if !claimed.ready.isEmpty {
+                    let tAdopt = RuntimeClock.now()
+                    finishResidentReaders()
+                    readyFallback = Set(adoptTickets(claimed.ready))
+                    adoptSeconds += RuntimeClock.seconds(since: tAdopt)
+                    event?.adoptNanos = RuntimeClock.now()
+                }
+                for (j, k) in missKeys.enumerated() {
+                    if claimed.ready[k] != nil {
+                        if readyFallback.contains(j) { demandOrder.append(j) }
+                        continue
+                    }
+                    if pendingReads[k] != nil { continue }
+                    demandOrder.append(j)
+                }
+            } else {
+                demandOrder = Array(missKeys.indices)
+            }
+            let laneBudget = scheduler?.lanes ?? session?.prefetch?.lanes
             // Bound staging independently of how many unique experts this
             // token batch routed. Evaluating each scatter before reading the
             // next slice lets the prior raw buffers be released immediately.
-            var lo = 0
-            while lo < missKeys.count {
-                let hi = min(lo + ExpertStore.defaultLoadBatch, missKeys.count)
-                let tIO = RuntimeClock.now()
-                let batch: [MLXArray]
-                do { batch = try store.readBatchChecked(Array(missKeys[lo ..< hi])) }
-                catch {
-                    ioSeconds += RuntimeClock.seconds(since: tIO)
-                    throw error
-                }
-                ioSeconds += RuntimeClock.seconds(since: tIO)
-                finishResidentReaders()
-                if let profile = transferProfile {
-                    let start = RuntimeClock.now()
-                    eval(pools)
-                    profile.scatterPriorWaitSeconds += RuntimeClock.seconds(since: start)
-                }
-                let tScatter = RuntimeClock.now()
-                let destinations = Array(slotIdx[lo ..< hi])
-                if cpuSlotWrites {
-                    for p in 0..<9 { pools[p] = try CPUSlotWrite.apply(to: pools[p], from: batch[p], slots: destinations) }
-                    slotCPUBatches += 1
-                } else if wordSlotWrites {
-                    let idx = MLXArray(destinations)
-                    var eligible = 0
-                    for p in 0 ..< 9 {
-                        if WordSlotWrite.eligible(pools[p], batch[p]) { eligible += 1 }
-                        pools[p] = WordSlotWrite.apply(to: pools[p], from: batch[p], at: idx)
+            func readDemand(_ order: [Int]) throws {
+                var lo = 0
+                while lo < order.count {
+                    let hi = min(lo + ExpertStore.defaultLoadBatch, order.count)
+                    let batchIndices = Array(order[lo ..< hi])
+                    let tIO = RuntimeClock.now()
+                    let batch: [MLXArray]
+                    laneBudget?.beginDemand()
+                    do { batch = try store.readBatchChecked(batchIndices.map { missKeys[$0] }) }
+                    catch {
+                        laneBudget?.endDemand()
+                        ioSeconds += RuntimeClock.seconds(since: tIO)
+                        throw error
                     }
-                    if eligible > 0 { slotWordBatches += 1; slotWordBuffers += eligible }
-                    slotScatterBatches += 1
-                } else if contiguousSlotWrites, let runs = SlotWriteRun.plan(destinations, capacity: slots) {
-                    for p in 0 ..< 9 { SlotWriteRun.apply(runs, to: pools[p], from: batch[p]) }
-                    slotSliceBatches += 1
-                    slotSliceRuns += runs.count
-                } else {
-                    let idx = MLXArray(destinations)
-                    for p in 0 ..< 9 { pools[p][idx] = batch[p] }
-                    slotScatterBatches += 1
+                    laneBudget?.endDemand()
+                    ioSeconds += RuntimeClock.seconds(since: tIO)
+                    finishResidentReaders()
+                    if let profile = transferProfile {
+                        let start = RuntimeClock.now()
+                        eval(pools)
+                        profile.scatterPriorWaitSeconds += RuntimeClock.seconds(since: start)
+                    }
+                    let tScatter = RuntimeClock.now()
+                    let destinations = batchIndices.map { slotIdx[$0] }
+                    if cpuSlotWrites {
+                        for p in 0..<9 { pools[p] = try CPUSlotWrite.apply(to: pools[p], from: batch[p], slots: destinations) }
+                        slotCPUBatches += 1
+                    } else if wordSlotWrites {
+                        let idx = MLXArray(destinations)
+                        var eligible = 0
+                        for p in 0 ..< 9 {
+                            if WordSlotWrite.eligible(pools[p], batch[p]) { eligible += 1 }
+                            pools[p] = WordSlotWrite.apply(to: pools[p], from: batch[p], at: idx)
+                        }
+                        if eligible > 0 { slotWordBatches += 1; slotWordBuffers += eligible }
+                        slotScatterBatches += 1
+                    } else if contiguousSlotWrites, let runs = SlotWriteRun.plan(destinations, capacity: slots) {
+                        for p in 0 ..< 9 { SlotWriteRun.apply(runs, to: pools[p], from: batch[p]) }
+                        slotSliceBatches += 1
+                        slotSliceRuns += runs.count
+                    } else {
+                        let idx = MLXArray(destinations)
+                        for p in 0 ..< 9 { pools[p][idx] = batch[p] }
+                        slotScatterBatches += 1
+                    }
+                    poolWriteEpoch &+= 1
+                    // Complete read buffers are owned by the scatter graph. Each
+                    // reader follows that dependency; this is not an asynchronous
+                    // CPU write into reusable device storage.
+                    for j in batchIndices {
+                        let s = Int(slotIdx[j])
+                        if let old = keyOf[s] { map.removeValue(forKey: old) }
+                        keyOf[s] = missKeys[j]
+                        map[missKeys[j]] = s
+                        refBit[s] = true
+                    }
+                    // Decode issues one of these per layer per token, and the
+                    // decode split measured the scatter at 20% of decode time
+                    // (30.6 ms/token at 30 experts/layer) against a microbenchmark
+                    // that writes slots at 49-75 GB/s — the gap is 48 full syncs
+                    // per token, not the copy. The gather that follows in the same
+                    // layer depends on these arrays, so MLX orders it correctly
+                    // without a sync here; the only thing the sync buys is
+                    // releasing the staging buffers a layer earlier, which is at
+                    // most one layer's misses (~27 MB).
+                    switch Self.scatterMode {
+                    case .sync: eval(pools)
+                    case .async: asyncEval(pools)
+                    case .none: break
+                    }
+                    scatterSeconds += RuntimeClock.seconds(since: tScatter)
+                    if let profile = transferProfile {
+                        let start = RuntimeClock.now()
+                        eval(pools)
+                        profile.scatterExecutionSeconds += RuntimeClock.seconds(since: start)
+                    }
+                    recordsFetched += hi - lo
+                    lo = hi
                 }
-                // Complete read buffers are owned by the scatter graph. Each
-                // reader follows that dependency; this is not an asynchronous
-                // CPU write into reusable device storage.
-                for j in lo ..< hi {
-                    let s = Int(slotIdx[j])
-                    if let old = keyOf[s] { map.removeValue(forKey: old) }
-                    keyOf[s] = missKeys[j]
-                    map[missKeys[j]] = s
-                    refBit[s] = true
-                }
-                // Decode issues one of these per layer per token, and the
-                // decode split measured the scatter at 20% of decode time
-                // (30.6 ms/token at 30 experts/layer) against a microbenchmark
-                // that writes slots at 49-75 GB/s — the gap is 48 full syncs
-                // per token, not the copy. The gather that follows in the same
-                // layer depends on these arrays, so MLX orders it correctly
-                // without a sync here; the only thing the sync buys is
-                // releasing the staging buffers a layer earlier, which is at
-                // most one layer's misses (~27 MB).
-                switch Self.scatterMode {
-                case .sync: eval(pools)
-                case .async: asyncEval(pools)
-                case .none: break
-                }
-                scatterSeconds += RuntimeClock.seconds(since: tScatter)
-                if let profile = transferProfile {
-                    let start = RuntimeClock.now()
-                    eval(pools)
-                    profile.scatterExecutionSeconds += RuntimeClock.seconds(since: start)
-                }
-                recordsFetched += hi - lo
-                lo = hi
             }
+            try readDemand(demandOrder)
+            // Tickets that were still reading when demanded: their remaining
+            // pieces ran while the demand batch was read. Join them now, adopt
+            // the complete ones and read anything else at demand priority.
+            if let scheduler, slotScheduler != nil, !pendingReads.isEmpty {
+                let finished = scheduler.finishReading(pendingReads)
+                let tAdopt = RuntimeClock.now()
+                let bases = slotBases
+                var rest: [Int] = []
+                for (j, k) in missKeys.enumerated() where pendingReads[k] != nil {
+                    if let ticket = finished[k] {
+                        if let bases, publishSpeculativeSlot(ticket, key: k, bases: bases, scheduler: scheduler) {
+                            slotIdx[j] = Int32(map[k]!)
+                            reservedPins.append(map[k]!)
+                            continue
+                        }
+                        scheduler.noteSlotStale()
+                        speculativeSlotStale += 1
+                        ticket.discard()
+                    }
+                    let s = victim(preferLayer: k.layer)
+                    pinned.pin(s)
+                    reservedPins.append(s)
+                    slotIdx[j] = Int32(s)
+                    rest.append(j)
+                }
+                adoptSeconds += RuntimeClock.seconds(since: tAdopt)
+                event?.adoptNanos = RuntimeClock.now()
+                if !rest.isEmpty { try readDemand(rest) }
+            } else if let scheduler, !pendingReads.isEmpty {
+                let finished = scheduler.finishReading(pendingReads)
+                let tAdopt = RuntimeClock.now()
+                finishResidentReaders()
+                let fallback = Set(adoptTickets(finished))
+                adoptSeconds += RuntimeClock.seconds(since: tAdopt)
+                event?.adoptNanos = RuntimeClock.now()
+                var rest: [Int] = []
+                for (j, k) in missKeys.enumerated() where pendingReads[k] != nil {
+                    if finished[k] == nil || fallback.contains(j) { rest.append(j) }
+                }
+                if !rest.isEmpty { try readDemand(rest) }
+            }
+            event?.readNanos = RuntimeClock.now()
             fillSeconds += RuntimeClock.seconds(since: tMiss)
             for (i, j) in missPos { result[i] = Int(slotIdx[j]) }
+        }
+        if var event, let session {
+            event.endNanos = RuntimeClock.now()
+            session.demand(event)
         }
         completed = true
         return result
@@ -745,6 +1028,120 @@ public final class SlotPool {
 
     public func unpinAll() {
         pinned.unpinAll()
+    }
+
+    /// How many layer generations a pin survives. One is the original
+    /// behaviour, where the next layer's MoE retires the previous layer's pins
+    /// before choosing victims, and the engine must therefore drain the GPU at
+    /// every layer boundary. Raising it keeps an unevaluated gather's slots out
+    /// of every victim scan, which is what lets the barrier be deferred.
+    package var pinGenerations: Int = 1 {
+        didSet { pinned.configure(depth: pinGenerations) }
+    }
+
+    /// Model thread: retire the oldest live pin generation and open a new one.
+    /// At depth one this is exactly `unpinAll()`.
+    public func advancePinGeneration() {
+        pinned.retireGeneration()
+    }
+
+    // MARK: slot adoption (speculative reads straight into pool memory)
+
+    /// Install this pool as the scheduler's reservation seam.
+    package func attachSpeculativeSlots(to scheduler: ExpertPrefetchScheduler) {
+        scheduler.slotProvider = { [unowned self] key in self.reserveSpeculativeSlot(for: key) }
+    }
+
+    /// The nine piece base pointers of the current pool memory (shared
+    /// storage on Apple silicon), recomputed only after a pool write. Nil when
+    /// a piece is not contiguous, which never happens for a zeros-allocated pool.
+    private func currentPoolBases() -> [UnsafeMutableRawPointer]? {
+        if let cached = basesCache, cached.epoch == poolWriteEpoch { return cached.bases }
+        guard pools.count == 9 else { return nil }
+        var out: [UnsafeMutableRawPointer] = []
+        for piece in pools {
+            let wrapped = piece.asData(access: .noCopyIfContiguous)
+            guard wrapped.data.count == piece.nbytes else { return nil }
+            let base: UnsafeRawPointer? = wrapped.data.withUnsafeBytes { $0.baseAddress }
+            guard let base else { return nil }
+            out.append(UnsafeMutableRawPointer(mutating: base))
+        }
+        basesCache = (poolWriteEpoch, out)
+        return out
+    }
+
+    /// Reserve a victim slot for one speculative record (model thread). The
+    /// slot's previous key is evicted now, so a demand for it misses and
+    /// reads elsewhere; the slot leaves every victim scan until the worker
+    /// has left it or the record is published. Refused when the pool is close
+    /// to exhaustion or its memory cannot be addressed.
+    package func reserveSpeculativeSlot(for key: ExpertKey) -> SpeculativeSlotReservation? {
+        drainReturnedSlots()
+        guard slots - pinned.count - inFlightCount > 256, let bases = currentPoolBases() else { return nil }
+        var chosen: Int? = nil
+        while let candidate = freeSlots.popLast() {
+            if keyOf[candidate] == nil, !pinned[candidate], !inFlight[candidate] { chosen = candidate; break }
+        }
+        let s = chosen ?? victim(preferLayer: key.layer)
+        if let old = keyOf[s] {
+            map.removeValue(forKey: old)
+            keyOf[s] = nil
+            lookahead?.prefetch?.noteEvictedKey()
+        }
+        refBit[s] = false
+        inFlight[s] = true
+        inFlightCount += 1
+        speculativeSlotReservations += 1
+        let rowBytes = store.pieceRowBytes
+        let destinations = (0 ..< 9).map { bases[$0] + s * rowBytes[$0] }
+        return SpeculativeSlotReservation(slot: s, destinations: destinations, pieceBytes: rowBytes, bases: bases,
+            onLeave: { [weak self] slot in self?.returnSpeculativeSlot(slot) })
+    }
+
+    /// From any thread: the worker has left the slot without a published record.
+    private func returnSpeculativeSlot(_ slot: Int) {
+        returnedLock.lock(); returnedSlots.append(slot); returnedLock.unlock()
+    }
+
+    /// Model thread: give returned slots back to the victim scan.
+    private func drainReturnedSlots() {
+        returnedLock.lock()
+        let drained = returnedSlots
+        returnedSlots.removeAll(keepingCapacity: true)
+        returnedLock.unlock()
+        guard !drained.isEmpty else { return }
+        let scheduler = lookahead?.prefetch
+        for slot in drained where slot >= 0 && slot < inFlight.count && inFlight[slot] {
+            inFlight[slot] = false
+            inFlightCount -= 1
+            if keyOf[slot] == nil { freeSlots.append(slot) }
+            scheduler?.slotReturned()
+            scheduler?.noteSlotRelease()
+        }
+    }
+
+    /// Publish a complete speculative record: the bytes are already in the
+    /// slot; refuse if the pool memory moved since the reservation.
+    private func publishSpeculativeSlot(_ ticket: ExpertPrefetchTicket, key: ExpertKey,
+                                        bases: [UnsafeMutableRawPointer], scheduler: ExpertPrefetchScheduler) -> Bool {
+        guard let reservation = ticket.adoptSlot() else { return false }
+        let s = reservation.slot
+        guard reservation.bases == bases, s >= 0, s < slots, inFlight[s], keyOf[s] == nil else {
+            // Stale memory or state: the slot goes back unused and the key is a demand read.
+            reservation.workerLeft()
+            return false
+        }
+        inFlight[s] = false
+        inFlightCount -= 1
+        keyOf[s] = key
+        map[key] = s
+        refBit[s] = true
+        pinned.pin(s)
+        recordsAdopted += 1
+        speculativeSlotAdoptions += 1
+        scheduler.slotPublished()
+        scheduler.noteSlotAdopted()
+        return true
     }
 
     // MARK: sweep (prefill passes of SweepTuning.minTokens tokens or more)
@@ -775,6 +1172,15 @@ public final class SlotPool {
         ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP_ADMIT"] != "0"
 
     public func isResident(_ key: ExpertKey) -> Bool { map[key] != nil }
+
+    /// Complete CLOCK state for the replay reference: every slot's key (as
+    /// layer * experts + expert, or -1), reference bits and the hand.
+    package func lookaheadResidencySnapshot() -> ExpertLookaheadResidency {
+        let width = cfg.numExperts
+        return ExpertLookaheadResidency(
+            slotKeys: keyOf.map { $0.map { Int32($0.layer * width + $0.expert) } ?? -1 },
+            referenceBits: refBit, hand: hand)
+    }
 
     /// Copies of resident experts' nine pieces, in key order, materialized.
     /// CLOCK bits are left alone: a sweep says nothing about decode locality.
@@ -862,12 +1268,17 @@ public final class SlotPool {
             victims.append(Int32(s))
             src.append(Int32(row))
         }
+        if let session = lookahead, session.observer != nil, !victims.isEmpty {
+            session.admissions(layer: layer, experts: zip(experts, rows).compactMap { e, _ in
+                map[ExpertKey(layer, e)].map { _ in Int32(e) } })
+        }
         guard !victims.isEmpty else { return }
         let from = MLXArray(src)
         let picked = staged.map { $0[from] }
         asyncEval(picked)
         let dst = MLXArray(victims)
         for p in 0 ..< 9 { pools[p][dst] = picked[p] }
+        poolWriteEpoch &+= 1
         pendingAdmissions += victims.count
     }
     private var pendingAdmissions = 0
@@ -914,6 +1325,8 @@ public final class SlotPool {
         scatterSeconds = 0
         fillSeconds = 0
         recordsFetched = 0
+        recordsAdopted = 0
+        adoptSeconds = 0
         sweepWaitSeconds = 0
         sweepSortSeconds = 0
     }

@@ -6,7 +6,7 @@ runner, and host apps use those same functions.
 Choose a suite based on what you have installed:
 
 ```bash
-make checks          # the tier that needs nothing: no GPU, no weights, no network
+make checks          # build, then run T0: no GPU, weights or network during the checks
 make checks-all      # adds the MLX tier
 make test            # Tools/verify.sh, the acceptance battery against real weights
 make context-test    # isolated context policy + proxy fixtures; no MLX or weights
@@ -15,6 +15,7 @@ python3 Tools/process_memory_gate.py  # native CPU/GPU peak accounting, no model
 python3 Tools/memory_override_gate.py # CLI override matrix on simulated Macs
 ```
 
+The initial build can download Swift packages and the prebuilt Metal library.
 The native process-memory regression compiles the production counter and uses
 small Metal buffers. It checks that peaks survive buffer release, persistent
 and temporary allocations remain distinguishable, concurrent reads retain the
@@ -130,8 +131,9 @@ make build
 make checks
 ```
 
-`make checks` runs without weights, network access, or a GPU. `make checks-all`
-adds the MLX tests. `Tools/verify.sh` tests against the real model, including
+`make checks` builds first, which can need network access, then runs T0
+without weights, network access or a GPU. `make checks-all` adds the MLX tests.
+`Tools/verify.sh` tests against the real model, including
 reference comparisons, cache resizes, speculative decode, and server
 regressions. [Testing](TESTING.md) explains the suites and coverage gaps;
 [Contributing](../CONTRIBUTING.md) covers the development workflow.
@@ -344,7 +346,11 @@ diagnostic unless the machine and network conditions qualify as a benchmark.
 
 `Tools/context_gates.py --report result.json` compares frozen default allocation
 fields and validates CLI bounds, metadata, complete schedules and strict tool
-termination without loading weights. `Tools/consumer_smoke.sh` compiles the
+termination without loading weights. The frozen allocation is pinned at an
+explicit 32,768-token window, and the automatic window for the frozen tiers is
+checked against `Tools/fixtures/context-automatic-v1.json`.
+`Tools/planner_gates.sh` also checks each tier's automatic window, quiet and
+busy starts, fixed caches and explicit windows. `Tools/consumer_smoke.sh` compiles the
 original public function signatures as an external package.
 
 The native `optimization-state-check --variant context-serving --json` injects

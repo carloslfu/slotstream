@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m27533r0pfx8hzadnvadhz2a
 created: 2026-09-11T02:35:04.831717+00:00
-updated: 2026-09-11T17:03:14.204121+00:00
+updated: 2026-09-11T21:50:37.070144+00:00
 summary: 'Local expert lookahead: causal capture, small predictors, bounded prefetch, exactness and held-out speed gates'
 date: 2026-09-10
 doc: plan
@@ -11,7 +11,7 @@ kind: queue-item
 level: '2'
 order: '337'
 title: 'Expert Lookahead: local training and exact prefetch experiment'
-status: ready
+status: closed
 ---
 **Status: ready for execution. Five numbered review passes, two depth-two alignment reviews and a closing consistency review are complete; the fifth pass was a separate code-grounding review that corrected seven items. No predictor has been trained, no performance gain has been demonstrated, and this planning task launches no model or paid job.** This is the local successor experiment requested on September 10. Work is divided into an initial proof and conditional extensions so that a useful negative result is also a complete outcome.
 
@@ -313,3 +313,7 @@ Execution begins with P0, not with training. The implementation agent must be ab
 **Depth-two follow-up review, September 11:** Rechecked the native draft/verify loop and completed the remaining causal-test, per-position refiner, deduplicated admission and shared-budget details. P0 explicitly pins both arms to two because installed binaries may still default to one. Time estimates require a depth-two pilot, and the larger fixed-memory cohort remains conditional on fresh resource and baseline qualification. No model, training or prefetch experiment was started.
 
 **Consistency review, September 11, after the depth-two edits:** re-verified the pinned depth, the disabled adaptive and tail controls, context-bound shortening, the three-position feature contract, the shared ticket cap, C02 and the repriced collection row against the native draft/verify loop at the recheck commit and against the cited records; recomputed every count and resolved every link. Carried the baseline MTP-gate precondition into P5, stated that release acceptance is separate evidence, marked the machine-time totals as depth-one derived, removed a duplicated phrase and logged the earlier unlogged evidence-row update. Aligned the functional MTP-gate and C09 wording with the same-day decision that global macOS paging is diagnostic, while timing eligibility keeps its clean-interval rule. No model, training or prefetch experiment was started.
+
+### Addendum: execution outcome (2026-09-11)
+
+Executed P0 through P3a and the P2 runtime on the 48 GB M5 Pro under protocol `xla-pilot-20260911` (20 GB profile with the 25 GB preflight, because the 24 GB profile's 29 GB reclaimable requirement was not met at freeze). C01, C02, C03 and the CLOCK replay passed on the correctness pair and on all 69 pilot requests (12,899 outputs, 4.40 GB). The offline continuation rule stopped the experiment: the bounded oracle projects 1.59x, but the best policy projects 1.0055x under the 1.20x traffic bound (G128 with L128 refinement, 1.48% timely coverage at 7.7% precision) and 1.064x without the bound at 4.9x traffic. Whole-pass models G64, G128 and G256 converged to the per-layer frequency prior; L128 learned (recall@16 0.19 against the prior's 0.12) but its nested learning curve adds about three points per data doubling. The P2 runtime was built and proven exact natively (C04 through C10 coverage as recorded), so the stop is about forecast precision, not the mechanism. P3b, P4 and P5 were not run and no speed gain is claimed. Evidence and the next decision: [[records/measurements/expert-lookahead-pilot-offline-stop-2026-09-11]].

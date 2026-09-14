@@ -134,6 +134,9 @@ public struct GenStats: Codable {
     /// the request's output ceiling, and exported with diagnostic stats only.
     public var adaptiveDraftDepths: [Int] = []
     public var adaptiveDisabledAtOutput: Int?
+    /// Expert Lookahead prefetch counters for this request; nil unless the
+    /// experimental scheduler is installed. Optional keeps old JSON decodable.
+    public var expertPrefetch: ExpertPrefetchObservation?
     public var adaptivePlainTokens = 0
     public var decodeForwardPasses = 0
     public var decodeModelTokens = 0
@@ -492,9 +495,16 @@ public final class Generator {
         // callback must record cancellation outside that exclusive borrow.
         var callerCancellation: RequestFailure?
         stats.promptTokens = promptIds.count
+        model.lookahead?.prefetch?.resetObservation()
         let embeddingHitsStart = model.resident.embeddingRowHits
         let embeddingMissesStart = model.resident.embeddingRowMisses
         func finish(_ output: [Int]) -> ([Int], GenStats) {
+            // No speculative ticket survives the request; every owned reader
+            // is joined before the next request can start.
+            if let session = model.lookahead {
+                session.requestFinished()
+                stats.expertPrefetch = session.prefetch?.observation
+            }
             // Every completion, cancellation and early refusal publishes the
             // same memory observations. Several early exits used to leave zero.
             stats.recordProcessMemory()
@@ -1030,6 +1040,7 @@ public final class Generator {
             model.pool.admitOnSweep = hi == promptIds.count
             let chunk = Array(promptIds[i ..< hi])
             let chunkVision = visionRuns.compactMap { $0.clipped(to: i, hi) }
+            model.lookahead?.beginPass(phase: .prefill, tokens: chunk, features: [])
             do {
             if executionOptimizations.readScopeEnabled, passes.count > 1 {
                 let result = try model.consumeReadScopeChecked(chunk, passes: passes, state: state,
@@ -1063,7 +1074,9 @@ public final class Generator {
                 eval(h)
             }
             try request?.check(phase: "prefill commit")
+            model.lookahead?.endPass()
             } catch {
+                model.lookahead?.endPass(aborted: true)
                 discardFailedState(error)
                 if executionOptimizations.readScopeEnabled, passes.count > 1 { stats.abortedReadScopes += 1 }
                 stats.prefillTokens = i - reused
@@ -1153,6 +1166,10 @@ public final class Generator {
         // prompt rows. Ordinary decode and speculative verification retain
         // their established arithmetic even after a long-context prefill.
         model.smallPrefillSweep = false
+        if let session = model.lookahead, session.observer != nil {
+            // Replay boundary: the complete CLOCK state decode starts from.
+            session.residency(model.pool.lookaheadResidencySnapshot())
+        }
         stats.prefillTokens = promptIds.count - reused
         stats.prefillSeconds = RuntimeClock.seconds(since: t0)
         stats.prefillIOSeconds = model.pool.ioSeconds
@@ -1239,11 +1256,15 @@ public final class Generator {
                 if !observedToken(tok) { reason = "stop"; break }
                 if model.optimizations.skipUnusedFinalForward, out.count == params.maxTokens { break }
                 try checkAllocation(end: state.tokenCount + 1, workspaceBytes: 1_300_000, phase: "decode cache growth")
+                model.lookahead?.beginPass(phase: .mainPlain, tokens: [tok], features: [])
                 logits = try model.lastLogitsChecked([tok], state: state)
                 stats.decodeForwardPasses += 1
                 stats.decodeModelTokens += 1
                 consumed.append(tok)
                 eval(logits)
+                // Expert Lookahead closes the pass this token began at
+                // beginPass above; it stays immediately after eval(logits).
+                model.lookahead?.endPass()
                 // Split a long decode delta at chunk boundaries, so no single
                 // data.kv gets huge and a stopped turn leaves a waypoint. The
                 // threshold defaults to 2048 (SLOTSTREAM_DISK_KV_SPLIT_LONG_DECODES
@@ -1397,9 +1418,11 @@ extension Generator {
                 while out.count < params.maxTokens {
                     if shouldContinue?() == false { reason = "stop"; break }
                     try checkAllocation(state.tokenCount + 1, nil, 1_300_000, "plain decode cache growth")
+                    model.lookahead?.beginPass(phase: .mainPlain, tokens: [tokenToConsume], features: [])
                     let nextLogits = try model.lastLogitsChecked([tokenToConsume], state: state)
                     consumed.append(tokenToConsume)
                     eval(nextLogits)
+                    model.lookahead?.endPass()
                     stats.decodeForwardPasses += 1; stats.decodeModelTokens += 1
                     let sampleStart = RuntimeClock.now()
                     let token = sample(nextLogits, params: params, generated: generated)
@@ -1422,6 +1445,13 @@ extension Generator {
             let draftStart = RuntimeClock.now()
             var dMulti = state.lastMulti!
             var dTok = p
+            // Expert Lookahead start features: position zero is the committed
+            // main context plus the pending token's embedding; later positions
+            // are the draft head's own multi outputs plus each draft token's
+            // embedding. Retained only when a collector or predictor asks.
+            let wantsFeatures = model.lookahead?.wantsStartFeatures ?? false
+            var featureContexts: [MLXArray] = wantsFeatures ? [dMulti] : []
+            var featureEmbeddings: [MLXArray] = []
             let requestedDepth: Int
             if case .draft(let depth) = action { requestedDepth = depth }
             else { requestedDepth = draftDepth }
@@ -1447,6 +1477,7 @@ extension Generator {
                 let dl = model.lmHead(s)
                 dTok = argMax(dl.reshaped([-1]).asType(.float32)).item(Int.self)
                 drafts.append(dTok)
+                if wantsFeatures { featureEmbeddings.append(e); featureContexts.append(m) }
                 dMulti = m
             }
             stats.draftedTokens += drafts.count
@@ -1463,6 +1494,20 @@ extension Generator {
             let verifyEnd = state.tokenCount + verifyIds.count
             try checkAllocation(verifyEnd, mtpState.offset,
                 ContextWorkspace.prefillBytes(pass: verifyIds.count, context: verifyEnd), "speculative verification")
+            if wantsFeatures, let session = model.lookahead {
+                // The last drafted token's embedding is the one extra row read
+                // this feature contract charges; every other input already
+                // existed before the verification pass.
+                featureEmbeddings.append(try model.resident.embedChecked([dTok], shape: [1, 1]).asType(.bfloat16))
+                var features: [ExpertLookaheadStartFeature] = []
+                for i in 0 ..< verifyIds.count where i < featureContexts.count && i < featureEmbeddings.count {
+                    features.append(ExpertLookaheadStartFeature(kind: i, token: verifyIds[i],
+                        context: featureContexts[i], embedding: featureEmbeddings[i]))
+                }
+                session.beginPass(phase: .mainVerify, tokens: verifyIds, features: features)
+            } else {
+                model.lookahead?.beginPass(phase: .mainVerify, tokens: verifyIds, features: [])
+            }
             let verifyStart = RuntimeClock.now()
             state.setRecording(true)
             let (vLogits, vMulti) = try model.allLogitsWithMultiChecked(verifyIds, state: state)
@@ -1533,6 +1578,10 @@ extension Generator {
             }
             consumed.append(contentsOf: keep)
             stats.reconciliationSeconds += RuntimeClock.seconds(since: reconcileStart)
+            if let session = model.lookahead {
+                session.passReconciled(kept: keep.count)
+                session.endPass()
+            }
             // The draft cache holds one entry per consumed token except the
             // first. A drift here silently degrades every later draft, so
             // fail loud instead.

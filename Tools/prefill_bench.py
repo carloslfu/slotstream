@@ -48,7 +48,7 @@ class InsufficientHeadroom(RuntimeError):
 
 def preflight(needed_gb):
     # Release before child launch; child reacquires atomically before allocation.
-    with open(f"/tmp/slotstream-model-{os.getuid()}.lock", "a") as lock:
+    with open(os.environ.get("SLOTSTREAM_MODEL_LOCK_PATH") or f"/tmp/slotstream-model-{os.getuid()}.lock", "a") as lock:
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as e: raise RuntimeError("another model process holds the lock") from e
     state = vm_snapshot()

@@ -96,6 +96,8 @@ public final class Qwen4ExpModel {
     var gdn: [Int: GDNLayer] = [:]
     var qsa: [Int: QSAAttention] = [:]
     var moe: [Int: MoELayer] = [:]
+    /// Work deferred between decode barriers until the next routing readback.
+    private let routingReadbacks = RoutingReadbackQueue()
     var attnHC: [GatedResidual] = []
     var mlpHC: [GatedResidual] = []
     var ple: [Int: PLELayer] = [:]
@@ -105,12 +107,38 @@ public final class Qwen4ExpModel {
     /// mtp.safetensors on demand (`enableMTP`), everything resident.
     public private(set) var mtpHead: MTPHead? = nil
     /// Diagnostic observer; called on the serialized model thread with router-rank IDs.
-    public var routerObserver: ((Int, [Int32]) -> Void)?
+    public var routerObserver: ((Int, [Int32]) -> Void)? {
+        didSet { rebuildRouterObserver() }
+    }
     package var contextNumericsObserver: ((Int, String, MLXArray) -> Void)?
+    /// Expert Lookahead session: capture observer and/or prefetch scheduler.
+    /// Nil leaves every hot path exactly as before: no closure, no copy.
+    package var lookahead: ExpertLookaheadSession? {
+        didSet { pool.lookahead = lookahead; rebuildRouterObserver() }
+    }
+    /// What the MoE layers actually call: the public observer composed with
+    /// the lookahead session's route feed, rebuilt only when either changes.
+    private var combinedRouterObserver: ((Int, [Int32]) -> Void)?
+    private func rebuildRouterObserver() {
+        let external = routerObserver
+        guard let session = lookahead, session.isActive else { combinedRouterObserver = external; return }
+        let topK = cfg.topK
+        combinedRouterObserver = { layer, ids in
+            external?(layer, ids)
+            session.routes(layer: layer, rows: topK > 0 ? ids.count / topK : 0, topK: topK, ids: ids)
+        }
+    }
     package var gdnPhaseProfile: GDNPhaseProfile? {
         didSet { for layer in gdn.values { layer.phaseProfile = gdnPhaseProfile } }
     }
     public let runLayers: Int  // truncated for parity rigs; numLayers normally
+    /// Layers between GPU barriers in the layer loop. One reproduces the
+    /// original path exactly. Higher values defer the drain and rely on
+    /// multi-generation pinning to keep an unevaluated gather's slots out of
+    /// every victim scan; a pass that cannot afford those pins drains at every
+    /// layer (`DecodeLookahead.barrierPeriod`). The engine selects four with the
+    /// qualified decode lookahead unless the environment names a period.
+    package var decodeBarrierLayers = Qwen4ExpModel.environmentBarrierLayers ?? 1
 
     public final class State {
         var modelIdentity: UUID?
@@ -326,6 +354,14 @@ public final class Qwen4ExpModel {
     /// `perLayerHook` (parity rigs) receives the hyper-width h after each layer.
     /// Read once: ProcessInfo builds a fresh dictionary on every access, and
     /// this used to run 48 times per token.
+    /// An explicit SLOTSTREAM_DECODE_BARRIER_LAYERS (1...48), parsed once; nil
+    /// when unset or invalid.
+    package static let environmentBarrierLayers: Int? = {
+        guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_DECODE_BARRIER_LAYERS"],
+              let value = Int(raw), (1 ... 48).contains(value) else { return nil }
+        return value
+    }()
+
     static let debugDir = ProcessInfo.processInfo.environment["SS_DEBUG_DIR"]
     static let debugLayer = Int(ProcessInfo.processInfo.environment["SS_DEBUG_LAYER"] ?? "0") ?? 0
 
@@ -462,6 +498,12 @@ public final class Qwen4ExpModel {
         defer {
             if let savedWorkspaceCacheLimit { MLX.Memory.cacheLimit = savedWorkspaceCacheLimit }
         }
+        // A deferred barrier needs every in-flight layer's pins to outlive it,
+        // so a pass the pool cannot pin that deeply drains at every layer.
+        let barrierPeriod = DecodeLookahead.barrierPeriod(requested: decodeBarrierLayers, rows: S,
+            topK: cfg.topK, experts: cfg.numExperts, slots: pool.slots,
+            reservedSlots: lookahead?.prefetch?.configuration.slotCap ?? 0)
+        pool.pinGenerations = barrierPeriod > 1 ? barrierPeriod + 1 : 1
         prepareOptimizationKernels(using: optimizations)
         pool.workspacePiecewiseWrites = optimizations.workspacePiecewiseWrites
         state.compactStateWindows = optimizations.compactStateWindows
@@ -483,12 +525,17 @@ public final class Qwen4ExpModel {
             ? try ngram.beginPrefetch(history:history,nNew:S,maxTokens:optimizations.boundedPLE || layerMajor ? 256 : 1024) : nil
         defer { if let lookahead { ngram.discardPrefetch(lookahead) } }
 
+        // Forecasts and completed-layer ticks deferred between barriers ride the
+        // next routing readback (see the barrier below). A pass that returns
+        // early or throws drops whatever is still queued.
+        defer { routingReadbacks.discard() }
         for l in 0 ..< runLayers {
             if shouldContinue?() == false { return nil }
             if MemTrace.on { MemTrace.enterLayer(l, kind: gdn[l] != nil ? "gdn" : "qsa") }
             moe[l]!.specializedRouter = optimizations.routerTopK
             moe[l]!.overlapShared = optimizations.overlapSharedExpert
             moe[l]!.overlapResident = optimizations.overlapResidentExperts
+            moe[l]!.readbackQueue = barrierPeriod > 1 ? routingReadbacks : nil
             qsa[l]?.indexer.denseBypass = optimizations.denseIndexerBypass
             qsa[l]?.indexer.specializedSelector = optimizations.indexerBlockTopK
             moe[l]!.workspaceComputeRanges = layerMajor ? ranges : []
@@ -562,7 +609,7 @@ public final class Qwen4ExpModel {
                     h = base
                 }
                 MemTrace.mark("scope-frontier", nil)
-                moe[l]!.routerObserver = routerObserver
+                moe[l]!.routerObserver = combinedRouterObserver
                 moe[l]!.useLayerWorkspace = true
                 if terminalPruning, l == runLayers - 1, demand == .lastRow {
                     moe[l]!.useLayerWorkspace = false
@@ -579,6 +626,7 @@ public final class Qwen4ExpModel {
                         * injection.expandedDimensions(axis: -1)).reshaped(base.shape)
                 }
                 eval(h)
+                self.lookahead?.layerCompleted(layer: l, x2: input)
                 MemTrace.mark("layer-end", h)
                 perLayerHook?(l, h)
                 continue
@@ -644,7 +692,7 @@ public final class Qwen4ExpModel {
             contextNumericsObserver?(l, "x2", x2)
             contextNumericsObserver?(l, "inj2", inj2!)
             MemTrace.mark("hc2", x2)
-            moe[l]!.routerObserver = routerObserver
+            moe[l]!.routerObserver = combinedRouterObserver
             moe[l]!.useLayerWorkspace = optimizations.layerExpertWorkspace
             moe[l]!.disjointOutput = optimizations.disjointSweepOutput
             moe[l]!.boundedRows = optimizations.boundedSweepRows
@@ -664,7 +712,48 @@ public final class Qwen4ExpModel {
 
             // synchronize the layer so pool references release before the next
             // layer's ensure() scatters (keeps slot writes in place, see PLAN §4.2)
-            eval(h)
+            // Router-reuse forecast: after the MoE add these streams are the
+            // next layer's input. The target layers' own hyper-connection reads
+            // and routers are built lazily on them here and evaluated in the
+            // same sync as the streams (one graph, one wait per layer); the
+            // candidates are selected on the host before this layer's tick.
+            let forecastBatch = self.lookahead.flatMap { session in
+                session.wantsRouterForecast ? buildRouterForecast(session: session, layer: l, streams: h, x2: x2) : nil
+            }
+            // Barrier period. The drain exists so this layer's pool references
+            // release before the next layer's ensure() scatters into those slots.
+            // Holding pins for several generations keeps an unevaluated gather's
+            // slots out of every victim scan, so the same condition holds without
+            // draining, and the barrier can fall on every Kth layer instead.
+            // Between barriers the host still waits once per layer, on the next
+            // layer's router indices. The forecast and this layer's completed
+            // tick ride that wait, so the scheduler sees them one attention block
+            // later than at K = 1. Held until the next barrier instead, they
+            // arrived in bursts and too late to read ahead (decode serialization
+            // round 3). K = 1 is the original path.
+            let period = barrierPeriod
+            let mustBarrier = period <= 1 || l == runLayers - 1 || (l + 1) % period == 0
+            if mustBarrier {
+                let evalStart = RuntimeClock.now()
+                eval([h] + routingReadbacks.arrays + (forecastBatch?.targets.map { $0.logits } ?? []))
+                let waited = RuntimeClock.seconds(since: evalStart)
+                // Normally empty, because this layer's own routing readback drained
+                // it; anything left belongs to earlier layers and finishes first.
+                routingReadbacks.drain(waited: 0)
+                if let forecastBatch, let session = self.lookahead {
+                    finishRouterForecast(session: session, layer: l, batch: forecastBatch, evalSeconds: waited)
+                }
+                // Completed-layer boundary: the lookahead session may copy this
+                // layer's small x2 to the host now and tick the prefetch window.
+                self.lookahead?.layerCompleted(layer: l, x2: x2)
+            } else if let session = self.lookahead {
+                routingReadbacks.enqueue(forecastBatch?.targets.map { $0.logits } ?? []) { [self] waited in
+                    if let forecastBatch {
+                        finishRouterForecast(session: session, layer: l, batch: forecastBatch, evalSeconds: waited)
+                    }
+                    session.layerCompleted(layer: l, x2: x2)
+                }
+            }
             // The layer has finished reading the convolution parent. Compact
             // only multi-token passes; a one-token decode parent is bounded
             // to the small convolution window plus one row already.
@@ -678,6 +767,80 @@ public final class Qwen4ExpModel {
         state.tokenCount += S
         state.committedBoundaryValid = true
         return h
+    }
+
+    /// One layer boundary's router-reuse forecast: lazy logits per target and
+    /// the mixed inputs they came from.
+    private struct RouterForecastBatch {
+        var targets: [(target: Int, mixed: MLXArray, logits: MLXArray)]
+        var buildSeconds: Double
+    }
+
+    /// Phase one, before the layer's sync: for each configured stride `s`,
+    /// target `T = layer + s` gets its own `mlpHC[T]` mixed read of the live
+    /// streams and its own router matmul, exactly the modules the real routing
+    /// uses at T. What the forecast omits is the intermediate layers' updates
+    /// (at stride 1 only T's attention sublayer, plus PLE when T is the PLE
+    /// layer). Stride 0 reuses this layer's true `x2` as the C12 self-check.
+    /// Nothing here touches the real router path, reference bits or pins.
+    private func buildRouterForecast(session: ExpertLookaheadSession, layer l: Int, streams h: MLXArray, x2: MLXArray) -> RouterForecastBatch? {
+        let started = RuntimeClock.now()
+        var targets: [(target: Int, mixed: MLXArray, logits: MLXArray)] = []
+        if session.forecastSelfCheck {
+            targets.append((l, x2, moe[l]!.routerProjection(x2)))
+        }
+        for stride in session.routerForecastStrides {
+            let t = l + stride
+            guard stride > 0, t < runLayers else { continue }
+            let mixed = mlpHC[t].mixedInput(h)
+            targets.append((t, mixed, moe[t]!.routerProjection(mixed)))
+        }
+        guard !targets.isEmpty else { return nil }
+        return RouterForecastBatch(targets: targets, buildSeconds: RuntimeClock.seconds(since: started))
+    }
+
+    /// Phase two, after the sync: one host copy per target (three rows of 512
+    /// logits), a partial top-k selection without a full sort, margins relative
+    /// to each row's tenth logit, and the hand-off to the session.
+    private func finishRouterForecast(session: ExpertLookaheadSession, layer l: Int, batch: RouterForecastBatch, evalSeconds: Double) {
+        let started = RuntimeClock.now()
+        let experts = cfg.numExperts
+        let perRow = max(1, min(session.forecastCandidatesPerRow, experts))
+        let tenth = min(cfg.topK, experts) - 1
+        let k = max(perRow, tenth + 1)
+        var topIdx = [Int32](repeating: -1, count: k)
+        var topVal = [Float](repeating: -Float.infinity, count: k)
+        for (t, mixed, logits) in batch.targets {
+            let rows = logits.size / experts
+            let values = logits.asArray(Float.self)
+            guard values.count == rows * experts, rows > 0 else { continue }
+            var ids: [Int32] = []
+            var margins: [Float] = []
+            ids.reserveCapacity(rows * perRow); margins.reserveCapacity(rows * perRow)
+            for r in 0 ..< rows {
+                let base = r * experts
+                var count = 0
+                for e in 0 ..< experts {
+                    let v = values[base + e]
+                    if count == k, v <= topVal[k - 1] { continue }
+                    var i = count < k ? count : k - 1
+                    if count < k { count += 1 }
+                    while i > 0, topVal[i - 1] < v {
+                        topVal[i] = topVal[i - 1]; topIdx[i] = topIdx[i - 1]; i -= 1
+                    }
+                    topVal[i] = v; topIdx[i] = Int32(e)
+                }
+                let reference = topVal[tenth]
+                for i in 0 ..< perRow {
+                    ids.append(topIdx[i])
+                    margins.append(topVal[i] - reference)
+                }
+            }
+            session.forecast(sourceLayer: l, targetLayer: t, rows: rows, ids: ids, margins: margins,
+                             inputs: session.captureForecastInputs ? mixed : nil)
+        }
+        session.prefetch?.addForecastSeconds(build: batch.buildSeconds, eval: evalSeconds,
+                                             select: RuntimeClock.seconds(since: started))
     }
 
     private func mixScope(_ h: MLXArray, computeRanges: [Range<Int>]? = nil,

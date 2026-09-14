@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "purpose": "Automatic context window per simulated tier with speculative decoding off, so the choice does not depend on local weights. The draft-head tiers are gated in Tools/planner_gates.sh with a placeholder head.",
+  "candidate_windows": [
+    32768,
+    65536,
+    131072,
+    262144
+  ],
+  "tiers": [
+    {
+      "tier": 16,
+      "args": [
+        "doctor",
+        "--sim-ram",
+        "17.2",
+        "--sim-working-set",
+        "11.8",
+        "--sim-available",
+        "12.5",
+        "--mtp",
+        "off",
+        "--vision",
+        "off",
+        "--json"
+      ],
+      "expected_window": 32768
+    },
+    {
+      "tier": 24,
+      "args": [
+        "doctor",
+        "--sim-ram",
+        "25.8",
+        "--sim-working-set",
+        "18",
+        "--sim-available",
+        "21",
+        "--mtp",
+        "off",
+        "--vision",
+        "off",
+        "--json"
+      ],
+      "expected_window": 32768
+    },
+    {
+      "tier": 32,
+      "args": [
+        "doctor",
+        "--sim-ram",
+        "34.4",
+        "--sim-working-set",
+        "25.8",
+        "--sim-available",
+        "29",
+        "--mtp",
+        "off",
+        "--vision",
+        "off",
+        "--json"
+      ],
+      "expected_window": 65536
+    },
+    {
+      "tier": 48,
+      "args": [
+        "doctor",
+        "--sim-ram",
+        "51.5",
+        "--sim-working-set",
+        "40.2",
+        "--sim-available",
+        "44",
+        "--mtp",
+        "off",
+        "--vision",
+        "off",
+        "--json"
+      ],
+      "expected_window": 131072
+    }
+  ]
+}

@@ -2,11 +2,35 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T18:46:04.941061Z
+updated: 2026-09-13T19:54:32.747134Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-13-release-0-2-17-published-and-installed]] — v0.2.17 CI-artifact acceptance 25/25 after an environment-only first run, publication with verified attestation, installation and installed-release acceptance 31/31.
+- [[sources/runs/2026/09/2026-09-13-context-draft-head-131072]] — Draft head on at 131,072 tokens: complete prompt and 128-token reply inside an 18 GB plan, 16.44 GB sampled peak against 17.00 planned, reply identical to the draft-off run
+- [[sources/runs/2026/09/2026-09-13-context-capacity-131072-cold]] — 131,072-token window completed inside its 16 GB plan: 14.80 GB sampled peak against 15.00 planned, 38.1-minute read; the frozen driver flagged 200 global swap-ins
+- [[sources/runs/2026/09/2026-09-13-automatic-context-window-tier-plans]] — Automatic context window candidate qualified without weights: 38 of 38 T0 checks, 90 of 90 planner gates; doctor plans from 8 to 192 GB in auto and at 32,768 tokens
+- [[sources/runs/2026/09/2026-09-13-public-docs-audit-plans]] — Public documentation audit: default and larger-window planner simulations and published release identity
+- [[sources/runs/2026/09/2026-09-13-decode-lookahead-default-tier-plans]] — 0.2.16 defaults qualified without weights: 50 of 50 checks, 73 of 73 planner gates, static gates; doctor plans from 8 to 192 GB at both context windows
+- [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]] — Held-out cohort rescoring with true medians: B1 replication 1.124 to 1.114, B1 first run 1.116 to 1.106, B0 1.120 to 1.105; every verdict unchanged
+- [[sources/runs/2026/09/2026-09-13-decode-path-serialization-closing-profiles]] — Decode serialization closing profiles: macOS sample of B0 prefetch and the combined candidate on r0206, model thread merged across its dispatch-queue blocks; round 1 profiles re-parsed
+- [[sources/runs/2026/09/2026-09-13-decode-path-serialization-attribution]] — Decode serialization attribution sweep: shipped, B0 prefetch, B0 plus router weight cache, B0 plus barrier period 4 and the combined candidate, four prompts by four rounds on one binary
+- [[sources/runs/2026/09/2026-09-13-decode-path-serialization-b1-cohort-replication]] — Decode serialization step 7 replication: full fresh B1 cohort of the same combined candidate against shipped; aggregate 1.124, lower bound 1.105, 34 of 36 pairs eligible, pass
+- [[sources/runs/2026/09/2026-09-13-decode-path-serialization-b1-cohort]] — Decode serialization step 7: held-out B1 cohort of the combined candidate against shipped; aggregate 1.116, lower bound 1.073, 33 of 36 pairs eligible, r0245 short of two clean pairs
+- [[sources/runs/2026/09/2026-09-13-decode-path-serialization-combination]] — Decode serialization step 6: registered selection over rounds 2, 3b, 4 and 5, exact parity of the combined candidate, screen against shipped and pf-b0 on the exploration prompts
+- [[sources/runs/2026/09/2026-09-13-decode-path-serialization-round-3b]] — Decode serialization round 3b: forecasts ride the next routing readback; 164 checks, exact parity at K=8, 36-cell period sweep; two slow r0206 reference cells inflate the ratios
+- [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-5]] — Decode serialization round 5: router weight cache and router top-k under prefetch, four prompts by four rounds on the round 3 binary; eight cells excluded for host swap-outs
+- [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-4]] — Decode serialization round 4: draft depths 1 to 6 under prefetch with per-depth protocols, 30 cells on the round 3 binary; depth 1 inexact and no depth above the rule
+- [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-3]] — Decode serialization round 3: forecasts consumed at a deferred barrier under prefetch; 150 checks, exact parity at K=3, 42-cell sweep; every deferred configuration slower
+- [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-2]] — Decode serialization round 2: prefetch coverage sweep, 42 cells on the round 1 binary; deeper lists inert under the margin threshold; stride 1, union and no threshold slower
+- [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-1]] — Decode serialization round 1: deferring the per-layer GPU drain gains 3.8% to 5.1% with exact outputs; record reads and nine flags null; profiles show host time is GPU wait
+- [[sources/runs/2026/09/2026-09-12-expert-lookahead-2-b0-cohort]] — Held-out B0 cohort of the slot-adoption prefetch: 36 of 36 pairs eligible, aggregate 1.120x, lower bound 1.090, every family faster; report, counters and hashes
+- [[sources/runs/2026/09/2026-09-12-expert-lookahead-2-slot-adoption-screen]] — Expert Lookahead 2 retry: slot adoption (speculative reads into reserved pool slots) measures 1.138x on the 12-pair validation screen; pilots 1.09x to 1.13x; a host I/O stall blocks the B0 cohort
+- [[sources/runs/2026/09/2026-09-12-expert-lookahead-2-native-screens]] — Expert Lookahead 2 native packages: C12 exact, 0.763 stride-1 agreement, twin 1.247x on native forecasts, native prefetch screens 0.713x, 0.895x, 0.935x and 0.956x; no throughput gain
+- [[sources/runs/2026/09/2026-09-11-expert-lookahead-2-offline-lab]] — Expert Lookahead 2 offline packages: W0 freeze, replacement lab against Belady, learned evictor, memo probe and twin calibration stand-in; no policy reaches the port threshold
+- [[sources/runs/2026/09/2026-09-11-expert-lookahead-router-reuse-and-replacement-probes]] — Expert Lookahead probes: router-reuse forecast, Belady replacement bound and demand structure on the pilot validation shards
+- [[sources/runs/2026/09/2026-09-11-expert-lookahead-pilot-offline-stop]] — Expert Lookahead pilot: exact capture and prefetch runtime, oracle ceiling 1.59x, no predictor projects a gain; stopped at the offline rule
 - [[sources/runs/2026/09/2026-09-11-release-0-2-15-published-and-installed]] — v0.2.15 CI-artifact acceptance 25/25, publication with verified attestation, installation and installed-release acceptance 31/31.
 - [[sources/runs/2026/09/2026-09-11-global-paging-policy-native-pass]] — Full MTP/vision, governor and context checks pass under the paging-diagnostic policy with real memory ceilings intact.
 - [[sources/runs/2026/09/2026-09-11-release-0-2-15-candidate-api-passed]] — v0.2.15 candidate API suite: all 31 checks passed with apps open
@@ -483,32 +507,8 @@ updated: 2026-09-11T18:46:04.941061Z
 - [[sources/runs/2026/09/2026-09-05-optimization-fixed-mtp-serving]] — Fixed-schedule MTP first-entry and GDN recording serving qualification
 - [[sources/runs/2026/09/2026-09-05-optimization-adaptive-speculation-counterexample]] — Adaptive speculation lifecycle and timing-sensitivity counterexample
 - [[sources/runs/2026/09/2026-09-05-optimization-sampler-device-draw]] — Zero-draw sampler correctness and GPU draw qualification
-- [[sources/runs/2026/09/2026-09-05-optimization-duplicate-pool-requests]] — Duplicate pool request ownership and latency non-regression
-- [[sources/runs/2026/09/2026-09-05-optimization-image-source-admission]] — Image source admission and exact request-local reuse
-- [[sources/runs/2026/09/2026-09-05-optimization-all-hit-compute]] — All-hit compute replay and preserved large-pool calibration failures
-- [[sources/runs/2026/09/2026-09-05-optimization-terminal-prefill-demand]] — Terminal prefill demand exact state, bounded lifecycle and subthreshold serving improvement
-- [[sources/runs/2026/09/2026-09-05-optimization-selected-attention-rejection]] — D256 selected attention component passes, full-state failure and component slowdown
-- [[sources/runs/2026/09/2026-09-05-optimization-owned-read-handles]] — Owned tensor read handles exactness and failed serving speed gate
-- [[sources/runs/2026/09/2026-09-05-optimization-compiled-normalization]] — Pointwise normalization fusion correctness and failed serving speed gate
-- [[sources/runs/2026/09/2026-09-05-optimization-checked-read-foundation]] — Checked tensor reads and resident-mode preservation
-- [[sources/runs/2026/09/2026-09-05-optimization-shorter-prefill-workspace-counterexample]] — Shorter prefill reads fewer bytes but takes longer
-- [[sources/runs/2026/09/2026-09-05-optimization-vision-budget-and-cache-bookkeeping]] — Vision budget repair and cache bookkeeping qualification
-- [[sources/runs/2026/09/2026-09-05-optimization-vision-identity-and-router-weights]] — Vision identity and router promotion with an open memory failure
-- [[sources/runs/2026/09/2026-09-05-optimization-vision-padding-probe]] — Bounded vision attention padding numerical and component probe
-- [[sources/runs/2026/09/2026-09-05-optimization-mtp-selector-and-image-reuse]] — Cached MTP selector and request-local image feature reuse
-- [[sources/runs/2026/09/2026-09-05-optimization-smaller-routed-tile]] — Smaller routed tile resource pass and failed paired qualification
-- [[sources/runs/2026/09/2026-09-05-optimization-denormals-and-workspace-peak]] — Subnormal selection contract corrected; compact-frontier and piecewise-write resource probes fail; phase trace identifies routed compute peak
-- [[sources/runs/2026/09/2026-09-05-optimization-exact-256-compute-scopes]] — Larger read scopes preserve 256-token arithmetic but code-review pilot exceeds its memory target and lacks enough clean pairs
-- [[sources/runs/2026/09/2026-09-05-chronological-prefill-numerical-counterexample]] — Larger chronological pass fails full-state and greedy continuation gates despite fewer expert reads
-- [[sources/runs/2026/09/2026-09-05-optimization-corrected-mask-and-shared-overlap]] — Corrected indexer passes independent mask and full-state gates; shared prelaunch pilot fails its benefit and pair-count requirements
-- [[sources/runs/2026/09/2026-09-05-indexer-partial-tail-counterexample]] — Sparse indexer drops the current partial block because tensor true division replaced integer floor division
-- [[sources/runs/2026/09/2026-09-05-optimization-router-selection]] — Exact router and MTP selection checks pass; real request timing gates do not qualify selector or queue adoption
-- [[sources/runs/2026/09/2026-09-05-optimization-bounded-output]] — Socket saturation exposed a blocked send; corrected bounded queue passes 38 socket assertions and 74 live API checks
-- [[sources/runs/2026/09/2026-09-05-optimization-prefill-family-and-serving-intervals]] — Larger chronological prefill remains unqualified; short server A/A passes and all long paired timings are excluded
-- [[sources/runs/2026/09/2026-09-05-optimization-large-tile-and-frontier]] — Large tile and compact frontier exact gates pass; every paired performance comparison is excluded
-- [[sources/runs/2026/09/2026-09-05-optimization-larger-routed-tile]] — Larger routed tile exact checks pass; paired latency pilot excluded for swap activity
 
 ## More
 
-This folder has 529 files. The 500 most recent are listed above.
+This folder has 553 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

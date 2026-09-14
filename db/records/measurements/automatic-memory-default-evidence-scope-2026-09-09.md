@@ -3,7 +3,7 @@ type: measurement
 meta-type: conclusion
 id: 01m246aw4wr0h2vqqwbhwy27ty
 created: 2026-09-09T22:59:04.476883+00:00
-updated: 2026-09-09T22:59:04.476883+00:00
+updated: 2026-09-13T14:28:43.267171+00:00
 summary: 'Automatic memory default: evidence scope and retained policy (2026-09-09)'
 date: 2026-09-09
 doc: measurements
@@ -23,3 +23,14 @@ The 33 GB base target remains the best-supported operating choice so far for the
 A better comparable hardware/workload result can justify changing the default. Until then, explicit sizing is the supported way to explore another tradeoff, with its documented fixed-cache behavior. A model-free planner gate proves target selection, arithmetic and diagnostics; it does not measure allocation, physical peaks or speed. No new benchmark or numerical default is introduced by this clarification.
 
 Controlling decision: [[records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram]]. General engineering contract: [[records/design/measured-operating-policies]].
+
+## Community evidence incorporated on 2026-09-13
+
+[[records/measurements/c2-macbook-pro-m5-max-128gb-community]] now explicitly
+surfaces the larger-target sweep already preserved in its original source.
+The same M5 Max reportedly ran faster as its manual memory target increased
+beyond auto. This is positive evidence that a larger allocation can help;
+the conservative development-Mac default is not established as the best
+tradeoff on that machine. The public tables and memory FAQ now make this
+scope explicit. Runtime defaults remain unchanged, pending qualification of
+a hardware-specific allocation policy. No new model run was performed.

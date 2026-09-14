@@ -122,6 +122,9 @@ public final class NgramStore {
     public var ringEvictionOrder = false {
         didSet { if oldValue != ringEvictionOrder { clearRows() } }
     }
+    /// Per-request reset for the Expert Lookahead teacher: drops cached rows
+    /// and any lookahead ticket, never model values. Between requests only.
+    package func diagnosticClearRows() { clearRows() }
     private func clearRows() {
         invalidateLookahead()
         cache.removeAll(); compactCache.removeAll(); cacheOrder.removeAll(); ringOrder.removeAll()

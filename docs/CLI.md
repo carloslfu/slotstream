@@ -46,7 +46,7 @@ Generate once from a prompt, with no server.
 | Flag | Meaning |
 |---|---|
 | `--prompt <text>` | The prompt (default: "Why is the sky blue?"). |
-| `--max-context <n>` | Window shared by the final templated input and reply; uses the same planning and bounds as `serve`. |
+| `--max-context <auto or n>` | Window shared by the final templated input and reply. Default `auto`; the same planning and bounds as `serve`. |
 | `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including preparation. Default 30 minutes; `0` disables only the time policy. |
 | `--max-tokens <n>` | Tokens to generate; `<= 0` means as many as the context allows (default 128). |
 | `--greedy` | Deterministic greedy sampling. |
@@ -64,7 +64,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 | Flag | Meaning |
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
-| `--max-context <n>` | Maximum tokens shared by prompt and reply. Default: 32768; ceiling: 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Context state uses about 27 KiB per token. |
+| `--max-context <auto or n>` | Maximum tokens shared by prompt and reply. Default `auto`: the largest of 32768, 65536, 131072 and 262144 tokens that keeps speculative decoding, retains one complete conversation and adds at most 10% to a typical request on this Mac; `doctor` shows the choice. A number fixes the window, from 1 to 262144, the model's limit. Requests with images stay within 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Main sequence-cache capacity costs about 27 KiB per token, plus recurrent, retained, draft and transient allocations. |
 | `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
@@ -100,17 +100,18 @@ never loads the model and can run while the server is working.
 
 | Flag | Meaning |
 |---|---|
-| `--sim-ram <gb>` | Preview a Mac with this much RAM. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
+| `--sim-ram <gb>` | Preview this much RAM in decimal GB. Simulates memory capacity, not another chip or SSD. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
 | `--sim-working-set <gb>` | Use this Metal working-set limit in the simulation. |
 | `--sim-available <gb>` | Use this much available memory in the simulation. |
-| `--max-context <n>` | Preview the same allocation and report the largest memory-feasible window under these inputs. |
+| `--max-context <auto or n>` | Default `auto` reports the automatic window, every candidate and the reason it was or wasn't taken. A number previews that window's allocation and reports the largest memory-feasible window under these inputs. |
 | `--max-prefill-wait <minutes>` | Preview the request deadline separately from memory feasibility; default 30 minutes, `0` disables only time. |
-| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
+| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`), plus `context_window_source` and, in auto mode, `automatic_context_window`. |
 
 Plus the memory options, so `doctor --memory-gb 16` shows exactly what
-`serve --memory-gb 16` would do. The report ends with the wait before the
-first token by prompt length at that plan, and the tier table carries the
-wait for a prompt filling the whole context.
+`serve --memory-gb 16` would plan under the same conditions. Its estimated
+prefill times use M5 Pro measurements; they exclude startup, queueing,
+image preparation and reasoning before visible answer text. The full-window
+estimate is a planning reference; actual requests also need room for a reply.
 
 ### `slotstream context-check`
 
@@ -147,18 +148,18 @@ does not make that window supported by `serve` or `run`.
 ## Memory options
 
 Shared by `run`, `serve`, `doctor`, and every check that loads the model.
-With none of them, auto sizes the process to the machine (see the README's
-Memory section).
+With no sizing override, auto sizes the process to the machine (see
+[memory defaults](../README.md#why-doesnt-slotstream-use-all-of-my-ram)).
 
 | Flag | Meaning |
 |---|---|
 | `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
-| `--memory-gb <gb>` | Total process memory target, in decimal GB. The cache gets what remains after fixed allocations and a 1 GB margin. Minimum 8.1 for the default context; larger context windows raise the minimum. Use this option for a manual target. |
+| `--memory-gb <gb>` | Total process memory target, in decimal GB. The cache gets what remains after fixed allocations and a 1 GB margin. Minimum 8.1 for the 32,768-token window; larger windows raise the minimum. Use this option for a manual target. Auto still picks the context window inside this target unless `--max-context` is given; add `--max-context 32768` to reproduce a plan from before 0.2.17. |
 | `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
 | `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |
 | `--vision auto\|on\|off` | Accept images (default `auto`). `auto` loads the image encoder on first use; `on` also requires the checkpoint to contain vision weights; `off` rejects images. |
 | `--mtp auto\|on\|off` | Speculative decode (default `auto`); see [Speculative decode](#speculative-decode). |
-| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Lowers the target for other apps; cannot raise it past the ~33 GB ceiling. Ignored when an explicit size is given. |
+| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Cannot raise it past the 33 GB base ceiling plus any enabled draft-head and draft-context charges. Ignored when an explicit size is given. |
 
 Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
 which beats `--memory-gb`. An explicit size keeps its expert-pool policy. Physical headroom is still
@@ -195,7 +196,8 @@ runtime state and n-gram rows, bounded prompt-read grouping, committed prompt
 checkpoints, bounded output buffering and memory-governor response. Long
 prompt grouping is admitted only when its additional workspace fits; ordinary
 chronological passes remain the fallback. Explicit prefill and optimization
-controls retain their precedence and validation.
+controls retain their precedence and validation. With the draft head, the
+[decode lookahead](#decode-lookahead) is on by default too.
 
 Prompt checkpoints help only when the token and image history actually
 matches. Use `--no-prefix-cache` for comparisons that require fresh prompt
@@ -210,11 +212,11 @@ conditional. Enabling every switch is not the selected configuration.
 report the tested workloads and limits; [the unified plan](../PLAN.md) retains
 the disposition of each candidate.
 
-The automatic ceiling is an intentional default for this model, based on the
-best speed/memory tradeoff supported by development-Mac measurements so far.
-It is separate from the RAM-share and physical-memory bounds. Defaults can
-change as comparable real measurements justify better choices; extra RAM
-alone is not evidence that the current choice is wrong. See
+The automatic ceiling is a conservative default based on development-Mac
+measurements, separate from RAM-share and physical-memory bounds. The
+[M5 Max community sweep](HARDWARE.md#does-more-memory-help) demonstrates gains
+from larger manual targets; auto is not calibrated to every hardware profile.
+See
 [why auto retains a ceiling](ENGINEERING.md#memory) and the
 [operating-policy contract](../db/records/design/measured-operating-policies.md).
 
@@ -228,12 +230,15 @@ alone is not evidence that the current choice is wrong. See
 | `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Fixes parallel connections, capped at 32; the CLI flag takes precedence. |
 | `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
 | `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
-| `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12; measured flat from 12 to 32, worse above). |
+| `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12). The development-Mac sweep found little benefit from 12 to 32; other SSDs and workloads can differ. |
 | `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32): the sweep's group size on a pass of 256 tokens or more, the pool's load slice below that. Bounds peak memory on long prompts. |
-| `SLOTSTREAM_SWEEP` | engine | `0` runs every prefill pass through the slot pool the way 0.2.2 and earlier did, instead of the sweep. A/B work only; slower. |
+| `SLOTSTREAM_SWEEP` | engine | `0` selects the older pool path instead of the prefill sweep when ordinary prefill is used. A/B work only; slower in the recorded development-Mac comparisons. Other optimization controls can select a different qualified path. |
 | `SLOTSTREAM_SWEEP_ADMIT` | engine | `0` stops the last pass of a prompt from admitting the prompt's hottest experts into the pool, so decode starts cold. A/B work only. |
 | `SLOTSTREAM_SWEEP_TRACE` | engine | `1` prints, after each prefill, where the sweep's time went: reads, waiting for the GPU, sorting rows, copies out of the pool, and MLX's peak and cache. |
 | `SLOTSTREAM_PREFILL_CACHE_MB` | engine | MLX buffer-cache cap while a prompt is read. The plan sets 512 at targets of 12 GB and under (the sweep's varying array sizes otherwise fill the 2 GB cache, 1.7 GB of peak at the floor) and no cap above, where it costs ~6% of prefill; this forces a value at any target. |
+| `SLOTSTREAM_OPT_EXPERT_PREFETCH` | engine | `0` turns off the decode lookahead and its 373 MiB charge. `1` selects an experimental prefetch configuration from the `SLOTSTREAM_EXPERT_PREFETCH_*` tuning variables instead; for comparisons only. |
+| `SLOTSTREAM_OPT_ROUTER_WEIGHTS` | engine | `0` or `1` overrides the FP32 router weight cache that the decode lookahead turns on. |
+| `SLOTSTREAM_DECODE_BARRIER_LAYERS` | engine | Layers between GPU drains, 1…48. The decode lookahead uses 4; `1` drains after every layer. A pass that could not keep that many layers of experts pinned drains after every layer anyway. |
 | `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
 | `SLOTSTREAM_RELEASE_BASE` | installer | Fetch the release from another base URL (CI uses it to test unpublished builds). |
 
@@ -275,10 +280,16 @@ See [Testing](TESTING.md) for the full suites.
   model's draft head, `mtp.safetensors`, which `pull` fetches with the
   weights. The file is optional; downloads can complete without it. `on`
   without the file is an error; `auto`, the default, turns it on when the
-  cache still reaches 120 experts per layer after the head's 1.6 GB (a 28 GB
-  target). This conservative activation floor is separate from draft depth.
-  The historical one-draft measurement at that size was ×1.24 decode;
-  MEASUREMENTS.md M9 preserves its configuration, ladder and ceiling.
+  cache reaches 76 experts per layer after the head's 1.6 GB and context
+  charges, before the separate lookahead reservation. A 21 GB target qualifies
+  at the default context; actual availability and the selected window can
+  keep the head off on a larger Mac. Before 0.2.16 the floor
+  was 120; two drafts later measured 31.7% faster than plain decode on the same
+  memory at 76 per layer
+  ([decision](../db/records/decisions/draft-head-auto-floor-76-per-layer.md)).
+  The floor is separate from draft depth. The historical one-draft measurement
+  at the former 28 GB memory target was ×1.24 decode; MEASUREMENTS.md M9
+  preserves its configuration, ladder and ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
@@ -290,3 +301,21 @@ See [Testing](TESTING.md) for the full suites.
   back to the default. See the [decision and evidence](../db/records/decisions/draft-depth-defaults-to-two.md).
   This changes draft depth when MTP is enabled, not the automatic activation
   floor or the RAM-share default.
+
+### Decode lookahead
+
+From 0.2.16 the decode lookahead runs by default with the draft head when
+the cache reaches the same 76-per-layer floor before the lookahead's own
+reservation. The final printed cache can therefore be smaller. After each layer, the
+engine runs the router of the layer two ahead on the current hidden state and
+reads the experts it picks from the SSD straight into cache slots, before that
+layer asks for them. It also keeps FP32 copies of the router weights and drains
+the GPU every four layers instead of every layer. Output is unchanged.
+
+The memory plan charges 373 MiB for it before sizing the expert cache, and
+`doctor` prints `lookahead: on`. On twelve held-out prompts at a 20 GB target
+with two drafts, decode was 1.11x faster than without it. A head forced onto a
+smaller cache runs without it. `SLOTSTREAM_OPT_EXPERT_PREFETCH=0` turns it off,
+and the two variables above override its router cache and drain period. The
+[decision](../db/records/decisions/decode-lookahead-default-with-the-draft-head.md)
+records the evidence and limits.

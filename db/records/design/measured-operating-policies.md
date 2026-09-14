@@ -3,7 +3,7 @@ type: design
 meta-type: conclusion
 id: 01m246aw461nyrejaspmzhxkms
 created: 2026-09-09T22:59:04.454986+00:00
-updated: 2026-09-11T17:03:43.083129+00:00
+updated: 2026-09-13T16:42:28.644477+00:00
 summary: Measured operating policies and revision criteria
 date: 2026-09-09
 doc: plan
@@ -55,3 +55,26 @@ Keep code comments, CLI help/diagnostics, policy checks, canonical decisions/cla
 ## Functional memory acceptance and benchmark eligibility
 
 Global macOS paging is diagnostic for ordinary correctness, context-capacity and process-budget acceptance. It cannot attribute system activity to Slotstream. Keep process ceilings, real headroom, OS pressure handling, allocation safeguards and complete numerical/work checks; report paging separately. Performance comparisons retain declared clean-interval rules, and historical frozen results stay unchanged. The controlling decision is [[records/decisions/global-paging-is-diagnostic]].
+
+## Public claim review
+
+Claim-text gates detect stale phrases, not unsupported implications. Review
+supporting sources and supersession notes before changing a public claim's
+scope. Keep hardware, release, workload, total-process target, measured
+quantity and comparison baseline together. An estimate is labeled where it
+appears, including a table cell; capped extrapolation does not establish a
+physical plateau. Simulated capacity is not hardware qualification, a version
+bump is not publication, and a cache-only equality test does not cover changed
+prefill grouping or speculative decoding. Preserve legitimate historical
+results with their dates and limits instead of discarding an entire record
+when only one of its measurements was withdrawn.
+
+The documented correction and its verification are in
+[[records/measurements/public-documentation-evidence-audit-2026-09-13]].
+
+Best-effort public estimates may combine incomplete evidence when useful to
+users. Give their construction and assumptions, separate actual measurements,
+and state when a configuration is transferred to unmeasured hardware. Do not
+present an editorial range as a calibrated confidence interval or speed bound.
+[[records/measurements/hardware-planning-ranges-2026-09-13]] records the memory
+range example and its revision conditions.

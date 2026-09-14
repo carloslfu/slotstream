@@ -133,6 +133,32 @@ package final class PackedExpertLayout {
     package func checkUnchanged() throws {
         guard try Stamp(fd: fd) == stamp else { throw ModelError("packed expert payload changed after verification") }
     }
+    /// One piece of one record for a speculative worker. Same stamp check
+    /// and fault seam; never mutates reader state on failure.
+    package func readPiece(_ key: ExpertKey, piece: Int, into destination: UnsafeMutableRawPointer) throws {
+        guard piece >= 0, piece < manifest.pieces.count,
+            (0..<manifest.layers).contains(key.layer), (0..<manifest.experts).contains(key.expert)
+        else { throw CheckpointReadError.invalidRange }
+        try readFault?.beforeRead()
+        var offset = (key.layer*manifest.experts+key.expert)*recordBytes
+        for p in 0..<piece { offset += manifest.pieces[p] }
+        try Self.read(fd,into: destination,offset: offset,count: manifest.pieces[piece])
+        try checkUnchanged()
+    }
+    /// One complete record for a speculative worker, in a single read. A record
+    /// is one contiguous range here, so nine piece reads and one record read move
+    /// exactly the same bytes; the single read pays the per-call cost once instead
+    /// of nine times. The caller owns a record-sized destination and splits it into
+    /// pool pieces itself, which is what the demand path in `readBatch` already does.
+    package func readRecord(_ key: ExpertKey, into destination: UnsafeMutableRawPointer) throws {
+        guard (0..<manifest.layers).contains(key.layer), (0..<manifest.experts).contains(key.expert)
+        else { throw CheckpointReadError.invalidRange }
+        try readFault?.beforeRead()
+        try Self.read(fd,into: destination,
+            offset: (key.layer*manifest.experts+key.expert)*recordBytes,count: recordBytes)
+        try checkUnchanged()
+    }
+
     /// Caller owns all output columns and discards them if any worker fails.
     /// Every worker joins before scratch is released or the error propagates.
     package func readBatch(_ keys: [ExpertKey], buffers: [UnsafeMutableRawPointer], queueDepth: Int) throws {

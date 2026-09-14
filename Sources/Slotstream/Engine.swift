@@ -129,7 +129,8 @@ public final class Engine {
                     prefixCacheTokens: capped, mtpEnabled: p.mtpEnabled, visionEnabled: p.visionEnabled,
                     visionResidentReserved: p.visionResidentReserved, maxContextTokens: newValue,
                     notes: p.notes, runtimeAllocationPolicy: p.runtimeAllocationPolicy,
-                    maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification))
+                    maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification,
+                    lookaheadReserveBytes: p.lookaheadReserveBytes, decodeLookahead: p.decodeLookahead))
             }
         }
     }
@@ -306,6 +307,29 @@ public final class Engine {
         self.modelName = "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index = try CheckpointIndex(dir: modelDir)
+        // Expert Lookahead: an explicitly requested pack is validated against
+        // the checkpoint geometry before the model allocates anything. A plan
+        // made without the reserve cannot load a prefetch-enabled engine. With
+        // no explicit prefetch switch, a plan that chose the decode lookahead
+        // gets exactly the qualified configuration.
+        let processEnvironment = ProcessInfo.processInfo.environment
+        let qualifiedLookahead = plan?.decodeLookahead == true
+            && !ExpertPrefetchConfiguration.explicitlyConfigured(processEnvironment)
+        let prefetchConfiguration = qualifiedLookahead
+            ? ExpertPrefetchConfiguration.qualifiedDecode
+            : try ExpertPrefetchConfiguration.environment(optimizations: InferenceOptimizations.environment())
+        var predictor: ExpertPredictor? = nil
+        if prefetchConfiguration.active {
+            guard plan == nil || (plan?.lookaheadReserveBytes ?? 0) >= prefetchConfiguration.reserveBytes else {
+                throw SlotstreamError.invalidPlan("expert prefetch needs a plan that charged its lookahead reserve")
+            }
+            // The recent-routes and router-reuse policies load no pack; the
+            // router policy's only resident bytes are the staging cap.
+            if prefetchConfiguration.policy != .recent, prefetchConfiguration.policy != .router {
+                predictor = try ExpertPredictor(packPath: prefetchConfiguration.packPath ?? "",
+                    cfg: index.config, device: prefetchConfiguration.device)
+            }
+        }
         self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots)
         self.responsiveGovernor = model.optimizations.responsiveGovernor
         try model.validate()
@@ -317,6 +341,43 @@ public final class Engine {
             try model.enableMTP(modelDir: modelDir)
         }
         self.generator = Generator(model: model)
+        if prefetchConfiguration.active {
+            if model.mtpHead == nil {
+                // The qualified mode is MTP text decode. Without the draft
+                // head there are no start features; ordinary demand loading
+                // stays in force and the bypass is announced, not hidden.
+                FileHandle.standardError.write(
+                    "[expert-lookahead] prefetch requested without the MTP draft head; ordinary demand loading stays active\n"
+                        .data(using: .utf8)!)
+            } else {
+                let scheduler = ExpertPrefetchScheduler(store: model.pool.expertStore, pool: model.pool,
+                    configuration: prefetchConfiguration, predictor: predictor,
+                    layers: model.runLayers, experts: model.cfg.numExperts)
+                let resident = (predictor?.residentBytes ?? 0) + scheduler.accounting.capBytes
+                guard resident <= prefetchConfiguration.reserveBytes else {
+                    throw SlotstreamError.invalidPlan(
+                        "expert lookahead needs \(resident) bytes (pack plus \(prefetchConfiguration.capRecords) staging records) but only \(prefetchConfiguration.reserveBytes) are reserved; lower SLOTSTREAM_EXPERT_PREFETCH_CAP or raise SLOTSTREAM_EXPERT_LOOKAHEAD_RESERVE_MIB")
+                }
+                if prefetchConfiguration.adoption == .slot { model.pool.attachSpeculativeSlots(to: scheduler) }
+                let session = ExpertLookaheadSession()
+                session.prefetch = scheduler
+                model.lookahead = session
+                if qualifiedLookahead {
+                    // The rest of the qualified configuration. An explicit
+                    // environment value for either part still wins.
+                    if processEnvironment["SLOTSTREAM_OPT_ROUTER_WEIGHTS"] == nil {
+                        model.optimizations.cachedRouterWeights = true
+                    }
+                    if Qwen4ExpModel.environmentBarrierLayers == nil {
+                        model.decodeBarrierLayers = DecodeLookahead.barrierLayers
+                    }
+                }
+                // The plan banner already announces the default; describe only experiments.
+                if !qualifiedLookahead { FileHandle.standardError.write(
+                    "[expert-lookahead] \(prefetchConfiguration.shadow ? "shadow" : "prefetch") mode, policy \(prefetchConfiguration.policy.rawValue), cap \(prefetchConfiguration.capRecords) records, \(prefetchConfiguration.lanes) lanes, window \(prefetchConfiguration.windowLayers), top \(prefetchConfiguration.topPerLayer)\(prefetchConfiguration.policy == .router ? ", strides \(prefetchConfiguration.strides.map(String.init).joined(separator: ",")), issue cap \(prefetchConfiguration.issueCapPerTarget), memo layers \(prefetchConfiguration.memoLayers)" : ""), adoption \(prefetchConfiguration.adoption.rawValue)\(prefetchConfiguration.adoption == .slot ? " (slot cap \(prefetchConfiguration.slotCap))" : "")\n"
+                        .data(using: .utf8)!) }
+            }
+        }
         if let p = plan, p.runtimeAllocationPolicy != nil {
             generator.setPrefillBudgetCeiling(p.prefillChunk)
             generator.prefillChunk = p.prefillChunk

@@ -18,6 +18,17 @@ that names the surfaces it is on. `MEASUREMENTS.md` and `PLAN.md` are generated
 from those records by `Tools/projections.py`, so edit the record, not the
 document; `Tools/brain_gates.sh` runs the checks and `db/DB.md` has the rules.
 
+Review the meaning of each claim as well as its text. The claim gate checks
+that a phrase remains on its declared pages; it does not prove that the
+supporting experiment justifies the surrounding sentence or table row.
+Keep the hardware, release, workload, memory target and comparison baseline
+with performance results. Label simulations and estimates where they appear.
+An estimator that stops extrapolating does not establish a performance
+ceiling. A cache-only equality result does not cover changes to prefill or
+speculative decoding. Check community reports and supersession notes before
+generalizing a development-machine result, and update every public projection
+when the interpretation changes.
+
 ## Defaults and limits carry engineering judgment
 
 For important tuning values, follow the [measured operating policies](db/records/design/measured-operating-policies.md).

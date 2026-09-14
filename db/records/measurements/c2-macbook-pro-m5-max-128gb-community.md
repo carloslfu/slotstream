@@ -2,7 +2,7 @@
 type: measurement
 id: 01m21s4mwbesh3n1crrvh7t7dz
 created: 2026-09-09T00:30:00.075414+00:00
-updated: 2026-09-09T00:30:00.075414+00:00
+updated: 2026-09-13T14:28:43.247143+00:00
 summary: 'C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)'
 date: 2026-09-03
 doc: measurements
@@ -37,9 +37,44 @@ speculative decoding. Two longer warm runs returned 22.83 and 22.10 tok/s.
 The current surface uses the reported range instead of a best run.
 
 The report's prefill and peak figures were planner estimates, not measured
-long-prompt speed or process RSS. Keep both columns unmeasured. Cache-size
-sweeps in the source use manual settings and are not the automatic result.
+long-prompt speed or process RSS. Keep both columns unmeasured. The manual
+cache-size sweep is reported separately below so its gains are visible
+without attributing them to automatic sizing.
 
 This is one community report, not an independent rerun or a comparison made
 under the same conditions as the M5 Pro and M2 measurements. It supports a
 machine-specific row, not a promise for all Macs with that memory capacity.
+
+## Larger-cache results surfaced on 2026-09-13
+
+Rechecked issue #6 and its follow-up through the live GitHub API on
+2026-09-13. The existing immutable source already preserves the complete
+sweep. The public tables had retained only auto, omitting evidence that more
+allocated memory helped on this same machine.
+
+| Total-process target | Experts per layer, as reported | Slotstream 0.2.3 warm decode |
+|---|---|---|
+| 34.6 GB (auto) | ~152 | ~21–22 tok/s |
+| 48 GB (manual) | ~253 | ~26.9 tok/s |
+| 73 GB (manual) | ~401–441 | ~31.5 tok/s |
+
+All rows are the same 128 GB M5 Max, internal 2 TB SSD, with speculative
+decoding enabled. Targets are decimal GB budgets, not observed peaks or
+requirements for installed memory. Preserve the reporter's approximate
+expert-count range rather than replace it with today's planner output.
+The original 0.2.1 sweep also reported gains at larger targets; the current
+public comparison uses only the follow-up's 0.2.3 values.
+
+This within-machine comparison is evidence of a benefit from increasing the
+memory target, beyond the different-chip comparison against the M5 Pro.
+The manual rows are approximate summaries without the individual repeated
+request timings supplied for auto. They are not an independently reproduced,
+interleaved benchmark or a universal throughput curve. No new process-memory,
+long-context, correctness, or 0.2.16 performance qualification is established.
+Do not multiply these figures by the development Mac's later release speedup.
+
+The README's earlier flat 13.5 tok/s values extrapolated the *scope* of a
+20 GB-target development-Mac measurement while holding its numerical value
+constant. Replace them with named measured configurations and explicit gaps.
+Retaining the conservative automatic target does not negate this community
+result or establish an optimum on larger Macs.

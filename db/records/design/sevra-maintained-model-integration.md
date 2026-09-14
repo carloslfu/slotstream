@@ -2,7 +2,7 @@
 type: design
 id: 01m21xw595ac9n303q61m8kvtq
 created: 2026-09-09T01:52:44.837037+00:00
-updated: 2026-09-09T01:52:44.837037+00:00
+updated: 2026-09-13T16:46:13.392450+00:00
 summary: 'Sevra integration: versioned hardware/model profiles, full-stack qualification, maintained updates and documentation tied to implementation.'
 date: 2026-09-08
 doc: plan
@@ -54,3 +54,11 @@ describe the product direction only with the app's in-development status.
 
 This section specifies engine/product integration constraints. It is not an
 implementation receipt, a model selection, a benchmark win or a binary release.
+
+## Compatibility-tier support, September 13, 2026
+
+Carlos requested that the public memory table state that Compatibility-tier
+support is coming soon. README.md, the hardware guide and llms.txt now carry
+that roadmap status while retaining the current model limitation. The present
+8 GB plan still does not fit; no runtime support, selected future model,
+release date or performance result is established by this wording change.

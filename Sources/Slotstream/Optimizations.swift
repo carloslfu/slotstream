@@ -74,6 +74,11 @@ public struct InferenceOptimizations: Codable, Equatable {
     /// Retain the complete committed prompt and its raw last logits. This is
     /// independently qualified before joining integrationCandidate.
     public var completePromptCheckpoint = false
+    /// Expert Lookahead raw-staging prefetch (experimental, off by default).
+    /// `expertPrefetchShadow` runs forecasts without reads to price overhead.
+    /// Optional so control sets saved before the experiment decode unchanged.
+    public var expertPrefetch: Bool? = nil
+    public var expertPrefetchShadow: Bool? = nil
 
     public var readScopeEnabled: Bool {
         readScopeTokens > 0 && layerExpertWorkspace && compactStateWindows
@@ -194,6 +199,11 @@ public struct InferenceOptimizations: Codable, Equatable {
             result.prefixCheckpointTokens = n
         }
         result.cachedRouterWeights = try flag("SLOTSTREAM_OPT_ROUTER_WEIGHTS", fallback: result.cachedRouterWeights)
+        result.expertPrefetch = try flag("SLOTSTREAM_OPT_EXPERT_PREFETCH", fallback: result.expertPrefetch ?? false) ? true : nil
+        result.expertPrefetchShadow = try flag("SLOTSTREAM_OPT_EXPERT_PREFETCH_SHADOW", fallback: result.expertPrefetchShadow ?? false) ? true : nil
+        guard !(result.expertPrefetch == true && result.expertPrefetchShadow == true) else {
+            throw ModelError("EXPERT_PREFETCH and EXPERT_PREFETCH_SHADOW are mutually exclusive")
+        }
         let visionPaddingKey = "SLOTSTREAM_OPT_VISION_PADDING"
         recognized.insert(visionPaddingKey)
         if let value = env[visionPaddingKey] {

@@ -32,38 +32,136 @@ as Hermes. Developers can connect their own apps through its APIs or Swift libra
 
 ## Will it run on my Mac?
 
-You need an **Apple Silicon Mac, macOS 14 or later, and about 110 GB of free
-SSD space**. Choose Apple menu → About This Mac to check your chip and memory.
+You need an **Apple Silicon Mac with at least 16 GB of memory, macOS 14 or
+later, and about 110 GB of free SSD space**. Choose Apple menu → About This Mac
+to check your chip and memory.
 
-Smaller Macs can run the model too, but speed depends on the chip, SSD, and
-available memory. An 8 GB Mac needs swap and can slow down the whole computer.
-The installer has been tested on macOS 14 and 15; model runs have been tested
-on macOS 26. Windows, Linux, and Intel Macs are not currently supported.
+On an 8 GB Mac even the smallest memory plan doesn't fit, so Slotstream refuses
+to start instead of swapping. On larger Macs, speed depends on the chip, SSD,
+and available memory. The installer has been tested on macOS 14 and 15; model
+runs have been tested on macOS 26. Windows, Linux, and Intel Macs are not
+currently supported.
 
 ## Speed
 
+`tok/s` means tokens per second; a token is a small piece of text, often part
+of a word. Speeds describe replies after the model has warmed up.
+
+**The decode lookahead introduced in 0.2.16 measured 1.11x faster decode.**
+It predicts which parts of the model the next layers will need and reads them
+from the SSD before they're requested, keeps a faster copy of the routing
+weights, and waits for the GPU less often. On prompts it was never tuned on,
+the development Mac went from 11.79 to 13.47 tok/s at a 20 GB memory target,
+with identical output. Both configurations used speculative decoding. These
+are pre-release benchmark results for the configuration shipped in 0.2.16;
+the [latest published release](https://github.com/carloslfu/slotstream/releases/latest)
+determines what the installer downloads.
+
+<a id="speed-by-memory"></a>
+<a id="speed-by-mac-memory"></a>
+
+### Estimated speed by memory
+
+These are rough planning ranges, combining community reports with estimates
+from the development Mac. They describe warm replies across different Macs
+and settings, with higher speeds generally requiring a faster chip and SSD.
+
+| Memory tier | Installed RAM | Estimated warm reply speed | Automatic context window |
+|---|---|---|---|
+| Compatibility | 8 GB | **Support coming soon.** The current model doesn't fit yet. | Not available yet |
+| Low | 16–<24 GB | ~1–6 tok/s | 32,768 tokens |
+| Medium | 24–<48 GB | ~6–14 tok/s | 32,768 through 32 GB; 65,536 from 36 GB |
+| High | 48–<96 GB | ~13–27 tok/s | 65,536 at 48 GB; 131,072 at 64 GB |
+| Ultra | 96 GB+ | ~20–32 tok/s | 262,144 tokens, the model's full window |
+
+The High range now uses our latest **13.47 tok/s measured on a 48 GB M5 Pro**
+as its lower reference, rounded to a whole token for the estimate. Older
+chips and slower SSDs can fall below it.
+
+**The upper ends of High and Ultra assume an M5 Max-class chip, a fast
+internal SSD and a larger manually selected memory target.** Auto mode keeps
+a conservative ceiling, so extra installed RAM alone may leave the target
+unchanged. The High upper estimate transfers the 128 GB M5 Max's 48 GB
+target result to a comparable Mac with enough available memory; that smaller
+Mac has not been benchmarked. Ultra is based on the same M5 Max's auto-to-73 GB
+target sweep. Slower chips, other workloads or memory pressure can put a Mac
+outside these ranges. These are estimates, not measured limits or statistical
+confidence intervals. See the [estimate basis](docs/HARDWARE.md#planning-ranges)
+and the actual results below.
+
+### Measured on real Macs
+
 These reply speeds were measured on real Macs after the model warmed up.
-`tok/s` means tokens per second; a token is a small piece of text, often
-part of a word.
+Chip, SSD, workload, release and memory target all affect speed. Installed
+RAM alone doesn't define a performance tier.
 
-| Mac | Memory | Reply speed |
-|---|---|---|
-| MacBook Pro, M5 Pro | 48 GB | ~12 tok/s |
-| Mac mini, M2 (base storage) | 16 GB | 1.41 tok/s |
-| MacBook Air, M5 | 32 GB | 6.22 tok/s |
-| MacBook Pro, M5 Max | 128 GB | ~21–22 tok/s |
+| Mac | Installed RAM | Slotstream | Process memory target | Warm reply speed |
+|---|---|---|---|---|
+| Mac mini, M2 (base storage) | 16 GB | 0.2.2 | 10.2 GB (auto) | 1.41 tok/s |
+| MacBook Air, M5 | 32 GB | 0.2.11 | 22 GB | 6.22 tok/s |
+| **MacBook Pro, M5 Pro (our development Mac)** | **48 GB** | 0.2.16 configuration, pre-release benchmark | 20 GB | **13.47 tok/s** |
+| Same M5 Pro, historical result | 48 GB | 0.2.3 | 33 GB (auto) | ~12 tok/s |
+| MacBook Pro, M5 Max | 128 GB | 0.2.3 | 34.6 GB (auto) | ~21–22 tok/s |
+| Same M5 Max | 128 GB | 0.2.3 | 48 GB (manual) | ~26.9 tok/s |
+| Same M5 Max | 128 GB | 0.2.3 | 73 GB (manual) | ~31.5 tok/s |
 
-The M5 Pro is the development Mac; the other rows are community reports.
+Our latest M5 Pro result is the median across eligible runs in a held-out
+comparison (34 of 36 pairs eligible), with two speculative drafts and decode
+lookahead. The other Macs are community reports.
 They use different releases and settings, including speculative decoding on
 the M5 Max. See [hardware results and test conditions](docs/HARDWARE.md) for
-credits, methods, and separate estimates for other Macs.
+credits and methods. The two M5 Pro rows also change software and settings,
+so they do not isolate the effect of memory.
+
+**A larger memory target can improve speed.** The M5 Max figures come from
+the [same machine with speculative decoding enabled](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176).
+Its targets are total-process budgets in decimal GB, separate from the Mac's
+installed memory. Those community results have not been independently rerun
+or remeasured on 0.2.16, and are not predictions for every Mac with that much RAM.
+
+The 13.47 tok/s M5 Pro result is a measured reference, not a speed ceiling
+for larger Macs. The [hardware guide](docs/HARDWARE.md#speed-estimates) lists
+the automatic plans and remaining estimate limits. See
+[memory defaults and overrides](#why-doesnt-slotstream-use-all-of-my-ram)
+to try a larger cache.
+
+### Memory and context
+
+An 8 GB Mac cannot fit the model's smallest plan. More RAM can leave room
+for a larger expert cache or conversation, subject to the engine's limits
+and the memory available while other apps are running.
+
+**Auto mode picks the memory target, cache size, speculative decoding and
+context window for your Mac.** It takes the largest window of 32,768, 65,536,
+131,072 or 262,144 tokens that keeps speculative decoding, keeps one complete
+conversation ready for follow-up turns, and adds at most a tenth to the
+planner's estimate for a typical request. In decimal-GB simulations that is
+32,768 tokens through 32 GB, 65,536 from 36 GB, 131,072 at 64 GB and the
+model's full 262,144 from 96 GB. Available memory, the Metal limit and
+draft-head availability can change the result. A Mac that is busy at startup
+gets a smaller window rather than losing speculative decoding. Run
+`slotstream doctor` to see the choice and why each larger window was or wasn't
+taken, and see the [hardware guide](docs/HARDWARE.md#automatic-memory-plans)
+for every plan.
+
+**You can set the window yourself.** `--max-context 65536` fixes a
+65,536-token window, and any size up to 262,144 is accepted. A larger window
+reserves more memory, which can shrink the expert cache, and a long prompt
+takes longer to read. Requests with images use at most 65,536 tokens.
+For prompts near 32,768 tokens, the M5 Pro-based estimate is about 3 minutes
+of prefill for simulated plans from 24 GB; near 65,536 it is about 8 minutes.
+Windows above 128,256 tokens have no calibrated estimate yet. On the
+development Mac, a full 131,072-token prompt took 38 minutes to read at a
+16 GB target.
+These are estimated prompt-processing times, not measured waits across Macs;
+startup, queueing, images and reasoning before visible answer text can add time.
 
 **Starting a reply takes additional time.** Slotstream must first process
 your question and conversation history. Long prompts can take minutes;
 follow-up turns can reuse unchanged history. Terminal shows progress while
 you wait.
 
-The latest optimization work improves prompt reuse and reduces runtime memory.
+The 0.2.14 optimization work improves prompt reuse and reduces runtime memory.
 The [integrated measurements](MEASUREMENTS.md#final-integrated-optimization-results)
 separate time to the first token, sustained generation, and process memory.
 The benefit depends on your workload; sustained generation did not improve
@@ -143,7 +241,8 @@ covers the implementation.
 
 - **One generation at a time:** connected apps share the same running model.
 - **Conversation length is limited:** longer histories take more memory and
-  time. The Hermes guide includes the larger conversation window it needs.
+  time. [Speed by Mac memory](#speed-by-memory) recommends a window for each
+  memory size, and the Hermes guide includes the larger window it needs.
 - **Testing:** image input and tool calling have
   integration tests, but there is no broad image-accuracy benchmark or
   completed comparison with other models on the same Mac.
@@ -169,12 +268,17 @@ their settings determine what those tools send.
 
 ### Why doesn't Slotstream use all of my RAM?
 
-Auto intentionally caps the total memory target at **33 GB**, or **34.6 GB**
-with speculative decoding enabled, even on larger Macs. This is our current
-best-supported balance of speed and memory use for this model: tests on the
-development Mac showed diminishing speed gains from a larger expert cache.
-We'll adjust the default as real measurements across hardware and workloads
-show a better tradeoff. More allocated RAM does not guarantee more speed.
+Auto has a **33 GB** base memory ceiling, or **34.6 GB** with speculative
+decoding at the 32,768-token window. The larger windows auto picks from 36 GB
+add their own context state and retained conversation, so that ceiling can
+rise. RAM-share and available-memory bounds still
+apply. This conservative default comes from the development Mac's measurements
+and leaves memory for
+other apps. It is not a limit on how much memory can improve performance:
+the [M5 Max cache sweep](docs/HARDWARE.md#does-more-memory-help) reports faster
+replies with larger targets. How much a larger cache helps depends on the
+chip, SSD, workload and settings; the automatic policy has not yet been
+qualified across those configurations.
 
 If your Mac has spare memory, you can try a larger target. Stop any running
 server, then preview this example without loading the model:
@@ -282,10 +386,11 @@ SSD space**. Choose Apple menu → About This Mac to check your chip and memory.
 The installer has been tested on macOS 14 and 15; runtime testing so far is
 on macOS 26.
 
-Macs with less memory run more slowly. An 8 GB Mac needs swap, which uses disk
-space as extra memory and can slow down the whole computer. See the
-[hardware guide](HARDWARE.md) for measurements from real Macs and estimates
-for other memory sizes.
+Slotstream needs a Mac with at least 16 GB of memory. On an 8 GB Mac even the
+smallest memory plan doesn't fit, so it refuses to start instead of swapping.
+Less available memory can reduce the expert cache and slow replies; the chip,
+SSD and workload also matter. See the [hardware guide](HARDWARE.md)
+for measurements from real Macs and estimates for each memory size.
 
 Slotstream currently runs one model, Qwen3.8-Flash-Next, on Apple Silicon.
 Windows, Linux, and other models are not supported by the current engine.
@@ -454,13 +559,17 @@ On the 48 GB M5 Pro:
 | Measurement | Result |
 |---|---|
 | Reply generation after the cache warms up | ~12 tok/s |
-| Engine start, before processing the prompt | ~2 s |
+| Reply generation with speculative decoding and the 0.2.16 decode lookahead, 20 GB target | 13.47 tok/s, 1.11x faster than without the lookahead |
+| Engine load in the original experiment, before processing the prompt | ~2 s (historical) |
 | Planned memory with automatic sizing | 32 GB (estimate) |
 
 That memory figure is the historical planner estimate, not a measurement of
 the corrected kernel lifetime peak. Older reported values can miss GPU memory
 freed before the observation. Current usage, lifetime peaks and request samples
 are explained in the [memory controls](CLI.md#memory-options).
+The engine-load timing also comes from an early measurement; it excludes the
+current CLI's full weight-verification step and is not a current cold-start
+or first-answer estimate.
 
 **Long prompts take time before the first reply token.** Processing the prompt
 is called *prefill*. The estimates for this Mac are about 9 s for 2,000 tokens
@@ -488,34 +597,62 @@ model to verify. The current operating choice is two drafts (default 2).
 The [adoption decision](../db/records/decisions/draft-depth-defaults-to-two.md)
 records the workload tradeoff and the limits of the recent comparison.
 In the historical one-draft test, the draft was accepted 86% of the time.
-At a 28 GB target, that one-draft configuration improved greedy decode by ×1.24
-(10.3 → 12.8 tok/s); the improvement was ×1.18 with default server sampling.
+At a 28 GB memory target, that one-draft configuration improved greedy decode
+by ×1.24 (10.3 → 12.8 tok/s); the improvement was ×1.18 with default server
+sampling.
 
-`--mtp auto` enables this when the expert cache can still hold 120 experts
-per layer after allocating 1.6 GB for the head. Below that threshold it stays
-off under the existing conservative activation policy. The automatic ceiling is
-34.6 GB with the head enabled. `--mtp off` disables it.
+`--mtp auto` enables this when the expert cache can still hold 76 experts per
+layer after allocating 1.6 GB for the head, before the separate lookahead
+reservation, a 21 GB target at the 32,768-token window. Availability and
+context can change activation. The floor was 120 until 0.2.16; on 0.2.14, two drafts decoded 31.7%
+faster than plain decode on the same memory at 76 per layer. The automatic
+ceiling is 34.6 GB with the head enabled at the 32,768-token window; larger
+windows add their context charges. `--mtp off` disables the head.
+
+With the head on, 0.2.16 also runs the decode lookahead. After each layer, the
+router of the layer two ahead runs on the current hidden state, and the experts
+it picks are read from the SSD straight into cache slots before that layer asks
+for them. FP32 copies of the router weights save a conversion on every routing
+call, and the GPU is drained every four layers instead of every layer, with
+each forecast riding the next routing readback. On twelve held-out prompts at a
+20 GB target with two drafts, decode was 1.11x faster than the previous default
+(11.79 to 13.47 tok/s median) with identical output. In separate attribution
+runs on the tuning prompts, the router copies and fewer drains added
+about 2% each over prefetch alone. Those component results are specific to
+that workload and are not separate held-out speedups. The
+[decision](../db/records/decisions/decode-lookahead-default-with-the-draft-head.md)
+records its 373 MiB charge, overrides and limits.
 
 [MEASUREMENTS.md](../MEASUREMENTS.md) includes the configurations, comparisons,
 and failed experiments behind these results.
 
 ## Context
 
-**Prompt, conversation history, images, and reply share a 32,768-token limit
-by default.** Use `serve --max-context 65536` for the larger 65,536-token
-window, including Hermes. The planner charges extra state and transient memory
-before allocating the expert cache. The pinned model configuration allows 262,144 tokens, but
-slotstream doesn't support that full window. The long-context qualification
-is a capacity and memory check, not a long-context answer-quality benchmark.
+**Prompt, conversation history, images, and reply share one window, which auto
+picks for each Mac.** It takes the largest of 32,768, 65,536, 131,072 and
+262,144 tokens that keeps speculative decoding, retains one complete
+conversation and adds at most 10% to the planner's estimate for a typical
+request. `serve --max-context 65536` fixes the window Hermes uses, and any size
+up to the pinned model's 262,144 tokens is accepted; requests with images stay
+within 65,536. The planner charges extra state and transient memory before
+allocating the expert cache, and the automatic ceiling rises by the window's own
+charge. Native runs on the development Mac cover 65,536 tokens and, since
+0.2.17, 131,072 tokens with and without the draft head, both inside their memory
+plans; 262,144 tokens is planned from the same ledger without a native run. The
+long-context qualification is a capacity and memory check, not a long-context
+answer-quality benchmark.
 
-At the default limit, the estimated wait before the first token is about 3.0 min for
+At 32,768 tokens, the estimated wait before the first token is about 3.0 min for
 the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. The latter comes from
 the M5 Pro's curve; a slower SSD can take longer. Follow-up turns reuse
 unchanged history while it remains cached.
 
-Context state uses about 27 KiB per token. The larger cost of a long prompt
-is processing time. slotstream reduces the prefill batch size as context grows
-to keep temporary memory within the measured range.
+The main sequence cache uses about 27 KiB per allocated token of capacity,
+rounded to allocation steps. Recurrent state, retained conversations, draft
+state and transient workspace are additional charges, so this is not the
+whole process cost per input token. Long prompts also cost processing time.
+Slotstream reduces the prefill batch size as context grows to keep temporary
+memory within the measured range.
 
 To measure a long prompt on your Mac, stop any running server, then run:
 
@@ -537,10 +674,11 @@ scope and revision criteria; maintaining those choices is part of the engine.
 By default, slotstream chooses a memory target for your Mac and prints it at
 startup. It takes the lowest of 33 GB, 70% of RAM, and 2 GB below the Metal
 working-set limit, then reduces that target if other apps are using memory.
-The draft head can raise the ceiling to 34.6 GB as described in [Speed](#speed).
+The draft head raises the base ceiling to 34.6 GB at the 32,768-token window;
+the larger windows auto picks on bigger Macs add their context charges. See [Speed](#speed).
 
-The 33 GB ceiling is our current best-supported balance of speed and memory
-use for this model. Development-Mac tests showed diminishing speed gains as
+The 33 GB ceiling is a conservative default based on development-Mac
+measurements. Those tests showed diminishing speed gains as
 the expert cache grew. This supports a conservative default; it does not
 establish an optimum for every Mac or workload. We'll adjust the default as
 real measurements show a better tradeoff. The historical larger-target sweep
@@ -549,13 +687,20 @@ it was not a benchmark of those larger allocations. See the
 [cache measurements](../db/records/measurements/warm-decode-re-anchored-and-the-live-governor-finally-observed-2026-08.md)
 and [sizing interpretation](../db/records/measurements/automatic-memory-default-evidence-scope-2026-09-09.md).
 
+The [community M5 Max cache sweep](HARDWARE.md#does-more-memory-help) reports
+faster replies with larger manual targets on the same machine. Auto has not
+been calibrated to that hardware, and its fixed ceiling must not be read as
+the maximum useful allocation.
+
 The chip and SSD still matter. The plan uses decimal GB, so a Mac sold as
 48 GB appears as about 52 GB in its device line.
 
 While the server runs, it checks memory pressure every 15 s and resizes its
 cache between requests. It gives memory back under pressure and grows again
-when space is available. Greedy output stays byte-identical across cache
-sizes and resizes.
+when space is available. The cache-size and resize gates check byte-identical
+greedy output with the other generation settings fixed. Changing the total
+memory target can also change prefill grouping or enable speculative decoding;
+those are separate changes, not part of that equality claim.
 
 To set a memory target yourself:
 
@@ -564,9 +709,11 @@ slotstream doctor --memory-gb 16
 slotstream serve --memory-gb 16
 ```
 
-`--memory-gb` sets the total process target, with a minimum of 8.1 GB. An
-explicit size stays fixed and bypasses automatic availability checks, so
-check that it fits before starting. See the [memory options](CLI.md#memory-options)
+`--memory-gb` sets the total process target, with a minimum of 8.1 GB for the
+default text context; larger windows and resident components need more room.
+An explicit target disables automatic cache resizing, while loading and
+request-memory safeguards remain active. Preview it before starting.
+See the [memory options](CLI.md#memory-options)
 for the other controls and their precedence.
 
 ## Status and limits
@@ -627,9 +774,12 @@ The chart is updated weekly by this repository's
 ## Image memory and measurements
 
 Each resized image uses up to 2,304 tokens of the conversation's context.
-The image encoder, or *vision tower*, loads on the first image and adds
-0.9 GB to the text memory plan. The server rejects the request if there isn't
-room. Use `slotstream serve --vision off` to disable images.
+The image encoder, or *vision tower*, loads on the first image and reserves
+0.9 GB inside an auto or `--memory-gb` process target, reducing expert capacity
+as needed. An explicit pool-size setting retains its pool and adds the tower
+to the expected footprint. Image pixels and attention also need workspace;
+the server rejects the request if the budget or real headroom is insufficient.
+Use `slotstream serve --vision off` to disable images.
 
 In a measured conversation, the first image turn took 15.4 s and the
 follow-up took 1.8 s because its image state was reused. This tests the image
@@ -667,9 +817,10 @@ The startup command in the [setup guide](HERMES.md#start-slotstream) leaves
 memory planning and speculative decoding on their automatic defaults.
 Slotstream decides whether to enable the MTP draft head from its availability
 and the planned expert cache. Hermes does not require an MTP override.
-Hermes requires a larger context than Slotstream's ordinary default. The
-explicit flag selects the qualified window and charges its extra active state
-and a measured transient reserve before allocating the expert cache. The
+Hermes requires a larger context than the 32,768 tokens auto keeps on Macs
+through 32 GB, so the setup guide fixes 65,536 tokens on every Mac. The
+explicit flag charges that window's extra active state and a measured
+transient reserve before allocating the expert cache. The
 minimum memory target rises with this larger window. If overriding automatic
 planning, inspect `slotstream doctor --max-context 65536` first and choose a
 target that fits your Mac. Long prompts must still be read before the first
@@ -682,9 +833,11 @@ The explicit context setting is reproducible; the server also exposes the
 same runtime window through model discovery, so automatic discovery works.
 Vision discovery also reflects whether this server accepts images. With the
 vision weights available and vision enabled, Hermes can send image attachments.
-The first image loads the vision tower in addition to the announced text
-plan. Image admission checks available memory and can refuse the additional
-load when there is not enough headroom.
+The first image reserves the vision tower inside the automatic process
+target, reducing expert capacity as needed. Image admission also checks
+attention workspace and real headroom; it can refuse an image even when
+text fits. Explicit pool-size overrides retain their pool and add the tower
+to the expected footprint.
 The local stream timeout allows a long cold prefill to finish; it remains
 bounded and should be adjusted to measurements on slower hardware.
 The auxiliary task timeouts are configured separately from the main stream
@@ -886,7 +1039,7 @@ it actually reads the file and returns its contents.
 | Connection refused or the wrong model appears | Keep the Slotstream server running and copy the address and model name exactly. Check for [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
 | Tools don't work | Use OpenAI Chat Completions with Slotstream 0.2.8 or later. The Ollama connection does not support tools. |
 | The app calls `/v1/responses` | Select Chat Completions mode. Responses-only apps are unsupported. |
-| The conversation is too long | The ordinary limit is 32,768 tokens, including instructions, history, and reply. Hermes needs the larger `--max-context 65536` setup in its guide. |
+| The conversation is too long | The window includes instructions, history, and reply. Auto picks 32,768 tokens through 32 GB of RAM and more on larger Macs; `slotstream doctor` shows yours. Hermes needs the `--max-context 65536` setup in its guide. |
 | The first answer times out | Check progress in the Slotstream window. Long prompts can take minutes. See your agent's guide for its timeout settings. |
 | Summaries stop early or use a cloud model | Check the separate summary-provider and reply-length settings. Use the full configuration in the Hermes guide; fx has known summary limitations. |
 | The app requires strict structured output | JSON-schema constrained output and strict tool schemas are unsupported. The app needs a mode that works without that requirement. |
@@ -954,7 +1107,7 @@ Generate once from a prompt, with no server.
 | Flag | Meaning |
 |---|---|
 | `--prompt <text>` | The prompt (default: "Why is the sky blue?"). |
-| `--max-context <n>` | Window shared by the final templated input and reply; uses the same planning and bounds as `serve`. |
+| `--max-context <auto or n>` | Window shared by the final templated input and reply. Default `auto`; the same planning and bounds as `serve`. |
 | `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including preparation. Default 30 minutes; `0` disables only the time policy. |
 | `--max-tokens <n>` | Tokens to generate; `<= 0` means as many as the context allows (default 128). |
 | `--greedy` | Deterministic greedy sampling. |
@@ -972,7 +1125,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 | Flag | Meaning |
 |---|---|
 | `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
-| `--max-context <n>` | Maximum tokens shared by prompt and reply. Default: 32768; ceiling: 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Context state uses about 27 KiB per token. |
+| `--max-context <auto or n>` | Maximum tokens shared by prompt and reply. Default `auto`: the largest of 32768, 65536, 131072 and 262144 tokens that keeps speculative decoding, retains one complete conversation and adds at most 10% to a typical request on this Mac; `doctor` shows the choice. A number fixes the window, from 1 to 262144, the model's limit. Requests with images stay within 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Main sequence-cache capacity costs about 27 KiB per token, plus recurrent, retained, draft and transient allocations. |
 | `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
@@ -1008,17 +1161,18 @@ never loads the model and can run while the server is working.
 
 | Flag | Meaning |
 |---|---|
-| `--sim-ram <gb>` | Preview a Mac with this much RAM. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
+| `--sim-ram <gb>` | Preview this much RAM in decimal GB. Simulates memory capacity, not another chip or SSD. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
 | `--sim-working-set <gb>` | Use this Metal working-set limit in the simulation. |
 | `--sim-available <gb>` | Use this much available memory in the simulation. |
-| `--max-context <n>` | Preview the same allocation and report the largest memory-feasible window under these inputs. |
+| `--max-context <auto or n>` | Default `auto` reports the automatic window, every candidate and the reason it was or wasn't taken. A number previews that window's allocation and reports the largest memory-feasible window under these inputs. |
 | `--max-prefill-wait <minutes>` | Preview the request deadline separately from memory feasibility; default 30 minutes, `0` disables only time. |
-| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`). |
+| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`), plus `context_window_source` and, in auto mode, `automatic_context_window`. |
 
 Plus the memory options, so `doctor --memory-gb 16` shows exactly what
-`serve --memory-gb 16` would do. The report ends with the wait before the
-first token by prompt length at that plan, and the tier table carries the
-wait for a prompt filling the whole context.
+`serve --memory-gb 16` would plan under the same conditions. Its estimated
+prefill times use M5 Pro measurements; they exclude startup, queueing,
+image preparation and reasoning before visible answer text. The full-window
+estimate is a planning reference; actual requests also need room for a reply.
 
 ### `slotstream context-check`
 
@@ -1055,18 +1209,18 @@ does not make that window supported by `serve` or `run`.
 ## Memory options
 
 Shared by `run`, `serve`, `doctor`, and every check that loads the model.
-With none of them, auto sizes the process to the machine (see the README's
-Memory section).
+With no sizing override, auto sizes the process to the machine (see
+[memory defaults](../README.md#why-doesnt-slotstream-use-all-of-my-ram)).
 
 | Flag | Meaning |
 |---|---|
 | `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
-| `--memory-gb <gb>` | Total process memory target, in decimal GB. The cache gets what remains after fixed allocations and a 1 GB margin. Minimum 8.1 for the default context; larger context windows raise the minimum. Use this option for a manual target. |
+| `--memory-gb <gb>` | Total process memory target, in decimal GB. The cache gets what remains after fixed allocations and a 1 GB margin. Minimum 8.1 for the 32,768-token window; larger windows raise the minimum. Use this option for a manual target. Auto still picks the context window inside this target unless `--max-context` is given; add `--max-context 32768` to reproduce a plan from before 0.2.17. |
 | `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
 | `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |
 | `--vision auto\|on\|off` | Accept images (default `auto`). `auto` loads the image encoder on first use; `on` also requires the checkpoint to contain vision weights; `off` rejects images. |
 | `--mtp auto\|on\|off` | Speculative decode (default `auto`); see [Speculative decode](#speculative-decode). |
-| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Lowers the target for other apps; cannot raise it past the ~33 GB ceiling. Ignored when an explicit size is given. |
+| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Cannot raise it past the 33 GB base ceiling plus any enabled draft-head and draft-context charges. Ignored when an explicit size is given. |
 
 Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
 which beats `--memory-gb`. An explicit size keeps its expert-pool policy. Physical headroom is still
@@ -1103,7 +1257,8 @@ runtime state and n-gram rows, bounded prompt-read grouping, committed prompt
 checkpoints, bounded output buffering and memory-governor response. Long
 prompt grouping is admitted only when its additional workspace fits; ordinary
 chronological passes remain the fallback. Explicit prefill and optimization
-controls retain their precedence and validation.
+controls retain their precedence and validation. With the draft head, the
+[decode lookahead](#decode-lookahead) is on by default too.
 
 Prompt checkpoints help only when the token and image history actually
 matches. Use `--no-prefix-cache` for comparisons that require fresh prompt
@@ -1118,11 +1273,11 @@ conditional. Enabling every switch is not the selected configuration.
 report the tested workloads and limits; [the unified plan](../PLAN.md) retains
 the disposition of each candidate.
 
-The automatic ceiling is an intentional default for this model, based on the
-best speed/memory tradeoff supported by development-Mac measurements so far.
-It is separate from the RAM-share and physical-memory bounds. Defaults can
-change as comparable real measurements justify better choices; extra RAM
-alone is not evidence that the current choice is wrong. See
+The automatic ceiling is a conservative default based on development-Mac
+measurements, separate from RAM-share and physical-memory bounds. The
+[M5 Max community sweep](HARDWARE.md#does-more-memory-help) demonstrates gains
+from larger manual targets; auto is not calibrated to every hardware profile.
+See
 [why auto retains a ceiling](ENGINEERING.md#memory) and the
 [operating-policy contract](../db/records/design/measured-operating-policies.md).
 
@@ -1136,12 +1291,15 @@ alone is not evidence that the current choice is wrong. See
 | `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Fixes parallel connections, capped at 32; the CLI flag takes precedence. |
 | `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
 | `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
-| `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12; measured flat from 12 to 32, worse above). |
+| `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12). The development-Mac sweep found little benefit from 12 to 32; other SSDs and workloads can differ. |
 | `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32): the sweep's group size on a pass of 256 tokens or more, the pool's load slice below that. Bounds peak memory on long prompts. |
-| `SLOTSTREAM_SWEEP` | engine | `0` runs every prefill pass through the slot pool the way 0.2.2 and earlier did, instead of the sweep. A/B work only; slower. |
+| `SLOTSTREAM_SWEEP` | engine | `0` selects the older pool path instead of the prefill sweep when ordinary prefill is used. A/B work only; slower in the recorded development-Mac comparisons. Other optimization controls can select a different qualified path. |
 | `SLOTSTREAM_SWEEP_ADMIT` | engine | `0` stops the last pass of a prompt from admitting the prompt's hottest experts into the pool, so decode starts cold. A/B work only. |
 | `SLOTSTREAM_SWEEP_TRACE` | engine | `1` prints, after each prefill, where the sweep's time went: reads, waiting for the GPU, sorting rows, copies out of the pool, and MLX's peak and cache. |
 | `SLOTSTREAM_PREFILL_CACHE_MB` | engine | MLX buffer-cache cap while a prompt is read. The plan sets 512 at targets of 12 GB and under (the sweep's varying array sizes otherwise fill the 2 GB cache, 1.7 GB of peak at the floor) and no cap above, where it costs ~6% of prefill; this forces a value at any target. |
+| `SLOTSTREAM_OPT_EXPERT_PREFETCH` | engine | `0` turns off the decode lookahead and its 373 MiB charge. `1` selects an experimental prefetch configuration from the `SLOTSTREAM_EXPERT_PREFETCH_*` tuning variables instead; for comparisons only. |
+| `SLOTSTREAM_OPT_ROUTER_WEIGHTS` | engine | `0` or `1` overrides the FP32 router weight cache that the decode lookahead turns on. |
+| `SLOTSTREAM_DECODE_BARRIER_LAYERS` | engine | Layers between GPU drains, 1…48. The decode lookahead uses 4; `1` drains after every layer. A pass that could not keep that many layers of experts pinned drains after every layer anyway. |
 | `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
 | `SLOTSTREAM_RELEASE_BASE` | installer | Fetch the release from another base URL (CI uses it to test unpublished builds). |
 
@@ -1183,10 +1341,16 @@ See [Testing](TESTING.md) for the full suites.
   model's draft head, `mtp.safetensors`, which `pull` fetches with the
   weights. The file is optional; downloads can complete without it. `on`
   without the file is an error; `auto`, the default, turns it on when the
-  cache still reaches 120 experts per layer after the head's 1.6 GB (a 28 GB
-  target). This conservative activation floor is separate from draft depth.
-  The historical one-draft measurement at that size was ×1.24 decode;
-  MEASUREMENTS.md M9 preserves its configuration, ladder and ceiling.
+  cache reaches 76 experts per layer after the head's 1.6 GB and context
+  charges, before the separate lookahead reservation. A 21 GB target qualifies
+  at the default context; actual availability and the selected window can
+  keep the head off on a larger Mac. Before 0.2.16 the floor
+  was 120; two drafts later measured 31.7% faster than plain decode on the same
+  memory at 76 per layer
+  ([decision](../db/records/decisions/draft-head-auto-floor-76-per-layer.md)).
+  The floor is separate from draft depth. The historical one-draft measurement
+  at the former 28 GB memory target was ×1.24 decode; MEASUREMENTS.md M9
+  preserves its configuration, ladder and ceiling.
 - `mtp-parity`, `mtp-accept`, `mtp-check`: the draft head's parity with the
   Python reference, its measured accept rate (`--depth`, default 4), and the
   speculative-decode gates.
@@ -1198,6 +1362,24 @@ See [Testing](TESTING.md) for the full suites.
   back to the default. See the [decision and evidence](../db/records/decisions/draft-depth-defaults-to-two.md).
   This changes draft depth when MTP is enabled, not the automatic activation
   floor or the RAM-share default.
+
+### Decode lookahead
+
+From 0.2.16 the decode lookahead runs by default with the draft head when
+the cache reaches the same 76-per-layer floor before the lookahead's own
+reservation. The final printed cache can therefore be smaller. After each layer, the
+engine runs the router of the layer two ahead on the current hidden state and
+reads the experts it picks from the SSD straight into cache slots, before that
+layer asks for them. It also keeps FP32 copies of the router weights and drains
+the GPU every four layers instead of every layer. Output is unchanged.
+
+The memory plan charges 373 MiB for it before sizing the expert cache, and
+`doctor` prints `lookahead: on`. On twelve held-out prompts at a 20 GB target
+with two drafts, decode was 1.11x faster than without it. A head forced onto a
+smaller cache runs without it. `SLOTSTREAM_OPT_EXPERT_PREFETCH=0` turns it off,
+and the two variables above override its router cache and drain period. The
+[decision](../db/records/decisions/decode-lookahead-default-with-the-draft-head.md)
+records the evidence and limits.
 
 
 <!-- ===== docs/API.md ===== -->
@@ -1438,12 +1620,14 @@ It rejects `http://`, `https://`, and `file://` URLs. It applies EXIF
 orientation, composites transparency onto white, and rejects truncated files.
 
 Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
-the shared context (32,768 tokens by default). The decoded image file must be at most
+the shared context, which a request with images may fill up to 65,536 tokens. The decoded image file must be at most
 24 MiB, with an aspect ratio no greater than 200:1.
 
-The vision tower uses 0.9 GB and loads on the first image request. That
-reservation stays inside the original process memory target, reducing expert
-capacity as needed. Image attention and decoded pixels also need workspace;
+The vision tower uses 0.9 GB and loads on the first image request. For auto
+and `--memory-gb` plans, that reservation stays inside the original process
+target, reducing expert capacity as needed. Explicit pool-size settings retain
+their pool and add the resident cost to the expected footprint.
+Image attention and decoded pixels also need workspace;
 a request is rejected before dispatch if its budget or real headroom is insufficient.
 `serve --vision off` disables images. Follow-up turns reuse image state while
 the matching conversation remains cached; image identity is checked by a
@@ -1470,10 +1654,12 @@ Ollama errors use `{"error": "message"}`. OpenAI errors use
 A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
 
-Prompt plus completion is capped at 32,768 tokens by default. Use
-`serve --max-context 65536` for a 65,536-token window, or select a smaller
-limit. The planner charges extra state and transient memory before allocating
-the pool.
+Prompt plus completion is capped by the served window. By default the server
+picks it for the Mac: 32,768 tokens through 32 GB of RAM, 65,536 from 36 GB,
+131,072 at 64 GB and 262,144 from 96 GB, or less on a Mac that is busy at
+startup. Use `serve --max-context 65536` to fix a 65,536-token window, or any
+size from 1 to 262,144. Requests with images stay within 65,536 tokens. The
+planner charges extra state and transient memory before allocating the pool.
 A prompt over the configured cap returns 400 with the actual limit. A known
 prefill estimate can also refuse work that exceeds the remaining wait budget. `/v1/models` and `/api/show` report the actual served window;
 the model's training window must not be used as the request limit.
@@ -1611,14 +1797,6 @@ original-file verification; an immediate second `verify()` is unnecessary.
 `status()` reports remaining reconstructed model bytes, not compressed wire
 bytes, and permits an absent optional draft head.
 
-The default uses the compressed CDN and tunes connection count. Explicit
-`connections` fixes that count. `transport: .raw` selects raw mirrors;
-setting `sources` also selects raw mirrors in automatic mode. Existing raw
-partial downloads continue automatically. Download returns only after final
-original-file verification; an immediate second `verify()` is unnecessary.
-`status()` reports remaining reconstructed model bytes, not compressed wire
-bytes, and permits an absent optional draft head.
-
 <a id="what-will-it-do-on-this-mac"></a>
 
 ## Plan memory
@@ -1631,8 +1809,9 @@ print(plan.expertsPerLayerCached, "experts per layer,",
       plan.expectedPeakGB, "GB expected peak")
 ```
 
-`Machine.simulated(ramGB: 16)` previews another memory size, like
-`slotstream doctor --sim-ram 16`. `Engine.load` rejects simulated plans;
+`Machine.simulated(ramGB: 16)` previews a decimal-GB memory size, like
+`slotstream doctor --sim-ram 16`; it does not simulate another chip or SSD.
+`Engine.load` rejects simulated plans;
 use `Machine.current()` for a plan that will allocate memory.
 
 <a id="pricing-a-prompt-before-you-send-it"></a>
@@ -1720,6 +1899,19 @@ machine inputs and runtime allocation controls. It returns the requested plan,
 largest fitting plan and refusal, independently of the time policy. Diagnostic
 qualification is explicit; it never changes the public implementation or
 MTP/vision limits advertised by ordinary serving.
+
+Starting in Slotstream 0.2.17, `Planner.resolveContextWindow(.automatic,
+request:on:mtpAvailable:visionAvailable:)` returns the plan the command-line
+server uses: the automatic window for the machine's memory tier, lowered at
+startup when available memory is short, with an `AutomaticContextWindow` that
+lists every candidate and why it was or wasn't taken. `.tokens(n)` plans an
+explicit window, and `Planner.automaticContextWindow` evaluates the tier
+without planning against live memory. `Planner.plan(_:on:)` still plans the
+request's own `maxContextTokens`, 32,768 unless set. A window above 32,768 now
+retains one complete conversation when its plan can hold one; otherwise the
+plan's notes say how much a follow-up reuses. `ContextPolicy.maxTokens` is the
+model's 262,144 tokens, and requests with images stay within
+`ContextPolicy.visionLimit`.
 
 
 <!-- ===== docs/FX.md ===== -->
@@ -1907,7 +2099,9 @@ Wait until you see `slotstream listening on http://127.0.0.1:11434`.
 
 The larger context gives Hermes room for its instructions, tools, and conversation
 history. Slotstream chooses its memory plan and whether to use speculative
-decoding automatically. This context uses more memory than ordinary chat.
+decoding automatically. Auto already picks 65,536 tokens or more from 36 GB of
+RAM; the flag keeps the window Hermes is configured for on every Mac. This
+context uses more memory than ordinary chat.
 If startup fails, see [Troubleshooting](#troubleshooting) below.
 
 ## Configure Hermes
@@ -2072,7 +2266,7 @@ runner, and host apps use those same functions.
 Choose a suite based on what you have installed:
 
 ```bash
-make checks          # the tier that needs nothing: no GPU, no weights, no network
+make checks          # build, then run T0: no GPU, weights or network during the checks
 make checks-all      # adds the MLX tier
 make test            # Tools/verify.sh, the acceptance battery against real weights
 make context-test    # isolated context policy + proxy fixtures; no MLX or weights
@@ -2081,6 +2275,7 @@ python3 Tools/process_memory_gate.py  # native CPU/GPU peak accounting, no model
 python3 Tools/memory_override_gate.py # CLI override matrix on simulated Macs
 ```
 
+The initial build can download Swift packages and the prebuilt Metal library.
 The native process-memory regression compiles the production counter and uses
 small Metal buffers. It checks that peaks survive buffer release, persistent
 and temporary allocations remain distinguishable, concurrent reads retain the
@@ -2196,8 +2391,9 @@ make build
 make checks
 ```
 
-`make checks` runs without weights, network access, or a GPU. `make checks-all`
-adds the MLX tests. `Tools/verify.sh` tests against the real model, including
+`make checks` builds first, which can need network access, then runs T0
+without weights, network access or a GPU. `make checks-all` adds the MLX tests.
+`Tools/verify.sh` tests against the real model, including
 reference comparisons, cache resizes, speculative decode, and server
 regressions. [Testing](TESTING.md) explains the suites and coverage gaps;
 [Contributing](../CONTRIBUTING.md) covers the development workflow.
@@ -2410,7 +2606,11 @@ diagnostic unless the machine and network conditions qualify as a benchmark.
 
 `Tools/context_gates.py --report result.json` compares frozen default allocation
 fields and validates CLI bounds, metadata, complete schedules and strict tool
-termination without loading weights. `Tools/consumer_smoke.sh` compiles the
+termination without loading weights. The frozen allocation is pinned at an
+explicit 32,768-token window, and the automatic window for the frozen tiers is
+checked against `Tools/fixtures/context-automatic-v1.json`.
+`Tools/planner_gates.sh` also checks each tier's automatic window, quiet and
+busy starts, fixed caches and explicit windows. `Tools/consumer_smoke.sh` compiles the
 original public function signatures as an external package.
 
 The native `optimization-state-check --variant context-serving --json` injects
@@ -2557,8 +2757,8 @@ Close memory-heavy apps and check `slotstream doctor` for memory warnings.
 Stop Slotstream with **Control+C** and restart it without custom memory
 settings so it can choose a size that fits.
 
-An 8 GB Mac needs swap, which uses disk space as extra memory, even at the
-minimum setting. It may remain slow with other apps closed. See
+An 8 GB Mac can't run the model: even the minimum setting needs more memory
+than it has, so Slotstream refuses to start. See
 [hardware and speed](HARDWARE.md) for the limits of smaller Macs.
 
 For manual adjustments, read the [memory settings](CLI.md#memory-options).
@@ -2651,6 +2851,16 @@ installed version; the [changelog](../CHANGELOG.md) lists the fixes in each rele
 The installer is tested on these versions; the runtime still needs testing.
 [Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
 error and your `slotstream doctor` output.
+
+## The context window is smaller than `doctor` showed
+
+Auto picks the window from your Mac's memory, then plans it against the
+memory available when the server starts. If other apps hold too much then,
+Slotstream starts with a smaller window and says so in its startup lines,
+instead of turning speculative decoding off. The window stays for that
+server's lifetime. Close memory-heavy apps and restart the server to get the
+larger window, or pass `--max-context N` for a specific size; a window that
+doesn't fit is refused with the largest one that does.
 
 ## A long request is refused or interrupted
 
@@ -2925,8 +3135,10 @@ Choose Apple menu → About This Mac to check your chip and memory. The
 installer has been tested on macOS 14 and 15; model runs have been tested
 on macOS 26. Windows, Linux, and Intel Macs are not supported by this engine.
 
-An 8 GB Mac needs swap, which uses disk space as extra memory and can slow
-down the whole computer. Close memory-heavy apps before running the model.
+**Compatibility-tier support is coming soon.** An 8 GB Mac can't run the
+current model: even the smallest memory plan needs more
+memory than it has, so Slotstream refuses to start instead of swapping. On
+other Macs, close memory-heavy apps before running the model.
 
 To check your own Mac without downloading or loading anything, run:
 
@@ -2952,24 +3164,32 @@ These results were measured on real Macs, using different releases and settings:
 
 | Mac | Memory | Reply speed |
 |---|---|---|
-| MacBook Pro, M5 Pro | 48 GB | ~12 tok/s |
+| **MacBook Pro, M5 Pro (our development Mac), 0.2.16 configuration at a 20 GB target** | **48 GB** | **13.47 tok/s** |
+| Same M5 Pro, historical 0.2.3 result | 48 GB | ~12 tok/s |
 | Mac mini, M2 (base storage) | 16 GB | 1.41 tok/s |
 | MacBook Air, M5 | 32 GB | 6.22 tok/s |
-| MacBook Pro, M5 Max | 128 GB | ~21–22 tok/s |
+| MacBook Pro, M5 Max, 0.2.3, auto (34.6 GB target) | 128 GB | ~21–22 tok/s |
+| Same M5 Max, 0.2.3, 48 GB target | 128 GB | ~26.9 tok/s |
+| Same M5 Max, 0.2.3, 73 GB target | 128 GB | ~31.5 tok/s |
 
-The M5 Pro result is from the author; the others are community reports.
-The 8 and 24 GB sizes still need reports. Open the details below for
-versions, settings, and credits.
+The latest M5 Pro result comes from the pre-release benchmark of the
+configuration shipped in 0.2.16. The M5 Pro results are from the author; the
+others are community reports.
+The 18, 24 and 36 GB sizes still need reports, and 8 GB Macs don't run the
+model. Open the details below for versions, settings, and credits.
 
 <details>
 <summary>Full results and test conditions</summary>
 
 | Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Reported memory | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
-| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB (estimate) | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
+| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6.2 | 0.2.16 candidate | 20 GB target, two drafts, decode lookahead, ~88 experts/layer | 11.79 to 13.47 tok/s with the lookahead, arm medians over eligible runs from 34 held-out pairs | not measured | not recorded | [@carloslfu](https://github.com/carloslfu), 2026-09-13 |
+| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB memory target | ~220 tok/s at a 4096-token pass (est.) | 32 GB (estimate) | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
 | Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured; `context-check` postdates 0.2.2 | 6.1 GB | [@flol's report](https://github.com/carloslfu/slotstream/issues/5), 2026-09-02 |
 | MacBook Air, M5 | 32 GB | 1 TB; location not specified | 26.6.2 | 0.2.11 | 22 GB target, ~75 experts/layer planned | **6.22 tok/s** | 126.28 tok/s for 8192 tokens, 2048-token passes | 17.75 GB RSS on the long prompt | [@arczhi's report](https://github.com/carloslfu/slotstream/issues/12), 2026-09-07 |
 | MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | auto: 34.6 GB target, ~152 experts/layer | ~21–22 tok/s with speculative decoding | not measured | not measured; server path only | [@waterliu1981's update](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176), 2026-09-03 |
+| Same M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | manual: 48 GB target, ~253 experts/layer | ~26.9 tok/s with speculative decoding | not measured | not measured | same report |
+| Same M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | manual: 73 GB target, ~401–441 experts/layer as reported | ~31.5 tok/s with speculative decoding | not measured | not measured | same report |
 
 The historical memory values retain their original measurement limits. The
 M5 Pro figure is a planner estimate, and older reported values do not establish
@@ -3011,29 +3231,140 @@ the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
 
 </details>
 
+## Does more memory help?
+
+Yes, a larger expert cache can reduce SSD reads and improve reply speed.
+The clearest community evidence is
+[@waterliu1981's cache sweep](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176)
+on the same M5 Max, using Slotstream 0.2.3 with speculative decoding enabled:
+
+| Total-process memory target | Reported warm reply speed |
+|---|---|
+| 34.6 GB (auto) | ~21–22 tok/s |
+| 48 GB (manual) | ~26.9 tok/s |
+| 73 GB (manual) | ~31.5 tok/s |
+
+All three runs used the same Mac with 128 GB installed memory. The targets
+are decimal GB budgets, not measured process peaks or installed-memory
+requirements. This comparison supports a gain from allocating more memory
+on that machine; comparing its auto result with the M5 Pro alone would not
+isolate the effect of memory.
+
+The manual rows are the reporter's warm-speed summaries, without the repeated
+per-run timings supplied for auto. They have not been independently rerun or
+remeasured on 0.2.16. The report does not establish a universal scaling curve,
+a best automatic target, or a larger qualified context window. See
+[memory defaults and overrides](../README.md#why-doesnt-slotstream-use-all-of-my-ram)
+to try a larger target while leaving room for macOS and other apps.
+
 ## Speed estimates
 
-These estimates come from the 48 GB M5 Pro and can differ substantially
-from results on other Macs. In particular, the 16 GB M2 above ran much
-slower than its estimate. Use the measured results when available.
+### Planning ranges
 
-| Mac RAM | Automatic memory target | Estimated generation speed |
+The README's estimates combine the real reports above with the development
+Mac's measured configurations and planner curve. They are rough expectations
+across hardware and settings, not a fitted scaling model or statistical
+confidence intervals. Endpoints are rounded outward to whole tok/s.
+
+| Installed RAM | Estimated warm reply speed | Basis and main inference |
 |---|---|---|
-| 8 GB | 8.1 GB | ~3 tok/s; requires swap and can slow the whole Mac |
-| 16 GB | 10 GB | ~4 tok/s |
-| 24 GB | 16 GB | ~8 tok/s |
-| 32 GB | 22 GB | ~9 tok/s |
-| 48 GB and up | 33 GB | ~12 tok/s on the M5 Pro |
+| 16–<24 GB | ~1–6 tok/s | The M2 mini reported 1.41 tok/s; the M5 Pro-based 16/18 GB simulations estimate about 4 to 5.5 tok/s. The upper end has not been measured on a real Mac in this band. |
+| 24–<48 GB | ~6–14 tok/s | The 32 GB M5 Air reported 6.22 tok/s; the M5 Pro achieved 13.47 tok/s at a 20 GB process target. The upper end assumes a comparable chip and SSD with enough memory for that configuration; it has not been timed on a Mac in this band. |
+| 48–<96 GB | ~13–27 tok/s | The latest 48 GB M5 Pro result is 13.47 tok/s, rounded down for this estimate; its older ~12 tok/s result remains historical evidence. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
+| 96 GB+ | ~20–32 tok/s | The 128 GB M5 Max reported about 21 to 22 tok/s in auto and 31.5 tok/s at a 73 GB process target. Applying this range to other Macs in the band is an estimate. |
 
-The repeated target on larger Macs is the intentional default for this model,
-based on the best measured tradeoff supported so far. These simulated rows do
-not establish that larger allocations cannot help another Mac. See
+The Ultra lower endpoint allows for the same reporter's roughly 20 tok/s
+warm auto runs on 0.2.1; the main results table uses the updated 0.2.3 report.
+The upper ends of High and Ultra assume an M5 Max-class chip, fast internal
+SSD, speculative decoding and manual targets that leave room for macOS and
+other apps. A 48 GB process target cannot consume all of a Mac's installed
+48 GB; it needs a larger machine. These ranges mix releases, so they are not
+predictions for a single current build. No release-speedup multiplier was
+applied to community reports.
+
+A slow SSD, older chip, different prompt, draft acceptance or memory pressure
+can produce results outside the ranges. More RAM helps only when the engine
+can use it to reduce a bottleneck; the band labels do not establish a causal
+speed ranking. In particular, there is no measured performance boundary at
+96 GB. The shared context recommendation reflects the current planning
+guidance, independently of reply speed.
+
+### Automatic memory plans
+
+The columns describe 0.2.17 source plans in auto mode, which picks the
+context window along with the target and speculative decoding. The draft file
+is available and no other apps hold memory. Simulated RAM is in decimal GB; a
+Mac's marketed memory capacity can produce a different decimal-GB device
+reading and target. Auto picks 32,768 tokens through 32 GB of simulated RAM,
+65,536 from 36 GB, 131,072 at 64 GB and 262,144 from 96 GB.
+
+| Simulated RAM (decimal GB) | Automatic memory target | Speculative decoding | Automatic context window |
+|---|---|---|---|
+| 8 GB | No plan fits | Not applicable | Not applicable |
+| 16 GB | 10 GB | Off | 32,768 |
+| 18 GB | 11.5 GB | Off | 32,768 |
+| 24 GB | 16 GB | Off | 32,768 |
+| 32 GB | 22 GB | On | 32,768 |
+| 36 GB | 25 GB | On | 65,536 |
+| 48 GB | 33.6 GB | On | 65,536 |
+| 64 GB | 43.2 GB | On | 131,072 |
+| 96 or 128 GB | 54.7 GB | On | 262,144 |
+
+Speculative decoding in the source plans includes 0.2.16's decode lookahead.
+These are allocation plans, not measured performance tiers. The matching
+M5 Pro-based warm-decode estimates without speculative decoding are
+~4 tok/s at 16 GB, ~5.5 tok/s at 18 GB and ~8 tok/s at 24 GB of simulated
+RAM. The estimate of ~10 tok/s at 32 GB instead uses the two-draft
+measurement at 76 experts per layer on 0.2.14. It assumes the M5 Pro's chip
+and SSD; the real M5 Air result above was slower.
+
+The 13.47 tok/s result with lookahead at about 88 experts per layer is a measured reference,
+not a prediction for larger caches. Larger caches have not been timed with
+0.2.16 yet; the M5 Max sweep above
+demonstrates gains beyond auto with an earlier release. Do not apply the
+development Mac's release speedup to those community figures.
+
+**Auto mode picks the memory target, cache size, speculative decoding and
+context window.** It takes the largest window of 32,768, 65,536, 131,072 or
+262,144 tokens that keeps speculative decoding and the decode lookahead as the
+32,768-token plan has them, keeps one complete conversation of that length for
+follow-up turns, and adds at most 10% to the planner's estimate for a typical
+request of 2,000 prompt tokens and a 400-token reply. `slotstream doctor
+--sim-ram <GB>` shows every candidate and its reason. At 24 GB a 65,536-token
+window would add 18%, and at 32 GB it would turn speculative decoding off.
+At 36 GB it adds 9%, as the cache drops from 96 to 75 experts per layer.
+At 48 GB, 131,072 tokens would add 15%; at 64 GB, 262,144 would add 18%.
+From 64 GB the larger window's memory comes from room the 32,768-token plan
+leaves unused, so the cache keeps its size and the target rises above that
+plan's 34.6 GB, to 43.2 GB at 64 GB and 54.7 GB from 96 GB. Real available
+memory and Metal limits can change these decisions; a busy start lowers the
+window before it gives up speculative decoding. `--max-context N` fixes any
+window up to 262,144; on a 32 GB Mac, `--max-context 65536` gives the larger
+window without speculative decoding.
+
+For prompts near 32,768 tokens, the planner estimates about 3 minutes of
+prefill from 24 GB and 6.4 minutes at 16 GB; near 65,536 it estimates
+about 8 minutes from 24 GB. These estimates use the M5 Pro's prefill curve,
+not measurements on those memory sizes. Windows above 128,256 tokens have no
+calibrated estimate yet. On the development Mac, a full 131,072-token prompt
+took 38 minutes to read at a 16 GB target, and its passes slowed as the prompt
+grew: the planner's estimates, which ignore position, came within a few
+percent of the measured time at 65,536 tokens and fell about a third short of
+it past that. Leave room for the reply in the
+configured window. Startup, queueing, images and reasoning before visible
+answer text add to the user's wait.
+
+The repeated target from 96 GB is the intentional conservative default: the
+33 GB base ceiling plus the draft head and the full window's charge. Auto does
+not increase its ceiling for the M5 Max's demonstrated larger-cache gains. These simulated plans
+describe allocation policy; they do not measure speed. See
 [memory defaults and overrides](../README.md#why-doesnt-slotstream-use-all-of-my-ram).
 
 ## How to measure
 
-Context is a startup choice, with a 32,768-token default. Slotstream 0.2.14
-adds the feasibility report and request-wait controls described here.
+Context is a startup choice. Since 0.2.17 auto picks it for each Mac and
+`--max-context` fixes it; 0.2.14 added the feasibility report and request-wait
+controls described here.
 Use `doctor --json` with the intended `--max-context` and memory policy to inspect the feasible
 window before loading. A memory-feasible window does not promise a short wait:
 the request-to-first-token budget defaults to 30 minutes, including preparation
@@ -3066,6 +3397,58 @@ time, memory use, and the methods behind the performance claims.
 
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
+Version headings can be prepared before publication. The
+[Releases page](https://github.com/carloslfu/slotstream/releases/latest)
+determines which version the installer downloads.
+
+## 0.2.17 - 2026-09-13
+
+- Pick the context window for each Mac. Auto now takes the largest of 32,768,
+  65,536, 131,072 and 262,144 tokens that keeps speculative decoding, keeps one
+  complete conversation ready for follow-up turns and adds at most a tenth to
+  the planner's estimate for a typical request. In decimal-GB simulations that
+  is 32,768 tokens through 32 GB, 65,536 from 36 GB, 131,072 at 64 GB and
+  262,144 from 96 GB. A Mac that is busy at startup gets a smaller window
+  rather than losing speculative decoding, and `doctor` lists every candidate
+  with its reason.
+- Accept `--max-context` up to 262,144, the model's full window, or `auto`.
+  Requests with images still use at most 65,536 tokens. A window above 32,768
+  keeps one complete conversation for follow-ups when the plan can hold it,
+  and says how much a follow-up reuses when it can't.
+- Raise auto's memory target on 64 GB and larger Macs by the chosen window's
+  own charge, to 43.2 GB at 64 GB and 54.7 GB from 96 GB, so the expert cache
+  keeps its size. `--max-context 32768` restores the former plan.
+- With an explicit `--memory-gb`, auto also picks the window inside that
+  target, trading some cache for a larger window within the 10% limit. Add
+  `--max-context 32768` to keep an earlier plan. `--experts-per-layer` and
+  `--pool-gb` keep 32,768 tokens.
+- Show why `doctor` rejects a memory target in its tier table: too small for
+  the window, above the Metal working set, or more than is reclaimable now.
+- Qualify a full 131,072-token window on the development Mac: the prompt and
+  reply fit their memory plans, and speculative decoding produced exactly the
+  same reply. The full 262,144-token window has not run natively yet.
+
+## 0.2.16 - 2026-09-13
+
+- Generate replies 1.11x faster with speculative decoding. The new decode
+  lookahead runs the router of the layer two ahead on the current hidden state,
+  reads the experts it picks from the SSD straight into cache slots, keeps FP32
+  router weights and drains the GPU every four layers instead of every layer.
+  Output is unchanged. On twelve held-out prompts at a 20 GB target the
+  development Mac went from 11.79 to 13.47 tok/s median. The memory plan charges
+  its 373 MiB, and `SLOTSTREAM_OPT_EXPERT_PREFETCH=0` turns it off.
+- Use speculative decoding from 32 GB Macs. Auto now turns the draft head on
+  when the cache keeps 76 experts per layer, down from 120, a 21 GB target.
+  Two drafts measured faster than plain decode at that size.
+- Drain the GPU after every layer whenever a pass could not keep several layers
+  of experts pinned, and let the memory governor re-plan with the running
+  engine's lookahead decision and memory.
+- Correct the benchmark report's medians, which took the upper middle value
+  over an even count. Recorded cohorts score slightly lower, and every verdict
+  stands.
+- Document speed estimates and recommended context windows for each memory
+  tier, and correct the 8 GB guidance: the smallest plan doesn't fit, so
+  Slotstream refuses to start.
 
 ## Unreleased
 

@@ -10,10 +10,11 @@ SSD space**. Choose Apple menu → About This Mac to check your chip and memory.
 The installer has been tested on macOS 14 and 15; runtime testing so far is
 on macOS 26.
 
-Macs with less memory run more slowly. An 8 GB Mac needs swap, which uses disk
-space as extra memory and can slow down the whole computer. See the
-[hardware guide](HARDWARE.md) for measurements from real Macs and estimates
-for other memory sizes.
+Slotstream needs a Mac with at least 16 GB of memory. On an 8 GB Mac even the
+smallest memory plan doesn't fit, so it refuses to start instead of swapping.
+Less available memory can reduce the expert cache and slow replies; the chip,
+SSD and workload also matter. See the [hardware guide](HARDWARE.md)
+for measurements from real Macs and estimates for each memory size.
 
 Slotstream currently runs one model, Qwen3.8-Flash-Next, on Apple Silicon.
 Windows, Linux, and other models are not supported by the current engine.

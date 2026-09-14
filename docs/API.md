@@ -234,12 +234,14 @@ It rejects `http://`, `https://`, and `file://` URLs. It applies EXIF
 orientation, composites transparency onto white, and rejects truncated files.
 
 Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
-the shared context (32,768 tokens by default). The decoded image file must be at most
+the shared context, which a request with images may fill up to 65,536 tokens. The decoded image file must be at most
 24 MiB, with an aspect ratio no greater than 200:1.
 
-The vision tower uses 0.9 GB and loads on the first image request. That
-reservation stays inside the original process memory target, reducing expert
-capacity as needed. Image attention and decoded pixels also need workspace;
+The vision tower uses 0.9 GB and loads on the first image request. For auto
+and `--memory-gb` plans, that reservation stays inside the original process
+target, reducing expert capacity as needed. Explicit pool-size settings retain
+their pool and add the resident cost to the expected footprint.
+Image attention and decoded pixels also need workspace;
 a request is rejected before dispatch if its budget or real headroom is insufficient.
 `serve --vision off` disables images. Follow-up turns reuse image state while
 the matching conversation remains cached; image identity is checked by a
@@ -266,10 +268,12 @@ Ollama errors use `{"error": "message"}`. OpenAI errors use
 A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
 
-Prompt plus completion is capped at 32,768 tokens by default. Use
-`serve --max-context 65536` for a 65,536-token window, or select a smaller
-limit. The planner charges extra state and transient memory before allocating
-the pool.
+Prompt plus completion is capped by the served window. By default the server
+picks it for the Mac: 32,768 tokens through 32 GB of RAM, 65,536 from 36 GB,
+131,072 at 64 GB and 262,144 from 96 GB, or less on a Mac that is busy at
+startup. Use `serve --max-context 65536` to fix a 65,536-token window, or any
+size from 1 to 262,144. Requests with images stay within 65,536 tokens. The
+planner charges extra state and transient memory before allocating the pool.
 A prompt over the configured cap returns 400 with the actual limit. A known
 prefill estimate can also refuse work that exceeds the remaining wait budget. `/v1/models` and `/api/show` report the actual served window;
 the model's training window must not be used as the request limit.

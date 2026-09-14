@@ -96,7 +96,7 @@ it actually reads the file and returns its contents.
 | Connection refused or the wrong model appears | Keep the Slotstream server running and copy the address and model name exactly. Check for [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
 | Tools don't work | Use OpenAI Chat Completions with Slotstream 0.2.8 or later. The Ollama connection does not support tools. |
 | The app calls `/v1/responses` | Select Chat Completions mode. Responses-only apps are unsupported. |
-| The conversation is too long | The ordinary limit is 32,768 tokens, including instructions, history, and reply. Hermes needs the larger `--max-context 65536` setup in its guide. |
+| The conversation is too long | The window includes instructions, history, and reply. Auto picks 32,768 tokens through 32 GB of RAM and more on larger Macs; `slotstream doctor` shows yours. Hermes needs the `--max-context 65536` setup in its guide. |
 | The first answer times out | Check progress in the Slotstream window. Long prompts can take minutes. See your agent's guide for its timeout settings. |
 | Summaries stop early or use a cloud model | Check the separate summary-provider and reply-length settings. Use the full configuration in the Hermes guide; fx has known summary limitations. |
 | The app requires strict structured output | JSON-schema constrained output and strict tool schemas are unsupported. The app needs a mode that works without that requirement. |

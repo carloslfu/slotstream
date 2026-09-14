@@ -28,7 +28,9 @@ Wait until you see `slotstream listening on http://127.0.0.1:11434`.
 
 The larger context gives Hermes room for its instructions, tools, and conversation
 history. Slotstream chooses its memory plan and whether to use speculative
-decoding automatically. This context uses more memory than ordinary chat.
+decoding automatically. Auto already picks 65,536 tokens or more from 36 GB of
+RAM; the flag keeps the window Hermes is configured for on every Mac. This
+context uses more memory than ordinary chat.
 If startup fails, see [Troubleshooting](#troubleshooting) below.
 
 ## Configure Hermes

@@ -2,6 +2,58 @@
 
 What each release changed, newest first. `curl | sh` installs the latest
 release; anything under **Unreleased** is on `main` only.
+Version headings can be prepared before publication. The
+[Releases page](https://github.com/carloslfu/slotstream/releases/latest)
+determines which version the installer downloads.
+
+## 0.2.17 - 2026-09-13
+
+- Pick the context window for each Mac. Auto now takes the largest of 32,768,
+  65,536, 131,072 and 262,144 tokens that keeps speculative decoding, keeps one
+  complete conversation ready for follow-up turns and adds at most a tenth to
+  the planner's estimate for a typical request. In decimal-GB simulations that
+  is 32,768 tokens through 32 GB, 65,536 from 36 GB, 131,072 at 64 GB and
+  262,144 from 96 GB. A Mac that is busy at startup gets a smaller window
+  rather than losing speculative decoding, and `doctor` lists every candidate
+  with its reason.
+- Accept `--max-context` up to 262,144, the model's full window, or `auto`.
+  Requests with images still use at most 65,536 tokens. A window above 32,768
+  keeps one complete conversation for follow-ups when the plan can hold it,
+  and says how much a follow-up reuses when it can't.
+- Raise auto's memory target on 64 GB and larger Macs by the chosen window's
+  own charge, to 43.2 GB at 64 GB and 54.7 GB from 96 GB, so the expert cache
+  keeps its size. `--max-context 32768` restores the former plan.
+- With an explicit `--memory-gb`, auto also picks the window inside that
+  target, trading some cache for a larger window within the 10% limit. Add
+  `--max-context 32768` to keep an earlier plan. `--experts-per-layer` and
+  `--pool-gb` keep 32,768 tokens.
+- Show why `doctor` rejects a memory target in its tier table: too small for
+  the window, above the Metal working set, or more than is reclaimable now.
+- Qualify a full 131,072-token window on the development Mac: the prompt and
+  reply fit their memory plans, and speculative decoding produced exactly the
+  same reply. The full 262,144-token window has not run natively yet.
+
+## 0.2.16 - 2026-09-13
+
+- Generate replies 1.11x faster with speculative decoding. The new decode
+  lookahead runs the router of the layer two ahead on the current hidden state,
+  reads the experts it picks from the SSD straight into cache slots, keeps FP32
+  router weights and drains the GPU every four layers instead of every layer.
+  Output is unchanged. On twelve held-out prompts at a 20 GB target the
+  development Mac went from 11.79 to 13.47 tok/s median. The memory plan charges
+  its 373 MiB, and `SLOTSTREAM_OPT_EXPERT_PREFETCH=0` turns it off.
+- Use speculative decoding from 32 GB Macs. Auto now turns the draft head on
+  when the cache keeps 76 experts per layer, down from 120, a 21 GB target.
+  Two drafts measured faster than plain decode at that size.
+- Drain the GPU after every layer whenever a pass could not keep several layers
+  of experts pinned, and let the memory governor re-plan with the running
+  engine's lookahead decision and memory.
+- Correct the benchmark report's medians, which took the upper middle value
+  over an even count. Recorded cohorts score slightly lower, and every verdict
+  stands.
+- Document speed estimates and recommended context windows for each memory
+  tier, and correct the 8 GB guidance: the smallest plan doesn't fit, so
+  Slotstream refuses to start.
 
 ## Unreleased
 

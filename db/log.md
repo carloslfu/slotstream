@@ -1003,3 +1003,375 @@ Added the downstream confirming evidence so the standing decision no longer cite
 ## [2026-09-11 18:51] update | records/measurements/release-0-2-15-published-2026-09-11.md
 Replaced the post-build commit note with a statement that holds as main advances: every commit after the released build changes documentation, projections and store records only, and none touches Sources, Package.swift, Package.resolved or the Makefile, so the published artifact remains the exact build of 48d11f2. The original wording counted two such commits and went stale as soon as this closure work was committed.
 
+## [2026-09-11 21:50] create | sources/runs/2026/09/2026-09-11-expert-lookahead-pilot-offline-stop
+Expert Lookahead pilot run wrapper: frozen protocol xla-pilot-20260911 (20 GB profile), C01 capture parity, 69-request pilot capture (12,899 outputs, 4.40 GB), exact CLOCK replay, G64/G128/G256/L128 training, calibrated offline evaluation, pack export and C10 parity, native C06 exactness with adoption, diagnostic B1/B2 pairs and C08 cancellation recovery, with every identity and excluded row.
+
+## [2026-09-11 21:50] create | records/measurements/expert-lookahead-pilot-offline-stop-2026-09-11
+Expert Lookahead pilot outcome: capture and bounded prefetch runtime exact; oracle ceiling 1.59x; best predictor projects 1.0055x under the 1.20x traffic bound (1.064x unbounded at 4.9x traffic); offline continuation rule stops before P3b/P5; no speed gain claimed; next decision recorded.
+
+## [2026-09-11 21:50] update | records/plan/expert-lookahead-local-experiment-2026-09-10
+Status ready to closed; appended the execution-outcome addendum: P0 to P3a and the P2 runtime executed, offline continuation rule stopped the experiment, P3b/P4/P5 not run, evidence in the offline-stop measurement.
+
+## [2026-09-12 03:57] create | sources/runs/2026/09/2026-09-11-expert-lookahead-router-reuse-and-replacement-probes
+Probe run: router-reuse forecast, Belady replacement bound and demand structure over the pilot validation shards (Tools/expert_lookahead_probes.py; no engine run); dependency tool hashes recorded
+
+## [2026-09-12 03:57] create | records/measurements/expert-lookahead-router-reuse-and-replacement-probes-2026-09-11
+Measurement: the model's own routers forecast routing one layer early at 59.5% exact top-10 (3.7x the trained refiner); Belady halves misses at 4,255 slots (84.8% vs 69.3%); read-cost model 0.38 ms + 0.21 ms/record; early-layer structure. Offline, no timing claim
+
+## [2026-09-12 03:57] create | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Plan (proposed): Expert Lookahead 2, replacement-policy lab against the Belady bound, router-reuse prefetch, early-layer memo; four review passes including two independent adversarial reviews (35 findings applied); no native run, nothing committed, awaiting approval
+
+## [2026-09-12 03:58] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Consistency pass: evidence-table wording on the previous readiness rule aligned with Section 8
+
+## [2026-09-12 04:52] create | sources/runs/2026/09/2026-09-11-expert-lookahead-2-offline-lab
+Expert Lookahead 2 offline packages recorded: W0 freeze, W1 replacement lab (best implementable segmented LRU 0.924x native misses, Belady 0.496x), W1c learned evictor 0.966x, memo gate failed on timeliness, twin stand-in 1.17x
+
+## [2026-09-12 04:53] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Execution approved by Carlos (2026-09-11 'Okay, execute it all'); status proposed -> in_progress; W0 frozen as xla2-20260911, W1 closed (no policy reaches the 0.85x port threshold), memo gate failed offline, W2 candidate built and T0-checked, native packages waiting on the 25 GB preflight
+
+## [2026-09-12 09:06] create | sources/runs/2026/09/2026-09-12-expert-lookahead-2-native-screens
+Expert Lookahead 2 native packages recorded: W2 shadow forecast capture at the 12 GB diagnostic profile (C12 exact, stride-1 top-10 agreement 0.763), W3 twin on native forecasts (1.247x projected), W4 screens F1 0.977x (2.8% overhead), F2 0.713x, F2 revised 0.895x, thresholded follow-ups 0.935x and 0.956x; three candidate binaries, hashes, commands and counters
+
+## [2026-09-12 09:06] create | records/measurements/expert-lookahead-2-router-reuse-prefetch-native-screens-2026-09-12
+Measurement: router-reuse forecast exact and 76% right one layer early; exact prefetch removes 63% of demand reads; every native screen loses throughput (best 0.956x) because prefetch traffic is not free on the expert read path; twin calibrates on counts, not on cost; replacement lab below the port bar; memo failed offline; W4 stop, no B0
+
+## [2026-09-12 09:06] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Status in_progress -> closed; appended the execution-outcome addendum: W0 to W4 executed with follow-ups, W4 stop rule fired (no screen reached 1.03x), W5/W6/W7 and B0 not run, deviations recorded (12 GB diagnostic profile for the shadow capture, 2.8% overhead against the 2% budget, adoption-path revisions inside W4)
+
+## [2026-09-12 09:06] update | records/decisions/clock-stays-the-eviction-policy
+Confirmed after the Expert Lookahead 2 replacement lab: the literal one-point condition was met offline by segmented LRU (0.716 vs 0.693 hit rate) but no policy reached the 0.85x port bar; evidence link added and reversible_if tightened to the port bar plus exact replay plus a measured native gain; body addendum appended
+
+## [2026-09-12 10:38] update | records/measurements/expert-lookahead-2-router-reuse-prefetch-native-screens-2026-09-12
+Corrected the cost attribution: the read-cost model reproduces every arm's demand-IO time within 3 s, so the loss is entirely in the non-IO part of decode (+38% to +111%), attributed to joins, adoption work, the forecast and an unprofiled remainder on the GPU and memory side; the earlier SSD-traffic explanation was wrong; next decision rewritten (profile first, then an adoption path as cheap as the demand path)
+
+## [2026-09-12 10:38] update | sources/runs/2026/09/2026-09-12-expert-lookahead-2-native-screens
+Twin-against-native paragraph rewritten with the per-arm demand-IO model check and the non-IO decomposition (joins, adoption enqueue, forecast, unattributed remainders 18.2, 10.4, 11.0 and 24.3 s); read-rate sentence corrected (10.5 GB/s during demand phases, device idle most of the decode); limits updated
+
+## [2026-09-12 10:38] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Execution-outcome addendum: cost attribution corrected to the non-IO decode growth (38% to 111%) that the read-cost model does not charge; no other change
+
+## [2026-09-12 16:10] create | sources/runs/2026/09/2026-09-12-expert-lookahead-2-slot-adoption-screen
+Expert Lookahead 2 retry recorded: slot adoption candidates 4 to 7 (hashes, checks, parity), same-request comparison, four one-round pilots (1.085x to 1.129x), the 12-pair validation screen at 1.1377x (11 eligible), the offline protect-eviction probe (closed), the host I/O stall that left two engine processes stuck exiting and blocks the B0 cohort, the bench's new arm timeout and lock fallback, and the after-restart script
+
+## [2026-09-12 16:10] create | records/measurements/expert-lookahead-2-slot-adoption-screen-2026-09-12
+Measurement: with speculative reads straight into reserved pool slots the router-reuse prefetch measures 1.138x on the validation screen (every pair faster, outputs exact); non-IO growth fell from 28 s to 6.4 s at the same setting; B0 cohort pending a host restart; not a public claim
+
+## [2026-09-12 16:10] update | records/measurements/expert-lookahead-2-router-reuse-prefetch-native-screens-2026-09-12
+Status measured -> superseded by the slot-adoption record of the same day; body and numbers preserved; note explains that its diagnosis led to the revision that measured 1.138x
+
+## [2026-09-12 16:10] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Reopened on Carlos's instruction (status closed -> in_progress); addendum records slot adoption, the 1.138x screen clearing the W4 exit and B0 entry, the closed eviction lever, the host stall blocking W6, and the after-restart sequence
+
+## [2026-09-13 01:06] create | sources/runs/2026/09/2026-09-12-expert-lookahead-2-b0-cohort
+B0 cohort for the slot-adoption prefetch recorded after the host restart: candidate 7, 36 of 36 pairs eligible, aggregate 1.1196, lower bound 1.090, every family faster; report fields, engine counters and artifact hashes
+
+## [2026-09-13 01:06] create | records/measurements/expert-lookahead-2-b0-cohort-2026-09-12
+Measurement: the held-out B0 cohort passes the plan gate at 1.120x (lower bound 1.090, lowest family 1.093, every duration shorter); demand records -47.0%, precision 0.557; no public claim
+
+## [2026-09-13 01:06] update | records/measurements/expert-lookahead-2-slot-adoption-screen-2026-09-12
+Note updated: the held-out B0 cohort passed its gate at 1.120x on the scratch-path candidate; body and numbers unchanged
+
+## [2026-09-13 01:06] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11
+Addendum: held-out cohort passed (aggregate 1.120x, 36 of 36 pairs eligible); initial proof passes at the screen setting; status stays in_progress with the stride-union and stride-1 pilots folded into the coverage sweep
+
+## [2026-09-13 01:06] create | sources/runs/2026/09/2026-09-12-decode-path-serialization-round-1
+Decode path serialization round 1 recorded: pin generations and barrier period, whole-record speculative reads, completeness counters; 150 checks and three exact parities; barrier 1.025 to 1.051, read shape 1.002, nine flags mean 1.0012; profiles, estimator correction and interruptions
+
+## [2026-09-13 01:06] create | records/measurements/decode-path-serialization-round-1-2026-09-12
+Measurement: deferring the per-layer GPU drain with multi-generation pins gains 3.8% to 5.1% with exact outputs; whole-record reads, nine flags, residency speculation and compilation close; no public claim
+
+## [2026-09-13 01:06] create | records/decisions/decode-host-time-is-waiting-not-graph-construction
+Decision: decode host time is waiting on the GPU and on reads, so no layer compilation and no host point fixes; reversible on a measured paired gain of at least 3% with exact outputs
+
+## [2026-09-13 01:06] create | records/decisions/residency-speculation-waits-for-layer-completeness
+Decision: residency speculation waits because only 2.2% to 2.5% of layer events are fully resident; reversible when complete layers are common enough to pay for rollback in a paired exact run
+
+## [2026-09-13 01:10] create | records/plan/decode-path-serialization-2026-09-12
+Plan opened for the decode serialization line: rounds 2 to 5 in dependency order with exit criteria, a combination step and one held-out confirmation cohort; B1 held-out set pre-registered before rounds 3 to 5 (b1-prompts.json sha256 cf519d2aee0a7470)
+
+## [2026-09-13 01:51] create | sources/runs/2026/09/2026-09-12-decode-path-serialization-round-2
+Decode path serialization round 2 recorded: 42-cell prefetch coverage sweep on the round 1 binary with counters and hashes; candidate lists deeper than ten are inert under the margin threshold
+
+## [2026-09-13 01:51] create | records/measurements/decode-path-serialization-round-2-2026-09-12
+Measurement: the B0 prefetch coverage is already the best point; top above ten forms an A/A spread of 0.991 to 1.022; stride 1, stride union and no threshold cut demand records 21% to 55% but run at 0.969, 0.991 and 0.555
+
+## [2026-09-13 01:51] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: round 2 recorded; the coverage lever carries an inert override into step 6; exploration noise band about 2.5%; per-arm protocols exist for step 7
+
+## [2026-09-13 02:48] create | sources/runs/2026/09/2026-09-12-decode-path-serialization-round-3
+Decode path serialization round 3 recorded: deferred forecast consumption build, 150 checks, exact parity at K=3 stride 3, 42-cell composition sweep with counters and hashes
+
+## [2026-09-13 02:48] create | records/measurements/decode-path-serialization-round-3-2026-09-12
+Measurement: forecasts held to a deferred barrier lose 7% to 26% under prefetch with no pair above 1; stride 3 alone 0.932; a state-window compaction fold is ruled out by profile
+
+## [2026-09-13 02:48] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: round 3 recorded with no barrier winner; round 3b registered (routing-readback consumption, K from 2 to 16 at stride 2, parity at K=8) and step 6 takes its barrier lever from it
+
+## [2026-09-13 03:27] create | sources/runs/2026/09/2026-09-12-decode-path-serialization-round-4
+Decode path serialization round 4 recorded: draft depths 1, 2, 3, 4 and 6 under per-depth protocol variants, 30 cells with paired pass, width and acceptance ratios and hashes
+
+## [2026-09-13 03:27] create | records/measurements/decode-path-serialization-round-4-2026-09-12
+Measurement: draft depth 2 stays; depth 3 at 1.022 does not meet the rule, depths 4 and 6 lose to wider verification reads, depth 1 changes the greedy output
+
+## [2026-09-13 03:27] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: round 4 recorded; no depth qualifies, so step 6 keeps depth 2 and the combined candidate needs no protocol variant
+
+## [2026-09-13 04:36] create | sources/runs/2026/09/2026-09-12-decode-path-serialization-round-5
+Decode path serialization round 5 recorded: router weight cache and router top-k over four prompts by four rounds, twelve clean pairs each, per-prompt ratios and hashes
+
+## [2026-09-13 04:36] create | records/measurements/decode-path-serialization-round-5-2026-09-12
+Measurement: the router weight cache holds at 1.017 over twelve pairs with exact outputs and qualifies for step 6; router top-k on top of it does not
+
+## [2026-09-13 04:38] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: round 5 recorded, the router weight cache carries into step 6; the screen and cohort now wait for five minutes of quiet swap after a swap burst excluded eight cells
+
+## [2026-09-13 05:28] create | sources/runs/2026/09/2026-09-13-decode-path-serialization-round-3b
+Decode path serialization round 3b recorded: routing-readback queue build, 164 checks, exact parity at K=8, period sweep with per-pair ratios, slow-reference analysis and hashes
+
+## [2026-09-13 05:28] create | records/measurements/decode-path-serialization-round-3b-2026-09-13
+Measurement: forecasts on the routing readback remove round 3's loss and stay exact; the rule selects period 4, whose gain without two slow reference cells is about 1%
+
+## [2026-09-13 05:28] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: round 3b recorded; step 6 carries period 4 with the router weight cache and the inert coverage override; the screen and cohort decide
+
+## [2026-09-13 07:58] create | sources/runs/2026/09/2026-09-13-decode-path-serialization-combination
+Decode path serialization step 6 recorded: registered selection, exact parity of the combined candidate and a screen against shipped and B0 prefetch with per-pair ratios and hashes
+
+## [2026-09-13 07:58] create | sources/runs/2026/09/2026-09-13-decode-path-serialization-b1-cohort
+Decode path serialization step 7 recorded: B1 cohort of the combined candidate, verdict, family and prompt ratios, three swap-out exclusions and hashes
+
+## [2026-09-13 07:58] create | records/measurements/decode-path-serialization-combination-screen-2026-09-13
+Measurement: the combined candidate is exact and screens at 1.104 against shipped, 1.018 over B0 prefetch
+
+## [2026-09-13 07:58] create | records/measurements/decode-path-serialization-b1-cohort-2026-09-13
+Measurement: B1 cohort at 1.116 against shipped with lower bound 1.073, every family at 1.037 or above; not a pass because r0245 kept one clean pair after host swap-outs
+
+## [2026-09-13 07:58] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: steps 6 and 7 recorded; the B1 cohort cleared every effect gate but not evidence sufficiency; status stays in_progress pending a complete rerun on a quiet host
+
+## [2026-09-13 08:01] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: registered a full B1 replication of the same candidate and a sixteen-pair attribution sweep, both before running
+
+## [2026-09-13 10:01] create | sources/runs/2026/09/2026-09-13-decode-path-serialization-b1-cohort-replication
+Decode path serialization step 7 replication recorded: guards, quiet-swap wait, verdict, family and prompt ratios, two exclusions and hashes
+
+## [2026-09-13 10:01] create | records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13
+Measurement: the registered B1 replication passes every gate; the combined candidate runs 1.124 against shipped with lower bound 1.105 and every family at 1.072 or above
+
+## [2026-09-13 10:01] update | records/plan/decode-path-serialization-2026-09-12
+Addendum: step 7 replication passed; the plan stays in progress until the attribution sweep and closing profiles are recorded
+
+## [2026-09-13 12:06] create | sources/runs/2026/09/2026-09-13-decode-path-serialization-attribution
+Decode path serialization attribution sweep recorded: five configurations, four prompts by four rounds, per-prompt ratios and hashes
+
+## [2026-09-13 12:06] create | records/measurements/decode-path-serialization-attribution-2026-09-13
+Measurement: router weight cache 1.021 and barrier period 4 1.022 over B0 prefetch, 1.046 together with every pair above 1; B0 prefetch 1.090 over shipped
+
+## [2026-09-13 12:12] create | sources/runs/2026/09/2026-09-13-decode-path-serialization-closing-profiles
+Decode path serialization closing profiles recorded: B0 prefetch and combined candidate profiles, model thread merged by thread id, round 1 re-parsed by block, hashes
+
+## [2026-09-13 12:12] create | records/measurements/decode-path-serialization-closing-profiles-2026-09-13
+Measurement: decode waiting splits between file reads and GPU waits; the combination cuts GPU-wait samples 18% and adds 9% reads; round 1's profile split corrected
+
+## [2026-09-13 12:12] update | records/measurements/decode-path-serialization-round-1-2026-09-12
+Correction: the round 1 profile split covered one of the model thread's two blocks; merged shares added, compilation conclusion unchanged
+
+## [2026-09-13 12:12] update | records/decisions/decode-host-time-is-waiting-not-graph-construction
+Evidence update: merged model-thread profiles put waiting on file reads and GPU; host work outside waiting 8% to 17%; decision stands
+
+## [2026-09-13 12:12] update | records/plan/decode-path-serialization-2026-09-12
+Closed: every step met its exit; the combined candidate passed the B1 replication at 1.124; attribution and closing profiles recorded; adoption, commit and public claims are separate decisions
+
+## [2026-09-13 13:17] create | sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians.md
+Held-out cohorts rescored with true medians: B1 replication 1.114, B1 first run 1.106, B0 1.105; verdicts unchanged
+
+## [2026-09-13 13:17] update | records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/measurements/decode-path-serialization-b1-cohort-2026-09-13.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/measurements/expert-lookahead-2-b0-cohort-2026-09-12.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/measurements/decode-path-serialization-attribution-2026-09-13.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/measurements/decode-path-serialization-combination-screen-2026-09-13.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/measurements/expert-lookahead-2-slot-adoption-screen-2026-09-12.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/plan/decode-path-serialization-2026-09-12.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:17] update | records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11.md
+Corrected held-out cohort figures after rescoring with true medians
+
+## [2026-09-13 13:52] create | records/decisions/decode-lookahead-default-with-the-draft-head.md
+0.2.16 default: the qualified decode lookahead rides the draft head, 373 MiB charged; evidence the B1 replication at 1.114
+
+## [2026-09-13 13:52] create | records/decisions/draft-head-auto-floor-76-per-layer.md
+Draft head auto floor lowered from 120 to 76 experts per layer, a 21 GB target, so 32 GB Macs and up
+
+## [2026-09-13 13:52] create | sources/runs/2026/09/2026-09-13-decode-lookahead-default-tier-plans.md
+Weights-free qualification of the 0.2.16 defaults and doctor plans from 8 to 192 GB
+
+## [2026-09-13 13:52] create | records/measurements/decode-lookahead-default-2026-09-13.md
+0.2.16 defaults implemented: 50 of 50 checks, 73 of 73 planner gates, plans by Mac memory
+
+## [2026-09-13 13:52] create | records/claims/decode-lookahead-1-11x-on-held-out-prompts.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/warm-decode-13-5-tok-s-with-the-decode-lookahead.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/decode-lookahead-11-8-to-13-5-tok-s.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/decode-lookahead-charges-373-mib.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/mtp-auto-floor-76-per-layer-21-gb-target.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/auto-floor-76-experts-per-layer.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/draft-head-31-7-percent-faster-at-76-per-layer.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/lookahead-parts-add-about-2-percent-each.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/tier-estimate-10-tok-s-at-32-gb.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/recommended-context-65536-from-36-gb.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/minimum-mac-memory-16-gb.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/full-context-wait-about-3-minutes-from-24-gb.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] create | records/claims/full-context-wait-about-8-minutes-at-65536.md
+Claim for the 0.2.16 README and docs
+
+## [2026-09-13 13:52] update | records/claims/mtp-auto-floor-120-per-layer-28-gb-target.md
+Withdrawn: the floor is 76 experts per layer from 0.2.16
+
+## [2026-09-13 13:52] update | records/claims/tier-rows-are-estimates-from-the-48-gb-curve.md
+Retitled for the five memory tiers; README.md added as a surface
+
+## [2026-09-13 13:52] update | records/claims/context-cap-32768-tokens.md
+README.md and docs/HARDWARE.md added as surfaces
+
+## [2026-09-13 13:52] update | records/claims/context-opt-in-65536.md
+README.md and docs/HARDWARE.md added as surfaces
+
+## [2026-09-13 13:52] update | records/claims/full-context-wait-6-4-min-on-16-gb.md
+docs/HARDWARE.md added as a surface
+
+## [2026-09-13 13:52] update | records/claims/speculative-decode-x1-24-at-auto-floor.md
+Retitled: the 1.24 was measured at the former auto floor
+
+## [2026-09-13 13:52] update | records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13.md
+Adoption addendum: shipped as the 0.2.16 default
+
+## [2026-09-13 13:52] update | records/measurements/decode-path-serialization-attribution-2026-09-13.md
+Adoption addendum; cited by one public claim
+
+## [2026-09-13 13:52] update | records/decisions/draft-depth-defaults-to-two.md
+Addendum: the activation floor is now 76 experts per layer
+
+## [2026-09-13 13:52] update | records/decisions/draft-depth-defaults-to-one-and-auto-floor-120-per-layer.md
+Addendum: activation floor replaced by the 76-per-layer decision
+
+## [2026-09-13 13:52] update | records/plan/decode-path-serialization-2026-09-12.md
+Addendum: shipped as the 0.2.16 default
+
+## [2026-09-13 13:52] update | records/plan/configurable-context-window-2026-09-06.md
+Addendum: automatic context window by memory tier planned
+
+## [2026-09-13 14:30] update | records/measurements/c2-macbook-pro-m5-max-128gb-community.md
+Rechecked live issue #6 and surfaced the preserved 0.2.3 M5 Max manual-target sweep: 26.9 tok/s at 48 GB and 31.5 at 73 GB versus 21-22 auto. Corrected README tier table, hardware results/estimates and memory FAQ; added two claims, clarified scope records, regenerated MEASUREMENTS.md and llms-full.txt. No runtime/default change or new model benchmark. Brain gates passed (179 claim checks, zero errors, two pre-existing historical-log warnings); generated docs, local link anchors, table columns and diff whitespace checked.
+
+## [2026-09-13 14:49] update | records/measurements/public-documentation-evidence-audit-2026-09-13.md
+Completed the broader README/public-docs evidence audit. Corrected estimate-vs-measurement wording, candidate-vs-release status, default-vs-larger-window budgets, decimal-GB simulations, draft activation scope, image admission accounting, cache-only equality, historical startup scope and build/T0 prerequisites. Updated claims and canonical review policy; preserved historical sources. 73 planner gates, 179 claim checks, 160 local links and 35 table structures passed; generated docs current and diff clean. Full store: zero errors, the same two pre-existing log warnings. No model benchmark or runtime change from this task; changes remain local.
+
+## [2026-09-13 16:43] update | records/measurements/hardware-planning-ranges-2026-09-13.md
+Added user-requested best-effort warm-speed ranges: Low 1-6, Medium 6-14, High 12-27 and Ultra 20-32 tok/s. Recorded endpoint construction, mixed releases, manual-target assumptions and unmeasured hardware transfers. README retains estimates separately from actual configurations; hardware guide separates allocation plans. Four estimated claims added, older point-estimate surfaces updated, projections regenerated. Brain gates passed with 185 claim checks, zero errors and the same two historical log warnings; touched tables, local links/anchors, generated parity and whitespace checked. No model benchmark, runtime change, commit or push.
+
+## [2026-09-13 16:46] update | records/design/sevra-maintained-model-integration.md
+Added Carlos-requested Support coming soon indicator to the README Compatibility row, retaining the current model limitation. Aligned hardware and AI-facing docs, recorded the roadmap wording, and regenerated PLAN.md and llms-full.txt. Brain gates and 185 claim checks passed with zero errors and the same two historical log warnings; generated parity and diff whitespace passed. No runtime behavior changed.
+
+## [2026-09-13 16:50] update | records/measurements/hardware-planning-ranges-2026-09-13.md
+Used the preserved corrected B1 replication medians, 11.79 and 13.47 tok/s, at Carlos request. Highlighted the 48 GB development Mac and 20 GB process target in both public hardware tables; labeled the older 0.2.3 result historical. High now estimates 13-27 tok/s using the latest measured lower reference, without guaranteeing a minimum across hardware. Updated three claims, current documentation and generated projections. Confirmed v0.2.16 is published and distinguished its adopted configuration from the pre-release benchmark. 186 claim checks and brain gates passed with zero errors and the same two historical log warnings; table structure, generated parity and whitespace passed. No model run or runtime change.
+
+## [2026-09-13 17:25] create | sources/runs/2026/09/2026-09-13-automatic-context-window-tier-plans.md
+Weights-free checks and doctor plans for the per-Mac automatic context window candidate 3626ba67: T0 38/38, planner gates 90/90, plans from 8 to 192 GB in auto and at 32,768 tokens
+
+## [2026-09-13 17:25] create | records/measurements/automatic-context-window-plans-2026-09-13.md
+Automatic window by simulated memory: 32,768 through 32 GB, 65,536 from 36 GB, 131,072 at 64 GB, 262,144 from 96 GB; this Mac picks 65,536 and rejects 131,072 at 10.4%
+
+## [2026-09-13 17:25] create | records/claims/automatic-context-window-262144-from-96-gb.md
+New claim for the full automatic window from 96 GB
+
+## [2026-09-13 17:25] create | records/claims/automatic-context-window-131072-at-64-gb.md
+New claim for the 131,072-token automatic window at 64 GB
+
+## [2026-09-13 17:25] create | records/claims/automatic-context-window-tolerance-10-percent.md
+New claim for the 10% request-time tolerance of larger automatic windows
+
+## [2026-09-13 17:25] create | records/claims/automatic-target-43-2-gb-at-64-gb.md
+New claim for the 43.2 GB automatic target at 64 GB
+
+## [2026-09-13 17:25] create | records/claims/automatic-target-54-7-gb-from-96-gb.md
+New claim for the 54.7 GB automatic target from 96 GB
+
+## [2026-09-13 17:25] update | records/claims/recommended-context-65536-from-36-gb.md
+Recommendation became the automatic choice; supported by the automatic window plans
+
+## [2026-09-13 17:25] update | records/claims/context-cap-32768-tokens.md
+32,768 is now the automatic window through 32 GB and with a fixed cache; a fixed memory target still gets an automatic window
+
+## [2026-09-13 17:25] update | records/claims/context-opt-in-65536.md
+Retitled as the explicit 65,536-token selector Hermes uses; auto may pick it from 36 GB
+
+## [2026-09-13 17:25] update | records/claims/auto-ceiling-34-6-gb-with-the-head.md
+Scoped to the 32,768-token window; larger automatic windows raise targets to 43.2 and 54.7 GB
+
+## [2026-09-13 17:41] create | sources/runs/2026/09/2026-09-13-context-capacity-131072-cold.md
+131,072-token cold rung at 16 GB: complete prompt and reply, 14.80 GB sampled peak against a 15.00 GB ledger, 38.1-minute read; frozen driver flagged 200 global swap-ins
+
+## [2026-09-13 17:41] create | records/measurements/automatic-context-window-131072-read-2026-09-13.md
+Capacity inside plan at 131,072 tokens; estimates close at 65,536 and about a third short past it; preregistered 128-token anchor not applied
+
+## [2026-09-13 17:41] create | records/claims/context-read-38-minutes-at-131072.md
+New measured claim for the 38-minute 131,072-token read
+
+## [2026-09-13 18:20] create | sources/runs/2026/09/2026-09-13-context-draft-head-131072.md
+Draft head on at 131,072 tokens: inside an 18 GB plan with a 16.44 GB sampled peak, reply token-identical to the draft-off run, 85 of 85 drafts accepted
+
+## [2026-09-13 18:20] create | records/measurements/automatic-context-window-draft-head-131072-2026-09-13.md
+Greedy parity and memory for the draft head at 131,072 tokens; keeps the draft-head limit at the model limit
+
+## [2026-09-13 18:20] create | records/decisions/automatic-context-window-per-machine.md
+Standing decision: per-Mac automatic context window up to 262,144 tokens, rules, tradeoffs, overrides, evidence and gates
+
+## [2026-09-13 18:20] update | records/plan/configurable-context-window-2026-09-06.md
+Addendum: automatic context window and full public limit implemented, native 131,072-token evidence, open gates
+
+## [2026-09-13 19:56] create | sources/runs/2026/09/2026-09-13-release-0-2-17-published-and-installed
+v0.2.17 release acceptance: CI artifact 25/25 after an environment-only first run, publication and attestation, installation, installed e2e 31/31.
+
+## [2026-09-13 19:56] create | records/measurements/release-0-2-17-published-2026-09-13
+v0.2.17 published, installed and accepted; auto chose 32,768 tokens at 10 GB on the public binary.
+
+## [2026-09-13 19:56] update | records/plan/configurable-context-window-2026-09-06
+Released in 0.2.17; added the release acceptance to the 2026-09-13 addendum.
+

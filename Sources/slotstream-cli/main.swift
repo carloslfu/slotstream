@@ -18,6 +18,7 @@ struct Slotstream: ParsableCommand {
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
             ContextCheck.self, PrefillScheduleCommand.self, SweepCheck.self,
             VisionParity.self, OptimizationStateCheck.self, PackExperts.self,
+            ExpertLookaheadCapture.self, ExpertLookaheadBench.self, ExpertLookaheadCheck.self, ExpertLookaheadPredict.self,
         ]
     )
 }
@@ -233,9 +234,36 @@ struct ModelOptions: ParsableArguments {
             mtp: requireMTP ? .on : requestedMTP, mtpAvailable: MTPWeights.present(modelDir: modelURL),
             vision: visionMode(), visionAvailable: visionAvailable(),
             maxContextTokens: maxContext, qualification: qualification,
-            runtimePolicy: policy)
+            runtimePolicy: policy, decodeLookahead: DecodeLookaheadPlanning.environment())
         let plan = try runtimePlan(base, prefixCacheEnabled: prefixCacheEnabled).withRequestPolicy(configuration)
         FileHandle.standardError.write((plan.banner() + "\n").data(using: .utf8)!)
+        return plan
+    }
+
+    /// The announce for a window that may be automatic. The automatic choice
+    /// is printed under the plan; a startup lowering is one of the plan's notes.
+    func announcedPlan(window: ContextWindowArgument, prefixCacheEnabled: Bool = true,
+                       maxPrefillWait: Double = 30) throws -> MemoryPlan {
+        if let tokens = window.tokens {
+            return try announcedPlan(maxContext: tokens, prefixCacheEnabled: prefixCacheEnabled,
+                maxPrefillWait: maxPrefillWait)
+        }
+        _ = try ContextConfiguration(maxPrefillWaitMinutes: maxPrefillWait)
+        let policy = try runtimePolicy(prefixCacheEnabled: prefixCacheEnabled)
+        let request = PlanRequest(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            maxRAMPercent: maxRAMPercent, mtp: try mtpMode(), vision: try visionMode())
+        try ensureWeights()
+        let resolved = try Planner.resolveContextWindow(.automatic, request: request, on: .current(),
+            mtpAvailable: MTPWeights.present(modelDir: modelURL), visionAvailable: visionAvailable(),
+            runtimePolicy: policy, decodeLookahead: DecodeLookaheadPlanning.environment())
+        let configuration = try ContextConfiguration(maxContextTokens: resolved.plan.maxContextTokens,
+            maxPrefillWaitMinutes: maxPrefillWait)
+        let plan = try runtimePlan(resolved.plan, prefixCacheEnabled: prefixCacheEnabled).withRequestPolicy(configuration)
+        var announce = plan.banner() + "\n"
+        if let automatic = resolved.automatic {
+            announce += automatic.announcement(served: plan.maxContextTokens) + "\n"
+        }
+        FileHandle.standardError.write(announce.data(using: .utf8)!)
         return plan
     }
 
@@ -335,12 +363,32 @@ func askYesNo(_ prompt: String) -> Bool? {
     return parse(String(cString: buf))
 }
 
+/// `--max-context auto` (the default) or a token count.
+enum ContextWindowArgument: ExpressibleByArgument, Equatable {
+    case automatic
+    case tokens(Int)
+
+    init?(argument: String) {
+        if argument.lowercased() == "auto" { self = .automatic; return }
+        guard let tokens = Int(argument) else { return nil }
+        self = .tokens(tokens)
+    }
+
+    var defaultValueDescription: String { "auto" }
+
+    var tokens: Int? {
+        if case .tokens(let tokens) = self { return tokens }
+        return nil
+    }
+}
+
 // MARK: run
 
 struct Run: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Generate from a prompt")
     @OptionGroup var model: ModelOptions
-    @Option(help: "Prompt plus reply context window") var maxContext = ContextPolicy.defaultTokens
+    @Option(help: "Prompt plus reply context window: auto (this Mac's automatic window) or tokens up to \(ContextPolicy.maxTokens)")
+    var maxContext: ContextWindowArgument = .automatic
     @Option(help: "Accepted request to first model token budget in minutes; 0 disables only time")
     var maxPrefillWait = 30.0
     @Option var prompt: String = "Why is the sky blue?"
@@ -369,11 +417,12 @@ struct Run: ParsableCommand {
         if raw, !images.isEmpty {
             throw PlanError("--raw has no chat template to place an image in; drop one of them")
         }
-        _ = try ContextConfiguration(maxContextTokens: maxContext, maxPrefillWaitMinutes: maxPrefillWait)
+        _ = try ContextConfiguration(maxContextTokens: maxContext.tokens ?? ContextPolicy.defaultTokens,
+            maxPrefillWaitMinutes: maxPrefillWait)
         let launchStart = RuntimeClock.now()
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
-        let plan = try model.announcedPlan(maxContext: maxContext, maxPrefillWait: maxPrefillWait)
+        let plan = try model.announcedPlan(window: maxContext, maxPrefillWait: maxPrefillWait)
         Task {
             do {
                 let engine = try await Engine(modelDir: model.modelURL, plan: plan)
@@ -527,16 +576,19 @@ struct Serve: ParsableCommand {
     @Option(
         name: .customLong("max-context"),
         help: ArgumentHelp(
-            "Longest prompt plus reply accepted per request, in tokens (default \(ContextPolicy.defaultTokens), ceiling \(ContextPolicy.maxTokens)).",
+            "Longest prompt plus reply accepted per request: auto, or tokens up to \(ContextPolicy.maxTokens).",
             discussion: """
-                The configured window stays fixed for this engine. The planner \
-                must fit its state and workspaces before loading; requests \
+                auto (the default) picks this Mac's window: the largest of \
+                32768, 65536, 131072 and 262144 that keeps speculative decoding, \
+                retains one complete conversation and adds at most 10% to a \
+                typical request. `doctor` shows the choice and its tradeoff. \
+                The configured window stays fixed for this engine; the planner \
+                fits its state and workspaces before loading, and requests \
                 above the window are refused. --max-prefill-wait separately \
-                bounds accepted-request-to-first-token time. `doctor` reports \
-                memory feasibility and available timing estimates; \
-                `context-check` runs explicit, unqualified capacity diagnostics.
+                bounds accepted-request-to-first-token time; `context-check` \
+                runs explicit capacity diagnostics.
                 """))
-    var maxContext: Int = ContextPolicy.defaultTokens
+    var maxContext: ContextWindowArgument = .automatic
     @Option(help: "Accepted request to first model token budget in minutes; 0 disables only time")
     var maxPrefillWait = 30.0
     @Flag(name: .customLong("no-elastic"),
@@ -547,8 +599,8 @@ struct Serve: ParsableCommand {
     var noPrefixCache = false
 
     func run() throws {
-        if let why = ContextPolicy.validationError(maxContext) { throw PlanError(why) }
-        let plan = try model.announcedPlan(maxContext: maxContext, prefixCacheEnabled: !noPrefixCache, maxPrefillWait: maxPrefillWait)
+        if let tokens = maxContext.tokens, let why = ContextPolicy.validationError(tokens) { throw PlanError(why) }
+        let plan = try model.announcedPlan(window: maxContext, prefixCacheEnabled: !noPrefixCache, maxPrefillWait: maxPrefillWait)
         // Claim the port first: failing here after a full model load wastes
         // half a minute and used to be a fatalError.
         let listenFD = try Server.bindPort(port)
@@ -561,7 +613,7 @@ struct Serve: ParsableCommand {
         }
         sem.wait()
         if let e = err { throw e }
-        engine.maxContextTokens = maxContext
+        engine.maxContextTokens = plan.maxContextTokens
         // Long prompts announce themselves in the server log with the wait to
         // expect, then report by quarters; anything under 2k tokens is quiet.
         let progress = PrefillProgressReporter(
@@ -694,8 +746,8 @@ struct Doctor: ParsableCommand {
     var asJSON = false
 
     @Option(name: .customLong("max-context"),
-            help: "Preview the plan `serve --max-context N` would announce (default \(ContextPolicy.defaultTokens), ceiling \(ContextPolicy.maxTokens)).")
-    var maxContext: Int = ContextPolicy.defaultTokens
+            help: "Preview the plan `serve --max-context` would announce: auto (this Mac's automatic window, the default) or tokens up to \(ContextPolicy.maxTokens).")
+    var maxContext: ContextWindowArgument = .automatic
     @Option(help: "Accepted request to first model token budget in minutes; 0 disables only time")
     var maxPrefillWait = 30.0
 
@@ -728,7 +780,8 @@ struct Doctor: ParsableCommand {
     }
 
     func run() throws {
-        let configuration = try ContextConfiguration(maxContextTokens: maxContext, maxPrefillWaitMinutes: maxPrefillWait)
+        _ = try ContextConfiguration(maxContextTokens: self.maxContext.tokens ?? ContextPolicy.defaultTokens,
+            maxPrefillWaitMinutes: maxPrefillWait)
         // --json is for machines: emit the plan and nothing else.
         let quiet = asJSON
         let info = MLX.GPU.deviceInfo()
@@ -758,12 +811,39 @@ struct Doctor: ParsableCommand {
                 workingSetGB: simWorkingSet ?? (simRAM.map { $0 * 0.75 } ?? Planner.deviceWorkingSetGB()),
                 availableGB: simulatedAvailable, isSimulated: true)
             : .current()
+        let lookahead = DecodeLookaheadPlanning.environment()
+        // The window: explicit, or this machine's automatic choice planned
+        // against the (possibly simulated) live memory, exactly as serve does.
+        var automatic: AutomaticContextWindow?
+        let maxContext: Int
+        if let tokens = self.maxContext.tokens {
+            maxContext = tokens
+        } else {
+            let tierRequest = PlanRequest(expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
+                memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
+                mtp: try model.mtpMode(), vision: try model.visionMode())
+            let mtpPresent = MTPWeights.present(modelDir: model.modelURL)
+            let visionPresent = model.visionAvailable()
+            let policy = try model.runtimePolicy()
+            if let resolved = try? Planner.resolveContextWindow(.automatic, request: tierRequest, on: device,
+                    mtpAvailable: mtpPresent, visionAvailable: visionPresent, runtimePolicy: policy,
+                    decodeLookahead: lookahead) {
+                automatic = resolved.automatic
+                maxContext = resolved.plan.maxContextTokens
+            } else {
+                automatic = Planner.automaticContextWindow(tierRequest, on: device, mtpAvailable: mtpPresent,
+                    visionAvailable: visionPresent, runtimePolicy: policy, decodeLookahead: lookahead)
+                maxContext = ContextPolicy.defaultTokens
+            }
+        }
+        let configuration = try ContextConfiguration(maxContextTokens: maxContext, maxPrefillWaitMinutes: maxPrefillWait)
         let request = PlanRequest(expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
             memoryGB: model.memoryGB, maxRAMPercent: model.maxRAMPercent,
             mtp: try model.mtpMode(), vision: try model.visionMode(), maxContextTokens: maxContext)
         let feasibility = Planner.contextFeasibility(request, on: device,
             mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
-            visionAvailable: model.visionAvailable(), runtimePolicy: try model.runtimePolicy())
+            visionAvailable: model.visionAvailable(), runtimePolicy: try model.runtimePolicy(),
+            decodeLookahead: lookahead)
         let advisory: MemoryPlan?
         if feasibility.requestedPlan == nil, maxContext <= ContextPolicy.defaultTokens,
            model.expertsPerLayer != nil || model.poolGB != nil {
@@ -772,7 +852,8 @@ struct Doctor: ParsableCommand {
                 availableGB: device.availableGB, ramPercent: model.maxRAMPercent,
                 mtp: model.mtpMode(), mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
                 vision: model.visionMode(), visionAvailable: model.visionAvailable(),
-                maxContextTokens: maxContext, simulated: device.isSimulated, runtimePolicy: model.runtimePolicy())
+                maxContextTokens: maxContext, simulated: device.isSimulated, qualification: false,
+                runtimePolicy: model.runtimePolicy(), decodeLookahead: lookahead)
         } else { advisory = nil }
         guard let requestedPlan = feasibility.requestedPlan ?? advisory else {
             if asJSON {
@@ -788,6 +869,8 @@ struct Doctor: ParsableCommand {
         let plan = try requestedPlan.withRequestPolicy(configuration)
         if asJSON {
             var output = plan.json(); output["context_feasibility"] = feasibility.json
+            output["context_window_source"] = automatic == nil ? "explicit" : "automatic"
+            if let automatic { output["automatic_context_window"] = automatic.json }
             let data = try JSONSerialization.data(
                 withJSONObject: output, options: [.prettyPrinted, .sortedKeys])
             print(String(decoding: data, as: UTF8.self))
@@ -795,6 +878,7 @@ struct Doctor: ParsableCommand {
         }
         print(plan.banner())
         print("memory-feasible window: \(feasibility.maximumFeasibleWindow) tokens; separate from the \(maxPrefillWait)-minute request-to-first-token policy")
+        if let automatic { print(automatic.report(served: maxContext)) }
         print("""
 
         knobs (first one given wins; with none, auto is the default):
@@ -818,10 +902,23 @@ struct Doctor: ParsableCommand {
         for t in [Planner.minMemoryGB, 10, 12, 16, 24, 28, 36, 48, 73]
         where t >= Planner.minMemoryGB
         {
-            guard let row = try? Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: t,
-                ramGB: device.ramGB, workingSetGB: device.workingSetGB, availableGB: device.availableGB,
-                maxContextTokens: maxContext, simulated: true, runtimePolicy: model.runtimePolicy()) else {
-                print(String(format: "  %6.1f GB   unavailable at this context", t)); continue
+            let row: MemoryPlan
+            do {
+                row = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: t,
+                    ramGB: device.ramGB, workingSetGB: device.workingSetGB, availableGB: device.availableGB,
+                    maxContextTokens: maxContext, simulated: true, runtimePolicy: model.runtimePolicy())
+            } catch {
+                // Name the constraint: a target above what this Mac can hold
+                // is a different answer from a target too small for the window.
+                let why = String(describing: error)
+                let reason = why.contains("total-memory target")
+                    ? "too small for a \(maxContext)-token window"
+                    : t > device.workingSetGB
+                        ? "above this Mac's " + String(format: "%.1f", device.workingSetGB) + " GB Metal working set"
+                        : why.contains("reclaimable memory")
+                            ? "more than is reclaimable right now for a \(maxContext)-token window"
+                            : "not available: \(why)"
+                print(String(format: "  %6.1f GB   ", t) + reason); continue
             }
             let e = row.expertsPerLayerCached
             let est = row.estWarmTokS
@@ -829,9 +926,9 @@ struct Doctor: ParsableCommand {
             let chunk = row.prefillChunk
             let wait = PrefillSchedule.estSeconds(tokens: maxContext, maxChunk: chunk)
             print(String(
-                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@   %5d   ~%@",
+                format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@   %5d   %@",
                 t, e, est, full ? " (resident)" : "", chunk,
-                PrefillSchedule.describe(seconds: wait)))
+                wait.isFinite ? "~" + PrefillSchedule.describe(seconds: wait) : "not yet calibrated"))
         }
         print("""
 
@@ -844,13 +941,13 @@ struct Doctor: ParsableCommand {
         let row = lengths.map { n -> String in
                 let secs = PrefillSchedule.estSeconds(tokens: n, maxChunk: chunk)
                 let label = n % 1024 == 0 ? "\(n / 1024)k" : "\(n)"
-                return "\(label) ~\(PrefillSchedule.describe(seconds: secs))"
+                return secs.isFinite ? "\(label) ~\(PrefillSchedule.describe(seconds: secs))" : "\(label) not yet calibrated"
             }
         print("  " + row.joined(separator: " · ") + " (the cap)")
         print("""
-          context state is ~27 KiB per token; the cap of \(ContextPolicy.maxTokens) is the largest context
-          measured so far, not a memory limit. `slotstream context-check --tokens N` measures a
-          longer prompt on this Mac and stops before it swaps.
+          context state is ~27 KiB per token, up to the model's \(ContextPolicy.modelLimit)-token limit.
+          `slotstream context-check --tokens N` reads an N-token synthetic prompt on this Mac and
+          stops early if reclaimable memory falls below its floor or its time limit passes.
         """)
     }
 }

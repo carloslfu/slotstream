@@ -3,7 +3,7 @@ type: decision
 meta-type: conclusion
 id: 01m27v42cen3x9p4ky4jxexj5v
 created: 2026-09-11T09:00:04.878840+00:00
-updated: 2026-09-11T09:13:46.750785+00:00
+updated: 2026-09-13T13:44:49.905598+00:00
 summary: Two draft tokens are the adopted operating default; activation and memory policies remain separate
 decided_on: 2026-09-11
 evidence: '[[records/measurements/mtp-depth-auto40-multitasking-2026-09-11]]'
@@ -24,3 +24,4 @@ New experiments, including Expert Lookahead, fix both baseline and candidate at 
 The source/default change is separate from publishing a release or replacing the installed public artifact. The accompanying implementation record must state what was built and tested and which executable is installed. Slotstream remains stopped after qualification.
 
 Implementation and evidence: [[records/measurements/draft-depth-two-default-2026-09-11]]. The build, T0, static and serving configuration checks passed. The full MTP gate remains resource-incomplete; the installed public release was not replaced.
+**Addendum (2026-09-13).** The activation floor this decision kept at 120 experts per layer is now 76: [[records/decisions/draft-head-auto-floor-76-per-layer]]. Draft depth stays two.

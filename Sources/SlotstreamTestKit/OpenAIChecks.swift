@@ -190,7 +190,9 @@ extension Catalogue {
         c.expect("both expected peaks stay below requested target", ordinary.expectedPeakGB <= 10 && hermes.expectedPeakGB <= 10)
         c.expect("reuse bound does not exceed request context", hermes.prefixCacheTokens <= hermes.maxContextTokens)
         c.expect("the Hermes minimum is actually accepted", ContextPolicy.validationError(64_000) == nil)
-        c.expect("ceiling still rejects unsupported larger windows", ContextPolicy.validationError(65_537) != nil)
+        c.expect("the pinned model limit is accepted", ContextPolicy.validationError(ContextPolicy.modelLimit) == nil)
+        c.expect("the ceiling still rejects windows past the model limit",
+            ContextPolicy.validationError(ContextPolicy.modelLimit + 1) != nil)
         return c.report()
     }
 }

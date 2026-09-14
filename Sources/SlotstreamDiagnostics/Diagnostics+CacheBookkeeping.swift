@@ -51,6 +51,51 @@ extension Diagnostics {
             pins.unpinAll(); pins.unpinAll()
             c.expect("pin clear is idempotent \(count)", (0..<count).allSatisfy { !pins[$0] })
         }
+        // Pin generations. A slot stays pinned while it was pinned in one of the
+        // last `depth` generations, and re-pinning moves ownership forward so an
+        // older generation's retirement leaves it pinned. This is what lets the
+        // layer barrier be deferred: a slot an unevaluated gather still reads
+        // cannot be chosen as a victim while it stays pinned.
+        for depth in [1, 2, 3, 5] {
+            let count = 64
+            var pins = SlotPins(count: count)
+            pins.configure(depth: depth)
+            var owner: [Int: Int] = [:]
+            var absolute = 0
+            for step in 0..<300 {
+                let slot = (step * 7) % count
+                pins.pin(slot); pins.pin(slot)
+                owner[slot] = absolute
+                if step % 3 == 0 {
+                    pins.retireGeneration()
+                    absolute += 1
+                    for (s, g) in owner where g <= absolute - depth { owner.removeValue(forKey: s) }
+                }
+                let expected = Set(owner.keys)
+                c.equal("pin depth \(depth) count, step \(step)", pins.count, expected.count)
+                c.expect("pin depth \(depth) set, step \(step)",
+                         (0..<count).allSatisfy { pins[$0] == expected.contains($0) })
+            }
+            pins.unpinAll()
+            c.expect("pin depth \(depth) unpin-all clears",
+                     (0..<count).allSatisfy { !pins[$0] } && pins.count == 0)
+        }
+        // Depth one must remain the shipped path exactly: one retirement is an
+        // unpin-all, so the deferred barrier cannot change default behaviour.
+        var legacy = SlotPins(count: 16)
+        legacy.configure(depth: 1)
+        legacy.pin(3); legacy.pin(9)
+        legacy.retireGeneration()
+        c.expect("depth one retire is unpin-all", !legacy[3] && !legacy[9] && legacy.count == 0)
+        // Raising depth after slots are already pinned keeps them pinned.
+        var grown = SlotPins(count: 16)
+        grown.pin(2); grown.pin(5)
+        grown.configure(depth: 3)
+        c.expect("depth change keeps live pins", grown[2] && grown[5] && grown.count == 2)
+        grown.retireGeneration(); grown.retireGeneration()
+        c.expect("depth change pins survive two retirements", grown[2] && grown[5])
+        grown.retireGeneration()
+        c.expect("depth change pins retire on the third", !grown[2] && !grown[5] && grown.count == 0)
         return c.report()
     }
 }

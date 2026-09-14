@@ -78,7 +78,8 @@ def check(binary):
     def expect(name, condition, detail=None):
         assertions.append({"name": name, "passed": bool(condition), "detail": detail if not condition else None})
 
-    fixture = json.loads((ROOT / "Tools/fixtures/context-default-v1.json").read_text())
+    fixture = json.loads((ROOT / "Tools/fixtures/context-default-v2.json").read_text())
+    automatic = json.loads((ROOT / "Tools/fixtures/context-automatic-v1.json").read_text())
     help_result = run(binary, ["context-check", "--help"])
     evidence.append(help_result)
     help_text = help_result["stdout"]
@@ -97,6 +98,19 @@ def check(binary):
             expect(f"default {tier['tier']} additions declared", set(d) <= set(fields) | additions, sorted(d))
             expect(f"default {tier['tier']} ledger agrees", abs(d["expected_peak_gb"] - d["memory_ledger"]["expected_peak_bytes"] / 1e9) <= .051)
             expect(f"default {tier['tier']} wait policy", d["max_prefill_wait_minutes"] == 30 and d["prefill_wait_scope"] == "accepted_request_to_first_model_token")
+
+    for tier in automatic["tiers"]:
+        repeats = [run(binary, tier["args"]) for _ in range(2)]
+        evidence.extend(repeats)
+        values = [json.loads(r["stdout"]) for r in repeats]
+        expect(f"automatic {tier['tier']} window", all(d["max_context_tokens"] == tier["expected_window"]
+            and d["context_window_source"] == "automatic" for d in values), [d.get("max_context_tokens") for d in values])
+        expect(f"automatic {tier['tier']} repeatable", values[0] == values[1])
+        expect(f"automatic {tier['tier']} candidates", [c["window"] for c in values[0]["automatic_context_window"]["candidates"]]
+            == automatic["candidate_windows"], values[0].get("automatic_context_window"))
+        if tier["expected_window"] > 32768:
+            expect(f"automatic {tier['tier']} retains one complete conversation",
+                values[0]["prefix_cache_max_tokens"] >= tier["expected_window"], values[0]["prefix_cache_max_tokens"])
 
     for start in [0, 1, 32768, 65535, 128256, 131071, 262079, 262143]:
         result = run(binary, ["prefill-schedule", "--tokens", str(262144 - start), "--from", str(start), "--chunk", "4096", "--json"])

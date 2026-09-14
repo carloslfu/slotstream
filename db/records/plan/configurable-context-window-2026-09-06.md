@@ -2,7 +2,7 @@
 type: plan
 id: 01m1vgtznvvvt2hm9z1aw6dew2
 created: 2026-09-06T14:09:28.251268+00:00
-updated: 2026-09-07T07:42:59.010569+00:00
+updated: 2026-09-13T19:56:09.219048+00:00
 summary: 'Configurable context through the model limit: shared byte accounting, request guards, bounded prefill and staged qualification'
 date: 2026-09-06
 doc: plan
@@ -926,3 +926,21 @@ Public/default context stays65536/32768; MTP/vision limits stay65536. The full m
 `Tools/context_window_matrix.py` and the testing guide make this check repeatable without compilation or a model. Candidate artifacts and source snapshots are checked at both ends. The final restored-checkout receipt identifies Plan.swift and PlannerDevice.swift as the only V215 differences, so it remains identified-candidate CLI evidence rather than a new full build of current source. No runtime source changed for this matrix.
 
 The software implementation is delivered, but the whole plan is not complete: full native capacity, final applicable build/numerical/resource/API/client gates, public-limit activation and release/install/rollback still require their own evidence. This latest request allowed feasible context testing; available resources did not support a fresh model launch. No native test, memory waiter or expanded-capacity claim was introduced. Existing proxy and historical model receipts retain their original scope.
+
+### Automatic context window by memory tier, planned (2026-09-13)
+
+Carlos asked the public docs to say that auto mode will choose the context window as it already chooses the memory target. It does not today: every plan starts at 32,768 tokens unless `--max-context` names another window. The tier tables in README.md and docs/HARDWARE.md recommend 32,768 below 36 GB and 65,536 from 36 GB, from `doctor --sim-ram` plans on the 0.2.16 candidate ([[records/measurements/decode-lookahead-default-2026-09-13]]): at 65,536 tokens a 16 GB Mac's cache shrinks by a third and a 32 GB Mac's cache falls below the draft head's floor. Automatic selection would apply that rule when no window is given, keep an explicit `--max-context` authoritative, and move no public limit without this plan's qualification gates. Not implemented.
+
+### Automatic context window and the full public limit, implemented (2026-09-13)
+
+Carlos asked to enable the full window, finish the remaining work with best guesses from what the development Mac can measure, have auto choose the best default for every memory tier, and update the tables. This supersedes the planned addendum above. It opens the public limit before the frozen native campaign could run, at his direction, and records exactly what evidence exists.
+
+**Implemented.** `ContextPolicy.maxTokens`, the implementation limit and the draft-head limit equal the pinned model's 262,144 tokens; images stay within 65,536. `--max-context` accepts `auto`, now the default for `serve`, `run` and `doctor`, or any window from 1 to 262,144. Auto follows [[records/decisions/automatic-context-window-per-machine]]. A window above 32,768 retains one complete conversation when its plan can, and otherwise the plan says how much a follow-up reuses. `doctor` reports every automatic candidate and names why a memory target is unavailable. The diagnostic recovery ladder stops at 65,536.
+
+**Frozen baselines.** C01's default allocation is pinned at an explicit 32,768 tokens in `Tools/fixtures/context-default-v2.json`; v1 stays unchanged. `Tools/fixtures/context-automatic-v1.json` freezes the automatic windows of the four fixture tiers. Plans by memory and the software checks are in [[records/measurements/automatic-context-window-plans-2026-09-13]].
+
+**Native evidence.** The 131,072-token cold rung completed inside its 16 GB plan ([[records/measurements/automatic-context-window-131072-read-2026-09-13]]). It is not the frozen campaign: that campaign's 22 GB and minimum-target 262,144-token profiles could not run on the development Mac, where every target from 18 to 24 GB was refused. With the draft head on, the same prompt and window stayed inside an 18 GB plan and matched the draft-off reply token for token ([[records/measurements/automatic-context-window-draft-head-131072-2026-09-13]]), which keeps the draft-head limit at the model limit.
+
+**Still open.** The frozen native campaign, including cold and retained 262,144-token capacity; native vision at the new cap; prefill anchors that depend on position and cover passes under 256 tokens; and the installed-client battery at larger windows. The public limit and the automatic windows above 65,536 rest on the ledger arithmetic plus the rungs above, at Carlos's direction.
+
+**Released.** Slotstream 0.2.17 shipped this on 2026-09-13. The exact CI artifact passed 25 of 25 model gates, and the installed release passed 31 of 31 checks with auto choosing 32,768 tokens at a 10 GB target ([[records/measurements/release-0-2-17-published-2026-09-13]]). The open items above are unchanged.

@@ -50,9 +50,9 @@ checkpoint_rejection() {
     grep -Fxq 'Error: reclaimable memory is unreadable; refusing additional long-context allocation during model allocation' "$T/startup-error"
 }
 
-run_binary doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/p48" 2>&1
+run_binary doctor --mtp off --max-context 32768 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/p48" 2>&1
 check "48GB pristine: 33.0 GB target and starts quiet" "grep -q 'target: 33.0' $T/p48 && ! grep -q 'note:' $T/p48"
-run_binary doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > "$T/b48" 2>&1
+run_binary doctor --mtp off --max-context 32768 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 18 > "$T/b48" 2>&1
 check "48GB busy: clamped to 15.4 GB, sized-down note" "grep -q 'target: 15.4' $T/b48 && grep -q 'sized down from the usual 33.0' $T/b48"
 run_binary doctor --mtp off --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/p16" 2>&1
 check "16GB pristine: 9.8 GB target, no notes"         "grep -q 'target: 9.8' $T/p16 && ! grep -q 'note:' $T/p16"
@@ -62,10 +62,10 @@ run_binary doctor --mtp off --sim-ram 8.6 --sim-working-set 5.8 --sim-available 
 check "8GB Mac: refuses an unphysical minimum allocation" "grep -q 'insufficient_memory' $T/m8 && grep -q 'maximum feasible window: 0' $T/m8"
 # A big machine retains the chosen policy ceiling, explains its evidence,
 # and permits explicit overrides. These are policy checks, not speed tests.
-run_binary doctor --mtp off --sim-ram 137.4 > "$T/p128" 2>&1
+run_binary doctor --mtp off --max-context 32768 --sim-ram 137.4 > "$T/p128" 2>&1
 check "128GB auto stops at the knee, not at 70% of RAM" "grep -q 'target: 33.0' $T/p128"
 check "128GB explains the measured basis for its default" "grep -q 'default memory ceiling is 33.0 GB' $T/p128 && grep -q 'other hardware may benefit' $T/p128"
-run_binary doctor --mtp off --sim-ram 137.4 --memory-gb 88 > "$T/f128" 2>&1
+run_binary doctor --mtp off --max-context 32768 --sim-ram 137.4 --memory-gb 88 > "$T/f128" 2>&1
 check "128GB: --memory-gb still reaches full residency" "grep -q 'all 512 experts per layer resident' $T/f128"
 # doctor says "availability is not a constraint" with +infinity; a
 # finite-only guard made --sim-ram without --sim-available fail outright.
@@ -75,7 +75,7 @@ check "--sim-ram alone plans instead of erroring"       "! grep -q 'available me
 # silently dropped when a hard knob outranks it.
 run_binary doctor --mtp off --sim-ram 137.4 --max-ram-percent 15 > "$T/pct" 2>&1
 check "--max-ram-percent lowers the auto target"        "grep -q 'target: 20.6' $T/pct"
-run_binary doctor --mtp off --sim-ram 137.4 --max-ram-percent 95 > "$T/pcthi" 2>&1
+run_binary doctor --mtp off --max-context 32768 --sim-ram 137.4 --max-ram-percent 95 > "$T/pcthi" 2>&1
 check "--max-ram-percent cannot exceed the knee"        "grep -q 'target: 33.0' $T/pcthi"
 check "--max-ram-percent 0 refused"                     "! run_binary doctor --max-ram-percent 0"
 check "--max-ram-percent 150 refused"                   "! run_binary doctor --max-ram-percent 150"
@@ -119,17 +119,36 @@ check "--model with no safetensors: names the fix" "checkpoint_rejection $T/nosa
 # --- MTP draft-head policy (planning only; a dummy file flips availability) --
 mkdir -p "$T/mtpdir" && : > "$T/mtpdir/mtp.safetensors"
 M="--model $T/mtpdir"
-run_binary doctor $M --sim-ram 137.4 > "$T/mtp128" 2>&1
+run_binary doctor $M --max-context 32768 --sim-ram 137.4 > "$T/mtp128" 2>&1
 check "MTP auto on a big quiet machine: knee + head = 34.6" "grep -q 'target: 34.6' $T/mtp128 && grep -q 'mtp:    draft head on' $T/mtp128"
 run_binary doctor $M --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/mtp16" 2>&1
 check "MTP auto stays off on a 16GB machine"            "! grep -q 'draft head on' $T/mtp16 && grep -q 'target: 9.8' $T/mtp16"
 run_binary doctor $M --sim-ram 137.4 --memory-gb 30 > "$T/mtp30" 2>&1
 check "MTP auto on at --memory-gb 30 (137/layer after the charge)" "grep -q 'draft head on' $T/mtp30"
-run_binary doctor $M --sim-ram 137.4 --memory-gb 20 > "$T/mtp20" 2>&1
-check "MTP auto off at --memory-gb 20 (below the 120/layer floor)" "! grep -q 'draft head on' $T/mtp20"
+run_binary doctor $M --sim-ram 137.4 --memory-gb 22 > "$T/mtp22" 2>&1
+check "MTP auto on at --memory-gb 22 (above the 76/layer floor after the charge)" "grep -q 'draft head on' $T/mtp22"
+check "decode lookahead rides the head at --memory-gb 22" "grep -q 'lookahead: on' $T/mtp22"
+run_binary doctor $M --sim-ram 32 > "$T/mtp32mac" 2>&1
+check "32 GB Mac: auto runs the head and the lookahead" "grep -q 'draft head on' $T/mtp32mac && grep -q 'lookahead: on' $T/mtp32mac"
+run_binary doctor $M --sim-ram 24 > "$T/mtp24mac" 2>&1
+check "24 GB Mac: auto runs neither" "! grep -q 'draft head on' $T/mtp24mac && ! grep -q 'lookahead: on' $T/mtp24mac"
+run_binary doctor $M --sim-ram 32 --max-context 65536 > "$T/mtp32ctx" 2>&1
+check "32 GB Mac at 65,536 tokens runs without the head" "! grep -q 'draft head on' $T/mtp32ctx"
+run_binary doctor $M --sim-ram 36 --max-context 65536 > "$T/mtp36ctx" 2>&1
+check "36 GB Mac at 65,536 tokens keeps the head and the lookahead" \
+      "grep -q 'draft head on' $T/mtp36ctx && grep -q 'lookahead: on' $T/mtp36ctx"
+run_binary doctor $M --sim-ram 137.4 --memory-gb 16 > "$T/mtp16t" 2>&1
+check "MTP auto off at --memory-gb 16 (below the 76/layer floor)" \
+      "! grep -q 'draft head on' $T/mtp16t && ! grep -q 'lookahead: on' $T/mtp16t"
+SLOTSTREAM_OPT_EXPERT_PREFETCH=0 "$BIN" doctor $M --sim-ram 137.4 --memory-gb 22 > "$T/mtp22off" 2>&1
+check "SLOTSTREAM_OPT_EXPERT_PREFETCH=0 keeps the head without the lookahead" \
+      "grep -q 'draft head on' $T/mtp22off && ! grep -q 'lookahead:' $T/mtp22off"
+check "decode lookahead charge visible in json" \
+      "run_binary doctor $M --sim-ram 137.4 --memory-gb 22 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"decode_lookahead\"] and d[\"lookahead_reserve_bytes\"] > 0 and d[\"memory_ledger\"][\"lookahead_reserve_bytes\"] == d[\"lookahead_reserve_bytes\"], d'"
 run_binary doctor $M --mtp on --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 > "$T/mtpforce" 2>&1
 check "--mtp on forces the head onto a small machine"   "grep -q 'draft head on' $T/mtpforce"
-run_binary doctor $M --mtp off --sim-ram 137.4 > "$T/mtpoff" 2>&1
+check "a head forced below the floor runs without the lookahead" "! grep -q 'lookahead: on' $T/mtpforce"
+run_binary doctor $M --mtp off --max-context 32768 --sim-ram 137.4 > "$T/mtpoff" 2>&1
 check "--mtp off suppresses it everywhere"              "! grep -q 'draft head on' $T/mtpoff && grep -q 'target: 33.0' $T/mtpoff"
 check "--mtp on without mtp.safetensors is a clean error" \
       "run_binary doctor --model $T/nosafe --mtp on 2>&1 | grep -q 'mtp.safetensors is not next to the model'"
@@ -137,7 +156,7 @@ check "--mtp on cannot squeeze under the minimum target" \
       "! run_binary doctor $M --mtp on --memory-gb 8.5 2>&1 | grep -q 'target: 8.5'"
 check "--mtp gibberish refused"                         "! run_binary doctor --mtp sometimes"
 check "MTP charge visible in json peak" \
-      "run_binary doctor $M --sim-ram 137.4 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"mtp\"] and abs(d[\"expected_peak_gb\"]-d[\"target_gb\"]+1.0)<0.35, d'"
+      "run_binary doctor $M --max-context 32768 --sim-ram 137.4 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"mtp\"] and abs(d[\"expected_peak_gb\"]-d[\"target_gb\"]+1.0)<0.35, d'"
 
 
 mkdir -p "$T/badjson" && printf 'not json' > "$T/badjson/config.json"
@@ -179,16 +198,50 @@ check "serve --max-context 0 refused before load"  "! run_binary serve --max-con
 # number unrounded so nothing here asserts on a rounded banner.
 check "plan announces the context cap and the wait"  "grep -q 'context: up to 32768 tokens per request' $T/p48 && grep -q 'before its first token' $T/p48"
 check "doctor --json carries max_context_tokens + wait" \
-      "run_binary doctor --mtp off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"max_context_tokens\"]==32768 and 60 < d[\"est_prefill_s_at_max_context\"] < 3600, d'"
+      "run_binary doctor --mtp off --max-context 32768 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"max_context_tokens\"]==32768 and 60 < d[\"est_prefill_s_at_max_context\"] < 3600, d'"
 # Check against this candidate's announced limit, not a stale release literal.
 CEILING=$(run_binary doctor --mtp off --vision off --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["implementation_context_limit"])')
 ABOVE=$((CEILING+1))
 check "serve --max-context above the ceiling names the ceiling, not a knob" \
-      "run_binary serve --max-context $ABOVE --port 11498 2>&1 | grep -q 'released implementation limit is $CEILING'"
+      "run_binary serve --max-context $ABOVE --port 11498 2>&1 | grep -q 'must be between 1 and $CEILING tokens'"
 check "doctor --max-context above the ceiling is the same clean error" \
-      "run_binary doctor --max-context $ABOVE 2>&1 | grep -q 'released implementation limit is $CEILING' && ! run_binary doctor --max-context $ABOVE 2>&1 | grep -q 'Fatal error'"
+      "run_binary doctor --max-context $ABOVE 2>&1 | grep -q 'must be between 1 and $CEILING tokens' && ! run_binary doctor --max-context $ABOVE 2>&1 | grep -q 'Fatal error'"
 run_binary doctor --mtp off --max-context 8192 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 > "$T/ctx8k" 2>&1
 check "a lower --max-context caps the reuse ceiling too"  "grep -q 'context: up to 8192 tokens' $T/ctx8k && grep -q 'reuse:  up to 8192 tokens' $T/ctx8k"
+
+# --- automatic context window: chosen per machine tier, planning only --------
+# A placeholder head file makes the draft head available, as on a real install.
+auto_window_is() {
+  local expected="$1"; shift
+  local got
+  got=$(run_binary doctor $M "$@" --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["max_context_tokens"] if d.get("context_window_source") == "automatic" else "explicit")')
+  echo "automatic window: $got (expected $expected)"
+  [ "$got" = "$expected" ]
+}
+check "16 GB Mac: automatic window is 32,768"                  "auto_window_is 32768 --sim-ram 16"
+check "24 GB Mac: automatic window is 32,768"                  "auto_window_is 32768 --sim-ram 24"
+check "32 GB Mac: automatic window is 32,768 (65,536 drops the head)" "auto_window_is 32768 --sim-ram 32"
+check "36 GB Mac: automatic window is 65,536"                  "auto_window_is 65536 --sim-ram 36"
+check "48 GB Mac: automatic window is 65,536"                  "auto_window_is 65536 --sim-ram 48"
+check "64 GB Mac: automatic window is 131,072"                 "auto_window_is 131072 --sim-ram 64"
+check "96 GB Mac: automatic window is 262,144"                 "auto_window_is 262144 --sim-ram 96"
+check "128 GB Mac: automatic window is 262,144"                "auto_window_is 262144 --sim-ram 128"
+check "--max-context auto is the default"                      "auto_window_is 65536 --sim-ram 48 --max-context auto"
+check "a fixed cache size keeps the default window"            "auto_window_is 32768 --sim-ram 128 --experts-per-layer 120"
+check "an explicit window is reported as explicit"             "auto_window_is explicit --sim-ram 128 --max-context 65536"
+run_binary doctor $M --sim-ram 128 > "$T/auto128" 2>&1
+check "128 GB: the window rides above the knee and doctor marks the choice" \
+      "grep -q 'target: 54.7' $T/auto128 && grep -q 'context window: automatic, 262144' $T/auto128 && grep -q '<- auto' $T/auto128"
+run_binary doctor $M --sim-ram 128 --sim-available 40 > "$T/autobusy" 2>&1
+check "a busy big Mac lowers the automatic window and keeps the head" \
+      "grep -q 'lowered to 131072 tokens right now' $T/autobusy && grep -q 'draft head on' $T/autobusy"
+run_binary doctor $M --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 --max-context 65536 > "$T/ret16" 2>&1
+check "an explicit window too large to retain says how much follow-ups reuse" \
+      "grep -q 'does not fit retained at this size' $T/ret16"
+check "automatic window JSON lists every candidate and retains the chosen window" \
+      "run_binary doctor $M --sim-ram 64 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); a=d[\"automatic_context_window\"]; assert a[\"window\"]==131072 and [c[\"window\"] for c in a[\"candidates\"]]==[32768,65536,131072,262144] and d[\"prefix_cache_max_tokens\"]>=131072, a'"
+check "serve --max-context auto is accepted by the parser" "run_binary serve --help | tr -s ' \\n' ' ' | grep -q 'auto, or tokens up to 262144'"
+check "an unparseable --max-context is refused" "! run_binary doctor --max-context banana > /dev/null 2>&1"
 # The prefill schedule: never past the measured query x key product, including
 # its smallest pass, monotone as the context grows, and the doctor's wait
 # is exactly the schedule's wait for the plan's pass size.
@@ -204,7 +257,7 @@ check "prefill-schedule agrees with the doctor wait for the same pass" \
       "python3 -c '
 import json,os,subprocess as sp
 B=os.environ[\"BIN\"]
-d=json.loads(sp.check_output([B,\"doctor\",\"--mtp\",\"off\",\"--sim-ram\",\"51.5\",\"--sim-working-set\",\"40.2\",\"--sim-available\",\"44\",\"--json\"]))
+d=json.loads(sp.check_output([B,\"doctor\",\"--mtp\",\"off\",\"--max-context\",\"32768\",\"--sim-ram\",\"51.5\",\"--sim-working-set\",\"40.2\",\"--sim-available\",\"44\",\"--json\"]))
 s=json.loads(sp.check_output([B,\"prefill-schedule\",\"--chunk\",str(d[\"prefill_chunk\"]),\"--tokens\",str(d[\"max_context_tokens\"]),\"--json\"]))
 assert abs(s[\"est_seconds\"]-d[\"est_prefill_s_at_max_context\"])<1e-6, (s[\"est_seconds\"], d[\"est_prefill_s_at_max_context\"])'"
 check "prefill-schedule: a prefix hit reads only what is new" \

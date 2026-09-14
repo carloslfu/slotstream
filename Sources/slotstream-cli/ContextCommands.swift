@@ -357,8 +357,8 @@ struct ContextCheck: ParsableCommand {
                     let cap = ContextPolicy.maxTokens
                     if fitsSoFar {
                         print("verdict: \(target) prompt tokens plus \(replyTokens) output tokens completed inside the plan on this Mac. "
-                            + "Ordinary serving defaults to \(ContextPolicy.defaultTokens); its implementation ceiling remains \(cap). "
-                            + "A larger supported window requires an explicit --max-context. Diagnostic success does not raise that ceiling.")
+                            + "Serving chooses its window per machine (see `slotstream doctor`) and accepts --max-context up to \(cap). "
+                            + "Diagnostic success does not change that choice.")
                     } else {
                         print("verdict: the plan does not cover this prompt length here; lower --tokens, raise "
                             + "--memory-gb if the machine has room, or close other apps and retry.")

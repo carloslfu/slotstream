@@ -18,9 +18,10 @@ The startup command in the [setup guide](HERMES.md#start-slotstream) leaves
 memory planning and speculative decoding on their automatic defaults.
 Slotstream decides whether to enable the MTP draft head from its availability
 and the planned expert cache. Hermes does not require an MTP override.
-Hermes requires a larger context than Slotstream's ordinary default. The
-explicit flag selects the qualified window and charges its extra active state
-and a measured transient reserve before allocating the expert cache. The
+Hermes requires a larger context than the 32,768 tokens auto keeps on Macs
+through 32 GB, so the setup guide fixes 65,536 tokens on every Mac. The
+explicit flag charges that window's extra active state and a measured
+transient reserve before allocating the expert cache. The
 minimum memory target rises with this larger window. If overriding automatic
 planning, inspect `slotstream doctor --max-context 65536` first and choose a
 target that fits your Mac. Long prompts must still be read before the first
@@ -33,9 +34,11 @@ The explicit context setting is reproducible; the server also exposes the
 same runtime window through model discovery, so automatic discovery works.
 Vision discovery also reflects whether this server accepts images. With the
 vision weights available and vision enabled, Hermes can send image attachments.
-The first image loads the vision tower in addition to the announced text
-plan. Image admission checks available memory and can refuse the additional
-load when there is not enough headroom.
+The first image reserves the vision tower inside the automatic process
+target, reducing expert capacity as needed. Image admission also checks
+attention workspace and real headroom; it can refuse an image even when
+text fits. Explicit pool-size overrides retain their pool and add the tower
+to the expected footprint.
 The local stream timeout allows a long cold prefill to finish; it remains
 bounded and should be adjusted to measurements on slower hardware.
 The auxiliary task timeouts are configured separately from the main stream

@@ -28,7 +28,7 @@ extension Planner {
     public static func contextFeasibility(_ request: PlanRequest, on device: Machine,
         mtpAvailable: Bool = false, visionAvailable: Bool = false,
         visionResidentReserved: Bool = false, runtimePolicy: RuntimeAllocationPolicy? = nil,
-        qualification: Bool = false) -> ContextFeasibility {
+        qualification: Bool = false, decodeLookahead: DecodeLookaheadPlanning = .automatic) -> ContextFeasibility {
         // Freeze a nil real reading once; it must not drift during search.
         guard let availability = device.availableGB ?? (device.isSimulated ? .infinity : deviceAvailableGB()) else {
             return ContextFeasibility(requestedWindow: request.maxContextTokens,
@@ -44,7 +44,7 @@ extension Planner {
                 mtp: request.mtp, mtpAvailable: mtpAvailable, vision: request.vision,
                 visionAvailable: visionAvailable, visionResidentReserved: visionResidentReserved,
                 maxContextTokens: cap, simulated: device.isSimulated, qualification: qualification,
-                runtimePolicy: runtimePolicy)
+                runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
             if cap == request.maxContextTokens { requestedLedger = value.memoryLedger }
             let physical = min(device.workingSetGB, availability - availabilitySlackGB(ramGB: device.ramGB))
             guard Double(value.memoryLedger.expectedPeakBytes) <= physical * 1e9 else {

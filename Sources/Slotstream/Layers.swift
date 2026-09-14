@@ -1093,6 +1093,9 @@ final class MoELayer {
     private(set) var residentJoins = 0
     private(set) var residentJoinSeconds = 0.0
     var routerObserver: ((Int, [Int32]) -> Void)?
+    /// Work deferred between decode barriers that rides this layer's routing
+    /// readback. Nil at barrier period 1, the original path.
+    var readbackQueue: RoutingReadbackQueue?
     var useLayerWorkspace = false
     var workspaceTokenTile = 256
     var workspaceComputeRanges: [Range<Int>] = []
@@ -1136,8 +1139,16 @@ final class MoELayer {
         let idx = RouterSelection.indices(logits, k: cfg.topK, enabled: specializedRouter)
         let weights = softmax(takeAlong(logits, idx, axis: -1), axis: -1, precise: true)
 
-        // routing decision to CPU
-        let expertIds = idx.asType(.int32).asArray(Int32.self)  // B*S*topK
+        // routing decision to CPU. Work deferred from the previous layer between
+        // decode barriers is evaluated in this same wait and finished before
+        // these routes reach any observer.
+        let routeIndices = idx.asType(.int32)
+        if let queue = readbackQueue, !queue.isEmpty {
+            let waitStart = RuntimeClock.now()
+            eval([routeIndices] + queue.arrays)
+            queue.drain(waited: RuntimeClock.seconds(since: waitStart))
+        }
+        let expertIds = routeIndices.asArray(Int32.self)  // B*S*topK
         if RouterTrace.on {
             RouterTrace.record(layer: layer, tokens: B * S, topK: cfg.topK, ids: expertIds)
         }
@@ -1166,7 +1177,7 @@ final class MoELayer {
             earlyShared = parts
             sharedPrelaunches += 1
         }
-        pool.unpinAll()
+        pool.advancePinGeneration()
         let routed: MLXArray
         if useLayerWorkspace, B * S >= SweepTuning.minTokens {
             routed = try workspaceRouted(x, expertIds: expertIds, weights: weights)
@@ -1527,6 +1538,18 @@ final class GatedResidual {
         down = w.linear(base + ".input_mix_weight_down")
         up = w.linear(base + ".input_mix_weight_up")
         inject = useCombine ? w.tensor(base + ".block_inject_weight.weight") : nil
+    }
+
+    /// The mixed input alone, without the inject weights: the router-reuse
+    /// forecast's read of a target layer's hyper-connection on live streams.
+    /// Same normalization, mixing weights and mean as the real read.
+    func mixedInput(_ hyper: MLXArray) -> MLXArray {
+        let normed = hcNorm(hyper, compiledFinish: false)
+        let downOut = down(normed, minimumRows: minimumProjectionRows)
+        var w = MLXNN.silu(downOut / Float(cfg.hcCount))
+        w = sigmoid(up(w, minimumRows: minimumProjectionRows))
+        let shape = Array(w.shape.dropLast()) + [cfg.hcCount, cfg.hiddenSize]
+        return (w.reshaped(shape) * normed.reshaped(shape)).mean(axis: -2)
     }
 
     /// hyper (B,S,hc*H) -> (mixed (B,S,H), hyper, inject (B,S,hc)) or just mixed.

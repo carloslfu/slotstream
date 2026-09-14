@@ -37,8 +37,8 @@ Close memory-heavy apps and check `slotstream doctor` for memory warnings.
 Stop Slotstream with **Control+C** and restart it without custom memory
 settings so it can choose a size that fits.
 
-An 8 GB Mac needs swap, which uses disk space as extra memory, even at the
-minimum setting. It may remain slow with other apps closed. See
+An 8 GB Mac can't run the model: even the minimum setting needs more memory
+than it has, so Slotstream refuses to start. See
 [hardware and speed](HARDWARE.md) for the limits of smaller Macs.
 
 For manual adjustments, read the [memory settings](CLI.md#memory-options).
@@ -131,6 +131,16 @@ installed version; the [changelog](../CHANGELOG.md) lists the fixes in each rele
 The installer is tested on these versions; the runtime still needs testing.
 [Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the
 error and your `slotstream doctor` output.
+
+## The context window is smaller than `doctor` showed
+
+Auto picks the window from your Mac's memory, then plans it against the
+memory available when the server starts. If other apps hold too much then,
+Slotstream starts with a smaller window and says so in its startup lines,
+instead of turning speculative decoding off. The window stays for that
+server's lifetime. Close memory-heavy apps and restart the server to get the
+larger window, or pass `--max-context N` for a specific size; a window that
+doesn't fit is refused with the largest one that does.
 
 ## A long request is refused or interrupted
 

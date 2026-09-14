@@ -18,6 +18,7 @@ import Foundation
         do {
             try defaults()
             try planning()
+            try automaticWindows()
             schedules()
             try requests()
         } catch { failures.append("unexpected error: \(error)") }
@@ -46,11 +47,54 @@ import Foundation
             }
         }
         check("C09", "legacy default", (try ContextConfiguration()).maxContextTokens == 32768)
-        check("C09", "public limit still requires hardware qualification", ContextPolicy.maxTokens == 65536)
+        check("C09", "public limit is the pinned model limit", ContextPolicy.maxTokens == ContextPolicy.modelLimit
+            && ContextPolicy.implementationLimit == 262144)
+        for cap in [65537, 131072, 262144] {
+            check("C09", "public configuration \(cap)", (try? ContextConfiguration(maxContextTokens: cap))?.maxContextTokens == cap)
+        }
         check("C09", "model limit available through explicit qualification", (try ContextConfiguration(maxContextTokens: 262144, qualification: true)).maxContextTokens == 262144)
-        for cap in [Int.min, -1, 0, 65537, 262145, Int.max] {
+        for cap in [Int.min, -1, 0, 262145, Int.max] {
             check("C09", "invalid public configuration \(cap)", failure(.contextLengthExceeded) { _ = try ContextConfiguration(maxContextTokens: cap) })
         }
+    }
+
+    static func automaticWindows() throws {
+        let tiers: [(Double, Int)] = [(16, 32768), (24, 32768), (32, 32768), (36, 65536), (48, 65536),
+                                      (64, 131072), (96, 262144), (128, 262144)]
+        for (ram, window) in tiers {
+            let device = Machine(ramGB: ram, workingSetGB: ram * 0.75, availableGB: ram, isSimulated: true)
+            let choice = Planner.automaticContextWindow(PlanRequest(), on: device, mtpAvailable: true, visionAvailable: true)
+            check("C23", "automatic window at \(Int(ram)) GB", choice.window == window)
+            check("C23", "every candidate evaluated at \(Int(ram)) GB", choice.candidates.map(\.window) == ContextPolicy.automaticWindows)
+            let resolved = try Planner.resolveContextWindow(.automatic, request: PlanRequest(), on: device,
+                mtpAvailable: true, visionAvailable: true)
+            check("C23", "quiet machine serves its automatic window at \(Int(ram)) GB", resolved.plan.maxContextTokens == window)
+            if window > ContextPolicy.defaultTokens, let base = choice.candidates.first?.plan {
+                check("C23", "automatic window retains one complete conversation at \(Int(ram)) GB", resolved.plan.prefixCacheTokens >= window)
+                check("C23", "automatic window keeps speculative decoding at \(Int(ram)) GB",
+                    resolved.plan.mtpEnabled == base.mtpEnabled && resolved.plan.decodeLookahead == base.decodeLookahead)
+            }
+        }
+        let big = Machine(ramGB: 128, workingSetGB: 96, availableGB: 128, isSimulated: true)
+        check("C23", "a fixed cache size keeps the default window",
+            Planner.automaticContextWindow(PlanRequest(expertsPerLayer: 120), on: big, mtpAvailable: true).window == ContextPolicy.defaultTokens)
+        let explicit = try Planner.resolveContextWindow(.tokens(65536), request: PlanRequest(), on: big, mtpAvailable: true)
+        check("C23", "an explicit window is planned as given", explicit.plan.maxContextTokens == 65536 && explicit.automatic == nil)
+        let busy = try Planner.resolveContextWindow(.automatic, request: PlanRequest(),
+            on: Machine(ramGB: 128, workingSetGB: 96, availableGB: 40, isSimulated: true), mtpAvailable: true)
+        check("C23", "a busy machine lowers the automatic window and says so",
+            busy.plan.maxContextTokens < 262144 && busy.plan.notes.contains { $0.contains("lowered from 262144") })
+        check("C23", "a busy machine keeps speculative decoding", busy.plan.mtpEnabled)
+        let small = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 17.2, workingSetGB: 11.8,
+            availableGB: 12.5, maxContextTokens: 65536, simulated: true)
+        check("C23", "an explicit window too large to retain keeps the budget share with a note",
+            small.prefixCacheTokens < 65536 && small.notes.contains { $0.contains("does not fit retained") })
+        let legacy = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 51.5, workingSetGB: 40.2,
+            availableGB: 44, maxContextTokens: 32768, simulated: true)
+        let share = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 51.5, workingSetGB: 40.2,
+            availableGB: 44, maxContextTokens: 32768, simulated: true, qualification: false, retention: .budgetShare)
+        check("C23", "the default window is unchanged by retention policy", legacy.slots == share.slots
+            && legacy.prefixCacheTokens == share.prefixCacheTokens && legacy.targetGB == share.targetGB)
     }
 
     static func planning() throws {

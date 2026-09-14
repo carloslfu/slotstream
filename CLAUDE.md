@@ -244,18 +244,28 @@ These were all real bugs found by adversarial probing. Each is now gated by
   transient). Count cropped numerical-alignment query rows and masked key
   columns too. Preserve the original 256-row floor while it fits; there is no
   floor exemption from the product bound. Do not raise
-  `measuredQueryKeyProduct` or the implementation limit without the staged
-  `context-check` qualification recorded in MEASUREMENTS.md, and never quote a
+  `measuredQueryKeyProduct` or add a prefill anchor without a staged
+  `context-check` measurement recorded in MEASUREMENTS.md, and never quote a
   context number the tool did not print (`doctor`, `prefill-schedule`).
-- **Prompt plus completion is capped (`--max-context`, default 32,768).** The
-  model limit, implementation limit, configured window and request cap are
-  distinct. The planner charges actual stepped active capacity, bounded retained
-  state, resident modes and workspace. `Engine.generate` clamps new tokens to
-  the remaining room. Full replacement buffers are charged before releasing
-  their old readers; spare main, draft and indexer buffers cannot credit each
-  other. Qualified MTP and vision limits remain explicit. A larger public
-  limit requires the configurable-context plan's C01–C22 gates, including
-  sampled physical footprint, RSS, swap and a nontrivial reply reaching the cap.
+- **Prompt plus completion is capped (`--max-context`, default `auto`).** Auto
+  takes the largest of 32,768, 65,536, 131,072 and 262,144 whose plan keeps MTP
+  and the lookahead as the 32,768 plan has them, retains one complete
+  conversation and adds at most 10% to the representative request, judged on RAM
+  and working set. A busy start steps the window down instead of dropping the
+  head; `--experts-per-layer` and `--pool-gb` keep 32,768, while `--memory-gb`
+  still gets a window priced inside its target
+  (`records/decisions/automatic-context-window-per-machine`). Frozen allocation
+  fixtures and monotonic sweeps pin an explicit 32,768. The model limit,
+  implementation limit, configured window and request cap are distinct. Carlos
+  opened the implementation and MTP limits to the model's 262,144 on 2026-09-13
+  with native 131,072-token runs with and without the draft head inside their
+  plans and no native 262,144-token run; images stay at 65,536. The planner
+  charges actual stepped active capacity, bounded retained state, resident modes
+  and workspace. `Engine.generate` clamps new tokens to the remaining room. Full
+  replacement buffers are charged before releasing their old readers; spare
+  main, draft and indexer buffers cannot credit each other. The open native
+  gates stay listed in the configurable-context plan; never describe them as
+  passed.
 - **One accepted request owns its guards through preparation and queuing.**
   `--max-prefill-wait` defaults to 30 minutes to the first sampled token; zero
   disables only time. Unknown ETA never disables the wall guard. Concurrent
@@ -459,8 +469,11 @@ still quoted in commit history and both are wrong.
   machine with 7 GB made the governor take a real 25.4 GB pool and drove swap
   from 13 to 39 GB. Anything using that seam must bound the simulated value by
   `deviceAvailableGB()`.
-- **Warm decode estimates are measured, not extrapolated.** 6.0 / 8.2 / 11.2 /
-  11.6 tok/s at 30 / 60 / 120 / 150 experts per layer, flat by 120. An older
+- **Warm decode estimates use development-Mac anchors.** 6.0 / 8.2 / 11.2 /
+  11.6 tok/s at 30 / 60 / 120 / 150 experts per layer show diminishing gains
+  over that measured range, not a universal plateau. Community M5 Max runs
+  demonstrate gains at larger manual targets; see `docs/HARDWARE.md`.
+  An older
   20.0 at 181/layer has never reproduced; the estimator holds flat above the
   verified points rather than extrapolating to it.
 - **A speculative rejection rolls back, it never re-runs.** The verify pass
@@ -475,15 +488,17 @@ still quoted in commit history and both are wrong.
   depth.** `mtp-bench` on 0.2.0 (four drafts) read ×0.55 / 0.69 / 0.88 / 0.96
   at 20 / 29 / 42 / 57 experts per layer and ×0.88 at 122, all below
   break-even; depths 1 and 2 read ×1.13 / ×1.12 at 57 and ×1.17 / ×1.13 at
-  122, the size auto enables the head at, which explained the former default
+  122, near the former automatic activation floor, which explained the former default
   of 1; with the rebuild eliminated depth 1 reads
   ×1.20 at 57 and ×1.24 at 122 (×1.18 sampled). The "×1.5–1.9" once written here assumed a
   five-token verify pass costs one token's pass; `mtp-passcost` measured
   1.65 with every expert resident (a sixth of a pass per extra token), so
   the ceiling is ×1.4 at depth 1 and the estimate is withdrawn. Quote the
   ladder and the ceiling, never the launch-bound arithmetic. Carlos adopted
-  **two drafts as the default on 2026-09-11**; the 120/layer activation floor
-  remains unchanged. The automatic-40%-RAM study found two and three effectively
+  **two drafts as the default on 2026-09-11**. Version 0.2.16 lowers the
+  activation floor to 76/layer after the head and context charges, before
+  the separate lookahead reservation; older studies retain their original floor.
+  The automatic-40%-RAM study found two and three effectively
   tied overall and did not qualify a universal optimum. Keep the adoption
   decision separate from those measurement limits:
   [current draft-depth policy](db/records/decisions/draft-depth-defaults-to-two.md).

@@ -6,19 +6,32 @@ import Foundation
 public enum ContextPolicy {
     /// Pinned checkpoint configuration. This is independent of qualification.
     public static let modelLimit = 262_144
-    /// Longest prompt plus reply any one request may hold, in tokens.
-    ///
-    /// The Hermes qualification read 65,520 prompt tokens plus a reply; the
-    /// remainder is reserved reply room. This is a measured serving envelope,
-    /// not the model's 262,144-token configured limit or an answer-quality claim.
-    /// The larger requested window is priced before allocating the expert pool.
-    /// See MEASUREMENTS.md, Hermes integration, for the initial budget failure
-    /// and the planned-context qualification. Keep ordinary defaults unchanged.
-    public static let maxTokens = 65_536
+    /// Longest prompt plus reply any one request may hold, in tokens: the
+    /// pinned model's configured limit. This is a qualification limit, not an
+    /// answer-quality claim. The planner prices the chosen window before it
+    /// allocates the expert pool, and `serve`, `run` and `doctor` choose a
+    /// window per machine unless `--max-context` names one
+    /// (Planner.automaticContextWindow). Evidence and revision criteria:
+    /// db/records/decisions/automatic-context-window-per-machine.md
+    public static let maxTokens = modelLimit
     public static let implementationLimit = maxTokens
-    public static let mtpLimit = 65_536
+    /// The draft head's own attention state is priced at every window
+    /// (ContextGeometry.sequenceBytes(mtp:)); see the same decision record.
+    public static let mtpLimit = modelLimit
+    /// Images stay qualified inside 65,536 positions. A longer conversation
+    /// keeps working as text; an image request past this refuses before any
+    /// tower work.
     public static let visionLimit = 65_536
     public static let defaultTokens = 32_768
+    /// Windows automatic mode chooses from, smallest first.
+    public static let automaticWindows = [32_768, 65_536, 131_072, 262_144]
+    /// Auto takes a larger window only while speculative decoding and the
+    /// decode lookahead stay as they are at the default window, one complete
+    /// conversation of the window stays retained, and the planner's estimated
+    /// time for its representative request (2,000 prompt and 400 reply
+    /// tokens) grows by at most this fraction. An operating default chosen
+    /// from planner estimates, not a benchmark.
+    public static let automaticRequestTimeTolerance = 0.10
     /// Context the fixed footprint (Planner.fixedFootprintGB) already pays for.
     public static let tokensInFixedFootprint = 32_768
 
@@ -36,9 +49,12 @@ public enum ContextPolicy {
     public static func validationError(_ tokens: Int, qualification: Bool) -> String? {
         let limit = qualification ? modelLimit : implementationLimit
         if (1 ... limit).contains(tokens) { return nil }
-        return "--max-context must be between 1 and \(limit) (prompt plus reply). "
-            + "The pinned model limit is \(modelLimit); the released implementation limit is "
-            + "\(implementationLimit). A model limit does not guarantee memory fit or answer quality."
+        let scope = limit == modelLimit
+            ? "the pinned model's configured limit"
+            : "the released implementation limit; the pinned model limit is \(modelLimit)"
+        return "--max-context must be between 1 and \(limit) tokens (prompt plus reply), \(scope). "
+            + "Omit it, or pass auto, for this Mac's automatic window. "
+            + "A model limit does not guarantee memory fit or answer quality."
     }
 }
 

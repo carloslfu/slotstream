@@ -2,11 +2,36 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-11T18:51:26.465461Z
+updated: 2026-09-13T19:54:32.720848Z
 ---
 
 # records/measurements
 
+- [[records/measurements/release-0-2-17-published-2026-09-13]] — v0.2.17 published, installed and accepted: 25 of 25 model gates on the exact CI artifact and 31 of 31 installed-release checks
+- [[records/measurements/automatic-context-window-draft-head-131072-2026-09-13]] — Draft head on at 131,072 tokens: inside its 18 GB plan with a reply identical to the draft-off run; the draft-head limit stays at the model limit
+- [[records/measurements/automatic-context-window-131072-read-2026-09-13]] — A 131,072-token window completed inside its 16 GB plan: 14.80 GB sampled peak against 15.00 planned, 38.1-minute read; estimates run optimistic past 65,536
+- [[records/measurements/automatic-context-window-plans-2026-09-13]] — Auto takes 32,768 tokens through 32 GB, 65,536 from 36 GB, 131,072 at 64 GB and 262,144 from 96 GB; weights-free checks pass
+- [[records/measurements/hardware-planning-ranges-2026-09-13]] — Hardware speed planning ranges and inference limits
+- [[records/measurements/public-documentation-evidence-audit-2026-09-13]] — Public documentation audit: correct performance, memory, simulation and release scope; no new benchmark
+- [[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]] — Automatic memory default: evidence scope and retained policy (2026-09-09)
+- [[records/measurements/c2-macbook-pro-m5-max-128gb-community]] — C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)
+- [[records/measurements/decode-lookahead-default-2026-09-13]] — 0.2.16 defaults pass every weights-free check; auto runs the draft head and decode lookahead from a 21 GB target, 32 GB Macs and up; 8 GB plans are refused
+- [[records/measurements/decode-path-serialization-attribution-2026-09-13]] — Attribution on one binary: router weight cache 1.021 and barrier period 4 1.022 over B0 prefetch, together 1.046 with all 15 pairs above 1; B0 prefetch 1.090 over shipped; exact
+- [[records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13]] — B1 replication passes every gate: combined candidate 1.114 against shipped (bootstrap 1.104 to 1.121), families 1.064 or above, outputs identical; rescored from 1.124 with true medians
+- [[records/measurements/decode-path-serialization-b1-cohort-2026-09-13]] — B1 cohort: combined candidate 1.106 against shipped, lower bound 1.073, families 1.033 or above, identical outputs; not a pass (r0245 kept one clean pair); rescored from 1.116
+- [[records/measurements/expert-lookahead-2-slot-adoption-screen-2026-09-12]] — Slot adoption turns the router-reuse prefetch into a measured 1.138x on the 12-pair validation screen (every pair faster, outputs exact); the held-out cohort is blocked by a host I/O stall
+- [[records/measurements/decode-path-serialization-combination-screen-2026-09-13]] — Combined candidate (B0 prefetch, barrier period 4 on the routing readback, router weight cache) is exact and screens at 1.104 against shipped, 1.018 over B0 prefetch, five of six pairs above 1
+- [[records/measurements/expert-lookahead-2-b0-cohort-2026-09-12]] — Slot-adoption prefetch passes the held-out B0 gate: aggregate 1.105x, lower bound 1.090, every family faster, 36 of 36 pairs eligible, outputs exact; rescored from 1.120x with true medians
+- [[records/measurements/decode-path-serialization-round-1-2026-09-12]] — Deferring the per-layer GPU drain with multi-generation pins gains 3.8% to 5.1% with exact outputs; record reads and nine flags are null; profiles close compilation
+- [[records/measurements/decode-path-serialization-closing-profiles-2026-09-13]] — Whole-thread profiles: B0 prefetch waits 36% on reads and 40% on the GPU; the combination cuts GPU-wait samples 18% and adds 9% reads; round 1's split covered one thread block
+- [[records/measurements/decode-path-serialization-round-3b-2026-09-13]] — Forecasts on the routing readback remove round 3's loss and stay exact; the rule picks period 4 at 1.087, but without two slow reference cells it reads 1.014, a gain of about 1%
+- [[records/measurements/decode-path-serialization-round-5-2026-09-12]] — Router weight cache under prefetch: 1.017 over twelve pairs, ten above 1, approximate interval 1.003 to 1.031, exact; adding router top-k removes the gain; the cache carries into step 6
+- [[records/measurements/decode-path-serialization-round-4-2026-09-12]] — Draft depth under prefetch: depth 3 is 1.022 inside the noise band, depths 4 and 6 lose as each verified position loads its own experts, depth 1 changes the greedy output; depth 2 stays
+- [[records/measurements/decode-path-serialization-round-3-2026-09-12]] — Holding router forecasts until a deferred barrier is exact but costs 7% to 26% under prefetch with no pair above 1; dropped targets, weaker strides and read bursts outweigh the drain saved
+- [[records/measurements/decode-path-serialization-round-2-2026-09-12]] — Prefetch coverage: top above ten is inert under the margin threshold, an A/A spread of 0.991 to 1.022; stride 1, stride union and no threshold cut demand reads but run slower
+- [[records/measurements/expert-lookahead-2-router-reuse-prefetch-native-screens-2026-09-12]] — Router-reuse prefetch: forecast exact and 76% right one layer early, twin projects 1.247x, yet native screens lose 4 to 29%: the runtime's per-record critical-path work outweighs the read time saved
+- [[records/measurements/expert-lookahead-router-reuse-and-replacement-probes-2026-09-11]] — Router reuse forecasts routing 4x better than the trained predictors; Belady halves cache misses at the same memory; demand-read cost model and early-layer structure
+- [[records/measurements/expert-lookahead-pilot-offline-stop-2026-09-11]] — Expert Lookahead pilot stopped at the offline gate: capture and prefetch runtime exact, oracle ceiling 1.59x, best predictor projects 1.006x under the traffic bound
 - [[records/measurements/release-0-2-15-published-2026-09-11]] — v0.2.15 published, installed and accepted: 25 of 25 model gates on the exact CI artifact and 31 of 31 installed-release checks
 - [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] — v0.2.15 testing with apps open: API passes, strict MTP resource gate remains unqualified
 - [[records/measurements/release-0-2-15-prepublication-2026-09-11]] — v0.2.15 prepared, not published: CI passed and 24 of 25 model gates qualify; final paging gate and app restoration pending
@@ -22,11 +47,9 @@ updated: 2026-09-11T18:51:26.465461Z
 - [[records/measurements/optimization-final-composition-2026-09-09]] — Completed and locally activated integration: scoped preview gains, lower process peaks, flat plain TPS and slower fixed-MTP TPS within the original acceptance allowance
 - [[records/measurements/user-server-throughput-2026-09-10]] — Eight clean user-server timings: observed decode rate 10.28 to 15.80 tokens/sec, separate planner estimates, exact repeats, interruptions and limits
 - [[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]] — The auto memory target: 70% of RAM was the wrong shape (2026-08-31)
-- [[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]] — Automatic memory default: evidence scope and retained policy (2026-09-09)
 - [[records/measurements/hermes-configuration-hardening-2026-09-08]] — Hermes configuration correction and regression checks
 - [[records/measurements/hermes-context-and-openai-integration-2026-09-05]] — Hermes integration: context qualification and OpenAI agent protocol
 - [[records/measurements/c3-macbook-air-m5-32gb-community]] — C3: MacBook Air M5, 32 GB (community, 2026-09-07)
-- [[records/measurements/c2-macbook-pro-m5-max-128gb-community]] — C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)
 - [[records/measurements/configurable-context-component-contracts-2026-09-06]] — Configurable context component and interface contracts
 - [[records/measurements/lossless-model-download-2026-09-05]] — Historical v0.2.10 lossless package and deployment qualification; the codec remains unchanged and current Hugging Face hosting is recorded separately.
 - [[records/measurements/hugging-face-lossless-download-2026-09-06]] — v0.2.11 publishes the free Hugging Face default; complete public reconstruction, installed acceptance and model-only R2 retirement are verified.

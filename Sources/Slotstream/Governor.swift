@@ -52,6 +52,10 @@ public enum GovernorPolicy {
         public var runtimeAllocationPolicy: RuntimeAllocationPolicy?
         public var ownedAdditionalBytes: Int
         public var contextQualification: Bool
+        /// The running engine's decode lookahead decision and reserved bytes. A
+        /// restart would release the bytes; a re-plan keeps both.
+        public var decodeLookahead: Bool
+        public var lookaheadReserveBytes: Int
         /// nil = no such event yet in this process.
         public var secondsSincePressure: Double?
         public var secondsSinceResize: Double?
@@ -67,7 +71,8 @@ public enum GovernorPolicy {
             visionResidentReserved: Bool = false,
             maxContextTokens: Int = ContextPolicy.defaultTokens,
             runtimeAllocationPolicy: RuntimeAllocationPolicy? = nil,
-            ownedAdditionalBytes: Int = 0, contextQualification: Bool = false
+            ownedAdditionalBytes: Int = 0, contextQualification: Bool = false,
+            decodeLookahead: Bool = false, lookaheadReserveBytes: Int = 0
         ) {
             self.ramPercent = ramPercent
             self.currentSlots = currentSlots
@@ -84,6 +89,8 @@ public enum GovernorPolicy {
             self.runtimeAllocationPolicy = runtimeAllocationPolicy
             self.ownedAdditionalBytes = max(0, ownedAdditionalBytes)
             self.contextQualification = contextQualification
+            self.decodeLookahead = decodeLookahead
+            self.lookaheadReserveBytes = max(0, lookaheadReserveBytes)
         }
     }
 
@@ -111,6 +118,7 @@ public enum GovernorPolicy {
             + (i.mtpEnabled ? Planner.mtpResidentGB : 0)
             + (i.visionResidentReserved ? Planner.visionResidentGB : 0)
             + Double(i.ownedAdditionalBytes) / 1e9
+            + Double(i.lookaheadReserveBytes) / 1e9
         guard let plan = try? Planner.plan(
             expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
             ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited,
@@ -118,7 +126,8 @@ public enum GovernorPolicy {
             mtp: i.mtpEnabled ? .on : .off, mtpAvailable: i.mtpEnabled,
             vision: i.visionEnabled ? .on : .off, visionAvailable: i.visionEnabled,
             visionResidentReserved: i.visionResidentReserved, maxContextTokens: i.maxContextTokens,
-            qualification: i.contextQualification, runtimePolicy: i.runtimeAllocationPolicy),
+            qualification: i.contextQualification, runtimePolicy: i.runtimeAllocationPolicy,
+            decodeLookahead: .retained(enabled: i.decodeLookahead, bytes: i.lookaheadReserveBytes)),
             plan.mtpEnabled == i.mtpEnabled else { return nil }
         // Startup preserves a legacy advisory floor at ordinary contexts.
         // A live governor must not interpret that advisory as permission to
@@ -280,7 +289,8 @@ public final class MemoryGovernor: @unchecked Sendable {
             maxContextTokens: cur.maxContextTokens,
             runtimeAllocationPolicy: cur.runtimeAllocationPolicy,
             ownedAdditionalBytes: engine.prefixCache.ownedAdditionalBytes(mtpResident: cur.mtpEnabled),
-            contextQualification: cur.contextQualification)
+            contextQualification: cur.contextQualification,
+            decodeLookahead: cur.decodeLookahead, lookaheadReserveBytes: cur.lookaheadReserveBytes)
     }
 
     /// OS pressure events see what availability math cannot: compressor and
@@ -368,6 +378,7 @@ public final class MemoryGovernor: @unchecked Sendable {
             // goes before the pool is starved further. Growing keeps it: the
             // machine has room and the next turn should still be fast.
             if !growing { engine.prefixCache.drop() }
+            engine.model.lookahead?.prefetch?.invalidate()
             engine.model.pool.resize(to: target)
             after = engine.model.pool.slots
             engine.publishPoolSnapshot()
@@ -396,7 +407,9 @@ public final class MemoryGovernor: @unchecked Sendable {
                     Geometry.perLayer(before), Geometry.perLayer(after), reason)],
                 runtimeAllocationPolicy: ref?.runtimeAllocationPolicy,
                 maxPrefillWaitMinutes: ref?.maxPrefillWaitMinutes ?? 30,
-                contextQualification: ref?.contextQualification ?? false))
+                contextQualification: ref?.contextQualification ?? false,
+                lookaheadReserveBytes: ref?.lookaheadReserveBytes ?? 0,
+                decodeLookahead: ref?.decodeLookahead ?? false))
         }
         lastResizeAt = Date()
         log(String(

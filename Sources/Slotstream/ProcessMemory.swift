@@ -103,6 +103,18 @@ public enum ProcessMemory {
         return max(rss, UInt64(info.phys_footprint), footprintPeak(info: info, count: count))
     }
 
+    /// Process-attributed page-ins from the kernel's resource-usage ledger
+    /// (`proc_pid_rusage`, `ri_pageins`): file-backed faults included, at the
+    /// machine's page size. Nil when the ledger is unavailable. Used by the
+    /// benchmark's timing-eligibility rule; never a functional gate.
+    public static func pageIns() -> UInt64? {
+        var info = rusage_info_v4()
+        let rc = withUnsafeMutablePointer(to: &info) { ptr -> Int32 in
+            proc_pid_rusage(getpid(), RUSAGE_INFO_V4, UnsafeMutableRawPointer(ptr).assumingMemoryBound(to: rusage_info_t?.self))
+        }
+        return rc == 0 ? info.ri_pageins : nil
+    }
+
     public static var residentGB: Double { Double(residentBytes()) / 1e9 }
     public static var peakResidentGB: Double { Double(peakResidentBytes()) / 1e9 }
 }
@@ -119,7 +131,11 @@ enum ModelProcessGuard {
         stateLock.lock()
         defer { stateLock.unlock() }
         if lockFD >= 0 { return }
-        let path = "/tmp/slotstream-model-\(getuid()).lock"
+        // Diagnostic override for a bench whose previous engine child is stuck
+        // exiting inside the kernel and still holds the default lock: the bench
+        // verifies that no live model process exists before pointing here.
+        let override = ProcessInfo.processInfo.environment["SLOTSTREAM_MODEL_LOCK_PATH"] ?? ""
+        let path = override.isEmpty ? "/tmp/slotstream-model-\(getuid()).lock" : override
         let fd = open(path, O_RDWR | O_CREAT, 0o600)
         guard fd >= 0 else {
             throw ModelError("cannot create model-process lock at \(path): \(String(cString: strerror(errno)))")

@@ -83,9 +83,13 @@ public struct ContextMemoryLedger: Sendable {
     public let mtpResidentBytes: Int
     public let visionResidentBytes: Int
     public let planningMarginBytes: Int
+    /// Expert Lookahead incremental reservation (predictor weights, workspace
+    /// and raw staging tickets). Zero unless the experimental control is on.
+    public let lookaheadReserveBytes: Int
 
     public init(slots: Int, context: Int, chunk: Int, retentionTokens: Int,
-                mtp: Bool, visionResident: Bool) {
+                mtp: Bool, visionResident: Bool, lookaheadReserveBytes: Int = 0) {
+        self.lookaheadReserveBytes = max(0, lookaheadReserveBytes)
         fixedBytes = PlannerCostModel.fixedBytes
         poolBytes = ContextBytes.product(slots, Int(Geometry.recordBytes))
         activeCapacityBytes = ContextGeometry.sequenceBytes(tokens: context, mtp: mtp)
@@ -111,7 +115,7 @@ public struct ContextMemoryLedger: Sendable {
 
     public var expectedPeakBytes: Int {
         ContextBytes.sum(fixedBytes, poolBytes, additionalActiveBytes, retainedCapacityBytes,
-            retainedRecurrentBytes, prefillBytes, longContextReserveBytes,
+            retainedRecurrentBytes, prefillBytes, longContextReserveBytes, lookaheadReserveBytes,
             mtpResidentBytes, visionResidentBytes)
     }
     public var json: [String: Any] {
@@ -120,7 +124,8 @@ public struct ContextMemoryLedger: Sendable {
          "retained_capacity_bytes": retainedCapacityBytes, "retained_recurrent_bytes": retainedRecurrentBytes,
          "prefill_bytes": prefillBytes, "long_context_reserve_bytes": longContextReserveBytes,
          "mtp_resident_bytes": mtpResidentBytes, "vision_resident_bytes": visionResidentBytes,
-         "planning_margin_bytes": planningMarginBytes, "expected_peak_bytes": expectedPeakBytes]
+         "planning_margin_bytes": planningMarginBytes, "lookahead_reserve_bytes": lookaheadReserveBytes,
+         "expected_peak_bytes": expectedPeakBytes]
     }
 }
 

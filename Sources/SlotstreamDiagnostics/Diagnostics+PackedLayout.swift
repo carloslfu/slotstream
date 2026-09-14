@@ -156,6 +156,33 @@ extension Diagnostics {
                 c.equal("depth \(depth), row \(row), piece \(piece): exact original bytes",got,bytes(key.layer,key.expert,piece))
             } }
         }
+        // Speculative workers read one piece, or one whole record, straight into
+        // their own memory; both return exactly the bytes the demand path reads.
+        let record = UnsafeMutableRawPointer.allocate(byteCount:pieces.reduce(0,+),alignment:16)
+        defer { record.deallocate() }
+        for key in [ExpertKey(2,4),ExpertKey(0,0),ExpertKey(1,2)] {
+            try packed.readRecord(key,into:record)
+            var offset = 0
+            for piece in pieces.indices {
+                let whole = Array(UnsafeBufferPointer(start:(record+offset).assumingMemoryBound(to:UInt8.self),count:pieces[piece]))
+                c.equal("record read \(key.layer),\(key.expert), piece \(piece): exact original bytes",whole,bytes(key.layer,key.expert,piece))
+                try packed.readPiece(key,piece:piece,into:buffers[piece])
+                let single = Array(UnsafeBufferPointer(start:buffers[piece].assumingMemoryBound(to:UInt8.self),count:pieces[piece]))
+                c.equal("piece read \(key.layer),\(key.expert), piece \(piece): exact original bytes",single,bytes(key.layer,key.expert,piece))
+                offset += pieces[piece]
+            }
+        }
+        rejected("piece read rejects a piece past the record") { try packed.readPiece(ExpertKey(0,0),piece:pieces.count,into:buffers[0]) }
+        rejected("piece read rejects a negative piece") { try packed.readPiece(ExpertKey(0,0),piece:-1,into:buffers[0]) }
+        rejected("piece read rejects an expert past the layout") { try packed.readPiece(ExpertKey(0,5),piece:0,into:buffers[0]) }
+        rejected("record read rejects a layer past the layout") { try packed.readRecord(ExpertKey(3,0),into:record) }
+        let pieceFault = ReadFault(afterJobs:0); packed.readFault = pieceFault
+        rejected("piece read honours the read fault") { try packed.readPiece(ExpertKey(1,1),piece:0,into:buffers[0]) }
+        c.expect("piece read fault fired",pieceFault.hasFired)
+        let recordFault = ReadFault(afterJobs:0); packed.readFault = recordFault
+        rejected("record read honours the read fault") { try packed.readRecord(ExpertKey(1,1),into:record) }
+        c.expect("record read fault fired",recordFault.hasFired)
+        packed.readFault = nil
         for keys in [[],[ExpertKey(-1,0)],[ExpertKey(0,5)],[ExpertKey(3,0)],[ExpertKey(0,-1)]] {
             rejected("invalid key/span rejected") { try packed.readBatch(keys,buffers:buffers,queueDepth:2) }
         }

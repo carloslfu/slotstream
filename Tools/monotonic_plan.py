@@ -16,6 +16,10 @@ Components may still trade against each other: the bounded estimator can favor
 a bigger prefill pass over cache beyond its last decode anchor. Assert the
 total estimated request time, not either half. This checks model consistency;
 neither a passing sweep nor flat predictions establish real-hardware speed.
+
+The window is pinned at 32,768. The automatic window may deliberately spend up
+to a tenth of a typical request for a larger window at a larger target, so the
+monotonic invariant belongs to the pool and pass plan at a fixed window.
 """
 import json
 import os
@@ -28,7 +32,7 @@ PROMPT, REPLY = 2000.0, 400.0
 
 def plan(mem):
     r = subprocess.run(
-        [BIN, "doctor", "--mtp", "off", "--sim-ram", "137.4", "--sim-available", "130",
+        [BIN, "doctor", "--mtp", "off", "--max-context", "32768", "--sim-ram", "137.4", "--sim-available", "130",
          "--memory-gb", str(mem), "--json"],
         capture_output=True, text=True)
     return json.loads(r.stdout) if r.returncode == 0 else None

@@ -1484,6 +1484,17 @@ A better comparable hardware/workload result can justify changing the default. U
 
 Controlling decision: [[records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram]]. General engineering contract: [[records/design/measured-operating-policies]].
 
+## Community evidence incorporated on 2026-09-13
+
+[[records/measurements/c2-macbook-pro-m5-max-128gb-community]] now explicitly
+surfaces the larger-target sweep already preserved in its original source.
+The same M5 Max reportedly ran faster as its manual memory target increased
+beyond auto. This is positive evidence that a larger allocation can help;
+the conservative development-Mac default is not established as the best
+tradeoff on that machine. The public tables and memory FAQ now make this
+scope explicit. Runtime defaults remain unchanged, pending qualification of
+a hardware-specific allocation policy. No new model run was performed.
+
 ### The --memory-gb promise did not hold on real prompts (2026-08-31; resolved below)
 
 `--memory-gb 10` **peaked at 12.4 GB** on a 7,960-token prompt. Characterised
@@ -2494,12 +2505,47 @@ speculative decoding. Two longer warm runs returned 22.83 and 22.10 tok/s.
 The current surface uses the reported range instead of a best run.
 
 The report's prefill and peak figures were planner estimates, not measured
-long-prompt speed or process RSS. Keep both columns unmeasured. Cache-size
-sweeps in the source use manual settings and are not the automatic result.
+long-prompt speed or process RSS. Keep both columns unmeasured. The manual
+cache-size sweep is reported separately below so its gains are visible
+without attributing them to automatic sizing.
 
 This is one community report, not an independent rerun or a comparison made
 under the same conditions as the M5 Pro and M2 measurements. It supports a
 machine-specific row, not a promise for all Macs with that memory capacity.
+
+## Larger-cache results surfaced on 2026-09-13
+
+Rechecked issue #6 and its follow-up through the live GitHub API on
+2026-09-13. The existing immutable source already preserves the complete
+sweep. The public tables had retained only auto, omitting evidence that more
+allocated memory helped on this same machine.
+
+| Total-process target | Experts per layer, as reported | Slotstream 0.2.3 warm decode |
+|---|---|---|
+| 34.6 GB (auto) | ~152 | ~21–22 tok/s |
+| 48 GB (manual) | ~253 | ~26.9 tok/s |
+| 73 GB (manual) | ~401–441 | ~31.5 tok/s |
+
+All rows are the same 128 GB M5 Max, internal 2 TB SSD, with speculative
+decoding enabled. Targets are decimal GB budgets, not observed peaks or
+requirements for installed memory. Preserve the reporter's approximate
+expert-count range rather than replace it with today's planner output.
+The original 0.2.1 sweep also reported gains at larger targets; the current
+public comparison uses only the follow-up's 0.2.3 values.
+
+This within-machine comparison is evidence of a benefit from increasing the
+memory target, beyond the different-chip comparison against the M5 Pro.
+The manual rows are approximate summaries without the individual repeated
+request timings supplied for auto. They are not an independently reproduced,
+interleaved benchmark or a universal throughput curve. No new process-memory,
+long-context, correctness, or 0.2.16 performance qualification is established.
+Do not multiply these figures by the development Mac's later release speedup.
+
+The README's earlier flat 13.5 tok/s values extrapolated the *scope* of a
+20 GB-target development-Mac measurement while holding its numerical value
+constant. Replace them with named measured configurations and explicit gaps.
+Retaining the conservative automatic target does not negate this community
+result or establish an optimum on larger Macs.
 
 ## C3: MacBook Air M5, 32 GB (community, 2026-09-07)
 Reported by `@arczhi` in [issue #12](https://github.com/carloslfu/slotstream/issues/12),
@@ -4303,3 +4349,619 @@ Every commit that has landed on `main` after the released build changes document
 Expert lookahead and expert prefetching are reviewed, planned and unimplemented. This release ships the plan, not that acceleration.
 
 At closure no Slotstream process remained, the native model lock was free, no application was closed or paused, and no persistent production instrumentation or environment setting changed.
+
+### Expert Lookahead pilot: exact causal capture and bounded prefetch, but small predictors project no throughput gain
+**Outcome: a justified stop at the plan's offline continuation rule, with the whole pipeline built and proven exact.** The Expert Lookahead plan ([[records/plan/expert-lookahead-local-experiment-2026-09-10]]) was executed from P0 through P3a on the 48 GB M5 Pro, and the P2 prefetch runtime was built and checked for correctness. The pilot's calibrated replay shows that a perfect forecast under the bounded scheduler would project a 1.59x decode throughput ratio, but no trained or cheap predictor came close to the precision that requires: the best policy projects 1.0055x under the plan's 1.20x read-traffic bound and 1.064x with the bound removed at 4.9x file traffic. The rule therefore stops the experiment before native speed qualification (P3b, P4, P5). No throughput improvement is claimed; the measured improvement over the current deployment is none.
+
+**What was frozen.** Protocol `xla-pilot-20260911`: the pinned two-draft MTP text mode (`SLOTSTREAM_DRAFT_DEPTH=2`, adaptive speculation and draft-tail shortening off, prefill chunk 256, prefix retention off, elastic off), greedy seed 42, thinking off, maximum context 32,768, `--mtp on`. The 24 GB primary profile needed 29 GB reclaimable and the machine offered 28.9 GB at freeze, so the plan's separately frozen 20 GB profile with a 25 GB preflight ran instead: 4,255 global slots, about 89 experts per layer, which is the memory regime where demand reads take 37% of decode time. A public 307-request, 95-family corpus with a seed-1729 family split (train 242, validation 32, test 33 requests) was frozen with prompt hashes; test families were never read.
+
+**Capture (P1).** The collector writes one binary shard per request with lossless little-endian BF16 feature bits, exact ordered top-10 router IDs per layer and pass, three-position start features, full 48-layer `x2` for verification passes, demand events with hit, miss, victim and adoption lists and timings, sweep admissions, reconciliation labels and a post-prefill CLOCK residency snapshot. Collector on versus off produced identical output IDs, router digests and finish reasons on six correctness requests (1,218 outputs) at 8.8% wall overhead, of which the collector's own write and copy time was under one percent. The pilot captured 69 requests, 12,899 outputs, 5,205 verification passes and 4.40 GB of shards at a median 10.98 tok/s and 0.687 hit rate; the one request the engine's memory-pressure guard cancelled completed on the resumed run and its failed row is preserved. Data validation checked framing, geometry, finiteness, joins, pass completeness and recomputed every request's router digest from the shard. A CLOCK replay from the residency snapshot reproduced all 249,840 native demand events exactly, miss lists and victim slots included, so the offline scheduler evaluation stands on a calibrated cache model.
+
+**Training and offline evaluation (P3a).** On 12,540 training and 3,075 validation positions with the frozen recipe, the whole-pass models learned nothing beyond the per-layer frequency prior: G64 and G128 stopped below the prior's recall@16 of 0.121, and at the plan's 1e-3 nonconvergence rate G64, G128 and G256 all converged to the identical prior solution (recall@16 0.121, validation loss 0.6325). The completed-layer refiner L128 did learn: recall@16 0.193 at horizon one and 0.194 at horizon four after 20 epochs, rising from 0.162 on a nested 28-request prefix, so doubling the data bought about three points. In the replay with the native scheduler settings (32-record cap, 8 lanes, 4-layer window, service time calibrated from recorded demand events), timely miss-byte coverage under the 1.20x traffic bound was 1.39% for L128 (precision 7.8%), 1.48% for G128 with L128 refinement, 0.54% for G128, 0.46% for G64, and effectively zero for the recent-routes and frequency baselines; the corresponding projected ratios are 1.005x at best against the oracle's 1.587x. Precision is the binding constraint: with 7 cold misses per layer per pass out of about 22 routed experts, a top-4 candidate list that is right one time in thirteen cannot cover misses without multiplying read traffic.
+
+**Runtime (P2) and native correctness.** The raw-staging prefetch runtime exists and is exact: tickets with owned aligned buffers read through the store's checked seam, one shared lane budget with demand priority, a 32-record (88,473,600-byte) cap charged until the scatter graph releases the bytes, expiry at each completed layer, promotion of in-flight reads on demand, zero-copy adoption into the slot the ordinary victim scan chose, and a 128 MiB reserve the planner deducts before solving capacity. Weights-free checks cover the lane budget, ticket lifecycle with cancellation before, during and after a read, an injected fault, the EINTR seam, the byte cap, shadow mode, the recent-routes policy and adoption lifetime; the T0 catalogue passes 36 checks with 25,487 assertions. Natively, six correctness requests with prefetch on (G128 pack, top 32, 4,206 slots after the reserve) matched the baseline exactly while adopting 11,161 records (4,442 by promotion) out of 430,251 issued tickets with zero failures and the cap never exceeded; the exported G128 pack agreed with Python to a maximum score error of 0.00026 with zero top-16 set mismatches over 4,608 layers at 0.45 ms per row on the GPU; a request cancelled mid-decode with 7,947 tickets in flight was followed by an exact recovery request. Shadow forecasting cost 1.3 ms per verification pass, about half a percent of decode.
+
+**What the native runs also show.** With this predictor at top 32 the prefetch arm decoded at 5.2 to 6.8 tok/s against 10.1 to 13.0 tok/s without it: wrong forecasts consume read bandwidth and force promotion joins. Two single diagnostic pairs on one code prompt (7.41 against 8.40 tok/s with prefetch on, one control arm swap-contaminated; 12.95 against 12.53 tok/s in shadow mode) are mechanism diagnostics only, because swap-in counters never held still for the plan's 120-second readiness interval. No pair in this record is speed evidence.
+
+**Limits.** One seed, one memory profile, cold per-request caches, a 10k-output pilot; the sealed test families were never used; no native benchmark cohort ran. The oracle ceiling is an upper bound under an idealized service model and says nothing about how well any forecast can be learned. Every timing interval in this record is a diagnostic under [[records/decisions/global-paging-is-diagnostic]].
+
+**Next decision.** Do not collect the 50k set or run P3b/P5 for this feature contract: the start-feature models are prior-equivalent and the completed-layer refiner's learning curve does not reach usable precision within the plan's budget. The evidence points at the feature contract rather than the mechanism: a same-layer pre-attention forecast (predicting layer L's experts from its own `x1`, which the router later reads through `x2`) would trade lead time for precision, and demand service was measured at 0.27 ms per record, so even a one-layer lead could be timely. That is a new protocol under the plan's extension table, not a continuation of this one. Nothing was installed, activated, published or committed; the installed 0.2.15 artifact is unchanged.
+
+Raw commands, identities, per-request counters, training logs and every excluded row are in [[sources/runs/2026/09/2026-09-11-expert-lookahead-pilot-offline-stop]].
+
+### Expert Lookahead probes: the model's own routers forecast routing one layer early at 60%, and optimal replacement would halve misses at the same memory
+**Outcome: the model's own routers, applied one layer early with no training, forecast routing four times better than the trained predictors of the pilot, and the slot cache has a 15-point hit-rate gap to Belady's optimum at the same memory.** These two offline facts, measured on the pilot's validation shards with the plan's exact twin, reopen the Expert Lookahead question that [[records/measurements/expert-lookahead-pilot-offline-stop-2026-09-11]] closed, and they are the evidence for the successor plan [[records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11]]. No native run, no throughput claim and no code change to the engine are part of this record.
+
+**Router reuse (zero parameters).** Applying layer T's real router weights to the captured MoE input of layer T minus k, on 1,025 validation passes, reproduces T's exact top-10 experts in 59.5% of positions one layer early (recall@16 72.2%), 50.0% two layers early, 45.3% and 43.2% at three and four; a stride-zero self-check reproduces the real routing at 99.9996%, so the probe is faithful to the engine's router. Agreement is nearly uniform across depth (0.55 to 0.66 by eight-layer group) and lowest at layers 1 to 3 (0.43). For comparison the pilot's trained completed-layer refiner reached recall@16 0.193 and the frequency prior 0.121. Under the plan's bounded scheduler twin with exact replayed residency, a stride-1 top-10 forecast covers 48.8% of misses in time at 40.1% precision among issued non-resident candidates and 1.73x file traffic, which projects 1.23x by the previous plan's proportional formula and 1.17x by the read-cost model below; stride 2 top-10 covers 39.8% at 30.7% precision (1.90x traffic, 1.14x). Both are lower bounds on a native forecast, which would use the target layer's own hyper-connection mixing on the live streams and omit only that layer's attention sublayer, whereas the probe reuses the source layer's mixed input.
+
+**Replacement (Belady bound).** Replaying the same decode demand stream from each request's post-prefill CLOCK snapshot at the native 4,255 slots: CLOCK 69.3% hits, exact LRU 70.5%, segmented LRU 71.7%, decayed LFU 67.3%, and Belady's optimal policy 84.8%, which halves the misses (167,620 against 338,147). The optimal replay was verified against a brute-force reference on 200 random traces. Two thirds of misses (66.6%) are re-references of experts that were resident earlier in the same request. At 1.2x slots LRU removes 22% of misses and optimal 57%. This bound is dynamic and differs from the static hot-set bound of [[records/measurements/m1-expert-locality-on-a-real-trace-2026-09-03]] (4.6 points at 30 experts per layer); it does not by itself reverse [[records/decisions/clock-stays-the-eviction-policy]], whose condition is an implementable policy beating CLOCK by more than about one point on a second workload, and LRU is again within about one point of CLOCK here.
+
+**Structure.** A layer's demand read costs 0.61 ms for one missing record and about 0.21 ms per additional record (weighted fit 0.38 ms plus 0.21 ms per record); 97.3% of layer events have at least one miss; the lead from a completed layer to the next layer's demand is 1.16 ms (median), which is that layer's attention sublayer, and 5.5 ms two layers ahead. Layers 0 to 7 carry 22.2% of misses at 9.2 per event and have the weakest temporal locality (previous-position overlap 0.21 against 0.34 over all layers), but a repeated token routes to the same layer 0 to 3 experts 59.6% of the time, and 54% of positions repeat a token already seen in the request. Three positions per pass route to 22.4 unique experts per layer, of which 6.9 miss.
+
+**Limits.** One machine, one memory profile (20 GB, 4,255 slots), 13 validation requests, cold per-request caches, no native timing. The twin's projections ignore bandwidth contention from wasted reads and were contradicted natively once in the pilot at 2.6% precision; the ratios above are projections under an idealized service model. The twin counts a correct but late ticket as wasted and its record as a demand read, whereas the native runtime promotes and joins an in-flight ticket without a second read, so the traffic figures are upper bounds. The exact-residency accounting takes each pass's resident set once at pass start and ignores evictions by earlier layers within the pass, which slightly undercounts both coverage and waste. The recency policies (LRU, segmented LRU, decayed LFU) start each request from the snapshot's slot order, which carries no recency, while CLOCK replays its exact reference bits; the comparison is therefore mildly biased against the recency policies at the start of each request. The read-cost fit uses per-event medians, not a queueing model. The router probe's stride-2 forecast lacks all of the intermediate layer, not only the target's attention.
+
+**Next decision.** Proposed, not approved: the successor plan sequences an exact offline replacement-policy lab against the Belady bound, a native router-reuse forecast diagnostic and prefetch with admission tuned on the twin, and an early-layer token memo, each with its own gate and the previous plan's held-out B0 cohort as the final gate. The learned whole-pass predictor and the 50k capture are retired.
+
+Raw commands, hashes and per-request tables are in [[sources/runs/2026/09/2026-09-11-expert-lookahead-router-reuse-and-replacement-probes]].
+
+### Expert Lookahead 2: the model's own routers forecast 76% of the next layer's routing and the exact prefetch removes 63% of demand reads, yet every native screen loses throughput; replacement policy is not the lever
+**Outcome: no throughput gain; a complete, reproducible negative with the mechanism proven exact.** Expert Lookahead 2 ([[records/plan/expert-lookahead-2-replacement-router-reuse-memo-2026-09-11]]) was executed on the 48 GB M5 Pro from W0 through W4 with its follow-up screens. Its three ideas came out as follows. Replacement policy: in an exact replay of the pilot corpus, no implementable policy reaches the plan's port threshold (segmented LRU removes 7.6% of misses against Belady's 50.4%), so CLOCK stays. Router-reuse prefetch: the model's own routers applied one layer early reproduce 76.3% of the next layer's top-10 routing with no training, the native runtime prefetched on that forecast exactly and removed 63% of demand reads, and the calibrated twin projected 1.247x; yet every native screen lost throughput, 0.713x at first and 0.956x at best after a runtime revision and two lower-traffic settings, because the read-cost model credits the saved demand reads, which did materialize on the demand-IO clock exactly as modeled, and charges nothing for the runtime's own work on the critical path: the non-IO part of decode grew by 38% to 111% with prefetch on (joins on in-flight tickets, adoption work, the forecast and an unprofiled remainder on the GPU and memory side). Early-layer memo: its candidates cover 4.2% of misses at precision 0.57, but only 1.49% arrive in time in the twin (projected 1.005x), so it failed its offline gate and never ran natively. The measured improvement over the current deployment is none.
+
+**What was frozen.** Protocol `xla2-20260911`, the pilot's 20 GB profile (4,255 slots, 25 GB preflight) with the pilot's pinned two-draft MTP text mode, corpus, correctness, screen and B0 prompt sets, and all 69 pilot shards re-hashed byte for byte. The eligibility rule for timing is the one Carlos approved with the plan: readiness needs thermal nominal, low power off, reclaimable memory at or above the preflight and host swap-outs stable over 30 s; a pair is eligible when both arms are exact, no host swap-outs occur during either arm, the engine's own page-ins stay under 4,096 pages and thermal stays nominal; the old 120 s swap-stability verdict is recorded beside it. Three candidate binaries were frozen in sequence with their hashes and changes; each passed the T0 catalogue including the new deterministic scheduler check, which also caught a real issue-cursor defect before any timing screen.
+
+**Replacement policy (W1, offline).** Eight policies replayed with `ensureCore`'s batch-pin semantics on the 69-request demand stream at 4,255 slots, constants fit on 56 training requests and scored on 13 validation requests with the read-cost model fit on recorded demand events (0.38 ms per layer event with a miss plus 0.21 ms per record, within 0.2% of measured IO). Belady projects 1.188x (misses 0.496x native). Segmented LRU is the best implementable policy at 0.924x misses and a projected 1.023x; S3-FIFO 0.943x, ARC 0.948x, exact LRU 0.962x, W-TinyLFU 0.980x; this session's CLOCK-Pro 1.47x (an implementation limit, recorded as such). Layer-aware variants change the third decimal. A learned reuse-distance evictor trained on 6.3 million eviction candidates reaches 0.966x misses when choosing among 32 candidates at the hand. The port threshold was 0.85x, so replacement is not the lever at this size, and the CLOCK decision stands with a tightened reversal condition ([[records/decisions/clock-stays-the-eviction-policy]]).
+
+**Forecast (W2, native).** The runtime computes, at each layer boundary of a verification pass, the next layer's own router on the live streams (mix-only hyper-connection read after the previous layer's MoE add), keeps the top candidates per row with their margins, and evaluates them in the same sync as the layer. Its self-check reproduced the true routing in 189,936 of 189,936 rows and an offline recomputation from captured BF16 inputs matched 72,714 of 72,720 rows with six ties at the boundary. One layer early the forecast agrees with the real top-10 in 76.3% of positions (recall@16 0.882; the offline probe had 59.5%), two layers early 62.8%; the stride-1 lead is 1.04 ms at the median. Outputs with prefetch on, off and in shadow were identical on every request measured (six correctness requests at two profiles, 13 validation requests). The forecast's own cost measured 2.8% of decode in the paired overhead screen (12 of 12 pairs eligible, 0.977x), above the plan's 2% budget after its listed remedies.
+
+**Twin projection (W3).** With the native forecasts transplanted pass by pass onto the pilot's exact residency, 270 settings were swept; the selection rule chose strides [1], 10 candidates per row, issue cap 16: projected 1.247x, precision 0.601, timely coverage 0.652, traffic 1.43x, robust to 1.5x service time and to advanced deadlines (2.0x service gives 1.239x with 1.8% late tickets). The best admissible setting projected 1.257x. The plan's W3 gate (at least 1.10x) passed, so the native screens were justified by the protocol.
+
+**Native screens (W4).** Twelve-pair screens on the frozen code, prose and reasoning prompts, 128 outputs each after warmup, both arms charging the 128 MiB reserve, prefetch off against router prefetch on:
+
+| Screen | Binary | Setting | Eligible pairs | Ratio (aggregate; bootstrap 95%) | Demand records removed | Bytes read, on/off |
+| --- | --- | --- | --- | --- | --- | --- |
+| F2 | candidate 2 | stride 1, top 10, issue 16 | 12 of 12 | 0.713x (0.701 to 0.711) | 64.2% | 1.47x |
+| F2 revised | candidate 3 | same | 11 of 12 | 0.895x (0.845 to 0.894) | 63.4% | 1.48x |
+| Stride 1, threshold 0.062, issue 8 | candidate 3 | twin 1.175x at 1.17x traffic | 12 of 12 | 0.935x (0.919 to 0.934) | 51.6% | 1.17x |
+| Stride 2, threshold 0.062, issue 16 | candidate 3 | twin 1.153x at 1.40x traffic | 12 of 12 | 0.956x (0.942 to 0.955) | 48.1% | 1.39x |
+
+Candidate 3 added a batched adoption scatter (one pool write per piece per layer event) and lane priority for promoted tickets; it cut the join time per request from 2.5 s to 1.2 s and the adoption time from 2.5 s to 1.2 s on the same setting, which is the whole difference between 0.713x and 0.895x. No screen reached the 1.03x needed to proceed; the B0 cohort, the policy port (W5), the held-out qualification (W6) and the 24 GB cohort (W7) did not run.
+
+**Why the projection was wrong.** The twin and the native runtime agree on every count: issued tickets per pass within 2%, adoptions within 4%, misses within 1%. They also agree on the demand-IO clock: the read-cost model (0.38 ms per layer event with a miss plus 0.21 ms per record) reproduces the measured demand-IO time of every arm, control and prefetch alike, within 3 s (stride 2: 29.9 s measured against 32.4 s modeled, from 51.2 s in the control arm), so the SSD side did what the twin said and no traffic penalty is visible there. What the twin does not charge is the runtime's own work on the critical path, and that is where the whole loss sits: the non-IO part of decode grew from 73 s to 154 s on the first screen (+111%), from 66 s to 106 s after the revision (+61%), and from 73 s to 103 s and 101 s on the two thresholded settings (+41%, +38%). At stride 1 the host counters name most of it: 97.6% of adoptions were promotions of tickets still in flight when the demand batch arrived, the demand path waited 13.0 s on them and spent 13.5 s adopting, the forecast cost about 3 s, and 10 s remain unattributed. At stride 2 the joins and adoption enqueue vanished (0.15 s over twelve arms) and the non-IO part still grew 28 s, of which the forecast explains 3.6 s and 24 s are unattributed by any host counter. The candidates for that remainder are the GPU and memory work the adoption path adds per record and the demand path does not pay (a concatenation of each ticket's own buffers before the pool scatter, one array wrapper with a finalizer per piece per ticket, a fresh 2.76 MB allocation and release per ticket, 170,000 tickets per screen of which 45% expired unused), and they have not been profiled. The margin per record is thin: a prefetched hit saves about 0.26 ms of demand read, so any per-record cost above that on the critical path, or wasted reads at precision 0.55 to 0.60, turns the gain into a loss. The mechanism moved the cost from the SSD to the engine's own timeline rather than removing it. The lesson for any successor is that the SSD is not the constraint at this profile (it is idle for most of the decode and served the extra bytes as modeled); the constraint is what the engine does per prefetched record on the critical path, which must cost less than the 0.26 ms of demand read it replaces.
+
+**Limits.** One seed, one machine, one memory profile (the 24 GB profile never had its headroom); the forecast's coverage and precision were audited at a 12 GB diagnostic profile because another application's virtual machine blocked the 25 GB preflight for the shadow capture, while every timing arm ran at the frozen 20 GB profile; screens are 12-pair validation screens, not the held-out cohort; the eligibility threshold of 4,096 page-ins remained a placeholder that never decided a verdict (largest delta 6 pages); one pair was excluded for host swap-outs and is preserved; the forecast overhead exceeded its budget by 0.8 points; adoption-path revisions were made inside W4 on the plan's diagnosis order and are recorded as candidates 2 and 3, not as new protocols. No number here is a claim on any public surface.
+
+**Next decision.** Do not run the B0 cohort, port a policy or install anything from this line; the prefetch runtime, forecast event, twin and bench remain in the working tree as instruments. If the line is reopened, the first step is not a screen but a profile of one stride-2 arm attributing the 28 s of non-IO growth (GPU timeline, allocation, array churn), then an adoption path that costs what the demand path costs (speculative reads into per-layer contiguous staging so adoption is one scatter with no concatenation, buffers reused instead of allocated per ticket, expired tickets never allocated), then the stride-2 screen again, where joins are absent. The prize is bounded and worth stating: demand reads are 41.5% of decode at this profile, so a prefetch that hides all of them is at most about 1.7x, and the stride-2 setting with the runtime cost reduced to the forecast's 3.6 s would have measured about 1.17x on the same arms. Only after that do precision levers matter (a stride union that issues at stride 2 and cancels on the stride-1 refresh before the read starts) and forecast-protected eviction, which the captured native forecasts can evaluate offline in the twin before any native run. A trained predictor is not the next step: the zero-parameter forecast is already at 0.763 one layer ahead and the pilot's trained models never left the frequency prior. The predecessor's warm-start lever (10% of records serving 71% of accesses) is untouched by this result.
+
+Raw commands, identities, per-arm counters, parity outputs and every excluded row are in [[sources/runs/2026/09/2026-09-11-expert-lookahead-2-offline-lab]] and [[sources/runs/2026/09/2026-09-12-expert-lookahead-2-native-screens]].
+
+### Expert Lookahead 2, slot adoption: speculative reads straight into pool slots make the router-reuse prefetch a 1.14x validation-screen gain; held-out cohort pending a host restart
+**Outcome: the router-reuse prefetch is a measured 1.138x on the validation screen once adoption costs nothing, and the held-out cohort that would make it a headline is blocked by a host I/O stall that needs a restart.** After the staging screens of [[records/measurements/expert-lookahead-2-router-reuse-prefetch-native-screens-2026-09-12]] closed at a loss, the runtime was revised on that record's own diagnosis: the loss was the engine's per-record work on the critical path, not the SSD. **Slot adoption** reserves the CLOCK victim slot when a speculative ticket is issued and lets the worker write the record into that slot's pool memory, so adopting a prefetched expert is a map insert with no copy, no allocation, no array wrapper and no graph work; unused reservations recycle their slots before any live key is evicted. On the same twelve-pair validation screen, same prompts, same eligibility rule and same read-cost accounting, the setting the twin had projected at 1.153x (stride 2, top 10, issue cap 16, margin threshold 0.062) went from 0.956x with staging adoption to **1.138x with slot adoption** (11 of 12 pairs eligible, bootstrap 1.114 to 1.134, every eligible pair faster; code 1.089x, prose 1.170x, reasoning 1.157x), with outputs exact against the pilot and the shadow captures on the six correctness requests.
+
+**What the numbers say about the mechanism.** Over the eleven prefetch arms the demand-IO clock fell from 47.3 s to 28.5 s, within 1.4 s of the read-cost model's credit, and the non-IO part of decode grew only 6.4 s (from 66.2 s), about half of it the forecast itself; with staging adoption the same setting had grown non-IO time by 28 s. Demand records fell 47.3%; total bytes read rose 1.40x; precision was 0.545 (85,070 adoptions from 156,006 tickets, 70,855 expired, 3,532 by promotion). One-round pilots bracket the setting: 32 lanes 1.127x, a higher threshold (0.214) 1.122x, no threshold 1.085x, all with 16 lanes. So at this profile the prefetch is worth about 12% to 14% on validation prompts when it costs nothing per record, and the remaining cost is the forecast (about 3%) and the 45% of reads that expire unused.
+
+**What was tried and closed on the way.** Slot adoption alone (candidate 4) saved no time against staging on the six correctness requests because the join path forced the lazy demand scatter to evaluate early and wasted reservations evicted 177k live keys; both were fixed in candidate 5 before any screen. Forecast-protected eviction (CLOCK skipping the keys the next layer's forecast names) was evaluated offline on the exact replay with the native forecasts: 0.9985x misses at best, projected 1.0004x, closed.
+
+**The stall.** One pilot arm hung for 42 minutes inside a single `pread` of the prefill sweep's staging read after its warmup request had run slot-mode prefetch; a process sample showed every other thread idle. Killed, the process stayed in the kernel's exiting state holding the per-user model lock, and the next engine start blocked uninterruptibly at startup behind it. Two such processes now sit on this boot; no model process can start until the host restarts. The cause is unproven. Because the one kernel-level novelty of slot adoption was an uncached file read straight into GPU-shared pool memory, candidate 7 reads each piece into a host scratch buffer and copies it into the slot on the worker thread instead; it passes the T0 catalogue (138 checks) and awaits its parity run. The bench now kills an arm after 1,200 s and records the stall, and falls back to a separate lock path only when the default lock is held by a dead process and no live model process exists.
+
+**Limits.** A validation screen on the frozen validation prompts is not the held-out cohort, and the plan's B0 gate (aggregate at least 1.10, lower bootstrap bound above 1.00, no family median below 0.95, no family duration regression above 5%, two clean pairs per prompt over 36 pairs and 512 outputs) has not run. The screen binary (candidate 5) wrote speculative records straight into pool memory; the binary that will run the cohort (candidate 7) uses the scratch path and must be shown exact and re-piloted first. One pair was excluded for host swap-outs and is preserved. Both arms charge the 128 MiB reserve that slot adoption no longer needs (46 slots, about 1% of the pool), which slightly favors the control. No number here is a claim on any public surface.
+
+**Next decision.** After the restart: `w9/run-after-reboot.sh` runs the T0 checks, the six-request parity of candidate 7 at the screen setting, a one-round pilot, then the B0 cohort against the current deployment. If B0 passes its gate, the mechanism is a candidate for the production path with the engineering the plan lists as separate (acceptance gates, mode coverage, adoption of the controls as defaults); if the stall recurs under candidate 7, the mechanism stops until the kernel interaction is understood. The predecessor decisions stand: CLOCK stays, the memo stays out, no predictor is trained.
+
+Raw commands, candidate hashes, per-arm counters, parity outputs, the stall sample and every excluded row: [[sources/runs/2026/09/2026-09-12-expert-lookahead-2-slot-adoption-screen]].
+
+### Expert Lookahead 2, slot adoption: the held-out B0 cohort passes the plan gate at 1.105x
+**Outcome: the slot-adoption router-reuse prefetch passes the held-out B0 gate at an aggregate 1.105x.** The validation screen in [[records/measurements/expert-lookahead-2-slot-adoption-screen-2026-09-12]] measured 1.138x on frozen validation prompts; this record is the sealed held-out cohort the plan requires before the mechanism counts as proven. Candidate 7, whose file reads land in host scratch before a memory copy into the reserved slot, ran six families with two prompts each over three rounds at 512 measured outputs: 36 pairs, every one eligible under the `process-pageins-v1` rule, none excluded.
+
+**Correction (2026-09-13).** This record first reported an aggregate of 1.120x, a lowest family of 1.093 and medians of 12.24 to 13.59 tok/s. The cohort report took the upper of the two middle values whenever it formed a median over an even count, so each two-prompt family counted its faster prompt. Scored again from the same pairs with true medians, a family being the geometric mean of its prompt medians as the registered bootstrap already resampled, the aggregate is 1.105x. It still clears the 1.10 gate and the verdict is unchanged: [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+
+| gate | required | measured |
+| --- | --- | --- |
+| aggregate ratio (geometric mean of families, each the geometric mean of its prompt medians) | at least 1.10 | 1.105 |
+| lower bootstrap bound (10,000 draws, seed 1729) | above 1.00 | 1.090 |
+| lowest family | at least 0.95 | 1.065 (structured) |
+| family request duration | no regression above 5% | every family shorter, 0.885 to 0.956 |
+| clean pairs per prompt | at least 2 | 3 for all twelve prompts |
+
+Every family is faster: dialogue 1.142, prose 1.130, multilingual 1.126, reasoning 1.086, code 1.083, structured 1.065. Median decode throughput rose from 12.20 to 13.50 tok/s.
+
+**Mechanism.** Demand records fell 47.0% (median 59,390 to 31,462) with the expert hit rate unchanged (0.682 and 0.680), so the gain is reads moved off the critical path, not a larger cache. Precision was 0.557: 843,060 of 1,512,496 speculative records were adopted and 668,920 expired unused. Counting every issued record at full size, speculative reads add at most about 116 GB per request to 87.0 GB of demand reads, an upper bound near 1.24 times the control's 164.2 GB, for a 1.1 times throughput gain. Draft acceptance on the prefetch arm averaged 0.741.
+
+**What it settles.** The plan's initial proof passes for this setting: stride 2, top 10, issue cap 16, margin threshold 0.062, 16 lanes, slot cap 64. The host I/O stall that blocked the cohort before the restart did not recur on candidate 7 across the parity run, the pilot and all 72 cohort arms. Production adoption remains separate engineering: acceptance gates, mode coverage and making the controls a default.
+
+**Limits.** One machine at one profile and a single frozen setting. The earlier swap-stable rule would have admitted 28 of the 36 pairs; the headline uses the approved page-in rule as the protocol specifies. No number here is a public claim.
+
+Raw report fields, counters, commands and artifact hashes: [[sources/runs/2026/09/2026-09-12-expert-lookahead-2-b0-cohort]]. Rescoring: [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+
+### Decode path serialization, round 1: deferring the per-layer GPU drain buys 3.8% to 5.1%; host time is waiting, not compute
+**Outcome: removing one of the two host-blocking synchronizations in every layer buys 3.8% to 5.1% with exact outputs, and the host's share of decode turns out to be waiting, which closes compilation and host point fixes.** Every MoE layer reads its routing back to the host and every layer ends in a full evaluation: 96 synchronizations per forward pass, so expert I/O, GPU work and host work run strictly in turn ([[records/measurements/decode-wall-time-attribution-2026-09-10]] partitions them 37.2, 30.1 and 32.7 percent, summing to 100). The end-of-layer drain exists so the next layer's ensure cannot scatter into a slot an unevaluated gather still reads. Pins already exclude a slot from every victim scan; they were retired one layer too early. With pins held for K + 1 generations and the drain taken every K layers, prefetch off, paired ratios against the original path are 1.025 at K=2, 1.038 at K=3, 1.040 at K=4, 1.047 at K=6 and 1.051 at K=8. Every paired comparison is above 1, demand records stay within 0.3% and tokens per verify pass are unchanged: the gain is overlap, not a different workload. Exactness held at K=4 on the six correctness requests and at every K in the sweep.
+
+**What closed.**
+
+- Whole-record speculative reads: 1.002 (0.993 to 1.013). Nine reads per record were real, but speculative reads run on worker threads off the critical path, and the demand path already read whole records. Four lanes cost 8.3% (0.917); 8, 16 and 24 are flat.
+- Nine implemented but disabled host accelerators, re-tested under slot adoption: paired mean 1.0012, standard deviation 0.0101. The earlier rejections stand. The router weight cache is the one with a consistent sign (1.010 on three pairs) and gets a powered re-test.
+- Residency speculation: only 2.2% to 2.5% of layer events need no demand read at the B0 setting, so skipping the routing readback on complete layers has almost nothing to act on ([[records/decisions/residency-speculation-waits-for-layer-completeness]]).
+- Graph compilation: the model thread's leaf samples are 69.7% GPU wait without prefetch and 73.5% with it, while MLX evaluation and Metal command encoding self time sits in the tens of samples at the top of the process-wide stack. The host share is waiting on the GPU and on reads, not graph construction ([[records/decisions/decode-host-time-is-waiting-not-graph-construction]]).
+
+**Also measured.** Prefetch halves the model thread's lock and condition-variable waiting (9.9% to 4.4%), consistent with its 47% cut in demand-read joins. The first reading of the flag sweep divided medians taken across prompts of different intrinsic speed and overstated every flag at 1.010 to 1.023; paired per-request ratios replaced it in both tools.
+
+**Limits and next.** Exploration on three prompts at 256 outputs, not a held-out cohort. The barrier was measured with prefetch off, because a pending forecast forces the drain in this build; deferred forecast consumption is written, and its composition with prefetch is the next measurement, followed by prefetch coverage depth, draft depth under per-depth protocols and the powered router-weight re-test. No public claim.
+
+Commands, tables, profiles, interruptions and hashes: [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-1]].
+
+**Correction (2026-09-13).** The profile split above describes one of the model thread's two blocks in the `sample` output, the cooperative-queue block that runs the layer loop. The same thread's other block, where it reads records, is 91% file reads. Merged by thread id, the model thread spent 35.1% (prefetch off) and 41.3% (prefetch on) of its samples in GPU waits and 45.2% and 40.0% in file reads, and prefetch lowered locks and condition variables from 9.0% to 5.9% rather than from 9.9% to 4.4%. Host work outside waiting is 8% to 10% either way, so the compilation conclusion holds: [[records/measurements/decode-path-serialization-closing-profiles-2026-09-13]].
+
+### Decode path serialization, round 2: the B0 prefetch coverage is already the best point; closer or wider forecasts trade demand reads for waits
+**Outcome: the B0 prefetch setting is already the best coverage point in this sweep. Candidate lists deeper than ten are inert, and forecasts that are closer or wider trade demand reads for waits on reads still in flight.** Reference: the B0 setting (top 10, stride 2, margin threshold 0.062). Paired geometric means over six request-round pairs; outputs identical to the reference in every cell.
+
+| configuration | paired ratio | pairs above 1 | demand records | demand misses | promoted while in flight | join and adopt per run |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| top 32, stride 2 | 1.022 | 4 of 6 | 15,654 | 14,243 | 152 | 0.01 s |
+| top 24, stride 2 | 1.015 | 5 of 6 | 15,661 | 14,248 | 184 | 0.02 s |
+| top 16, stride 2 | 0.991 | 4 of 6 | 15,656 | 14,244 | 138 | 0.01 s |
+| top 10, stride 2 (B0) | reference | | 15,695 | 14,276 | 189 | 0.02 s |
+| top 16, strides 1 and 2 | 0.991 | 1 of 6 | 10,366 | 8,971 | 5,169 | 2.10 s |
+| top 24, stride 1 | 0.969 | 3 of 6 | 12,455 | 10,820 | 16,126 | 2.59 s |
+| top 24, no threshold | 0.555 | 0 of 5 | 7,098 | 5,752 | 14,032 | 7.27 s |
+
+**Deeper lists are inert, which makes them an A/A test.** Margins are measured against each row's tenth logit, so from the tenth rank down every margin is zero or negative and the threshold removes it. Top 16, 24 and 32 therefore issue the same reads as top 10: 28,598 to 28,602 candidates, with 0.8% more reads let through by the larger per-target issue cap. Their paired ratios, 0.991, 1.015 and 1.022, with single pairs from 0.848 to 1.085, measure the exploration sweep's own noise: a six-pair difference inside about 2.5% is not evidence here. Round 1's barrier results at K of 3 and above (1.038 to 1.051, every pair above 1) sit outside that band; K = 2 (1.025) sits at its edge.
+
+**Closer and wider forecasts arrive too late to pay.** Stride 1 forecasts one layer ahead. Its forecasts are more accurate (wasted bytes halve, 32.3 to 16.1 GB per run, and demand misses fall 24%), but 16,126 of its reads were still in flight when the layer needed the expert, and joining and adopting them took 2.59 s per run against 0.02 s at stride 2. Forecasting from both strides issues 35% more reads, cuts demand records 34% and spends 2.10 s joining and adopting, for 0.991 with one pair of six above 1. Removing the threshold issues 4.2 times the reads, queues a million deferred lane acquisitions and runs at 0.555. Fewer demand records is not the objective by itself: a speculative read pays only when it lands before its layer asks and does not queue behind other speculative reads.
+
+**Combination rule.** The pre-registered rule for step 6 (at least five pairs, paired mean at least 1.01, at least 80% of pairs above 1) selects top 24 at stride 2 for this lever, out of the A/A set. Its overrides are the top and the issue cap, so it carries no measurable change into the combined candidate, and no gain is attributed to coverage. The rule is permissive at six pairs, as this sweep shows directly; the held-out B1 cohort remains the test that counts.
+
+**Also measured.** Layer completeness stayed at 2.2% to 2.5% at every setting. One no-threshold cell was excluded for host swap-outs; system swap held 0.25 MB afterwards and every configuration peaked at 18.8 GB.
+
+**Limits and next.** Three exploration prompts at 256 outputs over two rounds, not a held-out cohort. The composition of the deferred barrier with prefetch is round 3. No public claim.
+
+Commands, tables, counters and hashes: [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-2]].
+
+### Decode path serialization, round 3: forecasts held to a deferred barrier lose 7% to 26% under prefetch
+**Outcome: holding router forecasts until a deferred barrier is exact but costs 7% to 26% under prefetch, with no pair above 1, so the barrier gain does not survive this design.** Reference k1-s2, the B0 prefetch setting with a barrier at every layer. Paired geometric means over six pairs (five for k3-s4); outputs identical to the reference in every cell; exact parity at K = 3, stride 3 on the six correctness requests.
+
+| configuration | paired ratio | pairs above 1 | range | demand records | adopted | promoted while in flight | deferred lane acquisitions |
+| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| K = 1, stride 2 (reference) | | | | 15,685 | 13,706 | 111 | 38,096 |
+| K = 1, stride 3 (control) | 0.932 | 1 of 6 | 0.849 to 1.008 | 18,292 | 11,116 | 6 | 41,962 |
+| K = 3, stride 3 | 0.877 | 0 of 6 | 0.854 to 0.935 | 18,394 | 11,020 | 5,128 | 108,387 |
+| K = 3, stride 2 | 0.865 | 0 of 6 | 0.658 to 0.973 | 21,989 | 8,984 | 4,271 | 27,484 |
+| K = 4, stride 4 | 0.814 | 0 of 6 | 0.767 to 0.864 | 20,232 | 9,549 | 4,071 | 200,524 |
+| K = 3, stride 4 | 0.797 | 0 of 5 | 0.769 to 0.841 | 20,127 | 9,703 | 2,056 | 187,293 |
+| K = 8, stride 4 | 0.740 | 0 of 6 | 0.335 to 0.913 | 27,732 | 3,925 | 1,488 | 87,798 |
+
+**Why.** A forecast is worth its lead time, and holding it to the barrier spends that lead time three ways. At stride 2 a third of the forecasts target the barrier layer itself and reach the scheduler after it completed, so they are never issued: issued reads fall 35% and demand records rise 34%. A longer stride restores the distance but forecasts less accurately: stride 3 alone, at K = 1, adopts 19% fewer reads and runs at 0.932. And the reads that are issued leave in bursts at each barrier: at K = 3, stride 3, deferred lane acquisitions reach 2.6 times the stride-3 control, 5,128 reads were still in flight when their layer asked, and joining and adopting them took 1.69 s per run against 0.01 s. That configuration runs at 0.877 against the control's 0.932, a 5.9% loss at the same stride, where round 1 measured a 3.8% gain for the same period without prefetch. The loss grows with the period, to 0.740 at K = 8.
+
+**What follows.** Deferring the drain needs each forecast consumed before the next layer's routing, not at the next barrier. That routing readback is a synchronization the host takes anyway, so round 3b rebuilds with forecasts and completed-layer ticks riding it, which keeps their lead time within one attention block of K = 1 ([[records/plan/decode-path-serialization-2026-09-12]]).
+
+**Also measured.** Round 1's profiles rule out a third fold. Multi-token passes compact the linear-attention state windows with one evaluation each after the barrier, but that call site holds about 150 to 220 model-thread samples against about 3,700 to 4,000 at the barrier and 14,400 to 16,900 in the MoE call, so folding it could move at most about 1% of layer-loop time, inside the exploration noise band; it was not built. One k3-s4 cell was excluded for host swap-outs.
+
+**Limits.** Three exploration prompts at 256 outputs over two rounds. The design measured here is replaced in the source by round 3b's. No public claim.
+
+Commands, tables, counters and hashes: [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-3]].
+
+### Decode path serialization, round 4: draft depth 2 stays; wider verification passes cost expert reads
+**Outcome: draft depth 2 stays. Deeper drafts cut forward passes but widen every verification pass, and on an SSD-streamed MoE each verified position loads its own experts; depth 1 changes the greedy output.** Reference: depth 2 with the B0 prefetch setting, each depth under a protocol variant pinning it. Paired geometric means over six pairs.
+
+| draft depth | paired speed | pairs above 1 | forward passes | demand records per pass | seconds per pass | outputs identical to depth 2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.957 | 1 of 6 | 1.310 | 0.744 | 0.800 | 0 of 6 |
+| 2 (reference) | | | 96 | 163.6 | | |
+| 3 | 1.022 | 4 of 6 | 0.829 | 1.254 | 1.181 | 6 of 6 |
+| 4 | 0.981 | 2 of 6 | 0.755 | 1.516 | 1.351 | 6 of 6 |
+| 6 | 0.877 | 0 of 6 | 0.687 | 2.069 | 1.661 | 6 of 6 |
+
+**Why.** Every draft position is verified in the same pass, and every verified position routes to its own experts, so demand records per pass grow with the positions: 25% more at depth 3 (a third more positions), 52% at depth 4 and 107% at depth 6. Acceptance falls at the same time, 10%, 22% and 41% below depth 2, so passes shrink less than their cost grows: the two nearly cancel at depth 3 (1.022, with four pairs of six above 1, inside the exploration noise band measured in [[records/measurements/decode-path-serialization-round-2-2026-09-12]]), and depths 4 and 6 lose. For an SSD-streamed MoE, verification width is paid in reads.
+
+**Depth 1 is not exact.** It diverged from depth 2 at the same output in both rounds of every prompt (outputs 96, 27 and 63). Under the interpretation registered before the round, a depth change alters the verification batch shape, which the engine already documents can flip greedy near-ties (`boundedDraftTail`), so depth 1 is recorded as not exact under a shape change and excluded. It was also slower, at 0.957.
+
+**Combination rule.** No depth qualifies. Depth 3's paired mean clears 1.01, but only four of six pairs are above 1, short of the 80% the rule requires. Step 6 keeps depth 2 and the protocol's pin.
+
+**Limits.** Three exploration prompts at 256 outputs over two rounds, on the round 3 binary at barrier period 1. No public claim.
+
+Commands, tables, counters and hashes: [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-4]].
+
+### Decode path serialization, round 5: the router weight cache holds at 1.017 over twelve pairs
+**Outcome: the router weight cache survives a powered re-test at 1.017 over twelve pairs, ten above 1, approximate 95% interval 1.003 to 1.031, with exact outputs; adding the specialized router top-k removes the gain.** Reference: the B0 prefetch setting. Four prompts (r0005, r0206, r0096 and r0074) over four rounds; eight of 48 cells were excluded for host swap-outs, leaving twelve clean pairs per configuration.
+
+| configuration | paired ratio | pairs above 1 | range | approximate 95% interval | router cache |
+| --- | ---: | ---: | --- | --- | ---: |
+| router weight cache | 1.017 | 10 of 12 | 0.982 to 1.056 | 1.003 to 1.031 | 256.9 MB |
+| cache plus router top-k | 1.002 | 7 of 12 | 0.945 to 1.058 | 0.984 to 1.020 | 256.9 MB |
+
+**What it does.** The router matmul promotes each BF16 router to FP32 on every call. The cache keeps a pre-materialized FP32 copy of every router, 256.9 MB, so the routing of each layer skips that conversion. Demand records are unchanged (17,873 against 17,877), so the gain is compute, not reads. Round 1 saw 1.010 on three pairs among nine flags whose paired mean was 1.0012 ([[records/measurements/decode-path-serialization-round-1-2026-09-12]]); at twelve pairs the effect holds, small but clear of zero.
+
+**Combination rule.** The cache qualifies (twelve pairs, paired mean at least 1.01, 83% of pairs above 1) and carries `SLOTSTREAM_OPT_ROUTER_WEIGHTS=1` into step 6. Router top-k does not.
+
+**Limits.** Exploration prompts at 256 outputs; the interval is a normal approximation on log ratios. Swap-outs grew during the round and removed a sixth of the cells. The cache adds 256.9 MB of resident memory. No public claim.
+
+Commands, tables and hashes: [[sources/runs/2026/09/2026-09-12-decode-path-serialization-round-5]].
+
+### Decode path serialization, round 3b: forecasts on the routing readback fix round 3 but add about 1%
+**Outcome: consuming router forecasts at the next routing readback removes round 3's loss and stays exact, but the gain it leaves is small: at barrier period 4, 1.014 over the four pairs not affected by two slow reference cells, all four above 1; the other periods sit between 0.96 and 1.00 on those pairs.** Reference: the B0 prefetch setting with a barrier at every layer. Outputs identical to the reference in every cell; exact parity at K = 8 on the six correctness requests.
+
+| barrier period | paired ratio, all clean pairs | pairs above 1 | without the r0206 pairs | pairs above 1 | median pair |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 | 1.065 | 3 of 6 | 0.991 | 1 of 4 | 0.999 |
+| 3 | 1.084 | 3 of 5 | 0.992 | 1 of 3 | 1.007 |
+| 4 | 1.087 | 6 of 6 | 1.014 | 4 of 4 | 1.025 |
+| 8 | 1.125 | 3 of 4 | 0.998 | 1 of 2 | 1.103 |
+| 16 | 1.058 | 3 of 6 | 0.960 | 1 of 4 | 0.999 |
+
+**Two slow reference cells carry the headline ratios.** Both r0206 reference cells ran at 10.99 and 9.78 tok/s, slower than every other r0206 cell at barrier period 1 that evening (11.6 to 13.3 across rounds 2 to 5). Their demand records and decode I/O time match the other configurations' r0206 cells, and the excess, 1.2 to 2.1 s in round 0 and 3.8 to 4.1 s in round 1, is outside I/O. Neither tripped the eligibility rule, which sees swap-outs and page-ins but not processor or GPU contention from other processes. A slow reference inflates every ratio in its pair, so r0206 adds ratios of 1.12 to 1.37 to every period; without those pairs the periods read 0.96 to 1.01.
+
+**Round 3's loss is gone.** At K = 3, stride 2, round 3 ran at 0.865 with a third of its forecasts never issued ([[records/measurements/decode-path-serialization-round-3-2026-09-12]]). Here the same configuration issues and adopts as many reads as K = 1 (28,405 and 13,720 against 28,386 and 13,708) and demand misses are unchanged. Forecasts reach the scheduler one attention block later, so about 2,800 to 3,700 reads are still in flight when their layer asks, against 394 at K = 1, and joining and adopting them takes 0.14 to 0.18 s per run against 0.03 s.
+
+**Combination rule.** The pre-registered rule reads all clean pairs and selects K = 4 (six pairs, all above 1), carrying `SLOTSTREAM_DECODE_BARRIER_LAYERS=4` into step 6; K = 8 had only four clean pairs. The selection stands as registered: the setting is exact, and the screen against the shipped path and the held-out cohort measure what it adds. This round supports a gain of about 1% at K = 4, not 8.7%.
+
+**Limits.** Three exploration prompts at 256 outputs over two rounds; three cells excluded for host swap-outs. The reading without r0206 drops pairs after seeing them and is not the registered estimator. No public claim.
+
+Commands, per-pair ratios, counters and hashes: [[sources/runs/2026/09/2026-09-13-decode-path-serialization-round-3b]].
+
+### Decode path serialization, step 6: the combined candidate screens at 1.104 against shipped, 1.018 over B0
+**Outcome: the combined candidate (B0 prefetch, barrier period 4 with forecasts on the routing readback, the router weight cache and an inert coverage override) is exact and screens at 1.104 against the shipped path on the exploration prompts, against 1.084 for B0 prefetch alone: 1.018 on top of B0, five of six pairs above 1.** Six clean pairs per configuration.
+
+| configuration | paired ratio against shipped | pairs above 1 | paired ratio against B0 prefetch | median decode seconds | median demand records per output | median decode I/O share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| shipped | reference | | | 19.18 | 131.3 | 41.3% |
+| B0 prefetch | 1.084 | 6 of 6 | reference | 18.31 | 69.3 | 26.1% |
+| combined | 1.104 | 6 of 6 | 1.018, 5 of 6 above 1 | 17.70 | 68.9 | 29.6% |
+
+**Reading.** The combination adds 1.8% on top of B0 prefetch, in line with the parts measured alone: the router weight cache at 1.017 ([[records/measurements/decode-path-serialization-round-5-2026-09-12]]) and barrier period 4 at about 1.01 once two slow reference cells are set aside ([[records/measurements/decode-path-serialization-round-3b-2026-09-13]]); the coverage override changes nothing. The combined arms spend less time outside I/O than B0 prefetch (about 12.5 s against 13.5 s per run) and a little more waiting on reads (about 5.2 s against 4.8 s), consistent with forecasts reaching the scheduler one attention block later. B0 prefetch screens at 1.084 here against its held-out 1.105 (rescored from 1.120, [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]]) ([[records/measurements/expert-lookahead-2-b0-cohort-2026-09-12]]) because these are three prompts at 256 outputs, not the registered cohort.
+
+**Next.** Step 7 runs the combined candidate against the shipped path on the held-out B1 prompts under the B0 gate.
+
+**Limits.** Three exploration prompts at 256 outputs over two rounds; the medians are unpaired and the time split multiplies medians. No public claim.
+
+Commands, per-pair ratios and hashes: [[sources/runs/2026/09/2026-09-13-decode-path-serialization-combination]].
+
+### Decode path serialization, step 7: B1 cohort at 1.106 against shipped, evidence insufficient
+**Outcome: on the held-out B1 prompts the combined candidate decoded 10.6% faster than the shipped path (aggregate 1.106, bootstrap 1.073 to 1.128), with every family at 1.033 or above, every duration shorter and every output identical, but the registered verdict is not a pass: one prompt kept a single clean pair where the gate requires two, after host swap-outs from another application's virtual machine.** The plan allows no reruns inside a cohort, so this run records evidence insufficient and success false.
+
+**Correction (2026-09-13).** This record first reported 1.116 (bootstrap 1.073 to 1.129) with every family at 1.037 or above. The cohort report took the upper of the two middle values for medians over an even count; scored again from the same pairs with true medians, the aggregate is 1.106 and the verdict is unchanged: [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+
+| gate | required | result |
+| --- | --- | --- |
+| aggregate ratio | at least 1.10 | 1.106 |
+| bootstrap lower bound | above 1.00 | 1.073 |
+| family floor | at least 0.95 | 1.033 (reasoning) |
+| duration regression | at most 5% | every family shorter, 0.862 to 0.972 |
+| clean pairs per prompt | at least 2 | r0245 has 1 |
+
+| family | tok/s ratio | duration ratio |
+| --- | ---: | ---: |
+| dialogue | 1.175 | 0.862 |
+| prose | 1.167 | 0.928 |
+| multilingual | 1.124 | 0.918 |
+| structured | 1.077 | 0.949 |
+| code | 1.067 | 0.950 |
+| reasoning | 1.033 | 0.972 |
+
+**What it measures.** The cohort compares the whole candidate with the shipped path, so it prices B0 prefetch and the new levers together. It has no B0-only arm; B0 prefetch passed alone at 1.105 on the B0 prompts ([[records/measurements/expert-lookahead-2-b0-cohort-2026-09-12]], rescored the same way), where dialogue and prose also gained most. The increment of barrier period 4 and the router weight cache over B0 is measured only in exploration, at 1.018 ([[records/measurements/decode-path-serialization-combination-screen-2026-09-13]]).
+
+**Why the evidence fell short.** Three of 36 pairs were excluded for host swap-outs: r0244 round 0 and r0245 rounds 0 and 1. A virtualization process from another application held 8.41 GB by the end of the run, and the host swap-out counter rose by 13,960 during the cohort, although it had held still for five minutes before the cohort started.
+
+**Next.** A complete B1 rerun of the same candidate on a host without that memory pressure would test the same registered gates. It is a replication, not a top-up: its verdict would stand on its own, with this run reported alongside. No public claim.
+
+Commands, per-prompt ratios, exclusions and hashes: [[sources/runs/2026/09/2026-09-13-decode-path-serialization-b1-cohort]]. Rescoring: [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+
+### Decode path serialization, step 7 replication: the combined candidate passes B1 at 1.114 against shipped
+**Outcome: the replication passes every registered gate. On the held-out B1 prompts the combined candidate decodes at an aggregate 1.114 against the shipped path (bootstrap 1.104 to 1.121), every family at 1.064 or above, every family's request duration shorter, 34 of 36 pairs eligible and every output identical.** Median decode throughput rose from 11.79 to 13.47 tok/s.
+
+**Correction (2026-09-13).** This record first reported an aggregate of 1.124 (bootstrap 1.105 to 1.122), every family at 1.072 or above and medians of 11.80 to 13.48 tok/s. The cohort report took the upper of the two middle values whenever it formed a median over an even count, so each two-prompt family counted its faster prompt, which is why 1.124 sat above its own bootstrap interval. Scored again from the same pairs with true medians, a family being the geometric mean of its prompt medians as the registered bootstrap already resampled, the aggregate is 1.114. Every gate still passes and the verdict is unchanged: [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+
+| gate | required | first run | replication |
+| --- | --- | ---: | ---: |
+| aggregate ratio | at least 1.10 | 1.106 | 1.114 |
+| bootstrap lower bound | above 1.00 | 1.073 | 1.104 |
+| family floor | at least 0.95 | 1.033 | 1.064 |
+| duration regression | at most 5% | none | none |
+| clean pairs per prompt | at least 2 | r0245 had 1 | met |
+| verdict | | not a pass | pass |
+
+| family | tok/s ratio | duration ratio |
+| --- | ---: | ---: |
+| prose | 1.176 | 0.923 |
+| dialogue | 1.169 | 0.865 |
+| multilingual | 1.136 | 0.914 |
+| structured | 1.075 | 0.953 |
+| code | 1.070 | 0.956 |
+| reasoning | 1.064 | 0.943 |
+
+**Standing of the two runs.** The replication was registered before it ran as a complete fresh run of the same candidate, binary, plan and gates; its verdict stands on its own and no pair from the first run entered it. The first run ([[records/measurements/decode-path-serialization-b1-cohort-2026-09-13]]) is reported alongside: it cleared every effect gate and failed only evidence sufficiency, after host swap-outs from another application's virtual machine. The two runs agree family by family within 0.012 except reasoning (1.033 and 1.064).
+
+**What it measures.** The cohort prices the whole candidate against the shipped path: B0 prefetch, barrier period 4 with forecasts on the routing readback, the router weight cache and an inert coverage override. B0 prefetch alone passed at 1.105 on the B0 prompts ([[records/measurements/expert-lookahead-2-b0-cohort-2026-09-12]], rescored the same way); the two cohorts use different prompts, so the increment over B0 is not read from their difference. It is measured in exploration at 1.018 ([[records/measurements/decode-path-serialization-combination-screen-2026-09-13]]) and, on one binary with sixteen pairs, by the attribution sweep registered with this replication.
+
+**Limits.** One machine at the 20 GB profile, text decode with MTP drafts at depth 2, the twelve B1 prompts. Defaults are unchanged and nothing is committed or installed; adopting the flags is separate engineering. No public claim yet.
+
+Commands, per-prompt ratios, exclusions and hashes: [[sources/runs/2026/09/2026-09-13-decode-path-serialization-b1-cohort-replication]]. Rescoring: [[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+**Adoption (2026-09-13).** 0.2.16 turns this configuration on by default wherever the draft head runs ([[records/decisions/decode-lookahead-default-with-the-draft-head]]). Public claims citing this record: [[records/claims/decode-lookahead-1-11x-on-held-out-prompts]], [[records/claims/warm-decode-13-5-tok-s-with-the-decode-lookahead]] and [[records/claims/decode-lookahead-11-8-to-13-5-tok-s]].
+
+### Decode path serialization, attribution: each new part adds about 2% over B0 prefetch, 4.6% together
+**Outcome: on one binary, the two new parts each add about 2% on top of B0 prefetch and 4.6% together, every pair above 1 and outputs exact; B0 prefetch itself is 1.090 over the shipped path on these prompts.** Reference: B0 prefetch. Exploration prompts r0005, r0206, r0096 and r0074 over four rounds at 256 outputs; 78 of 80 cells clean.
+
+| configuration | against B0 prefetch | pairs above 1 | approximate 95% interval |
+| --- | ---: | ---: | --- |
+| shipped path | 0.918, so B0 prefetch is 1.090 over it | 1 of 15 | 0.894 to 0.943 |
+| B0 plus the router weight cache | 1.021 | 11 of 15 | 0.994 to 1.050 |
+| B0 plus barrier period 4, forecasts on the routing readback | 1.022 | 13 of 14 | 1.008 to 1.036 |
+| combined candidate | 1.046 | 15 of 15 | 1.024 to 1.069 |
+
+**The parts compose.** 1.021 × 1.022 = 1.044 against 1.046 measured together, so the router weight cache (compute saved in every router matmul) and the deferred barrier (synchronizations removed) do not overlap. Both agree with their earlier readings: the cache measured 1.017 in [[records/measurements/decode-path-serialization-round-5-2026-09-12]], and barrier period 4 about 1.01 on the pairs round 3b could trust ([[records/measurements/decode-path-serialization-round-3b-2026-09-13]]). The six-pair screen's 1.018 for the combination ([[records/measurements/decode-path-serialization-combination-screen-2026-09-13]]) sat inside its noise band; sixteen pairs place it at 1.046.
+
+**Apportioning the held-out result.**
+
+| step | gain | where measured |
+| --- | ---: | --- |
+| B0 prefetch over the shipped path | 1.090 here; 1.105 held out | this sweep; [[records/measurements/expert-lookahead-2-b0-cohort-2026-09-12]] |
+| router weight cache over B0 | 1.021 | this sweep |
+| barrier period 4 with forecasts on the routing readback, over B0 | 1.022 | this sweep |
+| both over B0 | 1.046 | this sweep |
+| combined candidate over the shipped path | about 1.14 here; 1.114 held out | this sweep; [[records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13]] |
+
+**Limits.** Exploration prompts at 256 outputs; intervals are normal approximations on log ratios. The parts were selected on these prompts, so the held-out 1.114 is the claim and these ratios apportion it. The held-out figures are the rescored ones ([[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]]); the cohort report first gave 1.124 and 1.120 by taking the upper middle value of even-count medians. No public claim.
+
+Commands, per-prompt ratios and hashes: [[sources/runs/2026/09/2026-09-13-decode-path-serialization-attribution]].
+**Adoption (2026-09-13).** The combined candidate is the 0.2.16 default ([[records/decisions/decode-lookahead-default-with-the-draft-head]]). docs/ENGINEERING.md quotes this sweep's split through [[records/claims/lookahead-parts-add-about-2-percent-each]].
+
+### Decode path serialization, closing profiles: decode waits split between file reads and the GPU
+**Outcome: on the whole model thread, decode waiting now splits between file reads and the GPU. With B0 prefetch the thread spends 36% of its samples in reads and 40% in GPU waits; the combined candidate cuts GPU-wait samples by 18% and adds 9% in reads. Round 1's recorded split covered only one of the thread's two profile blocks.**
+
+| bucket | round 1, prefetch off | round 1, B0 prefetch | B0 prefetch, round 3b binary | combined candidate |
+| --- | ---: | ---: | ---: | ---: |
+| file reads | 45.2% | 40.0% | 36.1% | 39.3% |
+| GPU wait | 35.1% | 41.3% | 39.8% | 32.9% |
+| other host work | 8.1% | 9.5% | 14.1% | 16.6% |
+| locks and condition variables | 9.0% | 5.9% | 6.1% | 6.3% |
+| allocation and memory copy | 2.6% | 3.3% | 3.8% | 4.8% |
+
+**What changed with the combination.** Fewer synchronizations and cheaper router math show up as 1,980 fewer samples in the IOKit trap (11,254 to 9,274). Reads rise by 885 samples (10,212 to 11,097), consistent with forecasts reaching the scheduler one attention block later, which the attribution counters also show as more reads still in flight when their layer asks. Host work outside waiting rises from 14.1% to 16.6% but stays a thin tail: no leaf above 433 samples, and `mlx::core::eval_impl` at 94 and 112 of about 28,000.
+
+**Correction to round 1.** `sample` lists the model thread once per dispatch queue. Round 1's parse kept the cooperative-queue block that runs the layer loop, whose shares reproduce the recorded 69.7% and 73.5% GPU wait, and missed the block where the same thread reads records, which is 91% file reads. Merged, round 1's model thread spent 35.1% (prefetch off) and 41.3% (B0 prefetch) in GPU waits and 45.2% and 40.0% in file reads, and prefetch lowered locks and condition variables from 9.0% to 5.9%, not from 9.9% to 4.4%. Host work outside waiting stays between 8% and 17% in every profile, so [[records/decisions/decode-host-time-is-waiting-not-graph-construction]] stands, with its evidence updated.
+
+**Where the next gains are.** Reads the model waits on are again the largest single cost, and round 2 showed that more speculative reads do not reduce them ([[records/measurements/decode-path-serialization-round-2-2026-09-12]]), so the lever is forecast accuracy at the same lead time. GPU waits are the other third.
+
+**Limits.** One prompt and one run per profile, in 45 s windows that can include warmup decode; shares are of model-thread samples, not wall time. No public claim.
+
+Commands, block tables and hashes: [[sources/runs/2026/09/2026-09-13-decode-path-serialization-closing-profiles]].
+
+### Decode lookahead default: checks and plans by Mac memory
+**Outcome: the 0.2.16 defaults are implemented and pass every weights-free check. Auto now runs the draft head and the decode lookahead from a 21 GB target, which puts 32 GB Macs and up on them at the default context; an 8 GB Mac is refused because even the smallest plan does not fit.** The decode lookahead is the exact configuration the held-out B1 replication measured at 1.114 ([[records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13]]); this record prices where the defaults turn on, not a new timing.
+
+**What changed.** The planner decides the lookahead with the head and charges its 373 MiB, the prefetch staging reserve and the FP32 router copies, before sizing the expert pool. The engine loads the qualified configuration when the plan chose it and no prefetch switch is set, then turns on the router cache and a four-layer barrier unless the environment names either. A deferred barrier falls back to draining every layer when a pass could not keep that many layers pinned. The governor re-plans with the engine's decision and charge. The head's automatic floor is 76 experts per layer after its charge ([[records/decisions/draft-head-auto-floor-76-per-layer]], [[records/decisions/decode-lookahead-default-with-the-draft-head]]).
+
+**Checks.** On the 0.2.16 build, 50 of 50 T0 and T1 checks pass (29,987 assertions), including a new 32-assertion check that parses the B1 candidate environment and requires it to equal the built-in configuration. The planner gates pass 73 of 73 with new checks at the floor, by Mac size, at the 65,536-token window and for the `SLOTSTREAM_OPT_EXPERT_PREFETCH=0` override. The static gates passed on the build before the version bump. Two checks failed on the first build and one on the second; each was a fixture or expectation error, recorded with its fix in the run.
+
+**Plans by Mac memory**, pristine what-if at the default window:
+
+| Mac RAM | automatic target | experts per layer | head and lookahead | plain-decode estimate |
+| --- | ---: | ---: | --- | ---: |
+| 8 GB | refused | | | |
+| 16 GB | 10 GB | 20 | off | 4.00 |
+| 18 GB | 11.5 GB | 28 | off | 5.54 |
+| 24 GB | 16 GB | 54 | off | 7.61 |
+| 32 GB | 22 GB | 74 | on | 8.68 |
+| 36 GB | 25 GB | 96 | on | 9.68 |
+| 48 GB | 33.6 GB | 161 | on | 11.60 |
+| 64 GB and up | 34.6 GB | 149 | on | 11.56 |
+
+At the 65,536-token window a 32 GB Mac's cache falls below the floor and runs without the head, while 36 GB keeps both; a 16 GB Mac's cache drops from 20 to 13 experts per layer, and a full window waits about 12.9 minutes against 6.4 at 32,768. From 24 GB a full 32,768-token prompt waits 3.0 to 3.3 minutes and a 65,536-token one 7.5 to 7.8 minutes. These plans back the public tier tables, their context recommendations and [[records/claims/recommended-context-65536-from-36-gb]].
+
+**Limits.** Planner arithmetic on simulated machines; estimates use the M5 Pro curve and do not include speculative decoding. No model process ran: a functional run of the automatic path needs a target of at least 21 GB, which the host's reclaimable memory did not allow while another application's virtual machine held about 9.7 GB. Public speed figures come from the B1 measurement, the 0.2.14 depth study and the claims that cite them.
+
+Commands, build identities, per-size plans and hashes: [[sources/runs/2026/09/2026-09-13-decode-lookahead-default-tier-plans]].
+
+## Public documentation evidence and scope audit
+This is a documentation and evidence-scope audit, not a new model benchmark
+or a release qualification. It follows the README memory-tier correction in
+[[records/measurements/c2-macbook-pro-m5-max-128gb-community]].
+
+## Scope and evidence
+
+Read README.md, all Markdown guides under docs/, llms.txt, CONTRIBUTING.md,
+SECURITY.md and the current release-preparation notes. Checked the related
+claims, supersession notes, planner and context accounting, vision admission,
+CLI behavior, package/build instructions and published release metadata.
+Generated MEASUREMENTS.md and PLAN.md remain projections of the canonical
+records; historical source/run bytes and past release entries are preserved.
+
+[[sources/runs/2026/09/2026-09-13-public-docs-audit-plans]] captures the exact
+binary identity, eighteen default/larger-context simulations and the latest
+published release at audit time. They are planner observations only. The
+working tree concurrently contained unrelated source edits, so neither these
+observations nor the planner gates qualify those edits.
+
+## Corrections
+
+- Kept the positive same-Mac larger-cache evidence visible. The old flat
+  development-Mac number does not establish a larger-memory speed ceiling.
+- Labeled prompt-processing waits as M5 Pro-based estimates. They exclude
+  startup, queues, image preparation and reasoning before visible answers.
+  Near-full requests must leave reply room.
+- Distinguished decimal-GB simulations from marketed Mac memory and showed
+  that the auto-target/MTP columns use the default window. Recommendations
+  are separate simulations whose actual fit depends on available memory,
+  Metal capacity, selected context and draft weights.
+- Limited the draft-enabled automatic ceiling to its default-context scope;
+  larger windows add draft-context charges. The draft activation threshold
+  is evaluated before the separate lookahead reservation.
+- Corrected image memory on the engineering, Hermes and AI-facing pages:
+  auto/total-target plans reserve the tower inside the target; explicit
+  pool-size settings preserve the pool and add resident bytes to the expected
+  footprint. Both need real headroom and image workspace.
+- Clarified that main sequence-cache bytes per allocated token exclude
+  recurrent, retained, draft and transient allocations. Manual targets keep
+  request-memory safeguards despite disabling automatic resizing.
+- Scoped cache equality to fixed generation settings; total-target changes
+  may also change prefill or MTP. Labeled the early engine-load figure
+  historical and excluded current full-file verification from that timing.
+- Scoped queue-depth observations to their historical development-Mac run.
+  Preserved the separate attribution study's supported component results
+  after checking its newer evidence; they describe tuning prompts, not
+  independent held-out improvements.
+- Distinguished candidate measurements and prepared version headings from
+  a published installer release. Removed the stale unreleased label from
+  features delivered earlier.
+- Corrected build-versus-T0 network requirements, removed a duplicated
+  library paragraph, repaired the stale README memory reference, and
+  updated stale contributor activation/plateau language.
+
+The claim records carry the refined scopes. The semantic review requirement
+is canonical in [[records/design/measured-operating-policies]] and projected
+into CONTRIBUTING.md. It supplements the existing text-match gate.
+
+## Verification and limits
+
+All 73 existing planner gates passed against the available binary, and all
+179 claim-to-surface checks passed. A local-link scan found all 160 checked
+links and fragments resolvable. Generated-doc parity, full-store validation,
+Markdown table-column checks and diff whitespace are checked after the final
+edits. The store has two unchanged historical-log warnings; no log history
+is rewritten to silence them.
+
+The direct sources support the corrections. This audit did not rerun real
+model performance, every client integration or other hardware, and does not
+certify a future client/library version. It does not assert that every
+possible documentation error has been ruled out. No runtime defaults changed
+in this task; no public release or push was performed.
+
+## Follow-up: useful estimates, 2026-09-13
+
+The user requested best-effort estimates after questioning High/Ultra again.
+README now presents broad ranges separately from measured configurations.
+[[records/measurements/hardware-planning-ranges-2026-09-13]] owns the endpoint
+construction and explicitly unmeasured hardware transfers. Installed RAM,
+process target and software version have separate measured-table columns.
+The hardware guide's allocation table no longer mixes allocation, measured
+speeds and larger-cache estimates in the same column. Old section anchors
+remain usable. Existing source bytes are unchanged.
+
+## Hardware speed planning ranges and inference limits
+These are editorial planning estimates requested by the user, not a new
+benchmark. The following range rationale is projected manually into the
+hardware guide; the canonical evidence and revision scope live here.
+
+## Estimate construction
+
+The README's estimates combine the real reports above with the development
+Mac's measured configurations and planner curve. They are rough expectations
+across hardware and settings, not a fitted scaling model or statistical
+confidence intervals. Endpoints are rounded outward to whole tok/s.
+
+| Installed RAM | Estimated warm reply speed | Basis and main inference |
+|---|---|---|
+| 16–<24 GB | ~1–6 tok/s | The M2 mini reported 1.41 tok/s; the M5 Pro-based 16/18 GB simulations estimate about 4 to 5.5 tok/s. The upper end has not been measured on a real Mac in this band. |
+| 24–<48 GB | ~6–14 tok/s | The 32 GB M5 Air reported 6.22 tok/s; the M5 Pro achieved 13.47 tok/s at a 20 GB process target. The upper end assumes a comparable chip and SSD with enough memory for that configuration; it has not been timed on a Mac in this band. |
+| 48–<96 GB | ~13–27 tok/s | The latest 48 GB M5 Pro result is 13.47 tok/s, rounded down for this estimate; its older ~12 tok/s result remains historical evidence. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
+| 96 GB+ | ~20–32 tok/s | The 128 GB M5 Max reported about 21 to 22 tok/s in auto and 31.5 tok/s at a 73 GB process target. Applying this range to other Macs in the band is an estimate. |
+
+The Ultra lower endpoint allows for the same reporter's roughly 20 tok/s
+warm auto runs on 0.2.1; the main results table uses the updated 0.2.3 report.
+The upper ends of High and Ultra assume an M5 Max-class chip, fast internal
+SSD, speculative decoding and manual targets that leave room for macOS and
+other apps. A 48 GB process target cannot consume all of a Mac's installed
+48 GB; it needs a larger machine. These ranges mix releases, so they are not
+predictions for a single current build. No release-speedup multiplier was
+applied to community reports.
+
+A slow SSD, older chip, different prompt, draft acceptance or memory pressure
+can produce results outside the ranges. More RAM helps only when the engine
+can use it to reduce a bottleneck; the band labels do not establish a causal
+speed ranking. In particular, there is no measured performance boundary at
+96 GB. The shared context recommendation reflects the current planning
+guidance, independently of reply speed.
+
+## Supporting evidence
+
+- [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]]
+- [[records/measurements/c3-macbook-air-m5-32gb-community]]
+- [[records/measurements/c2-macbook-pro-m5-max-128gb-community]], including the preserved original report and updated sweep
+- [[records/measurements/decode-path-serialization-b1-cohort-replication-2026-09-13]]
+- [[records/measurements/decode-lookahead-default-2026-09-13]], for the simulated small-memory curve, not timing on those Macs
+
+Low rounds outward from 1.41 and 5.54; Medium from 6.22 and 13.47;
+High from 13.47 and 26.9; Ultra from roughly 20 and 31.5 tok/s.
+The endpoints are approximate anchors, not calibrated minima, maxima or
+probabilities. Hardware transfers remain unmeasured. The two M5 Pro
+configurations also change software/settings with the target and cannot
+isolate the effect of memory.
+
+## Revision and implementation scope
+
+README.md keeps a compact estimate table separately from actual reported
+configurations. docs/HARDWARE.md gives the full rationale and a separate
+automatic-allocation table. Revise the ranges as comparable hardware reports
+arrive; preserve the original evidence and keep inference explicit. Doctor
+can check a memory plan but cannot validate a speed or qualify hardware.
+No automatic target, runtime behavior, model benchmark, commit or push is
+part of this estimate update.
+
+## Latest development-Mac reference, 2026-09-13
+
+At the user's request, High now uses the latest development-Mac median of
+13.47 tok/s as its lower reference, giving an estimated 13 to 27 tok/s range.
+The previous 12 to 27 range used the historical 0.2.3 result near 12 tok/s.
+That historical result remains public with its version. Medium still rounds
+its upper endpoint to 14. All transfer assumptions and uncertainty above
+remain in force; this is a revision to the editorial reference, not new
+performance evidence or a guaranteed minimum for all Macs in the band.
+
+The public current-result surfaces use the reported two-decimal medians
+11.79 and 13.47 from
+[[sources/runs/2026/09/2026-09-13-cohort-rescoring-true-medians]].
+No source bytes, model benchmark or runtime policy changed. The configuration
+was measured before release and adopted in 0.2.16; public wording distinguishes
+that benchmark from a rerun of the downloaded release binary.
+
+## Automatic context window: plans by Mac memory
+Weights-free checks and simulated `doctor` plans for the candidate that picks the context window for each Mac ([[records/plan/configurable-context-window-2026-09-06]]). Carlos asked on 2026-09-13 for auto to choose the best window for every memory tier and for `--max-context` to accept the model's 262,144 tokens, using best guesses from what the development Mac can measure. No model process ran for these plans, and nothing here is timed.
+
+**Rule.** Auto takes the largest of 32,768, 65,536, 131,072 and 262,144 tokens whose plan keeps speculative decoding and the decode lookahead as the 32,768-token plan has them, retains one complete conversation of that length, and adds at most 10% to the planner's estimated time for 2,000 prompt tokens and a 400-token reply. Tiers are judged on RAM and Metal working set. Live availability is applied at startup, which lowers the window rather than drop the draft head. Each candidate's automatic ceiling rises by that window's own charge.
+
+**Plans.** Candidate `3626ba67` built from `dfc9b36`, draft file available, availability equal to RAM, working set 75% of RAM:
+
+| Simulated RAM | Window | Target | Draft head | Experts per layer | Estimated request cost | Target and experts at 32,768 | Next window |
+|---|---|---|---|---|---|---|---|
+| 16 GB | 32,768 | 10.0 GB | off | 20 | +0.0% | same | 65,536: does not fit with one complete conversation retained |
+| 18 GB | 32,768 | 11.5 GB | off | 28 | +0.0% | same | 65,536: does not fit with one complete conversation retained |
+| 24 GB | 32,768 | 16.0 GB | off | 54 | +0.0% | same | 65,536: adds 17.7% to a typical request, above the 10% limit |
+| 32 GB | 32,768 | 22.0 GB | on | 74 | +0.0% | same | 65,536: turns speculative decoding off |
+| 36 GB | 65,536 | 25.0 GB | on | 75 | +8.9% | 25.0 GB, 96 | 131,072: turns speculative decoding off |
+| 48 GB | 65,536 | 33.6 GB | on | 140 | +2.3% | 33.6 GB, 161 | 131,072: adds 15.5% to a typical request, above the 10% limit |
+| 64 GB | 131,072 | 43.2 GB | on | 149 | +0.0% | 34.6 GB, 149 | 262,144: adds 17.8% to a typical request, above the 10% limit |
+| 96, 128 and 192 GB | 262,144 | 54.7 GB | on | 149 | +0.0% | 34.6 GB, 149 | model limit |
+
+The 8 GB simulation is refused, as before. Simulations at 40, 56, 72 and 80 GB, which match no current Mac, pick 65,536, 131,072, 262,144 and 262,144 tokens.
+
+**This Mac.** The development Mac reads 51.5 GB of RAM and a 40.2 GB working set. Auto picks 65,536 tokens at a 36.1 GB target with 158 experts per layer. Larger candidates: 65,536 chosen, adds 1.2% to a typical request; 131,072 rejected, adds 10.4% to a typical request, above the 10% limit; 262,144 rejected, turns speculative decoding off.
+
+**Checks.** On candidate `3626ba67`, T0 passed 38 of 38 checks and the planner gates passed 90 of 90, including the automatic section: each tier's window, quiet and busy starts, fixed caches and explicit windows. The development build of the same source bytes also passed the policy proxy with 964,209 Swift assertions, including case C23 for the automatic window, 130 of 130 context gates and all nine windows of the explicit-window matrix. The frozen default allocation stays byte-identical at an explicit 32,768 tokens on all four fixture tiers.
+
+**Limits.** These are allocation plans from M5 Pro-based estimates, not timed tiers. A Mac's marketed memory, Metal limit and live availability can differ from the decimal-GB inputs. The window charges are exact ledger arithmetic, but native capacity runs existed only through 65,536 tokens before this change. The representative request does not price long-prompt waits, which have no calibrated estimate above 128,256 tokens.
+
+### Automatic context window: a 131,072-token read inside its plan
+The largest window the development Mac could hold on 2026-09-13 completed its whole prompt and reply inside the planner's memory ledger ([[sources/runs/2026/09/2026-09-13-context-capacity-131072-cold]]). It is native evidence for the 131,072-token automatic window of 64 GB Macs ([[records/measurements/automatic-context-window-plans-2026-09-13]]), taken at a much smaller target than those Macs use.
+
+**Capacity.** A 130,944-token synthetic prompt and a required 128-token reply filled the window at a 16 GB target, with the draft head, vision and prefix retention off. The sampled physical footprint peaked at 14.80 GB against the ledger's 15.00 GB expected peak. The run had no abort, pressure cancellation or runtime error. The frozen driver marked it failed because the Mac's global swap-in counter rose by 200 pages; under [[records/decisions/global-paging-is-diagnostic]] that is recorded, not a capacity failure.
+
+**Reading time.** The prompt took 38.1 minutes at 57.3 tok/s overall. Passes of 256 tokens slowed from 173 tok/s early in the prompt to 39 tok/s past 115,000 tokens, and the 128-token passes after 128,256 averaged 28.7 tok/s. The planner's anchors ignore position. For this schedule they estimate 6.4 minutes to 32,768 tokens, where 4.3 were measured, 12.9 to 65,536, where 12.5 were measured, and 25.1 for the 256-token part to 128,256, where 36.5 were measured.
+
+**Anchor decision.** A 128-token anchor was not added, although a preregistered rule allowed one. The anchor family is measured on an 8,016-token acceptance prompt at a matched cache and changes only with a complete envelope, and this synthetic filler read short-context 256-token passes at twice that family's rate. Waits above 128,256 tokens stay uncalibrated, and the public guides quote this run's 38 minutes as a measured reference instead.
+
+**Limits.** One cold text rung at one small target on one busy Mac, not the frozen campaign. Larger targets use larger early passes and a bigger cache, so this reading time does not predict a 64 GB Mac. No 262,144-token native run exists: every target from 18 to 24 GB was refused on this Mac at the time. The draft head at this window is recorded separately.
+
+### Automatic context window: the draft head at 131,072 tokens
+With the draft head on, the 131,072-token window completed the same 130,944-token prompt and 128-token reply as the draft-off rung inside an 18 GB plan ([[sources/runs/2026/09/2026-09-13-context-draft-head-131072]]). This is the native evidence behind keeping the draft-head limit at the model limit for the automatic windows above 65,536 ([[records/measurements/automatic-context-window-plans-2026-09-13]]).
+
+**Parity.** The greedy reply matched the draft-off reply from [[records/measurements/automatic-context-window-131072-read-2026-09-13]] token for token. The head drafted 85 tokens and all 85 were accepted over 43 verify passes. The filler's continuation is highly predictable, so that acceptance rate does not describe real text.
+
+**Memory.** The sampled physical footprint peaked at 16.44 GB against the ledger's 17.00 GB expected peak and the 18 GB target, with no abort, pressure cancellation or runtime error. Global swap-ins rose by 229 pages, recorded as diagnostic under [[records/decisions/global-paging-is-diagnostic]].
+
+**Limits.** One window, one small target and a head forced below its floor, so the decode lookahead was off. Reading the prompt took 40.3 minutes. No 262,144-token run exists with or without the draft head.
+
+### v0.2.17 published, installed and accepted
+**v0.2.17 is published, installed and functionally accepted.** It ships the model's full 262,144-token limit and the per-Mac automatic window from [[records/decisions/automatic-context-window-per-machine]]. The exact CI artifact passed all twenty-five model gates, the published archive matched that artifact with a valid attestation, the installer replaced 0.2.16 on this machine, and the installed binary passed all thirty-one end-to-end release checks. Every user application stayed open throughout.
+
+Release: [v0.2.17](https://github.com/carloslfu/slotstream/releases/tag/v0.2.17), tagged on `d25dffff1f3f56e70ddb9f11b82e7dc1b843f041`, published 2026-09-13T19:49:26Z. Archive SHA-256 `66eb2ae95b325e75280d675fcf2afb3d61ef27db5500dea462faadef457b6042`; binary SHA-256 `1d761999c461c19237f4efa84947265c6253890ea57824ca62b7e2892e8f32aa`. The CI candidate, the re-downloaded public archive and the installed binary are byte-identical.
+
+## What qualified
+
+| Phase | Result |
+|---|---|
+| Main CI 34775403549, commit `d25dfff` | Coverage, weights-free and public-library jobs all succeeded |
+| Candidate verification | Archive and binary digests recorded; 162 source files match the checkout |
+| Model acceptance on the downloaded CI binary | 25 of 25 gates, 0 failures, 1,065 seconds |
+| Release workflow 34778829372 | Succeeded; the public archive matches the CI artifact |
+| Provenance | `gh attestation verify` confirmed the archive for `carloslfu/slotstream` |
+| Installation | 0.2.16 replaced by 0.2.17, exit code 0, binary digest re-checked; 0.2.16 kept beside it |
+| Installed-release end-to-end | 31 of 31 checks, 0 failures, 72 seconds |
+
+## The first acceptance run did not count
+
+The first run on the same artifact ended at 23 passed and 1 failed because the worktree it ran from had no mlx 0.31.1 reference environment, so vision parity could not run and the suite counted the skip as a failure. No product gate failed. The environment was linked in and the complete suite ran again on a fresh download of the same artifact, which passed all twenty-five gates. Both runs are in [[sources/runs/2026/09/2026-09-13-release-0-2-17-published-and-installed]].
+
+## The automatic window on the public binary
+
+At a 10 GB target with the draft head on, the installed server chose a 32,768-token window and printed the rule it applied: the largest of 32,768, 65,536, 131,072 and 262,144 tokens that keeps speculative decoding, retains one complete conversation and adds at most 10% to a typical request. This is the automatic window reaching a user through a published artifact rather than a local build.
+
+## Limits
+
+No clean-timing or throughput qualification is claimed; the acceptance interval shared the machine with ordinary work. The installed-release checks ran at a 32,768-token window. The windows above that rest on the 131,072-token rungs ([[records/measurements/automatic-context-window-131072-read-2026-09-13]], [[records/measurements/automatic-context-window-draft-head-131072-2026-09-13]]) and the memory ledger; 262,144 tokens has not run natively. The open items in [[records/plan/configurable-context-window-2026-09-06]] are unchanged.
