@@ -455,7 +455,12 @@ On the 48 GB M5 Pro:
 |---|---|
 | Reply generation after the cache warms up | ~12 tok/s |
 | Engine start, before processing the prompt | ~2 s |
-| Peak memory with automatic sizing | 32 GB |
+| Planned memory with automatic sizing | 32 GB (estimate) |
+
+That memory figure is the historical planner estimate, not a measurement of
+the corrected kernel lifetime peak. Older reported values can miss GPU memory
+freed before the observation. Current usage, lifetime peaks and request samples
+are explained in the [memory controls](CLI.md#memory-options).
 
 **Long prompts take time before the first reply token.** Processing the prompt
 is called *prefill*. The estimates for this Mac are about 9 s for 2,000 tokens
@@ -1021,7 +1026,9 @@ Run an explicit capacity diagnostic with a synthetic prompt. Conversation
 reuse is disabled by default; the retained-state mode first fills distinct
 conversations and exercises their interleaved follow-ups. The report includes
 actual prompt and reply IDs, compute shapes, sampled physical footprint and
-swap observations. Incomplete or contaminated runs fail qualification.
+swap observations. Incomplete output, exceeded process budgets and missing
+required process-memory evidence fail qualification. Global paging is recorded
+separately and does not fail capacity acceptance; it can exclude clean timing.
 
 Stop any running model process first. Results are printed without writing
 files; contributors can register them in the measurement records under `db/`.
@@ -1074,6 +1081,20 @@ resident components and transient work before assigning the expert pool.
 a smaller history does not turn unused long-context reservation into free RAM.
 Unknown prefill estimates appear as JSON `null` and remain deadline-bound.
 Neither a fixed pool nor `--no-elastic` disables request memory checks.
+
+The target is a budget, so current usage can be lower while reserved context
+and temporary workspace are unused. `doctor` previews a new plan; it does not
+change an already running server. `/api/ps` includes that server's actual
+`details.memory_plan`, including its sizing source, target and expert pool.
+
+For `run`, the default memory summary separates the **lifetime footprint peak**
+from **current footprint**. The lifetime value includes loading and all earlier
+requests in that process, including GPU memory already freed. With
+`--sample-footprint`, the summary instead labels the sampled generation peak.
+Saved statistics retain `peakMemoryGB` as the maximum of lifetime footprint,
+lifetime RSS and current footprint; `lifetimePhysicalFootprintPeakBytes` exposes
+the native footprint peak separately. Sampling remains useful for attributing
+memory to a particular request and can miss allocations between samples.
 
 ## Optimization defaults
 
@@ -2056,7 +2077,35 @@ make checks-all      # adds the MLX tier
 make test            # Tools/verify.sh, the acceptance battery against real weights
 make context-test    # isolated context policy + proxy fixtures; no MLX or weights
 make coverage        # line coverage of the library
+python3 Tools/process_memory_gate.py  # native CPU/GPU peak accounting, no model
+python3 Tools/memory_override_gate.py # CLI override matrix on simulated Macs
 ```
+
+The native process-memory regression compiles the production counter and uses
+small Metal buffers. It checks that peaks survive buffer release, persistent
+and temporary allocations remain distinguishable, concurrent reads retain the
+high-water, and an older or invalid kernel reply cannot become a bogus peak.
+The static gates run it automatically. Request samples remain separate from
+the process-lifetime counter; the memory acceptance gate checks both when the
+native lifetime observation is present.
+
+## Memory acceptance and macOS paging
+
+Correctness and process-memory acceptance do not require unchanged system-wide
+swap counters. Those counters include every app on the Mac and cannot attribute
+paging to Slotstream. The speculative, governor and context diagnostics record
+`swap_clean` separately; the memory assessor reports `global_swap_deltas`.
+Neither field overrides a completed correctness check or an observed process
+footprint within its budget. Unavailable paging observations are not evidence
+of a clean interval.
+
+Real headroom checks, process-memory ceilings, OS pressure cancellation,
+allocation safeguards and required output remain mandatory. Paging can still
+indicate system contention, so retain the observations and investigate actual
+pressure or loss of responsiveness. A passing functional run with paging does
+not qualify clean benchmark timings. Performance studies keep their declared
+exclusion rules; frozen historical results are not regraded under this policy.
+See the [decision](../db/records/decisions/global-paging-is-diagnostic.md).
 
 ## Configurable context without a model
 
@@ -2195,7 +2244,7 @@ The full live-governor drill is a separate bounded exception: its normal
 ordinary 10 GB tests. `verify.sh` uses `elastic-drill --slots 1000
 --max-memory-gb 13`, after checking 16 GB reclaimable. The command independently
 checks its derived total target plus 3 GB spare, each controlled poll and
-generation, sampled physical footprint, RSS and swap. It preserves the real
+generation and actual process-memory peaks, and records global paging separately. It preserves the real
 cooldown and exact output checks. A skipped drill fails full acceptance.
 Run this gate without other heavy work. Full model hashing holds the same
 process exclusion lock as inference and must pass before native acceptance.
@@ -2376,15 +2425,15 @@ demonstrate answer quality.
 
 `Tools/context_qualification.py` accepts a frozen binary/model-window protocol
 and advances through strictly increasing prompt lengths only when the preceding
-rung completes its required output within its planned memory, measured swap
-and independent wall-clock limits. The protocol binds the driver files,
+rung completes its required output within its planned memory and independent
+wall-clock limits. Global paging remains diagnostic. The protocol binds the driver files,
 reconstructible build, pinned model manifest and model directory observations;
 the runner fully verifies model payload hashes before inference. It checks
 actual physical query rows and padded key extents as well as prompt and
 delivered output IDs. The retained protocol additionally requires completed,
 interleaved warm conversations and exact observed cache ownership.
 `Tools/context_qualification_checks.py` verifies refusal of incomplete,
-over-budget and contaminated evidence, including stopping after a failed rung.
+over-budget and malformed evidence, including stopping after a failed rung.
 It preserves the first counterexample and
 never retries or changes the protocol. Full-window capacity, numerical parity,
 latency calibration, advertised MTP/vision combinations and real clients remain
@@ -2399,9 +2448,10 @@ receiving-side terminal and authority gates.
 
 ## Measure your Mac
 
-Allow about ten minutes once the weights are downloaded. Close other
-memory-heavy apps and check that the Mac is not swapping. Run one model
-process at a time.
+Allow about ten minutes once the weights are downloaded. For comparable speed
+results, reduce competing load and exclude timing intervals affected by paging.
+Functional checks may run with apps open when real memory safeguards permit
+them. Run one model process at a time.
 
 1. Install or upgrade, then record the version:
 
@@ -2914,12 +2964,17 @@ versions, settings, and credits.
 <details>
 <summary>Full results and test conditions</summary>
 
-| Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Peak | Reported by |
+| Mac | Memory | SSD | macOS | slotstream | Plan | Warm decode | Long prompt | Reported memory | Reported by |
 |---|---|---|---|---|---|---|---|---|---|
-| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
+| MacBook Pro, M5 Pro | 48 GB | internal, 2 TB | 26.6 | 0.2.3 | auto: 33 GB target, ~152 experts/layer | ~12 tok/s; 12.8 with `--mtp` at a 28 GB target | ~220 tok/s at a 4096-token pass (est.) | 32 GB (estimate) | [@carloslfu](https://github.com/carloslfu), 2026-09-02 |
 | Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured; `context-check` postdates 0.2.2 | 6.1 GB | [@flol's report](https://github.com/carloslfu/slotstream/issues/5), 2026-09-02 |
 | MacBook Air, M5 | 32 GB | 1 TB; location not specified | 26.6.2 | 0.2.11 | 22 GB target, ~75 experts/layer planned | **6.22 tok/s** | 126.28 tok/s for 8192 tokens, 2048-token passes | 17.75 GB RSS on the long prompt | [@arczhi's report](https://github.com/carloslfu/slotstream/issues/12), 2026-09-07 |
 | MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | auto: 34.6 GB target, ~152 experts/layer | ~21–22 tok/s with speculative decoding | not measured | not measured; server path only | [@waterliu1981's update](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176), 2026-09-03 |
+
+The historical memory values retain their original measurement limits. The
+M5 Pro figure is a planner estimate, and older reported values do not establish
+the kernel lifetime footprint peak added by the reporting correction. These
+hardware configurations have not been requalified with the new counter.
 
 The 16 GB M2 and 32 GB M5 Air results are below the planner's estimates;
 the 128 GB M5 Max result is above its estimate. The planner uses the M5 Pro
@@ -2947,11 +3002,12 @@ the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
   running server, once the expert cache has warmed up. The first generation
   in a fresh process is colder and slower; report it too.
 - **Long prompt**: prefill tokens per second from `context-check`, which
-  reads a synthetic prompt through the real engine and stops before the
-  machine swaps.
-- **Peak**: the highest resident memory used by the process (RSS), printed
-  by `run` and `context-check`. This is measured separately from the plan's
-  estimate.
+  reads a synthetic prompt through the real engine with process-budget and
+  real-headroom safeguards. Keep paging observations with any timing result.
+- **Peak**: the process-memory bound reported by `run` and `context-check`,
+  combining native lifetime physical-footprint and RSS peaks with current
+  usage; request samples are separate observations. This is measured separately
+  from the plan's estimate.
 
 </details>
 
@@ -2984,12 +3040,15 @@ the request-to-first-token budget defaults to 30 minutes, including preparation
 and queueing. Setting `--max-prefill-wait 0` disables only that time policy.
 
 Keep the configured window, prompt count and required reply count with each
-result. Capacity evidence needs a complete prompt and reply, sampled physical
-footprint, RSS and unchanged swap counters. Report MTP and vision separately;
+result. Capacity evidence needs a complete prompt and reply and process memory
+within budget, including sampled footprint and lifetime peaks. Record global
+paging separately; it does not identify which application caused it. Report MTP and vision separately;
 a text-only capacity result does not qualify those modes or answer quality.
 
 Allow about ten minutes once the weights are downloaded. Close other
-memory-heavy apps and check that the Mac is not swapping. Run one model
+memory-heavy apps if you want clean speed measurements, and exclude timing
+intervals affected by paging. Functional checks can run with other apps open
+when the memory and pressure safeguards permit it. Run one model
 process at a time.
 
 To share your Mac's results, follow the [measurement steps](TESTING.md#measure-your-mac),
@@ -3016,6 +3075,25 @@ release; anything under **Unreleased** is on `main` only.
   reports the reduction in the request statistics, and names the refusal and the
   pass it replaced on stderr. A prompt that fits no pass size still refuses as
   before.
+
+## 0.2.15 - 2026-09-11
+
+- Stop treating system-wide macOS paging as a failed correctness or memory-budget
+  check. Preserve paging diagnostics and the real process-memory, headroom,
+  cancellation and completed-output safeguards. Clean performance measurements
+  remain a separate qualification.
+- Use two draft tokens by default when speculative decoding is enabled. Valid
+  `SLOTSTREAM_DRAFT_DEPTH` overrides remain supported. The choice follows the
+  mixed-workload comparison; it is not a universal throughput improvement.
+- Fix peak-memory reporting after GPU buffers are freed by reading macOS's
+  lifetime physical-footprint high-water. Keep current usage and sampled
+  request peaks distinct, and report memory on early failures and cancellations.
+- Add native memory-counter and explicit-budget regression checks, preserve
+  older saved-statistics decoding, and clarify memory budgets and historical
+  estimates in the documentation.
+- Include the draft-depth studies, decode bottleneck evidence, and the reviewed
+  Expert Lookahead plan. Learned expert prediction and expert prefetching remain
+  planned work; this release does not implement them.
 
 ## 0.2.14 - 2026-09-10
 

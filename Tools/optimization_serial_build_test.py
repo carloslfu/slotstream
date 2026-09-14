@@ -26,7 +26,7 @@ class SerialBuildGuards(unittest.TestCase):
         good = {'reclaimable_bytes': 6_000_000_000, 'swapouts': 42}
         check_sample(good, 3_000_000_000, 42)
         cases = [({**good, 'reclaimable_bytes': 5_999_999_999}, 0),
-                 (good, 3_000_000_001), ({**good, 'swapouts': 43}, 0),
+                 (good, 3_000_000_001),
                  ({**good, 'swapouts': 41}, 0)]
         for snapshot, rss in cases:
             with self.subTest(snapshot=snapshot, rss=rss), self.assertRaises(RuntimeError):
@@ -48,7 +48,9 @@ class SerialBuildGuards(unittest.TestCase):
         for setting in [0, 1, None, 'false']:
             with self.subTest(setting=setting), self.assertRaises(ValueError):
                 check_sample(good, 0, 42, {**POLICY, 'stop_on_new_swapouts': setting})
-        self.assertIs(POLICY['stop_on_new_swapouts'], True)
+        self.assertIs(POLICY['stop_on_new_swapouts'], False)
+        with self.assertRaisesRegex(RuntimeError, 'counter changed'):
+            check_sample(good, 0, 42, {**POLICY, 'stop_on_new_swapouts': True})
 
     def test_correctness_receipt_preserves_observed_swap_activity(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -165,11 +167,12 @@ class SerialBuildGuards(unittest.TestCase):
         with patch('optimization_serial_build.live_group_members', return_value=[]):
             check_whole_interval({'passed': True}, good, good, 1220,
                                  {'passed': True, 'owned_groups': []})
+            check_whole_interval({'passed': True}, good, {**good, 'swapouts': 43}, 10,
+                                 {'passed': True, 'owned_groups': []})
             for result, after, elapsed, live in [
                     ({'passed': False}, good, 10, {'passed': True}),
                     ({'passed': True}, good, 10, {'passed': False}),
                     ({'passed': True}, good, 1220.001, {'passed': True}),
-                    ({'passed': True}, {**good, 'swapouts': 43}, 10, {'passed': True}),
                     ({'passed': True}, {**good, 'reclaimable_bytes': 5_999_999_999}, 10, {'passed': True})]:
                 with self.subTest(result=result, after=after, elapsed=elapsed, live=live), \
                         self.assertRaises(RuntimeError):

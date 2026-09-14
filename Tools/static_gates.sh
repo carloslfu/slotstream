@@ -43,9 +43,13 @@ if grep -En 'File\(path: .*sha256: nil\)' Sources/Slotstream/PinnedModel.swift; 
 fi
 
 "$BIN" runtime-check
+# Native OS accounting regression with at most 192 MiB of live Metal buffers.
+# It compiles the production counter directly, without MLX or model weights.
+python3 Tools/process_memory_gate.py
 "$BIN" pull-check
 python3 Tools/slotpack/checks.py
 Tools/planner_gates.sh
+python3 Tools/memory_override_gate.py --binary "$BIN"
 Tools/installer_gates.sh
 
 echo "STATIC GATES PASS"

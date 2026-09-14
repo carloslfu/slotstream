@@ -1,0 +1,11 @@
+{
+  "raw_files": 146,
+  "archive_sha256": "63da2b1fc9e8ad96a3294184b28170e396ade59f2961a9e6a99c865143007d98",
+  "round_trip_verified": true,
+  "static_unittest_suites": 26,
+  "static_unittest_tests": 304,
+  "static_passed": true,
+  "full_model_memory_acceptance": false,
+  "reason": "The unchanged long-prompt zero-swap gate remains excluded by four global swap-ins per run.",
+  "final_binary_sha256": "5e302b1863e527e2708be14b058fe9ac23fdeee9b16ca81a2255a670912a7526"
+}

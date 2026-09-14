@@ -1,0 +1,247 @@
+{
+  "archive_sha256": "605042be465316804487400cf9589ba256e0770b39d7ac9cf918239da277e123",
+  "files": [
+    {
+      "path": "candidate-api-acceptance/e2e.log",
+      "bytes": 1574,
+      "sha256": "fb5df46c8a85ba3b88040dd42294158fd5d9934333b39869d27cc9db01414c63"
+    },
+    {
+      "path": "candidate-api-acceptance/protocol.json",
+      "bytes": 21423,
+      "sha256": "e533783ce0e06a245fb0ee201761bd2ecc8f177cd10ee149b7259d6b90440e55"
+    },
+    {
+      "path": "candidate-api-acceptance/request.json",
+      "bytes": 209,
+      "sha256": "9eb65c15ce46c065c28b42414a8d157360f77a6648db848a51615907082c2b05"
+    },
+    {
+      "path": "candidate-api-acceptance/response.ndjson",
+      "bytes": 9719,
+      "sha256": "0e621c4b8b21abb9311b6371e20f3a18207106067b39a2e19fd3539d23981d5f"
+    },
+    {
+      "path": "candidate-api-acceptance/result.json",
+      "bytes": 30671,
+      "sha256": "1999670ef6a4e7a03b4df389e4d34fddb783bcc0fa8c1c802dfc4c4b1ba62efd"
+    },
+    {
+      "path": "candidate-api-acceptance/server.log",
+      "bytes": 1796,
+      "sha256": "04db2146307456cdfc0893deb1bc9aec5cc2417654e08634deafc93f8aef975d"
+    },
+    {
+      "path": "candidate-api-driver.log",
+      "bytes": 104,
+      "sha256": "d0ec761cc15ca7c50d33549e0591c42b37dc5c5b0421640659e1c8fec4e5a815"
+    },
+    {
+      "path": "candidate_api_checks.py",
+      "bytes": 2694,
+      "sha256": "dafbfa43d58e10461e64c78b6e717e6b304660819bc48bf9c32390e95b7dbda9"
+    },
+    {
+      "path": "ci-candidate/build-identity.json",
+      "bytes": 18603,
+      "sha256": "5ce917f3db9b937f0c401218406351eb91629ac346b0ad047128bfa8c4a5e98a"
+    },
+    {
+      "path": "ci-candidate/build-source.tar.gz",
+      "bytes": 959892,
+      "sha256": "8861b56f8bbf1de0664c0bb9f41fc2e005a062309b6f8a99b845ce495256ecc7"
+    },
+    {
+      "path": "complete_testing_native_preflight.py",
+      "bytes": 3639,
+      "sha256": "b6d4cae30e7127d2f46b8f34d6b39b1e5924825d733c606e0ddb9ba8f627b1da"
+    },
+    {
+      "path": "complete_testing_open_apps.py",
+      "bytes": 3964,
+      "sha256": "e089c52d21d42826a1e36a5109e563193c9c9ada563163d54a203b3a5b60e9b3"
+    },
+    {
+      "path": "frozen-drivers/Tools/context_qualification.py",
+      "bytes": 18599,
+      "sha256": "094b567ccc21613444cfd0edf098967bb758af42652be8ba70762ae313cbbf34"
+    },
+    {
+      "path": "frozen-drivers/Tools/e2e_release.sh",
+      "bytes": 12972,
+      "sha256": "b4762272eca921614d46ec6a4d4bcc28e939bcd22639f7e9bbf5fca0ceaedca7"
+    },
+    {
+      "path": "frozen-drivers/Tools/memory_gate.py",
+      "bytes": 3766,
+      "sha256": "6a03edd8b3467a89e42cc10e22ddeb8475f86c06a2b4b886cde2e9d96a0032ee"
+    },
+    {
+      "path": "frozen-drivers/Tools/prefill_bench.py",
+      "bytes": 19176,
+      "sha256": "3e87578199e39ab74da394770f97fa834ad799a4af8a492adb7b4e41fe5c7036"
+    },
+    {
+      "path": "frozen-drivers/Tools/serve_bench.py",
+      "bytes": 60039,
+      "sha256": "31959becd6ab6389c3b71b567d26ec7036a25fa66d1ff00a17ed1ea0b8202acb"
+    },
+    {
+      "path": "frozen-drivers/Tools/thermal_readiness.py",
+      "bytes": 3908,
+      "sha256": "461dc8513bf8a23c7af5d999edf3c2ed1cbdb3d80d7869124603fa5babade048"
+    },
+    {
+      "path": "frozen-drivers/Tools/verify.sh",
+      "bytes": 15770,
+      "sha256": "4eb4c0990bb7a92141f9510800457985a9ed0c40b4db601d36acfd30cd9d65e4"
+    },
+    {
+      "path": "open-apps-final-mtp-driver.log",
+      "bytes": 767,
+      "sha256": "6a8d909b11ca21e34fc9b74174d7f411923a4a6490bd34975e0e3001667cfb62"
+    },
+    {
+      "path": "open-apps-final-mtp/attempt-1/before.json",
+      "bytes": 2304,
+      "sha256": "8802430849be116e55db603a789a39735e17804ad91a1566c7a6e78a8eade529"
+    },
+    {
+      "path": "open-apps-final-mtp/attempt-1/readiness.json",
+      "bytes": 61513,
+      "sha256": "1d5463a4693d7b8897584c19245759b7d5d5430dbd6976468f2d6c1bed77d34b"
+    },
+    {
+      "path": "open-apps-final-mtp/attempt-1/result.json",
+      "bytes": 4805,
+      "sha256": "316dcfc7a1ece2b6ec33b95e5b43f80f9566fe4e99197a000c5d208f65b29c4a"
+    },
+    {
+      "path": "open-apps-final-mtp/attempt-1/stderr.txt",
+      "bytes": 1293,
+      "sha256": "f583f8ec2beac173af7fe97c09c69247e04f2470d2030e5c68a9434e65e3de11"
+    },
+    {
+      "path": "open-apps-final-mtp/attempt-1/stdout.txt",
+      "bytes": 1358,
+      "sha256": "a095dcb4d8c5287404d7f9fa560026933d79b5806765e41ca5932e66809560c5"
+    },
+    {
+      "path": "open-apps-final-mtp/attempt-2/readiness.json",
+      "bytes": 273686,
+      "sha256": "7617b4dc75452e1e24691286d665a103be635c29921ef3bca537290cf2e31666"
+    },
+    {
+      "path": "open-apps-final-mtp/preflight-superseded.json",
+      "bytes": 339,
+      "sha256": "64aefff2549c328f80a8179d0ae62b0fead49957ca39349b37baab3d0877ddff"
+    },
+    {
+      "path": "open-apps-final-mtp/protocol.json",
+      "bytes": 19970,
+      "sha256": "b2a6625300c3b483d4aaa88136175bac4a8734232cfab425f66e7c741074e025"
+    },
+    {
+      "path": "open-apps-final-mtp/results.json",
+      "bytes": 4903,
+      "sha256": "89c1d460c79d3a0caac9a56709e6149eaa28290a2a8f131027ee4add58211005"
+    },
+    {
+      "path": "open-apps-native-preflight-driver.log",
+      "bytes": 1554,
+      "sha256": "1a0a1072e3f26c1e4f4f301f78297d1558dc600ae1256f5cbfae94e3e1728d18"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-2/before.json",
+      "bytes": 2304,
+      "sha256": "a22f4d7eb8da8a864c8fbe890cff60c7a501e05a6c7de0fa16d38a55f7676c1b"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-2/readiness.json",
+      "bytes": 2434,
+      "sha256": "81a4c812022e8ad5fbef2ec84a189ca039fc393313d11b77fd9cf39cd9b5a262"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-2/result.json",
+      "bytes": 4806,
+      "sha256": "dc192506122ebe841b3376f545cb89c1d2706554356302e29be001c2dc7c954b"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-2/stderr.txt",
+      "bytes": 1293,
+      "sha256": "bc599fa91713b7c09fc59f9d8f4261aa92c30c3149cd6718f56fec1289e9043d"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-2/stdout.txt",
+      "bytes": 1278,
+      "sha256": "217b16c34a4679a2b06185d7557af8f00df39e5fea61162499723fcb029671d7"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-3/before.json",
+      "bytes": 2304,
+      "sha256": "c6c008e883b84e409876e9fdc232fd0841ab911779ff872a476cb50b4ab31430"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-3/readiness.json",
+      "bytes": 2434,
+      "sha256": "8716adb8974c5cc25e394773ebb2bbb10386b5e21d339991be10f12e0be09aa8"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-3/result.json",
+      "bytes": 4804,
+      "sha256": "82688321f2f456fb5e237f363698fa10ea52c85b4ee839f58832ce512c455ea6"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-3/stderr.txt",
+      "bytes": 1293,
+      "sha256": "d2c078d941bfa1a437ae9671bda6a1db7878675678bf8e11dd99695b2c22545e"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-3/stdout.txt",
+      "bytes": 288,
+      "sha256": "5214223956bf07132c29c077953d0e212be4eaf9a45f11ac2cb2090ca1f7cbf4"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-4/before.json",
+      "bytes": 2304,
+      "sha256": "b4104580a3240a445cf53910483d397e8ba249bd1f0766d811ec49301fac5725"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-4/readiness.json",
+      "bytes": 2434,
+      "sha256": "6a0525a72a4df1ed1ceadb88c28d2e1efa5c75d0bcbae0217bb4465a2f00f203"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-4/result.json",
+      "bytes": 4805,
+      "sha256": "a518da8bdc80a0b6d4eb8c201201373ca2f01892ff7311ce11818035f5e72129"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-4/stderr.txt",
+      "bytes": 1293,
+      "sha256": "55b71257475cad9823e067097d829b1a9abb15003fd58e6b5d23ccf9e4fa0b4f"
+    },
+    {
+      "path": "open-apps-native-preflight/attempt-4/stdout.txt",
+      "bytes": 1376,
+      "sha256": "7e573c492c2bf3885a06a3b09453df187f49c2a4fbbfd90f338c14e29cc6abf3"
+    },
+    {
+      "path": "open-apps-native-preflight/protocol.json",
+      "bytes": 20160,
+      "sha256": "88c69ec53ac8bb743cf0397c252b3edb30dcc143224429f4b9298f17108b85e9"
+    },
+    {
+      "path": "open-apps-native-preflight/results.json",
+      "bytes": 14703,
+      "sha256": "b6ce92e12a8af6d12d3a27010ce9f3cc3c044e55f6e892bf13c1ee04957d3f0a"
+    },
+    {
+      "path": "open-apps-testing-summary.json",
+      "bytes": 2608,
+      "sha256": "714974412703b669937600aeef8b6c8f439dedaae94599af6c683a90df8c5b0b"
+    }
+  ],
+  "roundtrip_verified": true,
+  "scope": "Closed current testing only: original native MTP attempts, preflight observations including deliberate cancellation of the idle wrapper, candidate API checks, source and driver reconstruction. No public release or installation test is claimed."
+}

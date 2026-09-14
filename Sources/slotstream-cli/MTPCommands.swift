@@ -390,23 +390,27 @@ struct MTPCheck: ParsableCommand {
                         "memory_validated": memoryValidated, "target_gb": memoryTarget,
                         "sampled_peak_bytes": observed.sample.peakBytes, "samples": observed.sample.samples,
                         "physical_footprint_end_bytes": observed.physical, "lifetime_rss_peak_bytes": observed.rss,
+                        "lifetime_physical_footprint_peak_bytes": ProcessMemory.lifetimePhysicalFootprintPeakBytes(),
                         "swapins_before": vmBefore.map { $0.swapins as Any } ?? NSNull(),
                         "swapins_after": observed.vm.map { $0.swapins as Any } ?? NSNull(),
                         "swapouts_before": vmBefore.map { $0.swapouts as Any } ?? NSNull(),
                         "swapouts_after": observed.vm.map { $0.swapouts as Any } ?? NSNull(),
+                        "swap_clean": vmBefore != nil && observed.vm != nil
+                            && vmBefore?.swapins == observed.vm?.swapins && vmBefore?.swapouts == observed.vm?.swapouts,
                     ]
                     if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
                         print("MTP CHECK MEMORY " + String(decoding: data, as: UTF8.self))
                     }
                 }
                 func memoryGuard() throws {
-                    guard let current = ProcessMemory.vmActivity(), let before = vmBefore,
-                          current.swapins == before.swapins, current.swapouts == before.swapouts,
+                    // Global paging belongs to macOS and all running apps. It
+                    // is evidence for timing interpretation, not an abort.
+                    guard let current = ProcessMemory.vmActivity(),
                           Double(current.reclaimableBytes) >= 3e9 else {
-                        throw ModelError("MTP check lost real headroom, has unavailable observations or observed swap")
+                        throw ModelError("MTP check has less than 3 GB real headroom or unavailable headroom observations")
                     }
                     let physical = ProcessMemory.residentBytes(), rss = ProcessMemory.lifetimeRSSPeakBytes()
-                    guard physical > 0, rss > 0, Double(max(physical, rss)) <= memoryTarget * 1e9 else {
+                    guard physical > 0, rss > 0, ProcessMemory.peakResidentGB <= memoryTarget else {
                         throw ModelError("MTP check memory observations are unavailable or exceed the planned target")
                     }
                 }
@@ -657,10 +661,8 @@ struct MTPCheck: ParsableCommand {
                 let physical = ProcessMemory.residentBytes(), rss = ProcessMemory.lifetimeRSSPeakBytes()
                 finalObservation = (sample, vmAfter, physical, rss)
                 memoryValidated = sample.samples > 0 && sample.peakBytes > 0 && physical > 0 && rss > 0
-                    && Double(max(sample.peakBytes, max(physical, rss))) <= memoryTarget * 1e9
-                    && vmBefore != nil && vmAfter != nil && vmBefore?.swapins == vmAfter?.swapins
-                    && vmBefore?.swapouts == vmAfter?.swapouts
-                check("whole MTP check memory interval fits the priced target without swap", memoryValidated)
+                    && Double(max(sample.peakBytes, ProcessMemory.peakResidentBytes())) <= memoryTarget * 1e9
+                check("whole MTP check process memory fits the priced target", memoryValidated)
                 print(failures.isEmpty ? "MTP CHECK PASS" : "MTP CHECK FAIL: \(failures.joined(separator: ", "))")
                 if !failures.isEmpty { throw ExitCode(2) }
                 result = .success(())

@@ -663,10 +663,22 @@ class HarnessTests(unittest.TestCase):
         bad = copy.deepcopy(stats); bad['sampledFootprint']['peakBytes'] += 1
         with self.assertRaises(ValueError): check_memory({'stats': bad}, '10')
         bad = copy.deepcopy(stats); bad['generatorVMAfter']['swapins'] += 1
-        with self.assertRaises(ValueError): check_memory({'stats': bad}, '10')
+        bad['generatorVMAfter']['swapouts'] += 100_000
+        result = check_memory({'stats': bad}, '10')
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['global_swap_deltas']['generator'], {'swapins': 1, 'swapouts': 100_000})
+        for key in ['runtimeError', 'requestFailure', 'memoryPressureCancelled']:
+            failed = copy.deepcopy(bad); failed[key] = True
+            with self.assertRaisesRegex(ValueError, 'failed or was cancelled'):
+                check_memory({'stats': failed}, '10')
+        for value in [-1, True, 3, '5']:
+            bad = copy.deepcopy(stats); bad['generatorVMAfter']['swapins'] = value
+            with self.assertRaises(ValueError): check_memory({'stats': bad}, '10')
+        bad = copy.deepcopy(stats); del bad['generatorVMBefore']
+        self.assertIsNone(check_memory({'stats': bad}, '10')['global_swap_deltas']['generator'])
         bad = copy.deepcopy(stats); bad['sampledFootprint']['peakBytes'] = True
         with self.assertRaises(ValueError): check_memory({'stats': bad}, '10')
-        for missing in ['sampledFootprint', 'generatorVMBefore', 'physicalFootprintEndBytes']:
+        for missing in ['sampledFootprint', 'physicalFootprintEndBytes']:
             bad = copy.deepcopy(stats); del bad[missing]
             with self.assertRaises(KeyError): check_memory({'stats': bad}, '10')
         for image_kind in ['encodedImages', 'reusedImageFeatures', 'prefixSkippedImages']:
@@ -679,6 +691,22 @@ class HarnessTests(unittest.TestCase):
                 bad[image_kind] = invalid
                 with self.assertRaises(ValueError): check_memory({'stats': bad}, '10')
 
+    def test_memory_gate_catches_native_peaks_missed_by_sampling(self):
+        stats = {'sampledFootprint': {'peakBytes': 7_000_000_000, 'samples': 3, 'intervalMilliseconds': 20},
+                 'lifetimeRSSPeakBytes': 1_000_000_000, 'physicalFootprintEndBytes': 2_000_000_000,
+                 'generatorVMBefore': {'swapins': 4, 'swapouts': 5},
+                 'generatorVMAfter': {'swapins': 4, 'swapouts': 5}}
+        for legacy in [stats, dict(stats, lifetimePhysicalFootprintPeakBytes=None)]:
+            self.assertTrue(check_memory({'stats': legacy}, '10')['passed'])
+        stats['lifetimePhysicalFootprintPeakBytes'] = 10_000_000_000
+        self.assertEqual(check_memory({'stats': stats}, '10')['maximum_observed_bytes'], 10_000_000_000)
+        stats['lifetimePhysicalFootprintPeakBytes'] += 1
+        with self.assertRaisesRegex(ValueError, 'exceeds'):
+            check_memory({'stats': stats}, '10')
+        for invalid in [True, -1, 0, 0.5, '0']:
+            stats['lifetimePhysicalFootprintPeakBytes'] = invalid
+            with self.assertRaises(ValueError): check_memory({'stats': stats}, '10')
+
     def test_memory_gate_includes_first_image_preparation(self):
         stats = {'sampledFootprint': {'peakBytes': 7_000_000_000, 'samples': 3, 'intervalMilliseconds': 20},
                  'lifetimeRSSPeakBytes': 1_000_000_000, 'physicalFootprintEndBytes': 2_000_000_000,
@@ -690,7 +718,7 @@ class HarnessTests(unittest.TestCase):
         stats['imagePreparation']['sampledFootprint']['peakBytes'] -= 1
         self.assertEqual(check_memory({'stats': stats}, 10)['maximum_observed_bytes'], 10_000_000_000)
         stats['imagePreparation']['vmAfter']['swapins'] += 1
-        with self.assertRaises(ValueError): check_memory({'stats': stats}, 10)
+        self.assertEqual(check_memory({'stats': stats}, 10)['global_swap_deltas']['image_preparation']['swapins'], 1)
         stats['imagePreparation']['vmAfter']['swapins'] -= 1
         stats['imagePreparation']['sampledFootprint'] = None
         with self.assertRaises(TypeError): check_memory({'stats': stats}, 10)

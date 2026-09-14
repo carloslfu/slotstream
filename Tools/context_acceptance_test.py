@@ -31,12 +31,37 @@ class ResourceContracts(unittest.TestCase):
             prefix, receipt = resource_text(name)
             self.assertEqual(resource.validate_receipt(name, prefix + json.dumps(receipt), 0), receipt)
             for key, value in [('samples', 0), ('samples', True), ('sampled_peak_bytes', 14_000_000_000),
-                               ('lifetime_rss_peak_bytes', -1), ('swapouts_after', 1), ('swapins_before', None)]:
+                               ('lifetime_rss_peak_bytes', -1), ('swapouts_after', -1),
+                               ('lifetime_physical_footprint_peak_bytes', 14_000_000_000)]:
                 bad = {**receipt, key: value}
                 with self.subTest(name=name, key=key), self.assertRaises(ValueError):
                     resource.validate_receipt(name, prefix + json.dumps(bad), 0)
             with self.assertRaises(ValueError): resource.validate_receipt(name, prefix + json.dumps(receipt), 1)
             with self.assertRaises(ValueError): resource.validate_receipt(name, prefix + json.dumps(receipt) + '\nSKIP', 0)
+
+    def test_host_paging_does_not_reject_completed_resource_gates(self):
+        for name in ['governor', 'mtp-vision']:
+            prefix, receipt = resource_text(name)
+            receipt.update(swapins_after=100_000, swapouts_after=200_000, swap_clean=False)
+            self.assertEqual(resource.validate_receipt(name, prefix + json.dumps(receipt), 0), receipt)
+            receipt['swapins_before'] = None
+            self.assertEqual(resource.validate_receipt(name, prefix + json.dumps(receipt), 0), receipt)
+
+    def test_outer_paging_is_recorded_without_stopping_the_next_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def child(command, env, cell, timeout):
+                prefix, receipt = resource_text('governor' if 'elastic-drill' in command else 'mtp-vision')
+                receipt.update(swapins_after=4, swapouts_after=8, swap_clean=False)
+                (cell / 'stdout.txt').write_text(prefix + json.dumps(receipt))
+                (cell / 'stderr.txt').write_text('')
+                return 0
+            with patch.object(resource, 'quiet_preflight', return_value={'swapins': 0, 'swapouts': 0}), \
+                    patch.object(resource, 'vm_snapshot', return_value={'swapins': 4, 'swapouts': 8}), \
+                    patch.object(resource, 'run_child', side_effect=child) as launch:
+                result = resource.run(Path('/inert/binary'), Path('/inert/model'), Path('/inert/image'), Path(tmp) / 'out')
+            self.assertTrue(result['passed'])
+            self.assertEqual(launch.call_count, 2)
+            self.assertEqual(result['cases'][0]['global_swap_deltas'], {'swapins': 4, 'swapouts': 8})
 
     def test_first_resource_failure_stops_next_child(self):
         with tempfile.TemporaryDirectory() as tmp:

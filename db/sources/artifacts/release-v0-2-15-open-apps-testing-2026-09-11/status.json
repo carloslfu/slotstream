@@ -1,0 +1,82 @@
+{
+  "at": "2026-09-11T15:09:10.819244+00:00",
+  "state": "bounded_test_runs_finished_resource_gate_unqualified",
+  "native_mtp_attempts": [
+    {
+      "path": ".build/release-v0.2.15/open-apps-final-mtp/attempt-1",
+      "attempt": 1,
+      "exit": 1,
+      "passed": false,
+      "peak_bytes": 10422621560,
+      "swap_ins": 4,
+      "swap_outs": 0,
+      "functional_failures": [
+        "FAIL  vision+mtp leg completes"
+      ],
+      "errors": [
+        "Error: MTP check lost real headroom, has unavailable observations or observed swap"
+      ],
+      "memory_validated": false
+    },
+    {
+      "path": ".build/release-v0.2.15/open-apps-native-preflight/attempt-2",
+      "attempt": 2,
+      "exit": 1,
+      "passed": false,
+      "peak_bytes": 10362000712,
+      "swap_ins": 12,
+      "swap_outs": 0,
+      "functional_failures": [
+        "FAIL  vision+mtp leg completes"
+      ],
+      "errors": [
+        "Error: MTP check lost real headroom, has unavailable observations or observed swap"
+      ],
+      "memory_validated": false
+    },
+    {
+      "path": ".build/release-v0.2.15/open-apps-native-preflight/attempt-3",
+      "attempt": 3,
+      "exit": 1,
+      "passed": false,
+      "peak_bytes": 8507675112,
+      "swap_ins": 4,
+      "swap_outs": 0,
+      "functional_failures": [],
+      "errors": [
+        "Error: MTP check lost real headroom, has unavailable observations or observed swap"
+      ],
+      "memory_validated": false
+    },
+    {
+      "path": ".build/release-v0.2.15/open-apps-native-preflight/attempt-4",
+      "attempt": 4,
+      "exit": 1,
+      "passed": false,
+      "peak_bytes": 10372159392,
+      "swap_ins": 4,
+      "swap_outs": 0,
+      "functional_failures": [],
+      "errors": [
+        "Error: MTP check lost real headroom, has unavailable observations or observed swap"
+      ],
+      "memory_validated": false
+    }
+  ],
+  "original_unique_model_gates_qualified": 24,
+  "api_checks_passed": 31,
+  "default_probe": {
+    "drafted_tokens": 30,
+    "verify_passes": 15
+  },
+  "other_apps_closed_or_paused": false,
+  "chrome_running": true,
+  "wispr_running": true,
+  "model_processes": [],
+  "model_lock_free": true,
+  "installed_version": "0.2.14",
+  "source_commit": "ee4d1af5b3d63c2b5670c814b40b25432415eb46",
+  "binary_sha256": "31eefbbb4791beddb0f8674ab1c1875c2eb1c4a034f5cdd0fa1abcba31e373cf",
+  "native_mtp_full_gate_completed": false,
+  "scope": "API correctness passed. Native MTP resource guards interrupted full qualification; zero-swap and all-model acceptance are not claimed. All unrelated applications and workloads were left untouched."
+}

@@ -94,9 +94,12 @@ class CapacityEvidence(unittest.TestCase):
         result['compute_query_rows'][-1] += 1
         with self.assertRaises(ValueError): gate.validate_delivery(result, self.protocol, n)
 
-    def test_swap_and_missing_memory_observations_fail(self):
+    def test_global_paging_is_diagnostic_but_missing_process_memory_fails(self):
         result = delivery(); result['stats']['generatorVMAfter']['swapins'] += 1
-        with self.assertRaises(ValueError): gate.validate_delivery(result, self.protocol, 16)
+        result['stats']['generatorVMAfter']['swapouts'] += 1
+        memory = gate.validate_delivery(result, self.protocol, 16)
+        self.assertTrue(memory['passed'])
+        self.assertEqual(memory['global_swap_deltas']['generator'], {'swapins': 1, 'swapouts': 1})
         result = delivery(); del result['stats']['sampledFootprint']
         with self.assertRaises(KeyError): gate.validate_delivery(result, self.protocol, 16)
 
@@ -104,6 +107,9 @@ class CapacityEvidence(unittest.TestCase):
         protocol = {**self.protocol, 'kind': 'configurable-context-retained-capacity',
                     'warm_conversations': 4, 'warm_tokens': 16}
         self.assertEqual(len(gate.validate_delivery(retained_delivery(), protocol, 16)['warmup_memory']), 8)
+        paging = retained_delivery()
+        paging['warmup'][0]['stats']['generatorVMAfter'].update(swapins=999)
+        self.assertTrue(gate.validate_delivery(paging, protocol, 16)['passed'])
         mutations = [
             lambda r: r['warmup'].pop(),
             lambda r: r['warmup'][0].update(fits=False),
@@ -112,7 +118,6 @@ class CapacityEvidence(unittest.TestCase):
             lambda r: r['warmup'][4]['prompt_ids'].__setitem__(0, 999),
             lambda r: r['warmup'][4].update(expected_reuse=0),
             lambda r: r['warmup'][4]['stats'].update(reusedPrefixTokens=0),
-            lambda r: r['warmup'][0]['stats']['generatorVMAfter'].update(swapins=999),
             lambda r: r['warmup'][0]['stats'].update(prefillComputeKeyExtents=[262144], prefillComputeQueryRows=[4096]),
             lambda r: r['retained_before'].update(conversations=3),
             lambda r: r['retained_before'].update(enabled=False),

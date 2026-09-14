@@ -2,11 +2,20 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-11T09:29:41.700421Z
+updated: 2026-09-11T18:46:04.941061Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-published-and-installed]] — v0.2.15 CI-artifact acceptance 25/25, publication with verified attestation, installation and installed-release acceptance 31/31.
+- [[sources/runs/2026/09/2026-09-11-global-paging-policy-native-pass]] — Full MTP/vision, governor and context checks pass under the paging-diagnostic policy with real memory ceilings intact.
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-candidate-api-passed]] — v0.2.15 candidate API suite: all 31 checks passed with apps open
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-open-apps-mtp-excluded]] — v0.2.15 MTP retries with apps open: four resource exclusions retained
+- [[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]] — v0.2.15 prepublication: CI passed, original resource exclusions and reruns
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-long-memory-excluded]] — Repeated long-prompt memory intervals excluded by swap-ins
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-live-budget-integration]] — Live fixed-budget integration with one excluded resource interval
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-initial-acceptance-excluded]] — Initial memory-reporting acceptance with swap exclusions
+- [[sources/runs/2026/09/2026-09-11-lifetime-footprint-and-fixed-budget-audit]] — Native lifetime footprint correction and fixed-budget audit
 - [[sources/runs/2026/09/2026-09-11-release-0-2-14-final-memory-acceptance]] — v0.2.14 final memory acceptance: both unchanged gates pass, 25 of 25 model gates qualified
 - [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-retry]] — Two-draft full MTP check: swap-limited retry attempt
 - [[sources/runs/2026/09/2026-09-11-draft-default-mtp-swap-first]] — Two-draft full MTP check: swap-limited first attempt
@@ -498,17 +507,8 @@ updated: 2026-09-11T09:29:41.700421Z
 - [[sources/runs/2026/09/2026-09-05-optimization-prefill-family-and-serving-intervals]] — Larger chronological prefill remains unqualified; short server A/A passes and all long paired timings are excluded
 - [[sources/runs/2026/09/2026-09-05-optimization-large-tile-and-frontier]] — Large tile and compact frontier exact gates pass; every paired performance comparison is excluded
 - [[sources/runs/2026/09/2026-09-05-optimization-larger-routed-tile]] — Larger routed tile exact checks pass; paired latency pilot excluded for swap activity
-- [[sources/runs/2026/09/2026-09-05-optimization-scope-generation-and-mtp]] — Scope lifecycle and MTP checks pass; first larger-read-scope latency pilot is slower and unqualified
-- [[sources/runs/2026/09/2026-09-05-optimization-read-scope-and-capacity]] — Read-scope numerical correction, exact expert-read reuse and sequence-capacity lifecycle evidence
-- [[sources/runs/2026/09/2026-09-05-optimization-bounded-prefill-and-lifecycle]] — Bounded prefill, GDN recording and lifecycle implementation evidence
-- [[sources/runs/2026/09/2026-09-05-optimization-second-implementation]] — Second optimization implementation and confirmation evidence
-- [[sources/runs/2026/09/2026-09-05-optimization-initial-implementation]] — Initial optimization implementation: raw A/A, final-forward pilot, compact-state confirmation and correctness checks
-- [[sources/runs/2026/09/2026-09-04-prefill-unification-first-principles]] — Prefill unification: pinned full-sort dispatch, 510 block-mask checks, 60 total-order selection checks, 156 checkpoint cases and explicit workspace arithmetic; no model benchmark
-- [[sources/runs/2026/09/2026-09-04-prefill-parallelism-algebra]] — Prefill parallelism: source identities and CPU FP64 gated-delta block algebra, without performance or production parity claims
-- [[sources/runs/2026/09/2026-09-04-first-principles-native-retention]] — First-principles audit: native retained-state compaction and identical logits
-- [[sources/runs/2026/09/2026-09-04-first-principles-primitive-diagnostics]] — First-principles audit: MLX allocation and numerical diagnostics, timings discarded
 
 ## More
 
-This folder has 520 files. The 500 most recent are listed above.
+This folder has 529 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

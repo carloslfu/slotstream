@@ -126,12 +126,15 @@ class VerifyContextStatus(unittest.TestCase):
         }
         excluded = json.loads(json.dumps(valid))
         excluded['fits'] = False
-        excluded['stats']['generatorVMAfter']['swapins'] += 4
+        excluded['stats']['memoryPressureCancelled'] = True
+        paging = json.loads(json.dumps(valid))
+        paging['stats']['generatorVMAfter'].update(swapins=100, swapouts=200)
         oversized = json.loads(json.dumps(valid))
         oversized['stats']['sampledFootprint']['peakBytes'] = 10_000_000_001
         cases = [
             ('success', json.dumps(valid), 0, 0, 2, 0),
-            ('swap exclusion', json.dumps(excluded), 1, 0, 0, 2),
+            ('global paging is diagnostic', json.dumps(paging), 0, 0, 2, 0),
+            ('actual pressure cancellation', json.dumps(excluded), 1, 0, 0, 2),
             ('nonzero overrides success JSON', json.dumps(valid), 23, 0, 1, 1),
             ('zero cannot override failed observations', json.dumps(excluded), 0, 0, 0, 2),
             ('memory ceiling remains mandatory', json.dumps(oversized), 0, 0, 1, 1),

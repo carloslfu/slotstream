@@ -4157,3 +4157,149 @@ All 150 compiled source inputs still matched the captured candidate identity at 
 Help, README, CLI/engineering documentation, agent instructions, claims and current plan annotations now refer to two. Prospective Expert Lookahead accounting includes the pending token plus two drafts, three position biases and a conservative three-position storage bound, with a fresh P0 freeze required. Historical one-draft multipliers remain labeled as historical one-draft evidence.
 
 Raw commands, logs, build source, request/response wires, resource failures and cleanup evidence were captured first in [[sources/runs/2026/09/2026-09-11-draft-depth-two-default]]. The prior performance comparison remains [[records/measurements/mtp-depth-auto40-multitasking-2026-09-11]].
+
+### Lifetime footprint reporting and fixed-budget audit
+The current source still lost earlier GPU memory peaks. This audit reproduced the defect, replaced the counter with the native lifetime physical-footprint high-water, and checked fixed-budget planning and allocation. It found no silent 48 GB override failure in the exercised planner and runtime paths. The fix is local and unreleased.
+
+## Confirmed defect and correction
+
+The old counter took the maximum of lifetime RSS and current physical footprint. RSS can omit GPU allocations, while current footprint falls after those allocations are freed. A peak could therefore disappear from the report. Against the unchanged baseline production counter, a bounded Metal test observed about 267 MB, freed the buffers, and then reported only about 65 MB as the peak. Seven assertions failed. The corrected counter retained the earlier peak after release and passed the same GPU lifecycle, CPU allocation, concurrent-read and independent-sampling checks. No model was loaded for that reproduction.
+
+The implementation reads `task_vm_info.ledger_phys_footprint_peak`, checks that the returned kernel structure covers the field, and rejects unavailable or invalid signed values. The compatibility peak combines the native lifetime peak, lifetime RSS and current footprint. Current usage remains distinct. The optional `lifetimePhysicalFootprintPeakBytes` statistics field preserves decoding of older saved observations. Common generation completion and all Engine early returns now record memory, including cancellation and refusal paths that could previously leave zero values. The CLI distinguishes lifetime and sampled peaks; context-check no longer mislabels the combined process peak as RSS.
+
+The memory acceptance gate includes the native lifetime counter when supplied, while retaining request sampling and the unchanged zero-swap requirement. Lifetime peaks include loading and earlier requests, so they cannot be attributed exclusively to the latest request. Historical values have not been retroactively remeasured. The historical automatic-plan 32 GB figure on the public surfaces is now correctly identified as an estimate, and its claim uses a specific needle rather than matching unrelated hardware tiers.
+
+## Fixed-budget checks and limits
+
+The public doctor interface passed 304 cases across simulated 32, 48, 64, 96 and 128 GiB Macs, several explicit targets and context sizes, MTP off/on/auto, available-memory refusals, option precedence and malformed/nonfinite inputs. These cases load no model and do not qualify those devices. In the simulated 64 GiB, default-context, MTP-off case, an explicit 48 GB target enlarged the pool from 7,280 to 12,705 slots. It was not silently held at the automatic plan. An explicit expert or pool setting still takes documented precedence, and inadequate available memory causes a refusal rather than an undisclosed smaller fixed cache.
+
+Two real local servers at 8.1 and 10 GB confirmed that the runtime plan matched doctor and that the larger plan increased allocated pool bytes by 1,031,270,400 and startup physical footprint by 1,031,012,352. Six requests checked short/long/short lifetime accounting, stable fixed pool sizing and current `/api/ps` usage. Four CLI cases covered normal completion, empty input, exhausted context and preparation refusal. A doctor invocation does not reconfigure an already running server. A memory budget also need not be fully used while context and temporary reservations are idle.
+
+One request in the integration sequence had global swap-ins. It is retained as excluded from resource/performance qualification; the startup plan and allocation observations are functional evidence only. These scaled local runs do not establish behavior on an M2 Ultra 64 GiB machine or prove the cause of any uninstrumented customer observation.
+
+## Validation and artifact scope
+
+The first frozen candidate passed the 44-group catalogue with 27,397 assertions, all 26 governor cases, the serving robustness suite with 74 checks, and vision serving with 25 checks. Real-model checks covered output equality across budgets, growth/shrink/regrowth, the full elastic governor drill, prefix reuse, sweep behavior, MTP, vision parity and long-context recall. The initial acceptance battery reported 20 passed and five failed; every failure was a strict resource exclusion for global swap-ins, with no target overrun or new swap-outs observed in those intervals.
+
+Isolated reruns qualified the full MTP/vision diagnostic, short memory gate and both context-check gates with zero swap. Together with the original valid gates, 24 of the 25 acceptance gates qualify on the same accounting and engine implementation. The 7,972-token recall repeatedly answered SEVENTEEN and stayed below the 10 GB target, but continued to observe four global swap-ins. Its zero-swap memory gate remains unqualified. This audit does not call the complete acceptance battery passed or attribute global paging to a particular process.
+
+A final rebuild changed only the human-readable context-check label. `final-source-comparison.json` proves that this is the only compiled-source difference from the candidate used for the broad model battery. The final build passed the full static gates and another isolated 2k context check. The native positive and negative controls, source archives, fixture failures and resource exclusions remain in the linked raw archive. The original counter's failing negative control is expected evidence, not a failed corrected implementation.
+
+The final source matches the reconstructed build identity, and the model lock is free. No installed binary, release, tag or remote branch was changed. No inference about an unobserved customer command, server configuration or measurement tool is warranted.
+
+### v0.2.15 prepublication qualification
+**Testing follow-up, September 11:** [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] records all 31 additional candidate API checks passing and four retained MTP paging exclusions with every user application left running. Chrome and Wispr Flow have been reopened; the earlier pause request is superseded by the instruction to leave other work alone. Publication and installation remain pending. The earlier checkpoint below is preserved as history.
+
+**v0.2.15 is prepared and pushed, but not published or installed. Complete main CI passed. Of the 25 original model gates, 24 now qualify; the combined MTP/vision diagnostic still lacks a zero-swap memory interval.**
+
+Release source: `ee4d1af5b3d63c2b5670c814b40b25432415eb46`. [Main CI 34592671081](https://github.com/carloslfu/slotstream/actions/runs/34592671081) passed every coverage, weights-free and public-library job. The exact downloaded CI archive passed source and identity verification. Archive SHA-256: `4f28e283daadcde7020789718e94f757190625c88297c78952d365e0c5454af0`; binary SHA-256: `31eefbbb4791beddb0f8674ab1c1875c2eb1c4a034f5cdd0fa1abcba31e373cf`. Its 150 compiled inputs match the tagged-version preparation source. There is no v0.2.15 tag yet.
+
+## Changes and atomic commits
+
+The release candidate includes the adopted two-draft default, compatibility-preserving lifetime physical-footprint peak reports, native memory-lifecycle and fixed-budget regressions, corrected memory documentation, and the reviewed Expert Lookahead execution plan. Expert prediction and prefetching remain planned work. Existing depth overrides, MTP activation and automatic RAM policies remain intact; there is no new universal throughput claim.
+
+The default/alignment commits are `0b600d8` and `7ea0941`. Final plan review is `b7487fa` (`docs(plan): finalize expert lookahead execution gates`); memory implementation, tests and evidence are `546f292` (`fix(memory): retain lifetime GPU footprint peaks in reports and gates`); version/changelog preparation is `ee4d1af` (`chore(release): prepare v0.2.15`). The later qualification record is documentation only and does not change the candidate's compiled inputs.
+
+## Actual acceptance state
+
+The complete original battery finished 23 passed and two failed. Long-context recall and memory, context diagnostics, 15 quality probes, all 74 API robustness checks, vision parity and all 25 vision-serving checks passed. The original 7,972-token prompt returned `SEVENTEEN`, completed with four output tokens and peaked at 8,102,153,528 bytes under its 10 GB limit, with zero swap activity. The earlier preversion long-prompt gap also closed in its own identity; the CI binary independently passed, so no identity substitution is needed.
+
+The governor and MTP/vision intervals initially failed strict system-swap guards. The first unchanged targeted governor retry also recorded four swap-ins. The second passed full shrink, the original 60-second cooldown and regrowth with all three nonempty output-ID arrays identical, complete memory observations and zero swap. Maximum sampled footprint was 10,386,689,384 bytes under the 13 GB ceiling.
+
+The first targeted MTP/vision rerun passed text/vision determinism, speculation-ran and rollback checks but recorded 12 swap-ins. The second stopped early after four swap-ins. Both observed peaks were below the 12 GB target and neither native interval recorded new swap-outs, but both correctly reported `memory_validated: false`. They remain failed resource intervals, not passing measurements. The original battery's MTP interval also recorded 32 swap-outs. All exclusions are preserved. No workload, target, cooldown or acceptance assertion was relaxed. Readiness checked real headroom, normal pressure, nominal thermal state and 120 stable seconds of swap counters; that preflight does not guarantee a quiet later interval.
+
+## Closure and remaining work
+
+Every owned model process stopped and the native model lock is free. The installed public executable remains v0.2.14. No tag, publication, public-download attestation or installed-v0.2.15 API test has occurred. Test-only detail settings were confined to child environments.
+
+Carlos authorized temporarily closing Chrome and Wispr Flow and reopening them afterward. Both apps were already closed when inspected. At restoration time the computer-use tool reported that the Mac was locked and could not unlock automatically, so reopening remains pending a manual unlock. Separate local verification work was active in a VM; this establishes concurrent workload, not the cause of any particular swap event. Permission to pause that other task temporarily is pending and was not inferred from the Chrome/Wispr authorization.
+
+Next: obtain a clean original MTP/vision interval without disrupting another task, tag the exact already-passing CI commit, let publication reuse that archive, verify the public checksum/source/attestation, install those bytes, run the separate installed-release suite, stop the model and reopen the authorized apps. Do not call this candidate released or fully accepted until those steps have actually completed.
+
+Exact raw evidence and failed intervals: [[sources/runs/2026/09/2026-09-11-release-0-2-15-prepublication]]. Related implementation: [[records/measurements/lifetime-footprint-reporting-and-fixed-budgets-2026-09-11]] and [[records/measurements/draft-depth-two-default-2026-09-11]].
+
+### v0.2.15 testing with apps open: API passes, strict MTP resource gate remains unqualified
+**Testing with applications left running has finished its bounded runs: all 31 candidate API checks passed. The original model suite remains 24 of 25 gates qualified because all four new full MTP/vision attempts were rejected by the strict system-wide swap guard. Full model acceptance, publication and installation are not complete.**
+
+Carlos explicitly required that no applications or other work be closed. This phase obeyed that instruction. The earlier proposed pause of another task was never performed and is superseded by this constraint. Chrome and Wispr Flow were observed running at closure. Every owned model and test server is stopped; the native lock is free.
+
+The candidate is still source commit `ee4d1af5b3d63c2b5670c814b40b25432415eb46`, binary SHA-256 `31eefbbb4791beddb0f8674ab1c1875c2eb1c4a034f5cdd0fa1abcba31e373cf`. All 150 compiled inputs match; the successful main CI and earlier 24 model passes remain the evidence in [[records/measurements/release-0-2-15-prepublication-2026-09-11]]. No runtime source, model weight, inference setting or native acceptance assertion was changed to obtain these results.
+
+## Additional API qualification
+
+The complete 31-check end-to-end script passed against the exact uninstalled CI candidate at a 10 GB target, with MTP on and vision off. This covers API/CLI compatibility, streaming, Unicode, long prompts, malformed/hostile input, seeded sampling, prefix reuse, four concurrent clients and disconnect recovery. Its default-depth probe recorded 30 drafts over 15 verification passes and populated the native lifetime footprint statistic. No depth environment override was present. This confirms configuration behavior and ordinary functional operation; it is not a speed comparison or a zero-swap measurement. It does not claim that the new binary was installed.
+
+## Remaining strict memory gate
+
+| Attempt | Maximum observed process bytes | Native swap-ins | Native swap-outs | Outcome |
+| --- | ---: | ---: | ---: | --- |
+| 1 | 10,422,621,560 | 4 | 0 | Resource interval rejected |
+| 2 | 10,362,000,712 | 12 | 0 | Resource interval rejected |
+| 3 | 8,507,675,112 | 4 | 0 | Guard stopped early |
+| 4 | 10,372,159,392 | 4 | 0 | Resource interval rejected |
+
+All are below the original 12,000,000,000-byte ceiling, but every attempt returned exit 1 and `memory_validated: false`. The last reached passing text/vision determinism, speculation-ran and numerical recording/rollback checks; its global paging guard then prevented complete cross-request MTP state qualification. This is not all 25 gates passed, and partial functional successes do not substitute for the missing full gate. The error specifically includes global paging, and the counters prove swap-ins; they do not identify which process caused them or establish a runtime allocation defect.
+
+The optional two-minute stable-swap preflight repeatedly restarted even without a model running. The API suite used that idle time on one server, and the waiting wrapper detected it and did not launch a second model. After that server stopped, the task's idle preflight wrapper was deliberately interrupted and the remaining attempts used the original real-headroom preflight. This removed an extra waiting policy, not a native acceptance check. The workload, 48-token generations, 12 GB ceiling and strict native zero-swap assertions remained unchanged. All unsuccessful intervals and the wrapper lifecycle are preserved.
+
+## Installed and release state
+
+The installed public executable remains v0.2.14. No v0.2.15 tag, publication, public-artifact installation or installed-v0.2.15 verification occurred. There is no background retry loop or newly running server. Bench details were confined to the test child's environment; production configuration was not changed. Further full acceptance requires a valid original MTP interval; this record does not authorize relaxing it or closing other work.
+
+Failed native attempts: [[sources/runs/2026/09/2026-09-11-release-0-2-15-open-apps-mtp-excluded]]. Passing API evidence: [[sources/runs/2026/09/2026-09-11-release-0-2-15-candidate-api-passed]].
+
+### Global paging policy: native checks with apps open
+**The full MTP/vision check now finishes and passes with host paging present.** Governor shrink/cooldown/regrowth and the context check also pass. The full static suite passes. This validates the corrected functional gate on a local source build; the updated CI artifact and release still require their own acceptance.
+
+Carlos explicitly removed the zero-global-swap acceptance rule. [[records/decisions/global-paging-is-diagnostic]] now separates process-budget and numerical acceptance from timing eligibility. Global counters remain visible; actual headroom, OS pressure cancellation, process ceilings, model exclusion and completed output remain enforced. Native MTP/governor receipts also enforce the kernel lifetime footprint peak, including freed GPU allocations.
+
+| Complete local diagnostic | Maximum observed process bytes | Ceiling | Native swap-ins / swap-outs | Result |
+|---|---:|---:|---:|---|
+| Original MTP and vision, including cross-request state reuse | 10,349,041,736 | 12 GB | 600 / 0 | Pass |
+| Full governor shrink, cooldown and regrowth | 11,000,302,952 | 13 GB | 32 / 0 | Pass |
+| Context check, 2,048 prompt tokens | 8,519,322,864 | 10 GB | 0 / 0 during generation | Pass |
+
+The governor preserved identical nonempty token IDs across all three generations. MTP kept its original determinism, vision execution, accept sanity, recording, rollback and reused-state logit criteria. The context request completed inside its plan. Regression fixtures additionally verify that increases in either global counter do not fail functional acceptance, while exceeded physical peaks, missing process-memory evidence, actual pressure cancellations and incomplete deliveries still fail.
+
+The MTP outer launch interval also recorded paging before the native receipt boundary: 604 swap-ins and 580 swap-outs in total. This does not attribute paging to any application and does not qualify clean timing. All applications and unrelated workloads stayed open; every native test process exited. Production generation settings and instrumentation defaults are unchanged.
+
+Source implementation commit: `0f7aae1`; documentation alignment: `48d11f2`. All 150 compiled inputs are bound in the local build identity and reconstructible archive. Historical excluded runs in [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] retain their original results; they are not regraded. Full evidence: [[sources/runs/2026/09/2026-09-11-global-paging-policy-native-pass]].
+
+### v0.2.15 published, installed and accepted
+**v0.2.15 is published, installed and functionally accepted.** The exact CI artifact passed all twenty-five model gates, the published archive verified against that artifact with a valid attestation, the installer replaced 0.2.14 on this machine, and the installed binary passed all thirty-one end-to-end release checks. Every user application and unrelated workload stayed open throughout.
+
+Release: [v0.2.15](https://github.com/carloslfu/slotstream/releases/tag/v0.2.15), tagged on `48d11f288237e9b697264621297890eead7ffb0a`, published 2026-09-11T17:42:30Z. Archive SHA-256 `d9ea8246d7868620a0c9e0766f7ba637522739d66da8e5fa5d44b2190fc6d4fa`; binary SHA-256 `8abb02b639285335b4fc3113819ebc6fe084bbf017fab2b4a52de3e471a551e3`. The CI candidate, the re-downloaded public archive and the installed binary are byte-identical.
+
+## What qualified
+
+| Phase | Result |
+|---|---|
+| Main CI 34626184507, commit `48d11f2` | Coverage, weights-free and public-library jobs all succeeded |
+| Model acceptance on the downloaded CI binary | 25 of 25 gates, 0 failures, 1,103.77 seconds |
+| Release workflow 34629147966 | Succeeded; published archive matches the CI artifact |
+| Provenance | `gh attestation verify` confirmed the sigstore bundle for `refs/tags/v0.2.15` |
+| Installation | 0.2.14 replaced by 0.2.15, exit code 0, digest re-checked |
+| Installed-release end-to-end | 31 of 31 checks, 0 failures |
+
+The twenty-five gates are the sixteen numbered checks plus weights provenance, planner gates, sampler and governor gates, the full elastic drill, speculative decode gates, the behavioural quality probe, the serving robustness suite, vision tower parity and the vision serving suite. The 150 compiled inputs and the eight frozen drivers were hashed before and after and were unchanged.
+
+## Why this reaches twenty-five when the candidate stopped at twenty-four
+
+The combined MTP and vision gate had previously been cancelled four times by a rule that failed acceptance whenever any process on the whole Mac touched swap. That rule was removed by [[records/decisions/global-paging-is-diagnostic]]. This acceptance was therefore decided by the original numerical and work assertions, the actual process-footprint ceilings, real headroom and OS pressure handling, with global paging recorded separately as a diagnostic.
+
+Do not read the twenty-fifth gate as the earlier zero-swap condition being satisfied. It was not. The condition was retired as a test-design defect, and the preserved exclusions in [[records/measurements/release-0-2-15-open-apps-testing-2026-09-11]] stay as they were recorded.
+
+The acceptance interval observed 271 system-wide swap-ins and zero swap-outs, with reclaimable memory rising from 28,482,207,744 to 30,258,495,488 bytes.
+
+## The shipped default, observed on the public binary
+
+The installed-release probe ran with no depth override and drafted 30 tokens over 15 verification passes, exactly two per pass, accepting 16. This is the two-draft default from [[records/decisions/draft-depth-defaults-to-two]] arriving through a published artifact rather than a local build. Its lifetime physical-footprint peak was 7,203,164,480 bytes against a 10 GB target, and that generator interval observed no paging in either direction.
+
+## Limits
+No clean-timing or throughput qualification is claimed here. The acceptance interval deliberately shared the machine with ordinary work, which is what functional acceptance is now allowed to do and what a speed measurement still is not. The depth-two choice remains a mixed-workload preference, not a universal improvement.
+
+Every commit that has landed on `main` after the released build changes documentation, projections and store records only. None touches `Sources/`, `Package.swift`, `Package.resolved` or the `Makefile`, so the published artifact remains the exact build of `48d11f2`.
+
+Expert lookahead and expert prefetching are reviewed, planned and unimplemented. This release ships the plan, not that acceleration.
+
+At closure no Slotstream process remained, the native model lock was free, no application was closed or paused, and no persistent production instrumentation or environment setting changed.

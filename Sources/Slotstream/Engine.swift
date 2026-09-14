@@ -883,6 +883,7 @@ public final class Engine {
                 stats.memoryPressureBoundarySeconds = RuntimeClock.seconds(since: ticket.requestedAt)
             }
             stats.requestSeconds = request?.elapsedSeconds ?? RuntimeClock.seconds(since: requestStart)
+            stats.recordProcessMemory()
             return ("", [], stats)
         }
         let queueSeconds = RuntimeClock.seconds(since: requestStart)
@@ -900,12 +901,10 @@ public final class Engine {
             stats.requestFailure = failure; stats.runtimeError = failure.message
             stats.finishReason = "error"
             stats.memoryPressureBoundarySeconds = RuntimeClock.seconds(since: ticket.requestedAt)
-            stats.peakMemoryGB = ProcessMemory.peakResidentGB
-            stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-            stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
             stats.cachedRouterBytes = model.cachedRouterBytes
             stats.queueSeconds = queueSeconds
             stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
+            stats.recordProcessMemory()
             return ("", [], stats)
         }
         let modeLimit = vision == nil ? ContextPolicy.modelLimit : ContextPolicy.visionLimit
@@ -916,6 +915,7 @@ public final class Engine {
             var stats = GenStats(); stats.promptTokens = promptIds.count
             stats.requestFailure = failure; stats.runtimeError = failure.message; stats.finishReason = "error"
             stats.queueSeconds = queueSeconds; stats.preparationSeconds = preparationSeconds
+            stats.recordProcessMemory()
             return ("", [], stats)
         }
         let room = max(0, effectiveWindow - promptIds.count)
@@ -927,12 +927,10 @@ public final class Engine {
             }
             stats.promptTokens = promptIds.count
             stats.finishReason = control.failure == nil ? "length" : "error"
-            stats.peakMemoryGB = ProcessMemory.peakResidentGB
             stats.cachedRouterBytes = model.cachedRouterBytes
-            stats.lifetimeRSSPeakBytes = ProcessMemory.lifetimeRSSPeakBytes()
-            stats.physicalFootprintEndBytes = ProcessMemory.residentBytes()
             stats.queueSeconds = queueSeconds
             stats.requestSeconds = RuntimeClock.seconds(since: requestStart)
+            stats.recordProcessMemory()
             return ("", [], stats)
         }
         // Context is prompt + completion, not two independent 32k allowances.
@@ -1078,6 +1076,7 @@ public final class Engine {
             MLX.Memory.clearCache()
         }
         stats.requestSeconds = control.elapsedSeconds
+        stats.recordProcessMemory()
         return (text, ids, stats)
     }
 }
