@@ -113,7 +113,7 @@ struct MTPAccept: ParsableCommand {
         var result: Result<Void, Error> = .success(())
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 var traces: [GreedyTrace] = []
                 for (i, prompt) in mtpProbePrompts.enumerated() {
                     let ids = try engine.encodeChat(
@@ -331,7 +331,7 @@ struct MTPBench: ParsableCommand {
         var result: Result<Void, Error> = .success(())
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 var params = sample ? SampleParams() : SampleParams.greedy
                 if sample { params.seed = seed }
                 params.maxTokens = maxTokens
@@ -533,7 +533,7 @@ struct MTPCheck: ParsableCommand {
                     }
                 }
                 try memoryGuard()
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 engine.generator.footprintSampling = true
                 try memoryGuard()
                 var failures: [String] = []
@@ -852,7 +852,7 @@ struct MTPPassCost: ParsableCommand {
         var result: Result<Void, Error> = .success(())
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 let m = engine.model
                 guard let head = m.mtpHead else { throw ModelError("draft head not loaded") }
                 var params = SampleParams.greedy
@@ -1162,7 +1162,7 @@ struct MTPRowCheck: ParsableCommand {
         var result: Result<Void, Error> = .success(())
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 let m = engine.model
                 guard let head = m.mtpHead else { throw ModelError("draft head not loaded") }
                 var failures: [String] = []

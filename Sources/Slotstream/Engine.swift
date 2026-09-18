@@ -82,6 +82,7 @@ public struct ChatMessage {
 
 public final class Engine {
     public let modelDir: URL
+    private let mirrorDirs: [URL]
     public let model: Qwen4ExpModel
     public let generator: Generator
     public let tokenizer: any Tokenizers.Tokenizer
@@ -302,11 +303,14 @@ public final class Engine {
         poolSnapshotLock.unlock()
     }
 
-    public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
-        try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan)
+    public convenience init(modelDir: URL, mirrors: [URL] = [], plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, mirrors: mirrors, poolSlots: plan.slots, plan: plan)
     }
 
-    public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+    /// `mirrors` are byte-identical copies of `modelDir` on other disks; weight
+    /// reads are spread across all of them. See `MirrorRouter`.
+    public init(modelDir: URL, mirrors: [URL] = [], poolSlots: Int,
+        plan: MemoryPlan? = nil) async throws {
         // A plan made for a simulated machine may be printed and compared,
         // never loaded. Simulating memory the machine does not have still
         // allocates for real: on 2026-08-30 a simulated 60 GB drove a 25.4 GB
@@ -333,6 +337,7 @@ public final class Engine {
         self.allocatedContextTokens = context.maxContextTokens
         self.configuredContextTokens = context.maxContextTokens
         self.modelDir = modelDir
+        self.mirrorDirs = mirrors
         self._plan = plan
         // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
         // (or --no-prefix-cache) pins it off for parity work.
@@ -350,7 +355,7 @@ public final class Engine {
         MLX.Memory.cacheLimit = 2 << 30
         self.modelName = "qwen3.8-flash-next:4bit"
         let t0 = Date()
-        let index = try CheckpointIndex(dir: modelDir)
+        let index = try CheckpointIndex(dir: modelDir, mirrors: mirrors)
         // Expert Lookahead: an explicitly requested pack is validated against
         // the checkpoint geometry before the model allocates anything. A plan
         // made without the reserve cannot load a prefetch-enabled engine. With
@@ -743,7 +748,7 @@ public final class Engine {
             }
             try request?.check(nextAllocationBytes: workspaceBytes, phase: "vision workspace admission")
             if let vt = visionTower { return vt }
-            let idx = try CheckpointIndex(dir: modelDir)
+            let idx = try CheckpointIndex(dir: modelDir, mirrors: mirrorDirs)
             guard VisionTower.present(index: idx) else {
                 throw SlotstreamError.vision(
                     "this checkpoint has no vision tower — it is a text-only model")
