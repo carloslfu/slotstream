@@ -14,6 +14,7 @@ updated: 2026-09-18T21:09:51.155362Z
 - [[sources/runs/2026/09/2026-09-18-memory-budget-native-verification]] — Memory budget fix: native verification and unchanged image reuse failure
 - [[sources/runs/2026/09/2026-09-18-memory-budget-software-verification]] — Memory budget fix: final software verification
 - [[sources/runs/2026/09/2026-09-18-memory-budget-regression]] — Memory budget context regression: before and after
+- [[sources/runs/2026/09/2026-09-18-mac-mini-idle-memory-baseline]] — Idle memory baseline on the Mac mini with nothing loaded, alongside the two different availability readings that disagree by the speculative page count
 - [[sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes]] — Three mirrored arms differing only in pool queue depth or prefetch lanes, plus the two minimum-value controls
 - [[sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte]] — cmp over all twelve shards of both checkpoint copies, verdict IDENTICAL
 - [[sources/runs/2026/09/2026-09-18-checks-on-mirror-build]] — The check catalogue on the committed mirror build, 46 passed and 0 failed
@@ -506,9 +507,8 @@ updated: 2026-09-18T21:09:51.155362Z
 - [[sources/runs/2026/09/2026-09-06-optimization-compute-islands-qualified]] — Quantized projection and GLU component qualification
 - [[sources/runs/2026/09/2026-09-06-optimization-rope-serving-qualified]] — RoPE short and prefill serving nonregression qualification
 - [[sources/runs/2026/09/2026-09-06-optimization-cpu-contiguous-counterexample]] — Contiguous CPU slot writes: exact serving regression
-- [[sources/runs/2026/09/2026-09-06-optimization-rope-component-qualified]] — Direct-stride RoPE component qualifies; serving protocols frozen V149
 
 ## More
 
-This folder has 634 files. The 500 most recent are listed above.
+This folder has 635 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -1917,3 +1917,9 @@ The "what the mirror does not reach" paragraph attributed the depth-10 cap to co
 
 ## [2026-09-18 09:00] update | records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18
 The deferral paragraph opened with 14,353, which appears in no run. The base arm's own median is 14,247, and the paragraph now states the whole observed range across the nine A/B runs (14,043 to 14,324) so the claim that the counter is flat in the lane budget can be checked against the run record directly.
+
+## [2026-09-18 11:30] create | sources/runs/2026/09/2026-09-18-mac-mini-idle-memory-baseline
+The machine left alone with nothing loaded: 28.82 GB reclaimable by vm_stat accounting, 29.9 GB by the reading slotstream uses, the gap being exactly the 64,675 speculative pages the Mach free_count includes and the vm_stat line does not. Captured because every insufficient-reclaimable-memory refusal so far had no baseline to be read against.
+
+## [2026-09-18 11:30] update | records/machines/mac-mini-m4-32gb
+The record now carries the idle baseline, which of the two availability readings decides whether a request starts, and the arithmetic that makes a finished run's residue enough to refuse the next one. It also records that nothing under Sources/ reads iogpu.wired_limit_mb, so that sysctl is not part of this refusal path.
