@@ -10,4 +10,4 @@ updated: 2026-09-18T21:09:51.155362Z
 - [[sources/community/index|Community]] (3) — measurement reports from other people's Macs, verbatim
 - [[sources/docs/index|Docs]] (2) — frozen snapshots of the documents the records were lifted from
 - [[sources/references/index|References]] (1) — vendor documentation and prior art cited by measurements and design
-- [[sources/runs/index|Runs]] (633) — raw tool output captured before a number was transcribed
+- [[sources/runs/index|Runs]] (634) — raw tool output captured before a number was transcribed

@@ -1905,3 +1905,12 @@ docs/CLI.md gains a --mirror row and a "Mirrored checkpoints" section; llms.txt'
 
 ## [2026-09-18 06:40] update | CHANGELOG.md, records/claims/mirror-lifts-prefill-and-decode, records/claims/mirror-internal-disk-serves-29-percent
 The Unreleased section gains the mirrored-checkpoint entry, phrased to carry the same two needles as docs/CLI.md so both claims list CHANGELOG.md as a surface. The disk-rate claim keeps docs/CLI.md alone, because the changelog states 3.18 and 1.81 GB/s in a different sentence shape. claims_gate.py now runs 258 needle checks with 0 failures, and llms-full.txt was regenerated over the changelog edit.
+
+## [2026-09-18 08:30] create | sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes
+Three mirrored arms on the same binary as the mirror A/B, differing only in SLOTSTREAM_POOL_QUEUE_DEPTH (32 against 128) or SLOTSTREAM_EXPERT_PREFETCH_LANES (8 against 24), three paired rounds each, plus a minimum-value control for each variable. The out-of-range probe in the same script was refused for insufficient reclaimable memory and never reached its configuration, so it settles nothing and is recorded as inconclusive.
+
+## [2026-09-18 08:30] create | records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18
+Order 1530. Neither width setting moves decode: the queue-depth raise is 1.012x and the prefetch-lane raise is 1.001x, both inside the base arm's own 0.23 tok/s spread. The controls separate "does not bind" from "not connected": depth 1 costs 32% of the tokens per second and halves the read rate, while one prefetch lane is indistinguishable from eight and twenty-four on every column. The deferral counter is flat across a 24-fold change in the lane budget, which places the deferrals on the demand-active gate rather than the lane cap, and 21.41 GB of the 45.40 GB of speculative reads is discarded.
+
+## [2026-09-18 08:30] update | records/measurements/mirror-reads-across-two-disks-2026-09-18
+The "what the mirror does not reach" paragraph attributed the depth-10 cap to concurrentPerform over ten cores, which the controls do not support. The mechanism is now the one the code shows and the controls confirm: ExpertStore.readBatchChecked takes lanes = min(queueDepth, jobs.count) with nine jobs per record, and a decode layer's demand batch holds one or two records. The conclusion the paragraph draws is unchanged.

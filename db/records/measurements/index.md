@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-19T15:12:02.308259712Z
+updated: 2026-09-19T15:12:08.954195803Z
 ---
 
 # records/measurements
 
+- [[records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18]] — Decode does not reach the two-disk ceiling because it has too little work outstanding, not too little width: raising the pool queue depth or the prefetch lanes changes nothing, while crushing the pool depth to 1 costs a third of the tokens per second
 - [[records/measurements/mirror-reads-across-two-disks-2026-09-18]] — A second copy of the checkpoint on a second disk, with reads routed to whichever copy would finish first: warm decode 6.11 to 7.35 tok/s and prefill reads 3.2 to 4.4 GB/s on a two-disk Mac mini M4, output byte-identical
 - [[records/measurements/release-0-2-22-published-2026-09-18]] — v0.2.22 published, installed and accepted: memory and context policy fixed, exact conversation resume, verified release bytes, installed end to end 31/31.
 - [[records/measurements/conversation-resume-exactness]] — A continued conversation now computes what a cold one computes, bit for bit; a follow-up turn pays one partial prefill pass, 2.47 s against 8.56 s at 961 slots
