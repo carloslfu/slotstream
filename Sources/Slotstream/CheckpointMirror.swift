@@ -7,9 +7,9 @@ import Foundation
 /// external NVMe sustains 3.2 GB/s and the internal one 1.8 GB/s. Splitting
 /// reads evenly between them is slower than using the fast disk alone whenever
 /// few reads are in flight, because every second read waits out the slow disk
-/// with nothing to overlap it. Measured on that mirror with one 2.76 MB record
-/// in flight, an even split reads 2.67 GB/s where the fast disk alone reads
-/// 3.25 GB/s.
+/// with nothing to overlap it. At one read in flight those disks deliver 1.13
+/// and 2.09 GB/s, so alternating strictly between them yields their harmonic
+/// mean, 1.47 GB/s, 30% below simply using the fast one.
 ///
 /// So this router does not balance. It estimates when each replica would finish
 /// a read submitted now, as the bytes already queued there plus this read over
@@ -18,11 +18,11 @@ import Foundation
 /// threshold to tune: while the replicas are idle there is nothing queued and
 /// the estimate is decided by throughput alone, so the fast disk takes
 /// essentially everything; once it has a backlog the queued bytes lift its
-/// estimate past the slow disk's and the surplus spills across. Across one
-/// 200-token decode that settles at 70.8% / 29.2% of bytes, which `iostat`
-/// confirms at the devices as 69.6% / 30.4%, and it lifts prefill from 3.3 GB/s
-/// to 4.6 GB/s and decode from 6.15 to 7.39 tok/s against the same run on the
-/// external disk alone.
+/// estimate past the slow disk's and the surplus spills across. Across three
+/// paired 200-token decodes that settles at a median 71.4% / 28.6% of bytes,
+/// which `iostat` confirms at the devices as 69.4% / 30.6%, and it lifts
+/// prefill from 3.2 GB/s to 4.4 GB/s and decode from 6.11 to 7.35 tok/s against
+/// the same runs on the external disk alone.
 ///
 /// Two properties of the measurement are what make this work, and both were
 /// learned by getting them wrong first.

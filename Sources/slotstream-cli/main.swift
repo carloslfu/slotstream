@@ -51,9 +51,9 @@ struct ModelOptions: ParsableArguments {
                 A mirror lets each read go to whichever copy is estimated to \
                 answer first, so the copies need not be equally fast: on the \
                 qualifying Mac mini, mirroring the internal SSD alongside the \
-                external NVMe raises prefill from 3.3 to 4.7 GB/s and decode \
-                from 6.15 to 7.40 tok/s, with the slower internal disk taking \
-                about 30% of the bytes. Every mirror's shards are checked \
+                external NVMe raises prefill from 3.2 to 4.4 GB/s and decode \
+                from 6.11 to 7.35 tok/s, with the slower internal disk taking \
+                about 29% of the bytes. Every mirror's shards are checked \
                 against --model at startup, and a mirror that is not the same \
                 checkpoint is refused. The run's report ends with the split each \
                 copy actually served, which is the only place a mirror that has \

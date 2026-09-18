@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/machines
-updated: 2026-09-10T21:40:02.882876Z
+updated: 2026-09-18T05:20:00Z
 ---
 
 # records/machines
 
+- [[records/machines/mac-mini-m4-32gb]] — A Mac mini M4, 32 GB, that holds the checkpoint twice: on the 251 GB internal SSD and on a Thunderbolt 4 WD_BLACK SN8100. It is the first machine here whose second disk is fast enough that reading both at once is worth the code.
 - [[records/machines/github-actions-macos-26]] — Ephemeral macOS CI runner pool
 - [[records/machines/macbook-air-m5-32gb]] — MacBook Air, Apple M5, 32 GB (community)
 - [[records/machines/macbook-pro-m5-max-128gb]] — MacBook Pro 16-inch, Apple M5 Max, 128 GB (community)
