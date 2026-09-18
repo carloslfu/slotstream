@@ -1962,6 +1962,7 @@ With no sizing override, auto sizes the process to the machine (see
 | Flag | Meaning |
 |---|---|
 | `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
+| `--mirror <dir>` | A directory holding a byte-identical copy of `--model` on another disk. Repeatable. Every weight read goes to whichever copy is estimated to answer first, so the copies need not be equally fast; see [Mirrored checkpoints](#mirrored-checkpoints). |
 | `--memory-gb <gb>` | Total process memory budget, in decimal GB. The cache gets what remains after runtime, context, workspace and a nominal 1 GB margin. Near the minimum cache size, the plan can use part of that margin; `doctor` shows the actual planned headroom. Minimum 8.1 for the 32,768-token window; larger windows raise the minimum. This is a planning allowance, not an instruction to fill RAM. Conversation state and workspace use memory as needed, so measured usage can be lower. Auto picks the context window inside this target and preserves cache whose loss it cannot price; `--max-context N` chooses the context tradeoff explicitly. |
 | `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
 | `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |
@@ -1996,6 +1997,34 @@ Saved statistics retain `peakMemoryGB` as the maximum of lifetime footprint,
 lifetime RSS and current footprint; `lifetimePhysicalFootprintPeakBytes` exposes
 the native footprint peak separately. Sampling remains useful for attributing
 memory to a particular request and can miss allocations between samples.
+
+## Mirrored checkpoints
+
+Expert streaming is bounded by how fast weights can be read, and one disk
+saturates well below what two disks reach together. Passing `--mirror` with a
+second copy of the checkpoint lets each read go to whichever copy is estimated
+to answer first.
+
+The copies do not have to be equally fast, because nothing about the devices is
+configured: each replica's throughput is learned from its own completed reads,
+and the split follows. On a Mac mini M4 whose external NVMe reads 3.18 GB/s and
+whose internal SSD reads 1.81 GB/s, a mirror raises prefill from 3.2 to
+4.4 GB/s and decode from 6.11 to 7.35 tok/s, and the slower internal disk ends
+up serving about 29% of the bytes. Generated text is unchanged: the same prompt
+decodes byte for byte the same with and without the mirror.
+
+Two things to know before using it. A mirror is a whole second copy of the
+model, so it costs that much disk. And every mirror's shards are checked
+against `--model` at startup by size and safetensors header, so a directory
+that is not the same checkpoint is refused rather than silently mixed in.
+
+The run's report ends with the split each copy actually served:
+
+```text
+-- mirror split: --model 61.80 GB (71.4%), --mirror #1 24.70 GB (28.6%) over the whole run
+```
+
+That line is the only place a mirror which has stopped helping becomes visible.
 
 ## Optimization defaults
 
@@ -5410,6 +5439,20 @@ determines which version the installer downloads.
 
 ## 0.2.21 - 2026-09-18
 
+- Mirrored checkpoints. A second copy of the model on a second disk can be
+  given with `--mirror <dir>`, repeatable, and every weight read goes to
+  whichever copy is estimated to answer first. Expert streaming is bounded by
+  how fast weights can be read, and one disk saturates well below what two
+  reach together. Nothing about the devices is configured: each replica's
+  throughput is learned from its own completed reads, so the copies need not be
+  equally fast. On a Mac mini M4 with a 3.18 GB/s external NVMe and a
+  1.81 GB/s internal SSD, a mirror raises prefill from 3.2 to 4.4 GB/s and
+  decode from 6.11 to 7.35 tok/s, with the slower disk serving about 29% of the
+  bytes, and the generated text is unchanged. Every mirror's shards are checked
+  against `--model` at startup by size and safetensors header, so a directory
+  that is not the same checkpoint is refused rather than silently mixed in. The
+  run's report ends with the split each copy actually served, which is the only
+  place a mirror that has stopped helping becomes visible.
 - Faster speculative decode on long prompts. The three-row verify pass of
   draft depth 2 no longer falls to the dense attention kernel, whose cost
   grows with the context: from 6,144 tokens it runs two rows at a time through

@@ -1875,3 +1875,33 @@ Body no longer says auto picks 65,536 tokens or more from 36 GB; at 48 GB it pic
 
 ## [2026-09-18 21:50] validate | db
 Automatic window docs aligned with 0.2.22: zero validation errors, two declared historical warnings, 302 claim needles current and llms-full.txt regenerated.
+
+## [2026-09-18 06:10] create | records/machines/mac-mini-m4-32gb
+The first two-disk machine in the store: a Mac mini M4, 32 GB, macOS 15.7.4, holding the checkpoint on both a 251 GB internal Apple SSD (1.81 GB/s saturated, 4 readers) and an external WD_BLACK SN8100 on Thunderbolt 4 (3.18 GB/s, 2 readers).
+
+## [2026-09-18 06:10] create | sources/runs/2026/09
+Five runs behind the mirror measurement: the three-round decode A/B on the committed binary, the iostat device witness, the router trace from a development build whose counters were removed before the commit, the cache-contaminated diskbench run kept as discarded, and the check catalogue.
+
+## [2026-09-18 06:10] create | records/measurements/mirror-reads-across-two-disks-2026-09-18
+Order 1520. Routing weight reads across mirrored copies: decode 6.11 to 7.35 tok/s, prefill reads 3.2 to 4.4 GB/s, one distinct generated text across six runs, router split 71.4% / 28.6% against iostat's 69.4% / 30.6%.
+
+## [2026-09-18 06:10] update | Sources/Slotstream/CheckpointMirror.swift, Sources/slotstream-cli/main.swift, Tools/diskbench.c
+Comments and --mirror help text re-anchored to the numbers the new record carries. The even-split figure in the router's class doc had no preserved run behind it and is replaced by a derivation from the machine record's single-reader rates (1.13 and 2.09 GB/s, harmonic mean 1.47).
+
+## [2026-09-18 06:10] index | db
+Index files and counts written by hand: dbmd is not installed on this machine, so the entries follow the shape of the existing ones in each folder. Tools/projections.py regenerated MEASUREMENTS.md and --check passes.
+
+## [2026-09-18 06:30] create | sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte
+cmp over all twelve shards of both checkpoint copies, 105,240,154,212 bytes each side, verdict IDENTICAL. The engine compares only size and safetensors header at startup, so the payload premise behind the mirror had no direct evidence until this pass.
+
+## [2026-09-18 06:30] update | records/measurements/mirror-reads-across-two-disks-2026-09-18
+The "routing must not change the output" paragraph now cites the byte-for-byte comparison for the files and keeps the digest equality as the independent check on the routing itself, since a digest would also catch a read served from the wrong offset.
+
+## [2026-09-18 06:30] create | records/claims/mirror-lifts-prefill-and-decode, records/claims/mirror-disk-rates-3-18-and-1-81, records/claims/mirror-internal-disk-serves-29-percent, records/claims/mirror-split-report-line-example
+Four claims for the numbers the new docs/CLI.md section puts on a public surface: the prefill and decode pair, the two disks' saturated rates, the slower disk's share of the bytes, and the sample split line. claims_gate.py now runs 256 needle checks with 0 failures.
+
+## [2026-09-18 06:30] update | docs/CLI.md, llms.txt, llms-full.txt
+docs/CLI.md gains a --mirror row and a "Mirrored checkpoints" section; llms.txt's entry for that file names the new topic; llms-full.txt regenerated, and Tools/llms_full.sh --check passes.
+
+## [2026-09-18 06:40] update | CHANGELOG.md, records/claims/mirror-lifts-prefill-and-decode, records/claims/mirror-internal-disk-serves-29-percent
+The Unreleased section gains the mirrored-checkpoint entry, phrased to carry the same two needles as docs/CLI.md so both claims list CHANGELOG.md as a surface. The disk-rate claim keeps docs/CLI.md alone, because the changelog states 3.18 and 1.81 GB/s in a different sentence shape. claims_gate.py now runs 258 needle checks with 0 failures, and llms-full.txt was regenerated over the changelog edit.

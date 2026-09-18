@@ -13,6 +13,10 @@ updated: 2026-09-18T21:49:31.700660Z
 - [[records/claims/automatic-context-at-48-gb]] — Automatic context preserves unmeasured cache at the simulated 48 GB tier
 - [[records/claims/automatic-context-window-tolerance-10-percent]] — A larger automatic window may add at most 10% to a typical request
 - [[records/claims/recommended-context-65536-from-36-gb]] — Auto picks a 65,536-token window from 36 GB and 32,768 below
+- [[records/claims/mirror-internal-disk-serves-29-percent]] — On the mirrored two-disk Mac mini the slower internal disk ends up serving about 29% of the bytes
+- [[records/claims/mirror-lifts-prefill-and-decode]] — A mirror over two disks raises prefill reads from 3.2 to 4.4 GB/s and decode from 6.11 to 7.35 tok/s
+- [[records/claims/mirror-disk-rates-3-18-and-1-81]] — The two disks behind the mirror measurement saturate at 3.18 GB/s (external NVMe) and 1.81 GB/s (internal SSD)
+- [[records/claims/mirror-split-report-line-example]] — The sample mirror-split report line in docs/CLI.md is transcribed from a recorded run, not invented
 - [[records/claims/malformed-tool-call-token-scores]] — The token a continued turn flipped: a fresh read scored > at 0.9576 and ] at 0.0421
 - [[records/claims/continued-turn-logit-movement]] — Before the resume rule a continued turn moved the prompt logits 3.7% to 5.9% of their spread
 - [[records/claims/continued-turn-prefill-cost]] — A continued turn pays one partial prefill pass: 2.47 s against 8.56 s of follow-up prefill, against 26.3 s cold

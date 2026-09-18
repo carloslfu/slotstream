@@ -37,6 +37,20 @@ determines which version the installer downloads.
 
 ## 0.2.21 - 2026-09-18
 
+- Mirrored checkpoints. A second copy of the model on a second disk can be
+  given with `--mirror <dir>`, repeatable, and every weight read goes to
+  whichever copy is estimated to answer first. Expert streaming is bounded by
+  how fast weights can be read, and one disk saturates well below what two
+  reach together. Nothing about the devices is configured: each replica's
+  throughput is learned from its own completed reads, so the copies need not be
+  equally fast. On a Mac mini M4 with a 3.18 GB/s external NVMe and a
+  1.81 GB/s internal SSD, a mirror raises prefill from 3.2 to 4.4 GB/s and
+  decode from 6.11 to 7.35 tok/s, with the slower disk serving about 29% of the
+  bytes, and the generated text is unchanged. Every mirror's shards are checked
+  against `--model` at startup by size and safetensors header, so a directory
+  that is not the same checkpoint is refused rather than silently mixed in. The
+  run's report ends with the split each copy actually served, which is the only
+  place a mirror that has stopped helping becomes visible.
 - Faster speculative decode on long prompts. The three-row verify pass of
   draft depth 2 no longer falls to the dense attention kernel, whose cost
   grows with the context: from 6,144 tokens it runs two rows at a time through

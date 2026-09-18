@@ -11,7 +11,7 @@
 // cell re-reads the same file, so on a machine with more RAM than that file the
 // unified buffer cache serves much of the traffic and F_NOCACHE does not evict
 // what is already cached. Mirrored across a 10 GB shard on a 32 GB Mac mini
-// this reported 8.40 GB/s from two disks that together deliver 4.9 GB/s,
+// this reported 8.40 GB/s from two disks that together deliver 4.99 GB/s,
 // measured at the device with `iostat -d disk0 disk4`. Trust the split matrix
 // and the shape of the queue-depth curve; for an absolute number use a working
 // set larger than RAM and confirm it against iostat.
