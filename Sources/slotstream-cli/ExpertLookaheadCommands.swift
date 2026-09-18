@@ -219,7 +219,7 @@ struct ExpertLookaheadCapture: ParsableCommand {
         let plan = try model.announcedPlan(maxContext: proto.maxContext, prefixCacheEnabled: false, requireMTP: true)
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 try ExpertLookaheadCLI.verify(proto, engine: engine, plan: plan)
                 var header = try ExpertLookaheadCLI.identity(engine: engine, plan: plan, modelURL: model.modelURL)
                 header["run_id"] = proto.runId
@@ -381,7 +381,7 @@ struct ExpertLookaheadBench: ParsableCommand {
         let plan = try model.announcedPlan(maxContext: proto.maxContext, prefixCacheEnabled: false, requireMTP: true)
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 let loadSeconds = RuntimeClock.seconds(since: launchStart)
                 try ExpertLookaheadCLI.verify(proto, engine: engine, plan: plan)
                 engine.generator.footprintSampling = sampleFootprint

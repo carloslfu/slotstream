@@ -157,7 +157,7 @@ struct ContextCheck: ParsableCommand {
         }
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 // Missing observations must never compare equal and turn
                 // an unobserved memory/swap interval into a passing result.
                 engine.generator.footprintSampling = true

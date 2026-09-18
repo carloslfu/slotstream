@@ -253,6 +253,12 @@ public struct GenStats: Codable {
     public var decodeIOSeconds = 0.0
     public var decodeScatterSeconds = 0.0
     public var decodeRecords = 0
+    /// Bytes served by each replica of a mirrored checkpoint, in replica
+    /// order, or empty when there is no mirror. A mirror that has stopped
+    /// splitting reads costs exactly as much as one that never started and
+    /// looks identical in every other number here, which is why the split is
+    /// reported rather than inferred.
+    public var mirrorBytes: [Int] = []
     /// "stop" (EOS or stop sequence), "length", "error", or a low-level
     /// caller's explicit "cancelled" checkpoint yield.
     public var finishReason = "stop"
@@ -1238,6 +1244,7 @@ public final class Generator {
         stats.decodeIOSeconds = model.pool.ioSeconds
         stats.decodeScatterSeconds = model.pool.scatterSeconds
         stats.decodeRecords = model.pool.recordsFetched
+        stats.mirrorBytes = model.pool.mirrorBytes
         stats.decodeLocalVictims = model.pool.floorLocalVictims
         stats.decodeSlotSliceBatches = model.pool.slotSliceBatches
         stats.decodeSlotSliceRuns = model.pool.slotSliceRuns

@@ -1301,6 +1301,15 @@ public final class SlotPool {
     public private(set) var fillSeconds = 0.0
     public private(set) var recordsFetched = 0
 
+    /// Bytes each mirror replica has served, in replica order, or empty when
+    /// the checkpoint is not mirrored. Unlike the counters above it is never
+    /// reset between prefill and decode: the router measures disks rather than
+    /// a phase, and a split only means anything over a whole run.
+    public var mirrorBytes: [Int] {
+        let served = store.index.mirror.servedBytes()
+        return served.count > 1 ? served : []
+    }
+
     /// Sweep diagnostics (`SLOTSTREAM_SWEEP_TRACE=1`): time spent waiting for
     /// the GPU to finish a staging group, and sorting rows on the CPU.
     public var sweepWaitSeconds = 0.0

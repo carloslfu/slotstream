@@ -42,6 +42,26 @@ struct ModelOptions: ParsableArguments {
     var model: String = PinnedModel.name
 
     @Option(
+        name: .customLong("mirror"),
+        help: ArgumentHelp(
+            "Directory holding a byte-identical copy of --model on another disk. Repeatable.",
+            discussion: """
+                Expert streaming is bounded by how fast the weights can be read, \
+                and one disk saturates well below what two disks reach together. \
+                A mirror lets each read go to whichever copy is estimated to \
+                answer first, so the copies need not be equally fast: on the \
+                qualifying Mac mini, mirroring the internal SSD alongside the \
+                external NVMe raises prefill from 3.3 to 4.7 GB/s and decode \
+                from 6.15 to 7.40 tok/s, with the slower internal disk taking \
+                about 30% of the bytes. Every mirror's shards are checked \
+                against --model at startup, and a mirror that is not the same \
+                checkpoint is refused. The run's report ends with the split each \
+                copy actually served, which is the only place a mirror that has \
+                stopped being used becomes visible.
+                """))
+    var mirror: [String] = []
+
+    @Option(
         name: .customLong("memory-gb"),
         help: ArgumentHelp(
             "Total memory target for the whole process, in GB.",
@@ -129,6 +149,7 @@ struct ModelOptions: ParsableArguments {
     // Resolved once here so the tokenizer, the draft-head probe, and the index
     // all see the real directory; Foundation will not list a symlinked one.
     var modelURL: URL { ModelLocator.resolve(model).resolvingSymlinksInPath() }
+    var mirrorURLs: [URL] { mirror.map { ModelLocator.resolve($0).resolvingSymlinksInPath() } }
 
     func mtpMode() throws -> Planner.MTPMode {
         guard let m = Planner.MTPMode(rawValue: mtp) else {
@@ -380,7 +401,7 @@ struct Run: ParsableCommand {
         let plan = try model.announcedPlan(window: maxContext, maxPrefillWait: maxPrefillWait)
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 let loadSeconds = RuntimeClock.seconds(since: launchStart)
                 engine.generator.footprintSampling = sampleFootprint
                 let control = try engine.beginRequest()
@@ -501,6 +522,17 @@ struct Run: ParsableCommand {
                     memoryObservation = String(format: "RSS high-water %.3f GB, current footprint %.3f GB",
                         Double(stats.lifetimeRSSPeakBytes) / 1e9, Double(stats.physicalFootprintEndBytes) / 1e9)
                 }
+                // The router knows replicas only by position, so they are named
+                // here by the option that supplied them: index 0 is --model and
+                // the rest are the --mirror directories in the order given.
+                let mirrorTotal = Double(max(stats.mirrorBytes.reduce(0, +), 1))
+                let mirrorReport = stats.mirrorBytes.isEmpty ? "" : "-- mirror split: "
+                    + stats.mirrorBytes.enumerated().map { replica in
+                        String(format: "%@ %.2f GB (%.1f%%)",
+                            replica.offset == 0 ? "--model" : "--mirror #\(replica.offset)",
+                            Double(replica.element) / 1e9,
+                            100 * Double(replica.element) / mirrorTotal)
+                    }.joined(separator: ", ") + " over the whole run\n"
                 FileHandle.standardError.write(
                     """
 
@@ -508,7 +540,7 @@ struct Run: ParsableCommand {
                     -- prefill split: io \(String(format: "%.2f", stats.prefillIOSeconds))s + scatter \(String(format: "%.2f", stats.prefillScatterSeconds))s | \(stats.prefillRecords) records (\(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3)) GB, \(String(format: "%.1f", Double(stats.prefillRecords) * 2.7648e-3 / max(stats.prefillIOSeconds, 1e-9))) GB/s)
                     -- decode \(stats.decodeTokens) tok in \(String(format: "%.2f", stats.decodeSeconds))s (\(String(format: "%.2f", stats.decodeTPS)) tok/s)
                     \(RouterTrace.flush().map { $0 + "\n" } ?? "")\(MemTrace.on ? MemTrace.report() + "\n" : "")-- decode split: io \(String(format: "%.2f", stats.decodeIOSeconds))s + scatter \(String(format: "%.2f", stats.decodeScatterSeconds))s | \(stats.decodeRecords) records\(stats.verifyPasses > 0 ? String(format: " | mtp %d/%d drafts accepted (%.0f%%), %d verify passes", stats.acceptedDrafts, stats.draftedTokens, 100 * stats.draftAcceptRate, stats.verifyPasses) : "")
-                    -- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | \(memoryObservation) | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
+                    \(mirrorReport)-- expert cache \(perLayer), hit rate \(hs) | ngram rows \(stats.ngramRowHits)h/\(stats.ngramRowMisses)m | \(memoryObservation) | total \(String(format: "%.1f", -t0.timeIntervalSinceNow))s
 
                     """.data(using: .utf8)!)
                 result = .success(())
@@ -625,7 +657,7 @@ struct Serve: ParsableCommand {
         var engine: Engine!
         var err: Error?
         Task {
-            do { engine = try await Engine(modelDir: model.modelURL, plan: plan) } catch { err = error }
+            do { engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan) } catch { err = error }
             sem.signal()
         }
         sem.wait()
@@ -1043,7 +1075,7 @@ struct ElasticCheck: ParsableCommand {
             do {
                 // stay near the safe floor; equality is independent of size
                 let smallSlots = Geometry.floorSlots
-                let engine = try await Engine(modelDir: model.modelURL, poolSlots: smallSlots)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, poolSlots: smallSlots)
                 let ids = try engine.encodeChat(
                     [ChatMessage(role: "user", content: "Why is the sky blue?")], thinking: false)
                 var p = SampleParams.greedy
@@ -1221,7 +1253,7 @@ struct ElasticDrill: ParsableCommand {
                     availableGB: realAvail, clamped: false,
                     prefillChunk: chunk, prefixCacheTokens: cacheTokens,
                     notes: ["elastic drill bounded test plan"])
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, plan: plan)
                 func checkMemory(nextSlots: Int? = nil) throws {
                     let additional = nextSlots.map { $0 > engine.model.pool.slots ? Geometry.gb($0) : 0 } ?? 0
                     guard let available = Planner.deviceAvailableGB(), available >= 3 + additional else {
@@ -1501,7 +1533,7 @@ struct PrefixCheck: ParsableCommand {
         let poolSlots = slots
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, poolSlots: poolSlots)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, poolSlots: poolSlots)
                 var p = SampleParams.greedy
                 p.maxTokens = tokens
                 var failures: [String] = []
