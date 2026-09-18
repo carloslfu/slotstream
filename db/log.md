@@ -2043,3 +2043,6 @@ Order 1530. Neither width setting moves decode: the queue-depth raise is 1.012x 
 
 ## [2026-09-18 08:30] update | records/measurements/mirror-reads-across-two-disks-2026-09-18
 The "what the mirror does not reach" paragraph attributed the depth-10 cap to concurrentPerform over ten cores, which the controls do not support. The mechanism is now the one the code shows and the controls confirm: ExpertStore.readBatchChecked takes lanes = min(queueDepth, jobs.count) with nine jobs per record, and a decode layer's demand batch holds one or two records. The conclusion the paragraph draws is unchanged.
+
+## [2026-09-18 09:00] update | records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18
+The deferral paragraph opened with 14,353, which appears in no run. The base arm's own median is 14,247, and the paragraph now states the whole observed range across the nine A/B runs (14,043 to 14,324) so the claim that the counter is flat in the lane budget can be checked against the run record directly.
