@@ -2,7 +2,7 @@
 type: measurement
 id: 01m2swpp9h0e2d0d4vh1evjeq1
 created: 2026-09-18T08:10:00+00:00
-updated: 2026-09-19T15:12:18.927148296+00:00
+updated: 2026-09-19T15:12:24.684770280+00:00
 summary: 'Decode does not reach the two-disk ceiling because it has too little work outstanding, not too little width: raising the pool queue depth or the prefetch lanes changes nothing, while crushing the pool depth to 1 costs a third of the tokens per second'
 date: 2026-09-18
 doc: measurements

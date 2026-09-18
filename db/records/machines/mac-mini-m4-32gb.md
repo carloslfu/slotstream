@@ -2,7 +2,7 @@
 type: machine
 id: 01m2s4e4fs0dxr88w41bb9qs22
 created: 2026-09-18T05:20:00.000000+00:00
-updated: 2026-09-18T05:20:00.000000+00:00
+updated: 2026-09-18T11:30:00.000000+00:00
 summary: 'A Mac mini M4, 32 GB, that holds the checkpoint twice: on the 251 GB internal SSD and on a Thunderbolt 4 WD_BLACK SN8100. It is the first machine here whose second disk is fast enough that reading both at once is worth the code.'
 chip: Apple M4
 kind: mac
@@ -16,6 +16,31 @@ A Mac mini (Mac16,10), Apple M4 with 4 performance and 6 efficiency cores,
 `34 GB RAM` on it because it reads the byte count (34.36 GB) rather than
 Apple's nameplate figure. `iogpu.wired_limit_mb` is raised to 28,700, which is
 not boot-persistent here and has to be set again after a restart.
+
+**Idle baseline.** Left alone with nothing loaded, the machine has about
+**28.8 GB** reclaimable by `vm_stat` accounting and **29.9 GB** by the reading
+slotstream itself uses
+([[sources/runs/2026/09/2026-09-18-mac-mini-idle-memory-baseline]]). Both
+numbers are `free + purgeable + file-backed`, and they differ because
+`vm_statistics64.free_count` from the Mach call already includes speculative
+pages while `vm_stat`'s printed "Pages free" line does not: 64,675 speculative
+pages, 1.06 GB, exactly the gap on the day it was captured. Slotstream's
+reading is the one that decides whether a request starts, because
+`RequestControl.check` compares `Plan.deviceAvailableGB()` against the next
+allocation plus `availabilitySlackGB` (`max(1.5, 0.05 x ramGB)` = 1.72 GB
+here). A default plan's `expected_peak_bytes` is 23.05 GB, so an idle machine
+carries roughly 5 GB of headroom over what a run asks for.
+
+That headroom is the whole reason a finished run has to be reclaimed before the
+next one starts. A resident plan holds its pool and fixed footprint, 10.31 plus
+5.30 GB in the default ledger, and subtracting anything of that order from 29.9
+lands below the roughly 24.8 GB the same plan needs. This is what refused the
+trailing probe of
+[[sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes]]: the
+machine was never short, the script simply did not wait. Note that
+`iogpu.wired_limit_mb` plays no part in this. Nothing under `Sources/` reads
+that sysctl; it caps what Metal may wire, while the refusal comes from
+slotstream's own accounting against the availability reading above.
 
 What makes this machine worth a record is that it has two disks rather than
 one, and that the slower of the two is still fast. The internal 251 GB Apple

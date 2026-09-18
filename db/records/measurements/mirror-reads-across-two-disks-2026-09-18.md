@@ -2,7 +2,7 @@
 type: measurement
 id: 01m2s4e4fs81zwedpjern65nht
 created: 2026-09-18T05:40:00+00:00
-updated: 2026-09-19T15:12:18.902152262+00:00
+updated: 2026-09-19T15:12:24.664245643+00:00
 summary: 'A second copy of the checkpoint on a second disk, with reads routed to whichever copy would finish first: warm decode 6.11 to 7.35 tok/s and prefill reads 3.2 to 4.4 GB/s on a two-disk Mac mini M4, output byte-identical'
 date: 2026-09-18
 doc: measurements
