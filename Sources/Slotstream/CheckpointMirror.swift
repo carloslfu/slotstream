@@ -95,10 +95,12 @@ package final class MirrorRouter {
 
     private var replicas: [Replica]
     private let lock = NSLock()
+    private let now: () -> UInt64
 
-    package init(replicaCount: Int) {
+    package init(replicaCount: Int, now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }) {
         precondition(replicaCount > 0, "a mirror needs at least one replica")
         replicas = Array(repeating: Replica(), count: replicaCount)
+        self.now = now
     }
 
     package var replicaCount: Int { replicas.count }
@@ -114,7 +116,7 @@ package final class MirrorRouter {
         // outside order themselves independently of the lock, and a claim that
         // entered holding an older reading than the `busySince` already stored
         // underflows the elapsed-time subtraction.
-        let now = DispatchTime.now().uptimeNanoseconds
+        let now = self.now()
         var chosen = 0
         var soonest = Double.infinity
         for index in replicas.indices {
@@ -142,7 +144,7 @@ package final class MirrorRouter {
     package func release(_ index: Int, byteCount: Int, completed: Bool) {
         lock.lock()
         defer { lock.unlock() }
-        let now = DispatchTime.now().uptimeNanoseconds
+        let now = self.now()
         replicas[index].queuedReads -= 1
         replicas[index].queuedBytes -= byteCount
         replicas[index].touchedAt = now

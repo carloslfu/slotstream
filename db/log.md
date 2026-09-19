@@ -1923,3 +1923,6 @@ The machine left alone with nothing loaded: 28.82 GB reclaimable by vm_stat acco
 
 ## [2026-09-18 11:30] update | records/machines/mac-mini-m4-32gb
 The record now carries the idle baseline, which of the two availability readings decides whether a request starts, and the arithmetic that makes a finished run's residue enough to refuse the next one. It also records that nothing under Sources/ reads iogpu.wired_limit_mb, so that sysctl is not part of this refusal path.
+## [2026-09-19 15:15] update | records/measurements/mirror-read-review-2026-09-19
+Rebased mirror feature; qualified old concurrency inferences, filled missing binary provenance, and added deterministic routing checks.
+

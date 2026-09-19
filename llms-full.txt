@@ -2005,9 +2005,10 @@ saturates well below what two disks reach together. Passing `--mirror` with a
 second copy of the checkpoint lets each read go to whichever copy is estimated
 to answer first.
 
-The copies do not have to be equally fast, because nothing about the devices is
+The disks do not have to be equally fast, because nothing about the devices is
 configured: each replica's throughput is learned from its own completed reads,
-and the split follows. On a Mac mini M4 whose external NVMe reads 3.18 GB/s and
+and the split follows. In the September 18 paired study on the recorded binary
+(200 greedy tokens, one prompt, MTP on, 118 experts per layer), on a Mac mini M4 whose external NVMe reads 3.18 GB/s and
 whose internal SSD reads 1.81 GB/s, a mirror raises prefill from 3.2 to
 4.4 GB/s and decode from 6.11 to 7.35 tok/s, and the slower internal disk ends
 up serving about 29% of the bytes. Generated text is unchanged: the same prompt
@@ -2016,7 +2017,19 @@ decodes byte for byte the same with and without the mirror.
 Two things to know before using it. A mirror is a whole second copy of the
 model, so it costs that much disk. And every mirror's shards are checked
 against `--model` at startup by size and safetensors header, so a directory
-that is not the same checkpoint is refused rather than silently mixed in.
+with a different layout is refused. This does not hash tensor payloads: same-size
+corruption with unchanged headers will not be detected. Verify the copies byte
+for byte before use. The historical throughput figures above have not been
+re-measured on the rebased main branch.
+
+For example, after copying and verifying the complete checkpoint:
+
+```bash
+slotstream run --model /Volumes/external/model --mirror /Volumes/internal/model --prompt "Hello"
+```
+
+Repeat `--mirror` for additional copies; only two disks were measured. Packed
+expert layouts bypass this router and are rejected when mirrors are enabled.
 
 The run's report ends with the split each copy actually served:
 

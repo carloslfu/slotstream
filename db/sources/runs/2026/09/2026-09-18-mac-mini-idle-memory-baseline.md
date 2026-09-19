@@ -1,9 +1,10 @@
 ---
 type: run
 id: 01m2t41pnbe98r7fy9ys567e58
-created: 2026-09-18T11:30:00.000000+00:00
-updated: 2026-09-18T11:30:00.000000+00:00
+created: 2026-09-18T11:30:00+00:00
+updated: 2026-09-19T15:15:18.724862503+00:00
 summary: Idle memory baseline on the Mac mini with nothing loaded, alongside the two different availability readings that disagree by the speculative page count
+binary: system vm_stat and slotstream doctor; executable hashes not recorded
 captured_at: 2026-09-18
 command: bash /tmp/memsnap.sh
 discarded: 'false'

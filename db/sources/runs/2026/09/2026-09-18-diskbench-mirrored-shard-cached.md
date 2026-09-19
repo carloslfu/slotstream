@@ -1,9 +1,10 @@
 ---
 type: run
 id: 01m2s4e4fs1rm7wc19n990f4kr
-created: 2026-09-18T05:35:00.000000+00:00
-updated: 2026-09-18T05:35:00.000000+00:00
+created: 2026-09-18T05:35:00+00:00
+updated: 2026-09-19T15:15:18.685158196+00:00
 summary: diskbench across both copies of a checkpoint shard, discarded because F_NOCACHE did not evict the pages the file already had in the buffer cache
+binary: Tools/diskbench.c development build; executable hash not recorded
 captured_at: 2026-09-18
 command: cc -O2 -o /tmp/diskbench Tools/diskbench.c -lpthread && /tmp/diskbench /Volumes/llm/models/qwen38-flash-next-mlx-4bit/model-00001.safetensors /Users/qian/.slotstream/models/qwen38-flash-next-mlx-4bit/model-00001.safetensors
 discarded: 'true'
