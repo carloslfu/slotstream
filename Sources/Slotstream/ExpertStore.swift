@@ -54,6 +54,9 @@ public final class ExpertStore {
     /// payload before changing the active reader. Failed loads preserve it.
     @discardableResult
     public func loadPackedLayout(at directory: URL) throws -> PackedLayoutReport {
+        guard index.mirror.replicaCount == 1 else {
+            throw ModelError("packed expert layouts cannot be combined with checkpoint mirrors")
+        }
         try ModelProcessGuard.acquire()
         let identity = try packedModelIdentity()
         let candidate = try PackedExpertLayout(directory:directory,identity:identity,
