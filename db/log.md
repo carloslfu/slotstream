@@ -2055,3 +2055,6 @@ The record now carries the idle baseline, which of the two availability readings
 ## [2026-09-19 15:15] update | records/measurements/mirror-read-review-2026-09-19
 Rebased mirror feature; qualified old concurrency inferences, filled missing binary provenance, and added deterministic routing checks.
 
+## [2026-09-19 15:39] validate | mirror-pr-native-validation
+Recorded native gates and final-code single/mirror parity with executable SHA-256; full static gates at fb9fe26, final code 0dec469. Validation: zero errors, four retained historical warnings.
+
