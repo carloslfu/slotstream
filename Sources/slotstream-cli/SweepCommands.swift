@@ -65,7 +65,7 @@ struct SweepCheck: ParsableCommand {
         let poolSlots = slots
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, poolSlots: poolSlots)
+                let engine = try await Engine(modelDir: model.modelURL, mirrors: model.mirrorURLs, poolSlots: poolSlots)
                 var failures: [String] = []
                 func note(_ s: String) {
                     FileHandle.standardError.write((s + "\n").data(using: .utf8)!)

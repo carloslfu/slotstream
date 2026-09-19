@@ -2,11 +2,16 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-18T21:09:51.155362Z
+updated: 2026-09-19T15:39:24.727012654Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-19-mirror-pr-validation]] — Rebased mirror PR native gates and output parity
+- [[sources/runs/2026/09/2026-09-18-mirror-router-trace-development-build]] — The router's own per-replica trace on a development build, including the queue depth at which reads are claimed
+- [[sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte]] — cmp over all twelve shards of both checkpoint copies, verdict IDENTICAL
+- [[sources/runs/2026/09/2026-09-18-mac-mini-idle-memory-baseline]] — Idle memory baseline on the Mac mini with nothing loaded, alongside the two different availability readings that disagree by the speculative page count
+- [[sources/runs/2026/09/2026-09-18-diskbench-mirrored-shard-cached]] — diskbench across both copies of a checkpoint shard, discarded because F_NOCACHE did not evict the pages the file already had in the buffer cache
 - [[sources/runs/2026/09/2026-09-18-release-0-2-22-published-and-installed]] — v0.2.22 published, installed and accepted: exact CI candidate, verified provenance, byte-identical installation, full local battery and installed end to end 31/31.
 - [[sources/runs/2026/09/2026-09-18-v0-2-22-release-candidate]] — v0.2.22 candidate passes the full model battery, memory and source gates, public library smoke test, and Mac app checks.
 - [[sources/runs/2026/09/2026-09-18-release-0-2-21-published-and-installed]] — v0.2.21 acceptance: CI artifact 24/25 in one run plus vision parity beside it, attestation, install, installed e2e 31/31, launch gate 48/54 with the Pi race phase driven by Claude Code 5/5.
@@ -14,7 +19,11 @@ updated: 2026-09-18T21:09:51.155362Z
 - [[sources/runs/2026/09/2026-09-18-memory-budget-native-verification]] — Memory budget fix: native verification and unchanged image reuse failure
 - [[sources/runs/2026/09/2026-09-18-memory-budget-software-verification]] — Memory budget fix: final software verification
 - [[sources/runs/2026/09/2026-09-18-memory-budget-regression]] — Memory budget context regression: before and after
+- [[sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes]] — Three mirrored arms differing only in pool queue depth or prefetch lanes, plus the two minimum-value controls
+- [[sources/runs/2026/09/2026-09-18-checks-on-mirror-build]] — The check catalogue on the committed mirror build, 46 passed and 0 failed
+- [[sources/runs/2026/09/2026-09-18-mirror-decode-ab-three-rounds]] — Three paired rounds of single-disk against mirrored decode on the committed build, with a generated-text digest across all six runs
 - [[sources/runs/2026/09/2026-09-17-conversation-resume-exactness]] — A continued conversation computed different logits from a cold one, 3.7% to 5.9% of their spread, and after the resume rule computes them bit for bit
+- [[sources/runs/2026/09/2026-09-18-mirror-iostat-device-witness]] — One mirrored decode with two witnesses, the engine's own mirror-split readout and iostat on both devices
 - [[sources/runs/2026/09/2026-09-17-verify-pass-deployment-recheck]] — Decode comparisons re-run on a quiet machine after the commit: 16k and 32k
 - [[sources/runs/2026/09/2026-09-17-verify-pass-checks-and-battery]] — Check catalogue, static gates and verify battery on the final verify-pass build
 - [[sources/runs/2026/09/2026-09-17-verify-pass-decode-final-build]] — Decode comparisons at 16k and 32k on the final build: dense, split and exact
@@ -498,17 +507,8 @@ updated: 2026-09-18T21:09:51.155362Z
 - [[sources/runs/2026/09/2026-09-06-optimization-gdn-projection-shared-backing]] — Shared-backing GDN projection native qualification
 - [[sources/runs/2026/09/2026-09-06-optimization-compute-islands-qualified]] — Quantized projection and GLU component qualification
 - [[sources/runs/2026/09/2026-09-06-optimization-rope-serving-qualified]] — RoPE short and prefill serving nonregression qualification
-- [[sources/runs/2026/09/2026-09-06-optimization-cpu-contiguous-counterexample]] — Contiguous CPU slot writes: exact serving regression
-- [[sources/runs/2026/09/2026-09-06-optimization-rope-component-qualified]] — Direct-stride RoPE component qualifies; serving protocols frozen V149
-- [[sources/runs/2026/09/2026-09-06-optimization-rope-direct-strides]] — Direct-stride RoPE native qualification V147
-- [[sources/runs/2026/09/2026-09-06-optimization-resident-serving-counterexample]] — Resident overlap serving misses gain gate V140 completed V146
-- [[sources/runs/2026/09/2026-09-06-optimization-rope-confirmation-excluded]] — Independent RoPE confirmation stopped on swap V145
-- [[sources/runs/2026/09/2026-09-06-optimization-terminal-tail-and-rope-screen]] — Terminal query tail passes; RoPE screen swap excluded V144
-- [[sources/runs/2026/09/2026-09-06-optimization-terminal-query-counterexample]] — Terminal single-query numerical counterexample V143
-- [[sources/runs/2026/09/2026-09-06-optimization-rope-integration]] — Exact partial RoPE model and MTP integration V142
-- [[sources/runs/2026/09/2026-09-06-optimization-complete-integrated]] — Complete prompt integrated native qualification V141
 
 ## More
 
-This folder has 627 files. The 500 most recent are listed above.
+This folder has 636 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

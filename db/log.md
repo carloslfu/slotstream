@@ -1875,3 +1875,57 @@ Body no longer says auto picks 65,536 tokens or more from 36 GB; at 48 GB it pic
 
 ## [2026-09-18 21:50] validate | db
 Automatic window docs aligned with 0.2.22: zero validation errors, two declared historical warnings, 302 claim needles current and llms-full.txt regenerated.
+
+## [2026-09-18 06:10] create | records/machines/mac-mini-m4-32gb
+The first two-disk machine in the store: a Mac mini M4, 32 GB, macOS 15.7.4, holding the checkpoint on both a 251 GB internal Apple SSD (1.81 GB/s saturated, 4 readers) and an external WD_BLACK SN8100 on Thunderbolt 4 (3.18 GB/s, 2 readers).
+
+## [2026-09-18 06:10] create | sources/runs/2026/09
+Five runs behind the mirror measurement: the three-round decode A/B on the committed binary, the iostat device witness, the router trace from a development build whose counters were removed before the commit, the cache-contaminated diskbench run kept as discarded, and the check catalogue.
+
+## [2026-09-18 06:10] create | records/measurements/mirror-reads-across-two-disks-2026-09-18
+Order 1520. Routing weight reads across mirrored copies: decode 6.11 to 7.35 tok/s, prefill reads 3.2 to 4.4 GB/s, one distinct generated text across six runs, router split 71.4% / 28.6% against iostat's 69.4% / 30.6%.
+
+## [2026-09-18 06:10] update | Sources/Slotstream/CheckpointMirror.swift, Sources/slotstream-cli/main.swift, Tools/diskbench.c
+Comments and --mirror help text re-anchored to the numbers the new record carries. The even-split figure in the router's class doc had no preserved run behind it and is replaced by a derivation from the machine record's single-reader rates (1.13 and 2.09 GB/s, harmonic mean 1.47).
+
+## [2026-09-18 06:10] index | db
+Index files and counts written by hand: dbmd is not installed on this machine, so the entries follow the shape of the existing ones in each folder. Tools/projections.py regenerated MEASUREMENTS.md and --check passes.
+
+## [2026-09-18 06:30] create | sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte
+cmp over all twelve shards of both checkpoint copies, 105,240,154,212 bytes each side, verdict IDENTICAL. The engine compares only size and safetensors header at startup, so the payload premise behind the mirror had no direct evidence until this pass.
+
+## [2026-09-18 06:30] update | records/measurements/mirror-reads-across-two-disks-2026-09-18
+The "routing must not change the output" paragraph now cites the byte-for-byte comparison for the files and keeps the digest equality as the independent check on the routing itself, since a digest would also catch a read served from the wrong offset.
+
+## [2026-09-18 06:30] create | records/claims/mirror-lifts-prefill-and-decode, records/claims/mirror-disk-rates-3-18-and-1-81, records/claims/mirror-internal-disk-serves-29-percent, records/claims/mirror-split-report-line-example
+Four claims for the numbers the new docs/CLI.md section puts on a public surface: the prefill and decode pair, the two disks' saturated rates, the slower disk's share of the bytes, and the sample split line. claims_gate.py now runs 256 needle checks with 0 failures.
+
+## [2026-09-18 06:30] update | docs/CLI.md, llms.txt, llms-full.txt
+docs/CLI.md gains a --mirror row and a "Mirrored checkpoints" section; llms.txt's entry for that file names the new topic; llms-full.txt regenerated, and Tools/llms_full.sh --check passes.
+
+## [2026-09-18 06:40] update | CHANGELOG.md, records/claims/mirror-lifts-prefill-and-decode, records/claims/mirror-internal-disk-serves-29-percent
+The Unreleased section gains the mirrored-checkpoint entry, phrased to carry the same two needles as docs/CLI.md so both claims list CHANGELOG.md as a surface. The disk-rate claim keeps docs/CLI.md alone, because the changelog states 3.18 and 1.81 GB/s in a different sentence shape. claims_gate.py now runs 258 needle checks with 0 failures, and llms-full.txt was regenerated over the changelog edit.
+
+## [2026-09-18 08:30] create | sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes
+Three mirrored arms on the same binary as the mirror A/B, differing only in SLOTSTREAM_POOL_QUEUE_DEPTH (32 against 128) or SLOTSTREAM_EXPERT_PREFETCH_LANES (8 against 24), three paired rounds each, plus a minimum-value control for each variable. The out-of-range probe in the same script was refused for insufficient reclaimable memory and never reached its configuration, so it settles nothing and is recorded as inconclusive.
+
+## [2026-09-18 08:30] create | records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18
+Order 1530. Neither width setting moves decode: the queue-depth raise is 1.012x and the prefetch-lane raise is 1.001x, both inside the base arm's own 0.23 tok/s spread. The controls separate "does not bind" from "not connected": depth 1 costs 32% of the tokens per second and halves the read rate, while one prefetch lane is indistinguishable from eight and twenty-four on every column. The deferral counter is flat across a 24-fold change in the lane budget, which places the deferrals on the demand-active gate rather than the lane cap, and 21.41 GB of the 45.40 GB of speculative reads is discarded.
+
+## [2026-09-18 08:30] update | records/measurements/mirror-reads-across-two-disks-2026-09-18
+The "what the mirror does not reach" paragraph attributed the depth-10 cap to concurrentPerform over ten cores, which the controls do not support. The mechanism is now the one the code shows and the controls confirm: ExpertStore.readBatchChecked takes lanes = min(queueDepth, jobs.count) with nine jobs per record, and a decode layer's demand batch holds one or two records. The conclusion the paragraph draws is unchanged.
+
+## [2026-09-18 09:00] update | records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18
+The deferral paragraph opened with 14,353, which appears in no run. The base arm's own median is 14,247, and the paragraph now states the whole observed range across the nine A/B runs (14,043 to 14,324) so the claim that the counter is flat in the lane budget can be checked against the run record directly.
+
+## [2026-09-18 11:30] create | sources/runs/2026/09/2026-09-18-mac-mini-idle-memory-baseline
+The machine left alone with nothing loaded: 28.82 GB reclaimable by vm_stat accounting, 29.9 GB by the reading slotstream uses, the gap being exactly the 64,675 speculative pages the Mach free_count includes and the vm_stat line does not. Captured because every insufficient-reclaimable-memory refusal so far had no baseline to be read against.
+
+## [2026-09-18 11:30] update | records/machines/mac-mini-m4-32gb
+The record now carries the idle baseline, which of the two availability readings decides whether a request starts, and the arithmetic that makes a finished run's residue enough to refuse the next one. It also records that nothing under Sources/ reads iogpu.wired_limit_mb, so that sysctl is not part of this refusal path.
+## [2026-09-19 15:15] update | records/measurements/mirror-read-review-2026-09-19
+Rebased mirror feature; qualified old concurrency inferences, filled missing binary provenance, and added deterministic routing checks.
+
+## [2026-09-19 15:39] validate | mirror-pr-native-validation
+Recorded native gates and final-code single/mirror parity with executable SHA-256; full static gates at fb9fe26, final code 0dec469. Validation: zero errors, four retained historical warnings.
+

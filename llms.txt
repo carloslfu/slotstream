@@ -72,7 +72,7 @@ development app, not a published desktop release.
 - [docs/CODEX.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CODEX.md): Codex through `slotstream launch codex`, the manual catalog and profile setup, a file-editing example, and troubleshooting
 - [README.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/README.md): project overview, requirements, measured speed, quick start, guides, a plain explanation, limitations, FAQs, community, and star history
 - [docs/SEVRA-MAC.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/SEVRA-MAC.md): native philosophy, development build, local workflow, tests, internal CLI and unpassed release gates
-- [docs/CLI.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLI.md): everyday commands, common diagnostics, memory-option precedence, environment variables, file locations, the diagnostic checks
+- [docs/CLI.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/CLI.md): everyday commands, common diagnostics, memory-option precedence, mirrored checkpoints across two disks, environment variables, file locations, the diagnostic checks
 - [docs/API.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/API.md): every endpoint, accepted field, sampling default, streaming and error shapes
 - [docs/LIBRARY.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/LIBRARY.md): using slotstream as a Swift package — the two products, the Metal library requirement, weights, planning, serving
 - [docs/TESTING.md](https://raw.githubusercontent.com/carloslfu/slotstream/main/docs/TESTING.md): the check catalogue and its tiers, what runs in CI against what needs the real weights, coverage and its ratchet

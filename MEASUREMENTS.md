@@ -5700,3 +5700,138 @@ The v0.2.22 candidate closes the one known failure from the earlier native run. 
 The full native battery now passes 27 top-level gates with no failures. It also repeats the pinned-weight hashes, parity, exact conversation resume, short- and long-request 10 GB bounds, speculative decoding, 74 serving checks and 15 behavioral probes. The repository gates pass 319 memory cases, 90 planner cases and 69 catalogue groups with 31,261 assertions. Evidence: [[sources/runs/2026/09/2026-09-18-v0-2-22-release-candidate]].
 
 This qualifies the release candidate functionally on the shared 48 GB development Mac. It remains neither a native 48 GB allocation measurement nor 64 GB hardware qualification.
+
+## Mirrored checkpoints: routing weight reads across two disks
+**Outcome: a checkpoint may now be given to `--model` and to one or more `--mirror` paths, and every weight read goes to whichever copy is estimated to finish it first. On a Mac mini M4 whose two disks read 3.18 and 1.81 GB/s, warm decode went from 6.11 to 7.35 tok/s over three paired rounds (x1.202) and prefill read throughput from 3.2 to 4.4 GB/s, which is 88% of the two disks' combined 4.99 GB/s and reached 4.7 GB/s in the best of the three mirrored rounds.** All six runs of the A/B produced one distinct generated text, so routing does not change what the model says. The router is told nothing about the devices: it learns each replica's throughput from that replica's own completed reads, converges on 71.4% of the bytes to the external disk against `iostat`'s 69.4% at the devices, and would re-weight itself if a disk changed speed. Default: unchanged, because a mirror only exists when the operator passes `--mirror`. Cost: a second copy of the checkpoint, 105.26 GB here.
+
+**Why one disk was the limit.** slotstream already reads with enough concurrency to saturate one disk on its own. An expert record is nine separate `pread` calls, because each expert row lives in its own `[512, R, C]` tensor: three weight pieces of 819,200 bytes and six scale and bias pieces of 51,200 bytes, 2,764,800 bytes per record. Those nine go out together and several records are in flight at once, so the read path typically holds about ten requests open. Both disks stop getting faster well below that (the internal one from 4 concurrent readers, the external from 2), so the engine was already sitting at the fast disk's ceiling while the other disk in the machine did nothing. The two disks saturate at 1.81 GB/s (internal, 4 concurrent readers) and 3.18 GB/s (external, 2 readers), so their sum, 4.99 GB/s, is 1.57 times what the faster one can do alone. Before this change the engine could reach only the 3.18.
+
+**Why a mirror and not a split.** Putting some shards on each disk needs no new code, but it fixes the byte ratio at file granularity. The expert bytes sit in six shards of about 9.23 GB, so the finest available split is one sixth, and the ratio the bandwidths call for, 36% internal to 64% external, has to be approximated by 2 shards against 4. A mirror instead decides per read, which matters because the right ratio is not a constant: it depends on how many reads happen to be in flight at that instant, and at low concurrency the correct answer is to send everything to the fast disk.
+
+**The routing rule.** Each read asks the router for a replica before it is issued. For each replica the router estimates when a read submitted now would finish there,
+
+```text
+finish = (bytes already queued here + this read's bytes) / throughput lately achieved here
+```
+
+and submits to the earliest finisher. The throughput term is aggregate: bytes completed divided by the time that replica had at least one read in flight. Both ends of the concurrency range come out right with no threshold to tune. While the replicas are idle nothing is queued, so throughput alone decides and the fast disk takes essentially everything. Once the fast disk has a backlog, its queued bytes lift its estimate past the slow disk's and the surplus spills across.
+
+**Two policies that fail, both of which were tried first.**
+
+An even split is worse than using the fast disk alone whenever few reads are in flight, because every second read waits out the slow disk with nothing to overlap it. This follows from the machine record's single-reader figures rather than from a run of an even-split build: at one read in flight the internal disk delivers 1.13 GB/s and the external 2.09 GB/s, so strictly alternating between them gives their harmonic mean, 1.47 GB/s, which is 30% below simply using the external disk. The penalty shrinks as the queue deepens and reverses once the external disk is saturated, which is exactly the crossover that a fixed ratio cannot express and an estimate of finishing time can.
+
+Estimating from the duration of individual reads runs away. A single read's wall clock already contains the wait behind everything else queued on the same disk, so multiplying it by the queue length counts that wait twice: the estimate gets worse the more work a replica is given. The first implementation did exactly that. The internal disk took 2,410 reads, measured itself at under 5 MB/s because those reads had been waiting on each other, and was then not chosen once in the following 40,000 reads, while the external disk was estimated at 0.10 GB/s and `iostat` showed it delivering 2.1 GB/s. Aggregate throughput inverts the feedback: giving a replica more concurrent work makes it measure faster, not slower, up to its own ceiling.
+
+**A measurement has to expire.** A replica is only measured while it is being used, so any reading that argues against using it is self-sealing. One unlucky probe — the internal disk caught mid-stall behind the engine's own startup allocations — excluded that disk for an entire run, and because it was excluded, the reading that condemned it was never revisited. An idle replica's reading is therefore discarded after one second, so the next claim measures that disk as it is now. A replica with a read in flight is never stale. The cost is one probe per second per starved replica, against reads that arrive by the thousand per second.
+
+**The clock has to be read under the lock.** Taking `DispatchTime.now()` before acquiring the router's lock lets two threads enter the critical section in the opposite order to their timestamps, so a claim can hold a timestamp older than the `busySince` already stored. The elapsed-time subtraction is on `UInt64` and underflows. This trapped during prefill with nothing on stderr; the cause came from `~/Library/Logs/DiagnosticReports/slotstream-*.ips`, which decoded to `Swift runtime failure: arithmetic overflow` inside `finishEstimate`. Both `claim` and `release` now read the clock after taking the lock.
+
+**Three paired rounds, 200 greedy tokens each.** Both arms keep the draft head and therefore the expert lookahead, because the lookahead is what puts several record reads in flight at once and the mirror only pays at that concurrency. The arms alternate within a round and the verdict is the median of the rounds, because single runs on this machine vary by more than the effect being measured. Each run waits until reclaimable memory is at least 28 GB across three consecutive readings, so no arm starts while the previous model is still being reclaimed.
+
+The harness computes each arm from the run's own `--stats-json`. `io s` is the seconds decode spent inside its I/O phase, `GB/s` is decode read bytes over that, and `io share` is that phase as a percentage of decode wall time.
+
+```text
+round   arm          tok/s      io s   read GB      GB/s   records  io share
+----------------------------------------------------------------------------
+1       single        6.04     10.35     23.13      2.23   8366.00     31.26
+1       mirror        7.28      7.51     23.08      3.08   8349.00     27.31
+2       single        6.11     10.48     23.13      2.21   8366.00     32.03
+2       mirror        7.41      7.40     23.09      3.12   8352.00     27.42
+3       single        6.19     10.43     23.15      2.22   8374.00     32.28
+3       mirror        7.35      7.65     23.08      3.02   8349.00     28.10
+
+median  arm          tok/s      io s   read GB      GB/s   records  io share
+----------------------------------------------------------------------------
+        single        6.11     10.43     23.13      2.22   8366.00     32.03
+        mirror        7.35      7.51     23.08      3.08   8349.00     27.42
+
+  tok/s      mirror / single = 1.202
+  io s       mirror / single = 0.720
+  read GB    mirror / single = 0.998
+  GB/s       mirror / single = 1.386
+  records    mirror / single = 0.998
+  io share   mirror / single = 0.856
+```
+
+Decode reads 23.1 GB in both arms, over 8,349 to 8,374 records, a spread of 0.3% that carries no signal, so the mirror is not saving reads; it is serving the same reads faster. The share of decode wall time spent waiting on I/O falls from 32.0% to 27.4%, which is what the token rate is made of.
+
+Prefill, the same six runs, from each run's own report:
+
+| arm | round 1 | round 2 | round 3 |
+| --- | ---: | ---: | ---: |
+| single, prefill read GB/s | 3.3 | 3.2 | 3.2 |
+| mirror, prefill read GB/s | 4.4 | 4.7 | 4.4 |
+
+The two phases improve by almost the same factor, 1.375 for prefill against 1.386 for decode, but they end up at very different absolute rates: 4.4 GB/s for prefill against 3.08 GB/s for decode. Prefill is the throughput-bound phase, because it reads all 6,539 records of a pass with nothing between them and the queues stay deep. Decode is partly latency-bound, so it leaves most of the gap to the 4.99 GB/s ceiling unclaimed, and that gap is what a deeper read path, not a third disk, would close.
+
+**The split the router chose, checked at the devices.** Over the three mirrored rounds the router's own readout gives 71.4%, 70.4% and 71.8% of bytes to the external disk. A separate single run under `iostat` shows the devices themselves at 69.4% external and 30.6% internal, averaged over the 33 seconds in which they were reading, with a peak second of 2,176 MB/s external and 1,077 MB/s internal. The two witnesses agree to about two points, and the remaining difference is expected: the router counts bytes it asked for, while `iostat` counts bytes that reached the device, and the file system does not turn one into the other exactly.
+
+The ratio is close to what the hardware calls for, which is the check that the policy learned the right thing rather than landing somewhere by accident. The saturated bandwidths, 3.18 against 1.81 GB/s, imply 64% / 36% if both disks were held at saturation throughout. The router sits at 71% / 29%, biased toward the fast disk, which is the correct direction: the queues are not deep enough to hold both disks at saturation continuously, and at shallow queues the fast disk is the better answer for a larger share of reads.
+
+**What the mirror does not reach.** The combined ceiling is 4.99 GB/s. Prefill reaches 4.4 to 4.7 GB/s of it; decode reaches 3.08. Decode's shortfall is concurrency, not routing. A development build's router trace recorded the queue depth at the moment each read was claimed: 86% of early claims saw exactly 10 reads in flight, and the distribution never spread far past that even though `SLOTSTREAM_POOL_QUEUE_DEPTH` is 32. What caps the depth is the size of a demand batch rather than the depth setting: `ExpertStore.readBatchChecked` builds nine jobs per record and takes `lanes = min(queueDepth, jobs.count)`, and a decode layer's batch holds one or two records, so 32 is never reached. Raising the pool depth on its own therefore will not put more reads in flight, which a later paired experiment confirmed by moving it to 128 for a 1.2% change and to 1 for a 32% loss ([[records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18]]), and a third disk would not help decode until decode has more work outstanding. That trace is [[sources/runs/2026/09/2026-09-18-mirror-router-trace-development-build]]; it came from a build whose debug counters were removed before the commit and it is not reproducible from the committed tree.
+
+**Routing must not change the output.** Every read may be served by either copy, so a mirror is also a claim that the two copies hold the same bytes. Two things hold that, and they cover different halves of the claim. At startup the engine compares each shard's size and safetensors header between the primary and every mirror and refuses the run if they differ, which pins every tensor's name, dtype, shape and byte range and so catches a different quantisation, a different revision or a truncated copy for a few hundred kilobytes of reading. It deliberately does not compare payloads, because that would cost a full pass over the checkpoint at every startup. That pass was done once by hand instead, outside the engine: `cmp` over all twelve shards, 105,240,154,212 bytes on each side, reports no difference anywhere, so the two copies are byte-identical as of this measurement ([[sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte]]). That is evidence about the files; the output carries the same claim independently and at the level that actually matters, since it would catch a routing bug that served the right bytes from the wrong offset as well as a bad copy. The A/B hashes the generated text of all six runs and finds **one distinct digest**, so the three single-disk runs and the three mirrored runs produced the same 200 tokens byte for byte across 23.1 GB of reads per run that the router spread over both copies. The comparison hashes the token stream on stdout rather than the run log, because the report goes to stderr and a stderr line lands inside a streamed line rather than between two lines, which makes a merged stream impossible to compare. An earlier harness that hashed a range of the log reported six distinct digests for runs that were in fact identical.
+
+**Cost.** A mirror is a whole second copy: 105.26 GB for this checkpoint, on an internal disk of 251 GB. It is worth it when a machine has a second disk that is fast enough to be worth reading from and enough free space to hold the model twice. On [[records/machines/mac-mini-m2-16gb]], whose single 256 GB disk reads 1.5 GB/s, neither condition holds.
+
+**Limits.** One machine, one prompt, 200 greedy tokens per run, `--experts-per-layer 118`, three paired rounds. The arms within a round are separated by a memory-reclaim wait rather than run simultaneously, so a slow drift in machine state would show up as a difference between arms; the three rounds bound that, since each arm's three values span 0.15 tok/s while the gap between arms is 1.2 tok/s. Only two replicas were measured. The policy is written for any number of replicas and has no term that assumes two, but a three-way mirror has not been run. The disks measured here differ by a factor of 1.76; the policy's behaviour on nearly equal disks follows from the rule but was not measured. `iostat` device figures and the engine's own throughput figures are not comparable totals, because the engine divides by the seconds it spent inside its I/O phase while `iostat` averages over whole seconds that also contain compute.
+
+**Gates.** The check catalogue passes on the committed build: 46 checks, 0 failed, 0 skipped, 28,499 assertions. No check exercises a mirror: the string does not appear anywhere under `Sources/slotstream-checks/`. The end-to-end behaviour genuinely needs a second copy of a real model on a second disk and so cannot live in the catalogue, but the routing rule itself is arithmetic over a few counters and could be checked without any weights, which is the obvious gap this record leaves open. Until then the policy is covered by the A/B and the two witnesses above.
+
+## Decode concurrency is not a width knob
+**Outcome: with a mirror in place, decode reads at 3.02 GB/s against a two-disk ceiling of 4.99, and neither of the two width settings closes any of that gap. Raising `SLOTSTREAM_POOL_QUEUE_DEPTH` from 32 to 128 moves decode by 1.2% and raising `SLOTSTREAM_EXPERT_PREFETCH_LANES` from 8 to 24 moves it by 0.1%, both inside a within-arm spread of 0.23 tok/s. Both settings are live: cutting the pool depth to 1 costs 32% of the tokens per second and doubles the I/O time. The read path is not narrow; it does not have enough outstanding work to be narrow.**
+
+**The three arms.** Every arm mirrors the checkpoint across both disks and differs only in one environment variable. Arms alternate inside a round and the verdict is the median of three rounds.
+
+```text
+median  arm     tok/s    io s   read GB    GB/s   issued  adopted  wastedGB  deferred
+        base     7.31    7.63     23.08    3.02    16423     8677     21.41     14247
+        qd       7.40    7.57     23.08    3.05    16422     8675     21.41     14280
+        pf       7.32    7.67     23.09    3.01    16422     8674     21.41     14266
+
+  qd / base  tok/s 1.012   GB/s 1.008
+  pf / base  tok/s 1.001   GB/s 0.994
+  within-arm spread, base: 7.16 .. 7.39 tok/s (0.23)
+```
+
+Nine runs, one distinct generated text. The difference between arms is smaller than the spread inside the `base` arm, so neither raise is distinguishable from no change at all.
+
+**The controls, and why they were needed.** An unchanged result cannot tell a knob that does not bind from a knob that is not connected, and the two readings call for opposite work. Each variable was therefore also driven to its minimum, where a connected knob has to hurt.
+
+```text
+run           tok/s     io s    GB/s   issued  adopted  deferred
+base           7.31     7.63    3.02    16423     8677     14247
+qd=1           5.00    16.04    1.44    16422     8677     13317
+lanes=1        7.31     7.68    3.01    16422     8671     14121
+```
+
+`SLOTSTREAM_POOL_QUEUE_DEPTH=1` costs 32% of the tokens per second, more than doubles the I/O time and halves the read rate, so that setting is connected and binding downward. `SLOTSTREAM_EXPERT_PREFETCH_LANES=1` is indistinguishable from 8 and from 24 on every column, including the deferral counter.
+
+**Why the demand path cannot use a deeper queue.** `ExpertStore.readBatchChecked` builds one job per piece and takes `lanes = min(queueDepth, jobs.count)`, where `jobs.count` is nine times the number of records in the batch. Decode reads 8,349 records over 48 layers and 95 verify passes, so a layer's demand batch holds one or two records: 9 to 18 jobs. The shipping default of 32 is already above what a batch can supply, which is why 128 changes nothing and 1 is catastrophic.
+
+**Why more prefetch lanes do not help.** A speculative worker holds a lane for exactly one piece read and releases it (`ExpertPrefetch.swift:342`), so the lane budget caps in-flight speculative reads. The budget is not what limits them here. Prefetch issues 45.40 GB over a 27.4 s decode, 1.66 GB/s averaged over the phase and 2.30 GB/s if it is credited only with the time no demand batch is active. One lane on the external disk at a single read in flight delivers 2.09 GB/s. The prefetch's appetite therefore sits within a small factor of what a single lane carries, which is why 1, 8 and 24 lanes are indistinguishable: the constraint is how much speculative work the scheduler issues and when, not how wide it is allowed to be.
+
+**What the deferral counter actually measures.** The base arm's 14,247 deferrals against roughly 147,800 acquisitions (16,422 tickets of nine pieces) is 9.6%, and the count barely moves across a 24-fold change in the lane budget: 14,121 at one lane, 14,247 at eight, 14,266 at twenty-four, and every one of the nine A/B runs falls between 14,043 and 14,324. `IOLaneBudget.acquireSpeculative` waits while `demandActive > 0 || speculativeInUse >= speculativeLanes`. A counter that is flat in `speculativeLanes` is being driven by the first disjunct: speculative reads are held off because a demand batch is in flight, not because the lanes are full. No environment variable relaxes that; it is a policy in the code.
+
+**Half of the speculative traffic is discarded.** The prefetch issues 16,422 tickets and 45.40 GB, of which 8,675 tickets and 23.98 GB are adopted; 21.41 GB is read and thrown away, 47% of the speculative bytes. The predictor is `router-reuse:strides=2`. This is the same in every arm to within 0.01 GB, so it is a property of the predictor and the prompt rather than of any setting measured here. It bounds what more concurrency could be worth: issuing more speculative work against a predictor of this accuracy buys waste at close to one byte for every useful byte.
+
+**What this says about a third disk.** The mirror record left open whether more disks would help decode and attributed the limit to `concurrentPerform` over ten cores. That attribution is not supported: the limit measured here is the size of a demand batch and the rate at which speculative work is issued, both of which are independent of the core count. The conclusion it was used to support still holds, and now rests on evidence: decode cannot use more read bandwidth until it has more work outstanding, so a third disk would not move it.
+
+**Where the whole-run bytes go.** The mirror report totals about 86.5 GB over a run whose prefill reads 18.1 GB and whose decode credits 23.1 GB. The prefetch's 45.40 GB of issued reads accounts for most of the difference, with demand-path reads and startup loading making up the rest. This was previously recorded as not decomposed.
+
+**Limits.** One machine, one prompt, 200 greedy tokens, `--experts-per-layer 118`, `--mtp on`. The raise arms are three paired rounds each; the two controls are a single run each, which is enough for effects of 32% and 0% but not for a small one. The prefetch-lane null is a null on this workload only: a configuration whose speculative appetite exceeded one lane's throughput would be expected to separate, and none was measured. `SLOTSTREAM_EXPERT_PREFETCH_LANES` is wired from the environment through `ExpertPrefetchConfiguration` into `IOLaneBudget(speculativeLanes:)`, so the null is read as "does not bind" rather than "not connected", but no run in this record forces it to bind.
+
+**Gates.** None. Nothing in the build reproduces these numbers, and no check exercises a mirror.
+
+## Mirror read review: workload and prefetch interpretation
+The September 18 paired mirror measurements remain historical observations on their recorded binary and workload, not measurements of the rebased main branch. The old concurrency interpretation is superseded; its raw runs and wording remain as evidence.
+
+8,349 demand records / 48 layers / 95 MTP verify passes is an average of about 1.83 per layer per pass, not a maximum of two per batch. Ten selected experts is per token; an MTP verification pass can contain multiple tokens. The two units cannot be subtracted to infer cache hits. A per-batch trace is needed to establish the distribution and whether queue depth ever binds.
+
+Expert lookahead already reads predicted experts asynchronously and adopts valid completed records. Cache residency, forecast coverage and issued-ticket adoption are distinct metrics. Demand-active gating blocks admission of ordinary speculative reads; it does not establish that all compute and reads are serial. The recorded 3.02 GB/s divides demand bytes by I/O time, not full decode wall time. It is not explained solely by GPU-only intervals.
+
+The queue-depth and prefetch-lane raises had no detectable gain on the tested workload. Neither those null results nor the mean batch size proves that a third disk cannot help. No third-disk measurement was made. Likewise, aggregate in-flight counts do not prove that each disk is saturated.
+
+The mirror's startup check compares shard sizes and safetensors headers. It rejects layout mismatches but cannot detect same-layout payload corruption; users must provide byte-identical copies. The paired study separately compared its copies byte for byte. The PR does not add a full-checkpoint hashing pass at every startup.
+
+Rebase validation is recorded separately from the original performance results. No new throughput ratio is claimed merely because compilation or correctness checks pass.

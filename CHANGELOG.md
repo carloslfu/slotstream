@@ -6,6 +6,24 @@ Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
 
+## Unreleased
+
+- Mirrored checkpoints. A second copy of the model on a second disk can be
+  given with `--mirror <dir>`, repeatable, and every checkpoint-shard read goes to
+  whichever copy is estimated to answer first. Expert streaming is bounded by
+  how fast weights can be read, and one disk saturates well below what two
+  reach together. Nothing about the devices is configured: each replica's
+  throughput is learned from its own completed reads, so the copies need not be
+  equally fast. On a Mac mini M4 with a 3.18 GB/s external NVMe and a
+  1.81 GB/s internal SSD, a mirror raises prefill from 3.2 to 4.4 GB/s and
+  decode from 6.11 to 7.35 tok/s, with the slower disk serving about 29% of the
+  bytes, and the generated text is unchanged. Every mirror's shards are checked
+  against `--model` at startup by size and safetensors header, which detects layout mismatches, not same-layout payload corruption. Copies
+  must be verified byte for byte before use. These are historical measurements
+  on the September 18 binary, not a new benchmark of this rebase. The
+  run's report ends with the split each copy actually served, which is the only
+  place a mirror that has stopped helping becomes visible.
+
 ## 0.2.22 - 2026-09-18
 
 - Automatic context selection no longer trades away expert cache above the
