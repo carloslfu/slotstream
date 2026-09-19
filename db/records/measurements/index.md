@@ -2,13 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-19T15:15:18.963059550Z
+updated: 2026-09-19T15:39:24.793287541Z
 ---
 
 # records/measurements
 
-- [[records/measurements/mirror-reads-across-two-disks-2026-09-18]] — Paired two-disk mirror runs on Mac mini M4: decode 6.11 to 7.35 tok/s, prefill I/O 3.2 to 4.4 GB/s, identical output; see the review for interpretation limits.
 - [[records/measurements/mirror-read-review-2026-09-19]] — Mirror read review: workload and prefetch interpretation
+- [[records/measurements/mirror-reads-across-two-disks-2026-09-18]] — Paired two-disk mirror runs on Mac mini M4: decode 6.11 to 7.35 tok/s, prefill I/O 3.2 to 4.4 GB/s, identical output; see the review for interpretation limits.
 - [[records/measurements/decode-concurrency-is-not-a-width-knob-2026-09-18]] — Historical concurrency A/B: wider queues had no detectable gain on this workload; causal interpretation superseded by the mirror review.
 - [[records/measurements/release-0-2-22-published-2026-09-18]] — v0.2.22 published, installed and accepted: memory and context policy fixed, exact conversation resume, verified release bytes, installed end to end 31/31.
 - [[records/measurements/conversation-resume-exactness]] — A continued conversation now computes what a cold one computes, bit for bit; a follow-up turn pays one partial prefill pass, 2.47 s against 8.56 s at 961 slots

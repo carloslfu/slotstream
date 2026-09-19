@@ -2,14 +2,14 @@
 type: measurement
 id: 01m2x3rwrynepcfdgn8tt86102
 created: 2026-09-19T15:15:18.942756386+00:00
-updated: 2026-09-19T15:15:18.942756386+00:00
+updated: 2026-09-19T15:39:24.793287541+00:00
 summary: 'Mirror read review: workload and prefetch interpretation'
 date: 2026-09-19
 doc: measurements
 level: '2'
 machines: '[[records/machines/mac-mini-m4-32gb]]'
 order: '1630'
-runs: '[[sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes]], [[sources/runs/2026/09/2026-09-18-mirror-decode-ab-three-rounds]]'
+runs: '[[sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes]], [[sources/runs/2026/09/2026-09-18-mirror-decode-ab-three-rounds]], [[sources/runs/2026/09/2026-09-19-mirror-pr-validation]]'
 title: 'Mirror read review: workload and prefetch interpretation'
 status: analysis
 ---

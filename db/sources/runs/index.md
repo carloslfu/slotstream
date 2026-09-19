@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-19T15:15:18.789767320Z
+updated: 2026-09-19T15:39:24.727012654Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-19-mirror-pr-validation]] — Rebased mirror PR native gates and output parity
 - [[sources/runs/2026/09/2026-09-18-mirror-router-trace-development-build]] — The router's own per-replica trace on a development build, including the queue depth at which reads are claimed
 - [[sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte]] — cmp over all twelve shards of both checkpoint copies, verdict IDENTICAL
 - [[sources/runs/2026/09/2026-09-18-mac-mini-idle-memory-baseline]] — Idle memory baseline on the Mac mini with nothing loaded, alongside the two different availability readings that disagree by the speculative page count
@@ -506,9 +507,8 @@ updated: 2026-09-19T15:15:18.789767320Z
 - [[sources/runs/2026/09/2026-09-06-optimization-gdn-projection-shared-backing]] — Shared-backing GDN projection native qualification
 - [[sources/runs/2026/09/2026-09-06-optimization-compute-islands-qualified]] — Quantized projection and GLU component qualification
 - [[sources/runs/2026/09/2026-09-06-optimization-rope-serving-qualified]] — RoPE short and prefill serving nonregression qualification
-- [[sources/runs/2026/09/2026-09-06-optimization-cpu-contiguous-counterexample]] — Contiguous CPU slot writes: exact serving regression
 
 ## More
 
-This folder has 635 files. The 500 most recent are listed above.
+This folder has 636 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
