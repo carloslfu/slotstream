@@ -13,6 +13,7 @@ extension Catalogue {
             Check("automatic-context-window", tier: .t0) { try automaticContextWindow() },
             Check("memory-budget-context", tier: .t0) { try memoryBudgetContext() },
             Check("configurable-context", tier: .t0) { try Diagnostics.configurableContext() },
+            Check("checkpoint-mirror", tier: .t0) { Diagnostics.checkpointMirror() },
             Check("exact-read", tier: .t0) { Diagnostics.optimizationExactRead() },
             Check("packed-layout", tier: .t0) { try Diagnostics.optimizationPackedLayout() },
             Check("ngram-prefetch-ticket", tier: .t0) { try Diagnostics.optimizationNgramPrefetchTicket() },

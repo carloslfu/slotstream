@@ -2,17 +2,18 @@
 type: measurement
 id: 01m2swpp9h0e2d0d4vh1evjeq1
 created: 2026-09-18T08:10:00+00:00
-updated: 2026-09-19T15:12:24.684770280+00:00
-summary: 'Decode does not reach the two-disk ceiling because it has too little work outstanding, not too little width: raising the pool queue depth or the prefetch lanes changes nothing, while crushing the pool depth to 1 costs a third of the tokens per second'
+updated: 2026-09-19T15:15:18.921206148+00:00
+summary: 'Historical concurrency A/B: wider queues had no detectable gain on this workload; causal interpretation superseded by the mirror review.'
 date: 2026-09-18
 doc: measurements
 level: '2'
 machines: '[[records/machines/mac-mini-m4-32gb]]'
-note: One machine, one prompt, one pool size. Three rounds per arm on the raise, one run per arm on the control.
+note: Historical data retained. Batch-size bounds and the conclusion that a third disk cannot help were not established; see the linked review.
 order: '1620'
 runs: '[[sources/runs/2026/09/2026-09-18-decode-queue-depth-and-prefetch-lanes]], [[sources/runs/2026/09/2026-09-18-mirror-decode-ab-three-rounds]]'
+superseded_by: '[[records/measurements/mirror-read-review-2026-09-19]]'
 title: Decode concurrency is not a width knob
-status: measured
+status: superseded
 ---
 **Outcome: with a mirror in place, decode reads at 3.02 GB/s against a two-disk ceiling of 4.99, and neither of the two width settings closes any of that gap. Raising `SLOTSTREAM_POOL_QUEUE_DEPTH` from 32 to 128 moves decode by 1.2% and raising `SLOTSTREAM_EXPERT_PREFETCH_LANES` from 8 to 24 moves it by 0.1%, both inside a within-arm spread of 0.23 tok/s. Both settings are live: cutting the pool depth to 1 costs 32% of the tokens per second and doubles the I/O time. The read path is not narrow; it does not have enough outstanding work to be narrow.**
 

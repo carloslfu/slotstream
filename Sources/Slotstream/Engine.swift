@@ -303,13 +303,21 @@ public final class Engine {
         poolSnapshotLock.unlock()
     }
 
-    public convenience init(modelDir: URL, mirrors: [URL] = [], plan: MemoryPlan) async throws {
+    public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, mirrors: [], plan: plan)
+    }
+
+    public convenience init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+        try await self.init(modelDir: modelDir, mirrors: [], poolSlots: poolSlots, plan: plan)
+    }
+
+    public convenience init(modelDir: URL, mirrors: [URL], plan: MemoryPlan) async throws {
         try await self.init(modelDir: modelDir, mirrors: mirrors, poolSlots: plan.slots, plan: plan)
     }
 
     /// `mirrors` are byte-identical copies of `modelDir` on other disks; weight
     /// reads are spread across all of them. See `MirrorRouter`.
-    public init(modelDir: URL, mirrors: [URL] = [], poolSlots: Int,
+    public init(modelDir: URL, mirrors: [URL], poolSlots: Int,
         plan: MemoryPlan? = nil) async throws {
         // A plan made for a simulated machine may be printed and compared,
         // never loaded. Simulating memory the machine does not have still

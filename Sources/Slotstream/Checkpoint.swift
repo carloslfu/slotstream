@@ -323,7 +323,11 @@ public final class CheckpointIndex {
     /// `mirrors` are directories holding byte-identical copies of the same
     /// checkpoint, on other disks. Reads are then spread across all of them by
     /// `MirrorRouter`; passing none leaves every read on `dir` as before.
-    public init(dir: URL, mirrors: [URL] = []) throws {
+    public convenience init(dir: URL) throws {
+        try self.init(dir: dir, mirrors: [])
+    }
+
+    public init(dir: URL, mirrors: [URL]) throws {
         let resolved = dir.resolvingSymlinksInPath()
         self.dir = resolved
         self.mirrorDirs = mirrors.map { $0.resolvingSymlinksInPath() }
@@ -563,6 +567,13 @@ public final class CheckpointIndex {
     public func ref(_ name: String) -> TensorRef {
         guard let r = tensors[name] else { fatalError("missing tensor \(name)") }
         return r
+    }
+
+    /// The primary checkpoint descriptor, retained for existing library callers.
+    /// Routed reads use preadChecked or readHandle instead.
+    public func fd(for file: URL) -> Int32 {
+        do { return try checkedDescriptors(for: file)[0] }
+        catch { preconditionFailure(String(describing: error)) }
     }
 
     package func readHandle(for ref: TensorRef) -> TensorReadHandle {

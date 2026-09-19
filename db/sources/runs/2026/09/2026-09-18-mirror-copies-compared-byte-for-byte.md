@@ -1,9 +1,10 @@
 ---
 type: run
 id: 01m2s5k2vmjzpvtxkd3tfgjt42
-created: 2026-09-18T06:20:00.000000+00:00
-updated: 2026-09-18T06:20:00.000000+00:00
+created: 2026-09-18T06:20:00+00:00
+updated: 2026-09-19T15:15:18.759756452+00:00
 summary: cmp over all twelve shards of both checkpoint copies, verdict IDENTICAL
+binary: system cmp; executable hash not recorded
 captured_at: 2026-09-18
 command: /tmp/mirrorcmp.sh
 discarded: 'false'

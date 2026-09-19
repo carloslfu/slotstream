@@ -1,9 +1,10 @@
 ---
 type: run
 id: 01m2s4e4fsa3frmrc9g3jkm2ea
-created: 2026-09-18T05:30:00.000000+00:00
-updated: 2026-09-18T05:30:00.000000+00:00
+created: 2026-09-18T05:30:00+00:00
+updated: 2026-09-19T15:15:18.789767320+00:00
 summary: The router's own per-replica trace on a development build, including the queue depth at which reads are claimed
+binary: uncommitted trace build, overwritten; executable hash not recorded
 captured_at: 2026-09-18
 command: SLOTSTREAM_MIRROR_DEBUG=1 .build/release/slotstream run --model /Volumes/llm/models/qwen38-flash-next-mlx-4bit --mirror /Users/qian/.slotstream/models/qwen38-flash-next-mlx-4bit --experts-per-layer 118 --max-context 8192 --mtp on --max-tokens 200 --greedy --seed 1 --prompt "<the MoE explanation prompt>"
 discarded: 'false'

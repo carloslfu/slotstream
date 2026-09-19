@@ -2,13 +2,13 @@
 type: measurement
 id: 01m2s4e4fs81zwedpjern65nht
 created: 2026-09-18T05:40:00+00:00
-updated: 2026-09-19T15:12:24.664245643+00:00
-summary: 'A second copy of the checkpoint on a second disk, with reads routed to whichever copy would finish first: warm decode 6.11 to 7.35 tok/s and prefill reads 3.2 to 4.4 GB/s on a two-disk Mac mini M4, output byte-identical'
+updated: 2026-09-19T15:15:18.963059550+00:00
+summary: 'Paired two-disk mirror runs on Mac mini M4: decode 6.11 to 7.35 tok/s, prefill I/O 3.2 to 4.4 GB/s, identical output; see the review for interpretation limits.'
 date: 2026-09-18
 doc: measurements
 level: '2'
 machines: '[[records/machines/mac-mini-m4-32gb]]'
-note: One machine, one prompt, two replicas, three paired rounds; the policy has only been measured on disks whose saturated rates differ by 1.76x.
+note: Paired performance figures stand for the recorded binary; concurrency and third-disk interpretation is qualified by [[records/measurements/mirror-read-review-2026-09-19]].
 order: '1610'
 runs: '[[sources/runs/2026/09/2026-09-18-mirror-decode-ab-three-rounds]], [[sources/runs/2026/09/2026-09-18-mirror-iostat-device-witness]], [[sources/runs/2026/09/2026-09-18-mirror-router-trace-development-build]], [[sources/runs/2026/09/2026-09-18-diskbench-mirrored-shard-cached]], [[sources/runs/2026/09/2026-09-18-checks-on-mirror-build]], [[sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte]]'
 title: 'Mirrored checkpoints: routing weight reads across two disks'

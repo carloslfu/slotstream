@@ -6249,3 +6249,16 @@ lanes=1        7.31     7.68    3.01    16422     8671     14121
 **Limits.** One machine, one prompt, 200 greedy tokens, `--experts-per-layer 118`, `--mtp on`. The raise arms are three paired rounds each; the two controls are a single run each, which is enough for effects of 32% and 0% but not for a small one. The prefetch-lane null is a null on this workload only: a configuration whose speculative appetite exceeded one lane's throughput would be expected to separate, and none was measured. `SLOTSTREAM_EXPERT_PREFETCH_LANES` is wired from the environment through `ExpertPrefetchConfiguration` into `IOLaneBudget(speculativeLanes:)`, so the null is read as "does not bind" rather than "not connected", but no run in this record forces it to bind.
 
 **Gates.** None. Nothing in the build reproduces these numbers, and no check exercises a mirror.
+
+## Mirror read review: workload and prefetch interpretation
+The September 18 paired mirror measurements remain historical observations on their recorded binary and workload, not measurements of the rebased main branch. The old concurrency interpretation is superseded; its raw runs and wording remain as evidence.
+
+8,349 demand records / 48 layers / 95 MTP verify passes is an average of about 1.83 per layer per pass, not a maximum of two per batch. Ten selected experts is per token; an MTP verification pass can contain multiple tokens. The two units cannot be subtracted to infer cache hits. A per-batch trace is needed to establish the distribution and whether queue depth ever binds.
+
+Expert lookahead already reads predicted experts asynchronously and adopts valid completed records. Cache residency, forecast coverage and issued-ticket adoption are distinct metrics. Demand-active gating blocks admission of ordinary speculative reads; it does not establish that all compute and reads are serial. The recorded 3.02 GB/s divides demand bytes by I/O time, not full decode wall time. It is not explained solely by GPU-only intervals.
+
+The queue-depth and prefetch-lane raises had no detectable gain on the tested workload. Neither those null results nor the mean batch size proves that a third disk cannot help. No third-disk measurement was made. Likewise, aggregate in-flight counts do not prove that each disk is saturated.
+
+The mirror's startup check compares shard sizes and safetensors headers. It rejects layout mismatches but cannot detect same-layout payload corruption; users must provide byte-identical copies. The paired study separately compared its copies byte for byte. The PR does not add a full-checkpoint hashing pass at every startup.
+
+Rebase validation is recorded separately from the original performance results. No new throughput ratio is claimed merely because compilation or correctness checks pass.

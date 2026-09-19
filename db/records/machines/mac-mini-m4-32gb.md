@@ -1,9 +1,9 @@
 ---
 type: machine
 id: 01m2s4e4fs0dxr88w41bb9qs22
-created: 2026-09-18T05:20:00.000000+00:00
-updated: 2026-09-18T11:30:00.000000+00:00
-summary: 'A Mac mini M4, 32 GB, that holds the checkpoint twice: on the 251 GB internal SSD and on a Thunderbolt 4 WD_BLACK SN8100. It is the first machine here whose second disk is fast enough that reading both at once is worth the code.'
+created: 2026-09-18T05:20:00+00:00
+updated: 2026-09-19T15:15:18.817879636+00:00
+summary: Mac mini M4 with 32 GB RAM, internal Apple SSD and external SN8100; paired mirror-read measurements and idle-memory observations.
 chip: Apple M4
 kind: mac
 os: macOS 15.7.4 (24G517)
