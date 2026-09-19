@@ -54,8 +54,9 @@ struct ModelOptions: ParsableArguments {
                 external NVMe raises prefill from 3.2 to 4.4 GB/s and decode \
                 from 6.11 to 7.35 tok/s, with the slower internal disk taking \
                 about 29% of the bytes. Every mirror's shards are checked \
-                against --model at startup, and a mirror that is not the same \
-                checkpoint is refused. The run's report ends with the split each \
+                against --model by shard size and header at startup. Payload \
+                identity is the caller's responsibility; verify copies before use. \
+                The run's report ends with the split each \
                 copy actually served, which is the only place a mirror that has \
                 stopped being used becomes visible.
                 """))
