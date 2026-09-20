@@ -77,6 +77,8 @@ model. Open the details below for versions, settings, and credits.
 | MacBook Pro 16", M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | auto: 34.6 GB target, ~152 experts/layer | ~21–22 tok/s with speculative decoding | not measured | not measured; server path only | [@waterliu1981's update](https://github.com/carloslfu/slotstream/issues/6#issuecomment-5520489176), 2026-09-03 |
 | Same M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | manual: 48 GB target, ~253 experts/layer | ~26.9 tok/s with speculative decoding | not measured | not measured | same report |
 | Same M5 Max | 128 GB | internal, 2 TB | 26.6.2 | 0.2.3 | manual: 73 GB target, ~401–441 experts/layer as reported | ~31.5 tok/s with speculative decoding | not measured | not measured | same report |
+| MacBook Pro 16", M4 Max | 64 GB | internal, 1 TB | 27.0 | 0.2.22 | auto: 48.1 GB target, ~119 experts/layer | 14.95–16.22 tok/s | 270 tok/s at 8192 tokens | 30.1 GB RSS on the long prompt | [@YenHub](https://github.com/carloslfu/slotstream/issues/22), 2026-09-19 |
+| MacBook Pro 16", M4 Max | 64 GB | external, 1 TB, USB 3.2 Gen 2 (10 Gb/s) | 27.0 | 0.2.22 | auto: 48.1 GB target, ~119 experts/layer | 2.81–3.04 tok/s | 51 tok/s at 8192 tokens | 30.2 GB RSS on the long prompt | [@YenHub](https://github.com/carloslfu/slotstream/issues/23), 2026-09-19 |
 
 The historical memory values retain their original measurement limits. The
 M5 Pro figure is a planner estimate, and older reported values do not establish
