@@ -267,20 +267,19 @@ public struct TensorRef {
 /// that another request can close or reuse while its read is pending.
 package struct TensorReadHandle {
     private let owner: CheckpointIndex
-    private let descriptor: Int32
+    /// One descriptor per replica of this tensor's shard, in replica order.
+    private let descriptors: [Int32]
     private let base: Int
     private let length: Int
-    init(owner: CheckpointIndex, descriptor: Int32, ref: TensorRef) {
-        self.owner = owner; self.descriptor = descriptor; self.base = ref.byteOffset; self.length = ref.byteCount
+    init(owner: CheckpointIndex, descriptors: [Int32], ref: TensorRef) {
+        self.owner = owner; self.descriptors = descriptors; self.base = ref.byteOffset; self.length = ref.byteCount
     }
     package func readChecked(into dst: UnsafeMutableRawPointer, offset: Int, count: Int,
         shouldContinue: () -> Bool = { true }) throws {
         let absolute = try ExactRead.tensorOffset(base: base, length: length, offset: offset, count: count)
         try withExtendedLifetime(owner) {
-            try ExactRead.transfer(into: dst, offset: absolute, count: count, shouldContinue: shouldContinue) { pointer, remaining, position in
-                let got = Foundation.pread(descriptor, pointer, remaining, off_t(position))
-                return .init(count: got, error: got < 0 ? errno : 0)
-            }
+            try owner.readRouted(descriptors, into: dst, absolute: absolute, count: count,
+                shouldContinue: shouldContinue)
         }
     }
     package func read(into dst: UnsafeMutableRawPointer, offset: Int, count: Int) {
@@ -294,12 +293,18 @@ public final class CheckpointIndex {
     public let dir: URL
     public let config: ModelConfig
     public private(set) var tensors: [String: TensorRef] = [:]
-    private var fds: [URL: Int32] = [:]
+    /// One descriptor per replica, in replica order, with `dir`'s own copy
+    /// first. Replicas hold identical bytes, so a read may use any of them.
+    private var fds: [URL: [Int32]] = [:]
     private let fdLock = NSLock()
+    private let mirrorDirs: [URL]
+    package let mirror: MirrorRouter
 
     deinit {
         fdLock.withLock {
-            for fd in fds.values { close(fd) }
+            for descriptors in fds.values {
+                for fd in descriptors { close(fd) }
+            }
             fds.removeAll()
         }
     }
@@ -315,9 +320,18 @@ public final class CheckpointIndex {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
-    public init(dir: URL) throws {
+    /// `mirrors` are directories holding byte-identical copies of the same
+    /// checkpoint, on other disks. Reads are then spread across all of them by
+    /// `MirrorRouter`; passing none leaves every read on `dir` as before.
+    public convenience init(dir: URL) throws {
+        try self.init(dir: dir, mirrors: [])
+    }
+
+    public init(dir: URL, mirrors: [URL]) throws {
         let resolved = dir.resolvingSymlinksInPath()
         self.dir = resolved
+        self.mirrorDirs = mirrors.map { $0.resolvingSymlinksInPath() }
+        self.mirror = MirrorRouter(replicaCount: 1 + mirrors.count)
         self.config = try ModelConfig.load(from: resolved)
         let files = try Self.shardFiles(in: resolved)
         guard !files.isEmpty else {
@@ -327,6 +341,56 @@ public final class CheckpointIndex {
             try parseHeader(f)
         }
         try requireExpectedTensors()
+        try requireIdenticalMirrors(files)
+    }
+
+    /// A replica may only be used if it is the same checkpoint byte for byte,
+    /// because the tensor offsets parsed from `dir` are applied unchanged to
+    /// whichever replica the router picks. Comparing each shard's size and
+    /// header catches a different quantisation, a different revision and a
+    /// truncated copy for a few hundred kilobytes of reading, where comparing
+    /// the payloads would cost a full pass over the whole checkpoint.
+    private func requireIdenticalMirrors(_ files: [URL]) throws {
+        for replica in mirrorDirs {
+            for file in files {
+                let name = file.lastPathComponent
+                let expected = try Self.shardIdentity(file)
+                let found: (size: Int, header: Data)
+                do { found = try Self.shardIdentity(replica.appendingPathComponent(name)) }
+                catch {
+                    throw ModelError(
+                        "mirror \(replica.path) cannot serve \(name): \(error) — a mirror must "
+                            + "hold the same shards as --model")
+                }
+                guard found.size == expected.size, found.header == expected.header else {
+                    throw ModelError(
+                        "mirror \(replica.path) holds a different \(name) than \(dir.path) — "
+                            + "every mirror must be a byte-identical copy of --model")
+                }
+            }
+        }
+    }
+
+    /// Size plus safetensors header, which together pin every tensor's name,
+    /// dtype, shape and byte range within the shard.
+    private static func shardIdentity(_ file: URL) throws -> (size: Int, header: Data) {
+        func unreadable(_ why: String) -> ModelError {
+            ModelError("\(file.path) is not a readable safetensors file (\(why))")
+        }
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        guard let size = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size]
+            as? Int64, size >= 8, size <= Int64(Int.max)
+        else { throw unreadable("file size is not representable") }
+        guard let lengthData = try handle.read(upToCount: 8), lengthData.count == 8 else {
+            throw unreadable("truncated header")
+        }
+        // Data's buffer carries no alignment guarantee; `load` requires one.
+        let length = lengthData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
+        guard length > 0, length <= 100_000_000, length <= UInt64(size - 8),
+            let header = try handle.read(upToCount: Int(length)), header.count == Int(length)
+        else { throw unreadable("header length \(length) does not fit the file") }
+        return (Int(size), header)
     }
 
     private func parseHeader(_ file: URL) throws {
@@ -505,26 +569,65 @@ public final class CheckpointIndex {
         return r
     }
 
+    /// The primary checkpoint descriptor, retained for existing library callers.
+    /// Routed reads use preadChecked or readHandle instead.
     public func fd(for file: URL) -> Int32 {
-        do { return try checkedFD(for: file) }
+        do { return try checkedDescriptors(for: file)[0] }
         catch { preconditionFailure(String(describing: error)) }
     }
 
     package func readHandle(for ref: TensorRef) -> TensorReadHandle {
-        TensorReadHandle(owner: self, descriptor: fd(for: ref.file), ref: ref)
+        do { return TensorReadHandle(owner: self, descriptors: try checkedDescriptors(for: ref.file), ref: ref) }
+        catch { preconditionFailure(String(describing: error)) }
     }
 
-    private func checkedFD(for file: URL) throws -> Int32 {
+    private func checkedDescriptors(for file: URL) throws -> [Int32] {
         fdLock.lock()
         defer { fdLock.unlock() }
-        if let f = fds[file] { return f }
+        if let open = fds[file] { return open }
+        var opened: [Int32] = []
+        do {
+            opened.append(try Self.openForStreaming(file))
+            for replica in mirrorDirs {
+                opened.append(try Self.openForStreaming(
+                    replica.appendingPathComponent(file.lastPathComponent)))
+            }
+        } catch {
+            for descriptor in opened { close(descriptor) }
+            throw error
+        }
+        fds[file] = opened
+        return opened
+    }
+
+    private static func openForStreaming(_ file: URL) throws -> Int32 {
         var f: Int32
         repeat { f = open(file.path, O_RDONLY) } while f < 0 && errno == EINTR
         guard f >= 0 else { throw ModelError("open \(file.path) failed: \(String(cString: strerror(errno)))") }
         _ = fcntl(f, F_NOCACHE, 1)
         _ = fcntl(f, F_RDAHEAD, 0)
-        fds[file] = f
         return f
+    }
+
+    /// Runs one exact read through the mirror router, which chooses the replica
+    /// and times the read itself so that its view of that replica stays current.
+    /// `descriptors` is indexed by replica, so it has to be one this index
+    /// opened: it and the router are both sized from `mirrorDirs`.
+    fileprivate func readRouted(_ descriptors: [Int32], into dst: UnsafeMutableRawPointer,
+        absolute: Int, count: Int, shouldContinue: () -> Bool) throws {
+        let replica = mirror.claim(byteCount: count)
+        let descriptor = descriptors[replica]
+        do {
+            try ExactRead.transfer(into: dst, offset: absolute, count: count,
+                shouldContinue: shouldContinue) { pointer, remaining, position in
+                    let got = Foundation.pread(descriptor, pointer, remaining, off_t(position))
+                    return ExactRead.Outcome(count: got, error: got < 0 ? errno : 0)
+                }
+        } catch {
+            mirror.release(replica, byteCount: count, completed: false)
+            throw error
+        }
+        mirror.release(replica, byteCount: count, completed: true)
     }
 
     /// Compatibility wrapper. A corrupt checkpoint still fails closed; it
@@ -541,11 +644,7 @@ public final class CheckpointIndex {
         offset: Int, count: Int, shouldContinue: () -> Bool = { true }) throws {
         let absolute = try ExactRead.tensorOffset(base: r.byteOffset, length: r.byteCount, offset: offset, count: count)
         if count == 0 { return }
-        let f = try checkedFD(for: r.file)
-        try ExactRead.transfer(into: dst, offset: absolute, count: count,
-            shouldContinue: shouldContinue) { pointer, remaining, absolute in
-                let got = Foundation.pread(f, pointer, remaining, off_t(absolute))
-                return ExactRead.Outcome(count: got, error: got < 0 ? errno : 0)
-            }
+        try readRouted(try checkedDescriptors(for: r.file), into: dst, absolute: absolute,
+            count: count, shouldContinue: shouldContinue)
     }
 }
