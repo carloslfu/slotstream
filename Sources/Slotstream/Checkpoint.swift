@@ -615,6 +615,14 @@ public final class CheckpointIndex {
     /// opened: it and the router are both sized from `mirrorDirs`.
     fileprivate func readRouted(_ descriptors: [Int32], into dst: UnsafeMutableRawPointer,
         absolute: Int, count: Int, shouldContinue: () -> Bool) throws {
+        if mirror.replicaCount == 1 {
+            try ExactRead.transfer(into: dst, offset: absolute, count: count,
+                shouldContinue: shouldContinue) { pointer, remaining, position in
+                    let got = Foundation.pread(descriptors[0], pointer, remaining, off_t(position))
+                    return ExactRead.Outcome(count: got, error: got < 0 ? errno : 0)
+                }
+            return
+        }
         let replica = mirror.claim(byteCount: count)
         let descriptor = descriptors[replica]
         do {
