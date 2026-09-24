@@ -2,13 +2,13 @@
 type: measurement
 id: 01m37134v19kwb0w95wjp6869r
 created: 2026-09-23T11:40:53.473820+00:00
-updated: 2026-09-23T11:40:53.473820+00:00
+updated: 2026-09-24T12:18:57.749194+00:00
 summary: 'A shared prefix at a prompt''s own resume boundary: the head is upgraded, and the gate that fails without it'
 date: 2026-09-23
 doc: measurements
 level: '2'
-machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
-note: Functional acceptance on one machine shared with other sessions; the gate counts, the before/after failure set and the live session's log stand, and no timing is claimed. The live session ran the installed v0.2.23 build.
+machines: '[[records/machines/macbook-air-m5-32gb-local]]'
+note: 'Functional acceptance on one machine shared with other sessions; the gate counts, the before/after failure set and the live session''s log stand, and no timing is claimed. The live session ran the installed v0.2.23 build. Machine attribution corrected 2026-09-24: the evidence was produced on a 32 GB MacBook Air, and the earlier link to the 48 GB dev Mac was the store''s only development-machine record.'
 order: '1662'
 runs: '[[sources/runs/2026/09/2026-09-23-shared-prefix-boundary-upgrade]]'
 title: 'A shared prefix at a prompt''s own resume boundary: the head is upgraded, and the gate that fails without it'

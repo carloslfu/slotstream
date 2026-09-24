@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/machines
-updated: 2026-09-10T21:40:02.882876Z
+updated: 2026-09-24T12:15:33.198798Z
 ---
 
 # records/machines
 
+- [[records/machines/macbook-air-m5-32gb-local]] — The 32 GB MacBook Air (Apple M5, macOS 27) the 2026-09-24 live shared-prefix acceptance ran on
 - [[records/machines/github-actions-macos-26]] — Ephemeral macOS CI runner pool
 - [[records/machines/macbook-air-m5-32gb]] — MacBook Air, Apple M5, 32 GB (community)
 - [[records/machines/macbook-pro-m5-max-128gb]] — MacBook Pro 16-inch, Apple M5 Max, 128 GB (community)

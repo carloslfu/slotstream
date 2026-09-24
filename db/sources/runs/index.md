@@ -2,17 +2,17 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-09-24T07:21:34.737275Z
+updated: 2026-09-24T12:18:57.790824Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/09/2026-09-23-shared-prefix-boundary-upgrade]] — Shared prefix head upgrade: the T1 case that fails without it, and the live session where no shared save reached disk
 - [[sources/runs/2026/09/2026-09-24-sevra-window-responsiveness]] — Sevra window responsiveness before and after on a long-history Home, offscreen harness, diagnostic
 - [[sources/runs/2026/09/2026-09-23-sevra-live-folder-navigation]] — Live folder navigation, reliable continuation and real-model reviewed edits
 - [[sources/runs/2026/09/2026-09-23-sevra-native-replay-growth]] — Native Sevra replay and bounded warm cache growth
 - [[sources/runs/2026/09/2026-09-23-sevra-verification-exact-mtime]] — Sevra verification rejects corruption with exact nanosecond mtime restored
 - [[sources/runs/2026/09/2026-09-23-sevra-app-optimizations]] — Sevra desktop optimization trials and real-model acceptance
-- [[sources/runs/2026/09/2026-09-23-shared-prefix-boundary-upgrade]] — Shared prefix head upgrade: the T1 case that fails without it, and the live session where no shared save reached disk
 - [[sources/runs/2026/09/2026-09-23-sevra-app-speed]] — Actual Sevra development-app speed and MTP diagnostic
 - [[sources/runs/2026/09/2026-09-23-release-0-2-24-performance]] — v0.2.24 versus v0.2.23: 72 captured requests, timing claims withheld
 - [[sources/runs/2026/09/2026-09-23-release-0-2-24-published-and-installed]] — v0.2.24 published, publicly installed and accepted

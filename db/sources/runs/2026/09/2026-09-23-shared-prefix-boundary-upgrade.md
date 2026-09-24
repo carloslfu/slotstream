@@ -2,13 +2,14 @@
 type: run
 id: 01m370hpjcg12jth0xab69a7hg
 created: 2026-09-23T11:31:21.804261+00:00
-updated: 2026-09-23T12:24:34.518927+00:00
+updated: 2026-09-24T12:18:57.790824+00:00
 summary: 'Shared prefix head upgrade: the T1 case that fails without it, and the live session where no shared save reached disk'
 binary: '.build/release/slotstream b8053abbd963f5615c0991b0ab07a01fd8c2201ed993e94939b6e86a9faf67c5; .build/release/slotstream-checks a20a27964b6773bb1d925354ac5aeffc74f80326566652be9f84907273148b9f (tree e33b0a8 plus the patch: the build the 110-assertion gate, the seven-failure pre-fix recheck and the 31,919-assertion catalogue ran on); the live session ran the installed v0.2.23 build, whose heads report build id 288056679a90'
 captured_at: 2026-09-23
 command: swift build -c release --disable-sandbox; cp Tools/lib/mlx-0.32.2.metallib .build/release/mlx.metallib; .build/release/slotstream-checks --tier t1 --filter persistent-prefix-round-trip; .build/release/slotstream-checks --tier t0 --tier t1; .build/release/slotstream optimization-state-check --variant shared-prefix --tokens 2051; .build/release/slotstream optimization-state-check --variant shared-prefix-mtp --tokens 2051; .build/release/slotstream prefix-cache
 discarded: 'false'
-machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
+machines: '[[records/machines/macbook-air-m5-32gb-local]]'
+note: Machine attribution corrected 2026-09-24 to the 32 GB MacBook Air the capture was produced on; it had linked the store's 48 GB dev-Mac record. The run's evidence and wording are unchanged.
 title: 'Shared prefix head upgrade: the T1 case that fails without it, and the live session where no shared save reached disk'
 tool: slotstream-checks (T0/T1 catalogue), slotstream optimization-state-check --variant shared-prefix[-mtp], slotstream prefix-cache, ~/.slotstream/serve.log
 ---
