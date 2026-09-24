@@ -33,6 +33,16 @@ extension PersistentPrefixCache {
         var removed = 0, written: Int64 = 0, reused: Int64 = 0, compacted = false
         func finish(_ outcome: SaveOutcome) -> SaveResult {
             let saved = outcome == .saved
+            // A shared prefix that is not written is the one outcome no counter
+            // names, and a caller cannot see it in the request's statistics
+            // either. Report why, so a loss is visible in the server log.
+            if shared {
+                switch outcome {
+                case .skipped(let why): report("kept no shared \(tokens.count)-token prefix: \(why)")
+                case .failed(let why): report("failed to write the shared \(tokens.count)-token prefix: \(why)")
+                default: break
+                }
+            }
             lock.withLock {
                 switch outcome {
                 case .saved:
@@ -61,8 +71,17 @@ extension PersistentPrefixCache {
             plan = try Self.plan(state: state, tokens: tokens, identity: identity.digest, includeDraft: includeDraft)
         } catch { return finish(.skipped("\(error)")) }
         let name = PersistentPrefixFile.fileName(identity: identity.digest, tokens: tokens)
+        // A head already holding these exact ids is a no-op only when it also
+        // carries this save's shared flag. The engine writes a conversation's
+        // own checkpoint at the same boundary a long system prompt's shared
+        // prefix would use whenever that prompt's last pass end is also its
+        // last resume boundary, and that checkpoint write comes first, without
+        // the flag. Answering `.present` there would leave the head classed as
+        // the conversation's own, so a later save would remove it as a
+        // redundant ancestor and no other conversation could start from it.
+        // Rewriting the head is what puts the flag in the file.
         if let existing = lock.withLock({ heads.first { $0.file == name } }), existing.tokens == tokens, existing.prefillChunk == prefillChunk,
-           existing.hasDraft || !includeDraft {
+           existing.hasDraft || !includeDraft, existing.shared || !shared {
             touch(name)
             return finish(.present)
         }

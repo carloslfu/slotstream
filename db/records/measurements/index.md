@@ -12,6 +12,8 @@ updated: 2026-09-24T17:32:26.874836Z
 - [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]] — C1 — Mac mini M2, 16 GB, base storage (community, 2026-09-02): 1.41 tok/s warm decode against a ~4 tok/s estimate, because a 1.5 GB/s SSD puts the IO ceiling at 2.00 tok/s.
 - [[records/measurements/c6-macbook-pro-m4-max-36gb-community]] — C6: MacBook Pro M4 Max, 36 GB (community, 2026-09-20)
 - [[records/measurements/c5-macbook-pro-m4-max-64gb-community]] — C5: MacBook Pro M4 Max, 64 GB, internal and external SSD (community, 2026-09-19)
+- [[records/measurements/shared-prefix-boundary-upgrade-2026-09-23]] — A shared prefix at a prompt's own resume boundary: the head is upgraded, and the gate that fails without it
+- [[records/measurements/shared-prefix-live-acceptance-2026-09-24]] — A live serve process on the fixed build: a shared prefix colliding with a conversation checkpoint is upgraded, reused by another conversation, kept by a deeper save and restored across a restart
 - [[records/measurements/sevra-app-optimizations-2026-09-23]] — Sevra desktop defaults: MTP, useful checkpoints and verified reloads
 - [[records/measurements/sevra-app-speed-2026-09-23]] — Sevra desktop speed: short-turn rereads and disabled MTP
 - [[records/measurements/issue21-edge-fixes-2026-09-22]] — Issue 21 nullable tool strings and branched conversation reuse repaired
