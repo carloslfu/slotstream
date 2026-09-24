@@ -17,6 +17,17 @@ determines which version the installer downloads.
   no longer offer the unrelated Home-reconciliation action, and the assistant
   is told how local folder access is granted.
 
+- A shared system prompt kept on disk now survives when its save lands on
+  the conversation's own checkpoint, which happens when the system prompt
+  and the end of the prompt fall in the same prefill pass. The checkpoint
+  was written first, the shared save found it and stopped, and a later turn
+  removed it, so other conversations and restarts read the system prompt
+  again. The head is now upgraded to shared, and a shared save that is
+  skipped or fails is logged. Found and fixed by
+  [@jasen215](https://github.com/jasen215) in
+  [#27](https://github.com/carloslfu/slotstream/pull/27), for
+  [#18](https://github.com/carloslfu/slotstream/issues/18).
+
 - The development Mac app uses automatic speculative decoding when the draft
   head is available and fits the selected memory budget. Short conversations
   create earlier reusable checkpoints; longer prompts keep the engine's

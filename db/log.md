@@ -2058,3 +2058,6 @@ Recorded @flol's 0.2.3 re-run from issue #5, posted 2026-09-03 and never capture
 ## [2026-09-24 17:32] update | records/measurements/hardware-planning-ranges-2026-09-13
 The 64 GB M3 Max's 12.38 tok/s on 0.2.18 is below the 48-<96 GB floor of ~15. The floor stays until that Mac is rerun on the current release; the range's basis and claim now name the report. Medium keeps ~6-16 with the 36 GB M4 Max at 8.41 inside it.
 
+## [2026-09-24 18:07] create | records/measurements/shared-prefix-boundary-upgrade-2026-09-23
+Ported @jasen215's fix and records from pull request #27, which he closed unmerged: a head written at a shared prefix's boundary is upgraded to shared instead of answered present, and skipped or failed shared saves are logged. The T1 regression passes 110 assertions and fails 7 without the condition; the live acceptance ran on his 32 GB MacBook Air. Home paths in the run log redacted.
+
