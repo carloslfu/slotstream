@@ -1994,7 +1994,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
 | `--prefix-cache-dir <dir>` | Also keep conversation states on disk, so a restarted server, or a conversation longer than the in-memory cache holds, resumes from its last committed state instead of processing its prompt again. Off unless set. A state is written after its reply completes. The first write stores the fixed recurrent state and every cached token; each later turn writes the recurrent state plus only the tokens it added, keeps the previous turn's state so that reply can still be regenerated after a restart, and removes older states of the conversation. Files hold the conversation's token ids and model state and are used only by the same binary, model files and settings that wrote them; starting the server removes files from other builds. Requests with images are not written. The prefix conversations share is written too: when a prompt's system message ends 512 tokens or more in, or a prompt shares at least 512 tokens with a state already kept, that head is stored during the prompt's own prefill, rounded down to the prefill pass grid, the 256-token grid by default, so the next conversation with the same system prompt resumes from it, in the same process or after a restart. A shared prefix is kept once, is never replaced by the conversations that extend it, and is listed as such. `slotstream prefix-cache` lists or clears the directory. |
 | `--prefix-cache-disk-gb <gb>` | Disk quota for `--prefix-cache-dir` (default 20), applied at startup and before each write. When it is full, states nobody continued go first, then previous-turn states kept for regenerating, then conversations, then the prefixes several conversations start from, least recently used first within each. |
-| `--prefix-cache-min-tokens <n>` | Shortest state written to `--prefix-cache-dir` (default 2048 tokens), for conversation states and shared prefixes alike; a shorter shared prefix is still kept in memory. |
+| `--prefix-cache-min-tokens <n>` | Shortest state written to `--prefix-cache-dir` (default 1024 tokens), for conversation states and shared prefixes alike; a shorter shared prefix is still kept in memory. |
 | `--prefix-cache-max-age-days <days>` | Remove states in `--prefix-cache-dir` unused for this many days (default 30), at startup and before writes. `0` keeps them until the quota needs room. |
 | `--idle-exit <minutes>` | Stop after this many minutes with no request and no registered agent still running (default 0, keep serving). `slotstream launch` starts its server with 30 and registers each agent it opens through `POST /slotstream/clients`. The log says why the server stopped. |
 
@@ -5972,6 +5972,19 @@ release; anything under **Unreleased** is on `main` only.
 Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
+
+## Unreleased
+
+- The prefix cache's disk tier now writes states from 1,024 tokens instead
+  of 2,048 (`--prefix-cache-min-tokens`). After a restart, a 1,919-token
+  conversation re-read its whole prompt in 45.5 s under the old default and
+  resumed with 6.0 s of prefill under the new one. The servers `slotstream
+  launch` starts and the development Mac app use this default, so Pi's
+  opening prompt of about 1,600 tokens now reaches the disk. Each turn of a
+  conversation between the two lengths now writes its state, about 120 to
+  170 MB, within the same quota. Measured by
+  [@jasen215](https://github.com/jasen215) in
+  [#17](https://github.com/carloslfu/slotstream/issues/17).
 
 ## 0.2.25 - 2026-09-24
 

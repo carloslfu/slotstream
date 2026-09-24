@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/community
-updated: 2026-09-24T17:09:43.847162Z
+updated: 2026-09-24T19:26:45.781217Z
 ---
 
 # sources/community
 
+- [[sources/community/2026/09/2026-09-16-prefix-cache-min-tokens-jasen215]] — Measured: `--prefix-cache-min-tokens 2048` costs a full re-prefill on every restart of a sub-2048 conversation
 - [[sources/community/2026/09/2026-09-03-mac-mini-m2-16gb-flol-0-2-3-rerun]] — Measured: Mac14,3, 16GB (0.2.3 re-run)
 - [[sources/community/2026/09/2026-09-20-macbook-pro-m4-max-36gb-johnclarkson]] — Measured: M4 Max MacBook Pro, 36 GB
 - [[sources/community/2026/09/2026-09-19-macbook-pro-m4-max-64gb-external-yenhub]] — Measured: M4 Max 16", 64 GB (External SSD)

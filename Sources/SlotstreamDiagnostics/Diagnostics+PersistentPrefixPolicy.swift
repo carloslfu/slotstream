@@ -10,7 +10,7 @@ extension Diagnostics {
         var c = CheckBuilder("persistent-prefix-policy")
         // docs/CLI.md states the opt-in defaults; the claims name this gate.
         c.equal("default disk quota", PersistentPrefixConfiguration.defaultMaxBytes, 20_000_000_000)
-        c.equal("default minimum state length", PersistentPrefixConfiguration.defaultMinimumTokens, 2048)
+        c.equal("default minimum state length", PersistentPrefixConfiguration.defaultMinimumTokens, 1024)
         c.equal("default maximum age in days", PersistentPrefixConfiguration.defaultMaxAgeDays, 30)
         c.equal("default maximum age", PersistentPrefixConfiguration.defaultMaxAge, 30 * 86_400)
         c.equal("a configuration forgets after the default age",

@@ -6602,6 +6602,51 @@ The rows come through `State.persistedLineage`, so the upgrade writes 115.7 MB a
 
 **Limits.** Functional acceptance on one 32 GB MacBook Air shared with other sessions, one plan (`--memory-gb 10`, `--max-context 8192`, a 256-token prefill pass) and one prompt shape. The collision was constructed rather than met in the field: the system block and the prompt's last resume boundary were made to fall in the same 256-token cell, and the log confirms both writes at 3,584; the field workload — a 24,576-to-26,624-token agent session — is not re-run here. Elapsed times are incidental observations on a machine in ordinary use and are not a timing claim. The 2026-09-23 record's numbers stand and it is not superseded. The observed behaviour is one machine and one plan; the cross-conversation payoff in a real agent workload remains unobserved.
 
+## Prefix-cache floor at 2048 and 1024 tokens across a restart (community, 2026-09-16)
+Reported by `@jasen215` in [issue #17](https://github.com/carloslfu/slotstream/issues/17),
+preserved in [[sources/community/2026/09/2026-09-16-prefix-cache-min-tokens-jasen215]].
+
+Slotstream 0.2.18 (`main` at `ad89ecc`) on a 32 GiB Apple Silicon Mac,
+`serve --memory-gb 10 --max-context 65536`, one model process at a time. The
+prompt was a system prompt of about 1,900 tokens and one question. After the
+first turn the server stopped and a new one started over a copy of the state
+directory, so any reuse came from disk. The numbers are the server's own
+statistics.
+
+| Phase | Floor 2048 (the default) | Floor 1024 |
+|---|---|---|
+| Write after turn 1, 1,919-token prompt | nothing written | 170 MB |
+| Restart, 1,991-token prompt: tokens reused | **0** | **1,966** |
+| Restart: prefill | **45.5 s** | **6.0 s** |
+| Control: restart above both floors, 2,685-token prompt | 2,662 reused, 6.6 s | 2,662 reused, 6.5 s |
+| Disk after the last phase | 307 MB | 479 MB |
+
+The controls agree, so the difference comes from the floor alone. The write
+the floor avoids is small next to that re-read: on the 48 GB development Mac
+at 10 GB, later turns wrote about 117 MB each, a new head and their new rows,
+in 0.05 s, and a 225 MB state restored in 0.04 s
+([[records/measurements/persistent-prefix-cache-2026-09-14]]). Pi's opening
+prompt, about 1,600 tokens ([[records/design/measured-operating-policies]]),
+is also below 2048, so the servers `slotstream launch` starts kept it in memory
+but never wrote it to disk.
+
+On this evidence the default fell to 1024 tokens on 2026-09-24. The cost is one
+head plus the new rows on each turn of a conversation between 1,024 and 2,048
+tokens, within the same disk quota. Nothing below 1,024 was measured.
+
+**Rewinding after a restart.** A separate probe in the same report branched a
+three-turn conversation back to turn 1 after a restart and reused 0 tokens at
+either floor. The disk tier keeps a conversation's latest state and its parent,
+so the last reply can be regenerated, and removes older ones by design. Since
+0.2.21 a prompt's system message and the longest head it shares with a kept
+state are also saved as shared prefixes when they reach the floor, so such a
+branch reuses its system prompt, and a later branch from the same point
+resumes from the head the first one saved. That behavior was not measured
+again here.
+
+One run per configuration on one machine, with single timings, as the report
+states.
+
 ## Decode speed: GPU keepalive, direct demand reads, a streamed draft head and plain-decode lookahead
 **Outcome: four decode changes won on the development Mac with unchanged output, and the other ideas tried did not.** A GPU keepalive and direct demand reads together made decode 1.28x faster at a 10 GB target without the draft head and 1.22x at 22 GB with the head and lookahead, over the pairs with no swap activity. Streaming the draft head's routed experts through a 64-expert cache freed 1.2 GB for the main cache, which made the head worth running at 12 GB: 1.23x over plain decode with the lookahead at 28.4 experts per layer, over three swap-free pairs (1.21x over all eight). Letting the decode lookahead run in plain decode added 1.11x at 10 GB. Together, at a 16 GB target, the four decoded 1.79x faster than the shipped default of that commit. The keepalive raised energy per generated token by 7%. The measured configurations were environment-guarded prototypes on an export of commit 37fcb8e; the landed implementations have their own confirmation below.
 

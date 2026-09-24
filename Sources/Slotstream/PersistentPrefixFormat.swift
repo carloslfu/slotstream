@@ -51,7 +51,7 @@ public struct PersistentPrefixConfiguration: Sendable, Equatable {
     public var maxAge: TimeInterval?
 
     public static let defaultMaxBytes: Int64 = 20_000_000_000
-    public static let defaultMinimumTokens = 2048
+    public static let defaultMinimumTokens = 1024
     public static let defaultMaxAgeDays = 30
     public static let defaultMaxAge = TimeInterval(defaultMaxAgeDays) * 86_400
 

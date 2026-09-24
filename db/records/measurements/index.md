@@ -8,6 +8,7 @@ updated: 2026-09-24T22:55:22.761465Z
 # records/measurements
 
 - [[records/measurements/release-0-2-25-published-2026-09-24]] — v0.2.25 published, installed and accepted
+- [[records/measurements/prefix-cache-floor-community-2026-09-16]] — Prefix-cache floor at 2048 and 1024 tokens across a restart (community, 2026-09-16)
 - [[records/measurements/decode-perf-2026-09-24]] — Decode speed search: a GPU keepalive and direct demand reads 1.28x at 10 GB and 1.22x at 22 GB, a streamed draft head 1.23x at 12 GB, plain-decode lookahead 1.11x at 10 GB; keepalive energy +7%
 - [[records/measurements/c5-macbook-pro-m4-max-64gb-community]] — C5: MacBook Pro M4 Max, 64 GB, internal and external SSD (community, 2026-09-19)
 - [[records/measurements/c4-macbook-pro-m3-max-64gb-community]] — C4: MacBook Pro M3 Max, 64 GB (community, 2026-09-16)
