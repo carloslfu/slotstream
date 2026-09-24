@@ -128,6 +128,18 @@ original-file verification; an immediate second `verify()` is unnecessary.
 `status()` reports remaining reconstructed model bytes, not compressed wire
 bytes, and permits an absent optional draft head.
 
+`download` fetches the weights only. The 37.5 MB decode-forecast file that
+`slotstream pull` also fetches is optional and makes decode faster; fetch it
+the same way after the weights. A failure is logged and returns `false`
+instead of throwing:
+
+```swift
+for file in TapCorrectionSidecar.files {
+    TapCorrectionSidecar.ensure(modelDir: store.modelDirectory, file: file,
+                                cancellation: cancellation) { line in print(line) }
+}
+```
+
 <a id="what-will-it-do-on-this-mac"></a>
 
 ## Plan memory

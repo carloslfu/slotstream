@@ -322,6 +322,10 @@ struct ModelOptions: ParsableArguments {
         case .some(true):
             try withInterruptiblePull { cancellation in
                 try WeightStore.download(to: url, transport: .automatic, cancellation: cancellation, log: { print($0); fflush(stdout) })
+                // The same optional forecast sidecar `slotstream pull` fetches.
+                for file in TapCorrectionSidecar.files {
+                    TapCorrectionSidecar.ensure(modelDir: url, file: file, cancellation: cancellation, log: { print($0); fflush(stdout) })
+                }
             }
         case .some(false):
             throw PlanError("not downloading — when you are ready:  slotstream pull")
@@ -877,8 +881,22 @@ struct Doctor: ParsableCommand {
         let fm = FileManager.default
         let remaining = WeightStore.remainingBytes(at: url)
         if remaining == 0 {
-            return String(format: "weights: present by size, %.1f GB at %@ (run pull --verify for hashes)",
-                          Double(PinnedModel.totalBytes) / 1e9, url.path)
+            let line = String(format: "weights: present by size, %.1f GB at %@ (run pull --verify for hashes)",
+                              Double(PinnedModel.totalBytes) / 1e9, url.path)
+            // A model downloaded before 0.2.19, or by a download that skipped
+            // the forecast sidecar, decodes with the earlier forecast until
+            // `pull` fetches it.
+            let sidecar = TapCorrectionSidecar.attention
+            switch TapCorrectionSidecar.status(modelDir: url, file: sidecar) {
+            case .present:
+                return line
+            case .absent:
+                return line + "\nforecast: \(sidecar.path) is missing, so decode uses the earlier, slower forecast;"
+                    + " `slotstream pull` downloads it (37.5 MB)"
+            case .mismatched(let why):
+                return line + "\nforecast: \(sidecar.path) does not match the pinned file (\(why));"
+                    + " `slotstream pull` replaces it"
+            }
         }
         var probe = url
         while !fm.fileExists(atPath: probe.path), probe.path != "/" {

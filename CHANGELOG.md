@@ -43,6 +43,16 @@ determines which version the installer downloads.
   second copy of the occupied cache. The live governor also checks temporary
   replacement memory against the process target and available system memory.
   When growth cannot fit, it keeps the current warm cache and retries later.
+- The download `slotstream run` offers on first use and the development Mac
+  app's model download now also fetch the 37.5 MB decode-forecast file 0.2.19
+  added. Only `slotstream pull` did, so models downloaded the other ways
+  decoded with the earlier, slower forecast. A model already downloaded
+  without the file still needs one `slotstream pull`: `slotstream doctor` now
+  says when the file is missing, and the engine's startup line names the
+  command. Three community reports on 0.2.22 ran without the file. The
+  library's `WeightStore.download(_:log:)` still fetches the weights only;
+  the [library guide](docs/LIBRARY.md#check-and-download-weights) shows how
+  to fetch the file with `TapCorrectionSidecar.ensure`.
 
 ## 0.2.24 - 2026-09-23
 

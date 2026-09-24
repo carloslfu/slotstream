@@ -110,9 +110,9 @@ from a 10 Gb/s USB drive that read 0.9 GB/s. A 16 GB Mac with a fast SSD would
 still help separate disk speed from memory capacity at the small end.
 
 The three 0.2.22 reports ran without the decode-forecast file added in 0.2.19.
-Their logs print `no correction at lookahead/tap-correction-attention-rank128-v1.safetensors`,
-which means the model was downloaded by an earlier release and
-`slotstream pull` was not run again. Running it once fetches the 37.5 MB file.
+Their logs print `no correction at lookahead/tap-correction-attention-rank128-v1.safetensors`.
+`slotstream pull` fetches the 37.5 MB file; through 0.2.24, the download
+`slotstream run` offers on first use did not.
 
 The Air's long-prompt test explicitly used a 22 GB target with vision and
 speculative decoding off. Its full warm-server command and system load were

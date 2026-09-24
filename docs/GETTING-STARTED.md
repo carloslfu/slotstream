@@ -85,8 +85,8 @@ The transfer alone is estimated at about 2 hours at 100 Mbps or 8 hours at 25 Mb
 Connection overhead and processing add to that time. You can stop with
 **Control+C** and run the same command later to resume. Downloaded files are
 checked for corruption automatically. Since 0.2.19 the download also includes
-a small forecast-correction file (37.5 MB) that makes replies faster; if you
-installed the model with an earlier release, run `slotstream pull` once more to
+a small forecast-correction file (37.5 MB) that makes replies faster. If
+`slotstream doctor` says it is missing, run `slotstream pull` once more to
 fetch it.
 
 For an interrupted or damaged download, moving the files to another disk,

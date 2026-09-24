@@ -125,6 +125,8 @@ extension Diagnostics {
         try FileManager.default.createDirectory(at: shipped.deletingLastPathComponent(), withIntermediateDirectories: true)
         c.expect("an absent shipped correction locates nothing",
             RouterTapCorrection.locate(modelDirectory: home).located == nil)
+        c.expect("and its reason names the command that downloads it",
+            RouterTapCorrection.locate(modelDirectory: home).reason.contains("`slotstream pull` downloads it"))
         try FileManager.default.copyItem(at: file, to: shipped)
         let found = RouterTapCorrection.locate(modelDirectory: home, pinnedSHA256: nil)
         c.expect("a shipped correction is located with its header and digest",

@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3a6cd20shwtm35fr7y2hvhc
 created: 2026-09-24T17:11:02.976369+00:00
-updated: 2026-09-24T17:11:02.976369+00:00
+updated: 2026-09-24T17:54:58.586860+00:00
 summary: 'C5: MacBook Pro M4 Max, 64 GB, internal and external SSD (community, 2026-09-19)'
 date: 2026-09-19
 doc: measurements
@@ -47,9 +47,11 @@ The planner assumes a disk like the development Mac's and printed about
 
 **Both runs used the pre-0.2.19 decode forecast.** Each context-check log
 prints `[expert-lookahead] boundary forecast: no correction at
-lookahead/tap-correction-attention-rank128-v1.safetensors`. The model was
-downloaded before 0.2.19 and `slotstream pull` was not run again, so the
-37.5 MB correction file was absent and the engine ran the earlier forecast.
+lookahead/tap-correction-attention-rank128-v1.safetensors`: the 37.5 MB
+correction file was absent, so the engine ran the earlier forecast. Through
+0.2.24 only `slotstream pull` fetched that file; a model downloaded before
+0.2.19, or through the download `slotstream run` offers on first use, lacked
+it.
 0.2.19's 1.10x was measured on the development Mac with the file present and
 is not applied to these numbers.
 

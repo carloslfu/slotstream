@@ -175,7 +175,9 @@ extension RouterTapCorrection {
     /// and unpinned checkpoints). The reason says why nothing qualified.
     package static func locate(modelDirectory: URL, pinnedSHA256: String? = shippedSHA256) -> (located: Located?, reason: String) {
         let url = modelDirectory.appendingPathComponent(shippedRelativePath)
-        guard FileManager.default.fileExists(atPath: url.path) else { return (nil, "no correction at \(shippedRelativePath)") }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return (nil, "no correction at \(shippedRelativePath); `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast")
+        }
         let header: Header
         do { header = try readHeader(path: url.path) } catch { return (nil, "correction header rejected: \(error)") }
         guard header.tap == .attention else { return (nil, "correction at \(shippedRelativePath) was fitted on the \(header.tap.rawValue) tap") }

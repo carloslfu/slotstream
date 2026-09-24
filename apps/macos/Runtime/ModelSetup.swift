@@ -39,6 +39,13 @@ public final class ModelSetup: @unchecked Sendable {
                 // diagnostics. Surface a bounded phase only.
                 self?.set { $0.detail = line.localizedCaseInsensitiveContains("verif") ? "Verifying downloaded files" : "Downloading verified model files. Progress is saved so you can resume." }
             })
+            // The optional decode-forecast file `slotstream pull` also fetches;
+            // without it decode uses the earlier, slower forecast. A failure is
+            // logged by the library and never fails setup.
+            for file in TapCorrectionSidecar.files where !token.isCancelled {
+                set { $0.detail = "Downloading the decode forecast file" }
+                TapCorrectionSidecar.ensure(modelDir: store.modelDirectory, file: file, cancellation: token, log: { _ in })
+            }
             finish(try store.status(shouldContinue: { !token.isCancelled }))
         } catch {
             let reason: Error = token.isCancelled ? SevraError.cancelled : error
