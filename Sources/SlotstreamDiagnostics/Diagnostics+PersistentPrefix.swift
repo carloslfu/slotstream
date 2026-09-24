@@ -8,7 +8,9 @@ extension Diagnostics {
     /// update paths: exact restore, rows written once and referenced by later
     /// turns, kept parents and branches, rewriting long chains, collected
     /// segments, corruption, what opening a directory removes, other builds,
-    /// expiry, a lowered quota, deletion, inspection and rewinds.
+    /// expiry, a lowered quota, deletion, inspection, rewinds, and a head a
+    /// conversation's checkpoint already wrote at a shared prefix's boundary
+    /// being upgraded to shared instead of short-circuited.
     public static func persistentPrefixRoundTrip() throws -> CheckReport {
         var c = CheckBuilder("persistent-prefix-round-trip")
         let root = FileManager.default.temporaryDirectory
@@ -283,6 +285,60 @@ extension Diagnostics {
             c.equal("a prompt that diverges inside it shares up to the divergence",
                 tier.longestCommonPrefix(with: Array(prefix.prefix(700)) + [7]), 700)
             c.equal("an unrelated prompt shares nothing", tier.longestCommonPrefix(with: ids(1500, seed: 8)), 0)
+        }
+
+        // The same boundary can already hold a conversation's own checkpoint:
+        // the engine writes one at a prompt's last resume boundary, which is
+        // also where a long system prompt's last complete pass ends. That write
+        // comes first and without the flag, so the shared save that follows
+        // finds the ids present. It must upgrade the head: the flag has to
+        // reach the file, or a later save removes the head as a redundant
+        // ancestor and no other conversation can start from it.
+        let upgradeDirectory = root.appendingPathComponent("shared-upgrade")
+        let upgradePrefix = Array(base.prefix(1200))
+        var upgradeExpected: [String: String] = [:]
+        do {
+            let tier = try PersistentPrefixCache(configuration: configuration(upgradeDirectory), identity: identity)
+            let checkpoint = Qwen4ExpModel.State.persistenceFixture(tokens: upgradePrefix.count)
+            upgradeExpected = digests(checkpoint)
+            let first = tier.save(state: checkpoint, tokens: upgradePrefix)
+            c.expect("a checkpoint at the boundary is written without the flag",
+                first.outcome == .saved && tier.storedSharedStates == 0 && tier.value(of: head(upgradePrefix)) == .oneOff)
+            let upgraded = tier.save(state: checkpoint, tokens: upgradePrefix, shared: true)
+            c.equal("the shared save that follows upgrades the head", upgraded.outcome, .saved)
+            c.expect("rewriting the head references its rows instead of writing them again",
+                upgraded.reusedBytes > 0 && !upgraded.compacted)
+            c.expect("and writes less than the checkpoint did", upgraded.bytes < first.bytes,
+                "\(upgraded.bytes) vs \(first.bytes)")
+            c.equal("the head is shared", tier.storedSharedStates, 1)
+            c.equal("the upgraded head restores exactly", try restore(tier, upgradePrefix).map(digests), upgradeExpected)
+            guard let grown = try restore(tier, upgradePrefix) else {
+                c.expect("the upgraded head is a candidate", false)
+                return c.report()
+            }
+            grown.extendPersistenceFixture(to: child.count)
+            _ = tier.save(state: grown, tokens: child)
+            grown.extendPersistenceFixture(to: grand.count)
+            _ = tier.save(state: grown, tokens: grand)
+            c.expect("two later turns keep it instead of removing it as an ancestor",
+                tier.value(of: head(upgradePrefix)) != nil && tier.storedSharedStates == 1)
+            c.equal("its rows still restore exactly", try restore(tier, upgradePrefix).map(digests), upgradeExpected)
+            // A shared prefix that is not written leaves no counter behind, so
+            // the reason has to reach the tier's event stream.
+            var sharedReports: [String] = []
+            tier.onEvent = { sharedReports.append($0) }
+            let short = Array(upgradePrefix.prefix(999))
+            c.equal("a shared prefix below the write minimum is skipped",
+                tier.save(state: Qwen4ExpModel.State.persistenceFixture(tokens: short.count), tokens: short,
+                    shared: true).outcome, .skipped("shorter than 1000 tokens"))
+            c.expect("and it says why", sharedReports.contains {
+                $0.contains("kept no shared 999-token prefix: shorter than 1000 tokens") })
+        }
+        do {
+            let tier = try PersistentPrefixCache(configuration: configuration(upgradeDirectory), identity: identity)
+            c.expect("a reopened directory reads the flag from the head, not from memory",
+                tier.storedSharedStates == 1 && tier.storedStates == 3)
+            c.equal("and restores the upgraded head", try restore(tier, upgradePrefix).map(digests), upgradeExpected)
         }
 
         // A state unused past the maximum age is removed on open.

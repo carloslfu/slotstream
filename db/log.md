@@ -2025,6 +2025,15 @@ Published v0.2.24 from the exact CI archive and verified public installation: 73
 ## [2026-09-23 07:28] update | records/measurements/sevra-app-speed-2026-09-23
 Measured the actual September 21 development app: three substantial replies at 10.5-12.6 tok/s, zero prompt reuse, 4.7-8.1 s to first token and 9.1 s first load. Verified stale embedded engine and explicit MTP-off desktop policy. Preserved three paired installed-engine MTP diagnostics, withheld clean gain claims because of paging and differing output, reaped the benchmark and reopened Sevra without changing its settings.
 
+## [2026-09-23 11:41] create | sources/runs/2026/09/2026-09-23-shared-prefix-boundary-upgrade.md
+Captured the live v0.2.23 agent session's prefix-cache log lines and the directory listing (172 lines, none containing 'shared'; four states all shared:false), the two builds and their hashes, the post-fix T1 gate at 110 assertions, the same gate with only the condition reverted (seven failures of the same 110), the CI catalogue at 73 groups/31,919 assertions, the real-weight shared-prefix variant passing, and the signal-9 kill of its draft-head variant.
+
+## [2026-09-23 11:41] create | records/measurements/shared-prefix-boundary-upgrade-2026-09-23.md
+Recorded the repair of the disk shared-prefix save when the request's own checkpoint already wrote that boundary: a head holding those ids is upgraded with the flag instead of answered as present, and a shared save that is skipped or fails reports its reason. Field symptom: no 'saved shared' line in a whole session and the 24,576-token head removed as a redundant ancestor. Gate: weights-free T1 case, 110 assertions, seven failing with the one-line condition reverted. Limits kept: the draft-head real-weight variant was killed before printing a check and is not evidence, no live server has run the fixed build yet, and the extra head write per colliding boundary is recorded as a cost.
+
+## [2026-09-23 11:41] update | records/design/measured-operating-policies.md
+Added a correctness-bound row for the shared-prefix boundary collision: a head already written there is upgraded, never short-circuited, with its cost (one 115.9 MB head rewrite per colliding boundary, rows referenced rather than written) and its revision condition.
+
 ## [2026-09-23 15:57] update | records/measurements/sevra-app-optimizations-2026-09-23
 Enabled fully budgeted automatic MTP, short-chat checkpoints, foreground readiness and APFS session verification in the development app; fixed stale-memory immediate reload planning. Preserved failed trials and three final alternating comparisons, passed all six real-model profiles, static/native/runtime checks and 31,907 catalogue assertions, and verified the rebuilt bundle inputs. Live-machine timings remain diagnostic; see the measurement for visible-app verification status.
 

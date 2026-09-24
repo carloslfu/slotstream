@@ -12,6 +12,7 @@ updated: 2026-09-24T07:21:34.737275Z
 - [[sources/runs/2026/09/2026-09-23-sevra-native-replay-growth]] — Native Sevra replay and bounded warm cache growth
 - [[sources/runs/2026/09/2026-09-23-sevra-verification-exact-mtime]] — Sevra verification rejects corruption with exact nanosecond mtime restored
 - [[sources/runs/2026/09/2026-09-23-sevra-app-optimizations]] — Sevra desktop optimization trials and real-model acceptance
+- [[sources/runs/2026/09/2026-09-23-shared-prefix-boundary-upgrade]] — Shared prefix head upgrade: the T1 case that fails without it, and the live session where no shared save reached disk
 - [[sources/runs/2026/09/2026-09-23-sevra-app-speed]] — Actual Sevra development-app speed and MTP diagnostic
 - [[sources/runs/2026/09/2026-09-23-release-0-2-24-performance]] — v0.2.24 versus v0.2.23: 72 captured requests, timing claims withheld
 - [[sources/runs/2026/09/2026-09-23-release-0-2-24-published-and-installed]] — v0.2.24 published, publicly installed and accepted
@@ -506,9 +507,8 @@ updated: 2026-09-24T07:21:34.737275Z
 - [[sources/runs/2026/09/2026-09-06-configurable-context-unchanged-adaptive-mtp-counterexample]] — Combined candidate preserves the known rejected adaptive MTP counterexample
 - [[sources/runs/2026/09/2026-09-06-configurable-context-mtp-cancellation-recovery-pass]] — MTP cancellation fix passes typed and legacy recovery on the combined candidate
 - [[sources/runs/2026/09/2026-09-06-configurable-context-mtp-cancellation-exclusivity-counterexample]] — Actual MTP cancellation exposes an exclusive stats access abort
-- [[sources/runs/2026/09/2026-09-06-configurable-context-combined-shape-and-http-pass]] — Combined V176 context candidate passes all ten shape witnesses and HTTP contracts
 
 ## More
 
-This folder has 679 files. The 500 most recent are listed above.
+This folder has 680 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

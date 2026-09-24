@@ -8,6 +8,7 @@ updated: 2026-09-23T16:45:55.741336Z
 # records/measurements
 
 - [[records/measurements/sevra-app-optimizations-2026-09-23]] — Sevra desktop defaults: MTP, useful checkpoints and verified reloads
+- [[records/measurements/shared-prefix-boundary-upgrade-2026-09-23]] — A shared prefix at a prompt's own resume boundary: the head is upgraded, and the gate that fails without it
 - [[records/measurements/sevra-app-speed-2026-09-23]] — Sevra desktop speed: short-turn rereads and disabled MTP
 - [[records/measurements/issue21-edge-fixes-2026-09-22]] — Issue 21 nullable tool strings and branched conversation reuse repaired
 - [[records/measurements/release-0-2-24-performance-2026-09-23]] — v0.2.24 post-release responsiveness and reuse comparison
