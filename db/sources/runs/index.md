@@ -8,6 +8,7 @@ updated: 2026-09-24T12:18:57.790824Z
 # sources/runs
 
 - [[sources/runs/2026/09/2026-09-23-shared-prefix-boundary-upgrade]] — Shared prefix head upgrade: the T1 case that fails without it, and the live session where no shared save reached disk
+- [[sources/runs/2026/09/2026-09-24-shared-prefix-live-acceptance]] — The fixed build in a live serve process: a shared prefix colliding with a conversation checkpoint is upgraded, reused by another conversation, kept by a deeper save and restored across a restart
 - [[sources/runs/2026/09/2026-09-24-sevra-window-responsiveness]] — Sevra window responsiveness before and after on a long-history Home, offscreen harness, diagnostic
 - [[sources/runs/2026/09/2026-09-23-sevra-live-folder-navigation]] — Live folder navigation, reliable continuation and real-model reviewed edits
 - [[sources/runs/2026/09/2026-09-23-sevra-native-replay-growth]] — Native Sevra replay and bounded warm cache growth
@@ -506,9 +507,8 @@ updated: 2026-09-24T12:18:57.790824Z
 - [[sources/runs/2026/09/2026-09-06-configurable-context-governor-invocation-prerequisite]] — Pressure fixture invocation stopped because its required option was missing
 - [[sources/runs/2026/09/2026-09-06-configurable-context-unchanged-adaptive-mtp-counterexample]] — Combined candidate preserves the known rejected adaptive MTP counterexample
 - [[sources/runs/2026/09/2026-09-06-configurable-context-mtp-cancellation-recovery-pass]] — MTP cancellation fix passes typed and legacy recovery on the combined candidate
-- [[sources/runs/2026/09/2026-09-06-configurable-context-mtp-cancellation-exclusivity-counterexample]] — Actual MTP cancellation exposes an exclusive stats access abort
 
 ## More
 
-This folder has 680 files. The 500 most recent are listed above.
+This folder has 681 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

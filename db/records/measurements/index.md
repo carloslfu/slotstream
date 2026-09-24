@@ -8,6 +8,7 @@ updated: 2026-09-24T12:18:57.749194Z
 # records/measurements
 
 - [[records/measurements/shared-prefix-boundary-upgrade-2026-09-23]] — A shared prefix at a prompt's own resume boundary: the head is upgraded, and the gate that fails without it
+- [[records/measurements/shared-prefix-live-acceptance-2026-09-24]] — A live serve process on the fixed build: a shared prefix colliding with a conversation checkpoint is upgraded, reused by another conversation, kept by a deeper save and restored across a restart
 - [[records/measurements/sevra-app-optimizations-2026-09-23]] — Sevra desktop defaults: MTP, useful checkpoints and verified reloads
 - [[records/measurements/sevra-app-speed-2026-09-23]] — Sevra desktop speed: short-turn rereads and disabled MTP
 - [[records/measurements/issue21-edge-fixes-2026-09-22]] — Issue 21 nullable tool strings and branched conversation reuse repaired

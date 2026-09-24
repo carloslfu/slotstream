@@ -2058,8 +2058,10 @@ Incognito cleanup after a private reply now drops that conversation's prompt sta
 ## [2026-09-24 07:23] update | records/design/sevra-spec/ui-contract
 Recorded the sticky latest page, partial transcript layout that holds the reader's line while the rest is laid out, message-anchored reading positions, parallel rendering with a bounded cache of recently shown messages, and panels that cover a kept conversation. Linked diagnostic before-and-after timings; scroll checks cover the new behavior.
 
+## [2026-09-24 12:16] create | records/measurements/shared-prefix-live-acceptance-2026-09-24
 Recorded the live-server acceptance the 2026-09-23 shared-prefix record asked for: on the fixed build a shared prefix colliding with a conversation checkpoint at 3584 tokens is upgraded instead of answered present, a second conversation reuses it, a deeper 4608-token save keeps it, and a restarted process restores it from disk alone. One 32 GB MacBook Air, one plan, constructed collision; no timing claim.
 
+## [2026-09-24 12:16] create | sources/runs/2026/09/2026-09-24-shared-prefix-live-acceptance
 Raw transcript of the live shared-prefix acceptance: build identity, the serve plan, the colliding checkpoint and shared save, the state listings, and the post-restart disk restore.
 
 ## [2026-09-24 12:16] create | records/machines/macbook-air-m5-32gb-local
