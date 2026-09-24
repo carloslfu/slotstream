@@ -38,19 +38,37 @@ STAGE="$TMP/release"
 mkdir -p "$STAGE"
 tar xzf "$TMP/slotstream.tar.gz" -C "$STAGE"
 
-# The tarball's Metal library is built for macOS 26. On macOS 14 and 15,
-# replace it with the build for that OS from the pinned mlx-metal 0.31.1
-# wheel — the same source and version a from-source build uses.
+# Match the downloaded release, not the installer revision: main can move
+# before the next release is published. The bundled macOS 26 shader digest
+# selects a reviewed family; older Macs never receive a mismatched library.
 WHEEL_MAJOR=${SLOTSTREAM_MACOS_MAJOR:-$MAJOR} # override exists for testing only
 WHEEL_URL="" WHEEL_SHA=""
 case "$WHEEL_MAJOR" in
-14)
-    WHEEL_URL="https://files.pythonhosted.org/packages/39/66/2313497fdbc7fbadf8e026c09366e3f049f9114e65ca4edc23cdb8699186/mlx_metal-0.31.1-py3-none-macosx_14_0_arm64.whl"
-    WHEEL_SHA=70741174131dbf7fdd479cb730e06e08c358eac3bf7905d9e884e7960cfdd5b8
-    ;;
-15)
-    WHEEL_URL="https://files.pythonhosted.org/packages/c7/34/4c3c6890ce6095b2ab2ba2f5f15c9a7ba17208d47f8cacb572885a2dc0eb/mlx_metal-0.31.1-py3-none-macosx_15_0_arm64.whl"
-    WHEEL_SHA=6c56bd8cd27743e635f5a90a22535af7c31bd22b4b126d46b6da2da52d72e413
+14|15)
+    LIBRARY_SHA=$(shasum -a 256 "$STAGE/mlx.metallib" | cut -d' ' -f1)
+    case "$LIBRARY_SHA:$WHEEL_MAJOR" in
+    # MLX 0.31.1 releases remain installable while the upgrade is unreleased.
+    198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597:14)
+        WHEEL_URL="https://files.pythonhosted.org/packages/39/66/2313497fdbc7fbadf8e026c09366e3f049f9114e65ca4edc23cdb8699186/mlx_metal-0.31.1-py3-none-macosx_14_0_arm64.whl"
+        WHEEL_SHA=70741174131dbf7fdd479cb730e06e08c358eac3bf7905d9e884e7960cfdd5b8
+        ;;
+    198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597:15)
+        WHEEL_URL="https://files.pythonhosted.org/packages/c7/34/4c3c6890ce6095b2ab2ba2f5f15c9a7ba17208d47f8cacb572885a2dc0eb/mlx_metal-0.31.1-py3-none-macosx_15_0_arm64.whl"
+        WHEEL_SHA=6c56bd8cd27743e635f5a90a22535af7c31bd22b4b126d46b6da2da52d72e413
+        ;;
+    dc59d1cceb1a5c7e578232e6e41e28e2c73c9463ac6dbc3886c3ee17ffc270ed:14)
+        WHEEL_URL="https://files.pythonhosted.org/packages/f7/ab/ba1952908c5d2a5070cf1cfbfea0161c4751ea62299e2776819810917483/mlx_metal-0.32.2-py3-none-macosx_14_0_arm64.whl"
+        WHEEL_SHA=3825fff379dbc107dd3413e564a06caeaa24819910ec49c0439e454c06a1b9b8
+        ;;
+    dc59d1cceb1a5c7e578232e6e41e28e2c73c9463ac6dbc3886c3ee17ffc270ed:15)
+        WHEEL_URL="https://files.pythonhosted.org/packages/79/ec/34f37376e26d537fadffb99af3a760d6545e37f5e1a30a552baadf237fc5/mlx_metal-0.32.2-py3-none-macosx_15_0_arm64.whl"
+        WHEEL_SHA=55a369250d220b2cf10213a87a2ac1b1a420608c5b35b1df4e7147ac8e32f121
+        ;;
+    *)
+        echo "no compatible macOS $WHEEL_MAJOR Metal library is pinned for this release; existing install was not changed" >&2
+        exit 1
+        ;;
+    esac
     ;;
 esac
 if [ -n "$WHEEL_URL" ]; then

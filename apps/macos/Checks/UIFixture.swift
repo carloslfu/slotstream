@@ -10,7 +10,7 @@ func seedAuditUIIfRequested() throws -> Bool {
     let dbmd = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SEVRA_DBMD"] ?? NSHomeDirectory() + "/.dbmd/bin/dbmd")
     let store = try HomeStore(root: home, dbmd: dbmd)
     let reader = try SourceFolder(url: source)
-    _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-1")]), cancellation: Cancellation())
+    _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["path": .string(source.lastPathComponent)]), cancellation: Cancellation())
     let content = "# Synthetic audit document\n\n" + (try String(contentsOf: source, encoding: .utf8)) + "\nRetained public source. [S1]\n"
     func run(_ name: String) throws -> Run {
         try JSONDecoder().decode(Run.self, from: JSONSerialization.data(withJSONObject: ["id": UUID().uuidString.lowercased(), "nonce": name, "inputDigest": digestText(name), "state": "completed", "status": "Synthetic UI fixture. No model was run.", "trace": []]))
@@ -47,7 +47,7 @@ func seedUIIfRequested() throws -> Bool {
     var thread = WorkThread(id: "00000000-0000-4000-8000-000000000042", title: "Native UI review")
     let input = "Show a clearly labeled test document for checking Markdown, tables, code, links and Unicode."
     let reader = try SourceFolder(url: source)
-    _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-1")]), cancellation: Cancellation())
+    _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["path": .string(source.lastPathComponent)]), cancellation: Cancellation())
     let runID = UUID().uuidString.lowercased()
     let content = try String(contentsOf: source, encoding: .utf8) + "\nThe public UI fixture is the evidence for this review. [S1]\n"
     var run = try JSONDecoder().decode(Run.self, from: JSONSerialization.data(withJSONObject: ["id": runID, "nonce": "ui-fixture-" + runID, "inputDigest": digestText(input), "state": "needsYou", "status": "UI test document ready to inspect. No model was run.", "trace": ["Read the public Markdown fixture through the scoped native reader."]]))

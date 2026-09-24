@@ -1,0 +1,254 @@
+[
+  {
+    "elapsed": 3.33995558321476e-07,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5446404880,
+      "residentBytes": 2781790208,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 86.4,
+        "largest_background_process_cpu_percent": 23.1,
+        "gpu_utilization_percent": 18,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.557246464,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 2.0761538749793544,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386947344,
+      "residentBytes": 2781790208,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 71.4,
+        "largest_background_process_cpu_percent": 20.4,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.627058688,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 4.175359999993816,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386947344,
+      "residentBytes": 2781790208,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 117.6,
+        "largest_background_process_cpu_percent": 30.4,
+        "gpu_utilization_percent": 6,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.536242176,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 6.27399720903486,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 193.6,
+        "largest_background_process_cpu_percent": 31.7,
+        "gpu_utilization_percent": 13,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.44893184,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 8.346051916945726,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 63.800000000000004,
+        "largest_background_process_cpu_percent": 18.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.832432128,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 10.447345125023276,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 84.2,
+        "largest_background_process_cpu_percent": 24.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.86688768,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 12.553808999946341,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 217.5,
+        "largest_background_process_cpu_percent": 147.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.78963712,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 14.650041625020094,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 67.1,
+        "largest_background_process_cpu_percent": 17.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.79422464,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 16.748074125032872,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 61.0,
+        "largest_background_process_cpu_percent": 17.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.801073152,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 18.847363334032707,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 58.0,
+        "largest_background_process_cpu_percent": 17.2,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.89547776,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 20.949981541954912,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 59.300000000000004,
+        "largest_background_process_cpu_percent": 18.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.888121344,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 23.052092875004746,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "pageins": 57,
+      "physicalFootprintBytes": 5386881808,
+      "residentBytes": 2781724672,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 46.9,
+        "largest_background_process_cpu_percent": 15.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": true,
+        "idle_eligible": true
+      }
+    },
+    "reclaimable_gb": 28.798271488,
+    "swapouts": 2508595,
+    "known_jobs": [],
+    "model_lock_free": true
+  }
+]

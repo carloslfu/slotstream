@@ -57,7 +57,8 @@ struct AttachmentBar: View {
         case .knowledge: return "db.md knowledge base"
         case .file: return "One file"
         case .folder:
-            let files = item.files == 1 ? "1 file" : "\(item.files) files"
+            guard let count = item.files else { return "Live folder · browsed when needed" }
+            let files = count == 1 ? "1 file" : "\(count) files"
             return item.skipped > 0 ? files + " · \(item.skipped) skipped (links, dependencies or unreadable)" : files
         }
     }
@@ -103,7 +104,8 @@ struct DiffView: View {
     var palette: Palette
     private func number(_ value: Int?) -> String { value.map(String.init) ?? "" }
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Lazy: a long preview lays out only the lines on screen.
+        LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 if line.kind == .gap {
                     Text("⋯").foregroundStyle(palette.secondary).padding(.leading, 90).padding(.vertical, 2).accessibilityLabel("Unchanged lines omitted")
@@ -468,6 +470,12 @@ struct AppsPanel: View {
 struct AppCanvas: View {
     @ObservedObject var model: AppModel
     var palette: Palette
+    private func opening(_ name: String) -> some View {
+        VStack(spacing: 12) {
+            ProgressView().controlSize(.small)
+            Text("Opening \(name)…").font(.callout).foregroundStyle(palette.secondary)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityElement(children: .combine)
+    }
     var body: some View {
         if let running = model.runningApp {
             VStack(spacing: 0) {
@@ -492,8 +500,13 @@ struct AppCanvas: View {
                         Button("Open Again") { model.reloadApp() }
                     }.padding(10).background(palette.attention)
                 }
-                MiniAppView(controller: running).frame(maxWidth: .infinity, maxHeight: .infinity)
+                ZStack {
+                    MiniAppView(controller: running).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if !running.ready && model.appFailure == nil { opening(running.session.name) }
+                }
             }
+        } else if let name = model.openingAppName {
+            opening(name)
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 Text("No app open").font(.headline)

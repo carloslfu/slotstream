@@ -5,10 +5,20 @@ import SevraPresentation
 enum Appearance: String, CaseIterable { case system = "System", light = "Light", dark = "Dark" }
 
 @MainActor final class TextSession {
-    struct Position { var selection = NSRange(location: 0, length: 0); var origin = NSPoint.zero; var followsLatest = false }
+    struct Position {
+        var selection = NSRange(location: 0, length: 0); var origin = NSPoint.zero; var followsLatest = false
+        /// The message and character at the top of the reading position, and
+        /// how far into its line the view's top was. Unlike `origin`, it
+        /// survives a new rendering of the page and a new layout, in which
+        /// text not yet shown has only an estimated height.
+        var anchor: (section: String, character: Int, offset: CGFloat)?
+    }
     var positions: [String: Position] = [:]
     var composers: [String: NSScrollView] = [:]
     weak var conversation: DocumentTextView?
+    /// The conversation's view, kept while the window switches to or from
+    /// split view, so it is moved rather than built and filled again.
+    var keptConversation: NSScrollView?
     weak var artifact: DocumentTextView?
     weak var composer: ComposerTextView?
     weak var returnFocus: NSView?
@@ -25,10 +35,19 @@ enum Appearance: String, CaseIterable { case system = "System", light = "Light",
     func restoreFocus() {
         let fallback: NSView? = returnRole == "conversation" ? conversation : returnRole == "artifact" ? artifact ?? conversation : composer
         let target = returnFocus?.window != nil ? returnFocus : fallback
-        if let target { target.window?.makeFirstResponder(target) }
+        guard let target else { return }
+        // A conversation still covered by the closing panel takes focus once it shows.
+        if target === conversation, target.isHiddenOrHasHiddenAncestor { pendingDocumentFocus = true; return }
+        target.window?.makeFirstResponder(target)
     }
     func focusComposer() { if let composer { composer.window?.makeFirstResponder(composer) } }
-    func focusDocument() { if let conversation, let window = conversation.window { window.makeFirstResponder(conversation) } else { pendingDocumentFocus = true } }
+    func focusDocument() { if let conversation = visibleConversation { conversation.window?.makeFirstResponder(conversation) } else { pendingDocumentFocus = true } }
+    /// The conversation's text while the window shows it. Under a panel it
+    /// stays in the window, hidden.
+    var visibleConversation: DocumentTextView? {
+        guard let conversation, conversation.window != nil, !conversation.isHiddenOrHasHiddenAncestor else { return nil }
+        return conversation
+    }
     private var composerOrder: [String] = []
     func retainComposer(_ scroll: NSScrollView, id: String) {
         composers[id] = scroll; composerOrder.removeAll { $0 == id }; composerOrder.append(id)
@@ -42,6 +61,8 @@ struct Transcript: NSViewRepresentable {
     var sections: [DocumentSection]
     var fontSize: CGFloat = 16
     var sourceMode = false
+    /// Covered by a panel: kept laid out, but hidden and out of the key loop.
+    var hidden = false
     var label = "Conversation"
     var horizontalInset: CGFloat = 16
     var session: TextSession
@@ -49,10 +70,22 @@ struct Transcript: NSViewRepresentable {
     var onNotice: (String) -> Void = { _ in }
     var onOutline: ([DocumentRegion]) -> Void = { _ in }
     var onScrollAwayFromLatest: (Bool) -> Void = { _ in }
+    /// Opens a response's details at a place in this document.
+    var onDetails: (URL, NSRect, NSView) -> Void = { _, _, _ in }
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSScrollView {
+        // Only a view no window shows is taken over: its previous place was removed.
+        if label == "Conversation", let kept = session.keptConversation, kept.window == nil,
+           let view = kept.documentView as? DocumentTextView {
+            kept.removeFromSuperview()
+            view.delegate = context.coordinator
+            context.coordinator.view = view
+            context.coordinator.adopt(view)
+            context.coordinator.observeViewport(kept, view: view)
+            return kept
+        }
         let scroll = TranscriptScrollView(); scroll.hasVerticalScroller = true; scroll.drawsBackground = false
         // NSTextTable is not supported by TextKit 2. Use its native compatible
         // document engine deliberately, with bounded history pages and regression tests.
@@ -63,6 +96,10 @@ struct Transcript: NSViewRepresentable {
         view.isAutomaticLinkDetectionEnabled = false
         if #available(macOS 15, *) { view.writingToolsBehavior = .none }
         view.isHorizontallyResizable = false; view.isVerticallyResizable = true
+        // Only text that shows is laid out: opening a long page lays out its
+        // last screen, not every message above it. The rest is laid out as it
+        // scrolls into view or when the run loop is idle.
+        view.layoutManager?.allowsNonContiguousLayout = true
         view.autoresizingMask = [.width]; view.textContainer?.widthTracksTextView = true
         view.textContainerInset = NSSize(width: horizontalInset, height: 16)
         view.textContainer?.lineFragmentPadding = 0
@@ -75,6 +112,7 @@ struct Transcript: NSViewRepresentable {
         view.setAccessibilityIdentifier(label == "Conversation" ? "conversation-document" : "artifact-document")
         scroll.documentView = view; context.coordinator.view = view
         context.coordinator.observeViewport(scroll, view: view)
+        if label == "Conversation" { session.keptConversation = scroll }
         return scroll
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
@@ -82,17 +120,34 @@ struct Transcript: NSViewRepresentable {
         let c = context.coordinator
         c.session = session; c.onLink = onLink
         c.onScrollAwayFromLatest = onScrollAwayFromLatest
+        let details = onDetails
+        c.onDetails = details
+        view.onDetails = { [weak view] url, rect in if let view { details(url, rect, view) } }
         view.setAccessibilityLabel(label)
         view.onOversizeCopy = onNotice
         if label == "Conversation" { session.conversation = view } else { session.artifact = view }
+        if scroll.isHidden != hidden {
+            if hidden {
+                // Covered, it gives up focus as it would if it were removed.
+                if let window = scroll.window, let responder = window.firstResponder as? NSView, responder.isDescendant(of: scroll) { window.makeFirstResponder(nil) }
+                if label == "Conversation" { session.pendingDocumentFocus = false }
+            }
+            scroll.isHidden = hidden
+            if !hidden, label == "Conversation", session.pendingDocumentFocus, let window = view.window {
+                session.pendingDocumentFocus = false; window.makeFirstResponder(view)
+            }
+        }
         let style = DocumentStyle(size: fontSize, dark: scheme == .dark, highContrast: contrast == .increased, sourceMode: sourceMode)
-        view.linkTextAttributes = [.foregroundColor: style.linkColor, .underlineStyle: NSUnderlineStyle.single.rawValue]
+        // Every link carries its own look: text links are colored and
+        // underlined by the renderer, while a reply's details line stays quiet.
+        view.linkTextAttributes = [.cursor: NSCursor.pointingHand]
         guard c.sections != sections || c.style != style || c.id != documentID else { return }
         if c.id != documentID {
             if !c.id.isEmpty { session.positions[c.id] = view.savedPosition }
             c.restore = session.positions[documentID] ?? TextSession.Position(followsLatest: label == "Conversation" && documentID.hasSuffix(":latest"))
             c.id = documentID
             c.lastAway = nil
+            c.outline = nil
         }
         c.sections = sections; c.style = style; c.generation += 1
         let generation = c.generation, input = sections, renderer = c.renderer
@@ -104,30 +159,33 @@ struct Transcript: NSViewRepresentable {
                 guard generation == c.generation, let scroll, let view, let storage = view.textStorage else { return }
                 let selected = view.selectedRange(), origin = scroll.contentView.bounds.origin
                 let follow = c.restore?.followsLatest ?? (selected.length == 0 && view.isNearLatest)
-                let before = storage.string as NSString, after = document.text.string as NSString
-                var prefix = 0
-                if c.restore == nil && c.appliedStyle == style {
-                    while prefix < min(before.length, after.length), before.character(at: prefix) == after.character(at: prefix) { prefix += 1 }
-                    if prefix > 0 { prefix = after.paragraphRange(for: NSRange(location: min(prefix - 1, max(0, after.length - 1)), length: 0)).location }
-                    // Earlier reference definitions can change attributes without changing text.
-                    if prefix > 0 && !storage.attributedSubstring(from: NSRange(location: 0, length: prefix)).isEqual(to: document.text.attributedSubstring(from: NSRange(location: 0, length: prefix))) { prefix = 0 }
-                }
+                // Only what changed is replaced and laid out again: a
+                // streaming reply costs its own changed paragraphs, not the page.
+                let prefix = c.restore == nil && c.appliedStyle == style
+                    ? RenderedDocument.unchangedPrefix(from: c.applied, to: document, displayedLength: storage.length) : 0
+                let oldLength = storage.length
                 storage.beginEditing()
-                storage.replaceCharacters(in: NSRange(location: prefix, length: before.length - prefix), with: document.text.attributedSubstring(from: NSRange(location: prefix, length: after.length - prefix)))
+                storage.replaceCharacters(in: NSRange(location: prefix, length: oldLength - prefix), with: document.text.attributedSubstring(from: NSRange(location: prefix, length: document.text.length - prefix)))
                 storage.endEditing()
+                c.applied = document
                 view.sections = input; view.regions = document.regions
-                onOutline(document.regions.filter { $0.kind != .paragraph })
+                view.shown = (documentID, style, document)
+                // Publishing an unchanged outline would redraw the window on
+                // every streamed update.
+                let outline = document.regions.filter { $0.kind != .paragraph }
+                if c.outline != outline { c.outline = outline; onOutline(outline) }
                 let position = c.restore ?? TextSession.Position(selection: selected, origin: origin)
                 let location = min(position.selection.location, storage.length)
                 view.setSelectedRange(NSRange(location: location, length: min(position.selection.length, storage.length - location)))
-                view.layoutManager?.ensureLayout(for: view.textContainer!)
                 // A page change renders asynchronously. Honor an explicit
-                // Latest request only after that exact destination is laid out.
+                // Latest request only after that exact destination is in
+                // the view; scrolling there lays out what shows.
                 let jumpLatest = session.pendingLatestDocumentID == documentID
                 if jumpLatest { session.pendingLatestDocumentID = nil }
                 if jumpLatest { view.jumpToLatest(focus: session.pendingLatestFocus) }
                 else if follow { view.scrollToEndOfDocument(nil) }
-                else { scroll.contentView.scroll(to: position.origin) }
+                else { view.restore(position) }
+                view.completeLayout()
                 scroll.reflectScrolledClipView(scroll.contentView)
                 c.restore = nil; c.appliedStyle = style
                 c.publishViewport()
@@ -153,11 +211,22 @@ struct Transcript: NSViewRepresentable {
         var id = "", notice = ""
         var generation = 0
         var restore: TextSession.Position?
+        /// The rendering now in the text view, before AppKit fixed its fonts.
+        var applied: RenderedDocument?
+        var outline: [DocumentRegion]?
+        /// Continue from what a kept view already shows.
+        func adopt(_ view: DocumentTextView) {
+            guard let shown = view.shown else { return }
+            id = shown.id; sections = view.sections; style = shown.style; appliedStyle = shown.style
+            applied = shown.document
+            outline = shown.document.regions.filter { $0.kind != .paragraph }
+        }
         let queue = DispatchQueue(label: "Sevra.Markdown", qos: .userInitiated)
         let renderer = MarkdownDocumentRenderer()
         var pending: DispatchWorkItem?
         var onLink: (URL) -> Void = { _ in }
         var onScrollAwayFromLatest: (Bool) -> Void = { _ in }
+        var onDetails: (URL, NSRect, NSView) -> Void = { _, _, _ in }
         var lastAway: Bool?
         private var viewportObservers: [NSObjectProtocol] = []
         func observeViewport(_ scroll: NSScrollView, view: DocumentTextView) {
@@ -193,6 +262,8 @@ struct Transcript: NSViewRepresentable {
                     // Only a generated link at this exact code region can copy it.
                     if let region = view.regions.first(where: { $0.kind == .code && NSLocationInRange(charIndex, $0.display) }),
                        url == MarkdownDocumentRenderer.codeCopyURL(sectionID: region.sectionID, sourceOffset: region.source.lowerBound), let code = region.copyText { view.put(code); view.onOversizeCopy("Code copied.") }
+                } else if ResponseDetailsLink.target(url) != nil {
+                    onDetails(url, (textView as? DocumentTextView)?.linkRect(at: charIndex) ?? .zero, textView)
                 } else { session?.rememberFocus(); onLink(url) }
             }; return true
         }
@@ -203,11 +274,13 @@ final class TranscriptScrollView: NSScrollView {
     override func setFrameSize(_ newSize: NSSize) {
         let document = documentView as? DocumentTextView
         let follow = document?.selectedRange().length == 0 && document?.isNearLatest == true
+        // A new width lays the text out again: keep a reader on their line.
+        let anchor = follow || newSize.width == frame.width ? nil : document?.readingAnchor
         super.setFrameSize(newSize)
-        if follow, let document, let container = document.textContainer {
-            document.layoutManager?.ensureLayout(for: container)
-            document.scrollToEndOfDocument(nil)
-        }
+        guard let document else { return }
+        if follow { document.scrollToEndOfDocument(nil) }
+        else if let anchor { document.restore(TextSession.Position(origin: contentView.bounds.origin, anchor: anchor)) }
+        document.completeLayout()
     }
 }
 
@@ -221,10 +294,14 @@ final class DocumentTextView: NSTextView, NSAccessibilityCustomRotorItemSearchDe
     }
     var sections: [DocumentSection] = []
     var regions: [DocumentRegion] = []
+    /// The document, style and rendering this view shows.
+    var shown: (id: String, style: DocumentStyle, document: RenderedDocument)?
     var onOversizeCopy: (String) -> Void = { _ in }
+    var onDetails: ((URL, NSRect) -> Void)?
     private var menuCode: String?
     private var menuSource: String?
     private var menuLink: URL?
+    private var menuDetails: (url: URL, rect: NSRect)?
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
         let point = convert(event.locationInWindow, from: nil)
@@ -239,6 +316,10 @@ final class DocumentTextView: NSTextView, NSAccessibilityCustomRotorItemSearchDe
         if menuSource != nil { let item = NSMenuItem(title: "Copy Message as Markdown", action: #selector(copySource), keyEquivalent: ""); item.target = self; menu.addItem(item) }
         menuLink = offset < (textStorage?.length ?? 0) ? textStorage?.attribute(.link, at: offset, effectiveRange: nil) as? URL : nil
         if let link = menuLink, MarkdownDocumentRenderer.externalURL(link.absoluteString) != nil { add("Copy Link", #selector(copyLink)) }
+        // A reply's details, from its text or from its details line.
+        let details = menuLink.flatMap { ResponseDetailsLink.target($0) != nil ? $0 : nil } ?? sections.first { $0.id == id }?.details
+        menuDetails = details.map { ($0, NSRect(x: point.x, y: point.y, width: 1, height: 1)) }
+        if menuDetails != nil, onDetails != nil { menu.addItem(.separator()); add("Show Response Details", #selector(showDetails)) }
         menu.addItem(.separator()); add("Select All", #selector(selectAll(_:))); add("Find…", #selector(findDocument))
         return menu
     }
@@ -249,6 +330,17 @@ final class DocumentTextView: NSTextView, NSAccessibilityCustomRotorItemSearchDe
     @objc func copyCode() { if let menuCode { put(menuCode) } }
     @objc func copySource() { if let menuSource { put(menuSource) } }
     @objc func copyLink() { if let menuLink { put(menuLink.absoluteString) } }
+    @objc func showDetails() { if let menuDetails { onDetails?(menuDetails.url, menuDetails.rect) } }
+    /// Where a link's text sits in this view, for a popover beside it.
+    func linkRect(at index: Int) -> NSRect {
+        guard let storage = textStorage, let manager = layoutManager, let container = textContainer, index < storage.length else { return .zero }
+        var range = NSRange(location: index, length: 1)
+        _ = storage.attribute(.link, at: index, longestEffectiveRange: &range, in: NSRange(location: 0, length: storage.length))
+        let glyphs = manager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+        var rect = manager.boundingRect(forGlyphRange: glyphs, in: container)
+        rect.origin.x += textContainerOrigin.x; rect.origin.y += textContainerOrigin.y
+        return rect
+    }
     @objc func findDocument() { window?.makeFirstResponder(self); let item = NSMenuItem(); item.tag = Int(NSFindPanelAction.showFindPanel.rawValue); performFindPanelAction(item) }
     override func copy(_ sender: Any?) {
         let selected = selectedRange()
@@ -263,13 +355,110 @@ final class DocumentTextView: NSTextView, NSAccessibilityCustomRotorItemSearchDe
         return bounds.height - scroll.contentView.bounds.maxY <= 64
     }
     var savedPosition: TextSession.Position {
-        TextSession.Position(selection: selectedRange(), origin: enclosingScrollView?.contentView.bounds.origin ?? .zero,
-                             followsLatest: selectedRange().length == 0 && isNearLatest)
+        var position = TextSession.Position(selection: selectedRange(), origin: enclosingScrollView?.contentView.bounds.origin ?? .zero,
+                                            followsLatest: selectedRange().length == 0 && isNearLatest)
+        if !position.followsLatest { position.anchor = readingAnchor }
+        return position
+    }
+    /// The message and character at the top of the visible text, and how
+    /// far below its line's top the view begins. It reads only text already
+    /// laid out, so asking never lays out, or moves, anything.
+    var readingAnchor: (section: String, character: Int, offset: CGFloat)? {
+        guard let manager = layoutManager, let container = textContainer, let clip = enclosingScrollView?.contentView,
+              let spans = shown?.document.spans, (textStorage?.length ?? 0) > 0 else { return nil }
+        var visible = clip.bounds; visible.origin.y -= textContainerOrigin.y
+        let glyphs = manager.glyphRange(forBoundingRectWithoutAdditionalLayout: visible, in: container)
+        guard glyphs.length > 0 else { return nil }
+        let line = manager.lineFragmentRect(forGlyphAt: glyphs.location, effectiveRange: nil, withoutAdditionalLayout: true)
+        let character = manager.characterIndexForGlyph(at: glyphs.location)
+        var start = 0
+        for span in spans {
+            if character < start + span.length { return (span.id, character - start, visible.minY - line.minY) }
+            start += span.length
+        }
+        return nil
+    }
+    /// A long page is laid out first where it shows. The rest is laid out
+    /// here, a slice per run-loop turn, so positions become exact without
+    /// blocking typing or scrolling. While the text above the reader, until
+    /// now only estimated, takes its real height, AppKit keeps the text in
+    /// view nearly still; the reader's first line is held to the point.
+    private var completingLayout = false
+    /// The reader's first visible character, where it sits in the view, and
+    /// the scroll position left after the last slice. A different scroll
+    /// position means the reader scrolled, and the line to hold is read again.
+    private var held: (character: Int, y: CGFloat, clip: CGFloat)?
+    func completeLayout() {
+        // New text or a new position: the next slice reads the line to hold again.
+        held = nil
+        guard !completingLayout, layoutManager?.hasNonContiguousLayout == true else { return }
+        completingLayout = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(1)) { [weak self] in self?.layOutSlice() }
+    }
+    /// Where a laid-out character's baseline sits in the visible area.
+    private func baseline(_ character: Int) -> CGFloat? {
+        guard let manager = layoutManager, let clip = enclosingScrollView?.contentView, character < (textStorage?.length ?? 0) else { return nil }
+        let glyph = manager.glyphIndexForCharacter(at: character)
+        let line = manager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil, withoutAdditionalLayout: true)
+        guard line.height > 0 else { return nil }
+        return line.minY + manager.location(forGlyphAt: glyph).y + textContainerOrigin.y - clip.bounds.minY
+    }
+    private func layOutSlice() {
+        guard let manager = layoutManager, let container = textContainer, let clip = enclosingScrollView?.contentView,
+              let length = textStorage?.length, manager.hasNonContiguousLayout, window != nil else { completingLayout = false; held = nil; return }
+        // A live resize lays out again on every frame; finish after it.
+        if inLiveResize {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) { [weak self] in self?.layOutSlice() }
+            return
+        }
+        let follow = selectedRange().length == 0 && isNearLatest
+        if !follow, held == nil || abs(held!.clip - clip.bounds.minY) > 0.5 {
+            var visible = clip.bounds; visible.origin.y -= textContainerOrigin.y
+            let glyphs = manager.glyphRange(forBoundingRectWithoutAdditionalLayout: visible, in: container)
+            let character = glyphs.length > 0 ? manager.characterIndexForGlyph(at: glyphs.location) : length
+            held = baseline(character).map { (character, $0, clip.bounds.minY) }
+        }
+        let next = manager.firstUnlaidCharacterIndex()
+        if next < length { manager.ensureLayout(forCharacterRange: NSRange(location: next, length: min(24_576, length - next))) }
+        // Without progress, what remains is laid out at once.
+        if manager.hasNonContiguousLayout, manager.firstUnlaidCharacterIndex() <= next { manager.ensureLayout(for: container) }
+        if follow { scrollToEndOfDocument(nil); held = nil }
+        else if let target = held, let now = baseline(target.character) {
+            if abs(now - target.y) > 0.01 {
+                clip.scroll(to: NSPoint(x: clip.bounds.minX, y: clip.bounds.minY + now - target.y))
+                enclosingScrollView?.reflectScrolledClipView(clip)
+            }
+            held?.clip = clip.bounds.minY
+        }
+        if manager.hasNonContiguousLayout {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(1)) { [weak self] in self?.layOutSlice() }
+        } else { completingLayout = false; held = nil }
+    }
+    /// Scrolls back to a saved reading position: to its message and character
+    /// when the page still has that message, otherwise to where the view was.
+    func restore(_ position: TextSession.Position) {
+        guard let clip = enclosingScrollView?.contentView else { return }
+        if let anchor = position.anchor, let manager = layoutManager, let spans = shown?.document.spans,
+           let length = textStorage?.length {
+            var start = 0
+            for span in spans {
+                if span.id == anchor.section, span.length > 0 {
+                    let character = min(start + min(anchor.character, span.length - 1), length - 1)
+                    manager.ensureLayout(forCharacterRange: NSRange(location: character, length: 1))
+                    let line = manager.lineFragmentRect(forGlyphAt: manager.glyphIndexForCharacter(at: character), effectiveRange: nil)
+                    clip.scroll(to: NSPoint(x: position.origin.x, y: line.minY + textContainerOrigin.y + anchor.offset))
+                    return
+                }
+                start += span.length
+            }
+        }
+        clip.scroll(to: position.origin)
     }
     func jumpToLatest(focus: Bool = true) {
         setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
         scrollToEndOfDocument(nil)
-        if focus { window?.makeFirstResponder(self) }
+        // Under a panel the conversation only scrolls; focus waits until it shows.
+        if focus, !isHiddenOrHasHiddenAncestor { window?.makeFirstResponder(self) }
     }
     func jump(to region: DocumentRegion) {
         // A menu can remain open while streaming changes the rendered ranges.

@@ -55,7 +55,8 @@ the server keeps the model loaded.
 
 Each message has a `role` and `content`, with optional `images`. Content can
 be text or an array of supported image/text parts; see [Images](#images).
-Tool calls aren't supported on this endpoint.
+Tool calls aren't supported on this endpoint. Tool clients should use
+`/v1/chat/completions` with OpenAI function definitions and tool-result messages.
 
 ```bash
 curl localhost:11434/api/chat -d '{
@@ -139,11 +140,20 @@ native model template.
 
 `tool_choice` accepts `auto` (default), `none`, `required`, or a named
 function object. A required/named choice is both prompted and checked; an
-unsatisfied choice produces an inference error. `parallel_tool_calls: false`
+unsatisfied choice produces an inference error unless the output token budget
+was exhausted. `parallel_tool_calls: false`
 ends generation after the first complete call. The default allows multiple
 calls, with distinct IDs and stream indices. The caller executes tools.
-Malformed/truncated calls and undeclared function names produce an inference
-error; provisional arguments are never exposed as executable calls. Strict
+Chat Completions streams a declared string argument while it is generated,
+including large file contents. Reassemble `delta.tool_calls` by `index`,
+concatenating each function's `arguments` fragments. Calls become complete
+only when their closing tags arrive. If the output budget is exhausted,
+the reply ends with `finish_reason: "length"`, requested usage, and `[DONE]`,
+including when a required tool call has not finished. Partial argument strings
+can be incomplete JSON; do not execute them. A completed tool reply ends with
+`finish_reason: "tool_calls"`. Non-streaming replies use the same length
+semantics. Malformed calls on a normal stop and undeclared function names
+produce an inference error. Strict
 schema enforcement is unavailable: omit `strict` or use `false`, and validate
 arguments in the caller before execution.
 
@@ -504,6 +514,11 @@ sized the memory plan (`--memory-gb`, `auto`, `--pool-gb` or
 `--experts-per-layer`) and `memory_target_gb` the whole-process target, or
 `null` for a plan without one. Reading the status is not activity.
 
+The development version also reports `memory_limit_gb`: the saved adaptive
+ceiling, or `null` when none was selected. Adaptive plans still use
+`memory_source: "auto"`; their current `memory_target_gb` can be lower than
+the saved limit while other apps need memory.
+
 `POST /slotstream/clients` with `{"pid": 4242}` registers a running process
 of the user the server runs as, and returns `{"clients": 1}`, the number
 registered. A server started with `--idle-exit` keeps running while any
@@ -552,6 +567,23 @@ the model's training window must not be used as the request limit.
 
 Generation requests run one at a time; a second waits for the first. Metadata
 endpoints read a separate snapshot and remain responsive during generation.
+
+The server log identifies each accepted request and periodically reports its
+elapsed time and current guarded phase, including prompt preparation and
+waiting for inference. Cache diagnostics say whether memory or disk supplied
+the prefix, or why retained state could not be reused. Exact token prefixes,
+compatible prefill boundaries and available memory remain required; a saved
+state does not guarantee a cache hit for a changed prompt.
+The disk cache also retains the exact generated token IDs needed to reconstruct
+history when a client omits reasoning. These IDs share the checkpoint's quota,
+expiry and deletion rules; the reusable numerical state still ends at its
+original prefill boundary.
+
+Prefill progress reports completed passes by elapsed time. Its remaining-time
+estimate uses recent throughput, so a slow tail replaces the faster early
+rate. The initial plan estimate cannot predict other applications' memory or
+SSD contention. A stalled pass still appears in the request-phase heartbeat.
+Socket output failures are logged separately from request completion.
 
 ## Request deadlines and resource failures
 

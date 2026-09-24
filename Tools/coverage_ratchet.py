@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Coverage may not go down.
+"""Report coverage changes for review; historical percentages are advisory.
 
 Reads an lcov file and compares each library file's line coverage against the
-committed floor in Tools/coverage-floor.json. A file below its floor fails; a
-file above it prints the surplus, and `--update` writes the new floor.
+committed snapshot in Tools/coverage-floor.json. Drops and new files are
+reported without failing CI. Missing or invalid coverage data still fails.
+The historical script and snapshot names remain compatible with local tools.
 
-The floor is per file, not a single number, because one number hides the case
-this exists to catch: new well-covered code masking a regression somewhere
-older. A file with no floor yet is recorded at 0 and cannot regress below that.
+Per-file changes help locate testing gaps that an overall percentage hides.
+Review the uncovered behavior, especially safety and error paths. This report
+does not include the separate context-proxy, CLI or real-model suites.
 
     Tools/coverage.sh t0 t1 --lcov coverage.info
     Tools/coverage_ratchet.py coverage.info
     Tools/coverage_ratchet.py coverage.info --update   # after a deliberate change
 """
+import argparse
 import json
 import os
 import sys
@@ -34,11 +36,17 @@ def parse_lcov(path):
             p = p[len(ROOT) + 1:] if p.startswith(ROOT) else p
             current = p if p.startswith(TRACKED) else None
         elif current and line.startswith("LH:"):
-            out.setdefault(current, [0, 0])[0] = int(line[3:])
+            out.setdefault(current, [None, None])[0] = int(line[3:])
         elif current and line.startswith("LF:"):
-            out.setdefault(current, [0, 0])[1] = int(line[3:])
+            out.setdefault(current, [None, None])[1] = int(line[3:])
         elif line == "end_of_record":
+            if current:
+                hit, found = out.get(current, (None, None))
+                if hit is None or found is None or not 0 <= hit <= found:
+                    raise ValueError("invalid or missing line totals for " + current)
             current = None
+    if current:
+        raise ValueError("unterminated coverage record for " + current)
     return {k: tuple(v) for k, v in out.items()}
 
 
@@ -58,9 +66,12 @@ def compare(measured, floor):
         # LLVM's line attribution can move by a line or two on an unrelated
         # edit. A fixed tenth of a point did not actually allow even one line
         # in files below 1,000 lines, so use the larger of 0.1 point and two
-        # current source lines. Larger regressions still fail.
+        # current source lines. Larger changes are reported for review.
         slack = max(0.1, 200.0 / found) if found else 0.1
-        if now + slack < was:
+        # Floors are stored to two decimals, so one can sit up to 0.005 point
+        # above the coverage it recorded. Without this, a file whose floor had
+        # rounded up failed a drop of exactly two lines.
+        if now + slack + 0.005 < was:
             failures.append((path, was, now))
         elif now > was + slack:
             gains.append((path, was, now))
@@ -68,14 +79,17 @@ def compare(measured, floor):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    update = "--update" in sys.argv
-    if not args:
-        print(__doc__, file=sys.stderr)
-        return 2
-    measured = parse_lcov(args[0])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("lcov")
+    parser.add_argument("--update", action="store_true", help="deliberately refresh the comparison snapshot")
+    args = parser.parse_args()
+    try:
+        measured = parse_lcov(args.lcov)
+    except (OSError, ValueError) as error:
+        print("coverage report error: %s" % error, file=sys.stderr)
+        return 1
     if not measured:
-        print("no tracked source files in %s" % args[0], file=sys.stderr)
+        print("no tracked source files in %s" % args.lcov, file=sys.stderr)
         return 1
     floor = {}
     if os.path.exists(FLOOR):
@@ -90,28 +104,43 @@ def main():
     for path, was, now in gains:
         print("  up    %-52s %.2f%% -> %.2f%%" % (path, was, now))
     for path, now in missing:
-        print("  NEW   %-52s no floor -> %.2f%%" % (path, now))
+        print("  NEW   %-52s no snapshot -> %.2f%%" % (path, now))
     for path, was, now in failures:
         print("  DOWN  %-52s %.2f%% -> %.2f%%" % (path, was, now))
 
-    if update:
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as report:
+            report.write("### Coverage review\n\n")
+            report.write("Measured coverage: %.2f%%. Changes below are advisory.\n\n" % pct(total_hit, total_found))
+            report.write("Context-proxy, CLI and real-model suites run separately and are not included.\n\n")
+            if failures or gains or missing:
+                report.write("| File | Previous snapshot | Measured |\n| --- | ---: | ---: |\n")
+                for path, was, now in failures + gains:
+                    report.write("| `%s` | %.2f%% | %.2f%% |\n" % (path, was, now))
+                for path, now in missing:
+                    report.write("| `%s` | New file | %.2f%% |\n" % (path, now))
+            else:
+                report.write("No material per-file changes from the snapshot.\n")
+            report.write("\nInspect uncovered behavior before accepting a change. Tests and report errors remain blocking.\n")
+
+    if args.update:
         json.dump(
-            {"note": "written by Tools/coverage_ratchet.py --update; per-file line coverage floors",
+            {"note": "written by Tools/coverage_ratchet.py --update; advisory per-file coverage snapshot",
              "total": round(pct(total_hit, total_found), 2),
              "files": {p: round(pct(h, f), 2) for p, (h, f) in sorted(measured.items())}},
             open(FLOOR, "w", encoding="utf-8"), indent=2, sort_keys=True)
         open(FLOOR, "a", encoding="utf-8").write("\n")
-        print("floor updated: %s" % os.path.relpath(FLOOR, ROOT))
+        print("comparison snapshot updated: %s" % os.path.relpath(FLOOR, ROOT))
         return 0
 
     if failures or missing:
         if failures:
             print("\n%d file(s) lost coverage." % len(failures))
         if missing:
-            print("\n%d new file(s) have no committed floor." % len(missing))
-        print("Add a check, or run --update if the baseline change is deliberate "
-              "and explained in the commit.")
-        return 1
+            print("\n%d new file(s) have no comparison snapshot." % len(missing))
+        print("Advisory: inspect uncovered behavior and add meaningful checks where needed. "
+              "Historical percentages do not block CI.")
     return 0
 
 

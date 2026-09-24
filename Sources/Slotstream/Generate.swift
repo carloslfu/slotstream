@@ -446,6 +446,7 @@ public final class Generator {
     /// PrefillProgressReporter here so a five-minute prompt does not look
     /// like a hang.
     public var onPrefillProgress: ((Int, Int, Double) -> Void)?
+    public var onPrefixCacheStatus: ((String) -> Void)?
     /// Same progress plus the absolute already-consumed prefix. The original
     /// callback remains compatible for embedding clients.
     public var onPrefillProgressAbsolute: ((Int, Int, Double, Int) -> Void)?
@@ -483,6 +484,17 @@ public final class Generator {
         shouldContinue: (() -> Bool)? = nil,
         onToken: ((Int) -> Bool)? = nil,
         request: RequestController?, onAdmitted: (() -> Bool)? = nil
+    ) -> ([Int], GenStats) {
+        generate(promptIds: promptIds, params: params, eosIds: eosIds, cache: cache,
+            vision: vision, shouldContinue: shouldContinue, onToken: onToken,
+            request: request, onAdmitted: onAdmitted, continuing: nil, retaining: nil)
+    }
+
+    package func generate(
+        promptIds: [Int], params: SampleParams, eosIds: Set<Int>,
+        cache: PrefixCache?, vision: VisionPrompt?, shouldContinue: (() -> Bool)?,
+        onToken: ((Int) -> Bool)?, request: RequestController?, onAdmitted: (() -> Bool)?,
+        continuing: GenerationPhaseState?, retaining: GenerationPhaseState?
     ) -> ([Int], GenStats) {
         let requestStart = RuntimeClock.now()
         let smallSweepStart = model.smallPrefillSweeps
@@ -608,8 +620,7 @@ public final class Generator {
         // digest of the bytes behind each run, and `take` requires those to
         // agree as well; a swapped image therefore misses instead of resuming
         // a state built from the wrong pixels.
-        let images = vision?.cacheSegments(attentionPadding: model.optimizations.visionAttentionPadding,
-            queryTile: model.optimizations.visionQueryTile) ?? []
+        let images = vision?.cacheSegments(for: model.optimizations) ?? []
         // A hit hands over the state and the count of prompt tokens it already
         // consumed; a miss evicts enough LRU state before this allocation to
         // keep retained + active state inside the shared bounds (PrefixCache).
@@ -634,11 +645,27 @@ public final class Generator {
         cache?.resumeRuleInForce(resumeRule != nil)
         // The persistent tier answers first only when it holds a longer state
         // than memory does, and makes room exactly like a miss before reading.
-        let restored = restorePersistentPrefix(cache: cache, promptIds: promptIds, images: images,
+        let restored = continuing == nil ? restorePersistentPrefix(cache: cache, promptIds: promptIds, images: images,
             completePromptKey: completeKey, reserveTokens: promptIds.count + params.maxTokens,
-            reserveSequenceBytes: reserveSequenceBytes, request: request, resume: resumeRule, stats: &stats)
+            reserveSequenceBytes: reserveSequenceBytes, request: request, resume: resumeRule, stats: &stats) : nil
         var hit: (state: Qwen4ExpModel.State, reused: Int, logits: MLXArray?, freshEquivalent: Bool)?
-        if let restored {
+        if let continuing {
+            let held = continuing.held
+            continuing.held = nil
+            guard let held, images.isEmpty, held.state.tokenCount == held.tokens.count,
+                  promptIds.count > held.tokens.count, promptIds.starts(with: held.tokens),
+                  held.key == PromptCheckpointKey(model: model.promptCheckpointIdentity,
+                    optimizations: model.optimizations, prefillChunk: prefillChunk,
+                    mtp: speculationEnabled && model.mtpHead != nil) else {
+                let failure = RequestFailure(.invalidConfiguration, "generation phase state does not match its continuation")
+                request?.fail(failure)
+                stats.requestFailure = failure; stats.runtimeError = failure.message; stats.finishReason = "error"
+                return finish([])
+            }
+            cache?.reserveForRestore(promptTokens: promptIds.count, reserveTokens: promptIds.count + params.maxTokens,
+                reserveSequenceBytes: reserveSequenceBytes, restoredSequenceBytes: held.state.allocatedSequenceBytes)
+            hit = (held.state, held.tokens.count, nil, false)
+        } else if let restored {
             // Only a boundary-aligned state is offered to a request under the
             // rule (PersistentPrefixPolicy.bestMatch), and the tier's identity
             // covers the settings, so a restored state is fresh-equivalent.
@@ -659,6 +686,13 @@ public final class Generator {
         }
         let state = hit?.state ?? model.makeState()
         let reused = hit?.reused ?? 0
+        if let onPrefixCacheStatus {
+            let source = restored != nil ? "disk" : "memory"
+            let decision = reused > 0 ? "reusing \(reused)/\(promptIds.count) tokens from \(source)"
+                : "miss: " + (stats.alignedResumeRefusals > 0 ? "draft state incompatible" : cache?.lastDecision ?? "disabled")
+            let disk = stats.persistentPrefix?.restoreFailure.map { "; disk restore refused: " + $0 } ?? ""
+            onPrefixCacheStatus(decision + disk)
+        }
         // Every token of this state was read in the passes this prefill is
         // about to continue, so what it stores next is fresh-equivalent too.
         let alignedPrefill = reused == 0 || (resumeRule != nil && hit?.freshEquivalent == true)
@@ -888,7 +922,7 @@ public final class Generator {
                 // checkpoint. End the group at an existing compute boundary;
                 // the next group still reuses reads across its remaining rows.
                 passes = PrefillSchedule.preservingCheckpoint(passes, from: i,
-                    checkpoint: executionOptimizations.prefixCheckpointTokens)
+                    checkpoint: checkpointAt)
             }
             // The next shared-prefix save point: the last chronological pass
             // end at or before the nearest target. Groups end there as well,
@@ -902,7 +936,7 @@ public final class Generator {
                 passes = PrefillSchedule.preservingCheckpoint(passes, from: i, checkpoint: sharedCheckpoint)
             }
             let fixedCheckpoint: Int? = cache?.enabled == true && (cache?.maxTokens ?? 0) > 0
-                && configuredOptimizations.prefixCheckpointTokens > i ? configuredOptimizations.prefixCheckpointTokens : nil
+                && checkpointAt > i ? checkpointAt : nil
             let scopeCheckpoint = [fixedCheckpoint, sharedCheckpoint].compactMap { $0 }.min()
             model.smallPrefillSweep = PrefillSchedule.chunk(at: i, maxChunk: 256) < 256
             if model.smallPrefillSweep {
@@ -920,6 +954,13 @@ public final class Generator {
                     referenceStart: model.smallPrefillReferenceStart, referenceEnd: promptIds.count)
                 passes = count > 0 ? [count] : []
             }
+            let gpu = Device.defaultDevice() == .gpu
+            let readPolicy = PrefillReadPolicy(options: configuredOptimizations,
+                gpu: gpu, nax: gpu && configuredOptimizations.fusedPrefillWorkspace == true && FusedPrefillAttention.available,
+                bf16: configuredOptimizations.fusedPrefillWorkspace == true && model.hasBF16PrefillWeights,
+                headDimension: model.cfg.headDim, attentionHeads: model.cfg.numAttentionHeads,
+                kvHeads: model.cfg.numKVHeads, vision: vision != nil,
+                smallPass: model.smallPrefillSweep)
             func prefillAllocation(_ group: [Int], options: InferenceOptimizations) -> Int {
                 let end = i + group.reduce(0, +)
                 var at = i, workspace = 0
@@ -929,7 +970,8 @@ public final class Generator {
                         attentionHeads: model.cfg.numAttentionHeads,
                         referenceStart: model.smallPrefillReferenceStart, referenceEnd: promptIds.count,
                         minimumProjectionRows: model.smallPrefillSweep && model.stableSmallPrefillProjections ? 256 : 0,
-                        padSmallQueries: model.smallPrefillSweep && model.stableSmallPrefillAttention))
+                        padSmallQueries: model.smallPrefillSweep && model.stableSmallPrefillAttention,
+                        fusedKVHeads: readPolicy.fusedKVHeads))
                 }
                 workspace = ContextBytes.sum(workspace, ContextBytes.product(max(0, end - i - (group.max() ?? 0)), 32_768))
                 if options.layerExpertWorkspace, end - i >= SweepTuning.minTokens {
@@ -942,7 +984,18 @@ public final class Generator {
                         hidden: model.cfg.hiddenSize, intermediate: model.cfg.moeIntermediate,
                         recordBytes: model.pool.recordBytes, loadBatch: ExpertStore.defaultLoadBatch,
                         admissionPoolBytes: admits ? model.pool.poolBytes : 0,
-                        admissionRecords: admissionRecords))
+                        admissionRecords: admissionRecords,
+                        largestWriteBytes: options.workspacePiecewiseWrites ? model.pool.largestWorkspacePieceBytes : nil))
+                }
+                if let head = mtpHead {
+                    // runHiddenMulti evaluates and releases the main expert
+                    // workspace before consumeChecked starts the resident
+                    // draft head. Only the full multi-stream output survives.
+                    // Price both peaks, including that overlap, instead of
+                    // disabling fused main attention whenever MTP is loaded.
+                    workspace = max(workspace, ContextWorkspace.mtpPrefillBytes(
+                        passes: group, at: i, hiddenSize: head.cfg.hiddenSize,
+                        hcCount: head.cfg.hcCount, attentionHeads: head.cfg.numAttentionHeads))
                 }
                 return allocationBytes(end: end, draftEnd: mtpHead != nil ? max(0, end - 1) : nil,
                     workspaceBytes: workspace)
@@ -961,22 +1014,36 @@ public final class Generator {
                    !configuredOptimizations.workspacePiecewiseWrites && !configuredOptimizations.compactScopeFrontier,
                    !model.smallPrefillSweep,
                    let groups = PrefillSchedule.automaticScopeChoices(remaining: promptIds.count - i, at: i,
-                       maxChunk: prefillChunk, checkpoint: scopeCheckpoint) {
+                       maxChunk: prefillChunk, checkpoint: scopeCheckpoint,
+                       maximumScope: readPolicy.maximumScope(at: i, maxChunk: prefillChunk,
+                           gpu: gpu, override: configuredOptimizations.automaticReadScopeLimit)) {
                     var scoped = configuredOptimizations
-                    scoped.layerExpertWorkspace = true; scoped.readScopeTokens = 4096
+                    scoped.layerExpertWorkspace = true; scoped.readScopeTokens = groups[0].reduce(0, +)
                     scoped.boundedIndexer = true; scoped.boundedPLE = true
                     scoped.workspaceTokenTile = 1024; scoped.compactScopeFrontier = true
                     let footprintBytes = Int(clamping: ProcessMemory.residentBytes())
                     let priced = groups.map { (passes: $0, bytes: prefillAllocation($0, options: scoped)) }
                     automaticScopePricingObserver?(priced.map(\.passes), priced.map(\.bytes), footprintBytes)
-                    let candidates = priced.filter {
+                    let ordinaryCandidates = priced.filter {
                         ContextWorkspace.fitsAutomaticScope(footprintBytes: footprintBytes,
                             allocationBytes: $0.bytes, limitBytes: readScopeFootprintLimitBytes)
                     }
+                    var candidates = ordinaryCandidates.map { (passes: $0.passes, bytes: $0.bytes, options: scoped) }
+                    let ordinaryScope = ordinaryCandidates.first?.passes.reduce(0, +) ?? (passes.max() ?? 256)
+                    var bounded = scoped; bounded.workspacePiecewiseWrites = true
+                    for group in groups where readPolicy.permitsBoundedWrites(scope: group.reduce(0, +),
+                        ordinaryScope: ordinaryScope, mtp: mtpHead != nil) {
+                        let bytes = prefillAllocation(group, options: bounded)
+                        if ContextWorkspace.fitsAutomaticScope(footprintBytes: footprintBytes,
+                            allocationBytes: bytes, limitBytes: readScopeFootprintLimitBytes) {
+                            candidates.append((passes: group, bytes: bytes, options: bounded))
+                        }
+                    }
+                    candidates.sort { $0.passes.reduce(0, +) > $1.passes.reduce(0, +) }
                     if !candidates.isEmpty {
                         if let selected = try request.chooseAllocation(alternativeBytes: candidates.map(\.bytes),
                             fallbackBytes: ordinaryBytes, phase: "prefill pass") {
-                            passes = candidates[selected].passes; executionOptimizations = scoped
+                            passes = candidates[selected].passes; executionOptimizations = candidates[selected].options
                         }
                         checked = true
                     }
@@ -992,7 +1059,7 @@ public final class Generator {
                 retainSharedPrefix(cache: cache, state: state, promptIds: promptIds, at: i, images: images,
                     reserveTokens: promptIds.count + params.maxTokens,
                     reserveSequenceBytes: model.sequenceCapacityBytes(tokens: promptIds.count + params.maxTokens,
-                        mtp: mtpHead != nil), request: request, stats: &stats)
+                        mtp: mtpHead != nil), request: request, aligned: alignedPrefill, key: producedKey, stats: &stats)
             }
             let hi = i + passes.reduce(0, +)
             guard hi > i else {
@@ -1215,6 +1282,11 @@ public final class Generator {
             reason = "error"
         }
         if stats.runtimeError == nil, request?.mayRetainState != false {
+            if let retaining {
+                // Transfer the active state rather than storing an alias that
+                // a later phase could mutate behind the cache's token ledger.
+                retaining.held = (state, consumed, producedKey)
+            } else {
             // The conversation entry holds generated tokens, so under the rule
             // it can never be continued exactly; it still carries this turn's
             // exact ids, which `peek` splices into the next prompt. The state
@@ -1224,6 +1296,11 @@ public final class Generator {
             if resumeRule == nil {
                 persistPrefix(cache: cache, state: state, tokens: consumed, images: images,
                     request: request, aligned: true, stats: &stats)
+            } else if images.isEmpty, cache?.enabled == true, request?.persistsPrefixState != false {
+                // Keep the exact rendered conversation without pretending the
+                // generated suffix is a fresh-equivalent numerical state.
+                cache?.persistent?.rememberConversation(tokens: consumed)
+            }
             }
         }
         stats.finishReason = reason

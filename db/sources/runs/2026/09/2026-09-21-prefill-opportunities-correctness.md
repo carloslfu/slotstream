@@ -1,0 +1,27 @@
+---
+type: run
+id: 01m33767brhwgw78n799bn1cqm
+created: 2026-09-22T00:10:28.088202+00:00
+updated: 2026-09-22T00:14:50.675252+00:00
+summary: 'Remaining prefill opportunities: exact state, lifecycle and memory'
+binary: 686a6955f614c397087ac0473ced5d2a5373065133d3f2d0fc2d160a5209a297
+captured_at: 2026-09-21
+command: run_screens.py; run_v2.py; run_confirmatory.py; run_final_checks.py; run_verified_checks.py; run_post_checks.py; sparse_probe.py
+discarded: 'false'
+machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
+title: 'Remaining prefill opportunities: exact state, lifecycle and memory'
+tool: Frozen Swift model checks and paired benchmark; captured-tensor MLX probe
+---
+[Raw capture](../../../artifacts/prefill-opportunities-2026-09-21/capture.tar.gz) and [member hashes and omitted-payload manifest](../../../artifacts/prefill-opportunities-2026-09-21/manifest.json).
+
+The final retained executable is 686a6955f614c397087ac0473ced5d2a5373065133d3f2d0fc2d160a5209a297; its Metal hash, source archive and controls are preserved in candidate-verified. The catalogue passes 72 groups and 31677 assertions. Explicit checks pass: workspace-verified: 80 assertions, lifecycle-verified: 1914 assertions, mtp-equality-verified: 10 assertions, checkpoint-verified: 25 assertions, mtp-vision-verified: 873 assertions.
+
+The preceding final-source 16387-token plain equality check exercises a full 16384-token read group with a 640-slot diagnostic pool. All 12 assertions pass: raw logits, every retained tensor byte, output IDs, chronological passes and teacher-forced continuation are exact. Complete diagnostic peak, including fingerprinting and continuation, is 7.8643 GB. It is an exactness/memory check, not a timing comparison: candidate runs first and allocation history changes the baseline's later read choices. The later production change only narrows reduced accounting away from image requests; the source comparison records it.
+
+The first lifecycle adaptation exposes ten stale fixture assumptions: hand-seeded states carry no provenance, but current aligned resume correctly refuses them, and its deepest checkpoint differs from the legacy fixed checkpoint. The corrected lifecycle fixture explicitly selects legacy resume while exercising new scheduling and memory controls; the separate deployed checkpoint diagnostic still requires exact warm/cold logits, deepest checkpoint reuse, changed-arithmetic refusal and disk reopen. Production cache rules are not weakened. Original failures remain in lifecycle-final.
+
+The first 16K MTP check passes every numerical, state, continuation and physical-memory assertion (peak 8.5948 GB) but fails an inappropriate assertion requiring a group larger than 8192: actual admission caps it at 7424. The corrected diagnostic does not demand a read group that its memory guard refuses; its final bounded MTP case is rerun. The first MTP/vision suite passes its exact-state, rollback and read-failure checks but its 1024-row four-pass fixture cannot form a four-pass group because aligned resume deliberately saves an interior checkpoint. The corrected grouping fixture disables only that checkpoint in both arms and uses the requested follow-up controls; separate checkpoint/equality diagnostics cover coexistence. The final rerun passes. Neither fixture correction grants a speed claim.
+
+The post-check receipts separately record ordinary CLI budget/fallback runs and fixed-forward GDN/transfer attribution. The ordinary 8195-token CLI completes at an 8.1 GB target with a 6.9543 GB peak, 640 slots, and 912.36 GB of requested expert reads; there is no demonstrated low-budget speed gain. The 10 GB fusion-disabled fallback completes below 8.1233 GB. post-validation.json checks whole-prompt completion, no runtime error and the actual per-run ceiling. Both fixed-forward profiles pass all five alternating rounds with exact logits, routes and state, nominal thermal, no paging and sampled peaks below 5.56 GB. In the GDN probe, median traced preparation/recurrence/finish times are 0.1654/0.0970/0.0672 seconds, with prior-input wait separate; traced whole forward is 2.4524 seconds and expert reads take 1.4428 seconds. In the transfer probe, allocating/wrapping/evaluating staging takes about 0.0018/0.0293/0.0014 seconds, while expert reads take about 2.0000 seconds. These observations do not support treating recurrence or staging allocation as the dominant demonstrated opportunity. Profiles use their original reference configuration, not the complete 16K deployed candidate, and cannot be used as a whole-request GPU decomposition. Paging and thermal exclusions remain diagnostics in those reports. The native Mac app build and complete scripted regression suite pass, as do the final static/installer/planner gates against the frozen verified executable. Their commands and raw logs are preserved in app-compatibility and static-compatibility. No release, commit, push or installation over the user's active app was performed.
+
+Final registration checks: [verification identities](../../../artifacts/prefill-opportunities-2026-09-21/final-verification.json) and [brain/projection/claim gate output](../../../artifacts/prefill-opportunities-2026-09-21/brain-gates-final.log). Validation has no errors and retains the same two historical log warnings. Each run wrapper names its relevant frozen candidate; mixed component probes retain their individual commands and identities in the capture.

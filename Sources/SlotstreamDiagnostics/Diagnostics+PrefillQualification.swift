@@ -8,6 +8,14 @@ extension Diagnostics {
     /// the bounded candidate uses up to 4096 tokens. These are numerical and
     /// state gates only, never performance or peak-memory observations.
     public static func optimizationPrefillFamily(modelDir: URL, tokens: Int, scoped: Bool = false, selectedAttention: Bool = false, terminalPrefill: Bool = false, terminalQuery: Bool = false, integratedBase: Bool = false) throws -> CheckReport {
+        try optimizationPrefillFamily(modelDir: modelDir, tokens: tokens, scoped: scoped,
+            selectedAttention: selectedAttention, terminalPrefill: terminalPrefill,
+            terminalQuery: terminalQuery, integratedBase: integratedBase, scopeTokens: 4096)
+    }
+
+    /// Explicit larger-scope probe. Keep the original function type above
+    /// available to callers that hold the public diagnostic as a closure.
+    public static func optimizationPrefillFamily(modelDir: URL, tokens: Int, scoped: Bool = false, selectedAttention: Bool = false, terminalPrefill: Bool = false, terminalQuery: Bool = false, integratedBase: Bool = false, scopeTokens: Int) throws -> CheckReport {
         guard [1024, 2051, 4096, 8192].contains(tokens) else {
             throw ModelError("prefill family tokens must be 1024, 2051, 4096 or 8192")
         }
@@ -30,7 +38,7 @@ extension Diagnostics {
         c.measure("integrated_base", integratedBase ? 1 : 0)
         if integratedBase { c.expect("combined scope base uses bounded embedding rows", model.resident.usesEmbeddingRows) }
         let ids = (0 ..< tokens).map { 1000 + (($0 * 7919) % 200_000) }
-        let chunks = [256, 512, (selectedAttention || terminalPrefill) ? 256 : min(4096, tokens)]
+        let chunks = [256, 512, (selectedAttention || terminalPrefill) ? 256 : min(scoped ? min(8192, max(256, scopeTokens)) : 4096, tokens)]
         let states = chunks.map { _ in model.makeState() }
         var logits: [MLXArray] = []
         var traces: [[Int: [Int32]]] = []
@@ -131,8 +139,14 @@ extension Diagnostics {
         }
         func compare(_ label: String, _ outputs: [MLXArray]) {
             band("\(label).logits", outputs, spread: true)
-            c.equal("\(label): greedy final token", argMax(outputs[2].reshaped([-1])).item(Int.self),
-                    argMax(outputs[0].reshaped([-1])).item(Int.self))
+            // Expose the control's token choice too. Cross-implementation
+            // token parity is not an answer-quality oracle: ordinary
+            // rechunking can change a choice despite passing the drift band.
+            // This leaves the existing candidate parity gate intact.
+            let greedy = outputs.map { argMax($0.reshaped([-1])).item(Int.self) }
+            for arm in greedy.indices { c.measure("\(label).arm\(arm).greedy_token", Double(greedy[arm])) }
+            c.measure("\(label).control_greedy_matches", greedy[1] == greedy[0] ? 1 : 0)
+            c.equal("\(label): greedy final token", greedy[2], greedy[0])
             let fields = states.map { $0.diagnosticTensors() }
             c.equal("\(label): control fields", Set(fields[1].keys), Set(fields[0].keys))
             c.equal("\(label): candidate fields", Set(fields[2].keys), Set(fields[0].keys))

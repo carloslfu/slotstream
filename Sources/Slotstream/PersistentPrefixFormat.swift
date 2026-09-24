@@ -116,6 +116,7 @@ public struct PersistentPrefixIdentity: Equatable {
             "ple_layers": cfg.pleLayerIds.map(String.init).joined(separator: ","),
             "geometry": geometry.map(String.init).joined(separator: ","),
             "optimizations": String(decoding: try encoder.encode(model.optimizations), as: UTF8.self),
+            "attention_backend": FusedPrefillAttention.cacheIdentity,
             "context_arithmetic": String(PromptCheckpointKey.currentContextArithmetic),
         ], optimizations: model.optimizations)
     }
@@ -297,6 +298,12 @@ package enum PersistentPrefixFile {
         package var sequenceBytes: Int
         /// Every restored buffer, recurrent state included.
         package var residentBytes: Int
+        /// Exact conversation ids for re-rendering history. These may extend
+        /// the numerical checkpoint and are NEVER a state-resume boundary.
+        package var splicingTokens: [Int]? = nil
+        /// Producing pass size, only for a state made entirely by aligned
+        /// prefill. Absent on legacy or mixed prefill/decode states.
+        package var prefillChunk: Int? = nil
     }
 
     package struct Segment: Codable, Equatable, Sendable {

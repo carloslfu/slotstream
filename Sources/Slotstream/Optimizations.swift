@@ -63,6 +63,17 @@ public struct InferenceOptimizations: Codable, Equatable {
     public var directReadHandles = false
     public var compiledNormFinish = false
     public var selectedTextAttention = false
+    /// Upstream MLX fused D256 prefill, independently qualified from the
+    /// experimental selected-block kernel. Nil retains backend heuristics.
+    /// Optional so older serialized settings remain decodable.
+    public var fusedPrefillAttention: Bool? = nil
+    /// Allocation accounting for the supported fused BF16 path. Deployment
+    /// enables it with qualified fusion; nil keeps the original reserve for
+    /// explicit reference settings and older serialized control sets.
+    public var fusedPrefillWorkspace: Bool? = nil
+    /// Diagnostic override of automatic read grouping. Nil lets the runtime
+    /// select the bound from the actual attention path and key extent.
+    public var automaticReadScopeLimit: Int? = nil
     public var ngramRingOrder = false
     public var denseExpertLookup = false
     public var sparsePoolPins = false
@@ -103,8 +114,8 @@ public struct InferenceOptimizations: Codable, Equatable {
     /// before the path decode unchanged.
     public var verifySplitAttention: Bool? = nil
     public var verifySplitMinContext: Int? = nil
-    /// Row-invariant small dense matmuls (router, inject weights, dense
-    /// QLinear fallbacks) for passes of one to eight rows. With the split
+    /// Row-invariant small projections (router, inject weights, and dense or
+    /// quantized QLinear) for passes of one to eight rows. With the split
     /// verify attention it selects the exact mode, in which a verify pass of
     /// up to `MultiRowAttention.exactMaxRows` rows reproduces the one-row
     /// passes of this mode bit for bit. It changes plain decode's rounding as
@@ -118,7 +129,7 @@ public struct InferenceOptimizations: Codable, Equatable {
 
     public init() {}
 
-    /// Joint execution family used by deployment selection and its diagnostics.
+    /// Arithmetic-preserving base used by deployment and exact diagnostics.
     /// The public initializer remains the explicit reference. Row-backed
     /// embeddings are selected independently at model construction.
     package static var integrationCandidate: Self {
@@ -148,6 +159,8 @@ public struct InferenceOptimizations: Codable, Equatable {
     package static func deploymentCandidate(on platform: OptimizationPlatform = .current) -> Self {
         var result = integrationCandidate
         result.fusedRoPE = result.fusedRoPE && platform.qualifiedPartialRotation
+        result.fusedPrefillAttention = platform.qualifiedFusedPrefill ? true : nil
+        result.fusedPrefillWorkspace = result.fusedPrefillAttention
         return result
     }
 
@@ -214,6 +227,18 @@ public struct InferenceOptimizations: Codable, Equatable {
         result.directReadHandles = try flag("SLOTSTREAM_OPT_READ_HANDLES", fallback: result.directReadHandles)
         result.compiledNormFinish = try flag("SLOTSTREAM_OPT_COMPILED_NORM", fallback: result.compiledNormFinish)
         result.selectedTextAttention = try flag("SLOTSTREAM_OPT_SELECTED_ATTENTION", fallback: result.selectedTextAttention)
+        result.fusedPrefillAttention = try flag("SLOTSTREAM_OPT_FUSED_PREFILL",
+            fallback: result.fusedPrefillAttention == true) ? true : nil
+        result.fusedPrefillWorkspace = try flag("SLOTSTREAM_OPT_FUSED_WORKSPACE",
+            fallback: result.fusedPrefillWorkspace == true) ? true : nil
+        let automaticScopeLimitKey = "SLOTSTREAM_OPT_AUTO_SCOPE_LIMIT"
+        recognized.insert(automaticScopeLimitKey)
+        if let value = env[automaticScopeLimitKey] {
+            guard let count = Int(value), [8192, 16384].contains(count) else {
+                throw ModelError("\(automaticScopeLimitKey) must be 8192 or 16384")
+            }
+            result.automaticReadScopeLimit = count
+        }
         result.ngramRingOrder = try flag("SLOTSTREAM_OPT_NGRAM_RING", fallback: result.ngramRingOrder)
         result.denseExpertLookup = try flag("SLOTSTREAM_OPT_EXPERT_MAP", fallback: result.denseExpertLookup)
         result.sparsePoolPins = try flag("SLOTSTREAM_OPT_POOL_PINS", fallback: result.sparsePoolPins)

@@ -1,0 +1,4 @@
+slotstream listening on http://127.0.0.1:49647
+try it:
+  curl localhost:49647/api/chat -d '{"model": "qwen3.8-flash-next:4bit", "messages": [{"role": "user", "content": "hello"}]}'
+or point any Ollama or OpenAI client at http://localhost:49647

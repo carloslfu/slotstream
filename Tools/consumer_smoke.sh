@@ -60,6 +60,15 @@ func legacyEngineMethods(_ engine: Engine) {
 }
 let oldPlanner: (PlanRequest, Machine, Bool, Bool) throws -> MemoryPlan = Planner.plan
 let loosePlanner: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool) throws -> MemoryPlan = Planner.plan
+// Every memory initializer and planner keeps its pre-adaptive function type.
+let legacyPlanRequest: (Int?, Double?, Double?, Double?, Planner.MTPMode, Planner.VisionMode, Int) -> PlanRequest = PlanRequest.init
+let legacyMemoryPlan: (MemoryPlan.Source, Int, Double?, Double, Double, Double, Double?, Bool, Int, Int, Bool, Bool, Bool, Int, [String], Bool, RuntimeAllocationPolicy?, Double, Bool, Int, Bool) -> MemoryPlan = MemoryPlan.init
+let legacyGovernorPolicyInputs: (Int, Double, Double, Double, Double, Double?, Double?, GovernorPolicy.Pressure?, Bool, Bool, Bool, Int, RuntimeAllocationPolicy?, Int, Bool, Bool, Int) -> GovernorPolicy.Inputs = GovernorPolicy.Inputs.init
+let legacyPlanner2: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning, Planner.ContextRetention) throws -> MemoryPlan = Planner.plan
+let legacyPlanner1: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool, RuntimeAllocationPolicy?) throws -> MemoryPlan = Planner.plan
+let legacyPlanner0: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool) throws -> MemoryPlan = Planner.plan
+_ = (legacyPlanRequest, legacyMemoryPlan, legacyGovernorPolicyInputs, legacyPlanner2, legacyPlanner1, legacyPlanner0)
+
 let optimizationEnvironment: ([String: String]) throws -> InferenceOptimizations = InferenceOptimizations.environment
 let explicitReference = InferenceOptimizations()
 precondition(!explicitReference.compactStateWindows)
@@ -74,6 +83,20 @@ try controller.check()
 let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.simulated(ramGB: 32))
 precondition(plan.slots > 0, "a 16 GB plan should size a pool")
 precondition(plan.simulated, "a simulated machine must mark its plan")
+
+// Direct plans must reject contradictory adaptive policy before touching a
+// checkpoint. This exercises real Engine startup without allocating a model.
+for (source, target) in [(MemoryPlan.Source.auto, Optional(11.0)), (.auto, nil), (.poolGB, 10.0)] {
+    let invalid = MemoryPlan(source: source, slots: Geometry.floorSlots, targetGB: target,
+        ramGB: 64, workingSetGB: 48, ramPercent: 100, availableGB: 40,
+        clamped: false, prefillChunk: 256, prefixCacheTokens: 0, notes: [], memoryLimitGB: 10)
+    do {
+        _ = try await Engine(modelDir: URL(fileURLWithPath: "/nonexistent-memory-policy-check"), plan: invalid)
+        preconditionFailure("an inconsistent adaptive plan reached model allocation")
+    } catch let error as PlanError {
+        precondition(error.description.contains("invalid adaptive memory policy"))
+    }
+}
 
 // Ask about the weights without trying to load them.
 let status = WeightStore.default.status()

@@ -1,0 +1,97 @@
+{
+  "archive_sha256": "4191b52b6c64d0e77513fa84e5dd19f8bcded0c77a174e7c1b40b8db4c5edeb6",
+  "members": {
+    "app-check-build-final.log": {
+      "bytes": 334,
+      "sha256": "6cf38f61b5f53cb79e48822771ba23242fa26ca1e8ffe3258eb8fd36dbe5b570"
+    },
+    "app-checks.log": {
+      "bytes": 27009,
+      "sha256": "e05a9abd2b21397744ef63ca268c8779ecab76d7467f4daf7f016d99ca901314"
+    },
+    "app-identity.json": {
+      "bytes": 32693,
+      "sha256": "988e126b00dbdcff23c84a2ee77d24e122f7562b00f1a5e417b2f1233906c35b"
+    },
+    "app-real-preflight-refusal.log": {
+      "bytes": 259,
+      "sha256": "474400d5af21c9f8a4a0f86fad50e400c69ec6c6aefc6130c2ef42e00babf2e5"
+    },
+    "app-real.log": {
+      "bytes": 44,
+      "sha256": "8ae191ef00bb829cb0cf719d1863edd248cc03ab15dfef008bf3bde19f3bdda0"
+    },
+    "app-source-before.json": {
+      "bytes": 31962,
+      "sha256": "c8f0a62b17fb2cd94e84c2b402aaa72b6120ec785d612a3512ddbe344edc9d4a"
+    },
+    "app-source.tar.gz": {
+      "bytes": 2173916,
+      "sha256": "81d65c580687b21332080cfcd2cb3858873e05d494b06461471e19833a6584ed"
+    },
+    "app-suite-identity.json": {
+      "bytes": 32693,
+      "sha256": "2d68fc4a8717ec473c0b521da17ba4e219e51d7fe86b47c5f3dd61a85bfcf054"
+    },
+    "app-suite-source.tar.gz": {
+      "bytes": 2173827,
+      "sha256": "a0873c3f42349bfb9b0f5430ccd95a8b5223402f5a27b1daf112165e07515ebf"
+    },
+    "app_identity.py": {
+      "bytes": 1095,
+      "sha256": "40a2d3eb8a1ec184e8b82e1d8e49ce1cb7cc281e516773668b965131913d80b2"
+    },
+    "docs.log": {
+      "bytes": 127,
+      "sha256": "5ad8bd0783975b1b954600a8846caa249c9a26547c69656806860390a9973257"
+    },
+    "final-process-check.json": {
+      "bytes": 39,
+      "sha256": "462ee7427230312267c2ada8fb14ed06d85e151577661717e60a27271bbd2b96"
+    },
+    "qualify_app.py": {
+      "bytes": 1782,
+      "sha256": "bffe6ad58702a4926cd6438440271e6fd13699bc4381e83d6b6de81b2d7333a8"
+    },
+    "real-cache-receipt.json": {
+      "bytes": 701,
+      "sha256": "bacf0c51dc9f0f8678563da8283120a38af22dad128e498aae1e8c35169763ff"
+    },
+    "real-cache.stderr": {
+      "bytes": 404,
+      "sha256": "aaa6633254f8df16a8f1c46b846db3acaa8dd3532df2a29044679485b255e618"
+    },
+    "real-cache.stdout": {
+      "bytes": 1759,
+      "sha256": "9147e990881a2bdbf805257acb0cdc767adf241a7a28a18ae583edd6e84ae3b7"
+    },
+    "real-metrics-receipt.json": {
+      "bytes": 713,
+      "sha256": "499adea7fb07b20dae1688f246a46086b99fc374c52b7bb150382ea25c986c67"
+    },
+    "real-metrics.stderr": {
+      "bytes": 202,
+      "sha256": "2cc9b2a252a2c806341051a4ba9cb89e1093404edd5184a2664f1c0293e22432"
+    },
+    "real-metrics.stdout": {
+      "bytes": 11779,
+      "sha256": "d6272d759b44efeb456307f58fd5eee02a0913c70c5f892e01f673566b2146ae"
+    },
+    "real-thinking-receipt.json": {
+      "bytes": 717,
+      "sha256": "9465c2c1ce28b12097b82bcddcb601bbf44e5813ca51ee550fc8f94eef510f42"
+    },
+    "real-thinking.stderr": {
+      "bytes": 202,
+      "sha256": "45cdd86dde7aa5de4072419071bab5490dea88d1d028a0d0671c90faaba14c2a"
+    },
+    "real-thinking.stdout": {
+      "bytes": 5205,
+      "sha256": "f67c217d5a152a546d19f9aa3e9ac72af093140a5aba8fffbafadc5d31ce39b1"
+    },
+    "static-gates.log": {
+      "bytes": 27577,
+      "sha256": "08ff9c9053ca26540960dec9d81489ac1a52106c41b6e0797a7a66be81a5af26"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+slotstream memory plan (--memory-gb)
+  device: 52 GB RAM (13.0 GB reclaimable now), 40.2 GB Metal working set
+  target: 8.1 GB total process budget, not a RAM usage goal
+  cache:  ~13 of 512 experts per layer  (640 global slots = 1.8 GB pool)
+  plan:   ~7.9 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 1.8 GB expert cache at load; 6.2 GB allowed for runtime, context and workspace; 0.2 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 6510 tokens across 4 conversations (~0.5 GB), so a follow-up turn re-prefills only what is new
+  window: automatic for this Mac, 32768 tokens: the largest of 32768, 65536, 131072, 262144 that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time without an unmeasured cache tradeoff; --max-context N chooses another window up to 262144
+engine ready in 0.8s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+elastic: off — an explicit size is pinned; omit the size flag for elastic auto
+[5:29:55 PM] request F577B8E8 /api/chat: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[5:30:02 PM] request F577B8E8 /api/chat: ended after 6.2 s
+[5:30:19 PM] request A348DD11 /api/chat: accepted
+prefix cache: reusing 93/93 tokens from memory
+[5:30:25 PM] request A348DD11 /api/chat: ended after 6.0 s
+[5:30:25 PM] stopping: asked to stop (SIGTERM)

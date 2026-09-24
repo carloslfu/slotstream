@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/Users/carlos/.slotstream/releases/1b499652c33e2eb46af702c64b4ed26f62191b9538804567d057b8914f62ed22-macos26/slotstream",
+    "serve",
+    "--model",
+    "/Users/carlos/.slotstream/models/qwen38-flash-next-mlx-4bit",
+    "--port",
+    "55899",
+    "--memory-gb",
+    "10"
+  ],
+  "environment": {
+    "SLOTSTREAM_BENCH_DETAILS": "1"
+  }
+}

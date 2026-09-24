@@ -420,7 +420,7 @@ extension Diagnostics {
                                 at += pass; left -= pass
                             }
                             c.expect("automatic group preserves every ordinary shape/\(ceiling)/\(position)/\(remaining)/\(String(describing: checkpoint))",
-                                identical && grouped.count >= 4 && grouped.reduce(0, +) <= 4096
+                                identical && grouped.count >= 4 && grouped.reduce(0, +) <= (grouped.first == 256 ? 8192 : 4096)
                                     && grouped.allSatisfy { [256, 512, 1024].contains($0) && PrefillSchedule.fits($0, at: at - $0) })
                             if let checkpoint, checkpoint > position, checkpoint <= at {
                                 let ordinaryEnds = PrefillSchedule.computePasses(tokens: at - position,
@@ -445,6 +445,10 @@ extension Diagnostics {
             PrefillSchedule.automaticScopePasses(remaining: 4096, at: 0, maxChunk: 256, checkpoint: 256), nil)
         c.equal("cached prefix permits remaining whole passes",
             PrefillSchedule.automaticScopePasses(remaining: 1280, at: 256, maxChunk: 256, checkpoint: 256), Array(repeating: 256, count: 5))
+        c.equal("256-row passes may share one qualified 8192-token read",
+            PrefillSchedule.automaticScopePasses(remaining: 16384, at: 0, maxChunk: 256, checkpoint: nil), Array(repeating: 256, count: 32))
+        c.equal("larger passes retain the earlier scope cap",
+            PrefillSchedule.automaticScopePasses(remaining: 16384, at: 0, maxChunk: 512, checkpoint: nil), Array(repeating: 512, count: 8))
         c.equal("512-row planner preserves its own arithmetic",
             PrefillSchedule.automaticScopePasses(remaining: 4096, at: 0, maxChunk: 512, checkpoint: nil), Array(repeating: 512, count: 8))
         c.equal("1024-row planner preserves its own arithmetic",

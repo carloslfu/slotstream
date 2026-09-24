@@ -2,17 +2,18 @@
 type: index
 scope: type-folder
 folder: records/design
-updated: 2026-09-18T04:55:47.951956Z
+updated: 2026-09-24T07:21:55.795938Z
 ---
 
 # records/design
 
+- [[records/design/sevra-spec/ui-contract]] — Mac UI geometry, native text, appearance and review requirements
+- [[records/design/sevra-spec/mac-platform]] — Mac native implementation baseline and dependency qualification
+- [[records/design/sevra-spec/runtime-contract]] — Native Home, inference, sources and documents, reviewed changes, knowledge bases, skills, mini-apps and exact commits
+- [[records/design/4-2-slot-pool-mechanics]] — 4.2 Slot pool mechanics
 - [[records/design/sevra-spec/implementation-status]] — Mac application implementation progress and unpassed release gates
 - [[records/design/measured-operating-policies]] — Measured operating policies and revision criteria
-- [[records/design/sevra-spec/runtime-contract]] — Native Home, inference, sources and documents, reviewed changes, knowledge bases, skills, mini-apps and exact commits
 - [[records/design/sevra-spec/overview]] — Sevra native product specification entry point
-- [[records/design/sevra-spec/mac-platform]] — Mac native implementation baseline and dependency qualification
-- [[records/design/sevra-spec/ui-contract]] — Mac UI geometry, native text, appearance and review requirements
 - [[records/design/presets-v1-est-columns-to-be-replaced-by-m8-measurements]] — Presets v1 (est. columns to be replaced by M8 measurements)
 - [[records/design/slotstream-qwen3-8-flash-next-on-every-apple-silicon-mac]] — slotstream — Qwen3.8-Flash-Next on every Apple Silicon Mac
 - [[records/design/1-goal]] — 1. Goal
@@ -29,7 +30,6 @@ updated: 2026-09-18T04:55:47.951956Z
 - [[records/design/4-5-cli-install-ux]] — 4.5 CLI & install UX
 - [[records/design/4-4-server-ollama-compatible-surface-v0]] — 4.4 Server: Ollama-compatible surface (v0)
 - [[records/design/4-3-n-gram-ple-path]] — 4.3 N-gram/PLE path
-- [[records/design/4-2-slot-pool-mechanics]] — 4.2 Slot pool mechanics
 - [[records/design/4-1-ssmodel-container-a-directory]] — 4.1 .ssmodel container (a directory)
 - [[records/design/4-architecture]] — 4. Architecture
 - [[records/design/3-4-why-explicit-slots-instead-of-mmap-and-pray]] — 3.4 Why explicit slots instead of mmap-and-pray

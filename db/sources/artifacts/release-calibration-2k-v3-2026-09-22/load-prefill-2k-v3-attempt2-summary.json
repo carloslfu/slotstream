@@ -1,0 +1,26 @@
+{
+  "at": "2026-09-23T00:16:18.901403+00:00",
+  "reclaimable_gb_range": [
+    30.989565952,
+    32.933625856
+  ],
+  "last_reclaimable_gb": 31.46850304,
+  "final_load_window": {
+    "eligible": false,
+    "sample_count": 58,
+    "means": {
+      "background_cpu_percent": 75.88103448275862,
+      "largest_background_process_cpu_percent": 21.677586206896553,
+      "gpu_utilization_percent": 11.03448275862069
+    },
+    "burst_fraction": 0.017241379310344827,
+    "idle": true
+  },
+  "cleanup": {
+    "owned_pid": null,
+    "exit_code": null,
+    "reaped": true
+  },
+  "requests": 0,
+  "per_process_gpu_attribution": "powermetrics requires administrator privileges; sudo noninteractive unavailable"
+}

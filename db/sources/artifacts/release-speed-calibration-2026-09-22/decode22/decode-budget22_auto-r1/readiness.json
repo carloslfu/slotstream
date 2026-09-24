@@ -1,0 +1,662 @@
+[
+  {
+    "elapsed": 3.7497375160455704e-07,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.182705664,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 2.03777583304327,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.17187584,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 4.105041250004433,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.022470144,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 6.17173066700343,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.250994176,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 8.231510582962073,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.182656512,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 10.29261291702278,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.021995008,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 12.35731879202649,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.364486144,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 14.42593416699674,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.46031616,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 16.490508917020634,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.4076416,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 18.5448231670307,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.185507328,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 20.607208458008245,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.445603328,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 22.66902987495996,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.50340608,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 24.733283999958076,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.18023168,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 26.793997457949445,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.2245504,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 28.850612750044093,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.132111872,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 30.918522291933186,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.239721984,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 32.98238699999638,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.146857472,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 35.04268783295993,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.343612928,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 37.09998049994465,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.108256768,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 39.15331991703715,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.811113984,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 41.216195167042315,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.931618304,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 43.284389375010505,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.59499264,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 45.33611675002612,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.702684672,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 47.40102308301721,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.664018432,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 49.46524945797864,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.857513472,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 51.53260295803193,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.698801664,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 53.60117379203439,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.2757504,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 55.65939112496562,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.85885696,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 57.72453708294779,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.483696128,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 59.79600612493232,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.496164352,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 61.84567608300131,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.823729664,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 63.90942504198756,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.855858688,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 65.94806424994022,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.761961984,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 68.0035185830202,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.863804928,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 70.07060037495103,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.910679552,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 72.13272020802833,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.064295936,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 74.19889641704503,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.8811392,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 76.26282429194544,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.177247232,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 78.3273581250105,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.188961792,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 80.38191674998961,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.353555456,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 82.44919341697823,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.161256448,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 84.51142929203343,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.091362304,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 86.57618529198226,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.137204736,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 88.63933858298697,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.776101376,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 90.67934716702439,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.012260352,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 92.72289062500931,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.918789632,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 94.77789895795286,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.845635072,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 96.84005145798437,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.836263424,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 98.90410370798782,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.137253888,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 100.96901812497526,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.146134016,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 103.03018679202069,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.821042688,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 105.08885245793499,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.839179776,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 107.15374766697641,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 29.958946816,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 109.21685866697226,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.007066624,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 111.27020033297595,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.068768768,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 113.3243266249774,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.01212928,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 115.39385620795656,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.02621952,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 117.45152029197197,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.218911744,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 119.51537695794832,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.218534912,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 121.57049716694746,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.127816704,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  }
+]

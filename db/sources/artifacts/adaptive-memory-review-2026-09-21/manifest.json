@@ -1,0 +1,309 @@
+{
+  "archive_sha256": "725fdb8bab6755eacc9573e9038c08a530f243298b4d8f5f4b18510e044a67ee",
+  "members": {
+    "adversarial-memory-app-replan.log": {
+      "bytes": 2099,
+      "sha256": "dfd86173d920a92b7d71d576249b5229e917823feff539ea0c9e77d219305b9b"
+    },
+    "adversarial-memory-before-server.log": {
+      "bytes": 1593,
+      "sha256": "c18951a1daeb1767ffe6365cedbb1c9a292cfc79e0910d19ea471b5117628086"
+    },
+    "adversarial-memory-before.log": {
+      "bytes": 222,
+      "sha256": "707d9ebbbdfc83665ca4774f1b2107ecda2a75d6f78c0cc461558dcb4fbebef7"
+    },
+    "adversarial-memory-build.log": {
+      "bytes": 11335,
+      "sha256": "991ce3508c82320319f387bf54cdfb6d4730375d784230d0ae4acaf2c7e03cbe"
+    },
+    "adversarial-memory-callsite-audit.txt": {
+      "bytes": 14405,
+      "sha256": "8b65c5bad324521deac5d3b9e789b95d554b1a9ce084893023952eaf76e54917"
+    },
+    "adversarial-memory-catalogue-build.log": {
+      "bytes": 272,
+      "sha256": "45c179687ff2b97041204d2549260109a90435f72aceaf9ecb6744828dd4c4bf"
+    },
+    "adversarial-memory-cleanup-harness.log": {
+      "bytes": 101,
+      "sha256": "a4755734a27d137fe76cb98776bc97c34ed2135c0a1b0ff50065839ddf450413"
+    },
+    "adversarial-memory-cli.json": {
+      "bytes": 1380813,
+      "sha256": "0101d925e9dd383792c2dfb641570245a6ea37859f6deff8d347fb4305bd83b8"
+    },
+    "adversarial-memory-cli.log": {
+      "bytes": 198,
+      "sha256": "e7ef4c031932c4d751d507cbd7ec0164da4f1cc380af50a8985bbeda7ee9390a"
+    },
+    "adversarial-memory-complete-proxy.log": {
+      "bytes": 127,
+      "sha256": "d9827a2e6a1cef8e8dbdfe6efbd85b782cf3fc9a3544ba9271efe6fe30b5723f"
+    },
+    "adversarial-memory-drill-final.log": {
+      "bytes": 1362,
+      "sha256": "589a29448946bd8b40033965dc6fc368982f23fa9990800cc8ab524a223e23af"
+    },
+    "adversarial-memory-final-build.log": {
+      "bytes": 11246,
+      "sha256": "34dd967342f405ceafe6161740cce0211f01f549269c8dd7e62106d6146a1d22"
+    },
+    "adversarial-memory-final-proxy.log": {
+      "bytes": 355,
+      "sha256": "b88187d41fdacbcd3e877ddb7aacec0d575cac13608826a4c6bc12f7841f8f85"
+    },
+    "adversarial-memory-launch.json": {
+      "bytes": 29372,
+      "sha256": "75a0809c049c7b7406f83545a642f4a55a5a280031e84519ee70fcd34e548ba5"
+    },
+    "adversarial-memory-native-build.log": {
+      "bytes": 272,
+      "sha256": "2b2c8306fcbaa64f8e7b3d284f07c177395025f993939bf120e25ce9ab1b0da9"
+    },
+    "adversarial-memory-native-policy.log": {
+      "bytes": 477,
+      "sha256": "61e71ae9b3fc964f992f396fc13621724f943ceb68c2633d1e23852594143330"
+    },
+    "adversarial-memory-paths.txt": {
+      "bytes": 15153,
+      "sha256": "38434098984c71e85a83db71695e107da88062f7a29cd6b3d9a712171f3b6c03"
+    },
+    "adversarial-memory-planner-harness.log": {
+      "bytes": 105,
+      "sha256": "e12717bf9679d9039bb05795029d42d21efbc02ba745092960b4f78ceb84eac3"
+    },
+    "adversarial-memory-proxy.log": {
+      "bytes": 355,
+      "sha256": "7c9b47f74016538c1a32ab064990d27967be3bd709e5ec090bb16f22036039a7"
+    },
+    "adversarial-memory-qualification-harness.log": {
+      "bytes": 292,
+      "sha256": "63c2804b97ee89d1e4eac153887fa3f3dafde1ee4d47e3bb99401ad3b8936ab7"
+    },
+    "adversarial-memory-server-final.log": {
+      "bytes": 573,
+      "sha256": "7737dbc88e3aac8ce377c1713de872ad430862b2ea9404cba3cb0b3dd3874d29"
+    },
+    "adversarial-memory-server.log": {
+      "bytes": 553,
+      "sha256": "a8e505b8db162b5437d03b13c4cfa68d2f69cfe06902169b0b3c4ece42a965af"
+    },
+    "adversarial-memory-source-hashes.json": {
+      "bytes": 3073,
+      "sha256": "e58fe0b77e3aeaab098c24a6bc68ebb7931a57e261a04f9296e1242d45043041"
+    },
+    "adversarial-memory-stage.txt": {
+      "bytes": 68,
+      "sha256": "7f9d7fcf1fa8471b270bf143d4bf082262e93a057f2e2e84fe0b2b44d5879318"
+    },
+    "adversarial-memory-t0.json": {
+      "bytes": 2981955,
+      "sha256": "8f6346ad1a38b9f9553f1a5eea0f826be90cebe3f7ebf36ad5305022811de45d"
+    },
+    "adversarial-memory-ui-final.log": {
+      "bytes": 2095,
+      "sha256": "2107c4f0e391cdaefcbf90f8587e9a1e2c6d60aa09a804522228af291ffc00a9"
+    },
+    "adversarial-memory-ui-pass.log": {
+      "bytes": 745,
+      "sha256": "2c4259bffdbb84818f709fde61218c1d40a3151b193259677823a78b4f68fa51"
+    },
+    "adversarial-memory-ui.log": {
+      "bytes": 4290,
+      "sha256": "d9e059de9144df87db942ea885a3a94d4792bc2e7501e31172fbbba4510ab794"
+    },
+    "adversarial-memory-verify-harness-final.log": {
+      "bytes": 115,
+      "sha256": "26f9ff5c0986945e2e03654503a8b4f1772a4a055749711851709deff36afff5"
+    },
+    "adversarial-memory-verify-harness.log": {
+      "bytes": 14260,
+      "sha256": "39b8eced66bf06acb21b5ec97ba490f8176af8b361b46ccf43e11cc55bca8f45"
+    },
+    "complete-proxy/compile.stderr.txt": {
+      "bytes": 1575,
+      "sha256": "073f284a8101a32e39f7edb017a133176665a7cce323238d3e9aaa5f792a7ab6"
+    },
+    "complete-proxy/compile.stdout.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "complete-proxy/report.json": {
+      "bytes": 2906,
+      "sha256": "05b65eee6977d556da9b45ccc64e260d58daa2a9043b86cea0824fb0c4390cbc"
+    },
+    "final-proxy/compile.stderr.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-proxy/compile.stdout.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-proxy/contracts.stderr.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-proxy/contracts.stdout.json": {
+      "bytes": 241,
+      "sha256": "1df46b57db337ac4682d5ab03dbc28bc2d4e7eade0f976ac81190b16e49079a2"
+    },
+    "final-proxy/report.json": {
+      "bytes": 3283,
+      "sha256": "7d5dd3a85752b501a2cd44a0c182b00cbca2382546269dcffaabedbb738815af"
+    },
+    "server-final/report.json": {
+      "bytes": 5677,
+      "sha256": "d30c2888c41d9fd0ce9c7c51668789d378d4f3452fa070fb31923eac93f1d2e6"
+    },
+    "server-final/server.log": {
+      "bytes": 1887,
+      "sha256": "e828118f4445c3b7faf9f4942b2be15db365d7a6afd380b559db4398a09ed4ec"
+    },
+    "server/report.json": {
+      "bytes": 5530,
+      "sha256": "c40ac1dc9f267c11a538c92b962635d1047ab44220089796c317acaaf80724bb"
+    },
+    "server/server.log": {
+      "bytes": 1829,
+      "sha256": "327a1b921dfa6b2d56318f925617107ee056af67d9827d8246f35577d99bd261"
+    },
+    "source/Sources/Slotstream/CodingToolLaunch.swift": {
+      "bytes": 66595,
+      "sha256": "73feef99110b8da1a58fcb1586283cbecc185cd1256378904dcad96b233edfdf"
+    },
+    "source/Sources/Slotstream/ContextFeasibility.swift": {
+      "bytes": 5842,
+      "sha256": "1f654895c700dd0f5a86f138821397832f38e5f9cfef191222202a94c3b7150f"
+    },
+    "source/Sources/Slotstream/ContextWindowPolicy.swift": {
+      "bytes": 16385,
+      "sha256": "8d2ef9e6be2c0a6929ae2ce055708c5200bed334dd3d1ebbb760bcb6f550a160"
+    },
+    "source/Sources/Slotstream/Engine.swift": {
+      "bytes": 71358,
+      "sha256": "43cb4a330d657f26a4fb1c805b01ec8c00f31d38e0161c200486ed57af4fa49a"
+    },
+    "source/Sources/Slotstream/Governor.swift": {
+      "bytes": 22897,
+      "sha256": "c1960fc1cf267e096f5f1a7490756a68ed59f050d1df445fc78b4ea31338b935"
+    },
+    "source/Sources/Slotstream/Machine.swift": {
+      "bytes": 5794,
+      "sha256": "7f83c358694f01925decc20e4cc03decf50110bf1f212f89b32287916d44598e"
+    },
+    "source/Sources/Slotstream/Plan.swift": {
+      "bytes": 76846,
+      "sha256": "02f1fced1a7b0806dfd2dc9d1cfe3264cb11be9f29cfaa156f1ba0194641af78"
+    },
+    "source/Sources/Slotstream/Server.swift": {
+      "bytes": 122410,
+      "sha256": "7a46f4ffd5a6beed18b2090413abf2b25b53f443d7397894536a3350b60840b4"
+    },
+    "source/Sources/SlotstreamTestKit/LaunchChecks.swift": {
+      "bytes": 57691,
+      "sha256": "88db7576993355932cea28d0f4d1cbaee66803b10dfe0396934d4b0447d5a1d8"
+    },
+    "source/Sources/slotstream-cli/LaunchCommand.swift": {
+      "bytes": 45219,
+      "sha256": "2e8375654cc80b5d067254e036f3a8c9bc9594bf7f3f08e88d2e5d3c714655dd"
+    },
+    "source/Sources/slotstream-cli/MTPCommands.swift": {
+      "bytes": 75562,
+      "sha256": "1a7e54381bccd0cd1a99eea786e5026f414192b5ec30c54016922122c20eda7b"
+    },
+    "source/Sources/slotstream-cli/OptimizationCommands.swift": {
+      "bytes": 22498,
+      "sha256": "e4b823fc92ed09e00ce2a17e5ddd167831f0625562ab7770d6ce60c55e62baf7"
+    },
+    "source/Sources/slotstream-cli/PrefixExactCommands.swift": {
+      "bytes": 14260,
+      "sha256": "b70f0a6f2536f0eb1fc00007260cc6dffe2592b1f32271225fe1304261346e28"
+    },
+    "source/Sources/slotstream-cli/SweepCommands.swift": {
+      "bytes": 10768,
+      "sha256": "f7a988326232c70586b2dc096427d9f5826a317da46b0085c61c0d70096c5e3a"
+    },
+    "source/Sources/slotstream-cli/VisionCommands.swift": {
+      "bytes": 5714,
+      "sha256": "126a5bb05ccc6549337f04048d88256fcc106686dc8fb062d3759dad13af7971"
+    },
+    "source/Sources/slotstream-cli/main.swift": {
+      "bytes": 108590,
+      "sha256": "4ebca923be5b38ee062c04d3346e449574b9d4ae1f7e95b3416204f9ae69c29d"
+    },
+    "source/Tools/adaptive_memory_e2e.py": {
+      "bytes": 5760,
+      "sha256": "0a16fc84e0532c036e80b0ce14fc881b5439b77bbd8606b0a34ef158568f179c"
+    },
+    "source/Tools/check_sevra_memory_ui.sh": {
+      "bytes": 2393,
+      "sha256": "9f5b34871d25e8444aee241713762b5b83925c8857553ab0beeec03fc56654fb"
+    },
+    "source/Tools/context_proxy.swift": {
+      "bytes": 27692,
+      "sha256": "18351ee09cbecdf4f797c0d996eb96d0f2787f3af5f1de9da0124f630f88264d"
+    },
+    "source/Tools/memory_override_gate.py": {
+      "bytes": 14498,
+      "sha256": "fe10e03f8052ad2b063636c0ecb16cc9c6dbcd7155337004fd783be2a81fa54c"
+    },
+    "source/Tools/verify.sh": {
+      "bytes": 16624,
+      "sha256": "9ea460034f8c8e183ab32f895cd1c5536c115c2cc5af87310292affb89eb87fb"
+    },
+    "source/Tools/verify_binary_test.py": {
+      "bytes": 14318,
+      "sha256": "8c516f2fe34ddcf6e8b639f0c4617aa960f8760e43c1281072629e78d399cec9"
+    },
+    "source/apps/macos/App/ContentView.swift": {
+      "bytes": 80332,
+      "sha256": "1566cf21f96e50ff1d392b8de48fa74a17019e489aea4e5775dabb3296928a64"
+    },
+    "source/apps/macos/Checks/PerformanceChecks.swift": {
+      "bytes": 16784,
+      "sha256": "cd3289f1c8adba1d33ffc435c49fcae1f1950675ac78797cf2481cbafcfc8a23"
+    },
+    "source/apps/macos/NativeChecks/MemoryUIChecks.swift": {
+      "bytes": 3924,
+      "sha256": "f20342f1691842c0090adf0ea4eb61d5805dc78519f8b1755dfc3857aac64710"
+    },
+    "source/apps/macos/Runtime/Inference.swift": {
+      "bytes": 25478,
+      "sha256": "0aac0c3649dd8cc6a51d657176280cbc4ebb38b47f378dc27df07d0aa88789f3"
+    },
+    "source/apps/macos/Runtime/Performance.swift": {
+      "bytes": 9631,
+      "sha256": "4bd77b73a631fe916988c630f7d66da8f23ac305567e17dfa1bc8becb9a21836"
+    },
+    "source/apps/macos/Runtime/Runtime.swift": {
+      "bytes": 59426,
+      "sha256": "b561bd934cb3fd36e8b64658c5a9baee6cc92900e151883159fe63b0aef63e71"
+    },
+    "ui-render/dark-automatic.png": {
+      "bytes": 106811,
+      "sha256": "01bc594f16d397ccfbe3f93eff1da0659e2fa62843a0d869c058146dbf6e6896"
+    },
+    "ui-render/dark-custom.png": {
+      "bytes": 132263,
+      "sha256": "b0bdca58550eb097a9a6bc3be7f656fe9594e74097371b60abe687006109893a"
+    },
+    "ui-render/dark-saved-above-range.png": {
+      "bytes": 139825,
+      "sha256": "7a7adab1ea8c9307bf160c6350513ad48aab52533935a62804b18a3109dde872"
+    },
+    "ui-render/light-automatic.png": {
+      "bytes": 106200,
+      "sha256": "80109c183a44a6bfedba9c89cbded7db194f2edd411875ea355532c6a608f768"
+    },
+    "ui-render/light-custom.png": {
+      "bytes": 131710,
+      "sha256": "aa56237f95f512ebd0979042d2cbb2422614b4d9b8196c96724402342f0ba032"
+    },
+    "ui-render/light-saved-above-range.png": {
+      "bytes": 139548,
+      "sha256": "7dcc2895685461b00a70189ec3422ea635a35ed166926dfbeaa5f5e6dd66259f"
+    }
+  }
+}

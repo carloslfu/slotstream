@@ -1,0 +1,207 @@
+{
+  "archive": "final-checkout-verification.tar.gz",
+  "bytes": 1424719,
+  "sha256": "f168770830215d4af0c97d2a862f21632d2a79466410a72fb47e4aeea39fa872",
+  "members": [
+    {
+      "path": "build-identity.json",
+      "bytes": 23894,
+      "sha256": "a187ac25c95ab1ac1e3ae3bc33d53a70cde690bf714ff3820f995eebb87a93e2"
+    },
+    {
+      "path": "build-source.tar.gz",
+      "bytes": 1256094,
+      "sha256": "50b578c5d2cd5ebd918f1e1d31c3f277d5c4550bac614a14f9a1eaa00d38117c"
+    },
+    {
+      "path": "checkout/adaptive-live.log",
+      "bytes": 596,
+      "sha256": "e0eb87f2c00fb6b830422d5ea4859cad0038aa314911b7437b8602aca4fe70b7"
+    },
+    {
+      "path": "checkout/adaptive-live/driver.py",
+      "bytes": 6598,
+      "sha256": "1c3d5adfde8029a38176cba4e41a14482e0ace6e5be1489f26cd7d4f30dee794"
+    },
+    {
+      "path": "checkout/adaptive-live/report.json",
+      "bytes": 5700,
+      "sha256": "d9340fd412a282b5b51ac9f5885d70c0b611954bcc2bccda3127f2b44e8edd41"
+    },
+    {
+      "path": "checkout/adaptive-live/server.log",
+      "bytes": 1884,
+      "sha256": "3ca3479085cef8112e31780b0d946ab4c291640bfc01b1bd20687209a2232910"
+    },
+    {
+      "path": "checkout/build.log",
+      "bytes": 140,
+      "sha256": "bdd5ce580cc76b6eb58ade42d92d994d90a688885615568a655e5675b5e76fac"
+    },
+    {
+      "path": "checkout/final-state.json",
+      "bytes": 174,
+      "sha256": "b166cb0d5fd8c7b36cab755853fcce38b3f8ba0155bfaf0d3c05249a8dbbcdf4"
+    },
+    {
+      "path": "checkout/live.log",
+      "bytes": 3021,
+      "sha256": "d35d3a0f99763f8e411af0feb02872d61b35268ee9e78728b2abc17ca7a25511"
+    },
+    {
+      "path": "checkout/live/driver.py",
+      "bytes": 3795,
+      "sha256": "54817a3c46a72db54d2d36f002be50794af5e5b4759f7dc1c20219fc0987987e"
+    },
+    {
+      "path": "checkout/live/first-server.log",
+      "bytes": 9671,
+      "sha256": "a6a9919e221fe9076c1d7e312affbbe8df802d339648044f42546ab77001a631"
+    },
+    {
+      "path": "checkout/live/issue21/after-disconnect.json",
+      "bytes": 471,
+      "sha256": "297f06ffef56bec4e7fdfce134ef3bd4aa561119161dfafc645e46a41bf87f4d"
+    },
+    {
+      "path": "checkout/live/issue21/cache-turn-1.json",
+      "bytes": 15412,
+      "sha256": "21df398df60b5e9c16fbd1d7ac10563a98685a6660ff5cd5172bc1a0072bdd45"
+    },
+    {
+      "path": "checkout/live/issue21/cache-turn-1.sse",
+      "bytes": 6606,
+      "sha256": "f3ebb37de451b9ee1a9d4f94e2b1e6fdddab8d89dd18dc31d7e75ceb35ee2995"
+    },
+    {
+      "path": "checkout/live/issue21/cache-turn-2.json",
+      "bytes": 18190,
+      "sha256": "1dae7626bd2e0e6c08113fb5e88f5e8563faeb1c4480117cca5ac051ec110292"
+    },
+    {
+      "path": "checkout/live/issue21/cache-turn-2.sse",
+      "bytes": 6609,
+      "sha256": "108f7b23152c91571b588afc9382e598dd1684c0de694c87e9a3af63a9ccaaeb"
+    },
+    {
+      "path": "checkout/live/issue21/cache-turn-3.json",
+      "bytes": 18352,
+      "sha256": "8da8594696e695f9c64c439f279b798e080a43af9f3c0093b2d477a9a55da3b7"
+    },
+    {
+      "path": "checkout/live/issue21/cache-turn-3.sse",
+      "bytes": 6596,
+      "sha256": "6214ed43878b27e727bb95d1c3185011b1a11a172bdf134491f562997e3a2607"
+    },
+    {
+      "path": "checkout/live/issue21/disconnected-stream.http",
+      "bytes": 343,
+      "sha256": "c319af06a8cfe45f58e55fa021e1fb3e9c1fc74bd418c6a36eb292564a5fa715"
+    },
+    {
+      "path": "checkout/live/issue21/large-allowance-unused-tools.json",
+      "bytes": 1865,
+      "sha256": "417452d82d42bb36fcf5e16e82366063e815c133053f2f2766fab1b41f1d3ee3"
+    },
+    {
+      "path": "checkout/live/issue21/large-allowance-unused-tools.sse",
+      "bytes": 575,
+      "sha256": "de822da72ed3d35b7aa8bdb05885985dd1513a2bdb6c0b3fd45441a5e79178a0"
+    },
+    {
+      "path": "checkout/live/issue21/long-truncated-argument.json",
+      "bytes": 129544,
+      "sha256": "332e7e9d4bedc97159aad34b65b25b2a96f624bd2f3bee903d6ac05791938e00"
+    },
+    {
+      "path": "checkout/live/issue21/long-truncated-argument.sse",
+      "bytes": 64141,
+      "sha256": "ce98ebac20a1e36dbd617d94e24e5a810ed51910194cb438a3653fd812737d82"
+    },
+    {
+      "path": "checkout/live/issue21/plain-cap.json",
+      "bytes": 47943,
+      "sha256": "cc540fe7770d0a9918f5c7e1883c6ab96a8700d78c5ed3056fb9419d54cfec9e"
+    },
+    {
+      "path": "checkout/live/issue21/plain-cap.sse",
+      "bytes": 28417,
+      "sha256": "9221eeffab608e492ed1ac3c916670c4e79cd13b2196cac3aafaa36c7bd63540"
+    },
+    {
+      "path": "checkout/live/issue21/results.json",
+      "bytes": 1850,
+      "sha256": "c432c6bc7e67e76014938d375441f194e4f023095c8fd25b66528afc2e67e4b5"
+    },
+    {
+      "path": "checkout/live/issue21/tools-unused-cap.json",
+      "bytes": 48717,
+      "sha256": "f75716f3cc15254641d7c25559c02a6a8d2e1a0a2b773de22c6569fae7cb1ea8"
+    },
+    {
+      "path": "checkout/live/issue21/tools-unused-cap.sse",
+      "bytes": 28418,
+      "sha256": "ff88c93f5ffd6a1aa343824505c3651388b82fdafcbda206ea6b58d19f0e4dae"
+    },
+    {
+      "path": "checkout/live/issue21_gate.py",
+      "bytes": 8662,
+      "sha256": "4b99446b2f9c08825bbbe010c30d3d6495175870649b5e30034c50a49ad200c0"
+    },
+    {
+      "path": "checkout/live/openai-tools.jsonl",
+      "bytes": 44390,
+      "sha256": "69a5eb8ac89662cdb65ccdb3f1c735a7311918b12151b3d7c98b0ee7c2d8529f"
+    },
+    {
+      "path": "checkout/live/openai_tools_gate.py",
+      "bytes": 12210,
+      "sha256": "af34e19c6d12dfcd62d252a4c016e2d595aec4ae0dad4e3232e2c24f8ad2d1e3"
+    },
+    {
+      "path": "checkout/live/restart-result.json",
+      "bytes": 191,
+      "sha256": "1976f76fe9e55dcc2bc7d8052815e4d482494eac46d4a99ff40bd3c738e6f2af"
+    },
+    {
+      "path": "checkout/live/restart-server.log",
+      "bytes": 1991,
+      "sha256": "4816d0d45c715a3ad2cba6534c885a84153ff783ceb9f703442c11b36bcece13"
+    },
+    {
+      "path": "checkout/live/restart.sse",
+      "bytes": 6596,
+      "sha256": "747b1fd9a2612457a95d35018f471a4c10612b930bba9f15020426e1f3fed809"
+    },
+    {
+      "path": "checkout/results.json",
+      "bytes": 895,
+      "sha256": "f8c438712d52d62492aa8432cff6e04330900bf3137fdc81167e308424ed6c6a"
+    },
+    {
+      "path": "checkout/run-live.py",
+      "bytes": 3795,
+      "sha256": "54817a3c46a72db54d2d36f002be50794af5e5b4759f7dc1c20219fc0987987e"
+    },
+    {
+      "path": "checkout/runtime.log",
+      "bytes": 10149,
+      "sha256": "3a9fc797b96445961446d39df3eb22039c995afec51f088dc1b536e58175bd64"
+    },
+    {
+      "path": "checkout/t0.log",
+      "bytes": 2982600,
+      "sha256": "c9671652cb1a94dbf1713616ce58ec7dca1c352033d0be1971970b9fddec1558"
+    },
+    {
+      "path": "driver.py",
+      "bytes": 1875,
+      "sha256": "7c4066edd1ac535190d145eae429fb640509b1a8383f8625e283245fdd227404"
+    },
+    {
+      "path": "master.log",
+      "bytes": 119,
+      "sha256": "eabd539a1dbf428217b64058aeb9e47e00ddb22059b74261be0ce8ffb481639c"
+    }
+  ]
+}

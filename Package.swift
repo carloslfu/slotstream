@@ -16,7 +16,7 @@ let package = Package(
         .executable(name: "slotstream", targets: ["slotstream-cli"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift.git", .upToNextMinor(from: "0.31.6")),
+        .package(url: "https://github.com/ml-explore/mlx-swift.git", revision: "ab924c82ead3b970caaa1c0ac11171de23f0305a"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],

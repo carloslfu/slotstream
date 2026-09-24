@@ -3,18 +3,24 @@
 [![Latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
 [![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](#star-history)
 
-**Run a 105 GB AI model on a 48 GB Mac.**
+**Run a 105 GB AI model on a Mac that can't hold it.**
 
 Slotstream runs [Qwen3.8-Flash-Next](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit),
-a large open model, on your Mac by keeping most of it on SSD and loading the
-parts it needs into memory. It is built for Macs with 16 to 64 GB of memory,
-where the model cannot fit. After a one-time download the model works
-offline, with no Python and no cloud account. The whole engine is one native
-Swift program on Apple's MLX and Metal; see [Built native](#built-native).
+a 125-billion-parameter open model, on Macs with 16 to 64 GB of memory. It
+keeps most of the model on the SSD and loads the parts it needs as it writes.
+Our 48 GB M5 Pro measured 15.86 tokens per second at a 22 GB memory target
+([how it was measured](#speed)).
 
-Use it to chat, ask about pictures, or work with files through a coding agent
-such as Claude Code, Codex, Pi, opencode or Hermes. Developers can connect
-their own apps through its APIs or Swift library.
+Chat with it, ask it about pictures, or code with it: `slotstream launch claude`
+starts Claude Code on the local model, and Codex, Pi, opencode and Hermes work
+the same way. Developers can connect their own apps through its Ollama-,
+OpenAI- and Anthropic-compatible APIs or its Swift library.
+
+After a one-time download it works offline, with no Python and no cloud
+account. The whole engine is one native Swift program on Apple's MLX and
+Metal; see [Built native](#built-native). Every published number has a
+recorded method, and the experiments that failed stay in the
+[measurements](MEASUREMENTS.md).
 
 [Get started](#install) · [Speed](#speed) · [Guides](#guides) · [Get help](#support)
 
@@ -48,15 +54,18 @@ Windows, Linux and Intel Macs are not supported. The
 ## Speed
 
 `tok/s` means tokens per second; a token is a small piece of text, often part
-of a word. Speeds describe replies after the model has warmed up.
+of a word. Reply speeds below describe generation after the model has warmed up.
 
-**Our development Mac, a 48 GB M5 Pro, generates 15.86 tok/s with 0.2.19 at a
-22 GB memory target, the automatic plan of a 32 GB Mac**, measured on eight
-prompts the engine was never tuned on. The engine predicts which experts the
+**Our development Mac, a 48 GB M5 Pro, measured 15.86 tok/s with 0.2.19 at a
+22 GB memory target**, in a controlled benchmark on eight prompts the engine
+was never tuned on. The engine predicts which experts the
 next layers will need and reads them from the SSD before they are asked for,
 which changes speed and never the output. The
 [expert lookahead guide](docs/EXPERT-LOOKAHEAD.md) has the measurements behind
-each release.
+each release. This historical test used smaller prompt passes and disabled
+prefix caching, leaving more memory for experts. It is not a measurement of
+today's automatic configuration. A qualified full-answer baseline on 0.2.23
+[is still pending](db/records/measurements/release-speed-calibration-2026-09-22.md).
 
 <a id="speed-by-memory"></a>
 <a id="speed-by-mac-memory"></a>
@@ -67,13 +76,17 @@ Rough planning ranges for warm replies, from community reports and our own
 measurements, rounded outward. Faster chips and SSDs sit at the top of each
 range; other apps and memory pressure pull results down.
 
-| Installed RAM | Estimated warm reply speed | Automatic context window |
+| Installed RAM | Estimated warm reply speed | Example automatic context window |
 |---|---|---|
 | 8 GB | **Support coming soon.** The current model doesn't fit yet. | Not available yet |
 | 16–<24 GB | ~1–6 tok/s | 32,768 tokens |
 | 24–<48 GB | ~6–16 tok/s | 32,768 through 32 GB; 65,536 at 36 GB |
 | 48–<96 GB | ~15–27 tok/s | 32,768 at 48 GB; 131,072 at 64 GB |
 | 96 GB+, the model fits in memory | ~20–32 tok/s | 262,144 tokens, the model's full window |
+
+Context examples use decimal-GB memory simulations. A Mac's marketed capacity,
+Metal limits and available memory can produce a different plan; `slotstream
+doctor` shows the actual choice.
 
 The middle rows are anchored on our M5 Pro's measurement; the top ends of the
 last two rows come from a 128 GB M5 Max with a larger, manually chosen memory
@@ -82,6 +95,37 @@ estimates, not limits. The hardware guide has the
 [basis of each range](docs/HARDWARE.md#planning-ranges), every result
 [measured on real Macs](docs/HARDWARE.md#results) with credits and test
 conditions, and [every automatic memory plan](docs/HARDWARE.md#automatic-memory-plans).
+
+### Recent prompt-processing results
+
+The changes shipped in 0.2.23 shorten prompt processing and repeated-history
+work. These measurements use the same 48 GB M5 Pro at a 10 GB target, with
+three clean pairs per comparison:
+
+| Workload | Matched control | Median times, control → enabled | Median paired time reduction |
+|---|---|---|---|
+| 16K inventory prompt, MTP on | Larger-read workspace policy off | 155.22 s → 53.94 s prefill | 65.40% |
+| 2K prose follow-up, MTP off | Prefix checkpoints disabled | 30.73 s → 4.42 s request | 85.62% |
+
+Both comparisons switch a feature off in the same tested binary. They measure
+prompt processing or a cached follow-up, not an increase in reply tok/s or a
+whole-release speedup. Times are arm medians; reductions are medians of paired
+changes. The [hardware guide](docs/HARDWARE.md#recent-prompt-processing-results)
+explains the fixtures and the latest audit's exclusions.
+
+A fresh installed-release study used ordinary caching at the same memory
+target. These are observed first-read ranges and median exact-repeat request
+times across the prescribed request order, with capped replies:
+
+| Prompt | Eligible first reads / repeats | First-read prefill range | Median repeated request |
+|---|---:|---:|---:|
+| 2K code | 4 / 3 | 13.86–28.11 s | 2.79 s |
+| 2K prose | 3 / 3 | 14.91–26.51 s | 3.22 s |
+
+The desktop load screen passed for the included observations, but several
+runs had system swap-ins. Request history changed read batching, so these
+results do not replace the general speed estimates or decode headline.
+See the [measurement and its limits](db/records/measurements/release-prefill-2k-2026-09-22.md).
 
 <a id="memory"></a>
 <a id="context"></a>
@@ -237,7 +281,11 @@ the plan without loading the model:
 slotstream doctor --memory-gb 40
 ```
 
-If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget.
+If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget
+with a fixed cache. In the current development version, use
+`--memory-limit-gb` instead to choose an upper limit while the cache adapts
+to other apps. Custom limits can exceed the automatic default; the Mac's
+supported budget and available memory still bound actual use.
 Auto keeps expert cache when a larger automatic context would trade it away
 without a measured benefit. Use `--max-context N` when you explicitly want a
 longer window. Leave room for macOS and other apps. See the

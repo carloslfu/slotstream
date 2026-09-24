@@ -1,0 +1,21 @@
+{
+  "id": "budget8p1_auto",
+  "ceiling_gb": 8.1,
+  "required_headroom_gb": 11.1,
+  "plan_args": [
+    "--memory-gb",
+    "8.1"
+  ],
+  "decode_fixtures": [
+    "r0092"
+  ],
+  "prefill_fixtures": [
+    "code2048",
+    "prose2048",
+    "code8192",
+    "prose8192",
+    "code16384",
+    "prose16384"
+  ],
+  "scope": "Explicit total-memory measurement; ordinary prefix cache and planner-owned compute/context/MTP; not simulated hardware"
+}

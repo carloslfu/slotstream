@@ -1,0 +1,1 @@
+{"qualified_fixture_cells": 0, "held_out_checks": 0}

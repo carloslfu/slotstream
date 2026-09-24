@@ -46,27 +46,32 @@ extension SevraRuntime {
         }
         applyingChanges = true
         defer { applyingChanges = false }
-        try store.verify()
         var applier = ChangeApplier(session: session, home: homeURL)
         applier.fault = changeFault
-        // Mark the set as applying first, so a crash is reported, not replayed.
+        // Mark the set as applying first, and on disk before any file is
+        // written, so a crash is reported, not replayed.
         try update { $0.threads[i].run?.changes?.state = .applying }
+        do { try await durable() } catch {
+            try? updateThread(threadID) { $0.run?.changes?.state = .proposed }
+            throw error
+        }
         let result: ChangeSet
         do {
             result = try await Task.detached(priority: .userInitiated) { try applier.apply(set, cancellation: Cancellation()) }.value
         } catch {
-            try update { $0.threads[i].run?.changes?.state = .proposed }
+            try updateThread(threadID) { $0.run?.changes?.state = .proposed }
             throw error
         }
         let applied = result.changes.filter { $0.status == .applied }
-        try update { h in
-            h.threads[i].run?.changes = result
-            h.threads[i].run?.trace.append("files: applied \(applied.count) of \(result.changes.count) after exact review " + digest.prefix(16))
+        // Writing awaited, so find the thread again by identity.
+        try updateThread(threadID) { t in
+            t.run?.changes = result
+            t.run?.trace.append("files: applied \(applied.count) of \(result.changes.count) after exact review " + digest.prefix(16))
             let names = applied.map(\.display).prefix(6).joined(separator: ", ")
             var message = applied.isEmpty ? "No files were changed." : "Wrote \(applied.count == 1 ? "1 file" : "\(applied.count) files"): \(names)\(applied.count > 6 ? " and more" : "")."
             if let note = result.note { message += " " + note }
-            h.threads[i].messages.append(Message(role: "assistant", text: message, runID: h.threads[i].run?.id))
-            settle(&h.threads[i], status: result.state == .applied ? "Changes written" : "Some changes were not written")
+            t.messages.append(Message(role: "assistant", text: message, runID: t.run?.id))
+            settle(&t, status: result.state == .applied ? "Changes written" : "Some changes were not written")
         }
         for change in applied { if let id = change.fileID { session.forget(id) } }
         return result
@@ -102,16 +107,17 @@ extension SevraRuntime {
         defer { applyingChanges = false }
         let applier = ChangeApplier(session: session, home: homeURL)
         let result = try await Task.detached(priority: .userInitiated) { try applier.undo(set) }.value
-        try update { h in
+        // Undoing awaited, so find the thread again by identity.
+        try updateThread(threadID) { t in
             func replace(_ run: inout Run?) { if run?.changes?.id == changeSetID { run?.changes = result } }
-            replace(&h.threads[i].run)
-            for j in (h.threads[i].pastRuns ?? []).indices {
-                var past: Run? = h.threads[i].pastRuns?[j]
+            replace(&t.run)
+            for j in (t.pastRuns ?? []).indices {
+                var past: Run? = t.pastRuns?[j]
                 replace(&past)
-                if let past { h.threads[i].pastRuns?[j] = past }
+                if let past { t.pastRuns?[j] = past }
             }
             let undone = result.changes.filter { $0.status == .undone }.count
-            h.threads[i].messages.append(Message(role: "assistant", text: result.state == .undone ? "Undid \(undone == 1 ? "1 change" : "\(undone) changes")." : "Undid \(undone) of the changes. " + (result.note ?? ""), runID: h.threads[i].run?.id))
+            t.messages.append(Message(role: "assistant", text: result.state == .undone ? "Undid \(undone == 1 ? "1 change" : "\(undone) changes")." : "Undid \(undone) of the changes. " + (result.note ?? ""), runID: t.run?.id))
         }
         for change in result.changes { if let id = change.fileID { session.forget(id) } }
         return result
@@ -119,7 +125,7 @@ extension SevraRuntime {
 
     // MARK: apps
 
-    public func approveApp(threadID: String, proposalID: String, digest: String) throws -> String {
+    public func approveApp(threadID: String, proposalID: String, digest: String) async throws -> String {
         try requireReviewable()
         let i = try threadIndex(threadID)
         guard let proposal = home.threads[i].run?.appProposal, proposal.id == proposalID, proposal.digest == digest,
@@ -153,14 +159,14 @@ extension SevraRuntime {
             h.threads[i].messages.append(Message(role: "assistant", text: "\(app.name) is ready (version \(number)). Open it from Apps.", runID: h.threads[i].run?.id))
             settle(&h.threads[i], status: "App turned on")
         }, files: files)
-        var grants = store.grants()
-        grants[app.id] = AppGrant(version: number, collections: proposal.collections, granted: Date())
-        try store.saveGrants(grants)
+        // The version's files are on disk before it gets access.
+        try await durable()
+        try await changeGrants { $0[app.id] = AppGrant(version: number, collections: proposal.collections, granted: Date()) }
         return app.id
     }
 
     /// Turns on a version the person chose, with exactly the access it shows.
-    public func activateApp(appID: String, version: Int) throws {
+    public func activateApp(appID: String, version: Int) async throws {
         try requireOpen(); try requireActiveHome()
         var apps = home.apps ?? []
         guard let index = apps.firstIndex(where: { $0.id == appID }), let chosen = apps[index].versions.first(where: { $0.number == version }) else { throw SevraError.refused("That app version is not available.") }
@@ -168,23 +174,25 @@ extension SevraRuntime {
         apps[index].active = version
         apps[index].removed = false
         try update { $0.apps = apps }
-        var grants = store.grants()
-        grants[appID] = AppGrant(version: version, collections: chosen.collections, granted: Date())
-        try store.saveGrants(grants)
+        // Access follows the saved choice, so a crash never leaves a grant
+        // for a version Home does not show as on.
+        try await durable()
+        try await changeGrants { $0[appID] = AppGrant(version: version, collections: chosen.collections, granted: Date()) }
     }
 
     /// Turns an app off. With `remove`, it also leaves the Apps list. Its
     /// data and versions stay in Home either way.
-    public func deactivateApp(appID: String, remove: Bool) throws {
+    public func deactivateApp(appID: String, remove: Bool) async throws {
         try requireOpen()
-        var apps = home.apps ?? []
-        guard let index = apps.firstIndex(where: { $0.id == appID }) else { return }
-        apps[index].active = nil
-        if remove { apps[index].removed = true }
-        var grants = store.grants()
-        grants.removeValue(forKey: appID)
-        try store.saveGrants(grants)
-        try update { $0.apps = apps }
+        guard (home.apps ?? []).contains(where: { $0.id == appID }) else { return }
+        // Access ends first, in memory at once and then on disk.
+        try await changeGrants { $0.removeValue(forKey: appID) }
+        // Saving awaited, so apply the change to the apps as they are now.
+        try update { h in
+            guard let at = h.apps?.firstIndex(where: { $0.id == appID }) else { return }
+            h.apps?[at].active = nil
+            if remove { h.apps?[at].removed = true }
+        }
     }
 
     public func restoreApp(appID: String) throws {
@@ -196,7 +204,7 @@ extension SevraRuntime {
     }
 
     func appSource(_ app: MiniApp, version: AppVersion) throws -> String {
-        let data = try store.readOwned(app.folder(version.number) + "/index.html", limit: Extensions.appBytes)
+        let data = try HomeStore.readOwned(app.folder(version.number) + "/index.html", at: homeURL, limit: Extensions.appBytes)
         guard digestBytes(data) == version.digest else { throw SevraError.conflict("\(app.name) version \(version.number) changed outside Sevra, so it will not run. Restore it from a backup or turn on another version.") }
         return String(decoding: data, as: UTF8.self)
     }
@@ -205,7 +213,7 @@ extension SevraRuntime {
     public func appDocument(appID: String, version: Int? = nil) throws -> (app: MiniApp, version: AppVersion, html: String, grant: AppGrant?) {
         guard let app = (home.apps ?? []).first(where: { $0.id == appID }) else { throw SevraError.refused("This app is no longer available.") }
         guard let chosen = version.flatMap({ number in app.versions.first { $0.number == number } }) ?? app.activeVersion ?? app.latest else { throw SevraError.refused("This app has no versions.") }
-        let grant = store.grants()[appID].flatMap { $0.version == chosen.number ? $0 : nil }
+        let grant = grants[appID].flatMap { $0.version == chosen.number ? $0 : nil }
         return (app, chosen, try appSource(app, version: chosen), grant)
     }
 
@@ -233,14 +241,19 @@ extension SevraRuntime {
 
     // MARK: app data
 
-    func loadCollection(_ collection: String) throws {
+    /// Loads a collection once, reading its records in the writer.
+    func loadCollection(_ collection: String) async throws {
         guard appRecords[collection] == nil else { return }
+        let bodies = try await writer.perform { store in
+            try store.documents(under: "records/app-data/\(collection)/").map { try store.trackedBody($0) }
+        }
         var records: [String: AppRecord] = [:]
-        for path in store.documents(under: "records/app-data/\(collection)/") {
-            guard let record = AppRecord.decode(try store.trackedBody(path)), record.collection == collection else { continue }
+        for body in bodies {
+            guard let record = AppRecord.decode(body), record.collection == collection else { continue }
             records[record.id] = record
         }
-        appRecords[collection] = records
+        // Another request may have loaded it, and saved to it, meanwhile.
+        if appRecords[collection] == nil { appRecords[collection] = records }
     }
 
     /// One request from an app's isolated view. Identity and access come from
@@ -253,10 +266,10 @@ extension SevraRuntime {
                 return failure("invalid", "Malformed request.")
             }
             guard !shuttingDown, !storagePaused else { return failure("paused", "Sevra has paused saving. Your data is preserved.") }
-            if let review = store.restoreReview, !review.reviewed { return failure("paused", "Review this restored Home before using apps.") }
+            if let review = restoreReview, !review.reviewed { return failure("paused", "Review this restored Home before using apps.") }
             guard let app = (home.apps ?? []).first(where: { $0.id == appID }), !app.removed, app.active == version,
                   let active = app.activeVersion else { return failure("inactive", "This app is turned off.") }
-            guard let grant = store.grants()[appID], grant.version == version else { return failure("inactive", "Turn this app on again to allow its data access.") }
+            guard let grant = grants[appID], grant.version == version else { return failure("inactive", "Turn this app on again to allow its data access.") }
             // Access is what this device granted, limited to what the active
             // version declares. The request never names its own authority.
             let allowed = grant.collections.filter { active.collections.contains($0) }
@@ -266,24 +279,38 @@ extension SevraRuntime {
                 appWriteBudgets[appID] = budget
                 guard spent else { return failure("busy", AppData.busy) }
             }
+            // The one collection a request names is loaded before it is
+            // handled; loading reads in the writer and may await.
+            if let collection = body["collection"] as? String, allowed.contains(where: { $0.name == collection }) {
+                try await loadCollection(collection)
+                guard !shuttingDown, !storagePaused else { return failure("paused", "Sevra has paused saving. Your data is preserved.") }
+            }
             let outcome = try AppData.handle(op: op, body: body, name: app.name, version: version, collections: allowed, appID: appID, now: Date()) { collection in
-                try loadCollection(collection)
-                return appRecords[collection] ?? [:]
+                appRecords[collection] ?? [:]
             }
             switch outcome {
             case .reply(let value): return reply(value)
             case .failure(let code, let message): return failure(code, message)
             case .save(let record, let value):
-                try store.verify()
                 let document = HomeStore.Document(path: record.path, type: "sevra-app-record", body: record.body, immutable: false, summary: "Mini-app record in \(record.collection)")
-                try store.save(home, extraDocuments: [document], files: [])
+                // The record counts at once, so a second write to it while
+                // this one saves sees its revision. The app hears success
+                // only once the record is on disk; if that fails, nothing
+                // was written and the record is as it was.
+                let previous = appRecords[record.collection]?[record.id]
                 appRecords[record.collection, default: [:]][record.id] = record
+                let ticket = saves.submit(records: SaveQueue.Batch(state: home, revision: home.revision, documents: [document]))
+                do { try await saves.wait(ticket: ticket) } catch {
+                    if appRecords[record.collection]?[record.id] == record { appRecords[record.collection]?[record.id] = previous }
+                    throw error
+                }
                 appDataRevision[record.collection, default: 0] += 1
                 appDataWrites[appID, default: [:]][record.collection, default: 0] += 1
                 return reply(value)
             }
         } catch {
-            if case SevraError.conflict = error { storagePaused = true; lastErrorForApps(error) }
+            // A record changed outside Sevra pauses writes until reviewed.
+            if case SevraError.conflict = error { pausedHere = true; lastErrorForApps(error) }
             return failure("error", error.localizedDescription)
         }
     }
@@ -312,13 +339,14 @@ extension SevraRuntime {
         }
     }
 
-    public func appRecordCount(collection: String) -> Int {
-        (try? loadCollection(collection)).map { appRecords[collection]?.count ?? 0 } ?? 0
+    public func appRecordCount(collection: String) async -> Int {
+        do { try await loadCollection(collection) } catch { return 0 }
+        return appRecords[collection]?.count ?? 0
     }
 
     // MARK: skills
 
-    public func approveSkill(threadID: String, proposalID: String, digest: String) throws -> String {
+    public func approveSkill(threadID: String, proposalID: String, digest: String) async throws -> String {
         try requireReviewable()
         let i = try threadIndex(threadID)
         guard let proposal = home.threads[i].run?.skillProposal, proposal.id == proposalID, proposal.digest == digest,
@@ -347,6 +375,8 @@ extension SevraRuntime {
             h.threads[i].messages.append(Message(role: "assistant", text: "The /\(skill.name) skill is ready (version \(number)). Choose it from Skills or type /\(skill.name).", runID: h.threads[i].run?.id))
             settle(&h.threads[i], status: "Skill turned on")
         }, files: [HomeStore.OwnedFile(path: skill.file(number), content: document)])
+        // The skill file is on disk before the skill can be chosen.
+        try await durable()
         return skill.id
     }
 
@@ -363,7 +393,7 @@ extension SevraRuntime {
 
     public func skillText(skillID: String, version: Int) throws -> String {
         guard let skill = (home.skills ?? []).first(where: { $0.id == skillID }), let chosen = skill.versions.first(where: { $0.number == version }) else { throw SevraError.refused("That skill version is not available.") }
-        let data = try store.readOwned(skill.file(version), limit: Extensions.skillBytes + 4096)
+        let data = try HomeStore.readOwned(skill.file(version), at: homeURL, limit: Extensions.skillBytes + 4096)
         guard digestBytes(data) == chosen.digest else { throw SevraError.conflict("The /\(skill.name) skill changed outside Sevra, so it will not be used.") }
         return String(decoding: data, as: UTF8.self)
     }

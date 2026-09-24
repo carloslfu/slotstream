@@ -11,6 +11,12 @@ public final class Qwen4ExpModel {
     package let promptCheckpointIdentity = UUID()
     public let cfg: ModelConfig
     public let resident: ResidentWeights
+    /// The reduced prefill reserve is qualified only for the maintained BF16
+    /// trunk. A different weight dtype must keep the original allocation even
+    /// when the attention dispatcher subsequently chooses its fallback.
+    package lazy var hasBF16PrefillWeights: Bool = resident.arrays.values.allSatisfy {
+        !$0.dtype.isFloatingPoint || $0.dtype == .bfloat16
+    }
     public let pool: SlotPool
     public let ngram: NgramStore
     public var optimizations: InferenceOptimizations
@@ -46,6 +52,10 @@ public final class Qwen4ExpModel {
     public var selectedAttentionTiles: Int {
         qsa.values.reduce(0) { $0 + $1.selectedAttentionTiles } + (mtpHead?.attn.selectedAttentionTiles ?? 0)
     }
+    /// Scheduled upstream fused prefill tiles; evaluated results prove completion.
+    public var fusedPrefillAttentionTiles: Int {
+        qsa.values.reduce(0) { $0 + $1.fusedPrefillAttentionTiles } + (mtpHead?.attn.fusedPrefillAttentionTiles ?? 0)
+    }
     /// Multi-row verify passes (per attention layer) that took the split or exact vector-kernel path.
     public var multiRowSplits: Int {
         qsa.values.reduce(0) { $0 + $1.multiRowSplits } + (mtpHead?.attn.multiRowSplits ?? 0)
@@ -68,6 +78,9 @@ public final class Qwen4ExpModel {
         let selected = optimizations.selectedTextAttention && SelectedAttention.prepare()
         for layer in qsa.values { layer.selectedAttention = selected }
         mtpHead?.attn.selectedAttention = selected
+        let fused = optimizations.fusedPrefillAttention == true && FusedPrefillAttention.available
+        for layer in qsa.values { layer.fusedPrefillAttention = fused }
+        mtpHead?.attn.fusedPrefillAttention = fused
         pool.directReadHandles = optimizations.directReadHandles
         ngram.directReadHandles = optimizations.directReadHandles
         let compiledNorm = optimizations.compiledNormFinish && CompiledArithmetic.prepare()

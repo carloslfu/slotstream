@@ -1,0 +1,5 @@
+Tools/llms_full.sh
+wrote llms-full.txt (6612 lines)
+python3 Tools/projections.py
+wrote MEASUREMENTS.md (5981 lines)
+PLAN.md is current

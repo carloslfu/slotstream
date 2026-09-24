@@ -89,7 +89,7 @@ extension Generator {
         // state this request would have read; any other length is refused for
         // the same reason an in-memory conversation entry is.
         guard let entry = tier.candidate(extending: promptIds, longerThan: retained, requireDraft: draft,
-            boundaries: resume?.boundaries)
+            boundaries: resume?.boundaries, prefillChunk: resume?.key.prefillChunk)
         else { return nil }
         var observation = stats.persistentPrefix ?? PersistentPrefixObservation()
         defer { stats.persistentPrefix = observation }
@@ -129,7 +129,8 @@ extension Generator {
             if shared { observation.sharedSaveOutcome = skipped } else { observation.saveOutcome = skipped }
             return
         }
-        let result = tier.save(state: state, tokens: tokens, shared: shared)
+        let result = tier.save(state: state, tokens: tokens, shared: shared,
+            prefillChunk: model.optimizations.resumesOnPassBoundaries ? prefillChunk : nil)
         if shared {
             observation.sharedSaveOutcome = result.outcome.description
             observation.sharedSavedTokens = result.outcome == .saved ? result.tokens : 0
@@ -176,17 +177,17 @@ extension Generator {
     /// then writes only the rows after it.
     func retainSharedPrefix(cache: PrefixCache?, state: Qwen4ExpModel.State, promptIds: [Int], at boundary: Int,
                             images: [ImageSegment], reserveTokens: Int, reserveSequenceBytes: Int,
-                            request: RequestController?, stats: inout GenStats) {
+                            request: RequestController?, aligned: Bool, key: PromptCheckpointKey, stats: inout GenStats) {
         guard let cache, boundary > 0, boundary < promptIds.count, state.tokenCount == boundary,
               !stats.sharedPrefixBoundaries.contains(boundary) else { return }
         let tokens = Array(promptIds.prefix(boundary))
         Stream.gpu.synchronize()
         persistPrefix(cache: cache, state: state, tokens: tokens, images: images, request: request,
-            stats: &stats, shared: true)
+            aligned: aligned || !model.optimizations.resumesOnPassBoundaries, stats: &stats, shared: true)
         do {
             let retained = try cache.storeReusableCheckpoint(state: state, tokens: tokens, images: images,
                 reserveTokens: reserveTokens, reserveSequenceBytes: reserveSequenceBytes,
-                retention: request?.sharedPrefixRetention ?? .optional)
+                retention: request?.sharedPrefixRetention ?? .optional, freshEquivalent: aligned, key: key)
             if retained { stats.sharedPrefixStores += 1 } else { stats.sharedPrefixRefusals += 1 }
         } catch {
             stats.sharedPrefixErrors += 1

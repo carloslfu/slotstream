@@ -22,6 +22,7 @@ extension AppModel {
         guard !working, !attaching else { error = "Attach sources after the current response finishes."; return }
         let id = selectedID
         attaching = true
+        error = nil
         Task {
             defer { attaching = false }
             var problems: [String] = []
@@ -149,31 +150,42 @@ extension AppModel {
         }
     }
 
-    func openApp(_ appID: String) {
+    /// `show` brings the app to the front. A reopen that keeps an open app in
+    /// step with Home (a version switch or a changed grant) passes false, so it
+    /// never takes the person away from what they are looking at.
+    func openApp(_ appID: String, show: Bool = true) {
         guard let runtime, openingApp != appID else { return }
         openingApp = appID
+        // Show the app's panel at once; the canvas shows progress until the
+        // app's first paint.
+        if show {
+            openingAppName = snapshot?.home.apps?.first { $0.id == appID }?.name
+            panel = "App"
+        }
         Task {
-            defer { openingApp = nil }
+            defer { openingApp = nil; openingAppName = nil }
             do {
                 let document = try await runtime.appDocument(appID: appID)
                 guard document.app.active == document.version.number, !document.app.removed else {
+                    if show && panel == "App" && runningApp?.session.appID != appID { panel = "Apps" }
                     error = "Turn on \(document.app.name) in Apps & Skills before opening it."
                     return
                 }
-                if let current = runningApp, current.session.appID == appID, current.session.version == document.version.number, current.failure == nil {
-                    panel = "App"
+                let collections = document.grant?.collections ?? []
+                if let current = runningApp, current.session.appID == appID, current.session.version == document.version.number,
+                   current.session.collections == collections, current.failure == nil {
                     return
                 }
                 runningApp?.close()
                 let version = document.version.number
                 let session = MiniAppSession(appID: appID, version: version, name: document.app.name, html: document.html,
-                                             collections: document.grant?.collections ?? [], preview: false)
+                                             collections: collections, preview: false)
                 let controller = MiniAppController(session: session, broker: { data in await runtime.appRequest(appID: appID, version: version, request: data) },
                                                    onLink: { [weak self] url in self?.pendingLink = url })
                 controller.onFailure = { [weak self] message in self?.appFailure = message }
+                controller.onReady = { [weak self] in self?.objectWillChange.send() }
                 runningApp = controller
                 appFailure = nil
-                panel = "App"
                 await controller.load()
                 objectWillChange.send()
             } catch { self.error = error.localizedDescription }
@@ -236,7 +248,11 @@ extension AppModel {
         guard let running = runningApp, openingApp == nil else { return }
         let app = snapshot?.home.apps?.first { $0.id == running.session.appID }
         guard let app, !app.removed, let active = app.active else { closeApp(); return }
-        if active != running.session.version || snapshot?.grants[app.id]?.version != active { openApp(app.id) }
+        // Reopen only when what the app runs with changed: its version, or the
+        // data access this device granted it. A missing grant, such as in a
+        // restored Home, opens with no data access and is not a change.
+        let granted = snapshot?.grants[app.id].flatMap { $0.version == active ? $0.collections : nil } ?? []
+        if active != running.session.version || granted != running.session.collections { openApp(app.id, show: false) }
     }
 
     // MARK: skills

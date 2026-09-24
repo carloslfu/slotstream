@@ -52,6 +52,8 @@ jobs:
 
           This release publishes that exact archive after source verification and signing (release log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).
 
+          Changes: [Changelog for this release]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/CHANGELOG.md).
+
           sha256: $SHA
 
           Verify provenance: gh attestation verify slotstream-arm64.tar.gz --repo $GITHUB_REPOSITORY

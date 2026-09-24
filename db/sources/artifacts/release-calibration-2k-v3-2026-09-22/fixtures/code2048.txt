@@ -1,0 +1,177 @@
+Benchmark document code2048. Read the supplied material.
+<material>
+FILE AdaptiveSpeculation.swift
+// Request-local experimentation: useful single-token target steps establish a
+// baseline, then completed speculative rounds justify their cost per output.
+// Wall-clock choices are observable and experimental; they are not promised
+// to choose the same batching schedule across repetitions of a seeded request.
+import Foundation
+
+package struct AdaptiveSpeculationPolicy {
+    package enum Action: Equatable { case calibrate, draft(Int), plain }
+    private var depth: Int
+    private var plainCosts: [Double] = []
+    private var draftCosts: [Double] = []
+    private var stopped = false
+    private var baselineContext = 0
+    private var roundsSinceCalibration = 0
+
+    package init(maximumDepth: Int) { depth = min(16, max(1, maximumDepth)) }
+
+    package mutating func action(contextTokens: Int) -> Action {
+        guard !stopped, contextTokens >= baselineContext else { stopped = true; return .plain }
+        if plainCosts.count == 3 && (roundsSinceCalibration >= 16
+            || contextTokens >= baselineContext && contextTokens - baselineContext >= 256) {
+            plainCosts.removeAll(keepingCapacity: true)
+            draftCosts.removeAll(keepingCapacity: true)
+            roundsSinceCalibration = 0
+        }
+        return plainCosts.count < 3 ? .calibrate : .draft(depth)
+    }
+
+    /// Only main verify plus sampling is the plain baseline. Keeping the head
+    /// aligned during calibration costs extra, but disabled drafting does not
+    /// maintain it, so that cost must not inflate the plain alternative.
+    package mutating func observePlain(seconds: Double, contextTokens: Int) {
+        guard seconds.isFinite, seconds > 0, contextTokens >= 0 else { stopped = true; return }
+        if plainCosts.count == 3 { plainCosts.removeFirst() }
+        plainCosts.append(seconds)
+        baselineContext = contextTokens
+    }
+
+    package mutating func observeDraft(seconds: Double, emitted: Int, drafted: Int, accepted count: Int) {
+        guard seconds.isFinite, seconds > 0, emitted > 0, drafted > 0, drafted <= 16,
+            count >= 0, count <= drafted, emitted <= drafted + 1, plainCosts.count == 3
+        else { stopped = true; return }
+        roundsSinceCalibration += 1
+        draftCosts.append(seconds / Double(emitted))
+        if draftCosts.count > 3 { draftCosts.removeFirst() }
+        guard draftCosts.count == 3 else { return }
+        let reference = plainCosts.sorted()[1], candidate = draftCosts.sorted()[1]
+        // Acceptance affects the denominator through actual emitted target
+        // tokens. Acceptance alone must not overrule a measured faster path.
+        if candidate > reference * 1.05 {
+            if depth == 1 { stopped = true }
+            else {
+                depth = max(1, depth / 2)
+                draftCosts.removeAll(keepingCapacity: true)
+            }
+        }
+    }
+}
+
+
+FILE AnthropicDialect.swift
+// The Anthropic Messages API dialect: what Claude Code speaks.
+//
+// `POST /v1/messages`, with `ANTHROPIC_BASE_URL` pointed at this server, is how
+// Claude Code, Pi's `anthropic-messages` providers and the Anthropic SDKs reach
+// a local model. Like ResponsesDialect, this file is pure: parsing, validation
+// and event construction are functions over values, with no socket and no
+// engine, so the T0 gates run the real contract on any machine in milliseconds.
+//
+// Five decisions differ from the OpenAI dialects, each for a reason read from
+// Claude Code 2.1.270's requests and its gateway guide:
+//
+//   * Unknown top-level fields are ignored, not refused. Claude Code adds a
+//     request field in most releases, each paired with a beta header, and its
+//     gateway guide asks servers in the path to accept them. A refusal would
+//     break every Claude Code update until this file caught up. Fields that
+//     ask for behavior this server cannot provide (`container`, `mcp_servers`,
+//     `output_config.format`) are still refused by name, and ignored names are
+//     reported to the client in the `x-slotstream-ignored-fields` header.
+//   * The attribution line Claude Code puts at the top of the system prompt
+//     (`x-anthropic-billing-header: ...`) is removed, as Anthropic's own API
+//     removes it. It changes with every conversation, so keeping it would give
+//     every prompt a different first line and defeat shared-prefix reuse.
+//   * Thinking follows the request: off unless `thinking` asks for it. This
+//     model's template thinks or does not, so `adaptive` means on, at the
+//     requested `output_config.effort`.
+//   * A thinking block's `signature` carries its own text. Claude Code asks
+//     for `display: "omitted"` and replays the empty block it received; the
+//     signature is what lets the model's reasoning survive a tool loop.
+//   * A prompt over the window fails with `prompt is too long: N tokens > M
+//     maximum`, the message Claude Code reads to compact and retry.
+
+import Foundation
+
+public enum AnthropicDialect {
+
+    // MARK: - Errors
+
+    /// A request that never reaches the model, in Anthropic's error shape.
+    public struct Failure: Error, Equatable, CustomStringConvertible {
+        public let type: String
+        public let message: String
+        public let status: String
+        public init(_ message: String, type: String = "invalid_request_error", status: String = "400 Bad Request") {
+            self.type = type
+            self.message = message
+            self.status = status
+        }
+        public var description: String { message }
+        public var body: [String: Any] { AnthropicDialect.errorBody(type: type, message: message) }
+    }
+
+    public static func errorBody(type: String, message: String) -> [String: Any] {
+        ["type": "error", "error": ["type": type, "message": message] as [String: Any]]
+    }
+
+    /// The Anthropic error type for an HTTP status this server returns.
+    /// Claude Code retries `overloaded_error`, so a transient memory refusal
+    /// maps there; everything else keeps the meaning of its status.
+    public static func errorType(httpStatus: String) -> String {
+        switch httpStatus.prefix(3) {
+        case "400": return "invalid_request_error"
+        case "401": return "authentication_error"
+        case "403": return "permission_error"
+        case "404": return "not_found_error"
+        case "413": return "request_too_large"
+        case "429": return "rate_limit_error"
+        case "503", "529": return "overloaded_error"
+        default: return "api_error"
+        }
+    }
+
+    /// The overflow message. Claude Code matches this form to start its own
+    /// compaction, so the wording is part of the contract.
+    public static func promptTooLong(tokens: Int, maximum: Int) -> String {
+        "prompt is too long: \(tokens) tokens > \(maximum) maximum"
+    }
+
+    // MARK: - Request
+
+    public struct Request {
+        public var messages: [ChatMessage]
+        public var tools: [ToolDefinition]
+        public var choice: GatewayDialect.ToolChoice
+        public var parallel: Bool
+        public var thinking: Bool
+        public var effort: String?
+        /// False for `thinking.display: "omitted"`: thinking blocks then carry
+        /// only their signature, as Anthropic's do.
+        public var showThinking: Bool
+        /// Zero only for a token count, which needs no reply budget.
+        public var maxTokens: Int
+        public var temperature: Float?
+        public var topP: Float?
+        public var topK: Int?
+        public var stopSequences: [String]
+        public var stream: Bool
+        /// Top-level fields this server does not know, ignored by name.
+        public var ignored: [String]
+        public var hasImages: Bool { messages.contains { !$0.images.isEmpty } }
+    }
+
+    /// Fields with an effect here.
+    static let handledFields: Set<String> = [
+        "model", "messages", "max_tokens", "system", "stop_sequences", "stream",
+        "temperature", "top_p", "top_k", "tools", "tool_choice", "thinking", "output_config",
+    ]
+
+    /// Fields the API defines that change nothing on this server. Their types
+    /// are still checked. `context_management` asks the API to clear old
+    /// thinking or tool results; keeping them costs context, never correctness.
+    static let inert
+</material>
+Summarize the main responsibilities and operating limits in five concise bullets.

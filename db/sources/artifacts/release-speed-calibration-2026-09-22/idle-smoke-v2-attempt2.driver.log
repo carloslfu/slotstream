@@ -1,0 +1,24 @@
+{"phase": "decode", "profile": "budget10_auto", "round": 1, "event": "session_start"}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 13, "free_gb": 23.5, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 18.2, "largest_background_process_cpu_percent": 4.2, "gpu_utilization_percent": 0, "background_cpu_eligible": true, "idle_eligible": true}}}
+{"phase": "readiness", "wait_s": 32, "stable_s": 0, "need_gb": 13, "free_gb": 23.1, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 13.8, "largest_background_process_cpu_percent": 2.6, "gpu_utilization_percent": 0, "background_cpu_eligible": true, "idle_eligible": true}}}
+{"phase": "readiness", "wait_s": 63, "stable_s": 8, "need_gb": 13, "free_gb": 23.1, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 16.900000000000002, "largest_background_process_cpu_percent": 4.7, "gpu_utilization_percent": 0, "background_cpu_eligible": true, "idle_eligible": true}}}
+{"phase": "readiness", "wait_s": 95, "stable_s": 2, "need_gb": 13, "free_gb": 23.3, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 8.8, "largest_background_process_cpu_percent": 1.6, "gpu_utilization_percent": 0, "background_cpu_eligible": true, "idle_eligible": true}}}
+{"phase": "readiness", "wait_s": 126, "stable_s": 4, "need_gb": 13, "free_gb": 23.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 6.2, "largest_background_process_cpu_percent": 1.1, "gpu_utilization_percent": 0, "background_cpu_eligible": true, "idle_eligible": true}}}
+{"phase": "readiness", "wait_s": 158, "stable_s": 0, "need_gb": 13, "free_gb": 22.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 101.39999999999999, "largest_background_process_cpu_percent": 96.6, "gpu_utilization_percent": 0, "background_cpu_eligible": false, "idle_eligible": false}}}
+{"phase": "readiness", "wait_s": 190, "stable_s": 0, "need_gb": 13, "free_gb": 22.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 69.0, "largest_background_process_cpu_percent": 61.2, "gpu_utilization_percent": 0, "background_cpu_eligible": false, "idle_eligible": false}}}
+{"phase": "readiness", "wait_s": 221, "stable_s": 2, "need_gb": 13, "free_gb": 22.0, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 19.0, "largest_background_process_cpu_percent": 8.3, "gpu_utilization_percent": 0, "background_cpu_eligible": true, "idle_eligible": true}}}
+{"phase": "readiness", "wait_s": 253, "stable_s": 0, "need_gb": 13, "free_gb": 22.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal", "host_load": {"background_cpu_percent": 158.5, "largest_background_process_cpu_percent": 68.6, "gpu_utilization_percent": 0, "background_cpu_eligible": false, "idle_eligible": false}}}
+Traceback (most recent call last):
+  File "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/release_speed_bench.py", line 198, in <module>
+    main()
+  File "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/release_speed_bench.py", line 193, in main
+    run_session(p,profile,r,out,a.phase)
+  File "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/release_speed_bench.py", line 141, in run_session
+    ready=settle(p['probe'],p['settle_seconds'],profile['required_headroom_gb'],p['readiness_timeout_seconds']);save(session/'readiness.json',ready)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/release_speed_bench.py", line 51, in settle
+    time.sleep(2)
+  File "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/release_speed_bench.py", line 196, in interrupt
+    def interrupt(*_):raise KeyboardInterrupt('benchmark interrupted')
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt: benchmark interrupted

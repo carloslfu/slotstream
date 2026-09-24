@@ -16,9 +16,13 @@ Task {
         if try seedUIIfRequested() { return }
         if try seedPromotionUIIfRequested() { return }
         if try await auditIfRequested() { return }
+        if try await realSpeedCheckIfRequested() { return }
         if try await realPerformanceCheckIfRequested() { return }
         if try await realCheckIfRequested() { return }
         if try await realThinkingCheckIfRequested() { return }
+        if try await realMetricsCheckIfRequested() { return }
+        if try await realCacheCheckIfRequested() { return }
+        if try await realSourcesIfRequested() { return }
         if try await realBasicsCheckIfRequested() { return }
         let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent("sevra-check-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -27,14 +31,17 @@ Task {
         if CommandLine.arguments.contains("--external-drafts") { try await externalDraftChecks(root: root, dbmd: dbmd); return }
         if CommandLine.arguments.contains("--archive") { try await archiveChecks(root: root, dbmd: dbmd); return }
         if CommandLine.arguments.contains("--context-window") { try await longConversationChecks(root: root, dbmd: dbmd); return }
+        if CommandLine.arguments.contains("--performance") { try await performanceChecks(root: root, dbmd: dbmd); return }
         if CommandLine.arguments.contains("--thinking") { try await thinkingChecks(root: root, dbmd: dbmd); return }
+        if CommandLine.arguments.contains("--response-details") { try await responseDetailsChecks(root: root, dbmd: dbmd); return }
+        if CommandLine.arguments.contains("--sources") { try await sourceNavigationChecks(root: root, dbmd: dbmd); return }
         if CommandLine.arguments.contains("--basics") { try await basicsChecks(root: root, dbmd: dbmd); return }
         let folder = root.appendingPathComponent("sources")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data("The launch date is October 12. The budget is 400 dollars.\n".utf8).write(to: folder.appendingPathComponent("notes.md"))
         let script = ScriptedInference(turns: [
             EngineTurn(text: "", calls: [ProposedTool(name: "source.list", arguments: [:])]),
-            EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")])]),
+            EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:notes.md")])]),
             EngineTurn(text: "Here is a briefing to review.", calls: [ProposedTool(name: "artifact.propose", arguments: ["filename": .string("briefing.md"), "content": .string("# Briefing\n\nThe launch is October 12 with a budget of 400 dollars. [S1]\n")])])
         ])
         let home = root.appendingPathComponent("Home")
@@ -85,12 +92,12 @@ Task {
         try Data("Sibling must stay outside the grant".utf8).write(to: folder.appendingPathComponent("sibling.md"))
         let singleList = try single.execute(ProposedTool(name: "source.list", arguments: [:]), cancellation: Cancellation())
         try require(singleList.contains("notes.md") && !singleList.contains("sibling.md"), "file selection grants only the selected item")
-        _ = try single.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-1")]), cancellation: Cancellation())
-        do { _ = try single.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-2")]), cancellation: Cancellation()); throw SevraError.refused("CHECK FAILED: single-file grant exposed sibling") } catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "sibling identifier refused") }
+        _ = try single.execute(ProposedTool(name: "source.read", arguments: ["id": .string("a1:notes.md")]), cancellation: Cancellation())
+        do { _ = try single.execute(ProposedTool(name: "source.read", arguments: ["id": .string("a1:sibling.md")]), cancellation: Cancellation()); throw SevraError.refused("CHECK FAILED: single-file grant exposed sibling") } catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "sibling identifier refused") }
         try FileManager.default.removeItem(at: folder.appendingPathComponent("notes.md"))
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("notes.md"), withDestinationURL: home.appendingPathComponent("db/DB.md"))
         do { _ = try SourceFolder(url: folder.appendingPathComponent("notes.md")); throw SevraError.refused("CHECK FAILED: selected symlink accepted") } catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "selected symlink refused") }
-        do { _ = try source.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-1")]), cancellation: Cancellation()); throw SevraError.refused("CHECK FAILED: symlink substitution accepted") } catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "source symlink substitution denied") }
+        do { _ = try source.execute(ProposedTool(name: "source.read", arguments: ["id": .string("a1:notes.md")]), cancellation: Cancellation()); throw SevraError.refused("CHECK FAILED: symlink substitution accepted") } catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "source symlink substitution denied") }
         print("PASS: terminal gating, undeclared tools, single-file scope, sibling refusal, source symlink substitution")
         try await auditChecks(root: root, dbmd: dbmd)
         try await archiveChecks(root: root, dbmd: dbmd)
@@ -98,11 +105,14 @@ Task {
         try await longConversationChecks(root: root, dbmd: dbmd)
         try await promotionChecks(root: root, dbmd: dbmd)
         try await performanceChecks(root: root, dbmd: dbmd)
+        try await writeBehindChecks(root: root, dbmd: dbmd)
         try await adverseChecks(root: root, dbmd: dbmd)
         try await ipcChecks(root: root, dbmd: dbmd)
         try await personalLoopChecks(root: root, dbmd: dbmd)
         try await thinkingChecks(root: root, dbmd: dbmd)
+        try await responseDetailsChecks(root: root, dbmd: dbmd)
         try await basicsChecks(root: root, dbmd: dbmd)
+        try await sourceNavigationChecks(root: root, dbmd: dbmd)
     } catch { fputs(error.localizedDescription + "\n", stderr); result = 1 }
 }
 sem.wait(); exit(result)

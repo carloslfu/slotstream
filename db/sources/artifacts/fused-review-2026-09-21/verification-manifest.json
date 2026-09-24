@@ -1,0 +1,65 @@
+{
+  "archive_sha256": "b18d6a089916e8402f5a49f89544cf706e63cba3f5d2c53f4aa3ab777882c0d6",
+  "members": {
+    "verify_main.py": {
+      "bytes": 2565,
+      "sha256": "fd4c5218974ec14ecc756715ad1afc2048a3e64815c34cd8656748176fb82f29"
+    },
+    "main-diagnostic-observability.json": {
+      "bytes": 188,
+      "sha256": "c21c98816ea94a805ef7563359c4b53413634f4e5703576c7c719fbd5df21cce"
+    },
+    "production-comparison.json": {
+      "bytes": 124,
+      "sha256": "8bbba9c309ff994cbd0c6ec72d26444ea9f7e6d218dcd82c9425f2ff4cc2a367"
+    },
+    "main-build-source.tar.gz": {
+      "bytes": 1262582,
+      "sha256": "8ebb2f3ae5960b6f4ea1fb436b63ad655c83b0c5a3705c572ac4174dd96466bf"
+    },
+    "diff-check.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "docs.log": {
+      "bytes": 135,
+      "sha256": "f826ac30edd008cdf8b8d7ea6b8881747488895911dc6407eb10758a68b4e521"
+    },
+    "main-t0.stdout": {
+      "bytes": 2983094,
+      "sha256": "8b91157a8899e1026aac84d8224480e1c213df455fa6c78220eef8f435bbd2d7"
+    },
+    "main-build.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "main-build-identity.json": {
+      "bytes": 24284,
+      "sha256": "0eb39cb990eb32e1b2bd1d17bfb19f25272a9552bf5d2862d28926dd5c70ff9a"
+    },
+    "main-scope-diagnostic.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "brain-gates.log": {
+      "bytes": 503,
+      "sha256": "e1e83f63ce45e30ee266a8180ff40367ddac16aa0da768f175322f0a78b1c83a"
+    },
+    "main-scope-diagnostic.stdout": {
+      "bytes": 162776,
+      "sha256": "f52c68791dce040bf56a4e9e1926a8674943a2c68dcaadb13815c0e69f5b5812"
+    },
+    "main-verification-receipts.json": {
+      "bytes": 1036,
+      "sha256": "52fbb3f782768a272f3cba7afffe5f1ca2aa2def82b051216ebb55ba61393396"
+    },
+    "main-t0.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "main-build.stdout": {
+      "bytes": 10536,
+      "sha256": "12dc364230dfea5589002a02d2c530ddc45b06c14f45605c9a418c1df5c5e77e"
+    }
+  }
+}

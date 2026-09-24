@@ -1,0 +1,17 @@
+{
+  "archive_sha256": "a6f750b68c43dd85fc2a0b7a66a45a2ffcec181116fdcaec5fca9eec7819efed",
+  "brain_gate_log_sha256": "e1e83f63ce45e30ee266a8180ff40367ddac16aa0da768f175322f0a78b1c83a",
+  "brain_validation_errors": 0,
+  "unchanged_historical_log_warnings": 2,
+  "compiled_source": {
+    "binary_sha256": "686a6955f614c397087ac0473ced5d2a5373065133d3f2d0fc2d160a5209a297",
+    "current_source_matches_frozen_build": true,
+    "files_checked": 198
+  },
+  "run_binary_references": {
+    "performance": "e82dcb1901af794469e918e278f86744ffd628f73ec3a837e99db9d0ed7adb65",
+    "excluded": "e82dcb1901af794469e918e278f86744ffd628f73ec3a837e99db9d0ed7adb65",
+    "components": "c332baffdcd4a483f5bde79259d3d5a6e0e6aa1cdbe7d9d7d5852d951771aac2",
+    "correctness": "686a6955f614c397087ac0473ced5d2a5373065133d3f2d0fc2d160a5209a297"
+  }
+}

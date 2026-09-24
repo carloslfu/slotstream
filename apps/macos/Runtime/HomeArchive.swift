@@ -147,10 +147,12 @@ public enum HomeArchive {
         try fm.createDirectory(at: stage, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         return stage
     }
-    private static func put(_ data: Data, path: String, in root: URL) throws {
+    /// Each file is pushed to the drive; the last one written flushes the
+    /// drive's cache for all of them, instead of one full flush per file.
+    private static func put(_ data: Data, path: String, in root: URL, _ level: Durability = .pushed) throws {
         let target = root.appendingPathComponent(path)
         try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        try durable(data, at: target)
+        try durable(data, at: target, level)
     }
     private static func publish(_ staged: URL, as destination: URL) throws {
         // RENAME_EXCL is atomic create-only publication on macOS.
@@ -181,7 +183,7 @@ public enum HomeArchive {
         let evidence = Set(state.threads.flatMap { $0.allRuns.flatMap { ($0.excerpts ?? []) + ($0.proposal?.citations ?? []) } }.map(\.path)).sorted()
         let manifest = HomeArchiveManifest(homeID: state.id, revision: state.revision, created: Date(), files: entries, externalEvidence: evidence, evidenceComplete: evidence.isEmpty)
         let data = try encoded(manifest)
-        try put(data, path: "manifest.json", in: staging)
+        try put(data, path: "manifest.json", in: staging, .flushed)
         // Bind every file and the inventory to the same completed owner view,
         // including arbitrary owned assets outside the dbmd integrity ledger.
         try verify()
@@ -220,11 +222,11 @@ public enum HomeArchive {
         guard !destination.path.hasPrefix(String(cString: archivePath) + "/") else { throw SevraError.refused("Restore beside the backup or in another folder. The backup itself must stay unchanged.") }
         let staging = try stage(for: destination)
         defer { try? fm.removeItem(at: staging) }
-        for entry in result.manifest.files {
+        for (index, entry) in result.manifest.files.enumerated() {
             try autoreleasepool {
                 let data = try read(entry.path, at: archive)
                 guard data.count == entry.bytes, digestBytes(data) == entry.sha256 else { throw SevraError.conflict("The backup changed during restore.") }
-                try put(data, path: entry.path, in: staging)
+                try put(data, path: entry.path, in: staging, index == result.manifest.files.count - 1 ? .flushed : .pushed)
             }
         }
         try HomeStore.prepareRestoredHome(at: staging, manifest: result.manifest,

@@ -1,0 +1,15 @@
+{
+  "stream": true,
+  "think": false,
+  "options": {
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 1024
+  },
+  "messages": [
+    {
+      "content": "Continue writing this Python file from the exact point where the excerpt stops. Respond with code only, no explanation, starting immediately with the next line of code.\n\n```python\n#!/usr/bin/env python3\n\"\"\"Every public number has a claim record; every claim's needle is on its surfaces.\n\nReads db/records/claims/*.md. A `current` claim's `needle` must appear\nverbatim in every file listed in `surfaces`; a `withdrawn` claim's needle\nmust appear in none of them. The gate exists because numbers drifted between\nREADME, docs, and llms.txt for three releases before anyone noticed; a\nmeasurement that changes now fails CI until its claim and its surfaces move\ntogether. Matching ignores line wrapping: runs of whitespace on both sides\ncollapse to one space, so a needle may span a wrapped line. Standard library\nonly.\n\"\"\"\nimport os\nimport sys\n\nROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\nCLAIMS = os.path.join(ROOT, 'db', 'records', 'claims')\n\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nfrom projections import read_record  # noqa: E402\n\n\ndef squash(text):\n    return ' '.join(text.split())\n\n\ndef main():\n    if not os.path.isdir(CLAIMS):\n        print('no claims folder at %s' % CLAIMS, file=sys.stderr)\n        return 1\n    failures, checked = [], 0\n    for name in sorted(os.listdir(CLAIMS)):\n```",
+      "role": "user"
+    }
+  ]
+}

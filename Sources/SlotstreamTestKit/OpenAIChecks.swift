@@ -6,6 +6,7 @@ extension Catalogue {
     static var openAIChecks: [Check] {
         [Check("openai-conversation", tier: .t0) { try openAIConversation() },
          Check("openai-tool-output", tier: .t0) { try openAIToolOutput() },
+         Check("prefill-progress", tier: .t0) { prefillProgress() },
          Check("openai-context-budget", tier: .t0) { try openAIContextBudget() }]
     }
 
@@ -64,6 +65,11 @@ extension Catalogue {
                     "prompt_cache_retention": "24h", "safety_identifier": "s", "service_tier": "auto"]) == nil)
         c.expect("store true asks for a stored completion, which is refused by name",
             Server.openAINoOpError(["store": true])?.contains("store: true") == true)
+        c.equal("omitted output cap uses the advertised budget", GatewayDialect.outputBudget(contextCap: 65536), 8192)
+        for request: [String: Any] in [["tools": [openAIReadTool]], ["messages": [["role": "tool", "content": "result"]]],
+                                       ["messages": [["role": "assistant", "tool_calls": [call]]]]] {
+            c.expect("Ollama tool refusal names the supported route", Server.ollamaToolError(request)?.contains("/v1/chat/completions") == true)
+        }
         for malformed: [String: Any] in [["store": "no"], ["store": 0], ["metadata": ["n": 1]], ["metadata": "x"],
             ["prompt_cache_key": 1], ["prompt_cache_retention": 24], ["safety_identifier": false], ["service_tier": ["auto"]]] {
             c.expect("a malformed stateless field is named: \(malformed.keys.sorted())",
@@ -165,6 +171,76 @@ extension Catalogue {
         _ = reasoning.consume([.text("Answer.")])
         c.equal("reasoning separate from answer", reasoning.message["content"] as? String, "Answer.")
         c.equal("reasoning wire field", reasoning.message["reasoning_content"] as? String, "Private deliberation.")
+        // Reassemble the actual Chat Completions argument deltas, not just the
+        // final parser object. Clients must see file contents before </parameter>.
+        for split in 0...chars.count {
+            let parser = ToolCallSplitter(tools: tools.map { $0.schema }, idFactory: countingIDs())
+            let output = OpenAIOutput(tools: tools, choice: .required, parallel: true,
+                streamToolArguments: true, allowLengthTruncation: true)
+            let events = output.consume(parser.push(String(chars[..<split])))
+                + output.consume(parser.push(String(chars[split...]))) + output.consume(parser.flush())
+            let wire = events.flatMap { $0["tool_calls"] as? [[String: Any]] ?? [] }
+            let arguments = wire.compactMap { ($0["function"] as? [String: Any])?["arguments"] as? String }.joined()
+            c.equal("wire arguments at split \(split)", arguments, complete.calls[0].inputJSON)
+            c.equal("identity emitted once at split \(split)", wire.filter { $0["id"] != nil }.count, 1)
+        }
+        let stringShapes: [(String, JSONValue)] = [
+            ("scalar", .object(["type": .string("string")])),
+            ("nullable anyOf", .object(["anyOf": .array([
+                .object(["type": .string("string")]), .object(["type": .string("null")])])])),
+            ("nullable type array", .object(["type": .array([.string("string"), .string("null")])])),
+            ("null first type array", .object(["type": .array([.string("null"), .string("string")])])),
+        ]
+        for (label, shape) in stringShapes {
+            let definition = ToolDefinition(name: "read_file", description: "", parameters: .object([
+                "type": .string("object"), "properties": .object(["path": shape])]))
+            let longParser = ToolCallSplitter(tools: [definition.schema], idFactory: countingIDs())
+            let longOutput = OpenAIOutput(tools: [definition], choice: .required, parallel: true,
+                streamToolArguments: true, allowLengthTruncation: true)
+            _ = longOutput.consume(longParser.push("<tool_call><function=read_file><parameter=path>\n"))
+            let span = "a\\\"\t🙂\n"
+            var fragments = 0
+            for _ in 0..<16_000 {
+                let deltas = longOutput.consume(longParser.push(span))
+                fragments += deltas.count
+            }
+            c.expect("\(label): large argument streams before its closing tag", fragments > 15_000 && longOutput.calls.isEmpty)
+            _ = longOutput.consume(longParser.flush())
+            c.equal("\(label): truncated argument ends with length", longOutput.finishReason("length"), "length")
+            c.expect("\(label): length is not a server error or executable completion", longOutput.error == nil && longOutput.calls.isEmpty)
+            let pending = (longOutput.message["tool_calls"] as? [[String: Any]])?.first?["function"] as? [String: Any]
+            c.equal("\(label): truncated wire preserves every stable string byte", pending?["arguments"] as? String,
+                "{\"path\":\"" + String(JSONValue.quote(String(repeating: span, count: 16_000)).dropFirst().dropLast()))
+        }
+        let cappedBeforeCall = OpenAIOutput(tools: tools, choice: .required, parallel: true,
+            streamToolArguments: true, allowLengthTruncation: true)
+        c.equal("budget before required call is still length", cappedBeforeCall.finishReason("length"), "length")
+        c.expect("budget exhaustion is not tool refusal", cappedBeforeCall.error == nil)
+        let invalid = OpenAIOutput(tools: tools, choice: .required, parallel: true,
+            streamToolArguments: true, allowLengthTruncation: true)
+        c.expect("undeclared provisional name is not sent", invalid.consume([.toolInputStart(id: "bad", name: "absent")]).isEmpty)
+        _ = invalid.finishReason("length")
+        c.expect("length cannot hide an undeclared tool", invalid.error != nil)
+        return c.report()
+    }
+
+    static func prefillProgress() -> CheckReport {
+        var c = CheckBuilder("prefill-progress")
+        var lines: [String] = []
+        let progress = PrefillProgressReporter(quietBelowTokens: 2048, maxChunk: 256) { lines.append($0) }
+        progress.report(done: 0, total: 50_000, elapsed: 0)
+        progress.report(done: 1000, total: 50_000, elapsed: 10)
+        c.expect("below-quarter progress is visible", lines.last?.contains("1000/50000") == true)
+        progress.report(done: 1100, total: 50_000, elapsed: 20)
+        c.expect("ETA uses slow recent passes", lines.last?.contains("10 tok/s recently") == true)
+        let count = lines.count
+        progress.report(done: 1110, total: 50_000, elapsed: 21)
+        c.equal("fast updates do not flood logs", lines.count, count)
+        progress.report(done: 0, total: 50_000, elapsed: 0)
+        progress.report(done: 500, total: 50_000, elapsed: 5)
+        c.expect("same-sized retry resets elapsed sample", lines.last?.contains("100 tok/s recently") == true)
+        progress.report(done: 10, total: 200, elapsed: 30, base: 30_000)
+        c.expect("slow short restored suffix is visible", lines.last?.contains("10/200") == true)
         return c.report()
     }
 

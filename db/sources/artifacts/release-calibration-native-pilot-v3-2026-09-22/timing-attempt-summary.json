@@ -1,0 +1,26 @@
+{
+  "elapsed_seconds": 300.36011466698255,
+  "samples": 144,
+  "reclaimable_gb_range": [
+    14.463369216,
+    15.153594368
+  ],
+  "all_memory_preflights_passed": true,
+  "final_load_window": {
+    "eligible": false,
+    "sample_count": 58,
+    "means": {
+      "background_cpu_percent": 68.06724137931035,
+      "largest_background_process_cpu_percent": 24.824137931034482,
+      "gpu_utilization_percent": 16.56896551724138
+    },
+    "burst_fraction": 0.017241379310344827,
+    "idle": true
+  },
+  "cleanup": {
+    "owned_pid": null,
+    "exit_code": null,
+    "reaped": true
+  },
+  "requests": 0
+}

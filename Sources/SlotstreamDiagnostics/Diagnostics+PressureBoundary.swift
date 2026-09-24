@@ -100,6 +100,7 @@ extension Diagnostics {
         c.expect("queued pressure never loads the tower", engine.visionTower == nil)
         engine.pressureBoundary.acknowledge(queued)
 
+        let checkpointTokens = engine.model.optimizations.prefixCheckpointTokens
         for phase in ["scope", "prefill", "decode", "nonstream"] {
             engine.dropPrefixCache()
             let scoped = phase == "scope"
@@ -107,6 +108,9 @@ extension Diagnostics {
             engine.model.optimizations.boundedIndexer = scoped
             engine.model.optimizations.boundedPLE = scoped
             engine.model.optimizations.readScopeTokens = scoped ? 1024 : 0
+            // Keep this scope multi-pass: the deployed fixed checkpoint at
+            // 256 would split it into single passes before our injection.
+            engine.model.optimizations.prefixCheckpointTokens = scoped ? 0 : checkpointTokens
             engine.model.optimizations.workspaceTokenTile = 512
             let input = phase == "prefill" || scoped ? Array(repeating: 907, count: 513) : prompt
             let requested = DispatchSemaphore(value: 0), finished = DispatchSemaphore(value: 0)
@@ -126,6 +130,12 @@ extension Diagnostics {
             engine.generator.onPrefillProgress = { done, _, _ in
                 if phase == "prefill", done >= 256 { trigger() }
             }
+            // Inject during actual scoped computation. Poll counts change
+            // when admission and checkpoint boundaries add guard calls and
+            // can otherwise move this event after the scope already commits.
+            engine.model.routerObserver = scoped ? { layer, _ in
+                if layer == 0 { trigger() }
+            } : nil
             var polls = 0
             let token: ((Int, String) -> Bool)? = phase == "nonstream" ? nil : { _, _ in
                 if phase == "decode" { trigger() }
@@ -133,14 +143,16 @@ extension Diagnostics {
             }
             let result = engine.generate(promptIds: input, params: params, shouldContinue: {
                 polls += 1
-                if scoped && polls == 3 || phase == "nonstream" && polls == 2 { trigger() }
+                if phase == "nonstream" && polls == 2 { trigger() }
                 return true
             }, onToken: token)
             engine.generator.onPrefillProgress = nil
+            engine.model.routerObserver = nil
             engine.model.optimizations.layerExpertWorkspace = false
             engine.model.optimizations.boundedIndexer = false
             engine.model.optimizations.boundedPLE = false
             engine.model.optimizations.readScopeTokens = 0
+            engine.model.optimizations.prefixCheckpointTokens = checkpointTokens
             let drained = !triggered || finished.wait(timeout: .now() + 10) == .success
             c.expect("\(phase): actual pressure event reaches busy engine", triggered && eventAcknowledged)
             c.expect("\(phase): governor finishes after safe cancellation", drained)
@@ -151,6 +163,7 @@ extension Diagnostics {
             c.expect("\(phase): completion stops before the output allowance", result.ids.count < params.maxTokens)
             if scoped {
                 c.equal("cancelled scope retains only its prior commit", result.stats.prefillTokens, 0)
+                c.equal("scope cancellation actually interrupts a read scope", result.stats.abortedReadScopes, 1)
                 c.expect("scope cancellation emits no token", result.ids.isEmpty)
             } else if phase == "prefill" {
                 c.equal("prefill stops at one complete chronological pass", result.stats.prefillTokens, 256)

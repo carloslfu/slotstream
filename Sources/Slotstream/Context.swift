@@ -115,10 +115,16 @@ public enum PrefillSchedule {
     /// query-by-key product. A scope shares reads; it is not a compute pass.
     public static func scopePasses(remaining: Int, at position: Int, maxChunk: Int,
                                    maxScope: Int, tailAware: Bool) -> [Int] {
+        scopePasses(remaining: remaining, at: position, maxChunk: maxChunk,
+            maxScope: maxScope, tailAware: tailAware, experimentalMaximum: 8192)
+    }
+
+    package static func scopePasses(remaining: Int, at position: Int, maxChunk: Int,
+                                   maxScope: Int, tailAware: Bool, experimentalMaximum: Int) -> [Int] {
         guard remaining > 0, position >= 0, position < ContextPolicy.modelLimit,
               remaining <= ContextPolicy.modelLimit - position else { return [] }
         var result: [Int] = [], count = 0
-        let bound = max(minChunk, min(8192, maxScope))
+        let bound = max(minChunk, min(min(16384, max(8192, experimentalMaximum)), maxScope))
         while count < remaining {
             let (pos, overflow) = max(0, position).addingReportingOverflow(count)
             guard !overflow else { break }
@@ -135,14 +141,19 @@ public enum PrefillSchedule {
     /// Candidate automatic policy: amortize a full-layer workspace over at
     /// least four identical, full matrix passes. Short/odd tails and a common
     /// prefix checkpoint keep their original dispatch. The actual scheduled
-    /// pass may be smaller than the planner ceiling at a long context.
+    /// pass may be smaller than the planner ceiling at a long context. The
+    /// base cap is 8192 tokens for 256-row passes; PrefillReadPolicy can expand
+    /// it within the fused workspace envelope. Other pass sizes retain 4096.
+    /// This is a maximum candidate, never a memory grant.
+    /// See the prompt-speed qualification measurement (2026-09-21).
     package static func automaticScopePasses(remaining: Int, at position: Int,
-                                            maxChunk: Int, checkpoint: Int?) -> [Int]? {
+                                            maxChunk: Int, checkpoint: Int?, maximumScope: Int = 8192) -> [Int]? {
         guard (256 ... 4096).contains(maxChunk) else { return nil }
         let scheduled = chunk(at: position, maxChunk: maxChunk)
         guard [256, 512, 1024].contains(scheduled), scheduled >= SweepTuning.minTokens else { return nil }
         var proposed = scopePasses(remaining: remaining, at: position,
-            maxChunk: maxChunk, maxScope: 4096, tailAware: false)
+            maxChunk: maxChunk, maxScope: scheduled == 256 ? maximumScope : 4096,
+            tailAware: false, experimentalMaximum: maximumScope)
         if let checkpoint { proposed = preservingCheckpoint(proposed, from: position, checkpoint: checkpoint) }
         proposed = Array(proposed.prefix(while: { $0 == scheduled }))
         return proposed.count >= 4 ? proposed : nil
@@ -150,11 +161,12 @@ public enum PrefillSchedule {
 
     /// Prefer the largest useful read scope that fits the current budget.
     /// Every alternative is a prefix of the unchanged compute schedule and
-    /// retains the four-pass minimum. There are at most thirteen choices.
+    /// retains the four-pass minimum. There are at most sixty-one choices in
+    /// the larger envelope.
     package static func automaticScopeChoices(remaining: Int, at position: Int,
-                                             maxChunk: Int, checkpoint: Int?) -> [[Int]]? {
+                                             maxChunk: Int, checkpoint: Int?, maximumScope: Int = 8192) -> [[Int]]? {
         guard let largest = automaticScopePasses(remaining: remaining, at: position,
-            maxChunk: maxChunk, checkpoint: checkpoint) else { return nil }
+            maxChunk: maxChunk, checkpoint: checkpoint, maximumScope: maximumScope) else { return nil }
         return stride(from: largest.count, through: 4, by: -1).map {
             Array(largest.prefix($0))
         }
@@ -308,16 +320,16 @@ public enum PrefillSchedule {
 }
 
 /// Progress lines for a long prefill, shared by `run` (stderr) and `serve`
-/// (its log). A prompt under `quietBelowTokens` prints nothing: the wait is
-/// seconds and the lines would be noise.
+/// (its log). Short, quick prompts stay quiet; a slow restored suffix still
+/// reports progress after the normal reporting interval.
 public final class PrefillProgressReporter {
     public let quietBelowTokens: Int
     public var maxChunk: Int
     private let sink: (String) -> Void
     private var announced = 0  // total the running announcement was made for
     private var announcedBase = -1
-    private var nextMark = 0.25
-    private var lastLine: UInt64 = 0
+    private var lastElapsed = 0.0
+    private var lastDone = 0
     public var tailAware = false
 
     public init(quietBelowTokens: Int, maxChunk: Int, sink: @escaping (String) -> Void) {
@@ -333,11 +345,12 @@ public final class PrefillProgressReporter {
     }
 
     public func report(done: Int, total: Int, elapsed: Double, base: Int) {
-        guard total >= quietBelowTokens, total > 0 else { return }
-        if announced != total || announcedBase != base {
+        guard total > 0, total >= quietBelowTokens || elapsed >= 5 else { return }
+        if done == 0 || announced != total || announcedBase != base {
             announced = total
             announcedBase = base
-            nextMark = 0.25
+            lastElapsed = 0
+            lastDone = 0
             let eta = PrefillSchedule.estSeconds(tokens: total, from: base, maxChunk: maxChunk, tailAware: tailAware)
             sink("prefill: reading \(total) prompt tokens, ~\(PrefillSchedule.describe(seconds: eta)) "
                 + "to the first token at this plan (follow-up turns read only what is new)")
@@ -351,13 +364,15 @@ public final class PrefillProgressReporter {
             announced = 0
             return
         }
-        // One line per quarter, never more often than every 5 s.
-        guard frac >= nextMark, lastLine == 0 || RuntimeClock.seconds(since: lastLine) >= 5 else { return }
-        while nextMark <= frac { nextMark += 0.25 }
-        lastLine = RuntimeClock.now()
-        let rate = elapsed > 0 ? Double(done) / elapsed : 0
-        let left = rate > 0 ? Double(total - done) / rate : 0
-        sink(String(format: "prefill: %d/%d tokens (%.0f%%), ~%@ left",
-                    done, total, frac * 100, PrefillSchedule.describe(seconds: left)))
+        // Report at the next completed pass after five seconds, even if a
+        // slow tail has not reached another quarter of the prompt. A short
+        // restored suffix that takes this long must not stay silent either.
+        guard elapsed - lastElapsed >= 5 else { return }
+        let rate = Double(done - lastDone) / (elapsed - lastElapsed)
+        let left = rate > 0 ? Double(total - done) / rate : Double.infinity
+        lastElapsed = elapsed
+        lastDone = done
+        sink(String(format: "prefill: %d/%d tokens (%.0f%%), %.0f tok/s recently, ~%@ left at this rate",
+                    done, total, frac * 100, rate, PrefillSchedule.describe(seconds: left)))
     }
 }

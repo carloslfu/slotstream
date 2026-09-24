@@ -1,0 +1,18 @@
+test_cache_classes (analysis_test.AnalysisTests.test_cache_classes) ... ok
+test_capped_not_full (analysis_test.AnalysisTests.test_capped_not_full) ... ok
+test_changed_outputs_not_qualified (analysis_test.AnalysisTests.test_changed_outputs_not_qualified) ... ok
+test_changed_plan_not_pooled (analysis_test.AnalysisTests.test_changed_plan_not_pooled) ... ok
+test_contaminated_not_counted (analysis_test.AnalysisTests.test_contaminated_not_counted) ... ok
+test_do_not_drop_slow_outlier (analysis_test.AnalysisTests.test_do_not_drop_slow_outlier) ... ok
+test_exact_three (analysis_test.AnalysisTests.test_exact_three) ... ok
+test_family_is_held_out_of_correction (analysis_test.AnalysisTests.test_family_is_held_out_of_correction) ... ok
+test_global_sensitivity_not_relabelled (analysis_test.AnalysisTests.test_global_sensitivity_not_relabelled) ... ok
+test_no_calibration_without_repeated_evidence (analysis_test.AnalysisTests.test_no_calibration_without_repeated_evidence) ... ok
+test_no_data (analysis_test.AnalysisTests.test_no_data) ... ok
+test_requires_three (analysis_test.AnalysisTests.test_requires_three) ... ok
+test_tiny_output_not_decode_anchor (analysis_test.AnalysisTests.test_tiny_output_not_decode_anchor) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.000s
+
+OK

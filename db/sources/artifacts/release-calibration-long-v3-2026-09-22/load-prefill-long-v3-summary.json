@@ -1,0 +1,40 @@
+{
+  "completed_requests": 8,
+  "automatic_eligible": 6,
+  "curator_exclusions": 1,
+  "derived_eligible": 5,
+  "max_native_peak_gb": 8.250117504,
+  "readiness_seconds": 301.8172757079592,
+  "final_window": {
+    "eligible": false,
+    "sample_count": 58,
+    "means": {
+      "background_cpu_percent": 62.35,
+      "largest_background_process_cpu_percent": 22.65344827586207,
+      "gpu_utilization_percent": 15.89655172413793
+    },
+    "burst_fraction": 0.0,
+    "idle": true
+  },
+  "last_thermal": "nominal",
+  "last_reclaimable_gb": 34.201862144,
+  "cleanups": [
+    {
+      "owned_pid": null,
+      "exit_code": null,
+      "reaped": true
+    },
+    {
+      "owned_pid": 20185,
+      "exit_code": 0,
+      "reaped": true
+    }
+  ],
+  "failures": [
+    {
+      "error": "readiness timeout; no model launched",
+      "type": "TimeoutError",
+      "completed_requests": 0
+    }
+  ]
+}

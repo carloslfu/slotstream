@@ -1,0 +1,52 @@
+{
+  "at": "2026-09-22T22:21:22.485892+00:00",
+  "host_load_tests": 23,
+  "analysis_tests": 13,
+  "v3_hash_checks": {
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/host_load.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/host_load_test.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/prefill_bench.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/release_speed_bench.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/serve_bench.py": true
+  },
+  "v2_unchanged_hash_checks": {
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/host_load.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/host_load_test.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/prefill_bench.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/release_speed_bench.py": true,
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v2/serve_bench.py": true
+  },
+  "real_model_pilot": "No model launched; insufficient physical headroom throughout five-minute readiness attempt",
+  "captured_test_commands": [
+    {
+      "name": "host-load-tests",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/tmp/slotstream-release-calibration-20260922/harness-idle-v3",
+        "-p",
+        "*_test.py",
+        "-v"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "analysis-tests",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/tmp/slotstream-release-calibration-20260922",
+        "-p",
+        "analysis_test.py",
+        "-v"
+      ],
+      "returncode": 0
+    }
+  ]
+}

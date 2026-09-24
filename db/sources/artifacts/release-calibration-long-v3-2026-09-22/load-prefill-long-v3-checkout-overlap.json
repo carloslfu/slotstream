@@ -1,0 +1,8 @@
+{
+  "observed_at": "2026-09-23T03:55:09.008578+00:00",
+  "excluded_result": "load-prefill-long-v3/prefill-budget10_auto-r1/prose8192/repeat-result.json",
+  "reason": "Documentation worktree checkout performed by this task overlapped this request; possible SSD/CPU contention. Excluded before its result was inspected. Original automatic verdict remains unchanged.",
+  "active_capture_verified": "load-prefill-long-v3/prefill-budget10_auto-r1/prose8192/repeat-response.ndjson",
+  "operation": "git worktree add --detach /tmp/slotstream-release-calibration-2k-results-20260922 HEAD",
+  "exact_operation_duration": "not captured; output reported completion at next bounded poll"
+}

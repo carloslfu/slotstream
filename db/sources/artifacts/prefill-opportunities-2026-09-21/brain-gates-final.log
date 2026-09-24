@@ -1,0 +1,9 @@
+warning LOG_UNKNOWN_KIND log.md:124 — log entry kind `change` is not recognized
+    hint: use one of: ingest, create, update, delete, rename, link, validate, index-rebuild, contradiction
+warning LOG_OUT_OF_ORDER log.md:883 — log entry is older than the entry above it (possible rewrite)
+    hint: append corrective entries; never reorder past ones
+2 issue(s): 0 error(s), 2 warning(s), 0 info
+MEASUREMENTS.md is current
+PLAN.md is current
+claims gate: 303 needle checks, 0 failures
+BRAIN GATES PASS

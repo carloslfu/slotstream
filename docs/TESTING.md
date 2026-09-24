@@ -185,6 +185,14 @@ cooldown and exact output checks. A skipped drill fails full acceptance.
 Run this gate without other heavy work. Full model hashing holds the same
 process exclusion lock as inference and must pass before native acceptance.
 
+The battery also requires `elastic-drill --memory-limit-gb 10
+--max-memory-gb 10 --mtp off`. This checks that a small cache recovers after
+pressure even when the lost cache is below the normal growth threshold.
+It preserves both cooldowns, the saved ceiling and exact output. The public
+adaptive-server gate separately checks startup, the production timer,
+status metadata and a completed request; its `--limit-gb` and `--no-elastic`
+options cover fractional limits and explicitly pinned serving.
+
 MTP diagnostics require and price the draft head before Engine allocation,
 including when their `--mtp` option is left at `auto`; explicit `off` is
 incompatible. The full `mtp-check` includes vision and uses an explicit 12 GB
@@ -229,14 +237,26 @@ network code is no longer represented only by weights-free catalogue coverage.
 
 ## What runs where
 
+Each push and pull request runs the workflows for what it changes. `ci.yml`
+builds and checks the engine. `sevra-mac.yml` checks the Mac app in
+`apps/macos`, and also runs for engine changes because the app builds on the
+engine. `context-proxies.yml` covers the context proxies, and `docs.yml` the
+documentation and the brain.
+
 | Suite | What it covers | Weights | Where |
 |---|---|---|---|
 | `slotstream-checks` (T0/T1) | prefill schedule, context policy, runtime and cache bounds, governor policy, pull integrity, machine planning, HTTP framing and routing, vision geometry, request shaping and the embedding splice, sampler behaviour, persistent prefix policy, state files, rows shared across turns, eviction and directory maintenance | no | CI + local |
 | `Tools/static_gates.sh` | shell and python syntax, doc parity, fixture digests, manifest digests, planner gates, installer gates | no | CI |
 | `Tools/sampler_gates.sh` | the sampler against a numpy reference, and the governor's branches | no | CI |
 | `Tools/consumer_smoke.sh` | a package outside the repository can import and use the library | no | CI |
+| `Tools/check_sevra_mac.sh` | the Mac app over scripted inference in disposable Homes: runtime, sources and the sandboxed document helper, reviewed changes, knowledge bases, skills, mini-apps, and offscreen checks of the production views | no | CI + local |
+| `Tools/build_sevra_xcode.sh` | the Xcode project builds for Apple silicon, ad hoc signed, with the package versions the checks use and the helper, dbmd and Metal library in the bundle | no | CI |
 | `Tools/verify.sh` | the acceptance battery: provenance, goldens, byte-equality across cache sizes and live resizes, MTP, the memory promise, long context | **yes** | dev Mac |
 | `Tools/api_robustness.sh` | Serving regressions against a live server | **yes** | dev Mac |
+| `Tools/issue21_gate.py` | Chat Completions caps with and without tools, incremental truncated scalar/nullable-string arguments, compatible branch selection and later-turn reuse when reasoning is omitted, terminal usage and process survival | **yes** | dev Mac, already-running server |
+| `Tools/issue21_e2e.py` | issue-21 and OpenAI compatibility gates plus exact conversation replay after restart; saves requests, SSE, commands and cleanup receipts | **yes** | `Tools/verify.sh`, owns one bounded server at a time |
+| `Tools/issue21_long_context.py` | long tool-enabled conversations, advancing disk reuse when reasoning is omitted, and identical prompt/output after a real restart; captures raw SSE and progress logs | **yes** | dev Mac, owns one bounded server at a time |
+| `sevra-mac-checks --real-basics` | the Mac app's basic jobs with the real model: a PDF answer, a reviewed edit, a mini-app and an attached file | **yes** | dev Mac |
 | `optimization-state-check --variant persistent-prefix[-mtp]` | a persisted state restores with the saved representation; a disk hit continues exactly like a memory hit; that continuation, written as reused plus new rows, restores exactly; a regenerated reply resumes the kept parent; a request that keeps its state off disk writes nothing; draft cache included | **yes** | dev Mac |
 | `optimization-state-check --variant shared-prefix[-mtp]` | a prompt's system message is kept during its own prefill at the last 256-token pass end at or before its boundary, forked into memory and written to disk as a shared prefix; a second conversation reuses it from memory and a fresh cache restores it from disk, both continuing exactly like the cold prompt; a prompt sharing only a head with a kept state writes that head; a `sharedPrefixTokens` hint replaces the system boundary; a request kept off disk writes nothing; the shared prefix outlives later turns and is classed after conversations; draft cache included | **yes** | dev Mac |
 | `Tools/shared_prefix_e2e.py` | shared prefixes through `serve`: the first conversation writes its system prompt during prefill; a second one in the same process reuses it from memory; a restarted server restores it from disk; a conversation whose system prompt shares only a head writes that head and its own system prompt; another restarted server reuses those; later turns leave the shared prefixes in place and `prefix-cache` lists them; reused conversations' output ids equal a server without a prefix cache exactly | **yes** | dev Mac |
@@ -388,10 +408,21 @@ python3 Tools/coverage_ratchet.py coverage.info
 built with the profiling instrumentation directly and `llvm-cov` reads what it
 wrote; the CLT ships `llvm-profdata` and `llvm-cov`, just not the test modules.
 
-`Tools/coverage-floor.json` sets a minimum for each file. This catches a loss
-of coverage in an existing file even if new code raises the overall
-percentage. Use `--update` only for a deliberate change, with an explanation
-in the commit.
+Coverage is a review aid. Historical per-file percentages do not block CI.
+The job still fails on a build error, a failed instrumented check, or a missing
+or invalid report. It uploads LCOV and puts per-file changes in the job summary.
+`Tools/coverage-floor.json` is the retained comparison snapshot; its historical
+name is kept for compatibility. `--update` deliberately refreshes that snapshot,
+and is not needed to make CI pass.
+
+Inspect uncovered behavior in each change. Memory limits, recovery, cache
+integrity, cancellation, download verification and public API compatibility
+require meaningful boundary and failure checks. Regression checks should fail
+when the bug is reintroduced. All existing correctness suites remain required.
+Context-proxy, CLI and real-model checks run separately and are not included
+in this coverage report. A narrower coverage gate needs reliable measurement
+and a specific risk justification before adoption. See the
+[coverage policy](../db/records/decisions/coverage-as-review-feedback.md).
 
 <a id="where-the-coverage-is-not"></a>
 
@@ -539,3 +570,100 @@ them. Run one model process at a time.
 
 Single runs vary by 15% or more on a loaded machine. If two runs disagree by
 that much, say so rather than picking the better one.
+
+## Prompt-speed qualification
+
+The prompt-speed diagnostics use one bounded model process at a time. Check
+reclaimable memory and wait for other model runs and builds to finish first.
+`prompt-checkpoint` checks exact interior reuse, disk arithmetic provenance,
+and admission of the larger automatic scope. The phase checks cover pending
+token ownership, later cold-equivalent reuse, cancellation and private state:
+
+```bash
+.build/release/slotstream optimization-state-check --variant prompt-checkpoint --json
+.build/release/slotstream optimization-state-check --variant generation-phase --json
+.build/release/slotstream optimization-state-check --variant generation-phase-mtp --json
+```
+
+`prompt-scopes-bench` runs warmups and alternating pairs in one loaded engine.
+It excludes paging-contaminated pairs from its timing decision and checks
+identical output, unchanged compute shapes, read bytes and physical memory.
+The separate `scope-larger-family --tokens 8192` numerical gate uses
+`SLOTSTREAM_OPT_WORKSPACE_TILE=1024 SLOTSTREAM_OPT_SCOPE_FRONTIER=1`.
+
+After `Tools/check_sevra_mac.sh`, place the pinned Metal library beside
+`apps/macos/.build/release/sevra-mac-checks`. Its `--real-cache --home <new-dir>`
+check uses synthetic inventory text to test save, unload, reload, incognito
+isolation and thinking-state exclusion. The existing `--real-thinking` and
+`--real-metrics` checks exercise the app's phase transition and recorded
+statistics. Each requires its own new disposable Home; none is a clean
+throughput benchmark.
+
+
+The fused prefill integration adds a scalar Double reference over the actual
+BF16 inputs to the MLX check tier. It exercises causal and sparse masks,
+strided queries, grouped heads and partial tiles, and checks exact fallback
+for decode and unsupported dtypes. The real-model checkpoint diagnostic
+requires fusion to execute and preserves exact warm/cold cache equivalence:
+
+```bash
+.build/release/slotstream optimization-state-check --variant fused-prefill-component --json
+.build/release/slotstream optimization-state-check --variant fused-prefill-checkpoint --json
+```
+
+Run the phase, app-cache and ordinary acceptance gates against the deployed
+settings too. The arithmetic-preserving `integrated` diagnostic remains a
+separate reference test. A kernel upgrade is evaluated against numerical and
+task-quality evidence; changing an old greedy token alone does not establish
+an error. Never regenerate the historical parity goldens with the upgraded
+backend. For timing, retain the old executable and its matching Metal library,
+use alternating paired runs, and separately compare the new executable with
+`SLOTSTREAM_OPT_FUSED_PREFILL=0`. Exclude intervals with paging from speed
+claims while preserving their functional results.
+
+The qualified profile automatically couples fused-workspace accounting with
+larger expert-read groups. Test the default with no optimization environment
+overrides using the `fused-workspace-component`,
+`prefill-opportunity-equality`, `prefill-followup-lifecycle`,
+`prefill-followup-checkpoint`, `prefill-followup-mtp-equality` and
+`prefill-followup-mtp-vision` variants. Equality accepts `--tokens 16387` and
+checks raw logits, every retained state tensor and teacher-forced continuation
+against the original grouping. Run one model process at a time with the
+documented memory preflight. The separate `prefill-opportunity-compute` probe
+requires `SLOTSTREAM_OPPORTUNITY_PROMPT_FILE` and `SLOTSTREAM_PREFILL_CHUNK`;
+it tests physical feasibility at a fixed floor-sized pool, not normal planner
+acceptance or an output-quality guarantee. The catalogue includes the pure
+policy's hardware, dtype, image, shape, key-boundary and explicit-disable
+fallbacks, plus MTP phase lifetimes, shifted draft positions and retained output
+accounting and the tradeoff between write barriers and larger read groups.
+Run `optimization-state-check --variant prefill-followup-mtp-equality --tokens 16387` to require that
+MTP actually exercises larger automatic groups while preserving prompt logits,
+retained state, speculative output and continuation exactly.
+Use `SLOTSTREAM_OPT_FUSED_WORKSPACE=0` for the original main-attention accounting
+and automatic group cap; explicit group controls remain diagnostic tools.
+Preserve excluded timing cells and the fixed trial limit in the
+[initial automatic-policy validation](../db/records/measurements/automatic-prefill-policy-2026-09-21.md)
+and [MTP qualification](../db/records/measurements/mtp-prefill-policy-2026-09-21.md).
+
+`Tools/verify.sh` requires a Python environment with `mlx==0.32.2` and
+`mlx-lm` for the independent current-backend model comparisons. It defaults
+to `.venv/bin/python`; `SLOTSTREAM_REFERENCE_PYTHON` selects another interpreter.
+`Tools/current_backend_reference.py` writes into a new verification directory,
+holds the model lock and enforces a physical-memory ceiling. Its main-layer
+reference reads only requested n-gram rows from the original weights.
+
+Historical MLX 0.31 layer goldens still run with `parity --row-invariant`,
+which selects the original one-row projection arithmetic. The ordinary
+production projections are checked separately against the current Python
+reference. Both comparisons retain the existing numerical tolerance. The old
+draft-head golden is also run and its cross-backend differences are reported
+explicitly as diagnostics; the current-backend draft-head comparison remains
+required. Neither historical fixture is regenerated or relaxed.
+
+`prefix-check` requires live reply equality, reuse and invalidation behavior.
+It also prints the historical experiment that compared arbitrary batch
+schedules. `--legacy-rechunk-bounds` reinstates that experiment's old numerical
+bounds and depth heuristic when reproducing its original protocol. Those
+different arithmetic schedules are not a cache-corruption oracle.
+`prefix-exact-check` remains a required, separate gate for bit-identical raw
+logits and tokens under the actual cache schedule.

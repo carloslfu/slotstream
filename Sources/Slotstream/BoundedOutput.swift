@@ -14,6 +14,7 @@ package final class BoundedOutput: @unchecked Sendable {
         package var socketWaitSeconds = 0.0
         package var firstWriteSeconds: Double?
         package var failed = false
+        package var failureReason: String?
     }
 
     private let fd: Int32
@@ -48,6 +49,7 @@ package final class BoundedOutput: @unchecked Sendable {
         // request body has been read, and restore it only after joining.
         if originalFlags < 0 || fcntl(fd, F_SETFL, originalFlags | O_NONBLOCK) != 0 {
             counters.failed = true; closing = true
+            counters.failureReason = "could not configure nonblocking socket output"
             available.signal()
         }
         done.enter()
@@ -71,7 +73,7 @@ package final class BoundedOutput: @unchecked Sendable {
         lock.lock()
         guard !closing && !counters.failed else { lock.unlock(); return false }
         guard data.count <= maxBytes - ownedBytes && ownedFrames < maxFrames else {
-            failLocked(); lock.unlock(); available.signal(); return false
+            failLocked("output queue capacity exceeded"); lock.unlock(); available.signal(); return false
         }
         queue.append(data)
         ownedBytes += data.count; ownedFrames += 1
@@ -83,11 +85,12 @@ package final class BoundedOutput: @unchecked Sendable {
     }
 
     package func cancel() {
-        lock.lock(); failLocked(); lock.unlock()
+        lock.lock(); failLocked("output cancelled or drain deadline exceeded"); lock.unlock()
         available.signal()
     }
 
-    private func failLocked() {
+    private func failLocked(_ reason: String) {
+        if counters.failureReason == nil { counters.failureReason = reason }
         counters.failed = true
         closing = true
         // Drop pending storage now; the worker owns at most one bounded frame.
@@ -135,7 +138,7 @@ package final class BoundedOutput: @unchecked Sendable {
             lock.lock()
             ownedBytes -= data.count; ownedFrames -= 1
             if written { counters.writtenFrames += 1 }
-            else { failLocked() }
+            else { failLocked("socket write failed or timed out") }
             let exit = counters.failed || (closing && queue.isEmpty)
             lock.unlock()
             if exit { return }

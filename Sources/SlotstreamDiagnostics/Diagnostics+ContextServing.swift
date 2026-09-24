@@ -194,7 +194,13 @@ extension Diagnostics {
         // skipped-final-forward path does not. Use actual retained IDs in
         // either family instead of assuming where generation stopped.
         let retained = engine.prefixCache.peek(extending: prefix) ?? prefix
-        c.equal("warm admission: seed retained exact consumed history", engine.prefixCache.heldTokens, retained.count)
+        c.expect("warm admission: seed retained exact consumed history",
+            retained.starts(with: prefix) && retained.count <= prefix.count + seed.ids.count
+                && retained.dropFirst(prefix.count).elementsEqual(seed.ids.prefix(retained.count - prefix.count)))
+        // heldTokens includes both the conversation and its reusable prefill
+        // checkpoint. With aligned resume, only the complete 256-row passes
+        // may be reused; the final three prompt rows must be read again.
+        let expectedReuse = engine.model.optimizations.resumesOnPassBoundaries ? 512 : retained.count
         let continuation = retained + [907]
         let tight = try ContextConfiguration(maxContextTokens: 65536, maxPrefillWaitMinutes: 0.02)
         func tightControl() -> RequestController {
@@ -202,9 +208,10 @@ extension Diagnostics {
         }
         let warmControl = tightControl()
         let warm = engine.generate(promptIds: continuation, params: single, request: warmControl)
-        c.expect("warm admission: only missing token is admitted", warm.stats.runtimeError == nil
-            && warm.stats.reusedPrefixTokens == retained.count && warm.stats.prefillTokens == 1,
-            "reused=\(warm.stats.reusedPrefixTokens), expected=\(retained.count), prefilled=\(warm.stats.prefillTokens), error=\(warm.stats.runtimeError ?? "none")")
+        c.expect("warm admission: only the suffix after the reusable boundary is admitted", warm.stats.runtimeError == nil
+            && warm.stats.reusedPrefixTokens == expectedReuse
+            && warm.stats.prefillTokens == continuation.count - expectedReuse,
+            "reused=\(warm.stats.reusedPrefixTokens), expected=\(expectedReuse), prefilled=\(warm.stats.prefillTokens), error=\(warm.stats.runtimeError ?? "none")")
         c.expect("warm admission: retained estimate is inside budget", warmControl.estimatedPrefillSeconds.map { $0 < 1.2 } ?? false)
         engine.dropPrefixCache()
         let cold = engine.generate(promptIds: continuation, params: single, request: tightControl())

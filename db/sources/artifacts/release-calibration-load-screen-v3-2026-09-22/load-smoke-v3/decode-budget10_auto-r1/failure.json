@@ -1,0 +1,5 @@
+{
+  "error": "readiness timeout; no model launched",
+  "type": "TimeoutError",
+  "completed_requests": 0
+}

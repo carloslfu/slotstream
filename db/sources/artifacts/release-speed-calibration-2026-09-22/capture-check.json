@@ -1,0 +1,46 @@
+{
+  "checked": 27,
+  "errors": [],
+  "quality_checks": [
+    {
+      "path": "/tmp/slotstream-release-calibration-20260922/decode22/decode-budget22_auto-r1/r0092/measured-result.json",
+      "capture_pass": true,
+      "quality": {
+        "check": "budget final values",
+        "pass": true
+      }
+    },
+    {
+      "path": "/tmp/slotstream-release-calibration-20260922/decode22/decode-budget22_auto-r1/r0132/measured-result.json",
+      "capture_pass": true,
+      "quality": {
+        "check": "geometry final values",
+        "pass": true
+      }
+    },
+    {
+      "path": "/tmp/slotstream-release-calibration-20260922/decode22/decode-budget22_auto-r1/r0265/measured-result.json",
+      "capture_pass": true,
+      "quality": {
+        "check": "JSON shape and source ingredients",
+        "pass": true
+      }
+    },
+    {
+      "path": "/tmp/slotstream-release-calibration-20260922/decode22/decode-budget22_auto-r2/r0092/measured-result.json",
+      "capture_pass": true,
+      "quality": {
+        "check": "budget final values",
+        "pass": true
+      }
+    },
+    {
+      "path": "/tmp/slotstream-release-calibration-20260922/decode22/decode-budget22_auto-r2/r0132/measured-result.json",
+      "capture_pass": true,
+      "quality": {
+        "check": "geometry final values",
+        "pass": true
+      }
+    }
+  ]
+}

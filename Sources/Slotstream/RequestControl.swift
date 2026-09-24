@@ -152,6 +152,10 @@ public final class RequestController: @unchecked Sendable {
     private let lock = NSLock()
     private var failureValue: RequestFailure?
     private var firstToken = false
+    private var phaseValue = "request preparation"
+    /// Last guarded operation, safe to observe from a diagnostic timer even
+    /// while tokenization, a disk read or a GPU evaluation has not returned.
+    public var phase: String { lock.withLock { phaseValue } }
     private var estimateValue: Double?
     private let reservationID = UUID()
     private var reservations: RequestMemoryReservations?
@@ -167,6 +171,14 @@ public final class RequestController: @unchecked Sendable {
         started = clock()
     }
     deinit { reservations?.release(reservationID) }
+    /// The next phase keeps the caller's window, headroom observations,
+    /// cancellation and pressure source. It cannot widen a scoped request to
+    /// the engine default. Each phase has its own prefill clock and receipt.
+    package func nextGenerationPhase() -> RequestController {
+        RequestController(configuration: configuration, slackBytes: slackBytes,
+            clock: clock, availableGB: available,
+            connected: { [self] in failure == nil && connected() }, pressure: pressure)
+    }
     package func attachReservations(_ pool: RequestMemoryReservations) throws {
         try lock.withLock {
             if let reservations, reservations !== pool {
@@ -232,6 +244,7 @@ public final class RequestController: @unchecked Sendable {
     /// Check before an allocation, not after it. Only actually reusable bytes
     /// can be subtracted by callers; future reservations never authorize growth.
     public func check(nextAllocationBytes: Int = 0, phase: String = "inference") throws {
+        lock.withLock { phaseValue = phase }
         if let failure { throw failure }
         guard nextAllocationBytes >= 0 else {
             throw fail(RequestFailure(.invalidConfiguration, "allocation byte count must be nonnegative"))

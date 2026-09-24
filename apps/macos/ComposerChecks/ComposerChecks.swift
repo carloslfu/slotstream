@@ -16,6 +16,15 @@ private func check(_ condition: Bool, _ label: String, line: Int = #line) throws
     }
     throw Failure("Timed out: " + label)
 }
+/// Waits on the clock for work a timer schedules, which yielding cannot reach.
+/// A shared CI Mac can run a debounced save long after its delay.
+@MainActor private func within(_ seconds: Double, _ label: String, _ predicate: () -> Bool) async throws {
+    let deadline = Date().addingTimeInterval(seconds)
+    while !predicate() {
+        guard Date() < deadline else { throw Failure("Timed out: " + label) }
+        try await Task.sleep(nanoseconds: 5_000_000)
+    }
+}
 @MainActor private final class Gate {
     var entered = false
     var continuation: CheckedContinuation<Void, Never>?
@@ -159,12 +168,37 @@ private func check(_ condition: Bool, _ label: String, line: Int = #line) throws
             try await run("debounce saves only the newest edit and cancels pending work after Send") {
                 let store = Store(), session = try await store.session(delay: 10_000_000)
                 for n in 0..<100 { session.edit("draft \(n)") }
-                try await Task.sleep(nanoseconds: 40_000_000)
-                try check(session.saved && store.writes.count == 1, "one debounced save")
+                try await within(10, "debounced save") { session.saved && !store.writes.isEmpty }
+                try check(store.writes.count == 1 && store.drafts["home"]?.text == "draft 99", "one debounced save of the newest edit")
                 session.edit("send now"); try check(await session.send(), "send before debounce")
-                try await Task.sleep(nanoseconds: 40_000_000)
+                // Nothing may be saved after Send; give a pending save twenty delays to appear.
+                try await Task.sleep(nanoseconds: 200_000_000)
                 try check(session.text.isEmpty && session.saved && store.drafts["home"]?.text == "", "no stale restoration")
                 try check(store.messages.count == 1 && session.issue == nil, "one message, no warning")
+                session.finish()
+            }
+            try await run("typing that never pauses still saves about once per wait, never back to back") {
+                let store = Store()
+                let session = ComposerSession(store: .init(read: store.read, write: store.write, send: store.send),
+                                              debounceNanoseconds: 300_000_000, maxWaitNanoseconds: 600_000_000)
+                try await session.open("home")
+                // Type until three saves happen. A slow machine types more
+                // slowly, so this counts saves, not time; the pause check keeps
+                // every save attributable to the wait bound, not to a pause.
+                let start = Date()
+                var n = 0, last = Date(), longestPause = 0.0, saves: [Date] = []
+                while store.writes.count < 3 && Date().timeIntervalSince(start) < 6 {
+                    n += 1; session.edit("typing \(n)")
+                    try await Task.sleep(nanoseconds: 20_000_000)
+                    let now = Date(); longestPause = max(longestPause, now.timeIntervalSince(last)); last = now
+                    while saves.count < store.writes.count { saves.append(now) }
+                }
+                try check(longestPause < 0.3, "typing never paused as long as the debounce (longest \(Int(longestPause * 1000)) ms)")
+                try check(saves.count >= 3, "saved while typing without a pause (\(saves.count) writes in \(Int(Date().timeIntervalSince(start) * 1000)) ms)")
+                let gaps = zip(saves.dropFirst(), saves).map { $0.timeIntervalSince($1) }
+                try check(gaps.allSatisfy { $0 >= 0.4 }, "one write per wait, not back to back (gaps \(gaps.map { Int($0 * 1000) }) ms)")
+                try await within(10, "final save after typing stops") { session.saved }
+                try check(store.drafts["home"]?.text == "typing \(n)" && store.maximumConcurrentWrites == 1, "newest text saved, one write at a time")
                 session.finish()
             }
             try await run("Send before autosave atomically accepts the prompt and clears the older draft") {

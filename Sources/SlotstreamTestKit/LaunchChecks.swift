@@ -475,6 +475,25 @@ extension Catalogue {
                 B.serveArguments(port: 8080, window: 65536, memoryGB: 12.5, idleMinutes: 0, prefixCacheDirectory: "/c"),
                 ["serve", "--port", "8080", "--max-context", "65536", "--memory-gb", "12.5", "--prefix-cache-dir", "/c"])
         c.equal("a fractional idle stop is written as typed", B.number(0.25), "0.25")
+        for limit in [8.15, 9.99, 48.123456789, Double.greatestFiniteMagnitude] {
+            let arguments = B.serveArguments(port: 8080, window: nil, memoryGB: nil, memoryLimitGB: limit,
+                idleMinutes: 0, prefixCacheDirectory: "/c")
+            let index = arguments.firstIndex(of: "--memory-limit-gb")!
+            c.equal("child server receives the exact fractional ceiling \(limit)", Double(arguments[index + 1]), limit)
+        }
+        c.equal("an adaptive ceiling is forwarded without pinning the cache",
+                B.serveArguments(port: 8080, window: nil, memoryGB: nil, memoryLimitGB: 48,
+                    idleMinutes: 0, prefixCacheDirectory: "/c"),
+                ["serve", "--port", "8080", "--memory-limit-gb", "48", "--prefix-cache-dir", "/c"])
+        let adaptiveStatus = L.ServerStatus(pid: 123, port: 8080, contextWindow: 32768,
+            activeRequests: 0, clients: 1, idleExitMinutes: 30, memorySource: "auto",
+            memoryTargetGB: 20, memoryLimitGB: 48)
+        c.equal("a busy server still honors its saved adaptive limit",
+            L.memoryLimitNote(requested: 48, port: 8080, status: adaptiveStatus), nil)
+        c.expect("a different adaptive limit is explained without replacing the server",
+            L.memoryLimitNote(requested: 40, port: 8080, status: adaptiveStatus)?.contains("--memory-limit-gb 40 did not apply") == true)
+        c.expect("an older server cannot silently claim the requested adaptive limit",
+            L.memoryLimitNote(requested: 48, port: 8080, status: nil)?.contains("did not apply") == true)
         for tool in L.Tool.allCases {
             c.equal("\(tool.rawValue) fits the smallest automatic window, unless it is Hermes",
                     B.window(for: tool, automatic: ContextPolicy.defaultTokens), tool == .hermes ? 65536 : nil)
@@ -502,6 +521,12 @@ extension Catalogue {
                 L.ServerStatus(pid: 4242, port: 8080, contextWindow: 65536, activeRequests: 0, clients: 0, idleExitMinutes: 30,
                                memorySource: "--memory-gb", memoryTargetGB: 12))
         c.equal("idle time is reported to a tenth of a second", wire["idle_seconds"] as? Double, 12.3)
+        let adaptiveBody = Server.statusBody(pid: 123, port: 8080, version: "v", model: "m", contextWindow: 32768,
+            startedAt: 1, activity: .init(activeRequests: 0, clients: 1, idleSeconds: 0), idleExitSeconds: 1800,
+            memorySource: "auto", memoryTargetGB: 20, memoryLimitGB: 48)
+        let adaptiveWire = (try? JSONSerialization.data(withJSONObject: adaptiveBody))
+            .flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } ?? [:]
+        c.equal("adaptive ceiling survives the real status wire format", L.ServerStatus.from(adaptiveWire), adaptiveStatus)
         let noIdle = Server.statusBody(pid: 7, port: 1, version: "v", model: "m", contextWindow: 1, startedAt: 1,
                                        activity: quiet, idleExitSeconds: nil)
         let noIdleWire = (try? JSONSerialization.data(withJSONObject: noIdle))

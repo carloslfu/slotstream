@@ -1,0 +1,341 @@
+{
+  "complete_requests": 14,
+  "observational_or_pilot_requests": 0,
+  "failed_sessions": [
+    {
+      "path": "load-prefill-2k-v3-attempt3/prefill-budget10_auto-r1/failure.json",
+      "error": "readiness timeout; no model launched",
+      "type": "TimeoutError",
+      "completed_requests": 0
+    },
+    {
+      "path": "load-prefill-2k-v3-attempt2/prefill-budget10_auto-r1/failure.json",
+      "error": "readiness timeout; no model launched",
+      "type": "TimeoutError",
+      "completed_requests": 0
+    }
+  ],
+  "decode": [],
+  "profile_summaries": [],
+  "prefill": [
+    {
+      "profile": "budget10_auto",
+      "fixture": "code2048",
+      "stage": "prefill_miss",
+      "observations": 4,
+      "eligible": 4,
+      "strict_global_eligible": 1,
+      "qualified": true,
+      "median_prefill_seconds": 14.8590098335,
+      "median_client_seconds": 17.18363808345748,
+      "reused_tokens": [
+        0
+      ],
+      "signatures": [
+        [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ]
+      ],
+      "read_groups": [
+        [
+          2048,
+          13
+        ],
+        [
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          13
+        ],
+        [
+          2048,
+          13
+        ],
+        [
+          2048,
+          13
+        ]
+      ],
+      "exclusions": {},
+      "history_strata": [
+        {
+          "server_history": "after_other_prompts",
+          "eligible": 1,
+          "prefill_seconds": [
+            28.114991166
+          ],
+          "read_batches": [
+            [
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              13
+            ]
+          ]
+        },
+        {
+          "server_history": "first_prompt",
+          "eligible": 3,
+          "prefill_seconds": [
+            15.708795292,
+            14.009224375,
+            13.85954
+          ],
+          "read_batches": [
+            [
+              2048,
+              13
+            ],
+            [
+              2048,
+              13
+            ],
+            [
+              2048,
+              13
+            ]
+          ]
+        }
+      ],
+      "qualification_scope": "At least three eligible observations of this prompt/plan across the frozen request order. History strata above remain separate; this is not a history-independent ETA anchor."
+    },
+    {
+      "profile": "budget10_auto",
+      "fixture": "code2048",
+      "stage": "repeat",
+      "observations": 4,
+      "eligible": 3,
+      "strict_global_eligible": 2,
+      "qualified": true,
+      "median_prefill_seconds": 8.75e-07,
+      "median_client_seconds": 2.791649999911897,
+      "reused_tokens": [
+        2048,
+        2061
+      ],
+      "signatures": [
+        [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ]
+      ],
+      "read_groups": [
+        [],
+        [
+          13
+        ],
+        []
+      ],
+      "exclusions": {
+        "sustained background CPU load or unavailable sample": 1
+      },
+      "history_strata": [
+        {
+          "server_history": "after_other_prompts",
+          "eligible": 1,
+          "prefill_seconds": [
+            0.934533125
+          ],
+          "read_batches": [
+            [
+              13
+            ]
+          ]
+        },
+        {
+          "server_history": "first_prompt",
+          "eligible": 2,
+          "prefill_seconds": [
+            8.75e-07,
+            7.91e-07
+          ],
+          "read_batches": [
+            [],
+            []
+          ]
+        }
+      ],
+      "qualification_scope": "At least three eligible observations of this prompt/plan across the frozen request order. History strata above remain separate; this is not a history-independent ETA anchor."
+    },
+    {
+      "profile": "budget10_auto",
+      "fixture": "prose2048",
+      "stage": "prefill_miss",
+      "observations": 3,
+      "eligible": 3,
+      "strict_global_eligible": 0,
+      "qualified": true,
+      "median_prefill_seconds": 26.129264,
+      "median_client_seconds": 28.40488533396274,
+      "reused_tokens": [
+        0
+      ],
+      "signatures": [
+        [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ]
+      ],
+      "read_groups": [
+        [
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          13
+        ],
+        [
+          2048,
+          13
+        ],
+        [
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          13
+        ]
+      ],
+      "exclusions": {},
+      "history_strata": [
+        {
+          "server_history": "after_other_prompts",
+          "eligible": 2,
+          "prefill_seconds": [
+            26.506637542,
+            26.129264
+          ],
+          "read_batches": [
+            [
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              13
+            ],
+            [
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              13
+            ]
+          ]
+        },
+        {
+          "server_history": "first_prompt",
+          "eligible": 1,
+          "prefill_seconds": [
+            14.905922291
+          ],
+          "read_batches": [
+            [
+              2048,
+              13
+            ]
+          ]
+        }
+      ],
+      "qualification_scope": "At least three eligible observations of this prompt/plan across the frozen request order. History strata above remain separate; this is not a history-independent ETA anchor."
+    },
+    {
+      "profile": "budget10_auto",
+      "fixture": "prose2048",
+      "stage": "repeat",
+      "observations": 3,
+      "eligible": 3,
+      "strict_global_eligible": 3,
+      "qualified": true,
+      "median_prefill_seconds": 0.961296875,
+      "median_client_seconds": 3.223739958018996,
+      "reused_tokens": [
+        2048,
+        2061
+      ],
+      "signatures": [
+        [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ]
+      ],
+      "read_groups": [
+        [
+          13
+        ],
+        [],
+        [
+          13
+        ]
+      ],
+      "exclusions": {},
+      "history_strata": [
+        {
+          "server_history": "after_other_prompts",
+          "eligible": 2,
+          "prefill_seconds": [
+            1.020634042,
+            0.961296875
+          ],
+          "read_batches": [
+            [
+              13
+            ],
+            [
+              13
+            ]
+          ]
+        },
+        {
+          "server_history": "first_prompt",
+          "eligible": 1,
+          "prefill_seconds": [
+            7.5e-07
+          ],
+          "read_batches": [
+            []
+          ]
+        }
+      ],
+      "qualification_scope": "At least three eligible observations of this prompt/plan across the frozen request order. History strata above remain separate; this is not a history-independent ETA anchor."
+    }
+  ]
+}

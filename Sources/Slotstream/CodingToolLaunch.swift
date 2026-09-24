@@ -957,11 +957,12 @@ package enum CodingToolLaunch {
         }
 
         /// `slotstream serve` arguments. A nil window keeps the automatic one.
-        package static func serveArguments(port: Int, window: Int?, memoryGB: Double?, idleMinutes: Double,
+        package static func serveArguments(port: Int, window: Int?, memoryGB: Double?, memoryLimitGB: Double? = nil, idleMinutes: Double,
                                            prefixCacheDirectory: String) -> [String] {
             var arguments = ["serve", "--port", "\(port)"]
             if let window { arguments += ["--max-context", "\(window)"] }
             if let memoryGB { arguments += ["--memory-gb", number(memoryGB)] }
+            if let memoryLimitGB { arguments += ["--memory-limit-gb", number(memoryLimitGB)] }
             arguments += ["--prefix-cache-dir", prefixCacheDirectory]
             if idleMinutes > 0 { arguments += ["--idle-exit", number(idleMinutes)] }
             return arguments
@@ -973,7 +974,12 @@ package enum CodingToolLaunch {
             automatic >= tool.minimumContext ? nil : tool.minimumContext
         }
 
-        package static func number(_ value: Double) -> String { String(format: "%g", value) }
+        package static func number(_ value: Double) -> String {
+            // This is also used for child-process arguments. %g defaults to
+            // six significant digits and could change a selected ceiling.
+            let text = String(value)
+            return text.hasSuffix(".0") ? String(text.dropLast(2)) : text
+        }
 
         /// What the user reads once the server answers.
         package static func startedMessage(port: Int, log: String, idleMinutes: Double) -> String {
@@ -1006,9 +1012,11 @@ package enum CodingToolLaunch {
         /// or `auto`, and the target it gives, when the server says.
         package var memorySource: String?
         package var memoryTargetGB: Double?
+        package var memoryLimitGB: Double?
 
         package init(pid: Int32, port: Int, contextWindow: Int, activeRequests: Int, clients: Int,
-                     idleExitMinutes: Double?, memorySource: String? = nil, memoryTargetGB: Double? = nil) {
+                     idleExitMinutes: Double?, memorySource: String? = nil, memoryTargetGB: Double? = nil,
+                     memoryLimitGB: Double? = nil) {
             self.pid = pid
             self.port = port
             self.contextWindow = contextWindow
@@ -1017,6 +1025,7 @@ package enum CodingToolLaunch {
             self.idleExitMinutes = idleExitMinutes
             self.memorySource = memorySource
             self.memoryTargetGB = memoryTargetGB
+            self.memoryLimitGB = memoryLimitGB
         }
 
         package static func from(_ json: [String: Any]) -> ServerStatus? {
@@ -1029,7 +1038,8 @@ package enum CodingToolLaunch {
             return ServerStatus(pid: Int32(pid), port: port, contextWindow: window, activeRequests: active,
                                 clients: clients, idleExitMinutes: json["idle_exit_minutes"] as? Double,
                                 memorySource: json["memory_source"] as? String,
-                                memoryTargetGB: json["memory_target_gb"] as? Double)
+                                memoryTargetGB: json["memory_target_gb"] as? Double,
+                                memoryLimitGB: json["memory_limit_gb"] as? Double)
         }
     }
 
@@ -1051,6 +1061,15 @@ package enum CodingToolLaunch {
         let stop = port == 11434 ? "slotstream stop" : "slotstream stop --port \(port)"
         return "The server on port \(port) was already running\(has), so --memory-gb \(asked) did not apply. "
             + "Stop it with `\(stop)` and run this again to start one with that target."
+    }
+
+    /// A saved adaptive limit is distinct from a smaller current target.
+    package static func memoryLimitNote(requested: Double, port: Int, status: ServerStatus?) -> String? {
+        if status?.memorySource == "auto", status?.memoryLimitGB == requested { return nil }
+        let has = status?.memoryLimitGB.map { " with a \(BackgroundServer.number($0)) GB adaptive memory limit" } ?? ""
+        let stop = port == 11434 ? "slotstream stop" : "slotstream stop --port \(port)"
+        return "The server on port \(port) was already running\(has), so --memory-limit-gb \(BackgroundServer.number(requested)) did not apply. "
+            + "Stop it with `\(stop)` and run this again to start one with that limit."
     }
 
     /// What launch wrote about the server it started.

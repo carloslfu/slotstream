@@ -73,7 +73,7 @@ class IdentityTests(unittest.TestCase):
             repo = Path(__file__).resolve().parent.parent
             for name in ['Makefile', 'Tools/build_identity.py']:
                 shutil.copyfile(repo/name, root/name)
-            metal = root/'Tools/lib/mlx-0.31.1.metallib'
+            metal = root/'Tools/lib/mlx-0.32.2.metallib'
             metal.parent.mkdir(parents=True); metal.write_bytes(b'pinned fixture metal')
             scripts = root/'fake-bin'; scripts.mkdir()
             swift = scripts/'swift'

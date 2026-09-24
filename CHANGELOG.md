@@ -6,6 +6,142 @@ Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
 
+## Unreleased
+
+- The development Mac app attaches folders without a whole-tree scan or a
+  file-count cap. Live directory browsing, filename search and scoped content
+  search discover new and renamed files. Bounded continuations retain matches
+  within a file, detect directory changes and expire under resource pressure.
+  Reads can use a returned ID or a relative path inside the selected folder.
+- Edits require a fresh read after an external file change. Attachment errors
+  no longer offer the unrelated Home-reconciliation action, and the assistant
+  is told how local folder access is granted.
+
+- The development Mac app uses automatic speculative decoding when the draft
+  head is available and fits the selected memory budget. Short conversations
+  create earlier reusable checkpoints; longer prompts keep the engine's
+  throughput schedule and all checkpoint provenance checks.
+- Automatic readiness retains a loaded model while you read or compose in
+  the foreground. Background inactivity, memory pressure, power saving and
+  sleep still release it. Reloads within an app session reuse successful pinned
+  verification only when APFS file identity and change timestamps still match.
+  New app launches and changed files require fresh verification. Immediate
+  reloads also wait for macOS's memory-statistics refresh before replanning,
+  preventing stale readings from unnecessarily shrinking the cache.
+- Growing the expert cache preserves slot positions and avoids gathering a
+  second copy of the occupied cache. The live governor also checks temporary
+  replacement memory against the process target and available system memory.
+  When growth cannot fit, it keeps the current warm cache and retries later.
+
+## 0.2.24 - 2026-09-23
+
+- Nullable string tool parameters declared with a JSON Schema type array now
+  stream incrementally and preserve numeric-looking strings, like the equivalent
+  scalar and `anyOf` forms. Truncated arguments retain the ordinary length
+  termination behavior.
+- Conversation splicing checks compatible branches in memory and on disk before
+  choosing a retained transcript. A longer incompatible branch no longer hides
+  a shorter matching conversation. Numerical checkpoint validation is unchanged.
+- The native acceptance battery now runs the issue-21 streaming, branch-reuse
+  and restart suite, including OpenAI compatibility checks.
+
+## 0.2.23 - 2026-09-22
+
+- Long prompts share expert reads across more existing compute passes, reducing
+  repeated reads without changing those passes. The scheduler preserves
+  checkpoint boundaries and chooses smaller groups when memory is tight.
+  See the [read-group and reuse qualification](db/records/measurements/prompt-speed-qualification-2026-09-21.md).
+- The Mac app can reuse compatible prompt checkpoints after a restart for
+  ordinary conversations. Checkpoints record the producing pass size, and
+  read groups stop at the checkpoint actually selected. Thinking and incognito
+  conversations keep their inference state off disk; an unavailable cache
+  falls back to ordinary inference.
+- Thinking and answering continue one live generation session, including
+  **Answer now**, natural completion and a reached thinking budget. The
+  engine reads only the transition suffix instead of reprocessing the thought.
+  [`Engine.generatePhased`](docs/LIBRARY.md#a-thinking-phase-followed-by-an-answer)
+  exposes this behavior with separate sampling and output budgets for each phase.
+- Automatically pair fused-workspace accounting with larger expert-read groups
+  on the qualified M5 Pro text-prefill path, including MTP. Main and draft
+  phases account for their overlapping hidden states. When smaller expert-buffer
+  writes allow substantially larger groups, the engine selects them automatically.
+  Groups adapt to the live memory budget and keep chronological compute passes;
+  other execution paths retain their existing policy. Applications need no new
+  setting. The [MTP measurements](db/records/measurements/mtp-prefill-policy-2026-09-21.md)
+  record the paired gain, tested configuration, memory peaks and remaining limits.
+- The engine and Mac app use the same pinned MLX backend and matching Metal
+  libraries. The measured M5 Pro profile enables upstream fused D256 prefill
+  attention with causal and sparse masks. Other profiles keep backend dispatch;
+  `SLOTSTREAM_OPT_FUSED_PREFILL=0` restores its normal selection on the measured
+  profile too. Disk checkpoints include the backend's arithmetic identity.
+  The [integration measurements](db/records/measurements/fused-prefill-integration-2026-09-21.md)
+  separate the complete backend upgrade from the fusion-only comparison;
+  percentages from different studies must not be combined into a total speedup.
+- Backend qualification keeps historical golden differences visible and adds
+  independent current-backend model comparisons and scalar attention oracles.
+  Exact speculative verification retains one-row projection arithmetic when
+  selected. The installer matches older macOS shaders to the downloaded release,
+  including releases made before this upgrade.
+- Closing response details from the Mac app completes immediately while a
+  thinking response is updating.
+
+- Chat Completions streams long string tool arguments as they are generated,
+  and parsing no longer rescans the whole growing argument at every token.
+  Token-limit truncation now returns `finish_reason: length`, requested usage
+  and the stream terminator, including incomplete required tool calls.
+  Partial arguments are not completed calls and must not be executed.
+- Conversation splicing recognizes earlier assistant replies inside a longer
+  cached descendant, preserving generated reasoning and tool syntax across
+  later turns. The disk cache retains generated IDs alongside its aligned
+  checkpoint so restarting does not drop reasoning from the reconstructed
+  prompt. Preparation checks retain the request's cancellation and
+  deadline between history turns.
+- Serving logs cache reuse decisions, periodic request phases and socket
+  output failures. Prefill progress follows elapsed time and estimates the
+  remaining wait from recent throughput. Ollama tool refusals name the
+  supported OpenAI route.
+- Serving diagnostics follow aligned cache boundaries and typed memory
+  failures. The pressure test interrupts an actual scope spanning several
+  prefill passes, then checks admission refusal and bounded recovery before
+  retrying inference.
+
+- Custom memory limits in the Mac app can exceed the automatic default within
+  the Mac's supported range, with pressure protection and cache resizing still
+  enabled. First switching to Custom keeps the current budget; later switches
+  remember the last custom limit. Settings show current usage and the budget
+  available now separately.
+- `--memory-limit-gb` adds an adaptive process ceiling to the CLI. Existing
+  fixed-cache flags retain their behavior. Diagnostics and budgeted model
+  startup now share the same feasibility check at every context size, and
+  cache resizing updates the reported current budget while retaining the
+  selected ceiling.
+- Adaptive limits survive the server's context assignment and are also
+  available through `launch`. Fixed-profile diagnostics reject the option
+  instead of silently ignoring it. Saved app limits outside the current Mac's
+  range remain visible with a correction prompt.
+- Fractional memory limits retain their precision in launch arguments and
+  reported targets. Response details distinguish the budget used from the
+  saved custom limit, and busy-machine guidance respects the hardware bound.
+- Small caches recover after memory pressure or a busy startup even when the
+  missing amount falls below the normal growth threshold. Recovery still waits
+  for available memory and the existing cooldowns.
+- Swift memory-planning APIs retain their original callable signatures.
+  Directly constructed adaptive plans reject conflicting sources, missing
+  targets and targets above the saved limit before model allocation.
+
+- `slotstream optimization-state-check --variant complete-prompt` passes
+  again. Tiling vision queries changes the rows an image produces, so the
+  cache keys an image prompt on that setting too. When tiling joined the
+  deployed family, the check kept looking up retained image states with the
+  untiled key. It found nothing and stopped at its first image case, so its
+  remaining cases, including every speculative-decoding case, did not run.
+  Generation and the checks now take the key from one function. With them
+  running again, the speculative variant asserts the resume rule's handoff: a
+  state built without the draft head is not continued by a request that uses
+  one. That request reads its whole prompt and answers what a cold read does.
+  The previous handoff is still checked with `SLOTSTREAM_OPT_ALIGNED_RESUME=0`.
+  No engine result changed.
+
 ## 0.2.22 - 2026-09-18
 
 - Automatic context selection no longer trades away expert cache above the

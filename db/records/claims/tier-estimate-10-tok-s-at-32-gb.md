@@ -2,7 +2,7 @@
 type: claim
 id: 01m2dg6wk2y5q85zhhk60pms6z
 created: 2026-09-13T13:44:49.506537+00:00
-updated: 2026-09-16T21:10:05.461135+00:00
+updated: 2026-09-22T19:23:16.019977+00:00
 summary: A 32 GB Mac is estimated at about 10 tok/s with speculative decoding
 basis: estimated
 gate: Tools/planner_gates.sh checks that a 32 GB Mac runs the head and the lookahead, not the speed
@@ -28,3 +28,17 @@ forecast ([[records/claims/warm-decode-0-2-19-at-22-gb]],
 [[records/measurements/corrected-forecast-release-benchmark-2026-09-16]]).
 The estimate from the 0.2.14 two-draft measurement at 76 experts per layer is
 superseded and its needle leaves docs/HARDWARE.md.
+## Benchmark-profile clarification, 2026-09-22
+
+The historical throughput remains a valid controlled forecast comparison.
+Its protocol forces a 256-token prefill pass, disables prefix caching, uses
+two drafts, and disables adaptive speculation and the draft-tail experiment.
+That leaves about 100 experts per layer at the 22 GB target. The installed
+0.2.23 normal-cache profile at that target instead plans 2048-token passes
+and about 74 experts per layer. Equal total memory therefore does not mean
+equal runtime settings. The historical figure does not measure the current
+automatic plan of a 32 GB Mac and cannot qualify a release-wide speed ratio.
+
+The new calibration attempt, retained raw observations, stricter prospective
+host-load screen and remaining gaps are recorded in
+[[records/measurements/release-speed-calibration-2026-09-22]].

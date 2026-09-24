@@ -1,0 +1,967 @@
+{
+  "archive": "integrated-qualification-before-final-fixtures.tar.gz",
+  "bytes": 1901614,
+  "sha256": "9946ef3e1179e65a4bfe1fed0b4390435d2abf26e7aaa438a22b88158386c78f",
+  "members": [
+    {
+      "path": "build-identity.json",
+      "bytes": 23894,
+      "sha256": "2892153ea01f6f6760aad564d7887f81ead452182a554037ea5d41daf32b357f"
+    },
+    {
+      "path": "build-source.tar.gz",
+      "bytes": 1255317,
+      "sha256": "91025d6bb7229bbd59234c4761a602abdc1e273affdff4c49e04b745e726c217"
+    },
+    {
+      "path": "completion.log",
+      "bytes": 977,
+      "sha256": "4506cf8bb0ff12e96f6c64241750f88fa6287310cd99a8df0bc3776f3e1aad36"
+    },
+    {
+      "path": "completion/live.log",
+      "bytes": 364,
+      "sha256": "81fb06d04588b0bff2862d97e794ed169852860447fdf6a88c5703d2c422585a"
+    },
+    {
+      "path": "completion/long131k.log",
+      "bytes": 934,
+      "sha256": "f220ca3312fa7b020c9df850fbf12c1b89908f8c7cc4a2d75cb673d72990330a"
+    },
+    {
+      "path": "completion/qualification.log",
+      "bytes": 2091,
+      "sha256": "36596e6c331a2e659cc76d1046a5f1b2be6e9c50124d98abe90e4105218ba25c"
+    },
+    {
+      "path": "completion/results.json",
+      "bytes": 1086,
+      "sha256": "0a67679fd22d9e6dd92ebcab03370c39f10ddb5c8b35b3cc4f9c3333ad709295"
+    },
+    {
+      "path": "completion/static.log",
+      "bytes": 27570,
+      "sha256": "809be899fababc13f15c6df529455f535840c1498f96dfd32ee8f614e49ef412"
+    },
+    {
+      "path": "completion/t0.log",
+      "bytes": 2982482,
+      "sha256": "e4280eea3283ae12e14126803b9b74e498086600c773a6074c41d5e07f78ca84"
+    },
+    {
+      "path": "long131k/driver.py",
+      "bytes": 9687,
+      "sha256": "f66522da9e3ee5b51f7f9e489ad8d39c8e0f0a5aaab624e400a50fa909dff3de"
+    },
+    {
+      "path": "long131k/result.json",
+      "bytes": 28925,
+      "sha256": "3a16be1a28eaed0796b54cbffaf78003c10a2a9dac1657f4239f9838aede075c"
+    },
+    {
+      "path": "qualification.log",
+      "bytes": 2091,
+      "sha256": "36596e6c331a2e659cc76d1046a5f1b2be6e9c50124d98abe90e4105218ba25c"
+    },
+    {
+      "path": "qualification/context-serving.log",
+      "bytes": 98912,
+      "sha256": "c5c1dd861e229c17271fdc7cb5e08f52894427c25dbf6c39953b3c662aee0994"
+    },
+    {
+      "path": "qualification/driver-changes.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "qualification/driver-hashes.json",
+      "bytes": 16438,
+      "sha256": "d56beac9128ee174465ce55a5b5e35e01f952fa14e5521ee5dbe655e6134605a"
+    },
+    {
+      "path": "qualification/drivers/Tools/adaptive_memory_e2e.py",
+      "bytes": 6598,
+      "sha256": "1c3d5adfde8029a38176cba4e41a14482e0ace6e5be1489f26cd7d4f30dee794"
+    },
+    {
+      "path": "qualification/drivers/Tools/all_hit_replay.py",
+      "bytes": 4057,
+      "sha256": "24401912f3fd8b2e70105c5095c993c131b6ffbe27add38f9268c9e1dc0ed9a1"
+    },
+    {
+      "path": "qualification/drivers/Tools/api_generation.py",
+      "bytes": 2820,
+      "sha256": "cdb5b81e785b5e96e4f81e4fa5e2fe48a3b32f20b149952a9ee7f9a5c68b2eaf"
+    },
+    {
+      "path": "qualification/drivers/Tools/api_generation_test.py",
+      "bytes": 14815,
+      "sha256": "d2bd5494d9a73ec76806f6aad9344e76554fa8777721f4dd525f9478fe4f535b"
+    },
+    {
+      "path": "qualification/drivers/Tools/api_robustness.sh",
+      "bytes": 32765,
+      "sha256": "a7397ac2f5df3a7eb8f7e1578daef51124c1c7fdabd0526c13518b8048984a96"
+    },
+    {
+      "path": "qualification/drivers/Tools/api_test.sh",
+      "bytes": 2443,
+      "sha256": "77bd216be56f3a309cff380c649af47edaff2d1d17e9dd9ad4f10fd489664c11"
+    },
+    {
+      "path": "qualification/drivers/Tools/brain_gates.sh",
+      "bytes": 527,
+      "sha256": "7f32151567f0e64f8ed9619e5551bc7716aaf24be6b19fc0c62496b1dd44df2b"
+    },
+    {
+      "path": "qualification/drivers/Tools/build_identity.py",
+      "bytes": 2847,
+      "sha256": "d70a97380b1244727674861ae64ab166d034c941878e6e2c18f3ffd77bbf2e86"
+    },
+    {
+      "path": "qualification/drivers/Tools/build_identity_test.py",
+      "bytes": 6987,
+      "sha256": "d1267c5825d475207b624c1f18307a18d9f3e03a77a7f07c41a53cc98aa37d22"
+    },
+    {
+      "path": "qualification/drivers/Tools/build_sevra_mac.sh",
+      "bytes": 1985,
+      "sha256": "21854dfe1d88d2f2589b15f7f665c27d054dfe8614f9b4d33835017d3009aab0"
+    },
+    {
+      "path": "qualification/drivers/Tools/build_sevra_xcode.sh",
+      "bytes": 2032,
+      "sha256": "21a2aea18a812752961671b42a62c4bb785e2f175b3d2d93cbdeeb80c39142a5"
+    },
+    {
+      "path": "qualification/drivers/Tools/cache_policy_confirmation.py",
+      "bytes": 5987,
+      "sha256": "a2d0108f30b64b4838064ba0d450e49a28c8aca43ad0a41dcd1c30760e475748"
+    },
+    {
+      "path": "qualification/drivers/Tools/cache_policy_probe.py",
+      "bytes": 7776,
+      "sha256": "93ce0ec7cb98cd16cca46509089864d6267c3e080a2172615beadd3f69632a81"
+    },
+    {
+      "path": "qualification/drivers/Tools/cachesim.py",
+      "bytes": 5635,
+      "sha256": "0f6c304c69f88d49b1e3e699a0230d4c90de937baffc02aec52bf38429004f38"
+    },
+    {
+      "path": "qualification/drivers/Tools/check_sevra_apps_ui.sh",
+      "bytes": 2855,
+      "sha256": "04a284945972d531d6fa46a64b143d9cde3b75d35743a1168f06ba9dd86ca985"
+    },
+    {
+      "path": "qualification/drivers/Tools/check_sevra_mac.sh",
+      "bytes": 1133,
+      "sha256": "ce0c9f7c1c78a49ca7c768312cb7ac9da55e852c5c18d9b1092cc8da572aedcd"
+    },
+    {
+      "path": "qualification/drivers/Tools/check_sevra_memory_ui.sh",
+      "bytes": 2393,
+      "sha256": "9f5b34871d25e8444aee241713762b5b83925c8857553ab0beeec03fc56654fb"
+    },
+    {
+      "path": "qualification/drivers/Tools/check_sevra_scroll.sh",
+      "bytes": 1061,
+      "sha256": "6248ab6c3e04acccfab7992307391ec08cdd75c6bf05e266f25e510c7b907b62"
+    },
+    {
+      "path": "qualification/drivers/Tools/check_sevra_thinking_ui.sh",
+      "bytes": 2646,
+      "sha256": "a965c0157b3eec1c577e734060de4195af2ada069dc4429ef7b719581a4094da"
+    },
+    {
+      "path": "qualification/drivers/Tools/claims_gate.py",
+      "bytes": 2540,
+      "sha256": "12a76b03bdf78ca0d71ea00a757684d19a137582b432875d10a670f583dcbced"
+    },
+    {
+      "path": "qualification/drivers/Tools/codex_catalog.py",
+      "bytes": 5341,
+      "sha256": "cfcb251cb61a66965f434db8f387fd59a3e3d9b640f40dd8e050c61d9f37e65c"
+    },
+    {
+      "path": "qualification/drivers/Tools/coding_agents_gate.sh",
+      "bytes": 25022,
+      "sha256": "ddba6d83ad22955fe763d6791408a18e6440805215e021231165b95b23ef9d32"
+    },
+    {
+      "path": "qualification/drivers/Tools/compute_islands.py",
+      "bytes": 7330,
+      "sha256": "9c25400b28ad425bba9e752138a967882d573432e6093d4b898da6dca266b985"
+    },
+    {
+      "path": "qualification/drivers/Tools/consumer_smoke.sh",
+      "bytes": 4886,
+      "sha256": "5e039b3f03844f26df5ccd223edf5bee4320cd670b60dcd1b62a2953c18a7c70"
+    },
+    {
+      "path": "qualification/drivers/Tools/consumer_smoke_test.py",
+      "bytes": 2897,
+      "sha256": "0fd6aea920c671d3bece420013a9ebc526ed9dd48d55bcdb8f83f6e7badc6bf1"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_acceptance.py",
+      "bytes": 16977,
+      "sha256": "6791b61a99763d5b0ecfc510aef669fac982fb7cd5ff6dfc78fe61b5ea7864ba"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_acceptance_test.py",
+      "bytes": 14173,
+      "sha256": "f9d2ab782def8c1b4dfc7d06598ed1237b365d49da2151f010040f7c9361aac7"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_contracts_test.py",
+      "bytes": 3484,
+      "sha256": "635c6dcfabd89a0868ceacf00fe305d165fa8720ebf71b8fd147c70838ccbc1c"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_gates.py",
+      "bytes": 12261,
+      "sha256": "b322ab04c7b4f0c51a4beb7b8700917639ffc95fa968b83f0bc17c664ae271d1"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_overflow_probe.py",
+      "bytes": 3579,
+      "sha256": "3bf2633e583898d2c60ed8630409ccf314d352352ecf342bcb72d0705fde52c8"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_proxy.py",
+      "bytes": 6143,
+      "sha256": "d9b161bb41d86d485988e2397a4bbad664f175f36b8496cd470658840f0d8fa0"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_qualification.py",
+      "bytes": 18599,
+      "sha256": "094b567ccc21613444cfd0edf098967bb758af42652be8ba70762ae313cbbf34"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_qualification_checks.py",
+      "bytes": 12174,
+      "sha256": "e0ebf55ac4a788aa7c698752437babeda1d6a23c0ca4121b14cbcdcbdea335a1"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_resource_gates.py",
+      "bytes": 4570,
+      "sha256": "64c63619cbe7173335e548de884ba16eb7d8d35ad4b3ffa773055307750a75aa"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_window_matrix.py",
+      "bytes": 8586,
+      "sha256": "61705c5028b1157b65cc9860f9ac2c815eef177ff803aac4d7c3d188b17402e1"
+    },
+    {
+      "path": "qualification/drivers/Tools/context_window_matrix_test.py",
+      "bytes": 2269,
+      "sha256": "37f59dd7674175cf53e87f2bb2663a27c732eed5f9382508b578e96fa9cdef52"
+    },
+    {
+      "path": "qualification/drivers/Tools/coverage.sh",
+      "bytes": 2441,
+      "sha256": "bc52a65b95dadbd15391f9a636287611f1117e8decf56e14e189da2d7abd90b6"
+    },
+    {
+      "path": "qualification/drivers/Tools/coverage_ratchet.py",
+      "bytes": 4666,
+      "sha256": "9bf8c570b83d6a89acd1b005d1ed051bb8125c5281424c0b294d3b46cd753a06"
+    },
+    {
+      "path": "qualification/drivers/Tools/coverage_ratchet_test.py",
+      "bytes": 1414,
+      "sha256": "ed632f76757cc7dfb346de92d1c8b00fcbd6596b4363d093beebbfc67af43a93"
+    },
+    {
+      "path": "qualification/drivers/Tools/dbmd_install.sh",
+      "bytes": 1773,
+      "sha256": "8b892df4f2232db0fac42b8bf1585371e652d13c9cd9094c8190e3f957e58e1e"
+    },
+    {
+      "path": "qualification/drivers/Tools/debug0_ref.py",
+      "bytes": 2848,
+      "sha256": "930d258ed12c6d60e7db4506a25677e4fe60e8da07cddb244c7740ebb66ca6f1"
+    },
+    {
+      "path": "qualification/drivers/Tools/decode_cohort.py",
+      "bytes": 7130,
+      "sha256": "02a9a8302fa37fffe31494a158809d2ca5d01a2cdffd7c4e15ee1249146d5896"
+    },
+    {
+      "path": "qualification/drivers/Tools/decode_combine.py",
+      "bytes": 7415,
+      "sha256": "a4c11c00aa8baff6d2c01d92db7ef8e0bf2f682e1ae2aa50526dde9209b752bb"
+    },
+    {
+      "path": "qualification/drivers/Tools/decode_summary.py",
+      "bytes": 7134,
+      "sha256": "19d0ecee25182b637995354402238876807591e598f6c547cf1bf4a455d97882"
+    },
+    {
+      "path": "qualification/drivers/Tools/decode_sweep.py",
+      "bytes": 10194,
+      "sha256": "8e3a64234970107535c582d3ea73a1bcce8b0cd441cb48c68ad17da1e53bebd5"
+    },
+    {
+      "path": "qualification/drivers/Tools/e2e_release.sh",
+      "bytes": 13750,
+      "sha256": "db23d59899327f76b8104f72f7c33c4c26258237c60cd3a98597ccde33d4fba3"
+    },
+    {
+      "path": "qualification/drivers/Tools/e2e_release_test.py",
+      "bytes": 12368,
+      "sha256": "acc7930f33ce45c93ef89f7568e8c380e4a6cfc453a64fcc93a2c84287b84152"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_layout_probe.py",
+      "bytes": 19199,
+      "sha256": "a76bcba5750c58d8aad0188569c3c53e9721476009034c802a7f21f9d35d3ec2"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_layout_probe_test.py",
+      "bytes": 5923,
+      "sha256": "e6e9363cc3afc9081cb9f00ff7adc6fc77fc1c1a12b9580b32f0cd27c1b32f9d"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead.py",
+      "bytes": 43285,
+      "sha256": "853a46adaf4b03e4d504b8b5342dcef905bd72a4d7894a54cbd1b2f4a7580200"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_bench.py",
+      "bytes": 20750,
+      "sha256": "1310ebd73d0cc59b5fe4333ef7b85acced3c4f72e190cb7f8f335c0ee6e9dfc0"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_coroute.py",
+      "bytes": 19728,
+      "sha256": "60073aef3d5f612531360f60478661e773825cd94c1a76bfd490a19e9c0333b3"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_corpus.py",
+      "bytes": 45698,
+      "sha256": "1050ceb5f1f6db0a421a6e6d534c3939ad4ab72027df9eaf4c048035468844f1"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_evictor.py",
+      "bytes": 13825,
+      "sha256": "b4124541c529b89fe16236f7efd2c4b11d20d192c8526ba744699e64bd6114b9"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_forecast.py",
+      "bytes": 42898,
+      "sha256": "107ea28cf1c20e7efee05800217ee8188b86cf518c2c7eb9c0eee995a11e1913"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_learned.py",
+      "bytes": 23790,
+      "sha256": "f78d031901efe0232635ad32108b93f23444fbe432e4fedc045001bd4b9a0682"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_plans.py",
+      "bytes": 4701,
+      "sha256": "370c62e5dabdb53b155f02666cd52d7b329e9cc7b09a0ba2b97016e1318e7ac5"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_probes.py",
+      "bytes": 24503,
+      "sha256": "a327d3abd19badf4cc47600724de9e7338414818dd363ed8cfcf442cb90eb13c"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_replacement.py",
+      "bytes": 44698,
+      "sha256": "1a7d8ebb943ad76a2b059322444279b279f40b4ec8dd14e50ec5077556fbf668"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_taps.py",
+      "bytes": 20345,
+      "sha256": "3edb27e30478a1b09a3db830be9003e1dcc541d741390198b0c43d9361f7eab6"
+    },
+    {
+      "path": "qualification/drivers/Tools/expert_lookahead_train.py",
+      "bytes": 46915,
+      "sha256": "6be318cc936b7568e6e716db69b80a8346903a3849ee7a1f0ddb48dd5191f293"
+    },
+    {
+      "path": "qualification/drivers/Tools/fetch_metallib.sh",
+      "bytes": 2111,
+      "sha256": "c47f5531c4195bfe1f827ba1049b76cb81687401b9e25e2a3cc4c9d7feb64860"
+    },
+    {
+      "path": "qualification/drivers/Tools/fx_gates.sh",
+      "bytes": 4066,
+      "sha256": "035f425d0becb017f9c8e2fd71bdabb52e61f17d69c10ef5194688bb8f20a20e"
+    },
+    {
+      "path": "qualification/drivers/Tools/fx_scenarios.py",
+      "bytes": 17583,
+      "sha256": "f8418efaac463b0969f9518f909aafcfb30c9732606b4bcfc811b45a49a66d3e"
+    },
+    {
+      "path": "qualification/drivers/Tools/gdn_profile.py",
+      "bytes": 8601,
+      "sha256": "f4483f1c78ffc9f70439688f3336abd41768458a87117950fc1b4f3e2879923e"
+    },
+    {
+      "path": "qualification/drivers/Tools/generate_sevra_icon.sh",
+      "bytes": 464,
+      "sha256": "8228ccb8e4d707c2a73336f283ed599f72cbc2213589ca36191d675e737141b6"
+    },
+    {
+      "path": "qualification/drivers/Tools/hermes_config_gate.py",
+      "bytes": 14768,
+      "sha256": "8ca8cc2142fc13a8c9ea1f0fe8427c9898a49e2b2faa0404aff5ac3ca1fa9cd8"
+    },
+    {
+      "path": "qualification/drivers/Tools/hermes_integration_gate.py",
+      "bytes": 17400,
+      "sha256": "2986962713edb4c282c784d5d16a28b427a6fc8f77a0170f7da8d357d9dd868e"
+    },
+    {
+      "path": "qualification/drivers/Tools/indexer_score_probe.py",
+      "bytes": 18789,
+      "sha256": "b51796a075f6391b301cbe78eda3e82ac9378e16823e9ca48f0f1f97b166e8b0"
+    },
+    {
+      "path": "qualification/drivers/Tools/indexer_score_probe_test.py",
+      "bytes": 2717,
+      "sha256": "1cf32f1db801a0813c634888e0a942f6c3dc9abe92fbc538ce7772eb7891df1d"
+    },
+    {
+      "path": "qualification/drivers/Tools/installer_gates.sh",
+      "bytes": 2665,
+      "sha256": "ffcb88381decda386da186d82365b635a32fc2e01b8973fbddd6e39464154936"
+    },
+    {
+      "path": "qualification/drivers/Tools/installer_gates_binary_test.py",
+      "bytes": 5846,
+      "sha256": "a0017f16f6676bc0098e4cf01508d658611cbd0ffa6baf0ad490d7b90a2839d1"
+    },
+    {
+      "path": "qualification/drivers/Tools/issue21_gate.py",
+      "bytes": 8269,
+      "sha256": "deed1162d1da812b7526754c5e5ad78d0131f066f0827f2a87878197baeba3e9"
+    },
+    {
+      "path": "qualification/drivers/Tools/issue21_long_context.py",
+      "bytes": 9687,
+      "sha256": "f66522da9e3ee5b51f7f9e489ad8d39c8e0f0a5aaab624e400a50fa909dff3de"
+    },
+    {
+      "path": "qualification/drivers/Tools/launch_fake_server.py",
+      "bytes": 2536,
+      "sha256": "ba534341efa5a38f48861c5974cb356581968b16a23ffa7b1fc51f960186d465"
+    },
+    {
+      "path": "qualification/drivers/Tools/launch_start_gate.sh",
+      "bytes": 21087,
+      "sha256": "78c69d27e6c2e42864183cf9759fcd177081aa1b230cc883d7b6523f323cb101"
+    },
+    {
+      "path": "qualification/drivers/Tools/llms_full.sh",
+      "bytes": 2567,
+      "sha256": "de71f66d724a58de7497cae8c0414e888ee9e4f81c89ae02e602c59efba97c21"
+    },
+    {
+      "path": "qualification/drivers/Tools/long_context_gate.py",
+      "bytes": 2507,
+      "sha256": "b7422f009eaf24b079c87cc3ed847840ea941e4a141d5357fc240ad5945a54ee"
+    },
+    {
+      "path": "qualification/drivers/Tools/mac_build_inputs.py",
+      "bytes": 1402,
+      "sha256": "4a2cdf7fcd74b2236e360f731c34069f6d19df33cf563c81581de4e9351a402c"
+    },
+    {
+      "path": "qualification/drivers/Tools/memory_gate.py",
+      "bytes": 4109,
+      "sha256": "fed53adbbc761457f94e11ded179915d538b515d448dc029ff3f0604f7faf6fc"
+    },
+    {
+      "path": "qualification/drivers/Tools/memory_override_gate.py",
+      "bytes": 14816,
+      "sha256": "f9aca744313c01904097c90a750cb7fccaa2c8f9aa57381df85c2374cf09bdc4"
+    },
+    {
+      "path": "qualification/drivers/Tools/monotonic_plan.py",
+      "bytes": 2521,
+      "sha256": "139751a386d3e6744762afef0a453e28480c04ae4e6fdfa3ff5e5ec8dba42052"
+    },
+    {
+      "path": "qualification/drivers/Tools/mtp_convert.py",
+      "bytes": 14694,
+      "sha256": "22f58712346b67a35cdc0d7a4da45a665335ae9382e104156aff16e91b7b053d"
+    },
+    {
+      "path": "qualification/drivers/Tools/ngram_cache_probe.py",
+      "bytes": 17701,
+      "sha256": "01e295b269d94350730c46a59edf7a62b562c9c45f6456c2d9947862835a57e7"
+    },
+    {
+      "path": "qualification/drivers/Tools/ngram_cache_probe_test.py",
+      "bytes": 7060,
+      "sha256": "05141ddb547bdd870fbc2e4d971caa2e1a84e121b9416b0da87ca84c739d9bb3"
+    },
+    {
+      "path": "qualification/drivers/Tools/ngram_lookahead_bench.py",
+      "bytes": 6078,
+      "sha256": "9492467ff3a03154da642f51848a9cbaedc02509f76ae78d3533868bbfd1d02f"
+    },
+    {
+      "path": "qualification/drivers/Tools/openai_tools_gate.py",
+      "bytes": 12210,
+      "sha256": "af34e19c6d12dfcd62d252a4c016e2d595aec4ae0dad4e3232e2c24f8ad2d1e3"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_build.py",
+      "bytes": 4849,
+      "sha256": "dee7d43c4fd70aac9145cfe33ea9d3d446e803fbca5dbf54e07d577d27deca6f"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_build_test.py",
+      "bytes": 4445,
+      "sha256": "cfa7367792c17d4d8617ac2e16161043471714297355bfa0b0de508defea3c95"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_campaign.py",
+      "bytes": 22126,
+      "sha256": "ae49f185713b26f0999b77126df0c480dda017f09f9b315a020b1693bf52d1c4"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_campaign_test.py",
+      "bytes": 15377,
+      "sha256": "7d35ef74a8184224b2ec8aabb29f94c4f416c27bdae2d51ee7c794404e36745d"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_check.py",
+      "bytes": 3870,
+      "sha256": "61d050207c1074131de4f5917bcfcc50373f9d105688ba0185c19febaa6f1462"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_component.py",
+      "bytes": 3404,
+      "sha256": "cbdab6f194dbb8acdee13d5efc484aae4dd7aa3d8431d9033d77f1bd9785904a"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_prerequisites_test.py",
+      "bytes": 19262,
+      "sha256": "215ab0cead0daafd4d95f469254870159c66b9d719997410838cea83c151d41b"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_readiness.py",
+      "bytes": 1092,
+      "sha256": "56a654ab367b7eca3ee6ab0270641fb2af70ce2bd4a242b8036da506229f283c"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_readiness_test.py",
+      "bytes": 1796,
+      "sha256": "6c963a9aec3be52975da24328a965b3778259a6372c691b3e6c9f32b92e63016"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_results.py",
+      "bytes": 7813,
+      "sha256": "e2c5e813835792b1d0cfd28fb836528f556fb3d0219ea801570f2d00b7b9e8f3"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_results_test.py",
+      "bytes": 8683,
+      "sha256": "05201a9fd044498ab578b6d63666eda6e675d77bb8e4f894603dc9401d384e14"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_serial_build.py",
+      "bytes": 12207,
+      "sha256": "ceaf0c3d0e0dcb5e2b79e60d3482eec2e5d65b610a2e28a6e5c147ea981183be"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_serial_build_test.py",
+      "bytes": 12579,
+      "sha256": "0fd4c8b40799b956a112159de5605091d0d425924eedd03396f5b47fe6cbe335"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_soak.py",
+      "bytes": 32183,
+      "sha256": "61ea2ddff2c8bb72ea6bdb226c96cdfe69ae086ab9bf8384f06f2a80f3907f0e"
+    },
+    {
+      "path": "qualification/drivers/Tools/optimization_soak_test.py",
+      "bytes": 12472,
+      "sha256": "3b61d9e63a6c5fbe79b618324b283826d51ab3085582200df4e276cb1befd0be"
+    },
+    {
+      "path": "qualification/drivers/Tools/packed_layout_build.py",
+      "bytes": 4407,
+      "sha256": "2f780a584bd0d5b461cfbf3cfc32b992ebc3480afb6bf78cb167af9ca8fba8ab"
+    },
+    {
+      "path": "qualification/drivers/Tools/parity_ref.py",
+      "bytes": 8776,
+      "sha256": "cb938f6215f1433bbc6eef2b8cc04a8a9cf9d5953f487347649637fa911abab6"
+    },
+    {
+      "path": "qualification/drivers/Tools/persistent_prefix_e2e.py",
+      "bytes": 20956,
+      "sha256": "2ca2279bfc2e36dd8ebe686fa60cb489222e960d883144dee79a0d042ea790ba"
+    },
+    {
+      "path": "qualification/drivers/Tools/planner_gates.sh",
+      "bytes": 22320,
+      "sha256": "e5c188457e755da56ace5b54fc40d31387cd09d8013a0e7b86ee75a93d998cd5"
+    },
+    {
+      "path": "qualification/drivers/Tools/planner_gates_test.py",
+      "bytes": 4772,
+      "sha256": "750264856fd8add43a850ed6e589da8424c88eeaf7213d2154034508d351723e"
+    },
+    {
+      "path": "qualification/drivers/Tools/prefill_bench.py",
+      "bytes": 19224,
+      "sha256": "000868d66f82cd1eba5973c0fa9b4259831a6bdbc5bcf7d4c4f858d86c71d472"
+    },
+    {
+      "path": "qualification/drivers/Tools/prefill_bench.sh",
+      "bytes": 165,
+      "sha256": "68a6695ab67766626394637dcdaaee1db53fc06077a4ed7310e8a006bfa5de66"
+    },
+    {
+      "path": "qualification/drivers/Tools/prefill_bench_test.py",
+      "bytes": 63975,
+      "sha256": "52f3ee72c8888529854de2bd60fb10ac2b563c5a7fa10472a3ce1170cd8ee841"
+    },
+    {
+      "path": "qualification/drivers/Tools/process_cleanup_checks.py",
+      "bytes": 3751,
+      "sha256": "2de6d823a4850662fda621cbe2df43aa869731e40530e7f286c9a2f289e6a982"
+    },
+    {
+      "path": "qualification/drivers/Tools/process_memory_gate.py",
+      "bytes": 2252,
+      "sha256": "4c53de73f03cbd0a9483eab0a089cdd7e661db96300ade8ae1ca218d9c29d88a"
+    },
+    {
+      "path": "qualification/drivers/Tools/projections.py",
+      "bytes": 5756,
+      "sha256": "90a02090829c0dae88d69846f8a0f55bd2b039e3f12c549aa58b175f4e842355"
+    },
+    {
+      "path": "qualification/drivers/Tools/pull_bench_linux.sh",
+      "bytes": 2290,
+      "sha256": "2062f832627a33edc8103559c74e647b6aeb1145e0043d3ab310c2205de304eb"
+    },
+    {
+      "path": "qualification/drivers/Tools/quality_probe.sh",
+      "bytes": 3136,
+      "sha256": "cfa2ae2995acd9dd0d416ff2d9e71ec538ab0b259ebbb30324c4ad28c6fca3ba"
+    },
+    {
+      "path": "qualification/drivers/Tools/reference/make_mtp_fixture.py",
+      "bytes": 3450,
+      "sha256": "7d54481d25ffdacb7ef52b3ef345a817d4c0783e6340224edebe587a9d8f0d52"
+    },
+    {
+      "path": "qualification/drivers/Tools/reference/mtp_ref.py",
+      "bytes": 3747,
+      "sha256": "f28827ac0409fe58b9c255f16add5ecb00b17a2310a3521d75a677f2d4a84f24"
+    },
+    {
+      "path": "qualification/drivers/Tools/reference/qwen4_exp.py",
+      "bytes": 35046,
+      "sha256": "6fae4ec0decbf77ca4a4571de683bc5580ec75e84325ecb432dfcd2fc81df75e"
+    },
+    {
+      "path": "qualification/drivers/Tools/release_candidate.py",
+      "bytes": 3082,
+      "sha256": "eb33fdc3d9c796c1880e921f1bc2c268913ee9b3c043a51baee0b6b152425921"
+    },
+    {
+      "path": "qualification/drivers/Tools/release_candidate_test.py",
+      "bytes": 4854,
+      "sha256": "cd22b170f1c9c9447715f3d91da7de0ff005c05febde51ecc8dd8a5532259225"
+    },
+    {
+      "path": "qualification/drivers/Tools/rope_component.py",
+      "bytes": 5971,
+      "sha256": "f8e56f6d33c98cc50a64efe67b5c184bb0a4ebdff26ca4aa3e34f5434fb202ca"
+    },
+    {
+      "path": "qualification/drivers/Tools/run_model.py",
+      "bytes": 6504,
+      "sha256": "00ea3727aed92fcc17df1e16f4284f8840145558cf776e08429eb1884eb7b8c0"
+    },
+    {
+      "path": "qualification/drivers/Tools/sampler_gates.sh",
+      "bytes": 3882,
+      "sha256": "7e781d7593224973597906e7031c7ab143ab4dff540dd4bf86542e52cb7ed144"
+    },
+    {
+      "path": "qualification/drivers/Tools/sampler_gates_test.py",
+      "bytes": 3732,
+      "sha256": "89f1a34df9dbb37e904c1b32e15e72cd9fc5c01a955097abaeb2ef6c2d435fc7"
+    },
+    {
+      "path": "qualification/drivers/Tools/sampler_ref.py",
+      "bytes": 3974,
+      "sha256": "faa87e6db26853b275322d18cab1994430315e19783b984ac28e1cdaf34395c3"
+    },
+    {
+      "path": "qualification/drivers/Tools/selected_attention_probe.py",
+      "bytes": 6029,
+      "sha256": "e4e5a4a4980f4f20dddca7c8a7633c3d4b66dfc2034a4a83f1b791e3f5497328"
+    },
+    {
+      "path": "qualification/drivers/Tools/serve_bench.py",
+      "bytes": 60039,
+      "sha256": "31959becd6ab6389c3b71b567d26ec7036a25fa66d1ff00a17ed1ea0b8202acb"
+    },
+    {
+      "path": "qualification/drivers/Tools/shared_prefix_e2e.py",
+      "bytes": 16982,
+      "sha256": "86729c40e04f6eac6f4ae9a900a436a09c1d64dd743c497f1ae1464a9c6d11d9"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotbench.py",
+      "bytes": 5626,
+      "sha256": "d27b4d18f75f423443f1b4a8dd4da50965fa1885d531029f0c7f0baecdf24262"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotbench2.py",
+      "bytes": 5087,
+      "sha256": "0d38017db9e74141df23664083a0c520458e3a531d5d865ad19ab6e23bdd2711"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotbench3.py",
+      "bytes": 2931,
+      "sha256": "7518329fcb4217760689f5c8bc5cbd268c5220ca0a38f2289af9c7d84c8e2e05"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/checks.py",
+      "bytes": 1417,
+      "sha256": "59a598a3d77b9fa38117e4437fd11aa52982fcb833000a62c25b2e990d4165b3"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/cli_checks.py",
+      "bytes": 3689,
+      "sha256": "a67f5d06d09a713051fea673562a95367e76f8cfb4ac8fe3b1592781c39470d7"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/coverage.py",
+      "bytes": 4924,
+      "sha256": "c53cb1fd611ab6fc690db0fc1db1b816e4d0e5379420874545b8760bfd9fe644"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/download_checks.py",
+      "bytes": 14337,
+      "sha256": "7958ef42e29b4885319186a4bccd6e5dd3e2b20cbea9cbbf971554bf353657ef"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/embed.py",
+      "bytes": 1283,
+      "sha256": "9c0d98858b54353584ab92abd45b85ed3894e0004e38f1e2945d8ab6d6ee8c94"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/fetch_build_inputs.py",
+      "bytes": 2548,
+      "sha256": "a6f5b52aad619d6aef58e527ca42d7743e1e45c568dd2287c7f80800c18c31c1"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/full_pull.py",
+      "bytes": 5106,
+      "sha256": "b925415dae87b6f240d875e67fe5a9684534e6d96dd953424082fe80c54ecb96"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/memory_checks.py",
+      "bytes": 3949,
+      "sha256": "e0494906ac1a8673ee41ec0f60e5971626afc958e4caa49dc29090187e1447f0"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/pack.py",
+      "bytes": 9657,
+      "sha256": "1bdaef49bb324f37bb64c7c453f9ec724c9f96c3d1f579ff6f3e9417e1d510cd"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/public_probe.py",
+      "bytes": 2545,
+      "sha256": "33dc5a003b4f59356e208f4330370c905a51fb515ddccf27a9dae471cd76d10a"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/publish_hf.py",
+      "bytes": 8392,
+      "sha256": "e9a7a07198bd3eddc1dadd94d8dd8729b8528282992c049eb00dcbcf93cf190e"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/publish_hf_checks.py",
+      "bytes": 3694,
+      "sha256": "76a3f41abe9b16239a9d32e6fb4b50f4f8e323076d04803a31f02f4162aa587c"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/publish_r2.py",
+      "bytes": 4909,
+      "sha256": "cdd39ae06637800dc02e84c948c5b2c50c2c9abec71673f299dfb8d1112b9684"
+    },
+    {
+      "path": "qualification/drivers/Tools/slotpack/raw_checks.py",
+      "bytes": 5451,
+      "sha256": "772f4132088582fa9642f3dd86f800be3c8f005e9145c827b6692ee4f6386d94"
+    },
+    {
+      "path": "qualification/drivers/Tools/star_history.py",
+      "bytes": 11468,
+      "sha256": "58801509a122439429f675295041e35aae89504a638ff31eb76fe97979d7152f"
+    },
+    {
+      "path": "qualification/drivers/Tools/static_gates.sh",
+      "bytes": 2231,
+      "sha256": "84d3ef7bd7421ebaaff9e3ed51ee2178118d7f0305996d30f0770f35f9136a6b"
+    },
+    {
+      "path": "qualification/drivers/Tools/static_gates_binary_test.py",
+      "bytes": 12929,
+      "sha256": "5ed2a1f983df0e6b5b4cbdc0afede31dbe8a11942393c873ffbc7c7ed5812cdd"
+    },
+    {
+      "path": "qualification/drivers/Tools/thermal_readiness.py",
+      "bytes": 3908,
+      "sha256": "461dc8513bf8a23c7af5d999edf3c2ed1cbdb3d80d7869124603fa5babade048"
+    },
+    {
+      "path": "qualification/drivers/Tools/thermal_readiness_test.py",
+      "bytes": 3619,
+      "sha256": "5eb2d5d27258b2b1250d2588ec332472d18b65171122340ecd8cccb4f90b9467"
+    },
+    {
+      "path": "qualification/drivers/Tools/token_usage_proxy.py",
+      "bytes": 5841,
+      "sha256": "5565c656b64f9fe0be100275a6a7f85e9c6d5a7b053ba5bad8eed8b76aa16b55"
+    },
+    {
+      "path": "qualification/drivers/Tools/trace_convert.py",
+      "bytes": 2575,
+      "sha256": "8ea22dda841860f0f829203c4ece5f68c515c13a39f2c6122bc309a2150f0079"
+    },
+    {
+      "path": "qualification/drivers/Tools/trace_routers.py",
+      "bytes": 7059,
+      "sha256": "32ff38f4f0f02d9679dcd16fc57f64694836416baf666075151e9f208be23da6"
+    },
+    {
+      "path": "qualification/drivers/Tools/verify.sh",
+      "bytes": 17292,
+      "sha256": "55ea5da9efe00d96a39b339f5d213cb39c3093275aba351c3277e853f54408fa"
+    },
+    {
+      "path": "qualification/drivers/Tools/verify_binary_test.py",
+      "bytes": 14794,
+      "sha256": "1e13be4ec3853c332bd2feff31916cd0af1754733c68421054a05ac9d2e13719"
+    },
+    {
+      "path": "qualification/drivers/Tools/verify_corrections.py",
+      "bytes": 5221,
+      "sha256": "8f94f84bf717b0e523a96e42ce34dc0389e0c03486f9dcd50d2cd3d042d8d2be"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_attention_probe.py",
+      "bytes": 4338,
+      "sha256": "1575d36927dba5f4ff52d1549a96d93e7c6c190c2c5e8d94644628c672fbe346"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_capacity_gate.py",
+      "bytes": 5681,
+      "sha256": "851a598f05d34cbaf597e56a593de3bf2a9f492a069d77d93ba6f5a7e0a42040"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_capacity_gate_test.py",
+      "bytes": 5006,
+      "sha256": "4cb266cbc6859ba053529f0ddb792199dc2a4e35af798a4d9cd636a123122412"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_qualification.py",
+      "bytes": 6886,
+      "sha256": "ce719b37ec53672639389ca75a481cbe9a80adc6585557fa5312ca35188c13a2"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_qualification_test.py",
+      "bytes": 5209,
+      "sha256": "7f23e984ece5cfc2e8b51a829b97335366d9b02a0fd95fbf95568d6c05cdf8b0"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_ref.py",
+      "bytes": 13707,
+      "sha256": "fa62575c947392f990841e6ac90656737eb67edb000ab369d7b7a0f66a05ef29"
+    },
+    {
+      "path": "qualification/drivers/Tools/vision_serving.py",
+      "bytes": 23423,
+      "sha256": "4a6647fea1938215d995697853b17307f694beec15a20871f3cc59bdd2e1405a"
+    },
+    {
+      "path": "qualification/full-verify.log",
+      "bytes": 6517,
+      "sha256": "0c10a57f39a9407add68198647172189931c896320894fe5f33a2804ad93e8ac"
+    },
+    {
+      "path": "qualification/governor-boundary-mtp.log",
+      "bytes": 8675,
+      "sha256": "9d1d80fb489b1e7ce3f5b4bc80387095d3ca9784c28a18e495c38b7d851d5187"
+    },
+    {
+      "path": "qualification/governor-boundary.log",
+      "bytes": 8779,
+      "sha256": "d5d85890ddbc6f0c0cb94c5b76db4495827d8deb0299d8ca0b16836175adc38a"
+    },
+    {
+      "path": "qualification/output-serving.log",
+      "bytes": 7101,
+      "sha256": "c1f3f8d1c179f763848b72646f5d780fb2cf42612b66494e1326d95572124f58"
+    },
+    {
+      "path": "qualification/persistent-prefix-mtp.log",
+      "bytes": 113436,
+      "sha256": "041af2614b64f465a3f9a046b3accc7e6bcf4ae4eb21a023ae5768e77a574350"
+    },
+    {
+      "path": "qualification/persistent-prefix.log",
+      "bytes": 108246,
+      "sha256": "931eeb4f51ed4fa08448d2c082679a30958e4fb2976fb4395382090346bfffe6"
+    },
+    {
+      "path": "qualification/qualify.py",
+      "bytes": 2700,
+      "sha256": "eed5164ce6e4f2b55e47ea286bb695c69d165ea114d7c4210603b3dd37e0b93d"
+    },
+    {
+      "path": "qualification/results.json",
+      "bytes": 2113,
+      "sha256": "bd367bb1550da924542018fdad8395a2af21170c3a7aeb5b4ad0a5af83365f30"
+    },
+    {
+      "path": "qualification/t1.log",
+      "bytes": 259463,
+      "sha256": "071280831e2cf39d931d9a8bccbe5a51ea5a8df3a2ff223b64029fc33bca0197"
+    },
+    {
+      "path": "qualification/verify/check-1.txt",
+      "bytes": 87,
+      "sha256": "47e135e10a066f5ae8612148e92bddbc9ed3b585f467dad9261307f96c311234"
+    },
+    {
+      "path": "qualification/verify/check-2.txt",
+      "bytes": 202,
+      "sha256": "41d318695c0502e1ca324367f323bf4c936119ecba79f9fe78dddd3cafe25fb6"
+    },
+    {
+      "path": "qualification/verify/check-3.txt",
+      "bytes": 221,
+      "sha256": "04ced7c7068a388f6b95ee668ebc8f9979e8e850540063842f3db651cec30f51"
+    },
+    {
+      "path": "qualification/verify/model-verification/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "qualification/verify/model-verification/stdout.txt",
+      "bytes": 1031,
+      "sha256": "54cc3d9aa7ef888b2a60d0bb76970ca1d0d4fd11a9839a83bef1aa25cad731a0"
+    }
+  ]
+}

@@ -24,6 +24,7 @@ extension Catalogue {
             Check("runtime-check", tier: .t0) { try Diagnostics.runtime() },
             Check("prefix-client-capacity", tier: .t0) { try Diagnostics.optimizationPrefixCapacity() },
             Check("persistent-prefix-policy", tier: .t0) { Diagnostics.persistentPrefixPolicy() },
+            Check("persistent-conversation-ids", tier: .t0) { try Diagnostics.persistentConversationIDs() },
             Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
             Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
             Check("machine-planning", tier: .t0) { try Diagnostics.machinePlanning() },
@@ -37,7 +38,9 @@ extension Catalogue {
             Check("expert-lookahead-forecast-tap", tier: .t0) { try Diagnostics.expertLookaheadForecastTap() },
             Check("decode-lookahead-defaults", tier: .t0) { try Diagnostics.decodeLookaheadDefaults() },
             Check("vision-check", tier: .t0) { Diagnostics.vision() },
+            Check("prefill-read-policy", tier: .t0) { Diagnostics.fusedWorkspaceReservation() },
             // T1: touches MLX, so it needs the Metal library beside the runner.
+            Check("fused-prefill-attention", tier: .t1) { Diagnostics.fusedPrefillAttention() },
             Check("sampler-behaviour", tier: .t1) { try Diagnostics.samplerBehaviour() },
             Check("expert-lookahead-adoption", tier: .t1) { try Diagnostics.expertLookaheadAdoption() },
             Check("expert-lookahead-routing-readback", tier: .t1) { try Diagnostics.expertLookaheadRoutingReadback() },

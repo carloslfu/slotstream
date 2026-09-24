@@ -11,18 +11,24 @@ Relative links below point at the same sections, which are all in this file.
 [![Latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
 [![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](#star-history)
 
-**Run a 105 GB AI model on a 48 GB Mac.**
+**Run a 105 GB AI model on a Mac that can't hold it.**
 
 Slotstream runs [Qwen3.8-Flash-Next](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit),
-a large open model, on your Mac by keeping most of it on SSD and loading the
-parts it needs into memory. It is built for Macs with 16 to 64 GB of memory,
-where the model cannot fit. After a one-time download the model works
-offline, with no Python and no cloud account. The whole engine is one native
-Swift program on Apple's MLX and Metal; see [Built native](#built-native).
+a 125-billion-parameter open model, on Macs with 16 to 64 GB of memory. It
+keeps most of the model on the SSD and loads the parts it needs as it writes.
+Our 48 GB M5 Pro measured 15.86 tokens per second at a 22 GB memory target
+([how it was measured](#speed)).
 
-Use it to chat, ask about pictures, or work with files through a coding agent
-such as Claude Code, Codex, Pi, opencode or Hermes. Developers can connect
-their own apps through its APIs or Swift library.
+Chat with it, ask it about pictures, or code with it: `slotstream launch claude`
+starts Claude Code on the local model, and Codex, Pi, opencode and Hermes work
+the same way. Developers can connect their own apps through its Ollama-,
+OpenAI- and Anthropic-compatible APIs or its Swift library.
+
+After a one-time download it works offline, with no Python and no cloud
+account. The whole engine is one native Swift program on Apple's MLX and
+Metal; see [Built native](#built-native). Every published number has a
+recorded method, and the experiments that failed stay in the
+[measurements](MEASUREMENTS.md).
 
 [Get started](#install) · [Speed](#speed) · [Guides](#guides) · [Get help](#support)
 
@@ -56,15 +62,18 @@ Windows, Linux and Intel Macs are not supported. The
 ## Speed
 
 `tok/s` means tokens per second; a token is a small piece of text, often part
-of a word. Speeds describe replies after the model has warmed up.
+of a word. Reply speeds below describe generation after the model has warmed up.
 
-**Our development Mac, a 48 GB M5 Pro, generates 15.86 tok/s with 0.2.19 at a
-22 GB memory target, the automatic plan of a 32 GB Mac**, measured on eight
-prompts the engine was never tuned on. The engine predicts which experts the
+**Our development Mac, a 48 GB M5 Pro, measured 15.86 tok/s with 0.2.19 at a
+22 GB memory target**, in a controlled benchmark on eight prompts the engine
+was never tuned on. The engine predicts which experts the
 next layers will need and reads them from the SSD before they are asked for,
 which changes speed and never the output. The
 [expert lookahead guide](docs/EXPERT-LOOKAHEAD.md) has the measurements behind
-each release.
+each release. This historical test used smaller prompt passes and disabled
+prefix caching, leaving more memory for experts. It is not a measurement of
+today's automatic configuration. A qualified full-answer baseline on 0.2.23
+[is still pending](db/records/measurements/release-speed-calibration-2026-09-22.md).
 
 <a id="speed-by-memory"></a>
 <a id="speed-by-mac-memory"></a>
@@ -75,13 +84,17 @@ Rough planning ranges for warm replies, from community reports and our own
 measurements, rounded outward. Faster chips and SSDs sit at the top of each
 range; other apps and memory pressure pull results down.
 
-| Installed RAM | Estimated warm reply speed | Automatic context window |
+| Installed RAM | Estimated warm reply speed | Example automatic context window |
 |---|---|---|
 | 8 GB | **Support coming soon.** The current model doesn't fit yet. | Not available yet |
 | 16–<24 GB | ~1–6 tok/s | 32,768 tokens |
 | 24–<48 GB | ~6–16 tok/s | 32,768 through 32 GB; 65,536 at 36 GB |
 | 48–<96 GB | ~15–27 tok/s | 32,768 at 48 GB; 131,072 at 64 GB |
 | 96 GB+, the model fits in memory | ~20–32 tok/s | 262,144 tokens, the model's full window |
+
+Context examples use decimal-GB memory simulations. A Mac's marketed capacity,
+Metal limits and available memory can produce a different plan; `slotstream
+doctor` shows the actual choice.
 
 The middle rows are anchored on our M5 Pro's measurement; the top ends of the
 last two rows come from a 128 GB M5 Max with a larger, manually chosen memory
@@ -90,6 +103,37 @@ estimates, not limits. The hardware guide has the
 [basis of each range](docs/HARDWARE.md#planning-ranges), every result
 [measured on real Macs](docs/HARDWARE.md#results) with credits and test
 conditions, and [every automatic memory plan](docs/HARDWARE.md#automatic-memory-plans).
+
+### Recent prompt-processing results
+
+The changes shipped in 0.2.23 shorten prompt processing and repeated-history
+work. These measurements use the same 48 GB M5 Pro at a 10 GB target, with
+three clean pairs per comparison:
+
+| Workload | Matched control | Median times, control → enabled | Median paired time reduction |
+|---|---|---|---|
+| 16K inventory prompt, MTP on | Larger-read workspace policy off | 155.22 s → 53.94 s prefill | 65.40% |
+| 2K prose follow-up, MTP off | Prefix checkpoints disabled | 30.73 s → 4.42 s request | 85.62% |
+
+Both comparisons switch a feature off in the same tested binary. They measure
+prompt processing or a cached follow-up, not an increase in reply tok/s or a
+whole-release speedup. Times are arm medians; reductions are medians of paired
+changes. The [hardware guide](docs/HARDWARE.md#recent-prompt-processing-results)
+explains the fixtures and the latest audit's exclusions.
+
+A fresh installed-release study used ordinary caching at the same memory
+target. These are observed first-read ranges and median exact-repeat request
+times across the prescribed request order, with capped replies:
+
+| Prompt | Eligible first reads / repeats | First-read prefill range | Median repeated request |
+|---|---:|---:|---:|
+| 2K code | 4 / 3 | 13.86–28.11 s | 2.79 s |
+| 2K prose | 3 / 3 | 14.91–26.51 s | 3.22 s |
+
+The desktop load screen passed for the included observations, but several
+runs had system swap-ins. Request history changed read batching, so these
+results do not replace the general speed estimates or decode headline.
+See the [measurement and its limits](db/records/measurements/release-prefill-2k-2026-09-22.md).
 
 <a id="memory"></a>
 <a id="context"></a>
@@ -245,7 +289,11 @@ the plan without loading the model:
 slotstream doctor --memory-gb 40
 ```
 
-If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget.
+If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget
+with a fixed cache. In the current development version, use
+`--memory-limit-gb` instead to choose an upper limit while the cache adapts
+to other apps. Custom limits can exceed the automatic default; the Mac's
+supported budget and available memory still bound actual use.
 Auto keeps expert cache when a larger automatic context would trade it away
 without a measured benefit. Use `--max-context N` when you explicitly want a
 longer window. Leave room for macOS and other apps. See the
@@ -592,7 +640,7 @@ On the 48 GB M5 Pro:
 |---|---|
 | Reply generation after the cache warms up | ~12 tok/s |
 | Reply generation with speculative decoding and the 0.2.16 decode lookahead, 20 GB target | 13.47 tok/s, 1.11x faster than without the lookahead |
-| Reply generation with the 0.2.19 corrected forecast, 22 GB target (a 32 GB Mac's automatic plan) | 15.86 tok/s, 1.10x faster than the 0.2.18 forecast |
+| Reply generation with the 0.2.19 corrected forecast, 22 GB controlled benchmark (smaller prompt passes, prefix caching off) | 15.86 tok/s, 1.10x faster than the 0.2.18 forecast |
 | Engine load in the original experiment, before processing the prompt | ~2 s (historical) |
 | Planned memory with automatic sizing | 32 GB (estimate) |
 
@@ -610,11 +658,14 @@ and 39 s for 8,000. Ordinary prose can take longer than the synthetic prompt
 used by the estimator. `slotstream doctor` shows estimates for your memory
 plan, and the terminal prints progress during long prompts.
 
-The conversation cache avoids processing unchanged history again. In an
-eight-turn test at a 16 GB target, the last turn started replying after
-6.0 s with reuse, compared with 25.8 s without it. Reuse can change a reply
-when two candidate tokens are nearly tied; use `--no-prefix-cache` for
-comparisons that require a fresh computation every time.
+The conversation cache avoids processing unchanged history again. In a
+historical eight-turn test at a 16 GB target, the last turn started replying
+after 6.0 s with reuse, compared with 25.8 s without it. The current aligned
+cache accepts only checkpoints compatible with the incoming prompt's compute
+passes and backend, preserving exact cached-versus-fresh results for that
+computation. Use `--no-prefix-cache` to measure the cost of processing the
+whole prompt. See the [current reuse qualification](../db/records/measurements/prompt-speed-qualification-2026-09-21.md)
+for checkpoint and app-restart evidence.
 
 ### Prefill and speculative decode measurements
 
@@ -740,6 +791,12 @@ greedy output with the other generation settings fixed. Changing the total
 memory target can also change prefill grouping or enable speculative decoding;
 those are separate changes, not part of that equality claim.
 
+Warm growth also needs room for temporary replacement tensors. The governor
+checks this extra allocation against both the process target and current
+system availability. If it cannot fit, the existing warm cache stays usable
+and growth waits. The copy preserves slot positions and appends capacity one
+tensor at a time, without gathering another copy of all occupied slots.
+
 To set a memory target yourself:
 
 ```bash
@@ -751,6 +808,11 @@ slotstream serve --memory-gb 16
 default text context; larger windows and resident components need more room.
 An explicit target disables automatic cache resizing, while loading and
 request-memory safeguards remain active. Preview it before starting.
+The development version also offers `--memory-limit-gb`: an upper process
+budget with automatic cache resizing. It can exceed the default model ceiling
+while remaining bounded by supported GPU/system headroom and live memory.
+The chosen limit is retained across shrink and recovery. Diagnostics and
+budgeted startup share the same feasibility check.
 See the [memory options](CLI.md#memory-options)
 for the other controls and their precedence.
 
@@ -915,7 +977,9 @@ Open a new thread and attach files or folders with the paperclip, the
 **File → Attach Files…** command (⌘⇧A), drag and drop, or paste. A thread holds
 up to eight attachments, each shown as a chip above the composer. Ask Sevra
 about them, or ask for a cited briefing and review the complete document before
-choosing **Save document**. Saved artifacts use create-only publication inside
+choosing **Save document**. The model is told each attachment's name, kind and
+access, so a question such as "what is this?" reads the attached file instead
+of asking what you mean. Saved artifacts use create-only publication inside
 the Home.
 
 ### What Sevra can read
@@ -929,8 +993,21 @@ the Home.
   without a text layer. Sevra recognizes their text on this Mac when a page is
   read, at most 40 pages per request, and marks such citations as recognized
   text.
-- **Folders:** up to 2,000 files. Hidden files, symbolic links and dependency
-  folders such as `node_modules` are skipped and counted, never followed.
+- **Folders:** live access without an upfront scan or a fixed file-count limit.
+  Sevra browses subfolders, finds filenames and searches content as needed.
+  New files, renames and edits appear on subsequent operations. Hidden entries
+  and symbolic links are excluded. Broad searches skip dependency folders such
+  as `node_modules`; Sevra can inspect a specific dependency folder when needed.
+
+Long listings and searches return bounded pages. Sevra can continue from where
+it stopped, including further matches in the same file. If a directory changes
+between pages, Sevra must restart the operation with current names. Search reports
+skipped or unreadable entries instead of treating them as searched. An attachment stays
+usable regardless of the size of its tree. Access remains limited to the files
+or folders you selected.
+
+Without an attachment, Sevra explains how to add one with the paperclip. Thread
+only affects remembered context; attached files remain available in that mode.
 
 Password-protected, damaged and oversized documents are refused with a reason.
 Sevra reads the text inside a document, not its layout; tables and multiple
@@ -1082,8 +1159,10 @@ bash Tools/check_sevra_thinking_ui.sh
 
 That check renders the production views over the scripted engine in a scratch
 Home, finds each control by its rendered label and clicks it: Think longer on
-and off, Send, the live clock, Answer now, the working-notes disclosure, the
-receipt line and the typical-time hint, in light and dark appearance. Its
+and off, Send, the live clock and the last lines of the thought, the details
+popover with the working notes, Answer now, the thinking line above the reply,
+the optional speed line with the live writing speed, and the typical-time
+hint, in light and dark appearance. Its
 window is ordered far outside every display and the process never activates,
 so nothing appears on screen; snapshots land in `.build/sevra-thinking-ui/`.
 Native UI walkthroughs, VoiceOver passes and real-model checks remain separate
@@ -1131,6 +1210,35 @@ derived excerpts. New Thread only conversations may read shared memories but
 keep newly saved memories within that thread. Older Thread only conversations
 retain their stricter reading scope until you explicitly allow shared memories.
 Incognito uses neither saved memories nor persistent conflict records.
+
+## Thinking and response details
+
+**Think longer**, in the composer bar, lets Sevra reason before it answers. It
+is off by default and stays on for the thread until you turn it off; a thread
+with attached sources thinks too. While Sevra thinks, the status reads
+"Thinking…" with a clock, and the last few lines of its reasoning appear under
+it, newest at the bottom. Click them to read all the working notes, or press
+**Answer now** to end the thought and answer from what Sevra has so far. When
+the answer arrives, a line above it says how long Sevra thought. Click that line
+for the notes and the rest of the response's details. Working notes are not
+saved or remembered: they stay only while Sevra is open, for the eight most
+recent responses, and never enter the conversation's copy, export or search.
+Only how long the thought took and how it ended is saved with the response.
+
+Every response also records what it cost on this Mac, measured by the engine:
+the tokens it wrote and how fast, the time to its first token, how much of the
+conversation it read and how much it reused, the context it used, any model
+load it waited for, the share of the model's experts already in memory while
+it wrote, and the memory budget it ran with. Speed depends on that budget, so
+the details always show it. With a custom limit, they distinguish that saved
+limit from the smaller budget available for the response. Turn on **Show response details** in the
+conversation options menu or the View menu to add a line under every reply
+with tokens per second, tokens written and time to first token, and to show
+the live writing speed in the status while Sevra writes. To open the full
+details, click a reply's thinking line or speed line, choose **Show Response
+Details** from the reply's context menu, or press ⌥⌘I for the latest reply.
+**Copy** there copies the numbers as text, without any notes or messages. The
+numbers stay in your Home and are never sent anywhere.
 
 ## Brand and native UI review
 
@@ -1190,6 +1298,11 @@ the model must return a valid new response, and saving still requires exact
 document approval. The final adversarial replay passed this path with the real local model,
 including correction, cited proposal, exact approval and reopening the saved
 file. This qualifies the bounded fixture, not every possible user task.
+What the model writes before calling a tool says what it is about to do, so
+it is shown as one line under the reply's **Activity**, ahead of the calls it
+introduces, and never becomes part of the answer. The answer is the final
+round's text, or the text beside a proposal. If the final round has no text
+of its own, the reply keeps what the model wrote along the way.
 See the [feature audit](../db/records/design/sevra-spec/implementation-status.md#adversarial-mac-app-review)
 for the current evidence and open requirements.
 
@@ -1242,18 +1355,42 @@ text model and context fixed while adapting cache residency to the Mac and
 other applications. The recommendation inherits the engine’s measured
 operating ceiling; it is not a promise of optimal performance on every Mac.
 
-**Custom limit** means “use up to” the selected budget within the displayed
-supported range. It retains automatic pressure protection. The saved limit
-stays stable when available memory changes. Settings distinguish the app’s
-physical memory use from its estimated current allocation budget. Unified
-CPU/GPU memory is counted once.
+Desktop also uses the engine's automatic speculative decoding when the optional
+draft head is installed and its full memory cost fits. Smaller budgets keep
+ordinary decoding. This is independent of **Think longer** and needs no user
+switch. Short chats use smaller prompt-processing batches to create useful
+conversation checkpoints; longer inputs retain the engine's throughput schedule.
+Crossing between schedules can require a fresh read because incompatible
+checkpoints are never reused.
+The [operating-policy record](../db/records/decisions/sevra-app-speed-defaults-2026-09-23.md)
+contains the comparisons, costs and conditions for revising these choices.
 
-The model loads with the first request. **Keep model ready → Automatic**
-releases it after inactivity, with a bounded delay informed by observed
-preparation time and power conditions. **While app is open** favors warm
+**Custom limit** means “use up to” the selected budget within the displayed
+supported range, which comes from this Mac's hardware rather than the automatic
+default. It retains automatic pressure protection. Switching to Custom starts
+at the current budget; returning to it restores your last chosen limit. The
+saved limit stays stable when available memory changes. Settings distinguish
+the app’s physical memory use from the budget available now. Unified
+CPU/GPU memory is counted once.
+If a saved limit exceeds the current Mac's supported range, Settings shows
+the saved value and asks you to lower it or choose Automatic.
+
+The model loads with the first request and verifies the pinned files. Within
+that app session, unchanged files on APFS can reuse the successful verification
+after unloading. File identity, size and modification/change timestamps are
+checked again; changes require fresh hashing. Other filesystems and new app
+launches always hash again. No verification proof is stored on disk. An immediate
+reload lets macOS refresh its memory statistics before sizing the next model,
+so memory just released is not incorrectly counted as still occupied.
+**Keep model ready → Automatic** keeps it loaded while Sevra is in the foreground,
+including while you read or compose. Leaving the foreground starts an inactivity
+interval, with a bounded delay informed by observed preparation time. Memory
+pressure, power saving and sleep can release it sooner. **While app is open** favors warm
 follow-ups but still yields to memory pressure and sleep. **Release memory
-now** preserves saved conversations and personal memory. It does not create
-a disk cache of private inference state.
+now** preserves saved conversations and personal memory. Ordinary conversations
+can reuse a disposable prompt cache in that Home after a reload. Thinking and
+incognito sessions keep their inference state off disk. Backups exclude the
+prompt cache; it can be rebuilt from the saved conversation.
 
 Budget changes during a response apply after that job finishes. New messages
 wait through the short resource handoff. Closing the window follows the
@@ -1270,6 +1407,15 @@ during generation, release/reload, responsive metadata and automatic idle
 release. Follow the same model-process and headroom rules as the real fixture
 below. Full hardware qualification and clean paired performance measurements
 remain separate from these functional checks.
+
+Real cache, response-metrics, thinking and source-tool checks also accept
+`--mtp-profile-gb <budget>` for an explicitly requested MTP performance profile.
+They require the chosen budget plus the ordinary headroom, refuse a profile
+that does not actually enable MTP, and use disposable Homes. The default checks
+retain their small budgets. `--real-speed --memory-gb <budget> --arm <policy>`
+compares complete allocations and checks reused output against a fresh run;
+`--extended` includes a longer inventory. These are development measurements,
+not public hardware qualification.
 
 ## Checks and internal CLI
 
@@ -1306,7 +1452,7 @@ create-only document publication and reopening its durable Home. Run it only
 under the repository memory rules, with a new disposable destination:
 
 ```bash
-cp Tools/lib/mlx-0.31.1.metallib apps/macos/.build/release/mlx.metallib
+cp Tools/lib/mlx-0.32.2.metallib apps/macos/.build/release/mlx.metallib
 apps/macos/.build/release/sevra-mac-checks --real \
   --source "$PWD/apps/macos/Fixtures/private-workspace-brief" \
   --home "$PWD/.build/sevra-disposable-real-check"
@@ -1318,8 +1464,9 @@ release. See the implementation ledger for observed and pending evidence.
 
 A second real-model fixture asks a question about a generated PDF, proposes an
 exact edit to a text file and proposes a counter mini-app, acting as reviewer
-for each. It needs the helper, the metallib copied as above and the same memory
-rules:
+for each. The generated PDF is the same bytes on every run, so two runs on the
+same Mac and memory plan give the model the same input. It needs the helper,
+the metallib copied as above and the same memory rules:
 
 ```bash
 SEVRA_EXTRACT="$PWD/apps/macos/.build/release/sevra-extract" \
@@ -1336,6 +1483,35 @@ saved record:
 SEVRA_APP_UNDER_TEST="$(find "$PWD/.build/sevra-disposable-real-basics/Home/extensions/miniapps" -name index.html | head -1)" \
   SEVRA_APP_DATA=counter:write bash Tools/check_sevra_apps_ui.sh
 ```
+
+A third real-model check compares the numbers Sevra records for a response
+with the engine's own statistics for the same requests: a thinking turn that
+loads the model, a second thinking turn that resumes the conversation instead
+of reading it again, and a plain turn after switching thinking off, which reads
+it again because the switch changes the system instructions. The engine
+resumes a request only at its own prefill pass boundaries, so the opening
+message is long enough for the conversation to pass the first one. It needs
+the metallib copied as above and the same memory rules:
+
+```bash
+apps/macos/.build/release/sevra-mac-checks --real-metrics \
+  --home "$PWD/.build/sevra-disposable-real-metrics"
+```
+
+The live-source fixture checks the model's explanation of file access, then
+attaches a large disposable folder, locates and cites a file, rediscovers it
+after a rename and edit, and proposes a reviewed change. It verifies the
+approved bytes and undo. Use a new destination and the same memory rules:
+
+```bash
+SEVRA_EXTRACT="$PWD/apps/macos/.build/release/sevra-extract" \
+  apps/macos/.build/release/sevra-mac-checks --real-sources \
+  --home "$PWD/.build/sevra-disposable-real-sources"
+```
+
+Its `receipt.json` records answers, actual tool traces, source excerpts and
+failures. The ordinary checks also cover live navigation and search pagination
+without loading a model; `sevra-mac-checks --sources` runs that group alone.
 
 Slotstream's original CLI, serving APIs, library products and package coordinates
 remain independently usable. This application work does not rename the public
@@ -1821,6 +1997,7 @@ the second waits for the first to finish starting, then uses its server.
 |---|---|
 | `--port <n>` | The port the server listens on (default 11434). |
 | `--memory-gb <gb>` | Memory target for a server this command starts, as in `serve`. Default: automatic. When a server with another target is already running, it is left as it is and a note names its target. |
+| `--memory-limit-gb <gb>` | Adaptive ceiling for a server this command starts (development version). Cannot be combined with `--memory-gb`. An existing server keeps its settings; a note explains when the requested limit does not apply. |
 | `--idle-exit <minutes>` | How long a server this command starts keeps running after its last agent exits (default 30, at most 10080); `0` keeps it running until `slotstream stop`. |
 | `--no-start` | Use a running server only; never start or restart one. |
 | `--dry-run` | Print the server it would start, the command, the variables it sets or removes, the files it would write, and notes; start, download and write nothing. Keys and tokens in the output are hidden, and for Pi only the `slotstream` entry of its models file is shown. |
@@ -1962,18 +2139,25 @@ With no sizing override, auto sizes the process to the machine (see
 | Flag | Meaning |
 |---|---|
 | `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
+| `--memory-limit-gb <gb>` | Adaptive total process ceiling, in decimal GB (development version). Can exceed the default model ceiling. The cache shrinks when other apps need memory and can grow back when it is available, within the saved limit and the Mac's supported budget. Cannot be combined with the fixed memory/cache options below. |
 | `--memory-gb <gb>` | Total process memory budget, in decimal GB. The cache gets what remains after runtime, context, workspace and a nominal 1 GB margin. Near the minimum cache size, the plan can use part of that margin; `doctor` shows the actual planned headroom. Minimum 8.1 for the 32,768-token window; larger windows raise the minimum. This is a planning allowance, not an instruction to fill RAM. Conversation state and workspace use memory as needed, so measured usage can be lower. Auto picks the context window inside this target and preserves cache whose loss it cannot price; `--max-context N` chooses the context tradeoff explicitly. |
 | `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
 | `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |
 | `--vision auto\|on\|off` | Accept images (default `auto`). `auto` loads the image encoder on first use; `on` also requires the checkpoint to contain vision weights; `off` rejects images. |
 | `--mtp auto\|on\|off` | Speculative decode (default `auto`); see [Speculative decode](#speculative-decode). |
-| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Cannot raise it past the 33 GB base ceiling plus any enabled draft-head and draft-context charges. Ignored when an explicit size is given. |
+| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Alone it cannot raise the 33 GB base ceiling plus enabled draft/context charges. With `--memory-limit-gb`, it can further lower that ceiling; without this percentage option the adaptive limit is bounded by hardware and availability. Ignored when a fixed size is given. |
 
 Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
 which beats `--memory-gb`. An explicit size keeps its expert-pool policy. Physical headroom is still
 checked before model loading and request growth. Preview it with `doctor`;
 an unavailable window is reported separately from a request that may take
 too long to prefill.
+
+`--memory-limit-gb` keeps resizing enabled unless you also pass `--no-elastic`.
+The requested limit stays saved even when the current target is lower. `doctor`
+and model startup use the same budget feasibility check, including at the
+default context window. Metal's recommendation is read from the system;
+Slotstream keeps additional headroom and checks live reclaimable memory too.
 
 
 A larger context reserves allocated cache capacity, retained conversations,
@@ -1987,6 +2171,8 @@ The target is a budget, so current usage can be lower while reserved context
 and temporary workspace are unused. `doctor` previews a new plan; it does not
 change an already running server. `/api/ps` includes that server's actual
 `details.memory_plan`, including its sizing source, target and expert pool.
+For an adaptive limit, `memory_limit_gb` is the saved ceiling and `target_gb`
+is the current budget, which can be smaller.
 
 For `run`, the default memory summary separates the **lifetime footprint peak**
 from **current footprint**. The lifetime value includes loading and all earlier
@@ -2062,6 +2248,10 @@ the second loads the model. Use small explicit memory targets for model
 checks (`--memory-gb 8.1` to `10`) and stop other model processes first.
 See [Testing](TESTING.md) for the full suites.
 
+Fixed-profile diagnostics reject `--memory-limit-gb` because they use their
+own bounded allocation. `prefix-exact-check` accepts it with `--plan`;
+`elastic-drill` can exercise it within the diagnostic's separate memory ceiling.
+
 **Weights-free**
 
 | Command | Proves |
@@ -2077,7 +2267,7 @@ See [Testing](TESTING.md) for the full suites.
 | Command | Proves |
 |---|---|
 | `elastic-check` | Greedy output is byte-identical across a live pool grow and shrink. `--max-tokens` (24), `--big-slots` (960; lower it on small machines). |
-| `elastic-drill` | Drives the live governor through controlled polls: shrink, grow cooldown, regrowth and exact output. `--slots` (4000), `--max-memory-gb` (10), `--quick` skips regrowth. The unchanged deadbands need a larger starting arena: the full test uses `--slots 1000 --max-memory-gb 13`, requires the derived target plus 3 GB physically reclaimable, and reports sampled memory and swap. An insufficient ceiling refuses before model allocation. |
+| `elastic-drill` | Drives the live governor through shrink, cooldown, recovery and exact output. `--slots` (4000), `--max-memory-gb` (10), `--quick` skips recovery. Use `--memory-limit-gb 10 --max-memory-gb 10 --mtp off` for small-cache pressure recovery, or `--slots 1000 --max-memory-gb 13 --memory-limit-gb 13 --mtp off` for the full availability drill. Both require the target plus 3 GB physically reclaimable and report sampled memory and swap. An insufficient ceiling refuses before model allocation. |
 | `prefix-check` | Conversation prefix reuse is equivalent, bounded, and deterministic. `--slots` (640), `--max-tokens` (24). |
 | `prefix-exact-check` | A continued conversation computes what a cold one does: same tokens and bit-identical prompt logits whether a turn resumed a retained state or read its whole prompt, with reuse still happening, an identical prompt reusing its complete state, an edited history rebuilding, and a second conversation resuming a shared prefix. `--slots` (640), `--max-tokens` (24), `--plan` to run a real memory plan so `--memory-gb` and `--mtp` apply. |
 | `sweep-check` | The prefill sweep (passes of 256 tokens or more) stays inside the prefill-rechunk band against the pool path, is deterministic, gives bit-identical logits on a cold and a warm pool, and leaves the pool consistent after admission. `--slots` (640). |
@@ -2236,7 +2426,8 @@ the server keeps the model loaded.
 
 Each message has a `role` and `content`, with optional `images`. Content can
 be text or an array of supported image/text parts; see [Images](#images).
-Tool calls aren't supported on this endpoint.
+Tool calls aren't supported on this endpoint. Tool clients should use
+`/v1/chat/completions` with OpenAI function definitions and tool-result messages.
 
 ```bash
 curl localhost:11434/api/chat -d '{
@@ -2320,11 +2511,20 @@ native model template.
 
 `tool_choice` accepts `auto` (default), `none`, `required`, or a named
 function object. A required/named choice is both prompted and checked; an
-unsatisfied choice produces an inference error. `parallel_tool_calls: false`
+unsatisfied choice produces an inference error unless the output token budget
+was exhausted. `parallel_tool_calls: false`
 ends generation after the first complete call. The default allows multiple
 calls, with distinct IDs and stream indices. The caller executes tools.
-Malformed/truncated calls and undeclared function names produce an inference
-error; provisional arguments are never exposed as executable calls. Strict
+Chat Completions streams a declared string argument while it is generated,
+including large file contents. Reassemble `delta.tool_calls` by `index`,
+concatenating each function's `arguments` fragments. Calls become complete
+only when their closing tags arrive. If the output budget is exhausted,
+the reply ends with `finish_reason: "length"`, requested usage, and `[DONE]`,
+including when a required tool call has not finished. Partial argument strings
+can be incomplete JSON; do not execute them. A completed tool reply ends with
+`finish_reason: "tool_calls"`. Non-streaming replies use the same length
+semantics. Malformed calls on a normal stop and undeclared function names
+produce an inference error. Strict
 schema enforcement is unavailable: omit `strict` or use `false`, and validate
 arguments in the caller before execution.
 
@@ -2685,6 +2885,11 @@ sized the memory plan (`--memory-gb`, `auto`, `--pool-gb` or
 `--experts-per-layer`) and `memory_target_gb` the whole-process target, or
 `null` for a plan without one. Reading the status is not activity.
 
+The development version also reports `memory_limit_gb`: the saved adaptive
+ceiling, or `null` when none was selected. Adaptive plans still use
+`memory_source: "auto"`; their current `memory_target_gb` can be lower than
+the saved limit while other apps need memory.
+
 `POST /slotstream/clients` with `{"pid": 4242}` registers a running process
 of the user the server runs as, and returns `{"clients": 1}`, the number
 registered. A server started with `--idle-exit` keeps running while any
@@ -2733,6 +2938,23 @@ the model's training window must not be used as the request limit.
 
 Generation requests run one at a time; a second waits for the first. Metadata
 endpoints read a separate snapshot and remain responsive during generation.
+
+The server log identifies each accepted request and periodically reports its
+elapsed time and current guarded phase, including prompt preparation and
+waiting for inference. Cache diagnostics say whether memory or disk supplied
+the prefix, or why retained state could not be reused. Exact token prefixes,
+compatible prefill boundaries and available memory remain required; a saved
+state does not guarantee a cache hit for a changed prompt.
+The disk cache also retains the exact generated token IDs needed to reconstruct
+history when a client omits reasoning. These IDs share the checkpoint's quota,
+expiry and deletion rules; the reusable numerical state still ends at its
+original prefill boundary.
+
+Prefill progress reports completed passes by elapsed time. Its remaining-time
+estimate uses recent throughput, so a slow tail replaces the faster early
+rate. The initial plan estimate cannot predict other applications' memory or
+SSD contention. A stalled pass still appears in the request-phase heartbeat.
+Socket output failures are logged separately from request completion.
 
 ## Request deadlines and resource failures
 
@@ -2816,15 +3038,56 @@ For a command-line build, place a prebuilt `mlx.metallib` **next to the
 running executable**. MLX looks there for its Metal shaders. SwiftPM doesn't
 compile them in the Command Line Tools setup.
 
-- **An Xcode app**: Xcode compiles the shaders itself. No manual copy is needed.
-- **A command-line build** (`swift build`): copy it yourself, once.
+- **Sevra's Xcode project**: its build phase bundles the pinned library.
+  Other app targets must also include the matching MLX shaders at runtime.
+- **A command-line build** (`swift build`): copy the matching library beside
+  each executable after building.
 
   ```bash
   Tools/fetch_metallib.sh                       # from a slotstream checkout
-  cp Tools/lib/mlx-0.31.1.metallib .build/debug/mlx.metallib
+  cp Tools/lib/mlx-0.32.2.metallib .build/debug/mlx.metallib
   ```
   Without it, the first MLX call fails with `Failed to load the default
   metallib`. A test bundle needs its own copy in `.xctest/Contents/MacOS/`.
+
+The runtime pins mlx-swift to an exact revision and packages the matching MLX
+shader library. Upgrade those together. The engine's qualified fused prefill
+path uses upstream MLX attention; the experimental selected-block kernel
+remains a separate control. `SLOTSTREAM_OPT_FUSED_PREFILL=0` restores MLX's
+own dispatch heuristics, and `=1` requests the fused path on supported NAX
+hardware. Automatic activation is limited to the measured M5 Pro profile;
+other profiles retain MLX dispatch. Short decode and speculative verify calls
+retain their existing paths. Persistent prompt-cache identities include the
+attention settings, MLX backend overrides, GPU architecture and OS build, so changing arithmetic
+starts a fresh cache.
+
+The qualified profile also chooses expert-read groups automatically using the
+fused kernel's workspace requirements. No application setting is needed. For
+supported BF16 text prefill, including MTP, groups may share reads across more
+chronological compute passes while staying within the existing memory target.
+The larger groups end within the supported key range. Each candidate still
+has to fit the actual process footprint, live headroom and request reservation;
+the scheduler chooses a smaller group or an ordinary pass when necessary.
+MTP prices the main and draft phases separately, including the hidden states
+retained between them, and admits against the larger peak. The draft phase
+keeps its full attention allowance regardless of whether its own kernel fuses.
+When MTP's memory budget limits grouping, the engine can assemble expert
+buffers one at a time. It uses that extra synchronization only when it can
+at least double the group that fits with batched writes. This is an internal
+performance policy, with the same memory and cancellation guards.
+Images, CPU, other dtypes, small-query padding and attention fallbacks keep
+full main-attention accounting and their established automatic grouping limits.
+
+Diagnostic overrides remain available: `SLOTSTREAM_OPT_FUSED_WORKSPACE=0`
+restores both the original accounting and automatic group cap;
+`SLOTSTREAM_OPT_FUSED_PREFILL=0` also disables the combined policy.
+`SLOTSTREAM_OPT_AUTO_SCOPE_LIMIT=8192|16384` can test grouping independently.
+These controls do not increase the memory target or select a larger compute
+pass. `InferenceOptimizations.environment()` selects the deployment policy;
+the explicit reference initializer and older serialized settings retain their
+original reservation. The [initial automatic-policy validation](../db/records/measurements/automatic-prefill-policy-2026-09-21.md)
+and [MTP qualification](../db/records/measurements/mtp-prefill-policy-2026-09-21.md)
+record the tested scope, with earlier experiments and exclusions preserved.
 
 Planning, weight checks, prefill estimates, and most diagnostics run without
 loading Metal. An app can show a memory plan and download status before the
@@ -2881,8 +3144,21 @@ print(plan.expertsPerLayerCached, "experts per layer,",
 
 `Machine.simulated(ramGB: 16)` previews a decimal-GB memory size, like
 `slotstream doctor --sim-ram 16`; it does not simulate another chip or SSD.
-`Engine.load` rejects simulated plans;
+`Engine` rejects simulated plans;
 use `Machine.current()` for a plan that will allocate memory.
+
+In the development version, `PlanRequest(memoryLimitGB: chosenLimitGB)` sets
+an adaptive process ceiling. The supported hardware budget and available
+memory may lower `plan.targetGB`; `plan.memoryLimitGB` keeps the saved ceiling.
+Existing `memoryGB`, `poolGB` and `expertsPerLayer` controls keep a fixed cache
+and cannot be combined with this option.
+
+An embedding app must retain a `MemoryGovernor(engine:)` and call `start()`
+to enable live resizing. Call `await governor.stopAndWait()` before releasing
+the engine. Construct plans through `Planner.plan`; directly constructed
+adaptive plans must use `.auto` and a positive target within the saved limit.
+The engine validates these conditions before model allocation. The original
+planner and initializer signatures remain available for existing Swift code.
 
 <a id="pricing-a-prompt-before-you-send-it"></a>
 
@@ -2901,6 +3177,21 @@ before starting a long prompt.
 The library exposes the same `Server` used by the CLI. It listens on loopback
 and provides the [Ollama/OpenAI endpoints](API.md) and [AI SDK gateway](FX.md).
 
+## A thinking phase followed by an answer
+
+`Engine.generatePhased` runs two phases under one generation gate, with
+independent sampling parameters and output budgets. Its `transition` callback
+returns nonempty separator or closure token ids. The engine transfers the
+live state and consumes any pending sampled token exactly once, then reads
+only the suffix needed for the second phase. Both phases obey the caller's
+context and memory limits; cancellation also reaches the second phase.
+
+Callbacks must not re-enter generation or configuration on the same engine.
+The first phase throws on failure; inspect the returned second phase's
+`stats.requestFailure` and `stats.runtimeError` as with ordinary generation.
+Neither phase writes its private working state to the disk tier. Generated
+rows remain ineligible for cold-equivalent reuse by a later conversation.
+
 ## Persistent prefix cache
 
 `Engine.enablePersistentPrefixCache(_:)` adds a disk tier under
@@ -2915,10 +3206,14 @@ let tier = try engine.enablePersistentPrefixCache(
 tier.onEvent = { print("prefix cache disk:", $0) }
 ```
 
-A state is written after its reply completes, for text requests of at least
-`minimumTokens`. A later turn of the same conversation writes its recurrent
-state and only the tokens added since, keeps the previous turn's state for
-regenerating or editing the last reply, and removes older ones. `maxBytes`
+With aligned resume enabled, the generator saves states at completed prefill
+pass boundaries, for text prefixes of at least `minimumTokens`. A restored
+state must match the incoming prompt's boundaries and the producing prefill
+pass size as well as the binary, model and optimization settings. Legacy
+heads with unknown pass sizes are not eligible for aligned state reuse.
+Generated conversation ids can still help render a later prompt, but do not
+certify a numerical checkpoint. Unchanged persisted rows can be referenced
+by later checkpoints instead of being written again. `maxBytes`
 bounds the directory: when it is full, states nobody continued go first, then
 kept previous turns, then conversations, then shared prefixes, least recently
 used first. `maxAge`
@@ -2963,6 +3258,18 @@ request.persistsPrefixState = false
 deleted, given its latest prompt ids, and `tier.clear()` removes everything.
 Each request's `GenStats.persistentPrefix` reports what it restored, wrote and
 reused, and `prefixCache.json()["persistent"]` holds the tier's totals.
+
+`Engine.disablePersistentPrefixCache()` detaches the tier without deleting
+saved files. Detach before encoding a private conversation, because chat
+encoding can consult saved conversation ids. Clear the in-memory prefix
+cache as well when changing ownership or privacy scope.
+
+The native Mac app enables the tier for ordinary, non-thinking conversations
+inside that Home's disposable `.sevra/prefix-cache` directory. Home backups
+exclude this directory. Incognito and conversations with a recorded thinking
+phase do not use the disk tier; Home and privacy transitions clear held
+in-memory state before encoding. An unavailable disk cache falls back to
+ordinary inference.
 
 ## Diagnostics
 
@@ -4296,6 +4603,14 @@ cooldown and exact output checks. A skipped drill fails full acceptance.
 Run this gate without other heavy work. Full model hashing holds the same
 process exclusion lock as inference and must pass before native acceptance.
 
+The battery also requires `elastic-drill --memory-limit-gb 10
+--max-memory-gb 10 --mtp off`. This checks that a small cache recovers after
+pressure even when the lost cache is below the normal growth threshold.
+It preserves both cooldowns, the saved ceiling and exact output. The public
+adaptive-server gate separately checks startup, the production timer,
+status metadata and a completed request; its `--limit-gb` and `--no-elastic`
+options cover fractional limits and explicitly pinned serving.
+
 MTP diagnostics require and price the draft head before Engine allocation,
 including when their `--mtp` option is left at `auto`; explicit `off` is
 incompatible. The full `mtp-check` includes vision and uses an explicit 12 GB
@@ -4340,14 +4655,26 @@ network code is no longer represented only by weights-free catalogue coverage.
 
 ## What runs where
 
+Each push and pull request runs the workflows for what it changes. `ci.yml`
+builds and checks the engine. `sevra-mac.yml` checks the Mac app in
+`apps/macos`, and also runs for engine changes because the app builds on the
+engine. `context-proxies.yml` covers the context proxies, and `docs.yml` the
+documentation and the brain.
+
 | Suite | What it covers | Weights | Where |
 |---|---|---|---|
 | `slotstream-checks` (T0/T1) | prefill schedule, context policy, runtime and cache bounds, governor policy, pull integrity, machine planning, HTTP framing and routing, vision geometry, request shaping and the embedding splice, sampler behaviour, persistent prefix policy, state files, rows shared across turns, eviction and directory maintenance | no | CI + local |
 | `Tools/static_gates.sh` | shell and python syntax, doc parity, fixture digests, manifest digests, planner gates, installer gates | no | CI |
 | `Tools/sampler_gates.sh` | the sampler against a numpy reference, and the governor's branches | no | CI |
 | `Tools/consumer_smoke.sh` | a package outside the repository can import and use the library | no | CI |
+| `Tools/check_sevra_mac.sh` | the Mac app over scripted inference in disposable Homes: runtime, sources and the sandboxed document helper, reviewed changes, knowledge bases, skills, mini-apps, and offscreen checks of the production views | no | CI + local |
+| `Tools/build_sevra_xcode.sh` | the Xcode project builds for Apple silicon, ad hoc signed, with the package versions the checks use and the helper, dbmd and Metal library in the bundle | no | CI |
 | `Tools/verify.sh` | the acceptance battery: provenance, goldens, byte-equality across cache sizes and live resizes, MTP, the memory promise, long context | **yes** | dev Mac |
 | `Tools/api_robustness.sh` | Serving regressions against a live server | **yes** | dev Mac |
+| `Tools/issue21_gate.py` | Chat Completions caps with and without tools, incremental truncated scalar/nullable-string arguments, compatible branch selection and later-turn reuse when reasoning is omitted, terminal usage and process survival | **yes** | dev Mac, already-running server |
+| `Tools/issue21_e2e.py` | issue-21 and OpenAI compatibility gates plus exact conversation replay after restart; saves requests, SSE, commands and cleanup receipts | **yes** | `Tools/verify.sh`, owns one bounded server at a time |
+| `Tools/issue21_long_context.py` | long tool-enabled conversations, advancing disk reuse when reasoning is omitted, and identical prompt/output after a real restart; captures raw SSE and progress logs | **yes** | dev Mac, owns one bounded server at a time |
+| `sevra-mac-checks --real-basics` | the Mac app's basic jobs with the real model: a PDF answer, a reviewed edit, a mini-app and an attached file | **yes** | dev Mac |
 | `optimization-state-check --variant persistent-prefix[-mtp]` | a persisted state restores with the saved representation; a disk hit continues exactly like a memory hit; that continuation, written as reused plus new rows, restores exactly; a regenerated reply resumes the kept parent; a request that keeps its state off disk writes nothing; draft cache included | **yes** | dev Mac |
 | `optimization-state-check --variant shared-prefix[-mtp]` | a prompt's system message is kept during its own prefill at the last 256-token pass end at or before its boundary, forked into memory and written to disk as a shared prefix; a second conversation reuses it from memory and a fresh cache restores it from disk, both continuing exactly like the cold prompt; a prompt sharing only a head with a kept state writes that head; a `sharedPrefixTokens` hint replaces the system boundary; a request kept off disk writes nothing; the shared prefix outlives later turns and is classed after conversations; draft cache included | **yes** | dev Mac |
 | `Tools/shared_prefix_e2e.py` | shared prefixes through `serve`: the first conversation writes its system prompt during prefill; a second one in the same process reuses it from memory; a restarted server restores it from disk; a conversation whose system prompt shares only a head writes that head and its own system prompt; another restarted server reuses those; later turns leave the shared prefixes in place and `prefix-cache` lists them; reused conversations' output ids equal a server without a prefix cache exactly | **yes** | dev Mac |
@@ -4499,10 +4826,21 @@ python3 Tools/coverage_ratchet.py coverage.info
 built with the profiling instrumentation directly and `llvm-cov` reads what it
 wrote; the CLT ships `llvm-profdata` and `llvm-cov`, just not the test modules.
 
-`Tools/coverage-floor.json` sets a minimum for each file. This catches a loss
-of coverage in an existing file even if new code raises the overall
-percentage. Use `--update` only for a deliberate change, with an explanation
-in the commit.
+Coverage is a review aid. Historical per-file percentages do not block CI.
+The job still fails on a build error, a failed instrumented check, or a missing
+or invalid report. It uploads LCOV and puts per-file changes in the job summary.
+`Tools/coverage-floor.json` is the retained comparison snapshot; its historical
+name is kept for compatibility. `--update` deliberately refreshes that snapshot,
+and is not needed to make CI pass.
+
+Inspect uncovered behavior in each change. Memory limits, recovery, cache
+integrity, cancellation, download verification and public API compatibility
+require meaningful boundary and failure checks. Regression checks should fail
+when the bug is reintroduced. All existing correctness suites remain required.
+Context-proxy, CLI and real-model checks run separately and are not included
+in this coverage report. A narrower coverage gate needs reliable measurement
+and a specific risk justification before adoption. See the
+[coverage policy](../db/records/decisions/coverage-as-review-feedback.md).
 
 <a id="where-the-coverage-is-not"></a>
 
@@ -4650,6 +4988,103 @@ them. Run one model process at a time.
 
 Single runs vary by 15% or more on a loaded machine. If two runs disagree by
 that much, say so rather than picking the better one.
+
+## Prompt-speed qualification
+
+The prompt-speed diagnostics use one bounded model process at a time. Check
+reclaimable memory and wait for other model runs and builds to finish first.
+`prompt-checkpoint` checks exact interior reuse, disk arithmetic provenance,
+and admission of the larger automatic scope. The phase checks cover pending
+token ownership, later cold-equivalent reuse, cancellation and private state:
+
+```bash
+.build/release/slotstream optimization-state-check --variant prompt-checkpoint --json
+.build/release/slotstream optimization-state-check --variant generation-phase --json
+.build/release/slotstream optimization-state-check --variant generation-phase-mtp --json
+```
+
+`prompt-scopes-bench` runs warmups and alternating pairs in one loaded engine.
+It excludes paging-contaminated pairs from its timing decision and checks
+identical output, unchanged compute shapes, read bytes and physical memory.
+The separate `scope-larger-family --tokens 8192` numerical gate uses
+`SLOTSTREAM_OPT_WORKSPACE_TILE=1024 SLOTSTREAM_OPT_SCOPE_FRONTIER=1`.
+
+After `Tools/check_sevra_mac.sh`, place the pinned Metal library beside
+`apps/macos/.build/release/sevra-mac-checks`. Its `--real-cache --home <new-dir>`
+check uses synthetic inventory text to test save, unload, reload, incognito
+isolation and thinking-state exclusion. The existing `--real-thinking` and
+`--real-metrics` checks exercise the app's phase transition and recorded
+statistics. Each requires its own new disposable Home; none is a clean
+throughput benchmark.
+
+
+The fused prefill integration adds a scalar Double reference over the actual
+BF16 inputs to the MLX check tier. It exercises causal and sparse masks,
+strided queries, grouped heads and partial tiles, and checks exact fallback
+for decode and unsupported dtypes. The real-model checkpoint diagnostic
+requires fusion to execute and preserves exact warm/cold cache equivalence:
+
+```bash
+.build/release/slotstream optimization-state-check --variant fused-prefill-component --json
+.build/release/slotstream optimization-state-check --variant fused-prefill-checkpoint --json
+```
+
+Run the phase, app-cache and ordinary acceptance gates against the deployed
+settings too. The arithmetic-preserving `integrated` diagnostic remains a
+separate reference test. A kernel upgrade is evaluated against numerical and
+task-quality evidence; changing an old greedy token alone does not establish
+an error. Never regenerate the historical parity goldens with the upgraded
+backend. For timing, retain the old executable and its matching Metal library,
+use alternating paired runs, and separately compare the new executable with
+`SLOTSTREAM_OPT_FUSED_PREFILL=0`. Exclude intervals with paging from speed
+claims while preserving their functional results.
+
+The qualified profile automatically couples fused-workspace accounting with
+larger expert-read groups. Test the default with no optimization environment
+overrides using the `fused-workspace-component`,
+`prefill-opportunity-equality`, `prefill-followup-lifecycle`,
+`prefill-followup-checkpoint`, `prefill-followup-mtp-equality` and
+`prefill-followup-mtp-vision` variants. Equality accepts `--tokens 16387` and
+checks raw logits, every retained state tensor and teacher-forced continuation
+against the original grouping. Run one model process at a time with the
+documented memory preflight. The separate `prefill-opportunity-compute` probe
+requires `SLOTSTREAM_OPPORTUNITY_PROMPT_FILE` and `SLOTSTREAM_PREFILL_CHUNK`;
+it tests physical feasibility at a fixed floor-sized pool, not normal planner
+acceptance or an output-quality guarantee. The catalogue includes the pure
+policy's hardware, dtype, image, shape, key-boundary and explicit-disable
+fallbacks, plus MTP phase lifetimes, shifted draft positions and retained output
+accounting and the tradeoff between write barriers and larger read groups.
+Run `optimization-state-check --variant prefill-followup-mtp-equality --tokens 16387` to require that
+MTP actually exercises larger automatic groups while preserving prompt logits,
+retained state, speculative output and continuation exactly.
+Use `SLOTSTREAM_OPT_FUSED_WORKSPACE=0` for the original main-attention accounting
+and automatic group cap; explicit group controls remain diagnostic tools.
+Preserve excluded timing cells and the fixed trial limit in the
+[initial automatic-policy validation](../db/records/measurements/automatic-prefill-policy-2026-09-21.md)
+and [MTP qualification](../db/records/measurements/mtp-prefill-policy-2026-09-21.md).
+
+`Tools/verify.sh` requires a Python environment with `mlx==0.32.2` and
+`mlx-lm` for the independent current-backend model comparisons. It defaults
+to `.venv/bin/python`; `SLOTSTREAM_REFERENCE_PYTHON` selects another interpreter.
+`Tools/current_backend_reference.py` writes into a new verification directory,
+holds the model lock and enforces a physical-memory ceiling. Its main-layer
+reference reads only requested n-gram rows from the original weights.
+
+Historical MLX 0.31 layer goldens still run with `parity --row-invariant`,
+which selects the original one-row projection arithmetic. The ordinary
+production projections are checked separately against the current Python
+reference. Both comparisons retain the existing numerical tolerance. The old
+draft-head golden is also run and its cross-backend differences are reported
+explicitly as diagnostics; the current-backend draft-head comparison remains
+required. Neither historical fixture is regenerated or relaxed.
+
+`prefix-check` requires live reply equality, reuse and invalidation behavior.
+It also prints the historical experiment that compared arbitrary batch
+schedules. `--legacy-rechunk-bounds` reinstates that experiment's old numerical
+bounds and depth heuristic when reproducing its original protocol. Those
+different arithmetic schedules are not a cache-corruption oracle.
+`prefix-exact-check` remains a required, separate gate for bit-identical raw
+logits and tokens under the actual cache schedule.
 
 
 <!-- ===== docs/TROUBLESHOOTING.md ===== -->
@@ -5110,7 +5545,8 @@ slotstream doctor
 
 A **token** is a small piece of text, often part of a word. `tok/s` means
 tokens per second. The speeds below describe a reply after the model's
-cache has warmed up. The first reply also needs time to load the model and
+cache has warmed up. Prompt-processing measurements appear separately below.
+The first reply also needs time to load the model and
 process your question. Long conversations take longer to process.
 
 Your chip, SSD, and other running apps affect speed. A memory size alone
@@ -5120,7 +5556,10 @@ isn't enough to predict it.
 
 ## Results
 
-These results were measured on real Macs, using different releases and settings:
+These reply-generation results were measured on real Macs, using different
+releases and settings. The leading result remains the latest qualified warm
+decode benchmark. The [0.2.23 calibration attempt](../db/records/measurements/release-speed-calibration-2026-09-22.md)
+has not yet qualified a replacement full-answer baseline:
 
 | Mac | Memory | Reply speed |
 |---|---|---|
@@ -5133,9 +5572,11 @@ These results were measured on real Macs, using different releases and settings:
 | Same M5 Max, 0.2.3, 48 GB target | 128 GB | ~26.9 tok/s |
 | Same M5 Max, 0.2.3, 73 GB target | 128 GB | ~31.5 tok/s |
 
-The latest M5 Pro result is the 0.2.19 release benchmark of the shipping
-build's default against the 0.2.18 forecast (1.10x faster, 14.38 to 15.86 tok/s,
-identical output); the 0.2.16 row is the pre-release benchmark of that release's
+The historical leading M5 Pro result is the 0.2.19 release benchmark of the
+shipping forecast against the 0.2.18 forecast (1.10x faster, 14.38 to 15.86 tok/s,
+identical output). Both arms used smaller prompt passes and disabled prefix
+caching, so more of the same budget held experts. These are controlled
+benchmark settings, not today's automatic configuration; the 0.2.16 row is the pre-release benchmark of that release's
 configuration. The M5 Pro results are from the author; the
 others are community reports. The M5 Max rows are outside the target range:
 the model fits in memory on that Mac, and engines that keep it resident
@@ -5197,6 +5638,61 @@ the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
 
 </details>
 
+## Recent prompt-processing results
+
+Changes shipped in 0.2.23 have separate prompt-processing measurements on the
+48 GB M5 Pro at a 10 GB target. Each row has three clean matched pairs and
+identical generated token IDs within every pair. Times are medians within
+each arm; the percentage is the median of paired reductions, so it need not
+equal the percentage calculated from the two displayed medians.
+
+| Workload | Matched control | Median times, control → enabled | Median paired time reduction |
+|---|---|---|---|
+| 16K inventory prompt, MTP on | Larger-read workspace policy off | 155.22 s → 53.94 s prefill | 65.40% |
+| 2K prose follow-up, MTP off | Prefix checkpoints disabled | 30.73 s → 4.42 s request | 85.62% |
+
+The inventory fixture reads 16,387 synthetic tokens with two MTP drafts and
+emits 11 tokens before its stop token. Both arms use fused attention; the
+control disables fused-workspace accounting. It qualifies the automatic
+read policy before release, not the complete change from the prior release.
+See the [policy qualification](../db/records/measurements/mtp-prefill-policy-2026-09-21.md).
+
+The prose fixture tests the installed release. It reads 2,090 tokens on its
+first request, then 2,092 on the follow-up, reusing 2,048 and emitting the
+same 16 capped output tokens in both arms. The table measures only the
+follow-up. Only one complete two-request pair passes the timing gates, so the
+percentage is not a repeated full-session result. Earlier releases already
+had prefix caching; this is its benefit against disabled checkpoints, not an
+incremental release gain.
+
+The [published-release audit](../db/records/measurements/published-prompt-speed-audit-2026-09-22.md)
+also covers other prompt types, lengths, budgets, MTP settings and disk reuse.
+Short requests show no consistent speedup. Paging-affected long-request
+comparisons stay excluded from qualified timing claims; the larger-memory
+release comparison and kernel-only attribution have too few clean pairs for
+a repeated claim. None of these percentages updates the warm reply-speed
+ranges or establishes a speedup on another Mac.
+
+### Fresh installed-release first reads and exact repeats
+
+The same development Mac and memory target were measured with ordinary
+caching and planner-owned settings. The table separates prompt processing
+from the full repeated request, which includes a capped reply:
+
+| Prompt | Eligible first reads / repeats | First-read prefill range | Median repeated request |
+|---|---:|---:|---:|
+| 2K code | 4 / 3 | 13.86–28.11 s | 2.79 s |
+| 2K prose | 3 / 3 | 14.91–26.51 s | 3.22 s |
+
+The prospective desktop load and process-page-in screen passed for the
+included observations. Several runs had system swap-ins; the stricter global
+no-swap subset is insufficient for a repeated first-read claim. Request
+history changed read batching despite an unchanged memory plan. The linked
+[measurement](../db/records/measurements/release-prefill-2k-2026-09-22.md)
+keeps server-first prompts and later misses separate and preserves every
+excluded request. These observations do not establish a new decode headline,
+a general ETA correction, or a whole-release speedup.
+
 ## Does more memory help?
 
 Within Slotstream, yes: a larger expert cache reduces SSD reads and improves
@@ -5239,7 +5735,7 @@ confidence intervals. Endpoints are rounded outward to whole tok/s.
 | Installed RAM | Estimated warm reply speed | Basis and main inference |
 |---|---|---|
 | 16–<24 GB | ~1–6 tok/s | The M2 mini reported 1.41 tok/s; the M5 Pro-based 16/18 GB simulations estimate about 4 to 5.5 tok/s. The upper end has not been measured on a real Mac in this band. |
-| 24–<48 GB | ~6–16 tok/s | The 32 GB M5 Air reported 6.22 tok/s on 0.2.11; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, the automatic target of a 32 GB Mac, rounded outward to 16. The upper end assumes a comparable chip and SSD; no Mac in this band has been timed on 0.2.19. |
+| 24–<48 GB | ~6–16 tok/s | The 32 GB M5 Air reported 6.22 tok/s on 0.2.11; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, rounded outward to 16. That benchmark used different prompt-workspace and cache settings from today's automatic plan. The upper end assumes a comparable chip and SSD; no Mac in this band has been timed on 0.2.19. |
 | 48–<96 GB | ~15–27 tok/s | The lower reference rounds down from the 48 GB M5 Pro's 15.86 tok/s on 0.2.19 at a 22 GB target, below its own 33.6 GB automatic target, whose larger cache has not been timed; the 0.2.16 result at a 20 GB target was 13.47 tok/s, and the older ~12 tok/s result remains historical evidence. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
 | 96 GB+ | ~20–32 tok/s | The 128 GB M5 Max reported about 21 to 22 tok/s in auto and 31.5 tok/s at a 73 GB process target. Applying this range to other Macs in the band is an estimate. This row is outside Slotstream's target range: the model fits in memory from 96 GB. |
 
@@ -5261,7 +5757,8 @@ guidance, independently of reply speed.
 
 ### Automatic memory plans
 
-The columns describe the current source plans in auto mode, which picks the
+The columns were checked against the published 0.2.23 binary. They describe
+the plans in auto mode, which picks the
 context window along with the target and speculative decoding. The draft file
 is available and no other apps hold memory. Simulated RAM is in decimal GB; a
 Mac's marketed memory capacity can produce a different decimal-GB device
@@ -5284,12 +5781,14 @@ Speculative decoding in the source plans includes 0.2.16's decode lookahead.
 These are allocation plans, not measured performance tiers. The matching
 M5 Pro-based warm-decode estimates without speculative decoding are
 ~4 tok/s at 16 GB, ~5.5 tok/s at 18 GB and ~8 tok/s at 24 GB of simulated
-RAM. At 32 GB the automatic 22 GB target has been measured directly: the M5 Pro
-generates 15.86 tok/s on 0.2.19 with two drafts at about 100 experts per
-layer (14.38 with the 0.2.18 forecast), replacing the earlier estimate of
-about 10 tok/s from the two-draft measurement at 76 experts per layer on
-0.2.14. That assumes the M5 Pro's chip and SSD; the real M5 Air result above
-was slower.
+RAM. The historical 22 GB benchmark measured 15.86 tok/s on 0.2.19 with two
+drafts at about 100 experts per layer (14.38 with the 0.2.18 forecast).
+Although its total budget matches the 32 GB simulation, its smaller prompt
+passes and disabled prefix cache leave a different expert pool. It does not
+measure the current automatic plan. The earlier estimate of about 10 tok/s
+came from a two-draft measurement at 76 experts per layer on 0.2.14; the real
+M5 Air result above was slower. A shared memory budget does not establish
+matching runtime settings or speed.
 
 The 15.86 tok/s result with the corrected forecast at about 100 experts per
 layer, and the 13.47 tok/s result of 0.2.16 at about 88, are measured references,
@@ -5323,7 +5822,10 @@ window without speculative decoding.
 For prompts near 32,768 tokens, the planner estimates about 3 minutes of
 prefill from 24 GB and 6.4 minutes at 16 GB; near 65,536 it estimates
 about 8 minutes from 24 GB. These estimates use the M5 Pro's prefill curve,
-not measurements on those memory sizes. Windows above 128,256 tokens have no
+not measurements on those memory sizes. The planner's historical prefill
+curve has not been recalibrated for the new read policy; the bounded results
+above cannot supply a multiplier for every pass size, prompt and context.
+Windows above 128,256 tokens have no
 calibrated estimate yet. On the development Mac, a full 131,072-token prompt
 took 38 minutes to read at a 16 GB target, and its passes slowed as the prompt
 grew: the planner's estimates, which ignore position, came within a few
@@ -5378,6 +5880,142 @@ release; anything under **Unreleased** is on `main` only.
 Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
+
+## Unreleased
+
+- The development Mac app attaches folders without a whole-tree scan or a
+  file-count cap. Live directory browsing, filename search and scoped content
+  search discover new and renamed files. Bounded continuations retain matches
+  within a file, detect directory changes and expire under resource pressure.
+  Reads can use a returned ID or a relative path inside the selected folder.
+- Edits require a fresh read after an external file change. Attachment errors
+  no longer offer the unrelated Home-reconciliation action, and the assistant
+  is told how local folder access is granted.
+
+- The development Mac app uses automatic speculative decoding when the draft
+  head is available and fits the selected memory budget. Short conversations
+  create earlier reusable checkpoints; longer prompts keep the engine's
+  throughput schedule and all checkpoint provenance checks.
+- Automatic readiness retains a loaded model while you read or compose in
+  the foreground. Background inactivity, memory pressure, power saving and
+  sleep still release it. Reloads within an app session reuse successful pinned
+  verification only when APFS file identity and change timestamps still match.
+  New app launches and changed files require fresh verification. Immediate
+  reloads also wait for macOS's memory-statistics refresh before replanning,
+  preventing stale readings from unnecessarily shrinking the cache.
+- Growing the expert cache preserves slot positions and avoids gathering a
+  second copy of the occupied cache. The live governor also checks temporary
+  replacement memory against the process target and available system memory.
+  When growth cannot fit, it keeps the current warm cache and retries later.
+
+## 0.2.24 - 2026-09-23
+
+- Nullable string tool parameters declared with a JSON Schema type array now
+  stream incrementally and preserve numeric-looking strings, like the equivalent
+  scalar and `anyOf` forms. Truncated arguments retain the ordinary length
+  termination behavior.
+- Conversation splicing checks compatible branches in memory and on disk before
+  choosing a retained transcript. A longer incompatible branch no longer hides
+  a shorter matching conversation. Numerical checkpoint validation is unchanged.
+- The native acceptance battery now runs the issue-21 streaming, branch-reuse
+  and restart suite, including OpenAI compatibility checks.
+
+## 0.2.23 - 2026-09-22
+
+- Long prompts share expert reads across more existing compute passes, reducing
+  repeated reads without changing those passes. The scheduler preserves
+  checkpoint boundaries and chooses smaller groups when memory is tight.
+  See the [read-group and reuse qualification](db/records/measurements/prompt-speed-qualification-2026-09-21.md).
+- The Mac app can reuse compatible prompt checkpoints after a restart for
+  ordinary conversations. Checkpoints record the producing pass size, and
+  read groups stop at the checkpoint actually selected. Thinking and incognito
+  conversations keep their inference state off disk; an unavailable cache
+  falls back to ordinary inference.
+- Thinking and answering continue one live generation session, including
+  **Answer now**, natural completion and a reached thinking budget. The
+  engine reads only the transition suffix instead of reprocessing the thought.
+  [`Engine.generatePhased`](docs/LIBRARY.md#a-thinking-phase-followed-by-an-answer)
+  exposes this behavior with separate sampling and output budgets for each phase.
+- Automatically pair fused-workspace accounting with larger expert-read groups
+  on the qualified M5 Pro text-prefill path, including MTP. Main and draft
+  phases account for their overlapping hidden states. When smaller expert-buffer
+  writes allow substantially larger groups, the engine selects them automatically.
+  Groups adapt to the live memory budget and keep chronological compute passes;
+  other execution paths retain their existing policy. Applications need no new
+  setting. The [MTP measurements](db/records/measurements/mtp-prefill-policy-2026-09-21.md)
+  record the paired gain, tested configuration, memory peaks and remaining limits.
+- The engine and Mac app use the same pinned MLX backend and matching Metal
+  libraries. The measured M5 Pro profile enables upstream fused D256 prefill
+  attention with causal and sparse masks. Other profiles keep backend dispatch;
+  `SLOTSTREAM_OPT_FUSED_PREFILL=0` restores its normal selection on the measured
+  profile too. Disk checkpoints include the backend's arithmetic identity.
+  The [integration measurements](db/records/measurements/fused-prefill-integration-2026-09-21.md)
+  separate the complete backend upgrade from the fusion-only comparison;
+  percentages from different studies must not be combined into a total speedup.
+- Backend qualification keeps historical golden differences visible and adds
+  independent current-backend model comparisons and scalar attention oracles.
+  Exact speculative verification retains one-row projection arithmetic when
+  selected. The installer matches older macOS shaders to the downloaded release,
+  including releases made before this upgrade.
+- Closing response details from the Mac app completes immediately while a
+  thinking response is updating.
+
+- Chat Completions streams long string tool arguments as they are generated,
+  and parsing no longer rescans the whole growing argument at every token.
+  Token-limit truncation now returns `finish_reason: length`, requested usage
+  and the stream terminator, including incomplete required tool calls.
+  Partial arguments are not completed calls and must not be executed.
+- Conversation splicing recognizes earlier assistant replies inside a longer
+  cached descendant, preserving generated reasoning and tool syntax across
+  later turns. The disk cache retains generated IDs alongside its aligned
+  checkpoint so restarting does not drop reasoning from the reconstructed
+  prompt. Preparation checks retain the request's cancellation and
+  deadline between history turns.
+- Serving logs cache reuse decisions, periodic request phases and socket
+  output failures. Prefill progress follows elapsed time and estimates the
+  remaining wait from recent throughput. Ollama tool refusals name the
+  supported OpenAI route.
+- Serving diagnostics follow aligned cache boundaries and typed memory
+  failures. The pressure test interrupts an actual scope spanning several
+  prefill passes, then checks admission refusal and bounded recovery before
+  retrying inference.
+
+- Custom memory limits in the Mac app can exceed the automatic default within
+  the Mac's supported range, with pressure protection and cache resizing still
+  enabled. First switching to Custom keeps the current budget; later switches
+  remember the last custom limit. Settings show current usage and the budget
+  available now separately.
+- `--memory-limit-gb` adds an adaptive process ceiling to the CLI. Existing
+  fixed-cache flags retain their behavior. Diagnostics and budgeted model
+  startup now share the same feasibility check at every context size, and
+  cache resizing updates the reported current budget while retaining the
+  selected ceiling.
+- Adaptive limits survive the server's context assignment and are also
+  available through `launch`. Fixed-profile diagnostics reject the option
+  instead of silently ignoring it. Saved app limits outside the current Mac's
+  range remain visible with a correction prompt.
+- Fractional memory limits retain their precision in launch arguments and
+  reported targets. Response details distinguish the budget used from the
+  saved custom limit, and busy-machine guidance respects the hardware bound.
+- Small caches recover after memory pressure or a busy startup even when the
+  missing amount falls below the normal growth threshold. Recovery still waits
+  for available memory and the existing cooldowns.
+- Swift memory-planning APIs retain their original callable signatures.
+  Directly constructed adaptive plans reject conflicting sources, missing
+  targets and targets above the saved limit before model allocation.
+
+- `slotstream optimization-state-check --variant complete-prompt` passes
+  again. Tiling vision queries changes the rows an image produces, so the
+  cache keys an image prompt on that setting too. When tiling joined the
+  deployed family, the check kept looking up retained image states with the
+  untiled key. It found nothing and stopped at its first image case, so its
+  remaining cases, including every speculative-decoding case, did not run.
+  Generation and the checks now take the key from one function. With them
+  running again, the speculative variant asserts the resume rule's handoff: a
+  state built without the draft head is not continued by a request that uses
+  one. That request reads its whole prompt and answers what a cold read does.
+  The previous handoff is still checked with `SLOTSTREAM_OPT_ALIGNED_RESUME=0`.
+  No engine result changed.
 
 ## 0.2.22 - 2026-09-18
 

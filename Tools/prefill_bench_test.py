@@ -490,6 +490,47 @@ class HarnessTests(unittest.TestCase):
                         {'expected_reused_tokens': {'reference': 0, 'candidate': 0}}]:
             with self.assertRaises(ValueError): serve_bench.prefix_study(protocol | {'prefix_cache':invalid})
 
+    def test_optional_checkpoint_refusals_need_exact_prospective_phase_counts(self):
+        counts = {'warmup': {'reference': 0, 'candidate': 1},
+                  'measured': {'reference': 0, 'candidate': 0}}
+        protocol = {'arms': {'reference': {}, 'candidate': {}},
+                    'prefix_cache': {'expected_reused_tokens': {'reference': 0, 'candidate': 256},
+                                     'expected_checkpoint_refusals': counts}}
+        expected = serve_bench.prefix_study(protocol)
+        stats = {'reusedPrefixTokens': 0, 'prefixCheckpointStores': 1,
+                 'prefixCheckpointErrors': 0, 'prefixCheckpointRefusals': 1}
+        warm = {'prompt_ids': list(range(273)), 'stats': stats}
+        measured = {'prompt_ids': list(range(273)), 'stats': stats | {
+            'reusedPrefixTokens': 256, 'prefixCheckpointForks': 1, 'prefixCheckpointRefusals': 0}}
+        serve_bench.validate_prefix_observation(expected, 'candidate', warm, measured,
+                                                checkpoint_refusals=counts)
+        # Existing protocols still require zero refusals, and a declaration
+        # never excuses errors, missing reuse, failed forks or another count.
+        with self.assertRaises(ValueError):
+            serve_bench.validate_prefix_observation(expected, 'candidate', warm, measured)
+        for phase, key, value in [('warmup', 'prefixCheckpointRefusals', 0),
+                                  ('warmup', 'prefixCheckpointRefusals', 2),
+                                  ('measured', 'prefixCheckpointRefusals', 1),
+                                  ('measured', 'prefixCheckpointRefusals', False),
+                                  ('warmup', 'prefixCheckpointErrors', 1),
+                                  ('measured', 'prefixCheckpointErrors', False),
+                                  ('measured', 'reusedPrefixTokens', 0),
+                                  ('measured', 'prefixCheckpointForks', 0)]:
+            samples = {'warmup': copy.deepcopy(warm), 'measured': copy.deepcopy(measured)}
+            samples[phase]['stats'][key] = value
+            with self.assertRaises(ValueError):
+                serve_bench.validate_prefix_observation(expected, 'candidate', samples['warmup'], samples['measured'],
+                                                        checkpoint_refusals=counts)
+        invalid_counts = [None, {}, {'warmup': counts['warmup']},
+                          counts | {'other': counts['warmup']},
+                          counts | {'warmup': {'candidate': 1}}]
+        invalid_counts += [counts | {'warmup': counts['warmup'] | {'candidate': n}}
+                           for n in [True, -1, 3, 1.0, '1', None]]
+        for invalid in invalid_counts:
+            with self.assertRaises(ValueError):
+                serve_bench.prefix_study(protocol | {'prefix_cache': protocol['prefix_cache'] | {
+                    'expected_checkpoint_refusals': invalid}})
+
     def test_startup_amortization_preserves_first_job_and_pair_exclusions(self):
         def cell(name,start,first,request):
             return {'round':1,'arm':name,'valid':True,'startup_and_warmup_valid':True,

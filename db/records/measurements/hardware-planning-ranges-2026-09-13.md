@@ -2,7 +2,7 @@
 type: measurement
 id: 01m2dtc5nvwg0t0jfr4fra1nx6
 created: 2026-09-13T16:42:28.411325+00:00
-updated: 2026-09-16T21:10:05.330094+00:00
+updated: 2026-09-22T19:23:16.041652+00:00
 summary: Hardware speed planning ranges and inference limits
 date: 2026-09-13
 doc: measurements
@@ -112,3 +112,17 @@ Low and 96 GB+ are unchanged. The ranges remain editorial estimates across
 releases, chips and SSDs, not calibrated intervals; no release-speedup
 multiplier was applied to community reports. Public surfaces: README.md and
 docs/HARDWARE.md.
+## Benchmark-profile clarification, 2026-09-22
+
+The historical throughput remains a valid controlled forecast comparison.
+Its protocol forces a 256-token prefill pass, disables prefix caching, uses
+two drafts, and disables adaptive speculation and the draft-tail experiment.
+That leaves about 100 experts per layer at the 22 GB target. The installed
+0.2.23 normal-cache profile at that target instead plans 2048-token passes
+and about 74 experts per layer. Equal total memory therefore does not mean
+equal runtime settings. The historical figure does not measure the current
+automatic plan of a 32 GB Mac and cannot qualify a release-wide speed ratio.
+
+The new calibration attempt, retained raw observations, stricter prospective
+host-load screen and remaining gaps are recorded in
+[[records/measurements/release-speed-calibration-2026-09-22]].

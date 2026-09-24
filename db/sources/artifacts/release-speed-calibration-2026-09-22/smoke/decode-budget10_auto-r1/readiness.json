@@ -1,0 +1,24 @@
+[
+  {
+    "elapsed": 5.00003807246685e-07,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.167105536,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 2.0327629580860958,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal"
+    },
+    "reclaimable_gb": 30.16982528,
+    "swapouts": 2244980,
+    "known_jobs": [],
+    "model_lock_free": true
+  }
+]

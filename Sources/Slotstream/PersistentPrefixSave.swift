@@ -24,11 +24,11 @@ extension PersistentPrefixCache {
     /// `shared` marks a state written inside a prompt at a boundary other
     /// conversations start with; later saves of conversations that extend it
     /// keep it, and it is classed by how many lineages start with it.
-    package func save(state: Qwen4ExpModel.State, tokens: [Int], shared: Bool = false) -> SaveResult {
-        operations.withLock { saveHoldingOperations(state: state, tokens: tokens, shared: shared) }
+    package func save(state: Qwen4ExpModel.State, tokens: [Int], shared: Bool = false, prefillChunk: Int? = nil) -> SaveResult {
+        operations.withLock { saveHoldingOperations(state: state, tokens: tokens, shared: shared, prefillChunk: prefillChunk) }
     }
 
-    private func saveHoldingOperations(state: Qwen4ExpModel.State, tokens: [Int], shared: Bool) -> SaveResult {
+    private func saveHoldingOperations(state: Qwen4ExpModel.State, tokens: [Int], shared: Bool, prefillChunk: Int?) -> SaveResult {
         let start = RuntimeClock.now()
         var removed = 0, written: Int64 = 0, reused: Int64 = 0, compacted = false
         func finish(_ outcome: SaveOutcome) -> SaveResult {
@@ -61,7 +61,7 @@ extension PersistentPrefixCache {
             plan = try Self.plan(state: state, tokens: tokens, identity: identity.digest, includeDraft: includeDraft)
         } catch { return finish(.skipped("\(error)")) }
         let name = PersistentPrefixFile.fileName(identity: identity.digest, tokens: tokens)
-        if let existing = lock.withLock({ heads.first { $0.file == name } }), existing.tokens == tokens,
+        if let existing = lock.withLock({ heads.first { $0.file == name } }), existing.tokens == tokens, existing.prefillChunk == prefillChunk,
            existing.hasDraft || !includeDraft {
             touch(name)
             return finish(.present)
@@ -180,6 +180,7 @@ extension PersistentPrefixCache {
             var header = plan.header
             header.continued = continued
             header.shared = shared ? true : nil
+            header.prefillChunk = prefillChunk
             header.sequences = sequences
             let temp = temporary(name)
             defer { unlink(temp) }
@@ -198,7 +199,7 @@ extension PersistentPrefixCache {
             written += size
             entry = PersistentPrefixEntry(file: name, identity: identity.digest, tokens: tokens, bytes: size,
                 lastUsed: Self.now(), sequenceBytes: header.sequenceBytes, residentBytes: header.residentBytes,
-                hasDraft: header.draft != nil, continued: continued, shared: shared,
+                hasDraft: header.draft != nil, continued: continued, shared: shared, prefillChunk: prefillChunk,
                 sequences: Dictionary(uniqueKeysWithValues: sequences.map { ($0.name, $0) }))
         } catch {
             if let newSegment {

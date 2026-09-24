@@ -1,0 +1,25 @@
+{
+  "recorded_at": "2026-09-23T03:56:46.869746+00:00",
+  "status": "hypotheses requiring matched experiments; no runtime change or gain claim",
+  "observations": [
+    "2K first-read batches differ by request order at the same 961-slot, 256-compute-row, 10GB plan.",
+    "First 8K code prompt and its exact repeat both report two checkpoint refusals and no prefix checkpoint stores; repeat reuses zero tokens. Runtime prefix budget is 13382 token units."
+  ],
+  "hypotheses": [
+    {
+      "idea": "Release unused allocator cache before optional read-scope pricing when reclaiming it could change the chosen scope.",
+      "basis": "MLX 0.32.2 MetalAllocator::set_cache_limit swaps max_pool_size_ only. Cached buffers are trimmed on malloc. Generate.swift lowers the prefill cache limit before choosing scope, but does not explicitly clear existing cache at that point.",
+      "limits": "Need verify actual retained-cache contribution and matched end-to-end performance; extra releases/reallocations can cost time. Preserve active tensors, output equality and all memory gates."
+    },
+    {
+      "idea": "Choose the deepest affordable existing pass-boundary checkpoint when the final boundary cannot fit beside the active reservation.",
+      "basis": "Released Generate.swift checkpointAt chooses resumeRule.boundaries.max(); storeCheckpoint rejects charge above remaining token-unit allowance. A smaller earlier boundary may fit without rechunking.",
+      "limits": "Must account for stepped allocated capacity, active future sequence bytes, MTP, logits, persistent lineage, useful existing entries and all state-count/physical limits. It may not fit at all for longer contexts. No implementation or benefit established."
+    }
+  ],
+  "analysis_requirements": [
+    "Preserve original automatic verdicts; apply the separately recorded checkout-overlap exclusion in derived analysis.",
+    "Report initial server-first prompts separately from later misses and report actual read-batch arrays; do not treat the configured compute chunk as the actual read batch.",
+    "Keep strict global paging sensitivity separate from the prospective primary process-pageins criterion."
+  ]
+}

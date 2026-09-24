@@ -6,9 +6,16 @@ import UniformTypeIdentifiers
 import Combine
 
 @MainActor final class AppModel: ObservableObject {
-    @Published var snapshot: RuntimeSnapshot?
+    @Published var snapshot: RuntimeSnapshot? { didSet { snapshotVersion &+= 1 } }
+    /// Counts snapshot changes, so views can reuse what they derive from one.
+    private var snapshotVersion = 0
     var selectedID: String { composer.threadID }
     var draft: String { composer.text }
+    /// Parts of the window with their own observation: the sidebar and the
+    /// memory figures change without redrawing the conversation, and the
+    /// conversation streams without redrawing the sidebar.
+    let sidebar = SidebarState()
+    let performanceState = PerformanceState()
     @Published var panel = "" {
         willSet { if panel.isEmpty && !newValue.isEmpty { textSession.rememberFocus() } }
         didSet {
@@ -17,17 +24,21 @@ import Combine
             if oldValue == "App review" && panel != "App review" { closePreview() }
             if panel == "App review" && oldValue != "App review" { Task { await startPreview() } }
             if panel != "Changes" { reviewedChangeSetID = nil }
+            if navigation == nil { sidebar.show(panel: panel) }
+            if panel == "Search" && oldValue != "Search" { search(delay: 0) }
         }
     }
     @Published var applyingChanges = false
     @Published var reviewedChangeSetID: String?
-    @Published var runningApp: MiniAppController?
+    @Published var runningApp: MiniAppController? { didSet { sidebar.show(runningApp: .some(runningApp?.session.name)) } }
     @Published var appPreview: MiniAppController?
     /// Records already saved in each collection an app under review asks for.
     @Published var appReviewCounts: [String: Int] = [:]
     @Published var appFailure: String?
     @Published var skillPreview: (name: String, text: String)?
     var openingApp: String?
+    /// The app being opened, shown until its view exists.
+    @Published var openingAppName: String?
     var seenAppRevisions: [String: Int] = [:]
     var seenAppRevisionsOwner: String?
     @Published var focusRevision = 0
@@ -40,7 +51,10 @@ import Combine
     private var lastAnnouncedState: String?
     private var lastThreadKey: String { "selectedThread." + digestText(homeURL.path) }
 
-    @Published var query = ""
+    @Published var query = "" { didSet { if query != oldValue { search() } } }
+    /// Filled off the main thread, so typing in Search never waits for a scan.
+    @Published private(set) var searchResults: [SearchResult] = []
+    private var searching: (task: Task<Void, Never>, cancellation: Cancellation)?
     @Published var savedDocument: (threadID: String, runID: String, path: String, text: String, citations: [Citation])?
     @Published var approving = false
     @Published var error: String?
@@ -54,7 +68,7 @@ import Combine
     var submitting: Bool { composer.sending }
     var draftSaved: Bool { composer.saved }
     private var composerChanges: AnyCancellable?
-    private var journalChanges: AnyCancellable?
+    private var selectionChanges: AnyCancellable?
     lazy var journalComposer = ComposerSession(store: .init(
         read: { [weak self] _ in
             guard let runtime = self?.runtime else { throw SevraError.unavailable("Your Home is still opening.") }
@@ -107,28 +121,82 @@ import Combine
     var setup: ModelSetup?
     var poll: Task<Void, Never>?
     var onFind: (() -> Void)?
-    var thread: WorkThread? { snapshot?.home.threads.first { $0.id == selectedID } }
+    var thread: WorkThread? { conversation.thread }
+    /// What the window derives from the selected thread in one snapshot. It is
+    /// rebuilt once per snapshot or selection change, not on every read.
+    private struct Conversation {
+        var threadID = ""
+        var version = -1
+        var thread: WorkThread?
+        var messages: [Message] = []
+        /// Each message's ID and UTF-8 size, for choosing the page shown.
+        var messageIDs: [String] = []
+        var byteCounts: [Int] = []
+        var runs: [String: (threadID: String, run: Run)] = [:]
+        var citations: [String: Set<String>] = [:]
+        /// A response is running in another thread.
+        var otherWorking = false
+    }
+    private var conversationCache = Conversation()
+    private var conversation: Conversation {
+        let id = selectedID
+        if conversationCache.threadID == id && conversationCache.version == snapshotVersion { return conversationCache }
+        var next = Conversation(); next.threadID = id; next.version = snapshotVersion
+        if let home = snapshot?.home, let thread = home.threads.first(where: { $0.id == id }) {
+            next.thread = thread
+            next.messages = home.conversationMessages(for: thread).filter { !$0.text.isEmpty }
+            next.messageIDs = next.messages.map(\.id); next.byteCounts = next.messages.map { $0.text.utf8.count }
+            // Home owns the messages a thread continues from, and their runs.
+            let quoted = Set(thread.promotedMessageIDs)
+            var own: [String: Run] = [:], homeRuns: [String: Run] = [:]
+            for run in thread.allRuns { own[run.id] = run }
+            if !quoted.isEmpty, let homeThread = home.threads.first(where: { $0.id == "home" }) { for run in homeThread.allRuns { homeRuns[run.id] = run } }
+            for message in next.messages {
+                let fromHome = quoted.contains(message.id)
+                guard let runID = message.runID, let run = (fromHome ? homeRuns : own)[runID] else { continue }
+                next.runs[message.id] = (fromHome ? "home" : thread.id, run)
+                if let excerpts = run.excerpts, !excerpts.isEmpty { next.citations[message.id] = Set(excerpts.map(\.id)) }
+            }
+        }
+        next.otherWorking = snapshot?.home.threads.contains { $0.id != id && $0.run?.state.terminal == false && $0.run?.state != .needsYou } ?? false
+        conversationCache = next
+        return next
+    }
+    /// The selected conversation's visible messages, oldest first.
+    var conversationMessages: [Message] { conversation.messages }
+    var conversationMessageIDs: [String] { conversation.messageIDs }
+    var conversationByteCounts: [Int] { conversation.byteCounts }
+    /// A response is running in a thread other than the selected one.
+    var otherThreadWorking: Bool { conversation.otherWorking }
+    /// Excerpt IDs a message may cite.
+    func citationIDs(for message: Message) -> Set<String> { conversation.citations[message.id] ?? [] }
     var busy: Bool { thread?.run.map { !$0.state.terminal } ?? false }
     /// A response is running. A run waiting for review is not working.
     var working: Bool { thread?.run.map { !$0.state.terminal && $0.state != .needsYou } ?? false }
     var thinkingEnabled: Bool { thread?.thinking == true }
     /// Thinking stays off for tool turns in this version, so the switch is
     /// unavailable while a source is attached rather than silently ignored.
-    var thinkingUnavailable: Bool { !(snapshot?.attachments[selectedID] ?? []).isEmpty || aiPaused }
+    /// Only a paused Home takes the switch away. A thread with an attached
+    /// source thinks like any other: the person decides, not the attachment.
+    var thinkingUnavailable: Bool { aiPaused }
     var liveThinking: ThinkingObservation? {
         guard let thought = snapshot?.thinking, thought.threadID == selectedID else { return nil }
         return thought
     }
-    func thinkingTrace(for runID: String) -> String? { snapshot?.thinkingTraces[runID] }
     /// Median of the last ten completed thoughts on this Mac; the honest cost line.
+    /// Recomputed when Home changes, not on every streamed update.
     var typicalThinkingSeconds: Double? {
+        let key = (snapshot?.home.revision ?? -1, snapshot?.home.threads.count ?? 0)
+        if let cached = typicalThinking, cached.key == key { return cached.value }
         let recent = (snapshot?.home.threads ?? []).flatMap { thread in
             thread.allRuns.compactMap { run in run.thinking.map { (run.order ?? 0, $0) } }
         }.filter { [.closed, .budget, .answerNow].contains($0.1.ending) && $0.1.tokens > 0 }
             .sorted { $0.0 < $1.0 }.suffix(10).map(\.1.seconds).sorted()
-        guard !recent.isEmpty else { return nil }
-        return recent[recent.count / 2]
+        let value = recent.isEmpty ? nil : recent[recent.count / 2]
+        typicalThinking = (key, value)
+        return value
     }
+    private var typicalThinking: (key: (Int, Int), value: Double?)?
     func toggleThinking() {
         let id = selectedID, next = !thinkingEnabled
         perform { try await $0.setThinking(threadID: id, enabled: next) }
@@ -136,6 +204,55 @@ import Combine
     func answerNow() {
         let id = selectedID
         perform { try await $0.answerNow(threadID: id) }
+    }
+    /// The speed line under each reply and a live speed while one is written.
+    /// Off until a person turns it on, then remembered on this Mac.
+    @Published var showResponseDetails = UserDefaults.standard.bool(forKey: "responseDetails.visible")
+    func toggleResponseDetails() {
+        showResponseDetails.toggle()
+        UserDefaults.standard.set(showResponseDetails, forKey: "responseDetails.visible")
+    }
+    let details = ResponseDetailsPresenter()
+    /// The response the Context panel shows; nil means the thread's latest.
+    @Published var contextRunID: String?
+    var liveGeneration: GenerationObservation? {
+        guard let g = snapshot?.generation, g.threadID == selectedID else { return nil }
+        return g
+    }
+    /// The run that produced a message in this conversation, in the thread
+    /// that owns it: Home owns the messages a thread continues from.
+    func run(for message: Message) -> (threadID: String, run: Run)? { conversation.runs[message.id] }
+    /// "Thought for 42 s" once a run's thinking has ended, including while
+    /// its answer is still arriving and before the run records the round.
+    /// The run's thinking so far, including a finished thought whose answer is
+    /// still arriving. The runtime records a round and replaces its buffer in
+    /// one step, so a recorded thought is never counted twice.
+    func thoughtReceipt(for run: Run) -> ThinkingReceipt? {
+        if let live = snapshot?.thinking, live.runID == run.id, !live.active {
+            let current = ThinkingReceipt(level: ThinkingPolicy.level, budgetTokens: 0, tokens: 0, seconds: live.seconds, ending: live.ending ?? .closed)
+            return run.thinking.map { $0.merged(with: current) } ?? current
+        }
+        return run.thinking
+    }
+    func thoughtSummary(for run: Run) -> String? { thoughtReceipt(for: run)?.summary }
+    func showDetails(_ url: URL, relativeTo rect: NSRect, of view: NSView) {
+        guard let target = ResponseDetailsLink.target(url) else { return }
+        details.show(ResponseDetailsView(model: self, threadID: target.threadID, runID: target.runID), runID: target.runID, relativeTo: rect, of: view)
+    }
+    /// From a SwiftUI control that registered an anchor under this key.
+    func showDetails(threadID: String, runID: String, anchor key: String) {
+        guard let view = details.anchor(key) else { return }
+        details.show(ResponseDetailsView(model: self, threadID: threadID, runID: runID), runID: runID, relativeTo: view.bounds, of: view)
+    }
+    /// The current thread's latest response, from the View menu.
+    func showLatestDetails() {
+        guard let thread, let run = thread.run else { return }
+        showDetails(threadID: thread.id, runID: run.id, anchor: "status")
+    }
+    func inspectContext(threadID: String, runID: String) {
+        details.close()
+        contextRunID = runID
+        panel = "Context"
     }
     var homeURL: URL {
         if let path = ProcessInfo.processInfo.environment["SEVRA_HOME"] { return URL(fileURLWithPath: path) }
@@ -230,8 +347,7 @@ import Combine
         Task { do { try await runtime.acknowledgeRestore(archiveDigest: review.archiveDigest); await refresh() } catch { self.error = error.localizedDescription } }
     }
     func start() {
-        composerChanges = composer.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
-        journalChanges = journalComposer.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        observeComposers()
         setAppearance(appearance)
         let root = homeURL
         let dbmd = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/dbmd")
@@ -245,12 +361,15 @@ import Combine
                     return try SevraRuntime(homeURL: root, dbmd: dbmd, inference: engine, performancePreferences: preferences)
                 }.value
                 if let runtime { endpoint = try await Task.detached { try LocalEndpoint(runtime: runtime) }.value }
-                await runtime?.maintainPerformance()
+                await runtime?.maintainPerformance(userPresent: hasForegroundWindow)
+                await runtime?.prepareModelAhead()
+                // Compiled once; the first app opened later need not wait for it.
+                Task { _ = try? await MiniAppController.rules() }
                 performancePoll = Task { [weak self] in
                     while !Task.isCancelled {
                         try? await Task.sleep(nanoseconds: 2_000_000_000)
                         guard !Task.isCancelled else { break }
-                        await self?.runtime?.maintainPerformance()
+                        await self?.runtime?.maintainPerformance(userPresent: self?.hasForegroundWindow == true)
                     }
                 }
                 await refresh()
@@ -265,13 +384,44 @@ import Combine
             }
         }
     }
+    /// Typing redraws only the composer, which observes its session
+    /// directly. The rest of the window hears about the few composer changes
+    /// it shows: which thread is open, and whether it is ready, sending,
+    /// switching or closing.
+    func observeComposers() {
+        let composer = composer
+        composerChanges = Publishers.MergeMany(
+            composer.$threadID.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            composer.$ready.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            composer.$sending.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            composer.$transitioning.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            composer.$closing.dropFirst().map { _ in () }.eraseToAnyPublisher()
+        ).sink { [weak self] in self?.objectWillChange.send() }
+        selectionChanges = composer.$threadID.combineLatest(composer.$ready).sink { [weak self] id, ready in
+            guard let self else { return }
+            self.sidebar.show(ready: ready)
+            if self.navigation == nil { self.sidebar.show(selectedID: id) }
+        }
+    }
     func refresh() async {
         guard let runtime else { return }
-        let incoming = await runtime.snapshot()
-        if snapshot != incoming { snapshot = incoming }
+        var incoming = await runtime.snapshot()
+        // Memory figures change on every maintenance tick; only the
+        // performance settings show them, so they do not redraw the window.
+        let performance = incoming.performance
+        incoming.performance = nil
+        if performanceState.snapshot != performance { performanceState.snapshot = performance }
+        if snapshot != incoming {
+            snapshot = incoming
+            let rows = (sidebar.open, sidebar.archived)
+            sidebar.update(from: incoming.home)
+            // A new, renamed or archived thread changes what Search can find.
+            if panel == "Search", rows.0 != sidebar.open || rows.1 != sidebar.archived { search(delay: 0) }
+        }
         let setupValue = setup?.snapshot()
         if setupStatus != setupValue { setupStatus = setupValue }
-        if let failure = snapshot?.error, failure != dismissedError { error = failure }
+        // Assigning the same message again would still redraw the window.
+        if let failure = snapshot?.error, failure != dismissedError, error != failure { error = failure }
         syncApps()
         let state = thread?.run?.state.rawValue
         if state != lastAnnouncedState {
@@ -289,15 +439,40 @@ import Combine
         await composer.flush()
     }
     func saveJournal() { Task { _ = await journalComposer.send(); await refresh() } }
+    /// The destination still being opened, while the previous thread's draft
+    /// saves. The sidebar shows it at once; a later click replaces it.
+    private var navigation: (id: String, panel: String)?
+    private var navigating = false
     func navigate(_ id: String, panel destinationPanel: String = "") {
+        navigation = (id, destinationPanel)
+        sidebar.show(selectedID: id, panel: destinationPanel)
+        guard !navigating else { return }
+        navigating = true
         Task {
-            do {
-                guard try await composer.move(to: id) else { return }
-                panel = destinationPanel
-                await refresh()
-                if thread?.mode != .incognito { UserDefaults.standard.set(selectedID, forKey: lastThreadKey) }
-                focusRevision += 1
-            } catch { self.error = error.localizedDescription }
+            defer {
+                navigating = false; navigation = nil
+                sidebar.show(selectedID: selectedID, panel: panel)
+            }
+            while let target = navigation {
+                do {
+                    // Another operation, such as a send, may hold the composer
+                    // briefly. Wait for it instead of dropping the click.
+                    var moved = try await composer.move(to: target.id)
+                    var waits = 0
+                    while !moved, composer.sending || composer.transitioning || composer.closing, waits < 250 {
+                        try? await Task.sleep(nanoseconds: 20_000_000); waits += 1
+                        guard navigation.map({ $0 == target }) == true else { break }
+                        moved = try await composer.move(to: target.id)
+                    }
+                    guard navigation.map({ $0 == target }) == true else { continue }
+                    navigation = nil
+                    guard moved else { break }
+                    panel = target.panel
+                    await refresh()
+                    if thread?.mode != .incognito { UserDefaults.standard.set(selectedID, forKey: lastThreadKey) }
+                    focusRevision += 1
+                } catch { self.error = error.localizedDescription; break }
+            }
         }
     }
     func navigateToReview(_ id: String) {
@@ -341,7 +516,7 @@ import Combine
         }
     }
     func send() {
-        guard !preparingForSleep else { return }
+        guard !preparingForSleep else { notice = "Sevra is preparing for sleep. Send again after your Mac wakes."; return }
         guard setup?.snapshot().busy != true else { error = "Finish model setup before sending."; return }
         guard !busy, !submitting, !attaching, !aiPaused, !composer.transitioning else { return }
         let id = selectedID
@@ -352,6 +527,9 @@ import Combine
                 NotificationCenter.default.post(name: .sevraJumpToLatest, object: nil, userInfo: ["focus": false])
             }
         }
+        // The runtime shows the message before it is on disk; show it here
+        // too, instead of waiting for the next poll.
+        Task { try? await Task.sleep(nanoseconds: 5_000_000); await refresh() }
     }
     func stop() {
         let id = selectedID
@@ -379,6 +557,20 @@ import Combine
             guard self.selectedID == id else { return }
             self.savedDocument = (id, run.id, path, text, run.excerpts ?? []); self.panel = "Artifact"
         }
+    }
+    /// Scans Home for the query off the main thread. A newer query cancels
+    /// an older scan; typing waits briefly so each keystroke does not scan.
+    func search(delay: UInt64 = 60_000_000) {
+        searching?.cancellation.cancel(); searching?.task.cancel()
+        guard panel == "Search", let home = snapshot?.home else { return }
+        let query = self.query, cancellation = Cancellation()
+        let task = Task { [weak self] in
+            if delay > 0, !query.isEmpty { do { try await Task.sleep(nanoseconds: delay) } catch { return } }
+            let results = await Task.detached(priority: .userInitiated) { SearchResult.matching(query, in: home, cancellation: cancellation) }.value
+            guard let self, let results, !cancellation.isCancelled, self.query == query else { return }
+            if self.searchResults != results { self.searchResults = results }
+        }
+        searching = (task, cancellation)
     }
     func dismissError() { dismissedError = error; error = nil }
     func closePanel() { selectedCitation = nil; pendingLink = nil; panel = "" }
@@ -446,9 +638,12 @@ import Combine
         Task {
             do {
                 try await runtime.setPerformancePreferences(performancePreferences)
-                await runtime.maintainPerformance(); await refresh()
+                await runtime.maintainPerformance(userPresent: hasForegroundWindow); await refresh()
             } catch { self.error = error.localizedDescription }
         }
+    }
+    private var hasForegroundWindow: Bool {
+        NSApp.isActive && NSApp.windows.contains { $0.isVisible && !$0.isMiniaturized }
     }
     func prepareForSleep() {
         preparingForSleep = true; setup?.cancel()
@@ -465,7 +660,7 @@ import Combine
         Task {
             await sleepTask?.value; sleepTask = nil
             await runtime?.wake(); preparingForSleep = false
-            await runtime?.maintainPerformance(); await refresh()
+            await runtime?.maintainPerformance(userPresent: hasForegroundWindow); await refresh()
         }
     }
     func setUpModel(download: Bool) {
@@ -490,8 +685,17 @@ import Combine
         guard let runtime else { return }
         Task { do { try await operation(runtime); await refresh() } catch { self.error = error.localizedDescription } }
     }
+    /// A send or thread switch in progress finishes first, so Close and Quit
+    /// never silently do nothing while one runs.
+    private func settleComposer() async {
+        var waits = 0
+        while (composer.sending || composer.transitioning || journalComposer.sending), waits < 250 {
+            try? await Task.sleep(nanoseconds: 20_000_000); waits += 1
+        }
+    }
     func closeWindow() async -> Bool {
         guard composer.ready else { return true }
+        await settleComposer()
         if journalComposer.ready, !(await journalComposer.prepareToClose()) { panel = "Journal"; return false }
         guard await composer.prepareToClose() else { return false }
         if thread?.mode == .incognito {
@@ -508,6 +712,7 @@ import Combine
         if preparingModel {
             setup?.cancel(); error = "Model setup is stopping. Quit again after its file writes finish."; return false
         }
+        await settleComposer()
         if !composer.ready {
             poll?.cancel()
             do { try await runtime?.shutdown() }

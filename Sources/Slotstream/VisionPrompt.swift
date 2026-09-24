@@ -93,7 +93,9 @@ public final class VisionPrompt {
 
     /// Where each image sits in the expanded prompt, and which image it is.
     /// This is the part the prefix cache keys on; it is `Sendable` and holds no
-    /// pixels.
+    /// pixels. A request that pads vision attention or tiles its queries
+    /// produces different rows, so the cache keys it on these segments plus
+    /// that setting, and a lookup with these alone misses its states.
     public let segments: [ImageSegment]
 
     package init(tower: VisionTower, items: [Item], segments: [ImageSegment], hiddenSize: Int) {
@@ -116,6 +118,16 @@ public final class VisionPrompt {
         return "vision-v1:\(tower.featureNamespace):\(item.image.width):\(item.image.height):"
             + "\(p.width):\(p.height):\(p.gridW):\(p.gridH):\(p.patches):\(p.mergedTokens):\(hiddenSize):\(padding)"
             + (queryTile == 0 ? "" : ":query\(queryTile)")
+    }
+
+    /// The segments a request under `optimizations` stores and looks up.
+    /// Vision attention padding and query tiling change the rows an image
+    /// produces, so each carries its own identity, and `segments` alone
+    /// matches only a request that uses neither. Generation and any check
+    /// that looks up what generation retained both use this.
+    package func cacheSegments(for optimizations: InferenceOptimizations) -> [ImageSegment] {
+        cacheSegments(attentionPadding: optimizations.visionAttentionPadding,
+            queryTile: optimizations.visionQueryTile)
     }
 
     package func cacheSegments(attentionPadding: Int, queryTile: Int = 0) -> [ImageSegment] {

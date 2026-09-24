@@ -1,0 +1,31 @@
+# Release calibration evidence
+
+These are preserved observations and prospective protocols, not a new qualified performance baseline. See the canonical measurement record for exclusions and remaining work.
+
+- `decode22/`: the incomplete original 22 GB experiment, including exact requests, wire responses, metrics, resource samples, plans and cleanup receipts.
+- `smoke/`: the separate original functional pilot, excluded from timing calibration.
+- `idle-smoke-v2/` and `idle-smoke-v2-attempt2/`: host-load readiness refusals. Neither started a model.
+- `protocol.json`: original prospective protocol. `idle-protocol-v2.json`: stricter prospective host-load and live-plan protocol. The original verdicts are not rewritten.
+- `population-policies.json`: keeps the incomplete active-Mac population out of idle calibration.
+- `harness/`, `harness-idle-v2/`, `probe.swift`, `fixtures/`: exact source and public prompt fixtures. Original absolute runtime coordinates and hashes remain in the protocols.
+- `historical-0.2.19-protocol.json`: evidence that the old 15.86 tok/s reference used a different workspace and prefix-cache configuration.
+- `analysis.json`, `requests.csv`, `descriptive-summary.json`, `calibration-analysis.json`, `capture-check.json`: regenerated analysis. Descriptive v1 rates are not idle calibration.
+- `manifest.json`: per-file byte hashes, excluding this manifest itself.
+
+Offline review after cloning the repository:
+
+```sh
+cd db/sources/artifacts/release-speed-calibration-2026-09-22
+python3 -m unittest analysis_test.py
+(cd harness-idle-v2 && python3 -m unittest host_load_test.py)
+python3 capture_check.py .
+python3 analyze.py .
+python3 report.py .
+python3 calibration.py .
+```
+
+Review in a disposable copy if byte-for-byte preservation of generated analysis files is required. The capture checker reconstructs visible text and native metrics from the raw wire, and checks token counts and timing arithmetic. Its narrow answer checks do not constitute a general model-quality test.
+
+For a future native run, create a fresh output directory and a new prospective protocol. Resolve the installed release binary, verified build identity and model path on that Mac; compile the included `probe.swift`; relocate the public fixture and harness paths; recompute every input hash; and record the hardware and actual protocol before requests begin. Do not overwrite these coordinates or reuse the observational population as qualified calibration. Run the small functional pilot first, then the declared matrix with one model process at a time and all physical-headroom and host-load checks enabled. The current v2 model-side live-plan integration still needs that pilot.
+
+The 31K extension is frozen but unexecuted. No new hardware result, actual-default throughput claim, full-context calibration or runtime optimization is established by this capture.

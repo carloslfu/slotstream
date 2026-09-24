@@ -83,6 +83,8 @@ public struct MemoryPlan {
     public let slots: Int
     /// Total-process target in GB when the plan came from --memory-gb or auto.
     public let targetGB: Double?
+    /// The user's saved adaptive ceiling, independent of today's smaller target.
+    public let memoryLimitGB: Double?
     public let ramGB: Double
     public let workingSetGB: Double
     /// The RAM share auto was allowed (--max-ram-percent, default 70). Carried
@@ -125,6 +127,7 @@ public struct MemoryPlan {
     /// draft head where the cache still reaches its floor (`DecodeLookahead`).
     public let decodeLookahead: Bool
 
+    /// Preserve the original initializer, including its function-value type.
     public init(
         source: Source, slots: Int, targetGB: Double?,
         ramGB: Double, workingSetGB: Double, ramPercent: Double,
@@ -138,11 +141,37 @@ public struct MemoryPlan {
         maxPrefillWaitMinutes: Double = 30, contextQualification: Bool = false,
         lookaheadReserveBytes: Int = 0, decodeLookahead: Bool = false
     ) {
+        self.init(
+            source: source, slots: slots, targetGB: targetGB,
+            ramGB: ramGB, workingSetGB: workingSetGB, ramPercent: ramPercent,
+            availableGB: availableGB, clamped: clamped, prefillChunk: prefillChunk,
+            prefixCacheTokens: prefixCacheTokens, mtpEnabled: mtpEnabled, visionEnabled: visionEnabled,
+            visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens, notes: notes,
+            simulated: simulated, runtimeAllocationPolicy: runtimeAllocationPolicy, maxPrefillWaitMinutes: maxPrefillWaitMinutes,
+            contextQualification: contextQualification, lookaheadReserveBytes: lookaheadReserveBytes, decodeLookahead: decodeLookahead,
+            memoryLimitGB: nil)
+    }
+
+    public init(
+        source: Source, slots: Int, targetGB: Double?,
+        ramGB: Double, workingSetGB: Double, ramPercent: Double,
+        availableGB: Double?, clamped: Bool,
+        prefillChunk: Int, prefixCacheTokens: Int, mtpEnabled: Bool = false,
+        visionEnabled: Bool = false,
+        visionResidentReserved: Bool = false,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
+        notes: [String], simulated: Bool = false,
+        runtimeAllocationPolicy: RuntimeAllocationPolicy? = nil,
+        maxPrefillWaitMinutes: Double = 30, contextQualification: Bool = false,
+        lookaheadReserveBytes: Int = 0, decodeLookahead: Bool = false,
+        memoryLimitGB: Double?
+    ) {
         self.lookaheadReserveBytes = max(0, lookaheadReserveBytes)
         self.decodeLookahead = decodeLookahead
         self.source = source
         self.slots = slots
         self.targetGB = targetGB
+        self.memoryLimitGB = memoryLimitGB
         self.ramGB = ramGB
         self.workingSetGB = workingSetGB
         self.ramPercent = ramPercent
@@ -186,7 +215,8 @@ public struct MemoryPlan {
             runtimeAllocationPolicy: runtimeAllocationPolicy,
             maxPrefillWaitMinutes: configuration.maxPrefillWaitMinutes,
             contextQualification: configuration.qualification,
-            lookaheadReserveBytes: lookaheadReserveBytes, decodeLookahead: decodeLookahead)
+            lookaheadReserveBytes: lookaheadReserveBytes, decodeLookahead: decodeLookahead,
+            memoryLimitGB: memoryLimitGB)
     }
     /// Seconds a prompt filling the whole context takes before its first
     /// token, priced through the prefill schedule this plan runs.
@@ -210,9 +240,12 @@ public struct MemoryPlan {
         }
         if let t = targetGB {
             let hint = source == .auto
-                ? "   (explicit target: --memory-gb N; auto RAM share: --max-ram-percent P)"
+                ? "   (adaptive limit: --memory-limit-gb N; fixed cache: --memory-gb N)"
                 : ""
             l.append(String(format: "  target: %.1f GB total process budget, not a RAM usage goal%@", t, hint))
+        }
+        if let limit = memoryLimitGB {
+            l.append(String(format: "  limit:  %.1f GB; cache adapts to available memory", limit))
         }
         if fullyResident {
             l.append(String(
@@ -337,7 +370,10 @@ public struct MemoryPlan {
             "est_prefill_tok_s": Planner.estPrefillTokS(chunk: prefillChunk),
         ]
         if let a = availableGB, a.isFinite { d["device_available_gb"] = tenth(a) }
-        if let t = targetGB { d["target_gb"] = tenth(t) }
+        // Policy values must round-trip exactly. Rounding 9.99 to 10 made a
+        // bounded adaptive plan appear to exceed its saved ceiling.
+        if let t = targetGB { d["target_gb"] = t }
+        if let limit = memoryLimitGB { d["memory_limit_gb"] = limit }
         if let headroom = plannedHeadroomGB { d["planned_headroom_gb"] = tenth(headroom) }
         if let policy = runtimeAllocationPolicy {
             d["runtime_prefix_cache_enabled"] = policy.prefixCacheEnabled
@@ -360,7 +396,8 @@ extension MemoryPlan {
             maxContextTokens: maxContextTokens, notes: notes + extra,
             simulated: simulated, runtimeAllocationPolicy: runtimeAllocationPolicy,
             maxPrefillWaitMinutes: maxPrefillWaitMinutes, contextQualification: contextQualification,
-            lookaheadReserveBytes: lookaheadReserveBytes, decodeLookahead: decodeLookahead)
+            lookaheadReserveBytes: lookaheadReserveBytes, decodeLookahead: decodeLookahead,
+            memoryLimitGB: memoryLimitGB)
     }
 }
 
@@ -397,7 +434,8 @@ public enum Planner {
                 ? ["prefill and prefix retention reservations match the explicit runtime controls"] : []),
             simulated: p.simulated, runtimeAllocationPolicy: policy,
             maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification,
-            lookaheadReserveBytes: p.lookaheadReserveBytes, decodeLookahead: p.decodeLookahead)
+            lookaheadReserveBytes: p.lookaheadReserveBytes, decodeLookahead: p.decodeLookahead,
+            memoryLimitGB: p.memoryLimitGB)
     }
 
     /// Non-pool footprint: resident weights, the 256 MB n-gram payload plus
@@ -638,6 +676,13 @@ public enum Planner {
         max(1.5, 0.05 * ramGB)
     }
 
+    /// Supported adaptive budget in decimal GB. Metal supplies a recommendation,
+    /// not current free RAM. Keep the existing GPU and OS margins; availability
+    /// is checked separately. This is not a measured performance optimum.
+    public static func maximumMemoryLimitGB(ramGB: Double, workingSetGB: Double) -> Double {
+        max(0, min(workingSetGB - 2, ramGB - availabilitySlackGB(ramGB: ramGB)))
+    }
+
     /// The share of RAM auto may target before other limits apply. Overridable
     /// per run with --max-ram-percent. It bounds the user's RAM share separately
     /// from the model-specific operating default and the physical constraints.
@@ -774,6 +819,7 @@ public enum Planner {
         case on, off, auto
     }
 
+    /// Preserve the original callable signature for embedding clients.
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
@@ -784,13 +830,32 @@ public enum Planner {
         maxContextTokens: Int = ContextPolicy.defaultTokens,
         simulated: Bool = false
     ) throws -> MemoryPlan {
-        try plan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+        try plan(
+            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            memoryLimitGB: nil, ramGB: ramGB, workingSetGB: workingSetGB,
+            availableGB: availableGB, ramPercent: ramPercent, mtp: mtp,
+            mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens, simulated: simulated)
+    }
+
+    public static func plan(
+        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?, memoryLimitGB: Double?,
+        ramGB: Double? = nil, workingSetGB: Double? = nil,
+        availableGB: Double? = nil, ramPercent: Double? = nil,
+        mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        vision: VisionMode = .auto, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
+        simulated: Bool = false
+    ) throws -> MemoryPlan {
+        try plan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB, memoryLimitGB: memoryLimitGB,
             ramGB: ramGB, workingSetGB: workingSetGB, availableGB: availableGB, ramPercent: ramPercent,
             mtp: mtp, mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
             visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens,
             simulated: simulated, qualification: false, runtimePolicy: nil)
     }
 
+    /// Preserve the original callable signature for embedding clients.
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
@@ -801,7 +866,26 @@ public enum Planner {
         maxContextTokens: Int = ContextPolicy.defaultTokens,
         simulated: Bool = false, runtimePolicy: RuntimeAllocationPolicy?
     ) throws -> MemoryPlan {
-        try plan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+        try plan(
+            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            memoryLimitGB: nil, ramGB: ramGB, workingSetGB: workingSetGB,
+            availableGB: availableGB, ramPercent: ramPercent, mtp: mtp,
+            mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens, simulated: simulated,
+            runtimePolicy: runtimePolicy)
+    }
+
+    public static func plan(
+        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?, memoryLimitGB: Double?,
+        ramGB: Double? = nil, workingSetGB: Double? = nil,
+        availableGB: Double? = nil, ramPercent: Double? = nil,
+        mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        vision: VisionMode = .auto, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
+        simulated: Bool = false, runtimePolicy: RuntimeAllocationPolicy?
+    ) throws -> MemoryPlan {
+        try plan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB, memoryLimitGB: memoryLimitGB,
             ramGB: ramGB, workingSetGB: workingSetGB, availableGB: availableGB, ramPercent: ramPercent,
             mtp: mtp, mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
             visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens,
@@ -821,6 +905,7 @@ public enum Planner {
         case budgetShare
     }
 
+    /// Preserve the original callable signature for embedding clients.
     public static func plan(
         expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
         ramGB: Double? = nil, workingSetGB: Double? = nil,
@@ -833,8 +918,30 @@ public enum Planner {
         decodeLookahead: DecodeLookaheadPlanning = .automatic,
         retention: ContextRetention = .automatic
     ) throws -> MemoryPlan {
+        try plan(
+            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            memoryLimitGB: nil, ramGB: ramGB, workingSetGB: workingSetGB,
+            availableGB: availableGB, ramPercent: ramPercent, mtp: mtp,
+            mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens, simulated: simulated,
+            qualification: qualification, runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead,
+            retention: retention)
+    }
+
+    public static func plan(
+        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?, memoryLimitGB: Double?,
+        ramGB: Double? = nil, workingSetGB: Double? = nil,
+        availableGB: Double? = nil, ramPercent: Double? = nil,
+        mtp: MTPMode = .off, mtpAvailable: Bool = false,
+        vision: VisionMode = .auto, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false,
+        maxContextTokens: Int = ContextPolicy.defaultTokens,
+        simulated: Bool = false, qualification: Bool, runtimePolicy: RuntimeAllocationPolicy? = nil,
+        decodeLookahead: DecodeLookaheadPlanning = .automatic,
+        retention: ContextRetention = .automatic
+    ) throws -> MemoryPlan {
         func resolve(_ floor: Int) throws -> MemoryPlan {
-            try resolvePlan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            try resolvePlan(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB, memoryLimitGB: memoryLimitGB,
                 ramGB: ramGB, workingSetGB: workingSetGB, availableGB: availableGB, ramPercent: ramPercent,
                 mtp: mtp, mtpAvailable: mtpAvailable, vision: vision, visionAvailable: visionAvailable,
                 visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens,
@@ -858,7 +965,7 @@ public enum Planner {
     }
 
     private static func resolvePlan(
-        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?,
+        expertsPerLayer: Int?, poolGB: Double?, memoryGB: Double?, memoryLimitGB: Double? = nil,
         ramGB: Double?, workingSetGB: Double?,
         availableGB: Double?, ramPercent: Double?,
         mtp: MTPMode, mtpAvailable: Bool,
@@ -906,8 +1013,10 @@ public enum Planner {
                 ? prefixCacheCostGB(tokens: retentionFloor) - prefixCacheCostGB(tokens: ContextPolicy.defaultTokens) : 0)
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
-        let avail = availableGB ?? deviceAvailableGB()
-        let pct = ramPercent ?? defaultRAMPercent
+        // A simulated machine with no availability constraint must never
+        // borrow today's host reading. Real planning still observes the host.
+        let avail = availableGB ?? (simulated ? .infinity : deviceAvailableGB())
+        let pct = ramPercent ?? (memoryLimitGB == nil ? defaultRAMPercent : 100)
         guard ram.isFinite, ram > 0 else {
             throw PlanError("RAM must be a finite number > 0")
         }
@@ -927,6 +1036,14 @@ public enum Planner {
         }
         var notes: [String] = []
         var clamped = false
+        if let limit = memoryLimitGB {
+            guard limit.isFinite, limit >= minMemoryGB else {
+                throw PlanError("--memory-limit-gb must be finite and at least \(minMemoryGB) GB")
+            }
+            guard expertsPerLayer == nil, poolGB == nil, memoryGB == nil else {
+                throw PlanError("--memory-limit-gb cannot be combined with a fixed memory or cache size")
+            }
+        }
         if ramPercent != nil, expertsPerLayer != nil || poolGB != nil || memoryGB != nil {
             notes.append("--max-ram-percent ignored (it only bounds auto; an explicit memory knob is already the target)")
         }
@@ -1022,9 +1139,12 @@ public enum Planner {
                 simulated: simulated, contextQualification: qualification,
                 lookaheadReserveBytes: fixedLookaheadBytes
                     + (lookaheadOn && retainedLookahead == nil ? DecodeLookahead.reserveBytes(correctionBytes: automaticCorrectionBytes) : 0),
-                decodeLookahead: lookaheadOn)
+                decodeLookahead: lookaheadOn, memoryLimitGB: memoryLimitGB)
             let resolved = try runtimePolicy.map { try applyingRuntimePolicy(base, policy: $0) } ?? base
             let bytes = resolved.memoryLedger.expectedPeakBytes
+            if memoryLimitGB != nil {
+                try validateMemoryBudget(resolved, availableGB: avail)
+            }
             if maxContextTokens > ContextPolicy.defaultTokens || visionResidentReserved {
                 if let target, Double(bytes) > target * 1e9 {
                     throw PlanError("insufficient_memory: context, resident components, minimum pool and prefill workspace exceed the total-memory target")
@@ -1103,7 +1223,11 @@ public enum Planner {
         let mtpWanted = mtp != .off && mtpAvailable
             && (mtp == .on || maxContextTokens <= ContextPolicy.mtpLimit)
         func autoRaw(ceilingGB: Double) -> (Double, Bool) {
-            let c = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: ceilingGB)
+            var c = autoTargetGB(ramGB: ram, workingSetGB: ws, ramPercent: pct,
+                ceilingGB: memoryLimitGB ?? ceilingGB)
+            if memoryLimitGB != nil {
+                c = min(c, maximumMemoryLimitGB(ramGB: ram, workingSetGB: ws))
+            }
             var raw = c
             var didClamp = false
             if let a = avail, a - availabilitySlackGB(ramGB: ram) < raw {
@@ -1127,12 +1251,18 @@ public enum Planner {
         // `ceiling` is what this machine's auto would pick unclamped (the
         // notes below compare against it); the knee itself rises by the
         // head's cost when the head is on.
-        let kneeGB = usefulCeilingGB + (mtpOn ? mtpTotalCharge : 0) + windowChargeGB
-        let ceiling = autoTargetGB(
+        let kneeGB = memoryLimitGB ?? (usefulCeilingGB + (mtpOn ? mtpTotalCharge : 0) + windowChargeGB)
+        var ceiling = autoTargetGB(
             ramGB: ram, workingSetGB: ws, ramPercent: pct, ceilingGB: kneeGB)
+        if memoryLimitGB != nil {
+            ceiling = min(ceiling, maximumMemoryLimitGB(ramGB: ram, workingSetGB: ws))
+        }
         let raw: Double
         (raw, clamped) = autoRaw(ceilingGB: kneeGB)
         let target = max(minMemoryGB, raw)
+        if memoryLimitGB != nil, raw < minMemoryGB {
+            throw PlanError("insufficient_memory: available memory cannot fit the minimum model budget with safety headroom")
+        }
         if mtpOn, target - mtpTotalCharge - contextCharge < minMemoryGB { mtpOn = false }
         // Exactly one note tells the story of why the target is what it is.
         if raw < minMemoryGB, ceiling < minMemoryGB {
@@ -1143,17 +1273,25 @@ public enum Planner {
             notes.append(String(
                 format: "only %.1f GB of %.0f GB RAM is reclaimable right now — running at the %.1f GB floor anyway; expect heavy paging until other apps release memory",
                 avail ?? 0, ram, minMemoryGB))
+        } else if clamped, let limit = memoryLimitGB {
+            var note = String(format: "using up to %.1f GB now; the cache can grow back toward %.1f GB when memory is available", target, ceiling)
+            if ceiling < limit {
+                note += String(format: "; your %.1f GB limit is bounded by this Mac's supported budget and RAM share", limit)
+            }
+            notes.append(note)
+        } else if let limit = memoryLimitGB, ceiling < limit {
+            notes.append(String(format: "your %.1f GB limit is bounded to %.1f GB by this Mac's supported budget and RAM share", limit, ceiling))
         } else if clamped {
             notes.append(String(
                 format: "only %.1f GB of %.0f GB RAM is reclaimable right now (other apps hold the rest) — sized down from the usual %.1f GB; close apps and restart for full speed, or force a size with --memory-gb",
                 avail ?? 0, ram, ceiling))
-        } else if ceiling >= kneeGB,
+        } else if memoryLimitGB == nil, ceiling >= kneeGB,
             min((pct / 100) * ram, ws - 2.0) > 1.25 * kneeGB
         {
             // This machine could hold more and auto declined. Say so, or it
             // reads as slotstream failing to use the hardware.
             notes.append(String(
-                format: "auto's default memory ceiling is %.1f GB for this model%@, based on diminishing returns in development-Mac tests; other hardware may benefit from more. We revise defaults using real measurements; --memory-gb N selects a larger fixed target",
+                format: "auto's default memory ceiling is %.1f GB for this model%@, based on diminishing returns in development-Mac tests; other hardware may benefit from more. We revise defaults using real measurements; --memory-limit-gb N selects a larger adaptive budget",
                 kneeGB - windowChargeGB,
                 windowChargeGB > 0
                     ? String(format: " plus %.1f GB for the %d-token context window", windowChargeGB, maxContextTokens) : ""))
@@ -1169,6 +1307,7 @@ public enum Planner {
     /// Resolve the first image against the existing policy, before allocating
     /// its tower. The source and target remain the user's original decision.
     public static func loadingVision(_ p: MemoryPlan) throws -> MemoryPlan {
+        try validateAdaptiveMemoryPolicy(p)
         guard p.visionEnabled else { throw PlanError("vision is disabled") }
         if p.visionResidentReserved { return p }
         var sized: MemoryPlan
@@ -1231,6 +1370,7 @@ public enum Planner {
             notes: notes, simulated: p.simulated,
             runtimeAllocationPolicy: p.runtimeAllocationPolicy,
             maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification,
-            lookaheadReserveBytes: p.lookaheadReserveBytes, decodeLookahead: p.decodeLookahead)
+            lookaheadReserveBytes: p.lookaheadReserveBytes, decodeLookahead: p.decodeLookahead,
+            memoryLimitGB: p.memoryLimitGB)
     }
 }

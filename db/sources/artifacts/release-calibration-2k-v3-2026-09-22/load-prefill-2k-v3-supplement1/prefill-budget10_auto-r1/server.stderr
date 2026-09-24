@@ -1,0 +1,25 @@
+slotstream memory plan (--memory-gb)
+  device: 52 GB RAM (42.7 GB reclaimable now), 40.2 GB Metal working set
+  target: 10.0 GB total process budget, not a RAM usage goal
+  cache:  ~20 of 512 experts per layer  (961 global slots = 2.7 GB pool)
+  plan:   ~9.0 GB full-workload envelope, ~4 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 2.7 GB expert cache at load; 6.3 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 13382 tokens across 4 conversations (~0.7 GB), so a follow-up turn re-prefills only what is new
+  window: automatic for this Mac, 32768 tokens: the largest of 32768, 65536, 131072, 262144 that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time without an unmeasured cache tradeoff; --max-context N chooses another window up to 262144
+engine ready in 0.8s: expert cache ~20/512 per layer (961 global slots = 2.7 GB), eos [248044, 248046]
+elastic: off — an explicit size is pinned; omit the size flag for elastic auto
+[10:47:38 PM] request 036922C2 /api/generate: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[10:47:38 PM] prefill: reading 2061 prompt tokens, ~24 s to the first token at this plan (follow-up turns read only what is new)
+[10:47:51 PM] prefill: 2048/2061 tokens (99%), 158 tok/s recently, ~0 s left at this rate
+[10:47:52 PM] prefill: done, 2061 tokens in 14 s (149 tok/s)
+[10:47:53 PM] request 036922C2 /api/generate: 15 s elapsed, decode cache growth
+[10:47:55 PM] request 036922C2 /api/generate: ended after 16.1 s
+[10:48:12 PM] request 47334C75 /api/generate: accepted
+prefix cache: reusing 2061/2061 tokens from memory
+[10:48:14 PM] request 47334C75 /api/generate: ended after 2.3 s
+[10:48:14 PM] stopping: asked to stop (SIGTERM)

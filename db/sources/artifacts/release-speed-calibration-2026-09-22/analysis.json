@@ -1,0 +1,15 @@
+{
+  "complete_requests": 27,
+  "observational_or_pilot_requests": 27,
+  "failed_sessions": [
+    {
+      "path": "idle-smoke-v2/decode-budget10_auto-r1/failure.json",
+      "error": "readiness timeout; no model launched",
+      "type": "TimeoutError",
+      "completed_requests": 0
+    }
+  ],
+  "decode": [],
+  "profile_summaries": [],
+  "prefill": []
+}

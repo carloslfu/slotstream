@@ -168,7 +168,7 @@ extension Planner {
             do {
                 // The machine's tier decides, not how busy it is right now.
                 let value = try plan(expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
-                    memoryGB: request.memoryGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
+                    memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                     availableGB: .infinity, ramPercent: request.maxRAMPercent,
                     mtp: request.mtp, mtpAvailable: mtpAvailable,
                     vision: request.vision, visionAvailable: visionAvailable,
@@ -230,7 +230,7 @@ extension Planner {
     ) throws -> (plan: MemoryPlan, automatic: AutomaticContextWindow?) {
         func live(_ window: Int, _ retention: ContextRetention) throws -> MemoryPlan {
             try plan(expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
-                memoryGB: request.memoryGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
+                memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                 availableGB: device.availableGB, ramPercent: request.maxRAMPercent,
                 mtp: request.mtp, mtpAvailable: mtpAvailable,
                 vision: request.vision, visionAvailable: visionAvailable,

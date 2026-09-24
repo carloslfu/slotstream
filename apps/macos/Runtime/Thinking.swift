@@ -2,7 +2,8 @@ import Foundation
 import CryptoKit
 
 /// Optional reasoning before an answer. Off unless a person turns it on for a
-/// thread; never joined to a tool turn until that combination is measured.
+/// thread, and then it applies to every turn of that thread, tool turns
+/// included: an attached source does not decide for the person.
 /// Bounded by a token budget, and a person can end it early with Answer now.
 /// The trace is working state: never persisted, never admitted to memory and
 /// never treated as evidence. Only this receipt is recorded with the run.
@@ -51,28 +52,68 @@ public enum ThinkingPolicy {
         if total < 60 { return "\(total) s" }
         return total % 60 == 0 ? "\(total / 60) min" : "\(total / 60) min \(total % 60) s"
     }
+    /// The end of a running thought as one flowing passage, for the few lines
+    /// shown while Sevra thinks: whitespace and line breaks collapse, Markdown
+    /// emphasis marks drop, and a long thought starts at a word with an ellipsis.
+    public static func preview(_ text: String, limit: Int = 480) -> String {
+        let recent = text.suffix(limit * 4)
+        let flat = recent.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            .replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "__", with: "").replacingOccurrences(of: "`", with: "")
+        guard flat.count > limit || recent.count < text.count else { return flat }
+        var cut = String(flat.suffix(limit))
+        if let space = cut.firstIndex(of: " ") { cut = String(cut[cut.index(after: space)...]) }
+        return "…" + cut
+    }
 }
 
 public struct ThinkingReceipt: Codable, Sendable, Equatable {
+    /// `offForTools` is historical: thinking used to be dropped whenever a
+    /// source was attached. Receipts recorded then still decode.
     public enum Ending: String, Codable, Sendable { case closed, budget, answerNow, stopped, offForTools }
     public var level: String
     public var budgetTokens: Int
     public var tokens: Int
     public var seconds: Double
     public var ending: Ending
-    public init(level: String, budgetTokens: Int, tokens: Int, seconds: Double, ending: Ending) {
-        self.level = level; self.budgetTokens = budgetTokens; self.tokens = tokens; self.seconds = seconds; self.ending = ending
+    /// Thoughts in this run: a job that uses tools thinks before each model
+    /// round. Absent means one, as every receipt recorded before this said.
+    public var steps: Int?
+    public init(level: String, budgetTokens: Int, tokens: Int, seconds: Double, ending: Ending, steps: Int? = nil) {
+        self.level = level; self.budgetTokens = budgetTokens; self.tokens = tokens; self.seconds = seconds; self.ending = ending; self.steps = steps
     }
     public static let offForTools = ThinkingReceipt(level: ThinkingPolicy.level, budgetTokens: 0, tokens: 0, seconds: 0, ending: .offForTools)
-    /// One plain line for the run status area.
+    /// The whole run's thinking after one more round: time and tokens add up,
+    /// and the latest round says how thinking ended.
+    public func merged(with next: ThinkingReceipt) -> ThinkingReceipt {
+        var total = next
+        total.tokens = tokens + next.tokens
+        total.seconds = seconds + next.seconds
+        total.steps = (steps ?? 1) + (next.steps ?? 1)
+        return total
+    }
+    private var time: String {
+        let described = ThinkingPolicy.describe(seconds)
+        guard let steps, steps > 1 else { return described }
+        return described + " over \(steps) steps"
+    }
+    /// One plain line for the details and the run status area.
     public var line: String {
-        let time = ThinkingPolicy.describe(seconds)
         switch ending {
         case .closed: return "Thought for \(time) before answering."
         case .budget: return "Thought for \(time), up to its limit, then answered."
         case .answerNow: return "Thought for \(time), then answered when you asked."
-        case .stopped: return "Thinking stopped after \(time)."
+        case .stopped: return "Thinking stopped after \(ThinkingPolicy.describe(seconds))."
         case .offForTools: return "Thinking is off while a source is attached."
+        }
+    }
+    /// The short line above a reply, for example "Thought for 42 s".
+    public var summary: String {
+        switch ending {
+        case .closed: return "Thought for \(time)"
+        case .budget: return "Thought for \(time), up to its limit"
+        case .answerNow: return "Thought for \(time), then answered when you asked"
+        case .stopped: return "Thinking stopped after \(ThinkingPolicy.describe(seconds))"
+        case .offForTools: return "Thinking was off while a source was attached"
         }
     }
 }
@@ -95,7 +136,9 @@ public struct ThinkingObservation: Sendable, Equatable {
     public var text: String
     public var seconds: Double
     public var active: Bool
-    public init(threadID: String, runID: String, text: String, seconds: Double, active: Bool) {
-        self.threadID = threadID; self.runID = runID; self.text = text; self.seconds = seconds; self.active = active
+    /// How the thought ended, once it has.
+    public var ending: ThinkingReceipt.Ending?
+    public init(threadID: String, runID: String, text: String, seconds: Double, active: Bool, ending: ThinkingReceipt.Ending? = nil) {
+        self.threadID = threadID; self.runID = runID; self.text = text; self.seconds = seconds; self.active = active; self.ending = ending
     }
 }

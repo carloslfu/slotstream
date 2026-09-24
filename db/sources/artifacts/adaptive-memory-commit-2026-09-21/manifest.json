@@ -1,0 +1,93 @@
+{
+  "archive_sha256": "18d7b12e146ffc57d1807fd9365281549b6bd3e8ab81bae1a268317a50324525",
+  "members": {
+    "memory-commit-build.log": {
+      "bytes": 24612,
+      "sha256": "d84f832ec8bc37385faa220cc1a6bf696b43960f712eea73766fcce868e00b9d"
+    },
+    "memory-commit-proxy.log": {
+      "bytes": 355,
+      "sha256": "b625d8064bb536188c8e617287700766f04c43e80def23775eeac550d202e0f0"
+    },
+    "memory-commit-cli.json": {
+      "bytes": 1398049,
+      "sha256": "e6262bf064d6e51a6dbd9c09326179ee2548d53aec7483d1d8fa139623d89325"
+    },
+    "memory-commit-cli.log": {
+      "bytes": 198,
+      "sha256": "04e686e8dc784975d83020631cd2e4f122e5764752585a5e81a01212040b56fd"
+    },
+    "memory-commit-t0.json": {
+      "bytes": 2946928,
+      "sha256": "7485bbb91dc1e7536bff9936390b3136f132ca255a2857a4bfeb6ab272d05f67"
+    },
+    "memory-commit-t0.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "memory-commit-server.log": {
+      "bytes": 600,
+      "sha256": "625d7228c3d8fc648cb5e008101fe5f7da2cd47d58210919c83125bbdecd2640"
+    },
+    "memory-commit-build-preflight.json": {
+      "bytes": 6521,
+      "sha256": "668cff1a8c041690251dd8a8da7bbb9bdd4f93b44a0f31cb72e7f0cd8e863e2d"
+    },
+    "memory-commit-live-preflight.json": {
+      "bytes": 6693,
+      "sha256": "283438cbe1f7f76ba997afee66ecb942ffdfe0e934b92da3315199a4661ea5be"
+    },
+    "memory-commit-verify-tests.log": {
+      "bytes": 121,
+      "sha256": "ffdd301fcc491fdbf9ec4e6ede500561833c362515f7a5ef4184d21b443589bd"
+    },
+    "memory-commit-planner-tests.log": {
+      "bytes": 234,
+      "sha256": "79ca3876dcdbfad6fe1f342ffc33324511d5fec1fbe0ab050ded1a36bf010d72"
+    },
+    "memory-commit-planner-tests-corrected.log": {
+      "bytes": 105,
+      "sha256": "aae0564a4ab5a5aef053a971054b0ce4daf7b9443aa69c06a9f22b2ca1f50f74"
+    },
+    "memory-commit-consumer-tests.log": {
+      "bytes": 102,
+      "sha256": "3d72a0922cd24aa612b20dd8c37d56d2a5392319e01b1f5e1ce7d7bf4b8ee6aa"
+    },
+    "memory-commit-db-validate.json": {
+      "bytes": 796,
+      "sha256": "ac4627d715a75b844517b1b3778d08d4bd868c3500cfdbc34bf73a8e5a779891"
+    },
+    "memory-commit-identity.json": {
+      "bytes": 29250,
+      "sha256": "216c2bb0f601e3e9f1110897567d4c915899b5e87e3f6741cdd769cba46780be"
+    },
+    "memory-commit-proxy/compile.stderr.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "memory-commit-proxy/contracts.stdout.json": {
+      "bytes": 241,
+      "sha256": "9e0993fadbc75dc7e5c7f8f582989f4bd692f03b7654a576de8ce16f062da727"
+    },
+    "memory-commit-proxy/report.json": {
+      "bytes": 3283,
+      "sha256": "25d84d2b62fc860355932ab816a3259255585f848b1dadcbfe6539debcfd84ce"
+    },
+    "memory-commit-proxy/contracts.stderr.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "memory-commit-proxy/compile.stdout.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "memory-commit-server/report.json": {
+      "bytes": 5864,
+      "sha256": "55daa52db10cd714fc2572ddb8361170217a66b66056a6973a066e9ed0a0db89"
+    },
+    "memory-commit-server/server.log": {
+      "bytes": 1692,
+      "sha256": "cc7fc5399a813bc27916d7d58548f95d44a1fabeb67cf6fde02aedb59cd29fae"
+    }
+  }
+}

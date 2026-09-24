@@ -80,7 +80,12 @@ def main():
         for mtp, context in itertools.product(('off', 'on', 'auto'), (8192, 32768, 65536)):
             automatic = plan(run(f'auto/{mtp}/{context}', [], mtp=mtp, context=context))
             explicit = plan(run(f'explicit48/{mtp}/{context}', ['--memory-gb', '48'], mtp=mtp, context=context))
+            adaptive = plan(run(f'adaptive48/{mtp}/{context}', ['--memory-limit-gb', '48'], mtp=mtp, context=context))
             expect(automatic is not None and explicit is not None, f'64-GiB comparison refused/{mtp}/{context}')
+            expect(adaptive is not None, f'adaptive 48-GB comparison refused/{mtp}/{context}')
+            if adaptive and explicit:
+                expect(adaptive['pool_slots'] == explicit['pool_slots'] and adaptive['mtp'] == explicit['mtp'],
+                       f'adaptive and fixed full budgets disagree/{mtp}/{context}')
             if automatic and explicit:
                 expect(explicit['pool_slots'] > automatic['pool_slots'], f'48-GB target did not enlarge cache/{mtp}/{context}')
                 expect(explicit['source'] == '--memory-gb', f'explicit source lost/{mtp}/{context}')
@@ -95,6 +100,9 @@ def main():
             base = plan(run(f'context-baseline/{mtp}', ['--memory-gb', '48'], mtp=mtp))
             row = run(f'context-auto48/{mtp}', ['--memory-gb', '48'], context='auto', mtp=mtp)
             selected = plan(row)
+            adaptive = plan(run(f'context-auto-adaptive48/{mtp}', ['--memory-limit-gb', '48'], context='auto', mtp=mtp))
+            expect(adaptive is not None and adaptive['max_context_tokens'] == 32768
+                   and adaptive.get('memory_limit_gb') == 48, f'adaptive automatic context lost ceiling/{mtp}')
             expect(base is not None and selected is not None, f'48 GB automatic context refused/{mtp}')
             if base and selected:
                 expect(selected['pool_slots'] >= base['pool_slots'],
@@ -129,9 +137,67 @@ def main():
             row = run('invalid/' + value, ['--memory-gb', value])
             expect(row['exit_code'] != 0 or (row['result'] and 'error' in row['result']), 'invalid size accepted/' + value)
             expect(row['exit_code'] >= 0 and 'Fatal error' not in row.get('stderr', ''), 'invalid size trapped/' + value)
+        for limit in (8.15, 9.99, 12.345678901234, 48.123456789):
+            p = plan(run(f'fractional-ceiling/{limit}', ['--memory-limit-gb', str(limit)]))
+            expect(p is not None and p['target_gb'] == limit and p['memory_limit_gb'] == limit,
+                   f'fractional policy values rounded/{limit}')
+        for ram, limit, available in itertools.product((16, 32, 48, 64, 128), (10, 33, 48, 64), (8, 18, 60)):
+            physical = ram * 1024**3 / 1e9
+            available = min(available, physical * .9)
+            row = run(f'adaptive/{ram}/{limit}/{available}', ['--memory-limit-gb', str(limit)],
+                      ram=ram, available=available)
+            p = plan(row)
+            if p:
+                expect(p['source'] == 'auto' and p.get('memory_limit_gb') == limit, row['case'] + ': lost adaptive ceiling')
+                expect(p['target_gb'] <= limit, row['case'] + ': exceeded user ceiling')
+                peak = p['memory_ledger']['expected_peak_bytes'] / 1e9
+                expect(peak <= min(limit, physical * .75, available - max(1.5, physical * .05)),
+                       row['case'] + ': exceeded physical budget')
+            if ram == 64 and limit == 48 and available == 60:
+                expect(p is not None and p['target_gb'] == 48, 'adaptive 48 GB still capped at 33')
+        for value in ('0', '-1', 'nan', 'inf', '-inf'):
+            row = run('invalid-adaptive/' + value, ['--memory-limit-gb', value])
+            expect(row['exit_code'] != 0, row['case'] + ': accepted')
+        for flags in (['--memory-gb', '20'], ['--pool-gb', '10'], ['--experts-per-layer', '40']):
+            row = run('adaptive-conflict/' + flags[0], ['--memory-limit-gb', '48', *flags])
+            expect(row['exit_code'] != 0, row['case'] + ': ambiguous controls accepted')
         for flags in (['—memory-gb', '48'], ['--memory-gb', 'not-a-number']):
             row = run('malformed-flag', flags)
             expect(row['exit_code'] != 0 and row['result'] is None, 'malformed memory option silently ignored')
+        for available in (18, 60):
+            command = [str(binary), 'doctor', '--model', str(model), '--vision', 'off', '--mtp', 'off',
+                       '--sim-ram', str(64 * 1024**3 / 1e9), '--sim-working-set', str(48 * 1024**3 / 1e9),
+                       '--sim-available', str(available), '--max-context', '32768', '--memory-limit-gb', '48']
+            result = subprocess.run(command, env=env, text=True, capture_output=True, timeout=120)
+            label = f'text-diagnostics/{available}'
+            rows.append({'case': label, 'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+            expect(result.returncode == 0 and '--memory-limit-gb G' in result.stdout,
+                   label + ': adaptive control missing from help')
+            row48 = next((line for line in result.stdout.splitlines() if line.strip().startswith('48.0 GB')), '')
+            expect(bool(row48) and ('more than is reclaimable' in row48) == (available == 18),
+                   label + ': comparison table disagrees with startup headroom')
+            row73 = next((line for line in result.stdout.splitlines() if line.strip().startswith('73.0 GB')), '')
+            expect('Metal working set' in row73, label + ': table presents an unsupported budget as usable')
+        fixed_diagnostics = [
+            ('parity', ['--tokens', '0']), ('elastic-check', []), ('prefix-check', []),
+            ('sweep-check', []), ('optimization-state-check', []), ('vision-parity', []),
+            ('mtp-parity', []), ('mtp-fixture-inputs', []), ('ngram-golden', ['--tokens', '0']),
+            ('dequant-golden', []), ('template-check', []), ('prefix-exact-check', []),
+        ]
+        for command, extra in fixed_diagnostics:
+            result = subprocess.run([str(binary), command, '--model', str(model), '--memory-limit-gb', '10', *extra],
+                                    env=env, text=True, capture_output=True, timeout=15)
+            rows.append({'case': 'fixed-diagnostic/' + command, 'exit_code': result.returncode, 'stderr': result.stderr})
+            expect(result.returncode != 0 and '--memory-limit-gb' in result.stderr
+                   and ('does not apply' in result.stderr or 'requires --plan' in result.stderr),
+                   command + ': silently accepted a ceiling its fixed profile ignores')
+        for flags in (['--memory-limit-gb', 'nan'], ['--memory-limit-gb', '0'],
+                      ['--memory-limit-gb', '10', '--memory-gb', '10']):
+            result = subprocess.run([str(binary), 'launch', *flags, '--dry-run', 'codex'],
+                                    env=env, text=True, capture_output=True, timeout=15)
+            rows.append({'case': 'launch-invalid/' + '/'.join(flags), 'exit_code': result.returncode, 'stderr': result.stderr})
+            expect(result.returncode != 0 and '--memory-limit-gb' in result.stderr
+                   and 'Unknown option' not in result.stderr, 'launch did not validate the adaptive option')
 
     report = {'passed': not failures, 'model_loaded': False, 'hardware_qualified': False,
               'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),

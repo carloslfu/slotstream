@@ -3,7 +3,7 @@ type: design
 meta-type: conclusion
 id: 01m1hhwn610ktz3pf2njdm2d0x
 created: 2026-09-02T17:15:27.297399+00:00
-updated: 2026-09-02T17:15:27.297399+00:00
+updated: 2026-09-23T16:45:55.771564+00:00
 summary: 4.2 Slot pool mechanics
 date: 2026-08-28
 doc: plan
@@ -12,7 +12,6 @@ order: '110'
 source: '[[sources/docs/2026/09/plan-md-2026-09-02]]'
 title: 4.2 Slot pool mechanics
 ---
-
 > **Measured 2026-08-28 — the slot pool is mandatory, not an optimisation.**
 > MLX has no sparse-materialisation path out of a memory-mapped tensor:
 > `mx.gather_qmm` with top-10 indices materialises **all 512 experts of the layer**
@@ -43,3 +42,6 @@ title: 4.2 Slot pool mechanics
   — no full-pool copy per update) and sustain > 5 GB/s of slot fills. If MLX's
   functional-update semantics force copies at this size, switch to preads directly into
   the pool's MTLBuffer contents (shared storage mode needs no sync on Apple Silicon).
+
+
+Warm growth now preserves slot positions and appends zeroed capacity one tensor piece at a time. It does not gather a full extra copy of occupied rows. The live governor checks the peak replacement-plus-tail allocation, including already grown pieces, against the current process footprint, requested target and actual system headroom before starting. If temporary growth does not fit, it keeps the current warm cache and retries later. This may leave a small amount of usable final-size capacity unclaimed; it avoids a transient overshoot to gain it. Shrink retains its free-before-allocation behavior. Evidence and revision scope: [[records/measurements/sevra-app-optimizations-2026-09-23]].

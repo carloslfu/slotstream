@@ -39,6 +39,10 @@ struct Launch: ParsableCommand {
             help: "Memory target for a server launch starts, in GB, as `serve --memory-gb`. Default: automatic.")
     var memoryGB: Double?
 
+    @Option(name: .customLong("memory-limit-gb"),
+            help: "Adaptive memory ceiling for a server launch starts, in GB, as `serve --memory-limit-gb`.")
+    var memoryLimitGB: Double?
+
     @Option(name: .customLong("idle-exit"),
             help: "Minutes a server launch starts keeps running after its last agent exits; 0 keeps it running.")
     var idleExit = CodingToolLaunch.BackgroundServer.defaultIdleMinutes
@@ -68,6 +72,14 @@ struct Launch: ParsableCommand {
     private func launch() throws {
         if let memoryGB, !(memoryGB.isFinite && memoryGB > 0) {
             throw CodingToolLaunch.Failure("--memory-gb must be a positive number of GB")
+        }
+        if let limit = memoryLimitGB {
+            guard limit.isFinite, limit >= Planner.minMemoryGB else {
+                throw CodingToolLaunch.Failure("--memory-limit-gb must be finite and at least \(Planner.minMemoryGB) GB")
+            }
+            guard memoryGB == nil else {
+                throw CodingToolLaunch.Failure("--memory-limit-gb cannot be combined with --memory-gb")
+            }
         }
         guard idleExit.isFinite, idleExit >= 0, idleExit <= CodingToolLaunch.maximumIdleMinutes else {
             throw CodingToolLaunch.Failure(
@@ -130,6 +142,8 @@ struct Launch: ParsableCommand {
                     server.contextWindow = tool.minimumContext
                     server.maxOutputTokens = GatewayDialect.outputBudget(contextCap: tool.minimumContext)
                 }
+            } else if let memoryLimitGB, let note = CodingToolLaunch.memoryLimitNote(requested: memoryLimitGB, port: port, status: status) {
+                Self.say(note)
             } else if let memoryGB, let note = CodingToolLaunch.memoryNote(requested: memoryGB, port: port, status: status) {
                 Self.say(note)
             }
@@ -414,7 +428,7 @@ struct Launch: ParsableCommand {
         let requested = CodingToolLaunch.BackgroundServer.window(for: tool, automatic: automatic)
         let window = requested ?? automatic
         let arguments = CodingToolLaunch.BackgroundServer.serveArguments(port: port, window: requested,
-            memoryGB: memoryGB, idleMinutes: idleExit,
+            memoryGB: memoryGB, memoryLimitGB: memoryLimitGB, idleMinutes: idleExit,
             prefixCacheDirectory: CodingToolLaunch.BackgroundServer.prefixCacheDirectory(home: home))
         lines.append("Would start a Slotstream server in the background: "
             + (["slotstream"] + arguments).map(Self.shellQuoted).joined(separator: " "))
@@ -426,7 +440,9 @@ struct Launch: ParsableCommand {
     }
 
     private func modelOptions() throws -> ModelOptions {
-        try ModelOptions.parse(memoryGB.map { ["--memory-gb", CodingToolLaunch.BackgroundServer.number($0)] } ?? [])
+        let fixed = memoryGB.map { ["--memory-gb", CodingToolLaunch.BackgroundServer.number($0)] } ?? []
+        let adaptive = memoryLimitGB.map { ["--memory-limit-gb", CodingToolLaunch.BackgroundServer.number($0)] } ?? []
+        return try ModelOptions.parse(fixed + adaptive)
     }
 
     /// Start `slotstream serve` in the background and wait until it answers.
@@ -454,7 +470,7 @@ struct Launch: ParsableCommand {
         }
         let log = CodingToolLaunch.BackgroundServer.logPath(home: home, port: port)
         let arguments = CodingToolLaunch.BackgroundServer.serveArguments(port: port, window: window,
-            memoryGB: memoryGB, idleMinutes: idleExit,
+            memoryGB: memoryGB, memoryLimitGB: memoryLimitGB, idleMinutes: idleExit,
             prefixCacheDirectory: CodingToolLaunch.BackgroundServer.prefixCacheDirectory(home: home))
         say("Starting Slotstream in the background: "
             + (["slotstream"] + arguments).map(Self.shellQuoted).joined(separator: " "))

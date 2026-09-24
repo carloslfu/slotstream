@@ -22,6 +22,45 @@ public struct ContextFeasibility {
 }
 
 extension Planner {
+    /// A public caller may construct a plan directly instead of using plan().
+    /// Keep the adaptive ceiling meaningful before any allocation or replan.
+    static func validateAdaptiveMemoryPolicy(_ plan: MemoryPlan) throws {
+        guard let limit = plan.memoryLimitGB else { return }
+        guard limit.isFinite, limit >= minMemoryGB,
+              plan.source == .auto, let target = plan.targetGB,
+              target.isFinite, target > 0, target <= limit else {
+            throw PlanError("invalid adaptive memory policy: an automatic plan needs a positive target within its finite memory limit")
+        }
+    }
+
+    /// Shared by diagnostics and budgeted model startup. Keep the same decision
+    /// at every context size; a warning is not permission to load a refused plan.
+    /// A simulated positive infinity means availability is unconstrained.
+    public static func validateMemoryBudget(_ plan: MemoryPlan, availableGB: Double?) throws {
+        try validateAdaptiveMemoryPolicy(plan)
+        guard plan.ramGB.isFinite, plan.ramGB > 0,
+              plan.workingSetGB.isFinite, plan.workingSetGB > 0,
+              plan.targetGB.map({ $0.isFinite && $0 > 0 }) ?? true,
+              plan.memoryLimitGB.map({ $0.isFinite && $0 >= minMemoryGB }) ?? true else {
+            throw PlanError("invalid memory budget: device, target and adaptive limit must be finite positive values")
+        }
+        guard let availableGB, !availableGB.isNaN, availableGB >= 0 else {
+            throw PlanError("insufficient_memory: reclaimable memory is unreadable; feasibility cannot be established")
+        }
+        let peak = Double(plan.memoryLedger.expectedPeakBytes)
+        let physical = min(plan.ramGB, plan.workingSetGB,
+            availableGB - availabilitySlackGB(ramGB: plan.ramGB))
+        guard peak <= physical * 1e9 else {
+            throw PlanError("insufficient_memory: allocation exceeds working set or reclaimable memory with safety headroom")
+        }
+        if let target = plan.targetGB, peak > target * 1e9 {
+            throw PlanError("insufficient_memory: allocation exceeds the total-memory target")
+        }
+        if let limit = plan.memoryLimitGB, peak > limit * 1e9 {
+            throw PlanError("insufficient_memory: allocation exceeds the adaptive memory limit")
+        }
+    }
+
     /// Exact discrete search. No monotonicity assumption about pass selection,
     /// MTP or retained-state transitions is needed. Do this at planning time,
     /// never on a metadata connection or while holding the generation lock.
@@ -39,20 +78,14 @@ extension Planner {
         var requestedLedger: ContextMemoryLedger?
         func candidate(_ cap: Int) throws -> MemoryPlan {
             let value = try plan(expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
-                memoryGB: request.memoryGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
+                memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                 availableGB: availability, ramPercent: request.maxRAMPercent,
                 mtp: request.mtp, mtpAvailable: mtpAvailable, vision: request.vision,
                 visionAvailable: visionAvailable, visionResidentReserved: visionResidentReserved,
                 maxContextTokens: cap, simulated: device.isSimulated, qualification: qualification,
                 runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
             if cap == request.maxContextTokens { requestedLedger = value.memoryLedger }
-            let physical = min(device.workingSetGB, availability - availabilitySlackGB(ramGB: device.ramGB))
-            guard Double(value.memoryLedger.expectedPeakBytes) <= physical * 1e9 else {
-                throw PlanError("insufficient_memory: allocation exceeds working set or reclaimable memory with safety headroom")
-            }
-            if let target = value.targetGB, Double(value.memoryLedger.expectedPeakBytes) > target * 1e9 {
-                throw PlanError("insufficient_memory: allocation exceeds the total-memory target")
-            }
+            try validateMemoryBudget(value, availableGB: availability)
             return value
         }
         let resolved: MemoryPlan?

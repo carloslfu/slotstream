@@ -1,13 +1,13 @@
 # slotstream build. SwiftPM cannot compile the Metal shaders (mlx-swift
 # limitation), so the prebuilt metallib matching the vendored MLX version
-# (0.31.1, fetched from the mlx-metal PyPI wheel) is colocated with the binary.
+# (0.32.2, fetched from the mlx-metal PyPI wheel) is colocated with the binary.
 #
 # "Colocated" means the directory of the executable that is running: MLX finds
 # it with dladdr on its own code. That is why every executable which touches
 # MLX — the CLI and the check runner alike — needs its own copy beside it, and
 # why a test bundle would need one in its .xctest/Contents/MacOS.
 
-METALLIB := Tools/lib/mlx-0.31.1.metallib
+METALLIB := Tools/lib/mlx-0.32.2.metallib
 RELEASE  := .build/release
 DEBUG    := .build/debug
 SLOTSTREAM_BUILD_JOBS ?=

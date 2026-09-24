@@ -60,6 +60,7 @@ struct SweepCheck: ParsableCommand {
         """
 
     func run() throws {
+        try model.rejectAdaptiveLimitForFixedDiagnostic()
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         let poolSlots = slots

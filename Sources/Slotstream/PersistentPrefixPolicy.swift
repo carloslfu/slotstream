@@ -10,6 +10,8 @@ package struct PersistentPrefixEntry: Equatable, Sendable {
     package let file: String
     package let identity: String
     package let tokens: [Int]
+    package var splicingTokens: [Int]? = nil
+    package let prefillChunk: Int?
     package var bytes: Int64
     package var lastUsed: Double
     package let sequenceBytes: Int
@@ -29,7 +31,8 @@ package struct PersistentPrefixEntry: Equatable, Sendable {
 
     package init(file: String, identity: String, tokens: [Int], bytes: Int64, lastUsed: Double,
                  sequenceBytes: Int = 0, residentBytes: Int = 0, hasDraft: Bool = false, continued: Bool = false,
-                 shared: Bool = false, sequences: [String: PersistentPrefixFile.SequenceRecord] = [:]) {
+                 shared: Bool = false, prefillChunk: Int? = nil, sequences: [String: PersistentPrefixFile.SequenceRecord] = [:]) {
+        self.prefillChunk = prefillChunk
         self.file = file; self.identity = identity; self.tokens = tokens; self.bytes = bytes
         self.lastUsed = lastUsed; self.sequenceBytes = sequenceBytes; self.residentBytes = residentBytes
         self.hasDraft = hasDraft; self.continued = continued; self.shared = shared; self.sequences = sequences
@@ -142,12 +145,13 @@ package enum PersistentPrefixPolicy {
     package static func bestMatch(_ entries: [PersistentPrefixEntry], identity: String, prompt: [Int],
                                   longerThan retained: Int, requireDraft: Bool,
                                   now: Double, maxAge: TimeInterval?,
-                                  boundaries: Set<Int>? = nil) -> PersistentPrefixEntry? {
+                                  boundaries: Set<Int>? = nil, prefillChunk: Int? = nil) -> PersistentPrefixEntry? {
         var best: PersistentPrefixEntry?
         for entry in entries where entry.identity == identity && !entry.tokens.isEmpty
             && entry.tokens.count > retained && prompt.count > entry.tokens.count
             && (!requireDraft || entry.hasDraft) && !isExpired(entry, now: now, maxAge: maxAge)
             && (boundaries?.contains(entry.tokens.count) ?? true)
+            && (boundaries == nil || (prefillChunk != nil && entry.prefillChunk == prefillChunk))
             && prompt.starts(with: entry.tokens) {
             if best == nil || entry.tokens.count > best!.tokens.count { best = entry }
         }
@@ -159,11 +163,24 @@ package enum PersistentPrefixPolicy {
     package static func longestExtension(_ entries: [PersistentPrefixEntry], identity: String, of prefix: [Int],
                                          now: Double, maxAge: TimeInterval?) -> [Int]? {
         var best: [Int]?
-        for entry in entries where entry.identity == identity && entry.tokens.count > prefix.count
-            && !isExpired(entry, now: now, maxAge: maxAge) && entry.tokens.starts(with: prefix) {
-            if best == nil || entry.tokens.count > best!.count { best = entry.tokens }
+        for ids in extensions(entries, identity: identity, of: prefix, now: now, maxAge: maxAge) {
+            if best == nil || ids.count > best!.count { best = ids }
         }
         return best
+    }
+
+    /// Metadata candidates only. The caller checks the assistant turn before
+    /// choosing a branch; numerical restore still uses `bestMatch`.
+    package static func extensions(_ entries: [PersistentPrefixEntry], identity: String, of prefix: [Int],
+                                   now: Double, maxAge: TimeInterval?) -> [[Int]] {
+        var candidates: [[Int]] = []
+        for entry in entries where entry.identity == identity
+            && !isExpired(entry, now: now, maxAge: maxAge) {
+            let ids = entry.splicingTokens ?? entry.tokens
+            guard ids.count > prefix.count, ids.starts(with: prefix) else { continue }
+            candidates.append(ids)
+        }
+        return candidates
     }
 
     /// Own states a save of `tokens` makes redundant: every strict prefix

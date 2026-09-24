@@ -1,0 +1,15 @@
+{
+ "corpus_prompt_sha256": "668a52a64796d25e8fdd879a6f41c959dc2e29c263242a1b51e610af39c128ed",
+ "family": "reasoning:geometry",
+ "id": "r0132",
+ "kind": "reasoning",
+ "max_tokens": 256,
+ "messages": [
+  {
+   "content": "A rectangle is 4 by 7. A path of width 1 runs around the outside. What are the area and perimeter of the outer boundary, and what is the area of the path alone? Step by step; end with \"Answer: <area>, <perimeter>, <path area>\".",
+   "role": "user"
+  }
+ ],
+ "prompt_sha256": "e34e76ecef1d3698a2d2f275c7bc3a99edc83eaedf610c6f6470a0fa7ce58dfa",
+ "split": "train"
+}

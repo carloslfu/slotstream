@@ -24,6 +24,21 @@ public struct QLinear {
 
     public func callAsFunction(_ x: MLXArray) -> MLXArray {
         if let s = scales {
+            if RowInvariantMatmul.enabled {
+                let rows = x.size / x.dim(-1)
+                if rows > 1, rows <= RowInvariantMatmul.maxRows {
+                    // MLX 0.32 changes quantized reduction kernels even inside
+                    // the small verify batch. Exact mode must reproduce its
+                    // one-row projections; ordinary inference stays batched.
+                    let flat = x.reshaped([rows, x.dim(-1)])
+                    let pieces = (0 ..< rows).map { row in
+                        quantizedMM(flat[row ..< row + 1], w, scales: s, biases: biases,
+                            transpose: true, groupSize: groupSize, bits: bits)
+                    }
+                    let out = concatenated(pieces, axis: 0)
+                    return out.reshaped(Array(x.shape.dropLast()) + [out.dim(-1)])
+                }
+            }
             return quantizedMM(
                 x, w, scales: s, biases: biases, transpose: true,
                 groupSize: groupSize, bits: bits)

@@ -1,0 +1,14 @@
+{
+  "created": "2026-09-23T04:00:41.869619+00:00",
+  "scope": "Post-capture derived analysis: explicit curator overlap exclusion and separate server-history reporting. Original protocols and automatic verdicts remain untouched.",
+  "hashes": {
+    "analysis-v4/analysis_test.py": "b5d04fffdb0dd46aa98b4da0ae765e4de91e462ae7d170e082ff39b55f5418bf",
+    "analysis-v4/analyze.py": "3b8ae0c6d31c6fac179665f6da523eea2a143a777bf15b200e85f03c208039f3",
+    "analysis-v4/calibration.py": "3c3caeb4b46a02cf594582afb88dd575d3015eafaeca1fc235d9784f3170ee10",
+    "analysis-v4/capture_check.py": "ea83ab86be01047bbd8f53a69e1f4cd9ea859ff40be45cbcd62b277b3d729a9a",
+    "analysis-v4/population_policy.py": "300425c2f7a654ed976423e62ef7ad5d874978a27704256292924f43e16ceb82",
+    "analysis-v4/population_policy_test.py": "4b785bf774f1b4b33524ae6cd6098acd70102560e713e64eb85097d69e583b6f",
+    "analysis-v4/prefill_calibration_test.py": "72fe7c40593dd8de063c236dacd1bfe7de1d57ae5535bac67fa86f658c30eae6",
+    "analysis-v4/report.py": "2e94128b13f44761a68b6d059155fc670945d8871b6d3c8c97dbbb01c947776c"
+  }
+}

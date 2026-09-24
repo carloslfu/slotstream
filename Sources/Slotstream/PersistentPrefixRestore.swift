@@ -61,6 +61,7 @@ extension PersistentPrefixCache {
             throw Failure("file identity changed")
         }
         try Self.validate(header, payloadEnd: payloadEnd)
+        guard header.prefillChunk == entry.prefillChunk else { throw Failure("producing prefill arithmetic changed") }
         guard try Self.readTokens(fd, header: header) == entry.tokens else { throw Failure("token ids changed") }
         guard header.linear.map(\.layer).sorted() == expected.linearLayers.sorted(),
               header.attention.map(\.layer).sorted() == expected.attentionLayers.sorted(),

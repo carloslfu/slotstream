@@ -2,11 +2,21 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-09-18T16:11:59.560967Z
+updated: 2026-09-23T18:14:44.276641Z
 ---
 
 # records/decisions
 
+- [[records/decisions/sevra-live-folder-navigation]] — Live folder access with bounded navigation, reliable search cursors and fresh-read edit checks
+- [[records/decisions/sevra-app-speed-defaults-2026-09-23]] — Enable qualified desktop speedups without extra user switches
+- [[records/decisions/automatic-prefill-read-policy]] — Apply supported prefill improvements automatically
+- [[records/decisions/automatic-mtp-prefill-read-policy]] — Apply MTP prefill improvements automatically
+- [[records/decisions/qualified-upstream-fused-prefill]] — Adopt qualified upstream fused prefill on the measured M5 Pro profile
+- [[records/decisions/prefill-opportunities-remain-experimental]] — Keep larger read groups and fused workspace experimental
+- [[records/decisions/prompt-speed-qualified-paths]] — Promote qualified prompt reuse and read scopes; hold the fused-attention upgrade
+- [[records/decisions/kernel-upgrade-fidelity-and-cache-equivalence]] — Separate kernel-upgrade fidelity from warm/cold cache equivalence
+- [[records/decisions/coverage-as-review-feedback]] — Coverage as review feedback
+- [[records/decisions/adaptive-memory-limits]] — Custom process ceilings remain adaptive above the automatic default; hardware headroom, diagnostics and startup agree.
 - [[records/decisions/automatic-context-window-per-machine]] — Auto picks the largest of 32,768, 65,536, 131,072 and 262,144 tokens that keeps speculative decoding, retains one conversation and adds at most 10% to a typical request
 - [[records/decisions/automatic-context-preserves-unmeasured-cache]] — Automatic context preserves cache whose loss is unmeasured
 - [[records/decisions/a-continued-conversation-computes-what-a-cold-one-computes]] — A turn resumes only its own prefill pass boundaries, so a continued conversation is exact against a cold read, at one partial pass per turn

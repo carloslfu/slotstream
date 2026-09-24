@@ -1,0 +1,9 @@
+{
+  "at": "2026-09-23T02:42:52.455610+00:00",
+  "reason": "Another task owns a live Slotstream serve process and the exclusive model lock. Stop only our prelaunch waiter; no benchmark model was launched. The earlier competing build finished and this other task then started native tests.",
+  "owned_controller_pids": [
+    99885
+  ],
+  "other_task_processes_modified": false,
+  "full_readiness_observations": "manual interruption; retained periodic driver samples, not a complete timeout sample series"
+}

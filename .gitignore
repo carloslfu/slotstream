@@ -3,6 +3,9 @@
 *.xcodeproj
 !apps/macos/Sevra.xcodeproj/
 apps/macos/Sevra.xcodeproj/xcuserdata/
+# Xcode's own copy of the package pins. Tools/build_sevra_xcode.sh seeds it from
+# apps/macos/Package.resolved, the one place the app's versions are pinned.
+apps/macos/Sevra.xcodeproj/project.xcworkspace/
 .swiftpm/
 models/
 *.ssmodel/

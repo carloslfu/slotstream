@@ -30,6 +30,7 @@ struct VisionParity: ParsableCommand {
     var out: String = ".build/vision-parity"
 
     func run() throws {
+        try model.rejectAdaptiveLimitForFixedDiagnostic()
         let path = try VisionAssets.resolve(image)
         let index = try CheckpointIndex(dir: model.modelURL)
         guard VisionTower.present(index: index) else {

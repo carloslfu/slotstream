@@ -60,8 +60,11 @@ extension Diagnostics {
             try InferenceOptimizations.environment([:]), InferenceOptimizations.deploymentCandidate())
         let qualified = OptimizationPlatform(machineModel: "Mac17,9", chip: "Apple M5 Pro",
             osBuild: "25G83", nativeARM64: true)
-        c.equal("qualified platform keeps the complete joint candidate",
-            InferenceOptimizations.deploymentCandidate(on: qualified), .integrationCandidate)
+        var deployed = InferenceOptimizations.integrationCandidate
+        deployed.fusedPrefillAttention = true
+        deployed.fusedPrefillWorkspace = true
+        c.equal("qualified platform adds independently qualified fused prefill",
+            InferenceOptimizations.deploymentCandidate(on: qualified), deployed)
         var fallback = InferenceOptimizations.integrationCandidate
         fallback.fusedRoPE = false
         let unknownPlatforms: [OptimizationPlatform] = [
@@ -88,8 +91,27 @@ extension Diagnostics {
             try InferenceOptimizations.environment(["SLOTSTREAM_OPT_FUSED_ROPE": "1"]).fusedRoPE)
         c.expect("explicit kernel fallback remains available",
             try !InferenceOptimizations.environment(["SLOTSTREAM_OPT_FUSED_ROPE": "0"]).fusedRoPE)
+        c.expect("explicit fused attention fallback remains available",
+            try InferenceOptimizations.environment(["SLOTSTREAM_OPT_FUSED_PREFILL": "0"]).fusedPrefillAttention != true)
+        c.expect("explicit fused attention qualification remains available",
+            try InferenceOptimizations.environment(["SLOTSTREAM_OPT_FUSED_PREFILL": "1"]).fusedPrefillAttention == true)
+        for (arch, major, minor, expected) in [("applegpu_g17s", 26, 2, true),
+            ("applegpu_g17s", 26, 1, false), ("applegpu_g17p", 26, 2, false),
+            ("applegpu_g18p", 26, 2, true), ("applegpu_g16s", 26, 3, false),
+            ("applegpu_g17s", 15, 9, false), ("Unknown", 26, 2, false),
+            ("applegpu_g17x", 26, 2, false)] {
+            c.equal("fused capability \(arch)/\(major).\(minor)",
+                FusedPrefillAttention.supportsNAX(architecture: arch, major: major, minor: minor), expected)
+        }
+        c.expect("backend arithmetic overrides separate cache identity",
+            FusedPrefillAttention.environmentIdentity(["MLX_ENABLE_TF32": "0"])
+                != FusedPrefillAttention.environmentIdentity(["MLX_ENABLE_TF32": "1"]))
+        c.equal("unrelated environment does not invalidate arithmetic",
+            FusedPrefillAttention.environmentIdentity(["UNRELATED": "1"]),
+            FusedPrefillAttention.environmentIdentity([:]))
         let legacyOptions = try JSONEncoder().encode(InferenceOptimizations())
         let legacyObject = try JSONSerialization.jsonObject(with: legacyOptions) as! [String: Any]
+        c.expect("legacy control encoding omits unset fused prefill", legacyObject["fusedPrefillAttention"] == nil)
         c.expect("reference control encoding omits unset automatic policy", legacyObject["automaticReadScope"] == nil)
         c.equal("old control JSON remains decodable", try JSONDecoder().decode(InferenceOptimizations.self,
             from: legacyOptions), InferenceOptimizations())

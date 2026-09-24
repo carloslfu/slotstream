@@ -11,19 +11,29 @@ struct OptimizationStateCheck: ParsableCommand {
     @Flag var json = false
     @Flag(help: "Check output limits, pending token ownership, EOS and cancellation")
     var generation = false
-    @Option(help: "Candidate to compare: integrated | integrated-mtp | compute-islands | compute-islands-performance | slot-cpu-component | terminal-prefill-lifecycle | mtp-terminal-prefill | terminal-prefill-family | selected-attention-component | selected-attention-family | compact-state | compiled-norm | compiled-norm-component | mtp-compiled-norm | ngram | cache-bookkeeping | cache-containers | exact-read | read-handles | mtp-read-handles | read-handle-lifetime | mtp-cache-bookkeeping | mtp | indexer | sweep-placement | sweep-tiles | sweep-both | indexer-tiles | indexer-dense | indexer-dense-tiles | indexer-topk | indexer-visibility | rope | gdn-record | gdn-kernel | ple | workspace | scope | scope-256 | scope-lifecycle | scope-mtp-vision | mtp-work | lifecycle | output | router-weights | mtp-router-weights | router-projection | router-selection | block-selection | router | mtp-router | mtp-indexer | image-reuse | vision-attention | shared-overlap | prefill-family") var variant = "compact-state"
+    @Option(help: "Candidate to compare: prefill-followup-lifecycle | prefill-followup-checkpoint | prefill-followup-mtp-equality | prefill-followup-mtp-vision | fused-workspace-component | prefill-opportunity-capture | prefill-opportunity-equality | prefill-opportunity-compute | fused-prefill-component | fused-prefill-checkpoint | integrated | integrated-mtp | compute-islands | compute-islands-performance | slot-cpu-component | terminal-prefill-lifecycle | mtp-terminal-prefill | terminal-prefill-family | selected-attention-component | selected-attention-family | compact-state | compiled-norm | compiled-norm-component | mtp-compiled-norm | ngram | cache-bookkeeping | cache-containers | exact-read | read-handles | mtp-read-handles | read-handle-lifetime | mtp-cache-bookkeeping | mtp | indexer | sweep-placement | sweep-tiles | sweep-both | indexer-tiles | indexer-dense | indexer-dense-tiles | indexer-topk | indexer-visibility | rope | gdn-record | gdn-kernel | ple | workspace | scope | scope-256 | scope-lifecycle | scope-mtp-vision | mtp-work | lifecycle | output | router-weights | mtp-router-weights | router-projection | router-selection | block-selection | router | mtp-router | mtp-indexer | image-reuse | vision-attention | shared-overlap | prefill-family") var variant = "compact-state"
 
     func run() throws {
+        try model.rejectAdaptiveLimitForFixedDiagnostic()
         let report: CheckReport
         if generation { report = try Diagnostics.optimizationGeneration(modelDir: model.modelURL) }
-        else if ["runtime-budget-lifecycle", "governor-boundary", "governor-boundary-mtp", "read-failure-serving", "output-serving", "context-serving"].contains(variant) {
+        else if variant == "prompt-checkpoint" { report = try Diagnostics.promptSpeedCheckpoint(modelDir: model.modelURL) }
+        else if ["prefill-opportunity-compute", "prefill-opportunity-capture", "prompt-scopes-bench", "generation-phase", "generation-phase-mtp", "runtime-budget-lifecycle", "governor-boundary", "governor-boundary-mtp", "read-failure-serving", "output-serving", "context-serving"].contains(variant) {
             // This executable has a synchronous root, as do its existing
             // Engine-backed commands. Bridge only the tokenizer load here.
             let ready = DispatchSemaphore(value: 0)
             var result: Result<CheckReport, Error>?
             Task {
                 do {
-                    if variant == "context-serving" {
+                    if variant == "prefill-opportunity-compute" {
+                        result = .success(try await Diagnostics.prefillOpportunityCompute(modelDir: model.modelURL))
+                    } else if variant == "prefill-opportunity-capture" {
+                        result = .success(try await Diagnostics.prefillOpportunityCapture(modelDir: model.modelURL, tokens: tokens))
+                    } else if variant == "prompt-scopes-bench" {
+                        result = .success(try await Diagnostics.promptSpeedScopes(modelDir: model.modelURL))
+                    } else if variant == "generation-phase" || variant == "generation-phase-mtp" {
+                        result = .success(try await Diagnostics.generationPhase(modelDir: model.modelURL, mtp: variant.hasSuffix("-mtp")))
+                    } else if variant == "context-serving" {
                         result = .success(try await Diagnostics.contextServing(modelDir: model.modelURL))
                     } else if variant == "output-serving" {
                         result = .success(try await Diagnostics.optimizationOutputServing(modelDir: model.modelURL))
@@ -191,6 +201,13 @@ struct OptimizationStateCheck: ParsableCommand {
         else if variant == "indexer-raw-component" { report = Diagnostics.optimizationCompactIndexer() }
         else if variant == "read-handle-lifetime" { report = try Diagnostics.optimizationReadHandles(modelDir: model.modelURL) }
         else if variant == "mtp-read-handles" { report = try Diagnostics.optimizationMTPReadHandles(modelDir: model.modelURL) }
+        else if variant == "fused-prefill-component" { report = Diagnostics.fusedPrefillAttention() }
+        else if variant == "prefill-followup-lifecycle" { report = try Diagnostics.optimizationScopeLifecycle(modelDir: model.modelURL, integratedBase: true, followup: true) }
+        else if variant == "prefill-followup-checkpoint" { report = try Diagnostics.promptSpeedCheckpoint(modelDir: model.modelURL, fused: true, followup: true) }
+        else if variant == "prefill-followup-mtp-equality" { report = try Diagnostics.prefillOpportunityEquality(modelDir: model.modelURL, tokens: tokens, mtp: true) }
+        else if variant == "prefill-opportunity-equality" { report = try Diagnostics.prefillOpportunityEquality(modelDir: model.modelURL, tokens: tokens) }
+        else if variant == "fused-workspace-component" { report = Diagnostics.fusedWorkspaceReservation() }
+        else if variant == "fused-prefill-checkpoint" { report = try Diagnostics.promptSpeedCheckpoint(modelDir: model.modelURL, fused: true) }
         else if variant == "selected-attention-component" { report = Diagnostics.optimizationSelectedAttention() }
         else if variant == "selected-attention-family" { report = try Diagnostics.optimizationPrefillFamily(modelDir: model.modelURL, tokens: tokens, selectedAttention: true) }
         else if variant == "terminal-query-family" {
@@ -228,11 +245,18 @@ struct OptimizationStateCheck: ParsableCommand {
             report = try Diagnostics.optimizationPrefillFamily(modelDir: model.modelURL, tokens: tokens,
                 scoped: true, integratedBase: true)
         }
+        else if variant == "scope-larger-family" {
+            report = try Diagnostics.optimizationPrefillFamily(modelDir: model.modelURL, tokens: tokens,
+                scoped: true, integratedBase: true, scopeTokens: 8192)
+        }
         else if variant == "scope-integrated-lifecycle" {
             report = try Diagnostics.optimizationScopeLifecycle(modelDir: model.modelURL, integratedBase: true)
         }
         else if variant == "scope-integrated-mtp-vision" {
             report = try Diagnostics.optimizationScopeMTPVision(modelDir: model.modelURL, integratedBase: true)
+        }
+        else if variant == "prefill-followup-mtp-vision" {
+            report = try Diagnostics.optimizationScopeMTPVision(modelDir: model.modelURL, integratedBase: true, followup: true)
         }
         else if variant == "scope-lifecycle" { report = try Diagnostics.optimizationScopeLifecycle(modelDir: model.modelURL) }
         else if variant == "scope" { report = try Diagnostics.optimizationReadScope(modelDir: model.modelURL, tokens: tokens) }

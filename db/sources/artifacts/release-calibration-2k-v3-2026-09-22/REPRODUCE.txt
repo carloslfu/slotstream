@@ -1,0 +1,16 @@
+Installed-release 2K calibration, captured on the development 48 GiB M5 Pro.
+
+Recompute captured evidence without loading a model, from this directory:
+  python3 analysis-v4/capture_check.py .
+  python3 analysis-v4/analyze.py .
+  python3 analysis-v4/report.py .
+  python3 analysis-v4/calibration.py .
+  python3 -m unittest discover -s analysis-v4 -p "*test.py"
+
+protocol.json is an exact convenience copy of load-prefill-2k-protocol-v3.json. Each population manifest carries its own frozen protocol. The supplemental code repetition was registered before launch because the primary third repeat failed the background CPU screen. All eligible observations are included. Original captures and automatic verdicts are unchanged. Analysis v4 adds explicit, path-scoped curator exclusions and separates server-history strata; this 2K population has no manual exclusions.
+
+First requests and later misses use different read batches despite the same plan. Consult history_strata in analysis.json and server_history in requests.csv; mixed-history medians are not a history-independent ETA anchor. Strict global paging sensitivity remains separate from the primary process-pageins screen. No full-answer or new decode-throughput claim is supported by the 16-token output cap.
+
+The archived readiness attempts 2 and 3 timed out without loading a model. Attempt 4 was manually interrupted when another native model acquired the lock; its explicit receipt retains that limitation. Attempt 5 and supplemental repetition 1 completed and reaped their owned servers.
+
+Model reruns require the exact installed binary and checkpoint identified by the capture manifests, the native probe, exclusive model access, physical headroom and the frozen load/thermal gates. Original absolute paths and SHA256 identities are evidence. For another host, prepare a separately identified prospective protocol instead of silently editing this one. The probe source and frozen harness are included.

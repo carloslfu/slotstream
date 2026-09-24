@@ -7,8 +7,9 @@ OUT=$(swift build --package-path apps/macos -c release --show-bin-path)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/sevra-scroll-check-XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 OBJECTS=()
+# find, not ripgrep: a clean Mac, such as a CI runner, has only the system tools.
 for target in SevraPresentation Markdown CAtomic cmark_gfm cmark_gfm_extensions; do
-    while IFS= read -r object; do OBJECTS+=("$object"); done < <(rg --files --no-ignore "$OUT/$target.build" -g '*.o')
+    while IFS= read -r object; do OBJECTS+=("$object"); done < <(find "$OUT/$target.build" -name '*.o' -type f | sort)
 done
 swiftc -swift-version 5 -parse-as-library -I "$OUT/Modules" \
     -I apps/macos/.build/checkouts/swift-markdown/Sources/CAtomic/include \

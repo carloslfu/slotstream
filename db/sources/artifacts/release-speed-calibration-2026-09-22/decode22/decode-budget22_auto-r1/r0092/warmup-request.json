@@ -1,0 +1,15 @@
+{
+  "stream": true,
+  "think": false,
+  "options": {
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 128
+  },
+  "messages": [
+    {
+      "content": "Someone earns 3348 a month. Rent is 1248, food is 468, transport is 109, and they save 20 percent of what remains after those three expenses. How much do they save each month, and how much is left after saving? Work it out step by step and end with \"Answer: <saved>, <left>\".",
+      "role": "user"
+    }
+  ]
+}

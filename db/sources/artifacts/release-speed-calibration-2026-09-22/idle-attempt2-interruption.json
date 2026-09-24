@@ -1,0 +1,10 @@
+{
+  "at": "2026-09-22T19:40:43.694069+00:00",
+  "reason": "A second idle-screen attempt still has not started a model. Independent snapshots show active OS background media analysis and photo-library workers, and VM reclaimable memory is below the larger fixed profiles. Stop the owned waiter rather than leave an unattended process; user quiet-window clarification remains unanswered.",
+  "background_cpu_observation": {
+    "os_media_analysis_worker_percent": 72.8,
+    "os_photo_library_worker_percent": 32.4
+  },
+  "owned_controller_pid": 66939,
+  "model_started": false
+}

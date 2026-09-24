@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "PASS simulated loopback /api/show and nested plan extraction; no model loaded\n",
+  "stderr": ""
+}

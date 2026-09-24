@@ -267,13 +267,21 @@ public final class PersistentPrefixCache {
             }
             try validate(header, payloadEnd: payloadEnd)
             let tokens = try readTokens(fd, header: header)
+            if let ids = header.splicingTokens {
+                guard ids.count <= ContextPolicy.modelLimit, ids.starts(with: tokens),
+                      ids.allSatisfy({ $0 >= 0 && $0 <= Int(Int32.max) }) else {
+                    throw Failure("invalid conversation token metadata")
+                }
+            }
             guard name == PersistentPrefixFile.fileName(identity: header.identity, tokens: tokens) else {
                 throw Failure("file name does not match its contents")
             }
-            return .head(PersistentPrefixEntry(file: name, identity: header.identity, tokens: tokens, bytes: size,
+            var entry = PersistentPrefixEntry(file: name, identity: header.identity, tokens: tokens, bytes: size,
                 lastUsed: modified, sequenceBytes: header.sequenceBytes, residentBytes: header.residentBytes,
-                hasDraft: header.draft != nil, continued: header.continued, shared: header.shared ?? false,
-                sequences: Dictionary(uniqueKeysWithValues: header.sequences.map { ($0.name, $0) })))
+                hasDraft: header.draft != nil, continued: header.continued, shared: header.shared ?? false, prefillChunk: header.prefillChunk,
+                sequences: Dictionary(uniqueKeysWithValues: header.sequences.map { ($0.name, $0) }))
+            entry.splicingTokens = header.splicingTokens
+            return .head(entry)
         }
         guard probe.kind == .segment, PersistentPrefixFile.isSegmentName(name),
               let header = try? JSONDecoder().decode(PersistentPrefixFile.Segment.self, from: data) else {
@@ -351,11 +359,11 @@ public final class PersistentPrefixCache {
     package var indexedSegments: [String: PersistentPrefixSegmentEntry] { lock.withLock { segments } }
 
     package func candidate(extending prompt: [Int], longerThan retained: Int,
-                           requireDraft: Bool, boundaries: Set<Int>? = nil) -> PersistentPrefixEntry? {
+                           requireDraft: Bool, boundaries: Set<Int>? = nil, prefillChunk: Int? = nil) -> PersistentPrefixEntry? {
         let now = Self.now()
         return lock.withLock {
             PersistentPrefixPolicy.bestMatch(heads, identity: identity.digest, prompt: prompt, longerThan: retained,
-                requireDraft: requireDraft, now: now, maxAge: configuration.maxAge, boundaries: boundaries)
+                requireDraft: requireDraft, now: now, maxAge: configuration.maxAge, boundaries: boundaries, prefillChunk: prefillChunk)
         }
     }
 
@@ -363,6 +371,14 @@ public final class PersistentPrefixCache {
         let now = Self.now()
         return lock.withLock {
             PersistentPrefixPolicy.longestExtension(heads, identity: identity.digest, of: prefix, now: now,
+                maxAge: configuration.maxAge)
+        }
+    }
+
+    package func extensions(of prefix: [Int]) -> [[Int]] {
+        let now = Self.now()
+        return lock.withLock {
+            PersistentPrefixPolicy.extensions(heads, identity: identity.digest, of: prefix, now: now,
                 maxAge: configuration.maxAge)
         }
     }

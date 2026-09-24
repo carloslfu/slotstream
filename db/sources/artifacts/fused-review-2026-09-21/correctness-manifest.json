@@ -1,0 +1,93 @@
+{
+  "archive_sha256": "61295da5915400cf9195f4e0c56d4856b4d9707fba024af5e946d1a5e6bde22f",
+  "members": {
+    "run.py": {
+      "bytes": 2271,
+      "sha256": "3eb9c9aaaaf96b16c01ea8d6522eabb2eb26a082d72159871d15ef0a6cec157a"
+    },
+    "build-before.vm": {
+      "bytes": 1841,
+      "sha256": "8311165174abe90ca7da61c8532db7c74ed5a9e2eeb44ff4f897ddfe564a67ee"
+    },
+    "source-before.json": {
+      "bytes": 23210,
+      "sha256": "c918f3373e95629e401060fea5cdbea3423af4b9e74cf9ae38aba55ea1eb21a8"
+    },
+    "original-family.swift": {
+      "bytes": 12294,
+      "sha256": "04f3e0e80d0d91875b87d179c234b9edc4cb954f5f8e21c3bf0558f2f316f2cc"
+    },
+    "source.tar.gz": {
+      "bytes": 1256198,
+      "sha256": "fad6a4151e0972ba0eab4d9d96dcc3518e55ebe69bb1f30b150e402c176b4cbe"
+    },
+    "selected-attention-family.json": {
+      "bytes": 175687,
+      "sha256": "47da6d1f20d210fbb4d74aa80d5e1334e2320844bf3382484940950c4aa196c8"
+    },
+    "fused-review-receipt.json": {
+      "bytes": 619,
+      "sha256": "a29998caacf36fd7a5446203239eee7d75063210a092313080f7563ed3afeb0d"
+    },
+    "selected-attention-family.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "code-audit.json": {
+      "bytes": 1308,
+      "sha256": "4258e06cbfe5acbaf01c7ce4013196a0eeec39fff866725e216d5c00dcda68b2"
+    },
+    "identity.json": {
+      "bytes": 23882,
+      "sha256": "9daad9dc942601a1075e07684b69f8a3c9fa446c49edb1160d13e58281ce28da"
+    },
+    "accuracy.stderr": {
+      "bytes": 104,
+      "sha256": "64531e3bb6c92346715ddeb6e4fa21056dbdd7f09fa4c521c998a6d35fa41af1"
+    },
+    "build-attempt1.log": {
+      "bytes": 8223,
+      "sha256": "1efcb58857d1c5f7fcff313de840325fd594f199f75ebe73edf97bd38423cb08"
+    },
+    "fused-review.stderr": {
+      "bytes": 2002,
+      "sha256": "22eecd0681afe96bb47947bce2209b8651b9739dcd14eea93d2770451c4c3a9e"
+    },
+    "selected-attention-family-receipt.json": {
+      "bytes": 628,
+      "sha256": "64247de2478703c937dca747dc69bbc059f49149f9d76a91631901209519debf"
+    },
+    "fused-review.json": {
+      "bytes": 3571,
+      "sha256": "f64f2d3b1d4aecc76d90c239b0134c4662c1ac7bf26f7f79216dc4f142fd1cda"
+    },
+    "accuracy.json": {
+      "bytes": 6087,
+      "sha256": "9557f7e2f2885256e800c200527aa6a2a5077afcb75e1b59159377108d32aae5"
+    },
+    "accuracy.py": {
+      "bytes": 3575,
+      "sha256": "fb2e5361f9f6526dee6558bf84898a24e25743565d84acb67b289a59db6b331e"
+    },
+    "accuracy.stdout": {
+      "bytes": 3559,
+      "sha256": "49cf1835b86990865a2172fd6e57040eb4fdbd229a66f632e3233b08589fc9a8"
+    },
+    "build.log": {
+      "bytes": 10266,
+      "sha256": "cb7a20fda1f8220432e8869f8e4af966adf484c759bcc464bb564e47fc263a4d"
+    },
+    "upstream/fast.cpp": {
+      "bytes": 34597,
+      "sha256": "29b31f96bdb02afdadbde3f2bcf42cf458fc69385a908bbde9fc3a14d23de077"
+    },
+    "upstream/backend/metal/scaled_dot_product_attention.cpp": {
+      "bytes": 28696,
+      "sha256": "215ebac6495706cf01a2635c4dcec29802e130165ed8704f212d789679d2e673"
+    },
+    "upstream/backend/metal/kernels/steel/attn/kernels/steel_attention_nax.h": {
+      "bytes": 27522,
+      "sha256": "dba29e9167611d30a13fda3f336c30a5db70bc2a6e8bea78dd639f4b9547c793"
+    }
+  }
+}

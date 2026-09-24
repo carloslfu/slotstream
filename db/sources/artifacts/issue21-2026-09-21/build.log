@@ -1,0 +1,159 @@
+python3 Tools/build_identity.py before "/Users/carlos/Projects/slotstream/.build/arm64-apple-macosx/release"
+swift build -c release -j 2
+[1/1] Compiling plugin GenerateManual
+[2/2] Compiling plugin GenerateDoccReference
+[3/3] Compiling plugin CudaBuild
+Building for production...
+[3/9] Write sources
+[4/9] Write swift-version--1AB21518FC5DEDBE.txt
+[6/10] Compiling SlotstreamDiagnostics CheckReport.swift
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift:270:20: warning: instance method 'wait' is unavailable from asynchronous contexts; Await a Task handle instead; this is an error in the Swift 6 language mode
+268 |         }
+269 |         defer { release.signal() }
+270 |         guard held.wait(timeout: .now() + 5) == .success else { throw ModelError("queue holder did not start") }
+    |                    `- warning: instance method 'wait' is unavailable from asynchronous contexts; Await a Task handle instead; this is an error in the Swift 6 language mode
+271 |         var queueChecks: UInt64 = 0
+272 |         let queueConfig = try ContextConfiguration(maxContextTokens: 65536, maxPrefillWaitMinutes: 1)
+
+Dispatch.DispatchSemaphore.wait:2:13: note: 'wait(timeout:)' declared here
+1 | class DispatchSemaphore {
+2 | public func wait(timeout: DispatchTime) -> DispatchTimeoutResult}
+  |             `- note: 'wait(timeout:)' declared here
+3 | 
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift:286:21: warning: instance method 'wait' is unavailable from asynchronous contexts; Await a Task handle instead; this is an error in the Swift 6 language mode
+284 |         }
+285 |         release.signal()
+286 |         guard ended.wait(timeout: .now() + 5) == .success else { throw ModelError("queue holder did not finish") }
+    |                     `- warning: instance method 'wait' is unavailable from asynchronous contexts; Await a Task handle instead; this is an error in the Swift 6 language mode
+287 |         // Checked legacy mutation cannot enlarge an already allocated engine.
+288 |         engine.maxContextTokens = ContextPolicy.modelLimit
+
+Dispatch.DispatchSemaphore.wait:2:13: note: 'wait(timeout:)' declared here
+1 | class DispatchSemaphore {
+2 | public func wait(timeout: DispatchTime) -> DispatchTimeoutResult}
+  |             `- note: 'wait(timeout:)' declared here
+3 | 
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift:35:38: warning: capture of 'server' with non-Sendable type 'Server' in a '@Sendable' closure [#SendableClosureCaptures]
+ 33 |             }
+ 34 |             let finished = DispatchSemaphore(value: 0)
+ 35 |             Thread.detachNewThread { server.handle(peer); finished.signal() }
+    |                                      `- warning: capture of 'server' with non-Sendable type 'Server' in a '@Sendable' closure [#SendableClosureCaptures]
+ 36 |             defer { shutdown(client,SHUT_RDWR); close(client) }
+ 37 |             let method = object == nil ? "GET" : "POST"
+
+/Users/carlos/Projects/slotstream/Sources/Slotstream/Server.swift:14:20: note: class 'Server' does not conform to the 'Sendable' protocol
+  12 | }
+  13 | 
+  14 | public final class Server {
+     |                    `- note: class 'Server' does not conform to the 'Sendable' protocol
+  15 |     /// Explicit opt-in for local benchmark processes. Ordinary wire responses
+  16 |     /// retain their existing schema and do not run the footprint sampler.
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift:4:1: warning: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'Slotstream'
+  2 | import Foundation
+  3 | import MLX
+  4 | import Slotstream
+    | `- warning: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'Slotstream'
+  5 | 
+  6 | extension Diagnostics {
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift:266:13: warning: capture of 'engine' with non-Sendable type 'Engine' in a '@Sendable' closure [#SendableClosureCaptures]
+264 |         let held = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0), ended = DispatchSemaphore(value: 0)
+265 |         Thread.detachNewThread {
+266 |             engine.withExclusive { held.signal(); release.wait() }
+    |             `- warning: capture of 'engine' with non-Sendable type 'Engine' in a '@Sendable' closure [#SendableClosureCaptures]
+267 |             ended.signal()
+268 |         }
+
+/Users/carlos/Projects/slotstream/Sources/Slotstream/Engine.swift:83:20: note: class 'Engine' does not conform to the 'Sendable' protocol
+  81 | }
+  82 | 
+  83 | public final class Engine {
+     |                    `- note: class 'Engine' does not conform to the 'Sendable' protocol
+  84 |     public let modelDir: URL
+  85 |     public let model: Qwen4ExpModel
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ReadFailureServing.swift:31:38: warning: capture of 'server' with non-Sendable type 'Server' in a '@Sendable' closure [#SendableClosureCaptures]
+ 29 |             }
+ 30 |             let finished = DispatchSemaphore(value: 0)
+ 31 |             Thread.detachNewThread { server.handle(peer); finished.signal() }
+    |                                      `- warning: capture of 'server' with non-Sendable type 'Server' in a '@Sendable' closure [#SendableClosureCaptures]
+ 32 |             defer { shutdown(client,SHUT_RDWR); close(client) }
+ 33 |             let method = object == nil ? "GET" : "POST"
+
+/Users/carlos/Projects/slotstream/Sources/Slotstream/Server.swift:14:20: note: class 'Server' does not conform to the 'Sendable' protocol
+  12 | }
+  13 | 
+  14 | public final class Server {
+     |                    `- note: class 'Server' does not conform to the 'Sendable' protocol
+  15 |     /// Explicit opt-in for local benchmark processes. Ordinary wire responses
+  16 |     /// retain their existing schema and do not run the footprint sampler.
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ReadFailureServing.swift:5:1: warning: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'Slotstream'
+  3 | import Foundation
+  4 | import MLX
+  5 | import Slotstream
+    | `- warning: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'Slotstream'
+  6 | 
+  7 | extension Diagnostics {
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ReadHandles.swift:8:18: warning: weak variable 'observedOwner' was never mutated; consider changing to 'let' constant [#WeakMutability]
+ 6 |         var c = CheckBuilder("optimization-read-handle-lifetime")
+ 7 |         var owner: CheckpointIndex? = try CheckpointIndex(dir: modelDir)
+ 8 |         weak var observedOwner = owner
+   |                  `- warning: weak variable 'observedOwner' was never mutated; consider changing to 'let' constant [#WeakMutability]
+ 9 |         let ref = owner!.ref("model.layers.0.mlp.switch_mlp.gate_proj.weight")
+10 |         var handle: TensorReadHandle? = owner!.readHandle(for: ref)
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift:110:21: warning: will never be executed
+107 |             logits.append(last); traces.append(routes)
+108 |         }
+109 |         if terminalPrefill {
+    |            `- note: condition always evaluates to false
+110 |             c.equal("all undemanded terminal queries skipped", model.terminalQueryRowsSkipped,
+    |                     `- warning: will never be executed
+111 |                 terminalQuery ? tokens - min(64, (tokens - 1) % 256 + 1) : tokens - ((tokens - 1) % 256 + 1))
+112 |             c.equal("all unused terminal MoE rows skipped", model.terminalMoERowsSkipped, tokens - 1)
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift:117:22: warning: will never be executed
+114 |                 Array((traces[0][model.runLayers - 1] ?? []).suffix(model.cfg.topK)))
+115 |         }
+116 |         if selectedAttention {
+    |            `- note: condition always evaluates to false
+117 |             c.expect("selected attention actually executed", model.selectedAttentionTiles > 0)
+    |                      `- warning: will never be executed
+118 |             c.measure("selected_attention_tiles", Double(model.selectedAttentionTiles))
+119 |         }
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift:184:29: warning: will never be executed
+182 |         c.measure("routing.control", controlRoutes); c.measure("routing.candidate", candidateRoutes)
+183 |         c.expect("route keep sets inside existing rechunk band", candidateRoutes <= max(3 * controlRoutes, 0.01))
+184 |         if scoped { c.equal("exact ordered router traces", traces[2], traces[0]) }
+    |            |                `- warning: will never be executed
+    |            `- note: condition always evaluates to false
+185 |         if terminalPrefill {
+186 |             c.equal("all state-producing layers retain ordered routes", traces[2].filter { $0.key != model.runLayers - 1 },
+
+/Users/carlos/Projects/slotstream/Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift:186:21: warning: will never be executed
+183 |         c.expect("route keep sets inside existing rechunk band", candidateRoutes <= max(3 * controlRoutes, 0.01))
+184 |         if scoped { c.equal("exact ordered router traces", traces[2], traces[0]) }
+185 |         if terminalPrefill {
+    |            `- note: condition always evaluates to false
+186 |             c.equal("all state-producing layers retain ordered routes", traces[2].filter { $0.key != model.runLayers - 1 },
+    |                     `- warning: will never be executed
+187 |                 traces[0].filter { $0.key != model.runLayers - 1 })
+188 |         }
+
+[#SendableClosureCaptures]: <https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures>
+[#WeakMutability]: <https://docs.swift.org/compiler/documentation/diagnostics/weak-mutability>
+[7/12] Compiling slotstream_cli CheckRendering.swift
+[7/12] Write Objects.LinkFileList
+[9/12] Compiling SlotstreamTestKit AnthropicChecks.swift
+[9/12] Write Objects.LinkFileList
+[10/12] Linking slotstream
+[11/12] Linking slotstream-checks
+Build complete! (89.28s)
+cp Tools/lib/mlx-0.31.1.metallib .build/release/mlx.metallib
+python3 Tools/build_identity.py after "/Users/carlos/Projects/slotstream/.build/arm64-apple-macosx/release"

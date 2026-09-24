@@ -1,0 +1,32 @@
+{
+  "decode22": {
+    "population": "v1 observational on active Mac",
+    "idle_calibration_eligible": false,
+    "reason": "Unmonitored concurrent audio/video and browser work was observed before completion. The original automatic verdicts remain intact; this population is descriptive, not part of v2 idle calibration."
+  },
+  "smoke": {
+    "population": "pilot",
+    "idle_calibration_eligible": false
+  },
+  "idle-smoke-v2": {
+    "population": "pilot",
+    "idle_calibration_eligible": false
+  },
+  "idle-smoke-v2-attempt2": {
+    "population": "pilot",
+    "idle_calibration_eligible": false
+  },
+  "load-smoke-v3": {
+    "population": "v3 functional pilot",
+    "idle_calibration_eligible": false
+  },
+  "load-small-smoke-v3": {
+    "population": "v3 smaller functional pilot",
+    "idle_calibration_eligible": false
+  },
+  "load-prefill-2k-v3": {
+    "population": "prospective v3 2K prefill phase",
+    "idle_calibration_eligible": true,
+    "scope": "load-screened desktop, not proof of idle isolation; original request gates still apply"
+  }
+}

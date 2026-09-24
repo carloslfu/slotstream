@@ -106,7 +106,8 @@ extension Catalogue {
 
         // One call, nothing else.
         var ev = ToolCallSplitter.parseAll(oneCall, tools: tools, idFactory: countingIDs())
-        c.equal("one call: event count", ev.count, 5)  // start, 2 deltas, end, call
+        c.equal("one call: assembled events", normalize(ev), ["start:read_file",
+            #"delta:{"path":"hello.txt"}"#, "end", #"call:read_file:{"path":"hello.txt"}"#])
         if case .toolCall(let call) = ev.last {
             c.equal("one call: name", call.name, "read_file")
             c.equal("one call: input", call.inputJSON, #"{"path":"hello.txt"}"#)
@@ -258,6 +259,13 @@ extension Catalogue {
         c.equal("integer", coerce("\n42\n", .integer), "42")
         c.equal("integer: negative", coerce("\n-7\n", .integer), "-7")
         c.equal("integer: not a number falls back", coerce("\nabc\n", .integer), #""abc""#)
+        for value in ["1e20", "-1e20", "9223372036854775808", "1e309", "inf", "nan"] {
+            for kind: ToolParamKind in [.integer, .number] {
+                let result = ToolCallSplitter.coerce(value, as: kind)
+                c.expect("out-of-range numeric output stays serializable: \(value)/\(kind)",
+                    (try? JSONSerialization.jsonObject(with: Data(result.jsonText.utf8), options: [.fragmentsAllowed])) != nil)
+            }
+        }
         c.equal("number: integral prints as int", coerce("\n2\n", .number), "2")
         c.equal("number: fractional", coerce("\n2.5\n", .number), "2.5")
         c.equal("boolean true", coerce("\ntrue\n", .boolean), "true")
@@ -305,8 +313,9 @@ extension Catalogue {
     static func normalize(_ events: [ToolStreamEvent]) -> [String] {
         var out: [String] = []
         for s in rawNormalize(events) {
-            if s.hasPrefix("text:"), let last = out.last, last.hasPrefix("text:") {
-                out[out.count - 1] = last + String(s.dropFirst("text:".count))
+            if let prefix = ["text:", "delta:"].first(where: { s.hasPrefix($0) }),
+               let last = out.last, last.hasPrefix(prefix) {
+                out[out.count - 1] = last + String(s.dropFirst(prefix.count))
             } else {
                 out.append(s)
             }

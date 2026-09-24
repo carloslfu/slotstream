@@ -92,7 +92,7 @@ On the 48 GB M5 Pro:
 |---|---|
 | Reply generation after the cache warms up | ~12 tok/s |
 | Reply generation with speculative decoding and the 0.2.16 decode lookahead, 20 GB target | 13.47 tok/s, 1.11x faster than without the lookahead |
-| Reply generation with the 0.2.19 corrected forecast, 22 GB target (a 32 GB Mac's automatic plan) | 15.86 tok/s, 1.10x faster than the 0.2.18 forecast |
+| Reply generation with the 0.2.19 corrected forecast, 22 GB controlled benchmark (smaller prompt passes, prefix caching off) | 15.86 tok/s, 1.10x faster than the 0.2.18 forecast |
 | Engine load in the original experiment, before processing the prompt | ~2 s (historical) |
 | Planned memory with automatic sizing | 32 GB (estimate) |
 
@@ -110,11 +110,14 @@ and 39 s for 8,000. Ordinary prose can take longer than the synthetic prompt
 used by the estimator. `slotstream doctor` shows estimates for your memory
 plan, and the terminal prints progress during long prompts.
 
-The conversation cache avoids processing unchanged history again. In an
-eight-turn test at a 16 GB target, the last turn started replying after
-6.0 s with reuse, compared with 25.8 s without it. Reuse can change a reply
-when two candidate tokens are nearly tied; use `--no-prefix-cache` for
-comparisons that require a fresh computation every time.
+The conversation cache avoids processing unchanged history again. In a
+historical eight-turn test at a 16 GB target, the last turn started replying
+after 6.0 s with reuse, compared with 25.8 s without it. The current aligned
+cache accepts only checkpoints compatible with the incoming prompt's compute
+passes and backend, preserving exact cached-versus-fresh results for that
+computation. Use `--no-prefix-cache` to measure the cost of processing the
+whole prompt. See the [current reuse qualification](../db/records/measurements/prompt-speed-qualification-2026-09-21.md)
+for checkpoint and app-restart evidence.
 
 ### Prefill and speculative decode measurements
 
@@ -240,6 +243,12 @@ greedy output with the other generation settings fixed. Changing the total
 memory target can also change prefill grouping or enable speculative decoding;
 those are separate changes, not part of that equality claim.
 
+Warm growth also needs room for temporary replacement tensors. The governor
+checks this extra allocation against both the process target and current
+system availability. If it cannot fit, the existing warm cache stays usable
+and growth waits. The copy preserves slot positions and appends capacity one
+tensor at a time, without gathering another copy of all occupied slots.
+
 To set a memory target yourself:
 
 ```bash
@@ -251,6 +260,11 @@ slotstream serve --memory-gb 16
 default text context; larger windows and resident components need more room.
 An explicit target disables automatic cache resizing, while loading and
 request-memory safeguards remain active. Preview it before starting.
+The development version also offers `--memory-limit-gb`: an upper process
+budget with automatic cache resizing. It can exceed the default model ceiling
+while remaining bounded by supported GPU/system headroom and live memory.
+The chosen limit is retained across shrink and recovery. Diagnostics and
+budgeted startup share the same feasibility check.
 See the [memory options](CLI.md#memory-options)
 for the other controls and their precedence.
 

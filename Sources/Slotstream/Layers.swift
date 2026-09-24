@@ -636,6 +636,8 @@ final class QSAAttention {
     private(set) var paddedSmallQueryRows = 0
     var boundedIndexer = false
     var selectedAttention = false
+    var fusedPrefillAttention = false
+    private(set) var fusedPrefillAttentionTiles = 0
     private(set) var selectedAttentionTiles = 0
     /// The short multi-row pass (the speculative verify pass): `.split` and
     /// `.exact` keep it on the vector kernel once the context holds
@@ -795,6 +797,8 @@ final class QSAAttention {
             selection: boundedIndexer || useSelected ? selection : nil,
             selectedAttention: useSelected,
             onSelected: { [weak self] in self?.selectedAttentionTiles += 1 },
+            fusedPrefillAttention: fusedPrefillAttention,
+            onFused: { [weak self] in self?.fusedPrefillAttentionTiles += 1 },
             splitRows: splitRows,
             onSplit: { [weak self] in self?.multiRowSplits += 1 })
         debugSink?("sdpaOut", out)
@@ -836,7 +840,12 @@ final class QSAAttention {
     /// is inactive (bit-parity with mlx-lm's "causal" string mask), and the
     /// boolean keep-set (already causal) when it is.
     ///
-    /// **Why the pass is split.** MLX 0.31.1 admits the fused prefill kernel
+    /// The historical tiling measurements below use MLX 0.31.1. The qualified
+    /// MLX 0.32.2 D256 path now forces fusion, but keeps these tile, mask and
+    /// evaluation boundaries. Unsupported hardware retains the bounded
+    /// fallback; the upgrade is not a claim of cross-kernel bit parity.
+    ///
+    /// **Why the pass was split.** MLX 0.31.1 admits the fused prefill kernel
     /// only for head dims 64, 80 and 128 (`sdpa_full_supported_head_dim` in
     /// `scaled_dot_product_attention.cpp`). These layers run at head dim 256,
     /// so every pass longer than 8 tokens takes the unfused path in
@@ -863,6 +872,7 @@ final class QSAAttention {
         q: MLXArray, k: MLXArray, v: MLXArray, sparse: MLXArray?, base: Int,
         scale: Float, block: Int, selection: QSASelection? = nil,
         selectedAttention: Bool = false, onSelected: (() -> Void)? = nil,
+        fusedPrefillAttention: Bool = false, onFused: (() -> Void)? = nil,
         splitRows: Bool = false, onSplit: (() -> Void)? = nil
     ) -> MLXArray {
         let S = q.dim(2)
@@ -919,8 +929,9 @@ final class QSAAttention {
                 onSplit?()
                 return concatenated(outs, axis: 2)
             }
-            return MLXFast.scaledDotProductAttention(
-                queries: q, keys: k, values: v, scale: scale, mask: mask(selection?.mask(lo: 0, hi: S, keyEnd: base + S) ?? sparse, queries: S))
+            return FusedPrefillAttention.attend(q: q, k: k, v: v, scale: scale,
+                mask: mask(selection?.mask(lo: 0, hi: S, keyEnd: base + S) ?? sparse, queries: S),
+                enabled: fusedPrefillAttention, onFused: onFused)
         }
         var outs: [MLXArray] = []
         outs.reserveCapacity((S + block - 1) / block)
@@ -933,13 +944,14 @@ final class QSAAttention {
             // tree. Merge a short final tile so it cannot switch to the <=8
             // query vector kernel: a 256 target therefore bounds tiles at 511.
             let kEnd = selection != nil ? k.dim(2) : base + hi
-            let o = MLXFast.scaledDotProductAttention(
-                queries: q[0..., 0..., lo ..< hi, 0...],
-                keys: k[0..., 0..., 0 ..< kEnd, 0...],
-                values: v[0..., 0..., 0 ..< kEnd, 0...],
+            let o = FusedPrefillAttention.attend(
+                q: q[0..., 0..., lo ..< hi, 0...],
+                k: k[0..., 0..., 0 ..< kEnd, 0...],
+                v: v[0..., 0..., 0 ..< kEnd, 0...],
                 scale: scale,
                 mask: mask(selection?.mask(lo: lo, hi: hi, keyEnd: kEnd)
-                    ?? sparse?[0..., 0..., lo ..< hi, 0 ..< kEnd], queries: hi - lo))
+                    ?? sparse?[0..., 0..., lo ..< hi, 0 ..< kEnd], queries: hi - lo),
+                enabled: fusedPrefillAttention, onFused: onFused)
             eval(o)
             outs.append(o)
             lo = hi
@@ -1047,7 +1059,8 @@ public enum MultiRowAttention {
 /// verify attention on, it also selects `MultiRowAttention.Mode.exact`. The dense
 /// weights: the router and inject weights and QLinear's dense fallback (the
 /// GDN `in_proj_a`/`in_proj_b`, the shared-expert gate, the indexer
-/// projection). Prefill chunks above eight rows keep the stock matmul.
+/// projection). QLinear also projects quantized rows independently in this
+/// mode. Prefill chunks above eight rows keep the stock matmul.
 public enum RowInvariantMatmul {
     /// Process-wide; set from the resolved optimizations at every forward pass.
     public package(set) static var enabled = false

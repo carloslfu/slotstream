@@ -1,0 +1,3352 @@
+[
+  {
+    "elapsed": 5.00003807246685e-07,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 73.4,
+        "largest_background_process_cpu_percent": 19.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.909958656,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 2.0672068749554455,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 103.8,
+        "largest_background_process_cpu_percent": 40.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.896933376,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 4.164277374977246,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 105.5,
+        "largest_background_process_cpu_percent": 48.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.101061632,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 6.263155292021111,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 115.4,
+        "largest_background_process_cpu_percent": 46.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.00795136,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 8.361914291977882,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 159.8,
+        "largest_background_process_cpu_percent": 48.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.84435712,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 10.457928000018,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 118.6,
+        "largest_background_process_cpu_percent": 43.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.034542592,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 12.55783533398062,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 112.3,
+        "largest_background_process_cpu_percent": 47.8,
+        "gpu_utilization_percent": 12,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.95265536,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 14.655106291989796,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 155.6,
+        "largest_background_process_cpu_percent": 45.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.78463744,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 16.755349584040232,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 193.3,
+        "largest_background_process_cpu_percent": 69.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.786783744,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 18.8581684170058,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 120.1,
+        "largest_background_process_cpu_percent": 20.2,
+        "gpu_utilization_percent": 9,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.800873984,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 20.953804834047332,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 174.9,
+        "largest_background_process_cpu_percent": 81.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.978181632,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 23.049818917061202,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 167.7,
+        "largest_background_process_cpu_percent": 47.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.047076352,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 25.134854624979198,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 125.2,
+        "largest_background_process_cpu_percent": 44.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.048468992,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 27.241813209024258,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 163.79999999999998,
+        "largest_background_process_cpu_percent": 51.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.026776576,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 29.345395584008656,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 173.5,
+        "largest_background_process_cpu_percent": 51.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.859577856,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 31.42606508405879,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 190.1,
+        "largest_background_process_cpu_percent": 55.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.799677952,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 33.516011792002246,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 289.2,
+        "largest_background_process_cpu_percent": 95.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.798088704,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 35.60329254204407,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 189.8,
+        "largest_background_process_cpu_percent": 121.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.015455232,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 37.70092833403032,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 84.2,
+        "largest_background_process_cpu_percent": 17.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.004887552,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 39.805302374996245,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 79.8,
+        "largest_background_process_cpu_percent": 18.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.000480256,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 41.90293974999804,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 176.0,
+        "largest_background_process_cpu_percent": 48.5,
+        "gpu_utilization_percent": 5,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.66683648,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 43.97972225002013,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 123.5,
+        "largest_background_process_cpu_percent": 46.1,
+        "gpu_utilization_percent": 24,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.421944832,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 46.07879825006239,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 71.39999999999999,
+        "largest_background_process_cpu_percent": 23.2,
+        "gpu_utilization_percent": 16,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.838884864,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 48.16114345903043,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 85.10000000000001,
+        "largest_background_process_cpu_percent": 35.1,
+        "gpu_utilization_percent": 17,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.578067968,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 50.2665369999595,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 48.7,
+        "largest_background_process_cpu_percent": 21.5,
+        "gpu_utilization_percent": 15,
+        "background_cpu_eligible": true,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.024613888,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 52.36461287504062,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 132.6,
+        "largest_background_process_cpu_percent": 38.1,
+        "gpu_utilization_percent": 10,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.843816448,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 54.451849209028296,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 153.9,
+        "largest_background_process_cpu_percent": 45.3,
+        "gpu_utilization_percent": 14,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.46834432,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 56.54904729197733,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 328.0,
+        "largest_background_process_cpu_percent": 120.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.119329792,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 58.651060500065796,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 130.4,
+        "largest_background_process_cpu_percent": 45.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.126964736,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 60.739166749990545,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 149.0,
+        "largest_background_process_cpu_percent": 42.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.939269632,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 62.837292541982606,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 108.0,
+        "largest_background_process_cpu_percent": 44.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.132011008,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 64.92856904200744,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 66.4,
+        "largest_background_process_cpu_percent": 31.8,
+        "gpu_utilization_percent": 12,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.951574016,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 67.02383237506729,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 93.7,
+        "largest_background_process_cpu_percent": 44.0,
+        "gpu_utilization_percent": 11,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.019846144,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 69.12582399998792,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 142.0,
+        "largest_background_process_cpu_percent": 45.8,
+        "gpu_utilization_percent": 17,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.877878784,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 71.22106524999253,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 43.400000000000006,
+        "largest_background_process_cpu_percent": 18.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": true,
+        "idle_eligible": true
+      }
+    },
+    "reclaimable_gb": 30.047387648,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 73.32092604204081,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 41.5,
+        "largest_background_process_cpu_percent": 12.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": true,
+        "idle_eligible": true
+      }
+    },
+    "reclaimable_gb": 30.134452224,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 75.42126441700384,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 105.8,
+        "largest_background_process_cpu_percent": 32.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.137516032,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 77.52397316705901,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 163.6,
+        "largest_background_process_cpu_percent": 73.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.181965824,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 79.62579508405179,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 169.70000000000002,
+        "largest_background_process_cpu_percent": 73.7,
+        "gpu_utilization_percent": 3,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.582917632,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 81.72645912505686,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 112.2,
+        "largest_background_process_cpu_percent": 33.9,
+        "gpu_utilization_percent": 14,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.836771328,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 83.82110341696534,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 81.4,
+        "largest_background_process_cpu_percent": 25.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.927112704,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 85.92085687501822,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 132.5,
+        "largest_background_process_cpu_percent": 45.2,
+        "gpu_utilization_percent": 12,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.04882944,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 88.01289512496442,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 120.9,
+        "largest_background_process_cpu_percent": 40.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.061412352,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 90.10668645903934,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 118.9,
+        "largest_background_process_cpu_percent": 34.9,
+        "gpu_utilization_percent": 15,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.959831552,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 92.2062251670286,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 154.7,
+        "largest_background_process_cpu_percent": 44.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.062641152,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 94.29351045901421,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 82.3,
+        "largest_background_process_cpu_percent": 29.8,
+        "gpu_utilization_percent": 13,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.131716096,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 96.38784087495878,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 97.8,
+        "largest_background_process_cpu_percent": 32.4,
+        "gpu_utilization_percent": 17,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.134255616,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 98.487791209016,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 111.7,
+        "largest_background_process_cpu_percent": 37.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.049550336,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 100.58254283398855,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 102.2,
+        "largest_background_process_cpu_percent": 33.4,
+        "gpu_utilization_percent": 14,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.250123264,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 102.68343995895702,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 235.4,
+        "largest_background_process_cpu_percent": 141.0,
+        "gpu_utilization_percent": 15,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.10568192,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 104.7658958339598,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 215.4,
+        "largest_background_process_cpu_percent": 92.3,
+        "gpu_utilization_percent": 19,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.938434048,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 106.86205370898824,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 134.0,
+        "largest_background_process_cpu_percent": 38.0,
+        "gpu_utilization_percent": 15,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.035673088,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 108.94555804203264,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 195.0,
+        "largest_background_process_cpu_percent": 74.7,
+        "gpu_utilization_percent": 16,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.10592768,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 111.04674958402757,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 69.7,
+        "largest_background_process_cpu_percent": 18.8,
+        "gpu_utilization_percent": 17,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.110007296,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 113.14684066700283,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 88.4,
+        "largest_background_process_cpu_percent": 25.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.329339904,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 115.24836970900651,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 94.8,
+        "largest_background_process_cpu_percent": 27.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.390042624,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 117.343860708992,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 67.3,
+        "largest_background_process_cpu_percent": 20.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.40247808,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 119.44129812496249,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 99.3,
+        "largest_background_process_cpu_percent": 34.2,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.156111872,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 121.54415266704746,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 125.8,
+        "largest_background_process_cpu_percent": 38.4,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.159208448,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 123.65426033397671,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 43.8,
+        "largest_background_process_cpu_percent": 13.3,
+        "gpu_utilization_percent": 2,
+        "background_cpu_eligible": true,
+        "idle_eligible": true
+      }
+    },
+    "reclaimable_gb": 30.196596736,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 125.75009029195644,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 35.4,
+        "largest_background_process_cpu_percent": 9.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": true,
+        "idle_eligible": true
+      }
+    },
+    "reclaimable_gb": 30.138138624,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 127.84894045896363,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 97.9,
+        "largest_background_process_cpu_percent": 29.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.959143424,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 129.9524695420405,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 203.2,
+        "largest_background_process_cpu_percent": 102.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.959471104,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 132.0517413340276,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 121.1,
+        "largest_background_process_cpu_percent": 23.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.029316096,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 134.15456875006203,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 147.3,
+        "largest_background_process_cpu_percent": 35.2,
+        "gpu_utilization_percent": 2,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.041604096,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 136.2558699590154,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 192.8,
+        "largest_background_process_cpu_percent": 37.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.657399296,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 138.3523849589983,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 106.2,
+        "largest_background_process_cpu_percent": 23.3,
+        "gpu_utilization_percent": 7,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.698031616,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 140.4537547089858,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 103.1,
+        "largest_background_process_cpu_percent": 21.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.824811008,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 142.55376495898236,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 143.6,
+        "largest_background_process_cpu_percent": 24.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.034264064,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 144.64576320897322,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 95.8,
+        "largest_background_process_cpu_percent": 21.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.941891072,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 146.74716324999463,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 110.2,
+        "largest_background_process_cpu_percent": 35.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.040817664,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 148.8431634589797,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 108.7,
+        "largest_background_process_cpu_percent": 22.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 30.042423296,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 150.94460766704287,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 90.8,
+        "largest_background_process_cpu_percent": 21.2,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.941972992,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 153.0483265420189,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 101.6,
+        "largest_background_process_cpu_percent": 28.4,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.974151168,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 155.14490233396646,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 92.9,
+        "largest_background_process_cpu_percent": 22.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.977591808,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 157.24668424995616,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 142.5,
+        "largest_background_process_cpu_percent": 29.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.986553856,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 159.34973637503572,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 88.2,
+        "largest_background_process_cpu_percent": 20.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.985816576,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 161.4491742090322,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 99.60000000000001,
+        "largest_background_process_cpu_percent": 22.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.988519936,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 163.55044183402788,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 113.6,
+        "largest_background_process_cpu_percent": 30.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.988683776,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": true
+  },
+  {
+    "elapsed": 165.645800834056,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 79.0,
+        "largest_background_process_cpu_percent": 19.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.968072704,
+    "swapouts": 2508531,
+    "known_jobs": [],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 167.71533787506633,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 154.4,
+        "largest_background_process_cpu_percent": 81.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.87204608,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 169.7926647090353,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 124.4,
+        "largest_background_process_cpu_percent": 46.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.739565056,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 171.87225041701458,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 157.5,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.656727552,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 173.9474050840363,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 158.8,
+        "largest_background_process_cpu_percent": 99.4,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.728391168,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 176.02683520899154,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 162.3,
+        "largest_background_process_cpu_percent": 97.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.473144832,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 178.10476749995723,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 155.4,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.272817664,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 180.1839300839929,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 160.2,
+        "largest_background_process_cpu_percent": 98.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.108273152,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 182.2669604170369,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 204.6,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 5,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.05645056,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 184.3477667500265,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 203.0,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 9,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.952182784,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 186.42540579196066,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 239.0,
+        "largest_background_process_cpu_percent": 97.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.889890816,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 188.50613666698337,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 207.6,
+        "largest_background_process_cpu_percent": 98.4,
+        "gpu_utilization_percent": 7,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.535980032,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 190.58631308400072,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 194.1,
+        "largest_background_process_cpu_percent": 99.4,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.777889792,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 192.66631145903375,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 163.4,
+        "largest_background_process_cpu_percent": 98.7,
+        "gpu_utilization_percent": 15,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.745187328,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 194.7490464169532,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 191.0,
+        "largest_background_process_cpu_percent": 99.2,
+        "gpu_utilization_percent": 14,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.829073408,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 196.83166270900983,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 175.4,
+        "largest_background_process_cpu_percent": 99.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.297363456,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 198.91290529200342,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 159.4,
+        "largest_background_process_cpu_percent": 98.5,
+        "gpu_utilization_percent": 10,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.51454976,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 200.9916735419538,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 198.1,
+        "largest_background_process_cpu_percent": 99.4,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.571549696,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 203.07167254202068,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 312.3,
+        "largest_background_process_cpu_percent": 109.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.461088768,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 205.1552929590689,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 153.8,
+        "largest_background_process_cpu_percent": 99.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.458385408,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 207.2341045839712,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 128.4,
+        "largest_background_process_cpu_percent": 99.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.598960128,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 209.31169287499506,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 168.3,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.538912768,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 211.38807995896786,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 181.2,
+        "largest_background_process_cpu_percent": 99.2,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.64447488,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 213.46826329198666,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 127.1,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.741009408,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 215.54804762499407,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 128.1,
+        "largest_background_process_cpu_percent": 99.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.43287552,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 98668,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 217.62864887504838,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 157.4,
+        "largest_background_process_cpu_percent": 68.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.721133056,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 219.70556691696402,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 222.6,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.73360128,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 221.78341458400246,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 282.59999999999997,
+        "largest_background_process_cpu_percent": 146.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.699342336,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 223.8598018339835,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 245.4,
+        "largest_background_process_cpu_percent": 118.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.56066816,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 225.9393188339891,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 165.4,
+        "largest_background_process_cpu_percent": 99.2,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.382541312,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 228.01990783400834,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 164.70000000000002,
+        "largest_background_process_cpu_percent": 98.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.424123904,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 230.1007542499574,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 124.5,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.312172032,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 232.18003620905802,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 132.6,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.267574784,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 234.25872983399313,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 131.0,
+        "largest_background_process_cpu_percent": 99.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.1373056,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 236.3371181669645,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 133.8,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.127819264,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 238.4155147500569,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 255.9,
+        "largest_background_process_cpu_percent": 104.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.092233216,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 240.49406408402137,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 153.6,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.099196416,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 242.57288779201917,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 129.7,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.089513472,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 244.6500912499614,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 155.6,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.059629056,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 246.72911883401684,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 123.1,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.074325504,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 248.80755516700447,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 196.5,
+        "largest_background_process_cpu_percent": 98.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.052633088,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 250.8865968750324,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 133.6,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.066067968,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 252.9642872499535,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 219.5,
+        "largest_background_process_cpu_percent": 99.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.229907968,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 255.0434047919698,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 125.5,
+        "largest_background_process_cpu_percent": 97.9,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.975775744,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 257.12109287502244,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 135.9,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.049552896,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 259.19871191703714,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 149.1,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.043556352,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 261.27700191701297,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 131.9,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.045342208,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 263.35465624998324,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 154.6,
+        "largest_background_process_cpu_percent": 98.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.937076736,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 265.43519462505355,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 151.5,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.94856192,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 267.5149030840257,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 122.5,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.047635968,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 269.59266449999996,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 155.4,
+        "largest_background_process_cpu_percent": 99.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.038870528,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 271.672036999953,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 285.7,
+        "largest_background_process_cpu_percent": 99.1,
+        "gpu_utilization_percent": 3,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.719808512,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 273.7535795000149,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 201.2,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 10,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.861218816,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 275.83477462502196,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 196.6,
+        "largest_background_process_cpu_percent": 98.3,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.970287104,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 277.91839012503624,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 138.4,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.979953664,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 279.99807337496895,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 156.1,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.085089792,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 282.08057904196903,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 205.8,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.094412288,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 284.1620171669638,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 143.5,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.110550528,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 286.23830149997957,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 130.5,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.1028992,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 288.3187871669652,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 134.7,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.107617792,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99102,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 290.40213662502356,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 258.3,
+        "largest_background_process_cpu_percent": 92.8,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.6812544,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99358,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99359,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 292.48639812506735,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 476.0,
+        "largest_background_process_cpu_percent": 172.5,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.062086656,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99358,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99359,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 294.5720065420028,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 258.5,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.973776896,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99358,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99359,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 296.6526530419942,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 261.6,
+        "largest_background_process_cpu_percent": 100.0,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.74015744,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99358,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99359,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 298.7338429170195,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 356.7,
+        "largest_background_process_cpu_percent": 99.6,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 28.99992576,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99358,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99359,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  },
+  {
+    "elapsed": 300.81698629201856,
+    "state": {
+      "lowPowerModeEnabled": false,
+      "thermalState": "nominal",
+      "host_load": {
+        "background_cpu_percent": 340.2,
+        "largest_background_process_cpu_percent": 99.7,
+        "gpu_utilization_percent": 0,
+        "background_cpu_eligible": false,
+        "idle_eligible": false
+      }
+    },
+    "reclaimable_gb": 29.109796864,
+    "swapouts": 2508531,
+    "known_jobs": [
+      {
+        "pid": 98587,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99358,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      },
+      {
+        "pid": 99359,
+        "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+        "kind": "Swift build"
+      }
+    ],
+    "model_lock_free": false
+  }
+]

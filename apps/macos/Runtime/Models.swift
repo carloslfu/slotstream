@@ -90,6 +90,9 @@ public struct Run: Codable, Identifiable, Sendable, Equatable {
     public var context: ContextReceipt?
     /// Metadata only. The thought itself is never stored.
     public var thinking: ThinkingReceipt?
+    /// What the response cost on this Mac: tokens, times and rates the engine
+    /// measured. Numbers only. Absent for runs recorded before it existed.
+    public var metrics: ResponseMetrics?
     /// File changes staged by this run, awaiting review or already applied.
     public var changes: ChangeSet?
     public var appProposal: AppProposal?
@@ -191,8 +194,11 @@ public struct RuntimeSnapshot: Sendable, Equatable {
     public var storageNeedsReview = false
     /// The current thought, if one is running or just finished in this run.
     public var thinking: ThinkingObservation? = nil
-    /// Recent thoughts by run id, kept in memory while Sevra is open.
-    public var thinkingTraces: [String: String] = [:]
+    /// Recent thoughts by run id, one entry per thought in the run, kept in
+    /// memory while Sevra is open.
+    public var thinkingTraces: [String: [String]] = [:]
+    /// Live writing speed of the response that is running. Memory only.
+    public var generation: GenerationObservation? = nil
     /// Increments per collection when mini-app data changes.
     public var appDataRevision: [String: Int] = [:]
     /// The same counts for writes each app made itself, by app ID. An open
@@ -204,8 +210,32 @@ public struct RuntimeSnapshot: Sendable, Equatable {
     /// Whether this build can read documents, images and knowledge bases.
     public var documentsAvailable = false
 }
+/// How fast the running response is writing, from token arrival times. The
+/// numbers recorded with the run come from the engine when it finishes.
+public struct GenerationObservation: Sendable, Equatable {
+    public var threadID: String
+    public var runID: String
+    /// True while the model is thinking, false once it writes the reply.
+    public var thinking: Bool
+    public var tokens: Int
+    /// Between the first and the latest token of this phase.
+    public var seconds: Double
+    public init(threadID: String, runID: String, thinking: Bool, tokens: Int, seconds: Double) {
+        self.threadID = threadID; self.runID = runID; self.thinking = thinking; self.tokens = tokens; self.seconds = seconds
+    }
+    /// Tokens per second over the intervals seen so far. Nil until two
+    /// tokens have arrived, so a first token cannot claim a rate.
+    public var rate: Double? { tokens >= 2 && seconds > 0 ? Double(tokens - 1) / seconds : nil }
+}
 public func digestText(_ s: String) -> String { digestBytes(Data(s.utf8)) }
-public func digestBytes(_ d: Data) -> String { SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined() }
+public func digestBytes(_ d: Data) -> String {
+    // Lowercase hex without String(format:), which dominated hashing many
+    // small records.
+    let digits = Array("0123456789abcdef".utf8)
+    var hex = [UInt8](); hex.reserveCapacity(64)
+    for byte in SHA256.hash(data: d) { hex.append(digits[Int(byte >> 4)]); hex.append(digits[Int(byte & 0x0f)]) }
+    return String(decoding: hex, as: UTF8.self)
+}
 func encoded<T: Encodable>(_ value: T) throws -> Data {
     let e = JSONEncoder(); e.outputFormatting = [.sortedKeys]; e.dateEncodingStrategy = .iso8601
     return try e.encode(value)

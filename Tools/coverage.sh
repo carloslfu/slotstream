@@ -39,7 +39,7 @@ swift build --scratch-path "$BUILD" \
 BIN="$BUILD/debug/slotstream-checks"
 [ -x "$BIN" ] || { echo "no runner at $BIN" >&2; exit 1; }
 # MLX finds its shaders next to whatever executable is running.
-[ -f Tools/lib/mlx-0.31.1.metallib ] && cp Tools/lib/mlx-0.31.1.metallib "$BUILD/debug/mlx.metallib"
+[ -f Tools/lib/mlx-0.32.2.metallib ] && cp Tools/lib/mlx-0.32.2.metallib "$BUILD/debug/mlx.metallib"
 
 echo "== run =="
 LLVM_PROFILE_FILE="$PROF" "$BIN" "${TIERS[@]}"

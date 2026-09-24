@@ -65,8 +65,25 @@ extension Diagnostics {
                 c.equal("\(label): retry after release reads one new record", pool.recordsFetched, reads + 1)
                 c.expect("\(label): retry publishes requested key", pool.isResident(keys[4]))
                 pool.unpinAll()
+                let retained = keys.filter { pool.isResident($0) }
+                let beforeGrowth = pool.gatherResident(retained)
+                eval(beforeGrowth)
+                let pieceBytes = pool.pools.map(\.nbytes)
+                var added = 0, expectedTransient = 0
+                for old in pieceBytes {
+                    let new = old / 4 * 6, tail = old / 4 * 2
+                    expectedTransient = max(expectedTransient, added + new + tail)
+                    added += tail
+                }
+                c.equal("\(label): growth prices replacement and tail", pool.growthTransientBytes(to: 6), expectedTransient)
+                c.equal("\(label): shrink needs no warm-growth reserve", pool.growthTransientBytes(to: 1), 0)
                 pool.resize(to: 6)
                 c.expect("\(label): growth preserves live mappings", pool.isResident(keys[4]))
+                let afterGrowth = pool.gatherResident(retained)
+                for piece in beforeGrowth.indices {
+                    c.expect("\(label): warm growth preserves every quantized byte \(piece)",
+                        beforeGrowth[piece].asData(access: .copy).data == afterGrowth[piece].asData(access: .copy).data)
+                }
                 let grown = try pool.ensureChecked([keys[4], keys[4]])
                 c.equal("\(label): growth preserves duplicate aliases", grown[0], grown[1])
                 pool.resize(to: 1)

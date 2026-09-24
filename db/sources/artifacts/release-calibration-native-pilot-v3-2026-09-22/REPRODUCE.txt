@@ -1,0 +1,23 @@
+The 8.1 GB v3 real-model functional pilot passed two capped requests. It is
+excluded from timing calibration. The later 10 GB 2K prefill timing attempt
+had enough memory, but failed its bounded background-load preflight before
+loading a model. No new performance anchor is qualified.
+
+The exact v3 benchmark harness is in the sibling artifact
+release-calibration-load-screen-v3-2026-09-22/harness-idle-v3. The original
+fixtures/probe are in release-speed-calibration-2026-09-22. All prospective
+protocols retain original absolute input paths and hashes. For a new run,
+create and hash a fresh relocated protocol; never rewrite these captures.
+
+Offline verification in a disposable copy of this artifact directory:
+  python3 -m unittest discover -s analysis-v3 -p '*_test.py'
+  python3 analysis-v3/capture_check.py .
+  python3 analysis-v3/analyze.py .
+  python3 analysis-v3/report.py .
+  python3 analysis-v3/calibration.py .
+
+protocol.json is a byte-identical convenience copy of the prospective 2K
+protocol. Population policy explicitly excludes the smaller pilot. The new
+analysis defaults unregistered populations to ineligible and diagnoses
+prefill corrections using complete misses and held-out prompt families.
+These changes do not alter frozen historical analyses or production planning.

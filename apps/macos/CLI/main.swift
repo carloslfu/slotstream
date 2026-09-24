@@ -66,6 +66,7 @@ Task {
                 if text.hasPrefix(shown) { print(text.dropFirst(shown.count), terminator: ""); fflush(stdout) }; shown = text
                 if let run = thread.run, run.state.terminal || run.state == .needsYou {
                     if let receipt = run.thinking { fputs("\r" + receipt.line + "\n", stderr) }
+                    if let metrics = run.metrics, let line = ResponseMetricsFormat.line(metrics) { fputs(line + "\n", stderr) }
                     print("\n\(run.status)")
                     if let proposal = run.proposal { print("Review pending: \(proposal.filename)\n\(proposal.content)") }
                     if run.state == .failed { status = 1 }; break

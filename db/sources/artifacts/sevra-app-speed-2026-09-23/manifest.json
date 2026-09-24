@@ -1,0 +1,115 @@
+{
+  "scope": "Synthetic test conversation in the actual development app and a separate installed-engine MTP comparison. No private conversation text or memory content. Numeric host samples omit unrelated process command paths. Timing is diagnostic because global paging occurred.",
+  "files": [
+    {
+      "path": "app-build-inputs.json",
+      "sha256": "fb71281cc1d6a572925a2823c0f527c147e4139958bec5dbfeb977226fecf3df",
+      "bytes": 30415
+    },
+    {
+      "path": "app-identity.json",
+      "sha256": "772b5744dfe3c4650c39d78fb8be77f014ed6d2d7b3c324ec3ea375e6974fef5",
+      "bytes": 217
+    },
+    {
+      "path": "app-results.json",
+      "sha256": "9c6b9092500a7b05acea081b05f7d03ce23d976328d3f7259789ddab8516c5af",
+      "bytes": 5678
+    },
+    {
+      "path": "app-summary.json",
+      "sha256": "9808817702283c978269a1b6f9c58b62d224275c0ab35b926c2f8eee58369334",
+      "bytes": 1829
+    },
+    {
+      "path": "measure_app.py",
+      "sha256": "2264f0aa4aec7bd30a4e266165271b7e7d06e25108731219765034481d456230",
+      "bytes": 2190
+    },
+    {
+      "path": "cold-bicycle.json",
+      "sha256": "e9ccb70e3762b2079dbb455d20a86d38eb3f8eed8a8c28a165c4a9bb27443576",
+      "bytes": 1067
+    },
+    {
+      "path": "warm-rain.json",
+      "sha256": "2c027944668024e764fab79d9ef9f3dfa451865b85dec0ff5c4f26ddbda05b8b",
+      "bytes": 1348
+    },
+    {
+      "path": "warm-rain.log",
+      "sha256": "d7e6f52a0676ff21cfc41c48528cdb2c2fa3207f21a475f2bad926bbf96f77d1",
+      "bytes": 1784
+    },
+    {
+      "path": "warm-caching.json",
+      "sha256": "1a88c27e444bdede966c50603e4cf79188fccfedf04699c94361e9dcc85ffb5f",
+      "bytes": 1472
+    },
+    {
+      "path": "warm-caching.log",
+      "sha256": "6141e35d2f7a5cf0974220060ee855dd6bd3126649c254460e93c9474f890504",
+      "bytes": 1643
+    },
+    {
+      "path": "warm-short.json",
+      "sha256": "3dbb16d2e37dc0a1663491173216438198f80ddfbe5ca57105c0cef762d1524f",
+      "bytes": 1425
+    },
+    {
+      "path": "warm-short.log",
+      "sha256": "590777404096acebea578ce5900ce22ee4ad506d00dc9470a5e6949010d8bb58",
+      "bytes": 152
+    },
+    {
+      "path": "mtp-method.json",
+      "sha256": "215512d44ee17224a445d79c89078b0005400084f756394d097a993bfff3117a",
+      "bytes": 848
+    },
+    {
+      "path": "mtp-receipt.json",
+      "sha256": "9b904e3534d362c97f3e26572176dae434f9a36170fa8d9a605d023883ba3164",
+      "bytes": 933
+    },
+    {
+      "path": "mtp-summary.json",
+      "sha256": "22ee6d5d081e704ccb7a2b17fe9350595ac7c060068324df60bff38eb5574f67",
+      "bytes": 611
+    },
+    {
+      "path": "mtp-qualified-comparison.log",
+      "sha256": "f8628231a4e18a7e09fc4b957f90594567b6dfa5aeedb61422fcbe16deeb8906",
+      "bytes": 2241
+    },
+    {
+      "path": "mtp-comparison.log",
+      "sha256": "eef3032ad20a6ed44fc69365d0bc3be354daa3cfc5ac53e13f2316ca8d3f3317",
+      "bytes": 1633
+    },
+    {
+      "path": "mtp-preflight.json",
+      "sha256": "7a88ccf75aecbf6dd3462a89f9c7a4d8803d1046ab47da26e73516aeead69c6b",
+      "bytes": 1972
+    },
+    {
+      "path": "compare_mtp.py",
+      "sha256": "d4b2edab77714c35882371c3d348bfc5dcfd60a484cedcd9c8bdb5f70e0e5565",
+      "bytes": 1787
+    },
+    {
+      "path": "app-equivalent-plan-after.txt",
+      "sha256": "4f3e728a0a372f65990f6918685d4407cb2df7c6d83185db46831ac3d3465ac6",
+      "bytes": 3643
+    },
+    {
+      "path": "app-host-numeric.jsonl",
+      "sha256": "03f0c51b3b299102823f1ff79bf49ba59a33a29eedf5a6697ea681c90599b8c7",
+      "bytes": 251772
+    },
+    {
+      "path": "comparison-host-numeric.jsonl",
+      "sha256": "3a5b6876f71aaa69bf63180c7f9272753c7552da7d38105df8e04f05bc5a4e32",
+      "bytes": 234753
+    }
+  ]
+}

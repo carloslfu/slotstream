@@ -1,0 +1,798 @@
+[
+  {
+    "path": "Makefile",
+    "matches": true
+  },
+  {
+    "path": "Package.resolved",
+    "matches": true
+  },
+  {
+    "path": "Package.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/CSlotpack/include/slotpack.h",
+    "matches": true
+  },
+  {
+    "path": "Sources/CSlotpack/slotpack.c",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/AdaptiveSpeculation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/AnthropicDialect.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/BlockSelection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/BoundedOutput.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/CPUSlotWrite.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/CacheBookkeeping.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Checkpoint.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/CodingToolLaunch.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/CompiledArithmetic.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Context.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ContextFeasibility.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ContextMemory.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ContextWindowPolicy.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/DecodeLookahead+Configuration.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/DecodeLookahead.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/DownloadConcurrency.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/DownloadHTTP.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/EmbeddingRows.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Engine.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Errors.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ExactRead.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ExpertLookaheadTrace.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ExpertPredictor.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ExpertPrefetch.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ExpertStore.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ExpertTransferProfile.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/FusedPrefillAttention.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/GDNPhaseProfile.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/GatewayDialect.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Generate.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/GenerationPhase.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Governor.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/LayerLocalVictim.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Layers.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/MTP.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Machine.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/MemTrace.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Model.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/NgramPrefetch.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/NgramStore.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Observation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/OpenAIDialect.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/OpenAIOutput.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/OptimizationPlatform.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Optimizations.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PackedExpertLayout.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PackedProjectionPair.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PartialRotation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixCache.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixConversation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixFormat.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixGenerator.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixPolicy.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixRestore.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PersistentPrefixSave.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PinnedModel.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PinnedTransport.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PinnedTransportManifest.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Plan.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PlannerCostModel.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PlannerDevice.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PrefillReadPolicy.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PrefixCache.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/PressureBoundary.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ProcessMemory.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/RequestControl.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ResidentExpertOverlap.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ResponsesDialect.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/RouterProjection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/RouterSelection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/RouterTapCorrection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/RouterTrace.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/RoutingReadbackQueue.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/SelectedAttention.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Server.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ServerActivity.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/SlotWritePlan.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/SlotpackDownload.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/SlotpackManifest.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/StatePrefixFork.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/StateRecovery.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/TapCorrectionSidecar.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/ToolCallSplitter.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Vendored/GatedDelta.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/VerifyPassSelfCheck.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Version.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Vision.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/VisionAttention.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/VisionPrompt.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/WeightDownload.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/WeightStore.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/Weights.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/Slotstream/WordSlotWrite.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/CheckReport.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+AdaptiveSpeculation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+AlignedResume.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+AllHitReplay.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+BlockSelection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+CacheBookkeeping.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+CompactIndexer.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+CompiledNorm.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+CompletePrompt.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ComputeIslands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Context.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+DecodeLookahead.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRows.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRuntime.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ExactRead.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ExpertLookahead.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+FusedPrefill.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+GDNProfile.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+GDNProjection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+GenerationPhase.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+HTTP.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ImageFailure.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ImageReuse.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Integrated.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+LayerLocalVictim.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+MTPIndexer.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Machine.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+NgramCache.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+NgramLookahead.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Optimization.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Output.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+OutputServing.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PackedLayout.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PartialRotation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PersistentConversation.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefix.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefixModel.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefixPolicy.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PoolRequests.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PrefillOpportunities.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PrefillQualification.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PrefixCapacity.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PrefixFork.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PrefixRetention.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PrefixVision.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PressureBoundary.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+PromptSpeed.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Pull.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ReadFailureServing.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ReadHandles.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ReadRecovery.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+ResidentOverlap.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+RopePerformance.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+RouterProjection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+RoutingReadback.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Runtime.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+RuntimeBudget.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+SamplerPerformance.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+SelectedAttention.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Selection.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+SharedPrefix.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+SlotSlices.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+StateRecovery.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+TerminalPrefill.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+VerifyPass.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+Vision.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+VisionAttention.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics+VisionCapacity.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Diagnostics.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/ExpertLookaheadCollector.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamDiagnostics/Goldens.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/AnthropicChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/Catalogue.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/CodexFixture.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/GatewayChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/LaunchChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/OpenAIChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/ResponsesChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/T0Checks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/ToolCallChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/SlotstreamTestKit/WeightStoreChecks.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-checks/main.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/CheckRendering.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/ContextCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/ExpertLookaheadCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/LaunchCommand.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/MTPCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/OptimizationCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/PackedExpertCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/PrefixCacheCommand.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/PrefixExactCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/Pull.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/StopCommand.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/SweepCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/VisionCommands.swift",
+    "matches": true
+  },
+  {
+    "path": "Sources/slotstream-cli/main.swift",
+    "matches": true
+  },
+  {
+    "path": "Tools/build_identity.py",
+    "matches": true
+  },
+  {
+    "path": "Tools/fetch_metallib.sh",
+    "matches": true
+  }
+]

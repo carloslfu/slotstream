@@ -1,0 +1,39 @@
+{
+  "at": "2026-09-23T02:38:42.615793+00:00",
+  "last_reclaimable_gb": 29.109796864,
+  "final_load_window": {
+    "eligible": false,
+    "sample_count": 58,
+    "means": {
+      "background_cpu_percent": 188.49137931034483,
+      "largest_background_process_cpu_percent": 101.38275862068966,
+      "gpu_utilization_percent": 1.2586206896551724
+    },
+    "burst_fraction": 0.3275862068965517,
+    "idle": true
+  },
+  "known_jobs_last": [
+    {
+      "pid": 98587,
+      "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-build",
+      "kind": "Swift build"
+    },
+    {
+      "pid": 99358,
+      "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+      "kind": "Swift build"
+    },
+    {
+      "pid": 99359,
+      "executable": "/Library/Developer/CommandLineTools/usr/bin/swift-frontend",
+      "kind": "Swift build"
+    }
+  ],
+  "samples_with_competing_jobs": 65,
+  "cleanup": {
+    "owned_pid": null,
+    "exit_code": null,
+    "reaped": true
+  },
+  "requests": 0
+}

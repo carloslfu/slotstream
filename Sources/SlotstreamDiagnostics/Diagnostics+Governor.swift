@@ -16,6 +16,26 @@ extension Diagnostics {
         // A 48 GB Mac sitting at what auto picks when nothing else is running.
         let ram = 51.5
         let ws = 40.2
+        c.expect("warm growth fits both real availability and the process target",
+            P.growthFits(footprintBytes: 8_000_000_000, transientBytes: 2_000_000_000,
+                availableGB: 8, targetGB: 10, ramGB: ram))
+        c.expect("final-size headroom alone cannot admit a larger transient",
+            !P.growthFits(footprintBytes: 29_000_000_000, transientBytes: 6_000_000_000,
+                availableGB: 12, targetGB: 33, ramGB: ram))
+        c.expect("warm growth retains system headroom",
+            !P.growthFits(footprintBytes: 8_000_000_000, transientBytes: 2_000_000_000,
+                availableGB: 2, targetGB: 13, ramGB: ram))
+        for missing in [nil, Double.nan, Double.infinity, -1.0] as [Double?] {
+            c.expect("invalid availability cannot admit warm growth",
+                !P.growthFits(footprintBytes: 8_000_000_000, transientBytes: 1_000_000_000,
+                    availableGB: missing, targetGB: 13, ramGB: ram))
+            c.expect("invalid process target cannot admit warm growth",
+                !P.growthFits(footprintBytes: 8_000_000_000, transientBytes: 1_000_000_000,
+                    availableGB: 8, targetGB: missing, ramGB: ram))
+        }
+        c.expect("missing physical footprint defers growth",
+            !P.growthFits(footprintBytes: 0, transientBytes: 1_000_000_000,
+                availableGB: 8, targetGB: 13, ramGB: ram))
         func inputs(
             slots: Int, avail: Double, sincePressure: Double? = nil,
             sinceResize: Double? = nil, pressure: P.Pressure? = nil

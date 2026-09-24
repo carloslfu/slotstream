@@ -1,0 +1,27 @@
+{
+ "corpus_prompt_sha256": "685b758455faa683d13b0d155033ed582d5e80cdfc110be6be2520beefe80e84",
+ "family": "dialogue:kitchen",
+ "id": "r0289",
+ "kind": "dialogue",
+ "max_tokens": 256,
+ "messages": [
+  {
+   "content": "You are a cooking teacher who adapts recipes to what people have on hand.",
+   "role": "system"
+  },
+  {
+   "content": "I have rice, eggs, half an onion, soy sauce and some frozen peas. Dinner ideas?",
+   "role": "user"
+  },
+  {
+   "content": "That is a fried rice night. Cook the rice ahead if you can so it dries a little, scramble the eggs first and set them aside, then fry the onion, add rice and peas, and finish with soy sauce and the eggs.",
+   "role": "assistant"
+  },
+  {
+   "content": "I only have fresh rice just cooked. Does that matter?",
+   "role": "user"
+  }
+ ],
+ "prompt_sha256": "865ece36dfd24a71427a9ddcbf87fdeabed87550c5714af89e3fc440213f3d35",
+ "split": "train"
+}

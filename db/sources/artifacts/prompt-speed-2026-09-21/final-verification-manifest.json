@@ -1,0 +1,41 @@
+{
+  "archive_sha256": "73c4adb04c6f19c91a15dd70e1c7e15345fe3c8cbcc6bdd849594d1f4281a699",
+  "members": {
+    "final-api-build.log": {
+      "bytes": 10613,
+      "sha256": "bdf2a34c38718948e64b6770ab3dcdbaf8a9569990711a2a3483653f95ae93d0"
+    },
+    "final-api-dispatch.json": {
+      "bytes": 681,
+      "sha256": "7d87e73bd2ab698afbd7d99350128e0e5e46a31aca27229d14fe0e449dd7a313"
+    },
+    "final-production-identity.json": {
+      "bytes": 304,
+      "sha256": "6bd8013593c888a3163cc6c7d0af595cd386161ff506a13e1654182fe2afb2ff"
+    },
+    "final-t0.json": {
+      "bytes": 2983094,
+      "sha256": "30ca4200e870f89378d95d6640f2130fd972deb9472ee1f56577241aaed164bc"
+    },
+    "final-t0.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-brain-gates-2.log": {
+      "bytes": 503,
+      "sha256": "e1e83f63ce45e30ee266a8180ff40367ddac16aa0da768f175322f0a78b1c83a"
+    },
+    "final-process-check.json": {
+      "bytes": 39,
+      "sha256": "462ee7427230312267c2ada8fb14ed06d85e151577661717e60a27271bbd2b96"
+    },
+    "build-identity.json": {
+      "bytes": 24284,
+      "sha256": "b006604ac84aab39421630d593cc69001651dbd02a70a95b1a7bcbab8be9a0a1"
+    },
+    "build-source.tar.gz": {
+      "bytes": 1262418,
+      "sha256": "e01cda17dcff11e000b7dc6b87ea3ea05364c443ce5f307d93db838abf2c0411"
+    }
+  }
+}

@@ -14,6 +14,9 @@
 //     fire when the honest adjustment is a few GB on a large pool. Handles
 //     apps opening/closing gently. Note availability alone cannot see
 //     overcommit that macOS already absorbed into compressor/swap.
+//     Reaching the full supported budget bypasses the growth deadband once
+//     availability no longer clamps it. Otherwise a small cache can remain
+//     undersized after pressure or a busy startup. Both cooldowns still apply.
 //   - OS pressure events (warning/critical): the OS's own compressor/swap
 //     view. Shed an absolute chunk immediately (warning: ≥2 GB / 15%,
 //     critical: ≥4 GB / 50%); repeated events keep shedding. Growth waits for
@@ -45,6 +48,7 @@ public enum GovernorPolicy {
         public var workingSetGB: Double
         /// The RAM share auto may target; mirrors --max-ram-percent.
         public var ramPercent: Double
+        public var memoryLimitGB: Double?
         public var mtpEnabled: Bool
         public var visionEnabled: Bool
         public var visionResidentReserved: Bool
@@ -62,6 +66,7 @@ public enum GovernorPolicy {
         /// Set when this tick is an OS pressure event rather than a poll.
         public var pressure: Pressure?
 
+        /// Preserve the original initializer, including its function-value type.
         public init(
             currentSlots: Int, availableGB: Double, ramGB: Double, workingSetGB: Double,
             ramPercent: Double = Planner.defaultRAMPercent,
@@ -74,7 +79,30 @@ public enum GovernorPolicy {
             ownedAdditionalBytes: Int = 0, contextQualification: Bool = false,
             decodeLookahead: Bool = false, lookaheadReserveBytes: Int = 0
         ) {
+            self.init(
+                currentSlots: currentSlots, availableGB: availableGB, ramGB: ramGB,
+                workingSetGB: workingSetGB, ramPercent: ramPercent, secondsSincePressure: secondsSincePressure,
+                secondsSinceResize: secondsSinceResize, pressure: pressure, mtpEnabled: mtpEnabled,
+                visionEnabled: visionEnabled, visionResidentReserved: visionResidentReserved, maxContextTokens: maxContextTokens,
+                runtimeAllocationPolicy: runtimeAllocationPolicy, ownedAdditionalBytes: ownedAdditionalBytes, contextQualification: contextQualification,
+                decodeLookahead: decodeLookahead, lookaheadReserveBytes: lookaheadReserveBytes, memoryLimitGB: nil)
+        }
+
+        public init(
+            currentSlots: Int, availableGB: Double, ramGB: Double, workingSetGB: Double,
+            ramPercent: Double = Planner.defaultRAMPercent,
+            secondsSincePressure: Double? = nil, secondsSinceResize: Double? = nil,
+            pressure: Pressure? = nil,
+            mtpEnabled: Bool = false, visionEnabled: Bool = false,
+            visionResidentReserved: Bool = false,
+            maxContextTokens: Int = ContextPolicy.defaultTokens,
+            runtimeAllocationPolicy: RuntimeAllocationPolicy? = nil,
+            ownedAdditionalBytes: Int = 0, contextQualification: Bool = false,
+            decodeLookahead: Bool = false, lookaheadReserveBytes: Int = 0,
+            memoryLimitGB: Double?
+        ) {
             self.ramPercent = ramPercent
+            self.memoryLimitGB = memoryLimitGB
             self.currentSlots = currentSlots
             self.availableGB = availableGB
             self.ramGB = ramGB
@@ -103,6 +131,20 @@ public enum GovernorPolicy {
     static let shrinkDeadbandGB = 1.0
     static let growDeadbandGB = 2.0
 
+    /// A final-size plan does not cover the old and replacement tensors that
+    /// coexist during warm growth. Unknown readings defer this optimization;
+    /// the current usable cache and future retry remain intact.
+    package static func growthFits(footprintBytes: UInt64, transientBytes: Int,
+                                   availableGB: Double?, targetGB: Double?, ramGB: Double) -> Bool {
+        guard footprintBytes > 0, transientBytes > 0,
+              let availableGB, availableGB.isFinite,
+              let targetGB, targetGB.isFinite, targetGB > 0,
+              ramGB.isFinite, ramGB > 0 else { return false }
+        let extra = Double(transientBytes) / 1e9
+        return Double(footprintBytes) / 1e9 + extra <= targetGB &&
+            extra + Planner.availabilitySlackGB(ramGB: ramGB) <= availableGB
+    }
+
     private static func settle(_ target: Int, _ current: Int, _ reason: String) -> Decision {
         let t = max(Geometry.floorSlots, min(target, Geometry.totalRecords))
         return t == current ? .hold : .resize(slots: t, reason: reason)
@@ -120,7 +162,7 @@ public enum GovernorPolicy {
             + Double(i.ownedAdditionalBytes) / 1e9
             + Double(i.lookaheadReserveBytes) / 1e9
         guard let plan = try? Planner.plan(
-            expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
+            expertsPerLayer: nil, poolGB: nil, memoryGB: nil, memoryLimitGB: i.memoryLimitGB,
             ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited,
             ramPercent: i.ramPercent,
             mtp: i.mtpEnabled ? .on : .off, mtpAvailable: i.mtpEnabled,
@@ -168,7 +210,8 @@ public enum GovernorPolicy {
 
     public static func decide(_ i: Inputs) -> Decision {
         let curGB = Geometry.gb(i.currentSlots)
-        let desired = desiredSlots(i)
+        let planned = desiredPlan(i)
+        let desired = planned?.slots
         // OS pressure events see what availability math cannot: compressor and
         // swap strain from system-wide overcommit. Shed an absolute chunk —
         // repeated events keep shedding until the pressure stops.
@@ -183,7 +226,10 @@ public enum GovernorPolicy {
         if desiredGB <= curGB - shrinkDeadbandGB {
             return settle(d, i.currentSlots, "availability dropped")
         }
-        if desiredGB >= curGB + growDeadbandGB {
+        // Finish recovery at the supported ceiling, including a busy startup.
+        // While availability still clamps the plan, retain the normal band.
+        let restoring = planned?.clamped == false && d > i.currentSlots
+        if desiredGB >= curGB + growDeadbandGB || restoring {
             let calm = i.secondsSincePressure.map { $0 > growCooldown } ?? true
             let cooled = i.secondsSinceResize.map { $0 > growCooldown } ?? true
             if calm, cooled { return settle(d, i.currentSlots, "memory freed") }
@@ -299,7 +345,8 @@ public final class MemoryGovernor: @unchecked Sendable {
             runtimeAllocationPolicy: cur.runtimeAllocationPolicy,
             ownedAdditionalBytes: engine.prefixCache.ownedAdditionalBytes(mtpResident: cur.mtpEnabled),
             contextQualification: cur.contextQualification,
-            decodeLookahead: cur.decodeLookahead, lookaheadReserveBytes: cur.lookaheadReserveBytes)
+            decodeLookahead: cur.decodeLookahead, lookaheadReserveBytes: cur.lookaheadReserveBytes,
+            memoryLimitGB: cur.memoryLimitGB)
     }
 
     /// OS pressure events see what availability math cannot: compressor and
@@ -337,7 +384,8 @@ public final class MemoryGovernor: @unchecked Sendable {
         // a decision sampled before the lock would spend that reservation.
         let applyDecision = {
             guard let i = self.inputs(pressure: pressure) else { return }
-            self.engine.setAllocationUnavailable(GovernorPolicy.desiredPlan(i) == nil
+            let desiredPlan = GovernorPolicy.desiredPlan(i)
+            self.engine.setAllocationUnavailable(desiredPlan == nil
                 ? RequestFailure(.insufficientMemory, "the configured context no longer fits current availability; retry after memory recovers") : nil)
             if pressure != nil {
                 // Even at the arena floor there can be inexpensive memory to
@@ -348,7 +396,7 @@ public final class MemoryGovernor: @unchecked Sendable {
             if case let .resize(slots, reason) = GovernorPolicy.decide(i) {
                 let controls = GovernorPolicy.liveControls(for: slots, inputs: i)
                 self.apply(
-                    slots, plan: self.engine.currentPlan, reason: reason,
+                    slots, plan: desiredPlan ?? self.engine.currentPlan, reason: reason,
                     prefillChunk: controls.prefillChunk,
                     prefixCacheTokens: controls.prefixCacheTokens)
             }
@@ -376,6 +424,13 @@ public final class MemoryGovernor: @unchecked Sendable {
         guard target != before else { return }
         let growing = target > before
         let ref = plan ?? engine.currentPlan
+        if growing {
+            MLX.Memory.clearCache()
+            guard GovernorPolicy.growthFits(footprintBytes: ProcessMemory.residentBytes(),
+                transientBytes: engine.model.pool.growthTransientBytes(to: target),
+                availableGB: Planner.deviceAvailableGB(), targetGB: ref?.targetGB,
+                ramGB: ref?.ramGB ?? Planner.deviceRAMGB()) else { return }
+        }
         // --max-context is also a hard ceiling on any one retained history.
         // A later governor resize must not undo the cap Serve applied at startup.
         let livePrefixTokens = min(prefixCacheTokens, engine.maxContextTokens)
@@ -415,10 +470,13 @@ public final class MemoryGovernor: @unchecked Sendable {
                     format: "elastic: resized ~%.0f → ~%.0f experts/layer (%@)",
                     Geometry.perLayer(before), Geometry.perLayer(after), reason)],
                 runtimeAllocationPolicy: ref?.runtimeAllocationPolicy,
-                maxPrefillWaitMinutes: ref?.maxPrefillWaitMinutes ?? 30,
+                // A fresh size plan has the default deadline. Keep the running
+                // server's request policy when publishing its new budget.
+                maxPrefillWaitMinutes: engine.currentPlan?.maxPrefillWaitMinutes ?? ref?.maxPrefillWaitMinutes ?? 30,
                 contextQualification: ref?.contextQualification ?? false,
                 lookaheadReserveBytes: ref?.lookaheadReserveBytes ?? 0,
-                decodeLookahead: ref?.decodeLookahead ?? false))
+                decodeLookahead: ref?.decodeLookahead ?? false,
+                memoryLimitGB: ref?.memoryLimitGB))
         }
         lastResizeAt = Date()
         log(String(

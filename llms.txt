@@ -1,6 +1,7 @@
 # slotstream
 
-> Local inference for Qwen3.8-Flash-Next (a 125B-parameter mixture-of-experts,
+> Run a 105 GB AI model on a Mac that can't hold it. Local inference for
+> Qwen3.8-Flash-Next (a 125B-parameter mixture-of-experts,
 > 105 GB on disk at 4-bit) on Apple Silicon Macs with far less RAM than the
 > model: measured at 15.86 tok/s on the development Mac, a 48 GB M5 Pro, at a
 > 22 GB target with the 0.2.19 corrected forecast (1.10x faster decode than the

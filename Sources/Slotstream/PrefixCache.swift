@@ -217,6 +217,8 @@ public final class PrefixCache {
     private let lock = NSLock()
     private var entries: [Entry] = []
     private var clock = 0
+    private var decision = "not queried"
+    package var lastDecision: String { lock.withLock { decision } }
 
     /// Ceiling on tokens held across *all* entries, so several conversations
     /// share one budget rather than each reserving the maximum. One long chat
@@ -335,9 +337,10 @@ public final class PrefixCache {
     ) -> (state: Qwen4ExpModel.State, reused: Int, logits: MLXArray?, freshEquivalent: Bool)? {
         lock.lock()
         defer { lock.unlock() }
-        guard _enabled else { entries.removeAll(); return nil }
+        guard _enabled else { decision = "disabled"; entries.removeAll(); return nil }
         guard let i = bestEntry(matching: promptIds, images: images, completePromptKey: completePromptKey,
                 modelIdentity: modelIdentity, resume: resume) else {
+            decision = missReason(promptIds: promptIds, images: images, modelIdentity: modelIdentity, resume: resume)
             _misses += 1
             // The caller is about to allocate a new state. Make room first so
             // four retained states plus a fifth active state never coexist.
@@ -345,6 +348,7 @@ public final class PrefixCache {
             return nil
         }
         let selected = entries[i]
+        decision = "reusing \(selected.tokens.count) tokens"
         // An independent Swift context prevents later sampling/diagnostic
         // mutation from changing a retained entry. MLX owns storage aliases.
         let logits = promptIds.count == selected.tokens.count
@@ -369,6 +373,7 @@ public final class PrefixCache {
                         entries.remove(at: failed); _evictions += 1
                     }
                     _checkpointForkFailures += 1; _misses += 1
+                    decision = "checkpoint fork failed"
                     return nil
                 }
             }
@@ -383,6 +388,23 @@ public final class PrefixCache {
         reserveActiveTokens(max(promptIds.count, reserveTokens ?? promptIds.count, Self.tokenUnits(reserveSequenceBytes ?? 0), Self.charge(e)))
         _hits += 1
         return (e.state, e.tokens.count, logits, e.freshEquivalent)
+    }
+
+    /// Called under the cache lock before a miss makes room for its state.
+    /// Counts and refusal categories are safe to log; token values are not.
+    private func missReason(promptIds: [Int], images: [ImageSegment], modelIdentity: UUID?,
+                            resume: PrefixResumeRule?) -> String {
+        guard !entries.isEmpty else { return "no retained state (\(_evictions) prior evictions)" }
+        let matching = entries.filter { promptIds.starts(with: $0.tokens) }
+        guard !matching.isEmpty else { return "retained states are not exact prefixes of this prompt" }
+        let modelMatches = matching.filter { modelIdentity == nil || $0.state.modelIdentity == modelIdentity }
+        guard !modelMatches.isEmpty else { return "model identity changed" }
+        let imageMatches = modelMatches.filter { Self.imagesAgree(entry: $0.images, prompt: images, upTo: $0.tokens.count) }
+        guard !imageMatches.isEmpty else { return "image content changed" }
+        guard imageMatches.contains(where: { Self.resumable($0, promptIds: promptIds, resume: resume) }) else {
+            return "matching tokens lack a compatible prefill-boundary state"
+        }
+        return "equal-length state has no compatible next-token logits"
     }
 
     /// Called with the lock held: the entry `takeForGeneration` would use.
@@ -491,24 +513,34 @@ public final class PrefixCache {
     /// entry does not describe the turn the client sent, and the entry is then
     /// wanted for the ordinary `take` that follows.
     public func peek(extending prefix: [Int]) -> [Int]? {
-        let (retained, tier) = lock.withLock { () -> ([Int]?, PersistentPrefixCache?) in
-            guard _enabled else { return (nil, nil) }
-            var best: [Int]?
+        peek(extending: prefix, matching: { _ in true })
+    }
+
+    /// Find the longest compatible transcript, not merely the longest branch.
+    /// Snapshot metadata under the locks, then validate outside them so the
+    /// caller can tokenize and check request cancellation without holding a
+    /// cache lock. No state is consumed and no tensor payload is restored.
+    package func peek(extending prefix: [Int], matching accepts: ([Int]) throws -> Bool) rethrows -> [Int]? {
+        let (retained, tier) = lock.withLock { () -> ([[Int]], PersistentPrefixCache?) in
+            guard _enabled else { return ([], nil) }
+            var candidates: [[Int]] = []
             // Vision entries are skipped: the caller splices these ids into a
             // text-only render that carries no images, and the resulting prompt
             // would claim placeholder tokens it has no embeddings for.
             for e in entries
             where !e.reusable && e.images.isEmpty && e.tokens.count > prefix.count
                 && e.tokens.starts(with: prefix) {
-                if best == nil || e.tokens.count > best!.count { best = e.tokens }
+                candidates.append(e.tokens)
             }
-            return (best, _persistent)
+            return (candidates, _persistent)
         }
         // After a restart, or for a conversation longer than memory retains,
         // the previous turn's exact ids exist only in the persistent tier.
-        guard let stored = tier?.longestExtension(of: prefix), stored.count > (retained?.count ?? 0)
-        else { return retained }
-        return stored
+        var best: [Int]?
+        for ids in retained + (tier?.extensions(of: prefix) ?? []) {
+            if ids.count > (best?.count ?? 0), try accepts(ids) { best = ids }
+        }
+        return best
     }
 
     /// Retain `state` as the consumer of exactly `tokens`, evicting
@@ -580,11 +612,11 @@ public final class PrefixCache {
     @discardableResult
     package func storeReusableCheckpoint(
         state s: Qwen4ExpModel.State, tokens t: [Int], images: [ImageSegment],
-        reserveTokens: Int, reserveSequenceBytes: Int,
+        reserveTokens: Int, reserveSequenceBytes: Int, retention: SharedPrefixRetention = .optional,
         freshEquivalent: Bool, key: PromptCheckpointKey?
     ) throws -> Bool {
         try storeCheckpoint(state: s, tokens: t, images: images, reserveTokens: reserveTokens,
-            reserveSequenceBytes: reserveSequenceBytes, logits: nil, promptKey: nil,
+            reserveSequenceBytes: reserveSequenceBytes, logits: nil, promptKey: nil, retention: retention,
             freshEquivalent: freshEquivalent, producedKey: key)
     }
 

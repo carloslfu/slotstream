@@ -30,8 +30,11 @@ struct MiniAppSession: Equatable {
     private let onLink: (URL) -> Void
     private(set) var webView: WKWebView?
     private(set) var failure: String?
+    /// True once the page has drawn, or failed to.
+    private(set) var ready = false
     private var dialogs = 0
     var onFailure: ((String) -> Void)?
+    var onReady: (() -> Void)?
 
     init(session: MiniAppSession, broker: @escaping @Sendable (Data) async -> Data, onLink: @escaping (URL) -> Void) {
         self.session = session
@@ -281,11 +284,15 @@ struct MiniAppSession: Equatable {
         return nil
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { webView.isHidden = false }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        webView.isHidden = false
+        if !ready { ready = true; onReady?() }
+    }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         webView.isHidden = false
         if (error as NSError).code != NSURLErrorCancelled { fail("\(session.name) could not be opened.") }
+        if !ready { ready = true; onReady?() }
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

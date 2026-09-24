@@ -1,0 +1,10 @@
+{
+  "scope": "Descriptive family-held-out correction diagnostic; no proposed planner replacement.",
+  "qualified_fixture_cells": [],
+  "held_out_checks": [],
+  "prefill": {
+    "scope": "Exploratory family-held-out prefill diagnostic within one realized plan; not a production fit or cross-length validation. Positive error means estimated wait exceeds measured wait.",
+    "qualified_fixture_cells": [],
+    "held_out_checks": []
+  }
+}

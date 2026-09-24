@@ -1,0 +1,1267 @@
+{
+ "arithmetic": {
+  "B0": "TPS_on/TPS_off per prompt (median over eligible paired rounds), equal family weight, geometric mean across families; on = prefetch with charged reserve at the same total target, off = current deployment at the same target",
+  "B1": "same reduced slot count in both arms (both charge the reserve), prefetch off versus on",
+  "B2": "shadow mode (forecast, no reads) versus the no-predictor reserve control",
+  "bootstrap": {
+   "draws": 10000,
+   "resample": "prompts within family, eligible rounds within prompt",
+   "seed": 1729
+  },
+  "eligibility": "both arms complete, exact output IDs and router digests match, no swap delta, nominal thermal, within budget",
+  "gates": {
+   "aggregate_ratio": 1.1,
+   "duration_regression": 0.05,
+   "family_floor": 0.95,
+   "lower_bound": 1.0,
+   "min_clean_pairs_per_prompt": 2
+  }
+ },
+ "artifact_root": "/Users/carlos/Projects/slotstream/.build/expert-lookahead/xla3-release-bench-22gb",
+ "b0_max_tokens": 512,
+ "b0_prompt_ids": {
+  "code": [
+   "r0005",
+   "r0062"
+  ],
+  "dialogue": [
+   "r0296",
+   "r0295"
+  ],
+  "multilingual": [
+   "r0244",
+   "r0245"
+  ],
+  "prose": [
+   "r0206",
+   "r0205"
+  ],
+  "reasoning": [
+   "r0096",
+   "r0099"
+  ],
+  "structured": [
+   "r0256",
+   "r0257"
+  ]
+ },
+ "b0_rounds": 3,
+ "b0_warmup_tokens": 128,
+ "binary": "/Users/carlos/Projects/slotstream/.build/expert-lookahead/bin-ship-157eb4ab0366c6a7/slotstream",
+ "binary_sha256": "157eb4ab0366c6a7b54f9ffd47edd416d10017abf9ccc9a911614c2ec0266b42",
+ "build_identity": {
+  "binary_sha256": "157eb4ab0366c6a7b54f9ffd47edd416d10017abf9ccc9a911614c2ec0266b42",
+  "metallib_sha256": "198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597",
+  "source": {
+   "Makefile": "1de4b2db83678e0705ebd955698b6d5fe053e0e3dc86a9326523ac23d219c567",
+   "Package.resolved": "6fc23da3ddc636949e84042cb70da34bc93c4355feef14857880caa6c3c7fceb",
+   "Package.swift": "8e2faec45c5aa764014d61b5cc04dee63640660322ad3e943084d5cb6dee4f87",
+   "Sources/CSlotpack/include/slotpack.h": "07301354bebebac253975abbd5981006be411fed444abab0b6bbc857e28bdd1b",
+   "Sources/CSlotpack/slotpack.c": "be45d2daf3e7e95d66cb9178f40dab292b85b1998086d71c53e41f59596d57a2",
+   "Sources/Slotstream/AdaptiveSpeculation.swift": "da8062ff16c1d72ccd28852ba18e43cd434a8165483d045759cd29a499f5fff6",
+   "Sources/Slotstream/BlockSelection.swift": "16e5fb4a4ea82728e3caaf3d6f4cdbf7d91614b757b0624913ae14c052d6f27d",
+   "Sources/Slotstream/BoundedOutput.swift": "70c21c3583edecdd856af06c2fae567bccaf0ea2005ddb932a7dd99642e7780f",
+   "Sources/Slotstream/CPUSlotWrite.swift": "da137aec8944dab6590cbea17afff28f094aef876688d20782b5791028d83349",
+   "Sources/Slotstream/CacheBookkeeping.swift": "0c3726c431b41a2c84fa2ea21ce49eb209f2c36955925754508a51cb54ae0779",
+   "Sources/Slotstream/Checkpoint.swift": "c12d46bb51943700c05f7de0269574de2077a15d347a542f7bb229f47b0d4353",
+   "Sources/Slotstream/CompiledArithmetic.swift": "98611b31035459d237d901be7fff175072c30b32b992c7534d770b1bc6d117f2",
+   "Sources/Slotstream/Context.swift": "2ec4523a59da75efba101b56e9d0e943feb477084e593e68827f84e1ee8b7f44",
+   "Sources/Slotstream/ContextFeasibility.swift": "582f40326eea4d969834eefa13425dec345b5630206235640b4b9536ddb044d2",
+   "Sources/Slotstream/ContextMemory.swift": "848df7f507cd1cc0d978ea29866f4c5c9635f5091ff236e551cde652cc668d9b",
+   "Sources/Slotstream/ContextWindowPolicy.swift": "6da4b93a1a01b1d1b9be13b14d7c4d3b3751f1c38575672d4489f3545a913ab6",
+   "Sources/Slotstream/DecodeLookahead+Configuration.swift": "82f8ebe02a37b882ea00c7b625008597bcfddf5df819df2592451d600ee0a9bd",
+   "Sources/Slotstream/DecodeLookahead.swift": "9cf0cb2d1ac342c85279764e39fe12dc169c24ffb5e85c42a66828271dbad2e0",
+   "Sources/Slotstream/DownloadConcurrency.swift": "cf872e6e99b9e1df121a9feba4c0c8420719fe62a5f5a50e58b26bf11cb8126e",
+   "Sources/Slotstream/DownloadHTTP.swift": "341a7a7157c575658ee7d7bc6c77ed593bf30f79d8c262906d7672e2e40c6cbc",
+   "Sources/Slotstream/EmbeddingRows.swift": "10c722abb55b03bd6ae0f8188ec156f97e2a7603a516bd91919e060d8fc5a645",
+   "Sources/Slotstream/Engine.swift": "91382aaa93ba6857f75c37446cd70a334d8629ee73301145bf39ff856fa5318e",
+   "Sources/Slotstream/Errors.swift": "0f65317656d38709f071fb58cb4c11f11f68f0949be02a781c675f37f76f5b57",
+   "Sources/Slotstream/ExactRead.swift": "bd90fbeb1d400cb7dda746d434a5c4f1fbb4d767506013e4398de9ba1253a47e",
+   "Sources/Slotstream/ExpertLookaheadTrace.swift": "c5fe8736e143fa0922dde772301497e007e51095b78b358434a61442831a4304",
+   "Sources/Slotstream/ExpertPredictor.swift": "2f25044ff7258ac53973c3e5de7138ad078b0b90a1ab13cc332cab8bcfa0740e",
+   "Sources/Slotstream/ExpertPrefetch.swift": "46fb601813d05b788a3648139cbde2b88c94714a5e15f99456e4b2e7072f4b6a",
+   "Sources/Slotstream/ExpertStore.swift": "f69c680e9c130a178a84db8b6df6e63aabe64a5da2b9963c7e724114e8715ce6",
+   "Sources/Slotstream/ExpertTransferProfile.swift": "17fe476f01b03d3a151506d324d9ad0d83d8dcf152489c9e88805ddea2b302ad",
+   "Sources/Slotstream/GDNPhaseProfile.swift": "f74d843773b549530cebe9e5df79a02b0104068e05c39ff6adfcbae3effaef66",
+   "Sources/Slotstream/GatewayDialect.swift": "93561b74b171c78d107dca5985a1c0601f7ca0ce4388f0a3aa03e9bd0c6bd0c8",
+   "Sources/Slotstream/Generate.swift": "2668a164ad5d82bd20ff58c682c11a754efa1c53a5572da619dfe01181e60d2a",
+   "Sources/Slotstream/Governor.swift": "86e0a1f14d22561d3a532242ec7ca432ae8f9cb84caf5dc6776cb89220dd55ce",
+   "Sources/Slotstream/LayerLocalVictim.swift": "9615385e6c2ac18573f4d2089a75a70d356d803c0c4a603b4db3397fafa6275c",
+   "Sources/Slotstream/Layers.swift": "1c50201aba2aa57a72da19fd3d7c5e8182c173354f6e3f99540893d7bb427bec",
+   "Sources/Slotstream/MTP.swift": "10b63deee430c1e1d5792221f128bea0a6158161911676679665a168116cf743",
+   "Sources/Slotstream/Machine.swift": "ffed1d45e029e21e42e1eb956d1b3f2647aae2bca689f532b5dc2dba897c89ee",
+   "Sources/Slotstream/MemTrace.swift": "756d8032ad7558c84eb571c69e3d4773ff105eb0ab78790662aa637e4d0e19d6",
+   "Sources/Slotstream/Model.swift": "b5aad4668fb59c9a21bed590e9c7769920ea6312991711e66b4958d2e0bfe225",
+   "Sources/Slotstream/NgramPrefetch.swift": "7342c07a6b475ea8d8568b08e041b0ffb0d35456892e79aaac6197db08b2e03c",
+   "Sources/Slotstream/NgramStore.swift": "f9f0cf609ac1bec2c7abb645b365fcb174dd4b5ec812b602985bacab847cdfbf",
+   "Sources/Slotstream/Observation.swift": "fcb7557541a5a0ce885737449d6b2b88009a8521a7c743cded5d120867529e10",
+   "Sources/Slotstream/OpenAIDialect.swift": "714263f4382c83835c4e617ffcb72e231c270a0f0d8be497881cdfc663d52f58",
+   "Sources/Slotstream/OpenAIOutput.swift": "d13c9a29f3dbcf9fb9933e5a378f3ba8160d7eb4f96d3c7a61f3faed5a563b76",
+   "Sources/Slotstream/OptimizationPlatform.swift": "e4c17aeb1ab294ac9d9e9c60095cc5360382c0809a4f579672b4d0b66a0ed3cf",
+   "Sources/Slotstream/Optimizations.swift": "4f3b35ad41cef026e7bcccfeb03580a1d4c4ade57a21eacb5b195f0dff38bee8",
+   "Sources/Slotstream/PackedExpertLayout.swift": "c74e9867e2c37ba92d84bf7ce90253eea6db6f8531a6d6b8792874d4810cc6ee",
+   "Sources/Slotstream/PackedProjectionPair.swift": "84fa87130270092c16a538f7d50cfee55e71b52ecd8250a1bce7e0547c8b1d96",
+   "Sources/Slotstream/PartialRotation.swift": "57177495e6ba630c66744b2b9e2bde23acf9349fca52b97a4ea406c5839c7f8f",
+   "Sources/Slotstream/PersistentPrefixCache.swift": "2761c700990f8295e069108828ebd9c91aaf7cc12bc3649ce06690fc7ed25665",
+   "Sources/Slotstream/PersistentPrefixFormat.swift": "eec16cb611bf9a5c617ea73f465f05db1f4fdae503b1b3655b59d6cbe7290702",
+   "Sources/Slotstream/PersistentPrefixGenerator.swift": "36a24796df4c6d9c5bc56170888be142749d787d39dab79bbe9c9e4b278db47e",
+   "Sources/Slotstream/PersistentPrefixPolicy.swift": "40cfc47a5e4a5f3cb91e1264e1bac3121bb871335313205a3529a89e9cb24aca",
+   "Sources/Slotstream/PersistentPrefixRestore.swift": "ee3bc4123ac885375ac2be349454f92dcfecd28478eb905427d5f33e6925e8c4",
+   "Sources/Slotstream/PersistentPrefixSave.swift": "3605a27cacf1c7b94bb228785d7be1b1e4bbb4a64f455c4b93ea6b2f292d811f",
+   "Sources/Slotstream/PinnedModel.swift": "0c7c16539bcb54924ff7306b03b470e2915b5bb41c4ecff9e60dc7912e7afdd2",
+   "Sources/Slotstream/PinnedTransport.swift": "f30c4c4bfeaf49c5e2dfcbfa728d6eab44d02a1f77d40217e84723fd03761d87",
+   "Sources/Slotstream/PinnedTransportManifest.swift": "6b0de220938fc91dd4dc24cd0fc9dffa086f09f04cd83823dc3de3a13de8ac11",
+   "Sources/Slotstream/Plan.swift": "348910480511b75eff33e84cb14d677514c0a47cf860fdc3984d27d96de8dbfe",
+   "Sources/Slotstream/PlannerCostModel.swift": "a95e2781a7448418ec78480be356bac9eb80bb36cc64c63f6cb3e378043d29c0",
+   "Sources/Slotstream/PlannerDevice.swift": "528cdf93cf0fe600b8c53a3eb828b9b1922ee4817fa100393a11d4e2714784f8",
+   "Sources/Slotstream/PrefixCache.swift": "96f5c3aa54471582d5e8a6b4a2a6b37e8ea284c5e9ce29e5b133a306cf5a42d2",
+   "Sources/Slotstream/PressureBoundary.swift": "ed22537fccc321589eb3d33b3538984630daae951d00e4ac829412897b181a3d",
+   "Sources/Slotstream/ProcessMemory.swift": "0a227d642f1f6fca916531f3601f17f5eaadd56c9b8b0c57892719792362fa66",
+   "Sources/Slotstream/RequestControl.swift": "a8bea5078dbd26458331af41fba986f9de05d386637b69768e2035c95345bdea",
+   "Sources/Slotstream/ResidentExpertOverlap.swift": "4ddb3a027d92697dcc1e7373e66fc139abdc12063448d864ef635e5202f57dde",
+   "Sources/Slotstream/RouterProjection.swift": "98ea668ac6f47549ec9cdee41b81109e66f11935946d2d1587ebf97ad106230d",
+   "Sources/Slotstream/RouterSelection.swift": "35b122748ab05c00122bfb5b4c78416ee28b55abaa4d4e1379fd163aaf47b4a6",
+   "Sources/Slotstream/RouterTapCorrection.swift": "ea460d1e96eb4bd00796d027f4d03ecbd1c636acf3a10114b2e8e75a7b0db69d",
+   "Sources/Slotstream/RouterTrace.swift": "b34c1974f60015c913649a285023e57b15d92f37c2f7aa282b821eb2043652c1",
+   "Sources/Slotstream/RoutingReadbackQueue.swift": "477ad597e6e741cb939c9ade983934814e2a7c6b8e7c59fc659a1dc02eb4b4ab",
+   "Sources/Slotstream/SelectedAttention.swift": "70e61a089444f74cc74494d7f05005b0ff4dfe67043782befbbef80d96b911db",
+   "Sources/Slotstream/Server.swift": "c20776840aa9551958d8fed92389c8fc32318c97639bd14d93609233dc449334",
+   "Sources/Slotstream/SlotWritePlan.swift": "9abde1de815522ff835d3c685a2e342293f3c9c7019cfc742265193ea2e286c1",
+   "Sources/Slotstream/SlotpackDownload.swift": "fb6f47ce70f30713cf1679ebda619c980e9d783dd6ae4cd1cc4e0a68b14705b7",
+   "Sources/Slotstream/SlotpackManifest.swift": "8664440e22653e64b85c0100345169dd93b3836d1bbd125ac2add4f621b9876d",
+   "Sources/Slotstream/StatePrefixFork.swift": "35ed6954bc927e37c117d53eb25e007b83b3385099bc9b18e01607f30abb7df7",
+   "Sources/Slotstream/StateRecovery.swift": "078521e0e08233c06706408bb6dbc53f902285fc4c891af2e164386bd41bf98b",
+   "Sources/Slotstream/TapCorrectionSidecar.swift": "581d7438fd01ce576691f5b322464337e85f03cca2911a6c8631f32484e72d82",
+   "Sources/Slotstream/ToolCallSplitter.swift": "2c2e1d722188d633508c871d73f011fa4053b666d10b7585b304c151c53925a8",
+   "Sources/Slotstream/Vendored/GatedDelta.swift": "ac0a81ccd99ebb59a52ad0728221f34c59d2402d255b4e6a9cbb583b7d42dd6f",
+   "Sources/Slotstream/Version.swift": "82b3ed6efd30734e5a346a96d1112b537c3cfaa1e509c5c06665fc294c5229be",
+   "Sources/Slotstream/Vision.swift": "38565f564bf8ba73d2dc87e2f1874fa6fda2652e094a324048bfa8cb1278a79e",
+   "Sources/Slotstream/VisionAttention.swift": "83b1012cb0b3a2c22098f71515e3e853cf1ca3affb01cb667a8248e3c34c63a5",
+   "Sources/Slotstream/VisionPrompt.swift": "61b90891a5ec9944406287fa73b4c0e5bdd29b4e3903dff345cbeb80638c6435",
+   "Sources/Slotstream/WeightDownload.swift": "2758b2eea2631635cd3da5c18a87e724c57aab5c78ad816b7e18d7ff48c8c98d",
+   "Sources/Slotstream/WeightStore.swift": "df36f23325493c95efdd73f9f20d8ce56bc5b7c8b1b40d5660651e143e72d7b1",
+   "Sources/Slotstream/Weights.swift": "4c6112412f38192de1955bedb6b7f3cddcb2d0b338b570b6b688df4638a55e5f",
+   "Sources/Slotstream/WordSlotWrite.swift": "1c19def2346669acc1afa811a7244233c6f593de91c02bfc4ff145465b95187e",
+   "Sources/SlotstreamDiagnostics/CheckReport.swift": "9bbe2106b5b55331cc3fbc093edd803eff6f9f00ebd5f30ce587754fe0bc7e47",
+   "Sources/SlotstreamDiagnostics/Diagnostics+AdaptiveSpeculation.swift": "e53d32c4f5a3fc7039a258db5c5b3c530416d07828c5d424a8f35e67d80dc256",
+   "Sources/SlotstreamDiagnostics/Diagnostics+AllHitReplay.swift": "187a98c70c2e66008622db3727f0bf58126928862bc102782574fa0ba5f57513",
+   "Sources/SlotstreamDiagnostics/Diagnostics+BlockSelection.swift": "08d3f1fc29b6353443b795198295bacb85f57d0a2bdbac67450cf66d505f852c",
+   "Sources/SlotstreamDiagnostics/Diagnostics+CacheBookkeeping.swift": "6db1e4743b6adce39f32c2c5c0ff9c38bb86d7e9548c41e6c0e7d64299dd9cae",
+   "Sources/SlotstreamDiagnostics/Diagnostics+CompactIndexer.swift": "3dd65c8fac32f2804cce942845946debe74ca83b9cf6485a441ed15331711a5b",
+   "Sources/SlotstreamDiagnostics/Diagnostics+CompiledNorm.swift": "9f1beb774172bc33a27020261532e06723f0794adba9ab5dbca7807d01a0748f",
+   "Sources/SlotstreamDiagnostics/Diagnostics+CompletePrompt.swift": "75cdd2137b2856407d2fb297504039b174b3ae116b40608d5f42fabf0237a66d",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ComputeIslands.swift": "ac7f3b5ed140a566348e9be06274cf757144d2db099fe5af097c4a3807dc6801",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Context.swift": "76ea9c95cd2d20614533458ffe32c8e8fd6d29dee3b1bece7476e27d3f589ce0",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift": "51e505bd3279983263ad731133b2f1e20606387cf03ba360ffcb2fba34dd33a3",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift": "90b83306d1966da794daf28cc84f426a42cd853075f5e236cf1bacae10787d8f",
+   "Sources/SlotstreamDiagnostics/Diagnostics+DecodeLookahead.swift": "21010a5472f074f99c06bfba5966359be29dafed3c89cd3abffa8f5d19224a76",
+   "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRows.swift": "a0f0532a43c1329b3a69f8a3bd8607df9f27793c0994ad23203936896b44e81f",
+   "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRuntime.swift": "c5c37fafb45b2ac2434a36cd7c8b8804fac0e271e9e3f0fb10ef97481db77e24",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ExactRead.swift": "77a357f55c3f5aced5ba0d74012e35f73e678e0840024f24a5ab86909d335c59",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ExpertLookahead.swift": "6049e38709106d2893a2bf10b59b650ac9c111ed5f0952a576ce0e876465c293",
+   "Sources/SlotstreamDiagnostics/Diagnostics+GDNProfile.swift": "6d982a575d6c6282941a9f9f3ac063b75d31996fcde387a63ca3ce44fea93242",
+   "Sources/SlotstreamDiagnostics/Diagnostics+GDNProjection.swift": "983a071e562451dbc22cfe09b005d9c68af687c10e7d94802d7d3cb28af1c7cd",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift": "8ec85ff3609cd5657eae1a8434189e9474460aad0c850f6b88240457c8f0f1fc",
+   "Sources/SlotstreamDiagnostics/Diagnostics+HTTP.swift": "9526e51122c9e463ea9a3201da6e4628f3794f329bd4ca05f1496daf3c66c1e5",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ImageFailure.swift": "766742295107f924177f7f724a7be61f8ccb29b3e044a7de345523598c31cead",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ImageReuse.swift": "5d0e619769c0f7d4ea8c73439ac44bc499db6184c4954b417f4cb7804aec20e8",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Integrated.swift": "5eb2132959b1db779caa520a3eefe5d6c5ffdd9ed317750c8cee48f02bd05941",
+   "Sources/SlotstreamDiagnostics/Diagnostics+LayerLocalVictim.swift": "d512d93741a6675412cc9e6c739b940132ca3f20ebecd709884b00b1ebbc49b7",
+   "Sources/SlotstreamDiagnostics/Diagnostics+MTPIndexer.swift": "7784a18a1eddafa25ecaee9eeacfbcddf8bcabac8d53919f80367a4f4e5be476",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Machine.swift": "20f6edb816fc3a794143042e59847adbfc1fe06514fc990e8a3d81eb87abe50c",
+   "Sources/SlotstreamDiagnostics/Diagnostics+NgramCache.swift": "9bee4eb6c6cf09df5673e177d4b7f006681794bf680366b4549e4fa3d38b7368",
+   "Sources/SlotstreamDiagnostics/Diagnostics+NgramLookahead.swift": "3b0bc7ea21a57d2ce65e58773879f5f86ba7f0f37c47d8f1d08d51e61c486370",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Optimization.swift": "35d99deb614da4ffdfef075eabdc5a1c8b3518bf9accf265796e09f2c7c281ee",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Output.swift": "e39951dc83e8410abdc840d0a739e1e1b2fbbdf1e2d06b3cb2d28c39ee9329cb",
+   "Sources/SlotstreamDiagnostics/Diagnostics+OutputServing.swift": "50bb807143f1e5134f52a6f3d48b8da297f4186dd91895e016d191ca13ccf66a",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PackedLayout.swift": "14c31f94ebdd8bbbbb1479c77d0649b4c0632d978e4d8a60a8048214a1e08e65",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PartialRotation.swift": "de75d07feedc163834fe8e716683af8b2d373c51b0588ccc2cac922f775367ef",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefix.swift": "46a5bc33ee3fd389694f22c9e7ff5cdd995539663b3141688414351f50ac3189",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefixModel.swift": "3e06c67777ce3572d9bd7cce5d220be5f41af90e31b6f5da349ba6f3ec667798",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefixPolicy.swift": "82dcadab2ac079d3662da6dd012d8a031c4bdea9ee8c022ac34d5faf66277f5b",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PoolRequests.swift": "e383c494263afa029a9ef107c90d6ba59f44cda5da7ca1035eae68cbda3562d2",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PrefillQualification.swift": "f40d8e711121f12cbcd95f8880d483ac36995faeab06af714d201fa1671348f1",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PrefixCapacity.swift": "b76e9185930a90d2509f9d7dfc247afee3ff2a083a1bc6bb3da6d090653d290f",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PrefixFork.swift": "e7a7094b3930cef8e380d711f20e8f82e2821c070579549692a6120e9ba3afc4",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PrefixRetention.swift": "5de9452266e8e59da03b078990689554fc7a419a5cd8e5879cc68e2e277ea8cb",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PrefixVision.swift": "5e4737dbe5344492fc2f9c6881f8d56e997668f674c91b28b9349c9420465f72",
+   "Sources/SlotstreamDiagnostics/Diagnostics+PressureBoundary.swift": "f84979a3da94bc5ac0cfeb5cc84b61af43716c5664cc71853085ffa1b116d325",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Pull.swift": "224e4bf5210afbddd992894860343add73d1f52b12b2d9a00abf78fdc492ada0",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ReadFailureServing.swift": "1532f45714ceb98a5adcfa31abd31f065493164f49d2ee3aac868d5d4080b04c",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ReadHandles.swift": "9e98b6e0fd6c30f36d1d3ec8d556216f351a2f09ee5d15dbb4f5580858fad4b4",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ReadRecovery.swift": "5d51636a62b376e74dfefab207fdd42da61436210973f714819c7cc11488a04d",
+   "Sources/SlotstreamDiagnostics/Diagnostics+ResidentOverlap.swift": "c1e7b847cffa51939b0ae20027b289efcae5585a94ae5c1c751a66f110a25522",
+   "Sources/SlotstreamDiagnostics/Diagnostics+RopePerformance.swift": "19d040f21391a1ea87831b73a8adf055a78aeafe9d902bd11ce22fd6a492d892",
+   "Sources/SlotstreamDiagnostics/Diagnostics+RouterProjection.swift": "3981e415003e6258d41690216a7ab668652a0ce436bf644d99d88dbc2799db9e",
+   "Sources/SlotstreamDiagnostics/Diagnostics+RoutingReadback.swift": "f29aad2cde3bbb526f83dcec4565f3c382d071734acc47a0e31d7223312713cb",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Runtime.swift": "b6debc0a68e2df94574964c13afa41a76a5aab783e75d1428da25110d241cffc",
+   "Sources/SlotstreamDiagnostics/Diagnostics+RuntimeBudget.swift": "b5ce492456b9e27b19765a0bd4f23cbd81ccff034be5af3142737cdae7944d6e",
+   "Sources/SlotstreamDiagnostics/Diagnostics+SamplerPerformance.swift": "4e6dd7e85d7ac0f2b2af291343ab4cdc52fa94fe6edb588c1d517008a0c35cb3",
+   "Sources/SlotstreamDiagnostics/Diagnostics+SelectedAttention.swift": "8dd385da9b79c3625d1cc9ccc6c8821978f88437fcded918f049328b7a969e7a",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Selection.swift": "b737794c5a57cd224f36a93b960fa9834cabb51ef810945bab64fd71e59c91d0",
+   "Sources/SlotstreamDiagnostics/Diagnostics+SlotSlices.swift": "32c10a839423b13a4dceff67a5b2a617f90d145376a70b19bd27f2e62452e288",
+   "Sources/SlotstreamDiagnostics/Diagnostics+StateRecovery.swift": "a53db99ff0f97a26e87586e35bf05daa26b9281fe7d686a1670c14984da2dd77",
+   "Sources/SlotstreamDiagnostics/Diagnostics+TerminalPrefill.swift": "7ef27bec8489f52ccdd3ea51c125d21eb94512924b163e854b7aaf25ef39f57a",
+   "Sources/SlotstreamDiagnostics/Diagnostics+Vision.swift": "be63108d11318a9469d26587ade08c79bf34274c61b847d752663d8ce007f9af",
+   "Sources/SlotstreamDiagnostics/Diagnostics+VisionAttention.swift": "66ddb233e4e1754d9b499e3bde590c073d32e47512ca7db79269aa9d25d40718",
+   "Sources/SlotstreamDiagnostics/Diagnostics+VisionCapacity.swift": "0610214d34b5f763aa65c17013082914f176ca176483a77a422c5a87d592b591",
+   "Sources/SlotstreamDiagnostics/Diagnostics.swift": "98ff2ba72838b5346d45ff18b87e43c2598a4ecf09a54b50c050150108a9fa03",
+   "Sources/SlotstreamDiagnostics/ExpertLookaheadCollector.swift": "4f8d1a402334a149eef2f7470ce96b7fad48f0fdcf2370143d25f3bc8ba0f423",
+   "Sources/SlotstreamDiagnostics/Goldens.swift": "aeb98c73b02c2e4f27baefee935fa4e7e67254da686e79ed96ffbdc26ca3c958",
+   "Sources/SlotstreamTestKit/Catalogue.swift": "bdfef7fffc2bbd801fc1880f9d9134783134a0e36e2424c3eb419b2767fe62a7",
+   "Sources/SlotstreamTestKit/GatewayChecks.swift": "da4b4a89d9b11d26a64cd244aae2887acfbca16a6d3aceefa8f40f90c8e39634",
+   "Sources/SlotstreamTestKit/OpenAIChecks.swift": "fe3aaf4ad816c02fc0b28771d6c3c7f9cf7b2a9f102ea4fce660c1dd8541a650",
+   "Sources/SlotstreamTestKit/T0Checks.swift": "c3078392faebeddc26b250361a400ac66a756def9ee38edb972c21f3a80266e0",
+   "Sources/SlotstreamTestKit/ToolCallChecks.swift": "f1b263239f4e82707c77a5887367fb5302e96d369f2f278e0e45a87d3006dad8",
+   "Sources/slotstream-checks/main.swift": "02ebabaf058afa95622ccd29fb65d80b7eac41c9e6232f0167ef288c2126e0d9",
+   "Sources/slotstream-cli/CheckRendering.swift": "0905dcbae17a5b3d66e13a760c4054fb29d930331d32942a528510ecfe9769a1",
+   "Sources/slotstream-cli/ContextCommands.swift": "3ba24ae3e24dd10214e3288f007952d9e2b06241c081e29313b42ac7aa7a31bb",
+   "Sources/slotstream-cli/ExpertLookaheadCommands.swift": "249274657b4f4f4c3e694a2b0db671b3af8b92a2148495647f3be9092f48f6b2",
+   "Sources/slotstream-cli/MTPCommands.swift": "190b88f5e069d11361597b0fa869ffbe21b003fecc635cc8907a9a55d3239576",
+   "Sources/slotstream-cli/OptimizationCommands.swift": "9a0013222a0accfb268bb860f94e8939b2b99f8fb31bd949be9d5e9ace83e8d5",
+   "Sources/slotstream-cli/PackedExpertCommands.swift": "ea7f4485d60a985a0a1f759f077d28dc42f36512dc1dd07a7644a22e31346b12",
+   "Sources/slotstream-cli/PrefixCacheCommand.swift": "266b9571726fe280c11d5dededa565375af1749b76c7e70def4fe9530729914f",
+   "Sources/slotstream-cli/Pull.swift": "d60a4ea7cebd27aa7995b4ae3ea74718e5b5eaf9d473f5cf85dcef83c9dbefaf",
+   "Sources/slotstream-cli/SweepCommands.swift": "37455d724a63b1689208dce9d55cd3d249bcab6d45bdf40d5c5e4f6992aa0d20",
+   "Sources/slotstream-cli/VisionCommands.swift": "df80e089ea9cdbc6fc51ec7dc895b0dbf0eec5d4db80eb73b0ca9720a3ce8cc0",
+   "Sources/slotstream-cli/main.swift": "9ca644a23d77bc2aad5ebf441b4c8721cf206b4fc9dd597a743b95d3acdf88b9",
+   "Tools/build_identity.py": "d70a97380b1244727674861ae64ab166d034c941878e6e2c18f3ffd77bbf2e86",
+   "Tools/fetch_metallib.sh": "c47f5531c4195bfe1f827ba1049b76cb81687401b9e25e2a3cc4c9d7feb64860"
+  },
+  "source_archive_sha256": "c3a26d61488174249bb225bba603cc62eb0ad7186a69bec0312dedd610c902aa"
+ },
+ "corpus_git_head": "f60e9a83037fea576bf210a3650d6f29e164f183",
+ "corpus_path": "Tools/fixtures/expert-lookahead/corpus.json",
+ "corpus_sha256": "adac22f1b1439be4638dad1e05809162924f796e1c7fe7ad80f3348d97ea17d5",
+ "correctness_request_ids": [
+  "r0075",
+  "r0160",
+  "r0175",
+  "r0241",
+  "r0251",
+  "r0300"
+ ],
+ "created": "2026-09-16T08:32:01-0500",
+ "draft_depth": 2,
+ "eligibility_rule": {
+  "approval": "the decode serialization rounds' timing rule, reused for the 0.2.19 release benchmark as registered",
+  "both_verdicts_recorded": true,
+  "eligible": "both arms complete with exact output IDs and router digests, no host swap-out delta during either arm, the engine process's own page-ins (proc_pid_rusage ri_pageins, which also counts file-backed faults) grow by at most page_in_threshold_pages during the measured request, thermal nominal afterwards",
+  "headline_uses": "process-pageins-v1",
+  "name": "process-pageins-v1",
+  "page_bytes": 16384,
+  "page_in_threshold_pages": 4096,
+  "page_in_threshold_status": "placeholder until the W0 pre-measurement of a clean 512-output request",
+  "readiness": "thermal nominal, low power off, reclaimable memory at or above the preflight, host swap-out counter unchanged over a 30 s sample (at most 600 s waiting); swap-ins are not a readiness input"
+ },
+ "env": {
+  "SLOTSTREAM_DRAFT_DEPTH": "2",
+  "SLOTSTREAM_OPT_ADAPTIVE_MTP": "0",
+  "SLOTSTREAM_OPT_MTP_TAIL": "0",
+  "SLOTSTREAM_PREFILL_CHUNK": "256",
+  "SLOTSTREAM_PREFIX_CACHE": "0"
+ },
+ "git_dirty_paths": [
+  "M .gitignore",
+  " M README.md",
+  "M  Sources/Slotstream/DecodeLookahead+Configuration.swift",
+  "M  Sources/Slotstream/DecodeLookahead.swift",
+  "MM Sources/Slotstream/Engine.swift",
+  "M  Sources/Slotstream/ExpertLookaheadTrace.swift",
+  "M  Sources/Slotstream/ExpertPrefetch.swift",
+  " M Sources/Slotstream/Governor.swift",
+  "M  Sources/Slotstream/Layers.swift",
+  "M  Sources/Slotstream/Model.swift",
+  "M  Sources/Slotstream/Plan.swift",
+  "A  Sources/Slotstream/RouterTapCorrection.swift",
+  "A  Sources/Slotstream/TapCorrectionSidecar.swift",
+  "M  Sources/Slotstream/Version.swift",
+  " M Sources/Slotstream/WeightStore.swift",
+  "M  Sources/SlotstreamDiagnostics/Diagnostics+DecodeLookahead.swift",
+  "M  Sources/SlotstreamDiagnostics/Diagnostics+ExpertLookahead.swift",
+  "M  Sources/SlotstreamDiagnostics/ExpertLookaheadCollector.swift",
+  "M  Sources/SlotstreamTestKit/T0Checks.swift",
+  "M  Sources/slotstream-cli/ExpertLookaheadCommands.swift",
+  "M  Sources/slotstream-cli/Pull.swift",
+  "M  Sources/slotstream-cli/main.swift",
+  "M  Tools/expert_lookahead.py",
+  "A  Tools/expert_lookahead_coroute.py",
+  "M  Tools/expert_lookahead_corpus.py",
+  "M  Tools/expert_lookahead_forecast.py",
+  "A  Tools/expert_lookahead_learned.py",
+  "A  Tools/expert_lookahead_taps.py",
+  " M Tools/llms_full.sh",
+  " M db/index.md",
+  " M db/log.md",
+  " M db/records/design/index.jsonl",
+  " M db/records/design/index.md",
+  " M db/records/index.md",
+  " M db/sources/index.md",
+  " M db/sources/runs/index.jsonl",
+  " M db/sources/runs/index.md",
+  " M docs/ENGINEERING.md",
+  " M docs/EXPERT-LOOKAHEAD.md",
+  " M llms-full.txt",
+  " M llms.txt",
+  "?? Tools/build_sevra_mac.sh",
+  "?? Tools/check_sevra_mac.sh",
+  "?? Tools/check_sevra_scroll.sh",
+  "?? Tools/generate_sevra_icon.sh",
+  "?? Tools/mac_build_inputs.py",
+  "?? Tools/render_sevra_icon.swift",
+  "?? apps/",
+  "?? db/records/design/sevra-spec/",
+  "?? db/sources/runs/2026/09/2026-09-14-sevra-first-native-tool-loop.md",
+  "?? db/sources/runs/2026/09/2026-09-14-sevra-mac-static-regressions.md",
+  "?? db/sources/runs/2026/09/2026-09-14-sevra-native-brand-ui-audit.md",
+  "?? db/sources/runs/2026/09/2026-09-14-sevra-real-workspace-brief-complete.md",
+  "?? db/sources/runs/2026/09/2026-09-14-sevra-rich-markdown-native-polish.md",
+  "?? db/sources/runs/2026/09/2026-09-14-sevra-runtime-recovery-and-bundle.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-adaptive-memory.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-contextual-latest.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-draft-coordination-regressions.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-home-continuation.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-layout-final-bundle.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-mac-adversarial-fixes.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-mac-adversarial-review.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-mac-controls-and-help.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-native-layout-refinement.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-native-ux-settings-audit.md",
+  "?? db/sources/runs/2026/09/2026-09-15-sevra-unified-native-toolbar.md",
+  "?? docs/SEVRA-MAC.md"
+ ],
+ "git_head": "4393a0c9d5b9690e55c7500b1fbf6caa474b9dba",
+ "greedy": true,
+ "host_conditions": {
+  "energy_joules": null,
+  "load_average_1_5_15_minutes": [
+   2.7744140625,
+   2.830078125,
+   2.990234375
+  ],
+  "observed_at_unix_seconds": 1789565521.375752,
+  "power_configuration": {
+   "exit_code": 0,
+   "stderr": "",
+   "stdout": "Battery Power:\n Sleep On Power Button 1\n powermode            0\n standby              1\n ttyskeepawake        1\n hibernatemode        3\n powernap             1\n hibernatefile        /var/vm/sleepimage\n displaysleep         2\n womp                 0\n networkoversleep     0\n sleep                1\n lessbright           1\n tcpkeepalive         1\n disksleep            10\nAC Power:\n Sleep On Power Button 1\n powermode            0\n standby              1\n ttyskeepawake        1\n hibernatemode        3\n powernap             1\n hibernatefile        /var/vm/sleepimage\n displaysleep         10\n womp                 1\n networkoversleep     0\n sleep                0\n tcpkeepalive         1\n disksleep            10\n"
+  },
+  "power_source": {
+   "exit_code": 0,
+   "stderr": "",
+   "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23134307)\t80%; AC attached; not charging present: true\n"
+  },
+  "thermal_limit": "pmset warning/status history, not continuous temperature",
+  "thermal_status": {
+   "exit_code": 0,
+   "stderr": "",
+   "stdout": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"
+  }
+ },
+ "max_context": 32768,
+ "memory_gb": 22.0,
+ "memory_profiles_considered": [
+  24.0,
+  20.0,
+  16.0
+ ],
+ "metallib_sha256": "198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597",
+ "model_dir": "/Users/carlos/.slotstream/models/qwen38-flash-next-mlx-4bit",
+ "model_identity": {
+  "chat_template.jinja": {
+   "bytes": 8952,
+   "mtime_ns": 1788227262420608630,
+   "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+  },
+  "config.json": {
+   "bytes": 33408,
+   "mtime_ns": 1788227262365742673,
+   "sha256": "0da22a8ed4323fbe969bf982aeb054743b315206791f28ef74a309c707080ba5"
+  },
+  "generation_config.json": {
+   "bytes": 202,
+   "mtime_ns": 1788227262233341994,
+   "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+  },
+  "model-00001.safetensors": {
+   "bytes": 10039592993,
+   "header_sha256": "475ce8af9dea80570da09375a5e1039090610ae77373bffcb8d95bb0be3a9ddc",
+   "mtime_ns": 1788228748798695327
+  },
+  "model-00002.safetensors": {
+   "bytes": 10000066971,
+   "header_sha256": "430d68993347bf804c7ccc0a09b4811d503377fc9af4f524b0db0884790a12bf",
+   "mtime_ns": 1788229557877052892
+  },
+  "model-00003.safetensors": {
+   "bytes": 10000066984,
+   "header_sha256": "28b4f8f5a8606a84f5dd5de3c061130a6a65e767edb86355ae35859a525426d6",
+   "mtime_ns": 1788229795251654179
+  },
+  "model-00004.safetensors": {
+   "bytes": 10170248438,
+   "header_sha256": "c9df41567d842f9fbdf9ff53a3584ffacb1b220b43e9c9b49c0be96be6f2156d",
+   "mtime_ns": 1788230029083645564
+  },
+  "model-00005.safetensors": {
+   "bytes": 10194989755,
+   "header_sha256": "c189a7de6a617e0a0f7d3e60576b363ae0d8c240e277d8726a4ab467b30e596c",
+   "mtime_ns": 1788230267432612830
+  },
+  "model-00006.safetensors": {
+   "bytes": 10262727991,
+   "header_sha256": "b51ae1ca1c4c754dae0426f85c0f3e6c1539240bce1ae77fba8102cb08ebb977",
+   "mtime_ns": 1788230565482789975
+  },
+  "model-00007.safetensors": {
+   "bytes": 10190937668,
+   "header_sha256": "b64d4e3ba45e61f2463c6357bdca894926f19db595d4e9dd189b04822a9c611d",
+   "mtime_ns": 1788230945388951904
+  },
+  "model-00008.safetensors": {
+   "bytes": 10231122683,
+   "header_sha256": "ab49328405f98104ffab180748eba510fc6f31ba2bfa263a1d23e8b59ce261c9",
+   "mtime_ns": 1788231233782376452
+  },
+  "model-00009.safetensors": {
+   "bytes": 10250305804,
+   "header_sha256": "326333ed9d0b8df41fb3ecca875d5b7eecb29f36d674f5edf8c969bb3e71e75d",
+   "mtime_ns": 1788231584813847653
+  },
+  "model-00010.safetensors": {
+   "bytes": 10237786674,
+   "header_sha256": "962f992ebc7098380e89df4e6abd0dd5921a1702dc612eebee9d70bcc3035f37",
+   "mtime_ns": 1788231912822219158
+  },
+  "model-00011.safetensors": {
+   "bytes": 2192353120,
+   "header_sha256": "db46770964a73082aeb4e714c0b6b4da30646146f3330a5b40d26cfd4f12a608",
+   "mtime_ns": 1788231963854477586
+  },
+  "model.safetensors.index.json": {
+   "bytes": 317973,
+   "mtime_ns": 1788231961214440193,
+   "sha256": "072cc2c60b8af6cce82a387f62e39ca88754c3a6fccae0816dd21bb89d27470d"
+  },
+  "mtp.provenance.json": {
+   "bytes": 4514,
+   "mtime_ns": 1788285565619137302,
+   "sha256": "6e574308bd68dcf6611e84c312ba388f7eb205e0e09dff086e14f6df86262db6"
+  },
+  "mtp.safetensors": {
+   "bytes": 1470955171,
+   "header_sha256": "836ae4156c99452e932c7a81322bcca959ac6f7ed86d6270cfd56ff94c62f4b9",
+   "mtime_ns": 1788285565030586634
+  },
+  "preprocessor_config.json": {
+   "bytes": 390,
+   "mtime_ns": 1788231961438795679,
+   "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+  },
+  "tokenizer.json": {
+   "bytes": 12809320,
+   "mtime_ns": 1788231963144872066,
+   "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+  },
+  "tokenizer_config.json": {
+   "bytes": 17928,
+   "mtime_ns": 1788231962481057833,
+   "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+  },
+  "video_preprocessor_config.json": {
+   "bytes": 385,
+   "mtime_ns": 1788231962565955466,
+   "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+  },
+  "vocab.json": {
+   "bytes": 6722759,
+   "mtime_ns": 1788231962924355528,
+   "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+  }
+ },
+ "mtp": "on",
+ "packages": {
+  "mlx": "unknown",
+  "numpy": "2.5.2",
+  "safetensors": "0.8.0",
+  "tokenizers": "0.23.1"
+ },
+ "pilot_request_ids": [
+  "r0079",
+  "r0106",
+  "r0185",
+  "r0229",
+  "r0276",
+  "r0282",
+  "r0042",
+  "r0114",
+  "r0207",
+  "r0231",
+  "r0253",
+  "r0279",
+  "r0015",
+  "r0104",
+  "r0218",
+  "r0228",
+  "r0254",
+  "r0303",
+  "r0021",
+  "r0117",
+  "r0183",
+  "r0223",
+  "r0264",
+  "r0281",
+  "r0035",
+  "r0116",
+  "r0222",
+  "r0230",
+  "r0249",
+  "r0280",
+  "r0025",
+  "r0154",
+  "r0221",
+  "r0234",
+  "r0274",
+  "r0277",
+  "r0087",
+  "r0090",
+  "r0199",
+  "r0238",
+  "r0248",
+  "r0286",
+  "r0001",
+  "r0122",
+  "r0179",
+  "r0224",
+  "r0247",
+  "r0283",
+  "r0016",
+  "r0139",
+  "r0193",
+  "r0236",
+  "r0259",
+  "r0302",
+  "r0022",
+  "r0109",
+  "r0065",
+  "r0151",
+  "r0178",
+  "r0241",
+  "r0251",
+  "r0300",
+  "r0066",
+  "r0163",
+  "r0177",
+  "r0243",
+  "r0250",
+  "r0298",
+  "r0013"
+ ],
+ "predecessor": {
+  "capture_build_identity": {
+   "binary_sha256": "0e4a94449bf4f7af45074fa6ab0037b8f70d0b967b439d074b961a1fe3081b8d",
+   "metallib_sha256": "198488eb61359e953580a9c4530400feee1a06dd2f28a930a6ffa58aec66a597",
+   "source": {
+    "Makefile": "1de4b2db83678e0705ebd955698b6d5fe053e0e3dc86a9326523ac23d219c567",
+    "Package.resolved": "6fc23da3ddc636949e84042cb70da34bc93c4355feef14857880caa6c3c7fceb",
+    "Package.swift": "8e2faec45c5aa764014d61b5cc04dee63640660322ad3e943084d5cb6dee4f87",
+    "Sources/CSlotpack/include/slotpack.h": "07301354bebebac253975abbd5981006be411fed444abab0b6bbc857e28bdd1b",
+    "Sources/CSlotpack/slotpack.c": "be45d2daf3e7e95d66cb9178f40dab292b85b1998086d71c53e41f59596d57a2",
+    "Sources/Slotstream/AdaptiveSpeculation.swift": "da8062ff16c1d72ccd28852ba18e43cd434a8165483d045759cd29a499f5fff6",
+    "Sources/Slotstream/BlockSelection.swift": "16e5fb4a4ea82728e3caaf3d6f4cdbf7d91614b757b0624913ae14c052d6f27d",
+    "Sources/Slotstream/BoundedOutput.swift": "70c21c3583edecdd856af06c2fae567bccaf0ea2005ddb932a7dd99642e7780f",
+    "Sources/Slotstream/CPUSlotWrite.swift": "da137aec8944dab6590cbea17afff28f094aef876688d20782b5791028d83349",
+    "Sources/Slotstream/CacheBookkeeping.swift": "08e4699592062a413e986e0e572aca7504dfa6cf589f5a153f5b22b44a117dc4",
+    "Sources/Slotstream/Checkpoint.swift": "c12d46bb51943700c05f7de0269574de2077a15d347a542f7bb229f47b0d4353",
+    "Sources/Slotstream/CompiledArithmetic.swift": "98611b31035459d237d901be7fff175072c30b32b992c7534d770b1bc6d117f2",
+    "Sources/Slotstream/Context.swift": "af310ab4ca9eb15b81b02e364164e07d0b56090997b6965538aa1583ac864a0f",
+    "Sources/Slotstream/ContextFeasibility.swift": "d57d9f89162d49f159c45ad3bdbd8c6aa671f2094211af5943a936bbacdf6664",
+    "Sources/Slotstream/ContextMemory.swift": "848df7f507cd1cc0d978ea29866f4c5c9635f5091ff236e551cde652cc668d9b",
+    "Sources/Slotstream/DownloadConcurrency.swift": "cf872e6e99b9e1df121a9feba4c0c8420719fe62a5f5a50e58b26bf11cb8126e",
+    "Sources/Slotstream/DownloadHTTP.swift": "341a7a7157c575658ee7d7bc6c77ed593bf30f79d8c262906d7672e2e40c6cbc",
+    "Sources/Slotstream/EmbeddingRows.swift": "10c722abb55b03bd6ae0f8188ec156f97e2a7603a516bd91919e060d8fc5a645",
+    "Sources/Slotstream/Engine.swift": "aee764bc7f50e945b8d9c5755b84123b5cb520cf98b94a1c70d3b1b0dc6cfaf4",
+    "Sources/Slotstream/Errors.swift": "0f65317656d38709f071fb58cb4c11f11f68f0949be02a781c675f37f76f5b57",
+    "Sources/Slotstream/ExactRead.swift": "bd90fbeb1d400cb7dda746d434a5c4f1fbb4d767506013e4398de9ba1253a47e",
+    "Sources/Slotstream/ExpertLookaheadTrace.swift": "0c596df7ce8d36d214bd4db5819ebb59d8439d00a4c68fa32f53db25d4eb9914",
+    "Sources/Slotstream/ExpertPredictor.swift": "2f25044ff7258ac53973c3e5de7138ad078b0b90a1ab13cc332cab8bcfa0740e",
+    "Sources/Slotstream/ExpertPrefetch.swift": "702fc993b32a6de3e6c489b965be91c9704563e159a251134bf70ecb36350adc",
+    "Sources/Slotstream/ExpertStore.swift": "c885d648675b86c1901d6afcca3b5b181e8f4472e4b81d690124e6104cc1ea2a",
+    "Sources/Slotstream/ExpertTransferProfile.swift": "17fe476f01b03d3a151506d324d9ad0d83d8dcf152489c9e88805ddea2b302ad",
+    "Sources/Slotstream/GDNPhaseProfile.swift": "f74d843773b549530cebe9e5df79a02b0104068e05c39ff6adfcbae3effaef66",
+    "Sources/Slotstream/GatewayDialect.swift": "93561b74b171c78d107dca5985a1c0601f7ca0ce4388f0a3aa03e9bd0c6bd0c8",
+    "Sources/Slotstream/Generate.swift": "b51a423ec12d5c8da1574d0dc72ad6f70715a95049c06a64ca61739985deb8d7",
+    "Sources/Slotstream/Governor.swift": "07e1ca31502fca7be8ee0ea2794577ef54e1917f509add3bfeb53a71b87c4372",
+    "Sources/Slotstream/LayerLocalVictim.swift": "9615385e6c2ac18573f4d2089a75a70d356d803c0c4a603b4db3397fafa6275c",
+    "Sources/Slotstream/Layers.swift": "7d4c74e589ed681094bd9570e1d550f5c9fe4ecd9e171bb6360d2e0dab4b46a9",
+    "Sources/Slotstream/MTP.swift": "10b63deee430c1e1d5792221f128bea0a6158161911676679665a168116cf743",
+    "Sources/Slotstream/Machine.swift": "ffed1d45e029e21e42e1eb956d1b3f2647aae2bca689f532b5dc2dba897c89ee",
+    "Sources/Slotstream/MemTrace.swift": "756d8032ad7558c84eb571c69e3d4773ff105eb0ab78790662aa637e4d0e19d6",
+    "Sources/Slotstream/Model.swift": "9f71bc175299fdfb73f7e213ead00c360eaaf0d383f59cb2cc463bd08b58b56d",
+    "Sources/Slotstream/NgramPrefetch.swift": "7342c07a6b475ea8d8568b08e041b0ffb0d35456892e79aaac6197db08b2e03c",
+    "Sources/Slotstream/NgramStore.swift": "f9f0cf609ac1bec2c7abb645b365fcb174dd4b5ec812b602985bacab847cdfbf",
+    "Sources/Slotstream/Observation.swift": "fcb7557541a5a0ce885737449d6b2b88009a8521a7c743cded5d120867529e10",
+    "Sources/Slotstream/OpenAIDialect.swift": "714263f4382c83835c4e617ffcb72e231c270a0f0d8be497881cdfc663d52f58",
+    "Sources/Slotstream/OpenAIOutput.swift": "d13c9a29f3dbcf9fb9933e5a378f3ba8160d7eb4f96d3c7a61f3faed5a563b76",
+    "Sources/Slotstream/OptimizationPlatform.swift": "e4c17aeb1ab294ac9d9e9c60095cc5360382c0809a4f579672b4d0b66a0ed3cf",
+    "Sources/Slotstream/Optimizations.swift": "4f3b35ad41cef026e7bcccfeb03580a1d4c4ade57a21eacb5b195f0dff38bee8",
+    "Sources/Slotstream/PackedExpertLayout.swift": "c4638dce72c5a514feb629dd19e0e8cc3dafdd4d94385467af465e90475f2cd7",
+    "Sources/Slotstream/PackedProjectionPair.swift": "84fa87130270092c16a538f7d50cfee55e71b52ecd8250a1bce7e0547c8b1d96",
+    "Sources/Slotstream/PartialRotation.swift": "57177495e6ba630c66744b2b9e2bde23acf9349fca52b97a4ea406c5839c7f8f",
+    "Sources/Slotstream/PinnedModel.swift": "0c7c16539bcb54924ff7306b03b470e2915b5bb41c4ecff9e60dc7912e7afdd2",
+    "Sources/Slotstream/PinnedTransport.swift": "f30c4c4bfeaf49c5e2dfcbfa728d6eab44d02a1f77d40217e84723fd03761d87",
+    "Sources/Slotstream/PinnedTransportManifest.swift": "6b0de220938fc91dd4dc24cd0fc9dffa086f09f04cd83823dc3de3a13de8ac11",
+    "Sources/Slotstream/Plan.swift": "6e8d3a6fa52ddfe4467802906dc1ecd9d6e9817f8c0b3aae1ddecbb1553b2dfb",
+    "Sources/Slotstream/PlannerCostModel.swift": "a95e2781a7448418ec78480be356bac9eb80bb36cc64c63f6cb3e378043d29c0",
+    "Sources/Slotstream/PlannerDevice.swift": "528cdf93cf0fe600b8c53a3eb828b9b1922ee4817fa100393a11d4e2714784f8",
+    "Sources/Slotstream/PrefixCache.swift": "f8b0a921d06bacfed30626d8b0d4609660cb4e8fcf50d284fe5f1ac38da64919",
+    "Sources/Slotstream/PressureBoundary.swift": "ed22537fccc321589eb3d33b3538984630daae951d00e4ac829412897b181a3d",
+    "Sources/Slotstream/ProcessMemory.swift": "37e2ac7fb149f2a9e46f142bc89ae36835bef2bd0bd9d0975a278a334f8c63e0",
+    "Sources/Slotstream/RequestControl.swift": "1e393e5ccc31528e2215c9a7ba72ece6b411d2772e1bd2225191b5ed46d87ecc",
+    "Sources/Slotstream/ResidentExpertOverlap.swift": "4ddb3a027d92697dcc1e7373e66fc139abdc12063448d864ef635e5202f57dde",
+    "Sources/Slotstream/RouterProjection.swift": "98ea668ac6f47549ec9cdee41b81109e66f11935946d2d1587ebf97ad106230d",
+    "Sources/Slotstream/RouterSelection.swift": "35b122748ab05c00122bfb5b4c78416ee28b55abaa4d4e1379fd163aaf47b4a6",
+    "Sources/Slotstream/RouterTrace.swift": "b34c1974f60015c913649a285023e57b15d92f37c2f7aa282b821eb2043652c1",
+    "Sources/Slotstream/SelectedAttention.swift": "70e61a089444f74cc74494d7f05005b0ff4dfe67043782befbbef80d96b911db",
+    "Sources/Slotstream/Server.swift": "c20776840aa9551958d8fed92389c8fc32318c97639bd14d93609233dc449334",
+    "Sources/Slotstream/SlotWritePlan.swift": "9abde1de815522ff835d3c685a2e342293f3c9c7019cfc742265193ea2e286c1",
+    "Sources/Slotstream/SlotpackDownload.swift": "fb6f47ce70f30713cf1679ebda619c980e9d783dd6ae4cd1cc4e0a68b14705b7",
+    "Sources/Slotstream/SlotpackManifest.swift": "8664440e22653e64b85c0100345169dd93b3836d1bbd125ac2add4f621b9876d",
+    "Sources/Slotstream/StatePrefixFork.swift": "c18f2caa63cb252f0c8c8a1f0cc0b0c3b5206bfdc96288feaa1aa8125bb8fe79",
+    "Sources/Slotstream/StateRecovery.swift": "1b7f979dada5d79ef30171b7691516d28a41b45c273576513fa68aa6dd8f514a",
+    "Sources/Slotstream/ToolCallSplitter.swift": "2c2e1d722188d633508c871d73f011fa4053b666d10b7585b304c151c53925a8",
+    "Sources/Slotstream/Vendored/GatedDelta.swift": "ac0a81ccd99ebb59a52ad0728221f34c59d2402d255b4e6a9cbb583b7d42dd6f",
+    "Sources/Slotstream/Version.swift": "5790caa5f002210677f91c9b78992b8d42a7c64e7e8da6022b15c06292b08c40",
+    "Sources/Slotstream/Vision.swift": "38565f564bf8ba73d2dc87e2f1874fa6fda2652e094a324048bfa8cb1278a79e",
+    "Sources/Slotstream/VisionAttention.swift": "83b1012cb0b3a2c22098f71515e3e853cf1ca3affb01cb667a8248e3c34c63a5",
+    "Sources/Slotstream/VisionPrompt.swift": "61b90891a5ec9944406287fa73b4c0e5bdd29b4e3903dff345cbeb80638c6435",
+    "Sources/Slotstream/WeightDownload.swift": "2758b2eea2631635cd3da5c18a87e724c57aab5c78ad816b7e18d7ff48c8c98d",
+    "Sources/Slotstream/WeightStore.swift": "df36f23325493c95efdd73f9f20d8ce56bc5b7c8b1b40d5660651e143e72d7b1",
+    "Sources/Slotstream/Weights.swift": "4c6112412f38192de1955bedb6b7f3cddcb2d0b338b570b6b688df4638a55e5f",
+    "Sources/Slotstream/WordSlotWrite.swift": "1c19def2346669acc1afa811a7244233c6f593de91c02bfc4ff145465b95187e",
+    "Sources/SlotstreamDiagnostics/CheckReport.swift": "9bbe2106b5b55331cc3fbc093edd803eff6f9f00ebd5f30ce587754fe0bc7e47",
+    "Sources/SlotstreamDiagnostics/Diagnostics+AdaptiveSpeculation.swift": "e53d32c4f5a3fc7039a258db5c5b3c530416d07828c5d424a8f35e67d80dc256",
+    "Sources/SlotstreamDiagnostics/Diagnostics+AllHitReplay.swift": "187a98c70c2e66008622db3727f0bf58126928862bc102782574fa0ba5f57513",
+    "Sources/SlotstreamDiagnostics/Diagnostics+BlockSelection.swift": "08d3f1fc29b6353443b795198295bacb85f57d0a2bdbac67450cf66d505f852c",
+    "Sources/SlotstreamDiagnostics/Diagnostics+CacheBookkeeping.swift": "9753dadab24d3f37030e4d52f0df57816d8c4803fcfde457a9c5320dfaa829b8",
+    "Sources/SlotstreamDiagnostics/Diagnostics+CompactIndexer.swift": "3dd65c8fac32f2804cce942845946debe74ca83b9cf6485a441ed15331711a5b",
+    "Sources/SlotstreamDiagnostics/Diagnostics+CompiledNorm.swift": "9f1beb774172bc33a27020261532e06723f0794adba9ab5dbca7807d01a0748f",
+    "Sources/SlotstreamDiagnostics/Diagnostics+CompletePrompt.swift": "75cdd2137b2856407d2fb297504039b174b3ae116b40608d5f42fabf0237a66d",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ComputeIslands.swift": "ac7f3b5ed140a566348e9be06274cf757144d2db099fe5af097c4a3807dc6801",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Context.swift": "fec6dda4397daa0b5293e3d9cc617cadc17e409a5627ed8a15b9b2bea205deca",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift": "51e505bd3279983263ad731133b2f1e20606387cf03ba360ffcb2fba34dd33a3",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift": "90b83306d1966da794daf28cc84f426a42cd853075f5e236cf1bacae10787d8f",
+    "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRows.swift": "a0f0532a43c1329b3a69f8a3bd8607df9f27793c0994ad23203936896b44e81f",
+    "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRuntime.swift": "c5c37fafb45b2ac2434a36cd7c8b8804fac0e271e9e3f0fb10ef97481db77e24",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ExactRead.swift": "77a357f55c3f5aced5ba0d74012e35f73e678e0840024f24a5ab86909d335c59",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ExpertLookahead.swift": "e5f33ac3af7a6523a5f01cfaa330262b344bfffff5d669ec51b117da4b5209b9",
+    "Sources/SlotstreamDiagnostics/Diagnostics+GDNProfile.swift": "6d982a575d6c6282941a9f9f3ac063b75d31996fcde387a63ca3ce44fea93242",
+    "Sources/SlotstreamDiagnostics/Diagnostics+GDNProjection.swift": "983a071e562451dbc22cfe09b005d9c68af687c10e7d94802d7d3cb28af1c7cd",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift": "8ec85ff3609cd5657eae1a8434189e9474460aad0c850f6b88240457c8f0f1fc",
+    "Sources/SlotstreamDiagnostics/Diagnostics+HTTP.swift": "9526e51122c9e463ea9a3201da6e4628f3794f329bd4ca05f1496daf3c66c1e5",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ImageFailure.swift": "766742295107f924177f7f724a7be61f8ccb29b3e044a7de345523598c31cead",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ImageReuse.swift": "5d0e619769c0f7d4ea8c73439ac44bc499db6184c4954b417f4cb7804aec20e8",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Integrated.swift": "5eb2132959b1db779caa520a3eefe5d6c5ffdd9ed317750c8cee48f02bd05941",
+    "Sources/SlotstreamDiagnostics/Diagnostics+LayerLocalVictim.swift": "d512d93741a6675412cc9e6c739b940132ca3f20ebecd709884b00b1ebbc49b7",
+    "Sources/SlotstreamDiagnostics/Diagnostics+MTPIndexer.swift": "7784a18a1eddafa25ecaee9eeacfbcddf8bcabac8d53919f80367a4f4e5be476",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Machine.swift": "20f6edb816fc3a794143042e59847adbfc1fe06514fc990e8a3d81eb87abe50c",
+    "Sources/SlotstreamDiagnostics/Diagnostics+NgramCache.swift": "9bee4eb6c6cf09df5673e177d4b7f006681794bf680366b4549e4fa3d38b7368",
+    "Sources/SlotstreamDiagnostics/Diagnostics+NgramLookahead.swift": "3b0bc7ea21a57d2ce65e58773879f5f86ba7f0f37c47d8f1d08d51e61c486370",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Optimization.swift": "35d99deb614da4ffdfef075eabdc5a1c8b3518bf9accf265796e09f2c7c281ee",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Output.swift": "e39951dc83e8410abdc840d0a739e1e1b2fbbdf1e2d06b3cb2d28c39ee9329cb",
+    "Sources/SlotstreamDiagnostics/Diagnostics+OutputServing.swift": "50bb807143f1e5134f52a6f3d48b8da297f4186dd91895e016d191ca13ccf66a",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PackedLayout.swift": "e30e986b5c564ea5dd76c720195f8dc6408469bca6e8c5cc369f53c762f6d7b4",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PartialRotation.swift": "de75d07feedc163834fe8e716683af8b2d373c51b0588ccc2cac922f775367ef",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PoolRequests.swift": "e383c494263afa029a9ef107c90d6ba59f44cda5da7ca1035eae68cbda3562d2",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PrefillQualification.swift": "f40d8e711121f12cbcd95f8880d483ac36995faeab06af714d201fa1671348f1",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PrefixCapacity.swift": "b76e9185930a90d2509f9d7dfc247afee3ff2a083a1bc6bb3da6d090653d290f",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PrefixFork.swift": "e7a7094b3930cef8e380d711f20e8f82e2821c070579549692a6120e9ba3afc4",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PrefixRetention.swift": "5de9452266e8e59da03b078990689554fc7a419a5cd8e5879cc68e2e277ea8cb",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PrefixVision.swift": "5e4737dbe5344492fc2f9c6881f8d56e997668f674c91b28b9349c9420465f72",
+    "Sources/SlotstreamDiagnostics/Diagnostics+PressureBoundary.swift": "f84979a3da94bc5ac0cfeb5cc84b61af43716c5664cc71853085ffa1b116d325",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Pull.swift": "224e4bf5210afbddd992894860343add73d1f52b12b2d9a00abf78fdc492ada0",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ReadFailureServing.swift": "1532f45714ceb98a5adcfa31abd31f065493164f49d2ee3aac868d5d4080b04c",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ReadHandles.swift": "9e98b6e0fd6c30f36d1d3ec8d556216f351a2f09ee5d15dbb4f5580858fad4b4",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ReadRecovery.swift": "5d51636a62b376e74dfefab207fdd42da61436210973f714819c7cc11488a04d",
+    "Sources/SlotstreamDiagnostics/Diagnostics+ResidentOverlap.swift": "c1e7b847cffa51939b0ae20027b289efcae5585a94ae5c1c751a66f110a25522",
+    "Sources/SlotstreamDiagnostics/Diagnostics+RopePerformance.swift": "19d040f21391a1ea87831b73a8adf055a78aeafe9d902bd11ce22fd6a492d892",
+    "Sources/SlotstreamDiagnostics/Diagnostics+RouterProjection.swift": "3981e415003e6258d41690216a7ab668652a0ce436bf644d99d88dbc2799db9e",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Runtime.swift": "b6debc0a68e2df94574964c13afa41a76a5aab783e75d1428da25110d241cffc",
+    "Sources/SlotstreamDiagnostics/Diagnostics+RuntimeBudget.swift": "b5ce492456b9e27b19765a0bd4f23cbd81ccff034be5af3142737cdae7944d6e",
+    "Sources/SlotstreamDiagnostics/Diagnostics+SamplerPerformance.swift": "4e6dd7e85d7ac0f2b2af291343ab4cdc52fa94fe6edb588c1d517008a0c35cb3",
+    "Sources/SlotstreamDiagnostics/Diagnostics+SelectedAttention.swift": "8dd385da9b79c3625d1cc9ccc6c8821978f88437fcded918f049328b7a969e7a",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Selection.swift": "b737794c5a57cd224f36a93b960fa9834cabb51ef810945bab64fd71e59c91d0",
+    "Sources/SlotstreamDiagnostics/Diagnostics+SlotSlices.swift": "32c10a839423b13a4dceff67a5b2a617f90d145376a70b19bd27f2e62452e288",
+    "Sources/SlotstreamDiagnostics/Diagnostics+StateRecovery.swift": "a53db99ff0f97a26e87586e35bf05daa26b9281fe7d686a1670c14984da2dd77",
+    "Sources/SlotstreamDiagnostics/Diagnostics+TerminalPrefill.swift": "7ef27bec8489f52ccdd3ea51c125d21eb94512924b163e854b7aaf25ef39f57a",
+    "Sources/SlotstreamDiagnostics/Diagnostics+Vision.swift": "be63108d11318a9469d26587ade08c79bf34274c61b847d752663d8ce007f9af",
+    "Sources/SlotstreamDiagnostics/Diagnostics+VisionAttention.swift": "66ddb233e4e1754d9b499e3bde590c073d32e47512ca7db79269aa9d25d40718",
+    "Sources/SlotstreamDiagnostics/Diagnostics+VisionCapacity.swift": "0610214d34b5f763aa65c17013082914f176ca176483a77a422c5a87d592b591",
+    "Sources/SlotstreamDiagnostics/Diagnostics.swift": "98ff2ba72838b5346d45ff18b87e43c2598a4ecf09a54b50c050150108a9fa03",
+    "Sources/SlotstreamDiagnostics/ExpertLookaheadCollector.swift": "94786a9c660eada0ad7147ae5cde83b86f7e659db6000445811658d597d0c7b6",
+    "Sources/SlotstreamDiagnostics/Goldens.swift": "aeb98c73b02c2e4f27baefee935fa4e7e67254da686e79ed96ffbdc26ca3c958",
+    "Sources/SlotstreamTestKit/Catalogue.swift": "bdfef7fffc2bbd801fc1880f9d9134783134a0e36e2424c3eb419b2767fe62a7",
+    "Sources/SlotstreamTestKit/GatewayChecks.swift": "da4b4a89d9b11d26a64cd244aae2887acfbca16a6d3aceefa8f40f90c8e39634",
+    "Sources/SlotstreamTestKit/OpenAIChecks.swift": "7b25dbc7700bc8dd23d896278f8dca2102ad59d473cb1f374958743a1a1a0b08",
+    "Sources/SlotstreamTestKit/T0Checks.swift": "4946d45ec207a0bbad7957ced12b28ecd941190646282e01c77797b6f41a267d",
+    "Sources/SlotstreamTestKit/ToolCallChecks.swift": "f1b263239f4e82707c77a5887367fb5302e96d369f2f278e0e45a87d3006dad8",
+    "Sources/slotstream-checks/main.swift": "02ebabaf058afa95622ccd29fb65d80b7eac41c9e6232f0167ef288c2126e0d9",
+    "Sources/slotstream-cli/CheckRendering.swift": "0905dcbae17a5b3d66e13a760c4054fb29d930331d32942a528510ecfe9769a1",
+    "Sources/slotstream-cli/ContextCommands.swift": "d51e998a10113073853b649c1dcb53f622441cb554d54e2471e9f1d2b148191f",
+    "Sources/slotstream-cli/ExpertLookaheadCommands.swift": "d812e8488f2e3ecf33f7c8d93ebcaceab4a9bcd8f856cb6b70e49df9e561246e",
+    "Sources/slotstream-cli/MTPCommands.swift": "190b88f5e069d11361597b0fa869ffbe21b003fecc635cc8907a9a55d3239576",
+    "Sources/slotstream-cli/OptimizationCommands.swift": "ae17fae2d748198fa56a06c6a0ce0feaab2515c3997fcb9a5c7cfe84aa283571",
+    "Sources/slotstream-cli/PackedExpertCommands.swift": "ea7f4485d60a985a0a1f759f077d28dc42f36512dc1dd07a7644a22e31346b12",
+    "Sources/slotstream-cli/Pull.swift": "4fa56def1edb0ae575bd898e3b53b669f0a16b04d734ef86e0f6c4a6ad185d14",
+    "Sources/slotstream-cli/SweepCommands.swift": "37455d724a63b1689208dce9d55cd3d249bcab6d45bdf40d5c5e4f6992aa0d20",
+    "Sources/slotstream-cli/VisionCommands.swift": "df80e089ea9cdbc6fc51ec7dc895b0dbf0eec5d4db80eb73b0ca9720a3ce8cc0",
+    "Sources/slotstream-cli/main.swift": "f2ef9609706cc150fa1a46d8cfbc40d470aad66b5b0b0cf1770b879b985950ed",
+    "Tools/build_identity.py": "d70a97380b1244727674861ae64ab166d034c941878e6e2c18f3ffd77bbf2e86",
+    "Tools/fetch_metallib.sh": "c47f5531c4195bfe1f827ba1049b76cb81687401b9e25e2a3cc4c9d7feb64860"
+   },
+   "source_archive_sha256": "61a8e459c0f59d4c3236c973479f7e1f8d94c4b30556f75c3554236ab6a7dacb"
+  },
+  "capture_dir": "/Users/carlos/Projects/slotstream/.build/expert-lookahead/xla-pilot-20260911/pilot",
+  "capture_executable_sha256": "0e4a94449bf4f7af45074fa6ab0037b8f70d0b967b439d074b961a1fe3081b8d",
+  "capture_model_dir": "/Users/carlos/.slotstream/models/qwen38-flash-next-mlx-4bit",
+  "capture_pool_slots": 4255,
+  "capture_schema": "expert-lookahead-shard-v1",
+  "capture_version": "0.2.15",
+  "complete_requests": 69,
+  "corpus_sha256": "adac22f1b1439be4638dad1e05809162924f796e1c7fe7ad80f3348d97ea17d5",
+  "memory_gb": 20.0,
+  "protocol": "/Users/carlos/Projects/slotstream/.build/expert-lookahead/xla-pilot-20260911/protocol.json",
+  "protocol_sha256": "256913373cca7ad7c88199a2910e104a384978517ce80ce2a1dbdc3a6e1a72f7",
+  "requests_jsonl_sha256": "b4b97e60fe16e40961bac82b168cec386311f1fdfba22b5311fa05fa6f48fff0",
+  "rows": 70,
+  "run_id": "xla-pilot-20260911",
+  "run_json_sha256": "5e610c717a1d1169ed3009fda84f064fa9118ca4a3490bc737c9aaa48fb2deb9",
+  "shard_bytes": 4395522917,
+  "shard_list": [
+   {
+    "bytes": 99432905,
+    "path": "r0079.bin",
+    "records": 18095,
+    "request": "r0079",
+    "sha256": "c1fffe9f1764ca9ff7c3b125aa82d555e5efbb237f2ac36a606dcdcdb1dc442a"
+   },
+   {
+    "bytes": 81842763,
+    "path": "r0106.bin",
+    "records": 14847,
+    "request": "r0106",
+    "sha256": "d3ead35bc9e13fad5885b3b1b77876a03b50527f2b35725d18ab693e2a24b28c"
+   },
+   {
+    "bytes": 58956887,
+    "path": "r0185.bin",
+    "records": 11275,
+    "request": "r0185",
+    "sha256": "c06f6aaebfa78829ea6c8b457f84ea85547b701e5aedcd9208e084e85d61005d"
+   },
+   {
+    "bytes": 48730959,
+    "path": "r0229.bin",
+    "records": 8847,
+    "request": "r0229",
+    "sha256": "ab5ad4794191c9808d75037165490e8da8c975af3b8fe67dc89f87b1688ad029"
+   },
+   {
+    "bytes": 39598540,
+    "path": "r0276.bin",
+    "records": 7197,
+    "request": "r0276",
+    "sha256": "f80fa24fcf03f2105be9e50b058408f758fcb78f03c50fc4a6dc5fe04cd0c55e"
+   },
+   {
+    "bytes": 26900013,
+    "path": "r0282.bin",
+    "records": 4947,
+    "request": "r0282",
+    "sha256": "9268d52ca63a2f25ad5206d95f6fef0943fd3e7dbfadcfad003aa890ca786ce2"
+   },
+   {
+    "bytes": 73171181,
+    "path": "r0042.bin",
+    "records": 13295,
+    "request": "r0042",
+    "sha256": "bf8747b4d3a3e2526683981906de9c1df4161f885d3ef8fb37c6bded2620aa27"
+   },
+   {
+    "bytes": 76083160,
+    "path": "r0114.bin",
+    "records": 13797,
+    "request": "r0114",
+    "sha256": "4c8901beaa4f04130a0de7ff65ce0c85571553f9505527be1971773399c25b40"
+   },
+   {
+    "bytes": 70090634,
+    "path": "r0207.bin",
+    "records": 12793,
+    "request": "r0207",
+    "sha256": "fe26cc50c271a24f9398e98f93284c1038012d53bb88474a7572426e088dcf5d"
+   },
+   {
+    "bytes": 47881966,
+    "path": "r0231.bin",
+    "records": 8697,
+    "request": "r0231",
+    "sha256": "e1ee81417fbff53a545d1c988e8974e6627c6b5106a29c8cdeb6070f9320c60e"
+   },
+   {
+    "bytes": 39634045,
+    "path": "r0253.bin",
+    "records": 7295,
+    "request": "r0253",
+    "sha256": "bad643b309921899b7ddf4fe21c3a1b572f6e9e5888aec52ea72079fcb714ced"
+   },
+   {
+    "bytes": 44387174,
+    "path": "r0279.bin",
+    "records": 8097,
+    "request": "r0279",
+    "sha256": "fcf2fb97bbcd445e7eac3ffed58c629a33b29c2aeedc0f022321db256636df7d"
+   },
+   {
+    "bytes": 72909662,
+    "path": "r0015.bin",
+    "records": 13341,
+    "request": "r0015",
+    "sha256": "d466300112bf514b7cc42372b066df23a66339f74685914160f35b1020f9d0fa"
+   },
+   {
+    "bytes": 80173989,
+    "path": "r0104.bin",
+    "records": 14547,
+    "request": "r0104",
+    "sha256": "a781bedb36cd999f6ec655885973d2e04c31009113591586d6ca15cf9526827f"
+   },
+   {
+    "bytes": 54748841,
+    "path": "r0218.bin",
+    "records": 11055,
+    "request": "r0218",
+    "sha256": "73d4c13202a2f94f285128d0ba886dde74ed2ee8d9a2655a5fd2055f5c737e39"
+   },
+   {
+    "bytes": 54562570,
+    "path": "r0228.bin",
+    "records": 9897,
+    "request": "r0228",
+    "sha256": "7ffbf52d57bab9424ec516c74f550dc7e8e036e9f0e310575d83c4f1a203fc31"
+   },
+   {
+    "bytes": 42960076,
+    "path": "r0254.bin",
+    "records": 7797,
+    "request": "r0254",
+    "sha256": "ae0c8a2b37edf1308a13d7ac9187308f33e5a8ece5dbd79532ce485522619137"
+   },
+   {
+    "bytes": 46903025,
+    "path": "r0303.bin",
+    "records": 8547,
+    "request": "r0303",
+    "sha256": "282d317914ffdc6784f07c0d40e7edadb44097c81b3bfa9e94f5c0bb05680919"
+   },
+   {
+    "bytes": 72849555,
+    "path": "r0021.bin",
+    "records": 13439,
+    "request": "r0021",
+    "sha256": "542fac8e276db9aa5ea9631e0f2807a3e21b9161fa826758239efc2619e36688"
+   },
+   {
+    "bytes": 82730844,
+    "path": "r0117.bin",
+    "records": 14997,
+    "request": "r0117",
+    "sha256": "725332778523769779d02dbe8bff5d30e4bb6d1bacdb1806c2934de13117569f"
+   },
+   {
+    "bytes": 45568046,
+    "path": "r0183.bin",
+    "records": 8489,
+    "request": "r0183",
+    "sha256": "f050e73f354ce49b647ab6e482515045be2f092da4a9c1c0b243329c52bf61e7"
+   },
+   {
+    "bytes": 53739073,
+    "path": "r0223.bin",
+    "records": 9747,
+    "request": "r0223",
+    "sha256": "fbd72279596cdf889bcff2180f5656f974a56fbd5f7c97b8688acaa791c1b9aa"
+   },
+   {
+    "bytes": 39525673,
+    "path": "r0264.bin",
+    "records": 7295,
+    "request": "r0264",
+    "sha256": "aabf32151d86629e853aaa09e61b349ed045da86ffdc67b7e196156f328d394b"
+   },
+   {
+    "bytes": 53566913,
+    "path": "r0281.bin",
+    "records": 9747,
+    "request": "r0281",
+    "sha256": "f15c158a59bcb9a24a102d35c5bac1f10487b6a1b46b4f852c57b75b7c8882d2"
+   },
+   {
+    "bytes": 83433939,
+    "path": "r0035.bin",
+    "records": 15291,
+    "request": "r0035",
+    "sha256": "28ed583cae0d1b7055d9d5f79c398ce3fa55c07eff6aa4caa540f17f3d05c97f"
+   },
+   {
+    "bytes": 82742560,
+    "path": "r0116.bin",
+    "records": 14997,
+    "request": "r0116",
+    "sha256": "b695536edfcec5e9c45ed99b0b671e86d19c81a940d5a67b4ce3e5ab5847852f"
+   },
+   {
+    "bytes": 64059648,
+    "path": "r0222.bin",
+    "records": 11477,
+    "request": "r0222",
+    "sha256": "43b9f0ffa4dcf0afba26667f0ab6933eeaa3cb9a784a00410b1f5d127be63b63"
+   },
+   {
+    "bytes": 47871474,
+    "path": "r0230.bin",
+    "records": 8697,
+    "request": "r0230",
+    "sha256": "4a7627f781a760efd4c13c40d73aa40efc853102fb46be08142a96d848228bdd"
+   },
+   {
+    "bytes": 39654945,
+    "path": "r0249.bin",
+    "records": 7295,
+    "request": "r0249",
+    "sha256": "5559a2c3f3b7641335c4694609f547fa80fe61928c41c3bc62add1e9a010f816"
+   },
+   {
+    "bytes": 92679152,
+    "path": "r0280.bin",
+    "records": 16797,
+    "request": "r0280",
+    "sha256": "506f4e50077b8e27db75a245e0436785812441d843df517853a413355febc69d"
+   },
+   {
+    "bytes": 87268527,
+    "path": "r0025.bin",
+    "records": 15943,
+    "request": "r0025",
+    "sha256": "b9ee72f59914ae59147fa5987959cb62174eeeee9909c2109c8e302dd6bda78f"
+   },
+   {
+    "bytes": 76840105,
+    "path": "r0154.bin",
+    "records": 13947,
+    "request": "r0154",
+    "sha256": "e8a52aeeab50f0fad999a5e50d35bb2b7474b568b0e66003b6f6f5047a186acc"
+   },
+   {
+    "bytes": 59155609,
+    "path": "r0221.bin",
+    "records": 11759,
+    "request": "r0221",
+    "sha256": "c3ae94ffe58586e395ce12978cdd729b61538556ef6f7052864be2dc2a2ac12f"
+   },
+   {
+    "bytes": 34567282,
+    "path": "r0234.bin",
+    "records": 6297,
+    "request": "r0234",
+    "sha256": "80e24a97bd1f35c9bbb7da592cdf70a2e85184fc9b08e3a2724cd76345295d4d"
+   },
+   {
+    "bytes": 50401421,
+    "path": "r0274.bin",
+    "records": 9147,
+    "request": "r0274",
+    "sha256": "6d34f8766480329489d236ebe5a3df90b5227a82f74a275ec99690dc3d184168"
+   },
+   {
+    "bytes": 96809165,
+    "path": "r0277.bin",
+    "records": 17547,
+    "request": "r0277",
+    "sha256": "4d240705eef42e9934e2103601ed8bb9cf3bbb163039c860d916e3b4246db4b1"
+   },
+   {
+    "bytes": 96448609,
+    "path": "r0087.bin",
+    "records": 17495,
+    "request": "r0087",
+    "sha256": "21e3b6533fbeba5fc11749ba35000beac3f3128ed4be195a45d3026285fe2767"
+   },
+   {
+    "bytes": 76042536,
+    "path": "r0090.bin",
+    "records": 13797,
+    "request": "r0090",
+    "sha256": "904282170712b66d62bff9c802851591e961a6a41414f8f5a3ec8ddbd141f665"
+   },
+   {
+    "bytes": 45825059,
+    "path": "r0199.bin",
+    "records": 8587,
+    "request": "r0199",
+    "sha256": "3fe470557f2eac3bfb617c448a6316cdf6374967d7e1422075bf204dd20b6f41"
+   },
+   {
+    "bytes": 72006199,
+    "path": "r0238.bin",
+    "records": 13047,
+    "request": "r0238",
+    "sha256": "6ac5bf16fddf7246f2acbf19e8acbbe328f74c5378d52d9ea24823166957e12e"
+   },
+   {
+    "bytes": 59658836,
+    "path": "r0248.bin",
+    "records": 10797,
+    "request": "r0248",
+    "sha256": "525e3db48ada8abb9c51b73e14f3d8aee85139d0d6b10656e08cba21cc27e79e"
+   },
+   {
+    "bytes": 95214995,
+    "path": "r0286.bin",
+    "records": 17247,
+    "request": "r0286",
+    "sha256": "8d65f1e78daaf1b6f5a332d9af2d4ee71a093fac960fa7d654568b17d99ed3cc"
+   },
+   {
+    "bytes": 72699197,
+    "path": "r0001.bin",
+    "records": 13243,
+    "request": "r0001",
+    "sha256": "92724522e56a1a52b4ebb848ca0c79d701d4c2fff0abb1ad0161435aa536f1b6"
+   },
+   {
+    "bytes": 80942086,
+    "path": "r0122.bin",
+    "records": 14697,
+    "request": "r0122",
+    "sha256": "2473ae86978c5c8afbcb47575f09ad7dd7f29aa7d513975fa8bc03be425d6470"
+   },
+   {
+    "bytes": 51195521,
+    "path": "r0179.bin",
+    "records": 9539,
+    "request": "r0179",
+    "sha256": "4c7f928621e6a156afa98ceeff693b36fa3fb965be64beca7d48eea33624a551"
+   },
+   {
+    "bytes": 46220212,
+    "path": "r0224.bin",
+    "records": 8397,
+    "request": "r0224",
+    "sha256": "069eabfd0f190ad6862ca8dd4d206efd88926b8ed72477f0d9c8ff9f4c72da46"
+   },
+   {
+    "bytes": 15484000,
+    "path": "r0247.bin",
+    "records": 2945,
+    "request": "r0247",
+    "sha256": "90ad0da590543e40ec843e23b77dfb3f7492d598a308c2098aaa8382de1dc887"
+   },
+   {
+    "bytes": 104398090,
+    "path": "r0283.bin",
+    "records": 18897,
+    "request": "r0283",
+    "sha256": "1de6c835488123965f2e75520a11587d1675c3d62b703b16c06352406d1f72ca"
+   },
+   {
+    "bytes": 94989524,
+    "path": "r0016.bin",
+    "records": 17293,
+    "request": "r0016",
+    "sha256": "5e4f292a0d29a641ad413edd244dca997e00e00d63937af1e8dc5b667c33cd60"
+   },
+   {
+    "bytes": 76877569,
+    "path": "r0139.bin",
+    "records": 13947,
+    "request": "r0139",
+    "sha256": "4e6681a3f19020e48ebfdd8b5c648ffba683579a2e039a6bbd4241d59dbed4da"
+   },
+   {
+    "bytes": 41223981,
+    "path": "r0193.bin",
+    "records": 7739,
+    "request": "r0193",
+    "sha256": "7c4909f8bea30cc26c6f68245ada2d5d9dec143b3638e28faa78414116ea7660"
+   },
+   {
+    "bytes": 38690643,
+    "path": "r0236.bin",
+    "records": 7047,
+    "request": "r0236",
+    "sha256": "524d770f5c3742982d11c3b4d6003cb87c106276b27b2e1a9715923394a6d8b6"
+   },
+   {
+    "bytes": 20381158,
+    "path": "r0259.bin",
+    "records": 3845,
+    "request": "r0259",
+    "sha256": "e41b682344d0ac598be85cb920b11f19de58025f1312381edea7595a766ca191"
+   },
+   {
+    "bytes": 45236763,
+    "path": "r0302.bin",
+    "records": 8247,
+    "request": "r0302",
+    "sha256": "60c86d1a8933bbb7824523b5796767a9e082f460185be08cc558fdae4d7b701a"
+   },
+   {
+    "bytes": 97960367,
+    "path": "r0022.bin",
+    "records": 17795,
+    "request": "r0022",
+    "sha256": "559121c3f84253d9feed84eba26e85a48b6c850bd9b1d38ed03786941ef92a15"
+   },
+   {
+    "bytes": 75258159,
+    "path": "r0109.bin",
+    "records": 13647,
+    "request": "r0109",
+    "sha256": "43f2f8a9c50127683cfba78d2d2d037680e9be22d5d0663c60e3a97a6b30e736"
+   },
+   {
+    "bytes": 73217594,
+    "path": "r0065.bin",
+    "records": 13393,
+    "request": "r0065",
+    "sha256": "cb0296937d92ce5143331bf20e8701bb0d7ab37e7c758d677b378d14659a2806"
+   },
+   {
+    "bytes": 76060328,
+    "path": "r0151.bin",
+    "records": 13797,
+    "request": "r0151",
+    "sha256": "81528069d8b7240f76bd8ac148a09e3a9afb324aa6d550b73033a5d23c055ba1"
+   },
+   {
+    "bytes": 52786026,
+    "path": "r0178.bin",
+    "records": 10657,
+    "request": "r0178",
+    "sha256": "c1bfd0c426c360946010820969fe6fc3d1f25aed782750f735c0c4cd1c70b5e6"
+   },
+   {
+    "bytes": 62017175,
+    "path": "r0241.bin",
+    "records": 11247,
+    "request": "r0241",
+    "sha256": "ac41483ce1a9f7dd74dcf912b47ea558ab2389d2fcfe039d52da1f28da7888b8"
+   },
+   {
+    "bytes": 68002842,
+    "path": "r0251.bin",
+    "records": 12297,
+    "request": "r0251",
+    "sha256": "8b42d32a2f8f61950b3e6abaebe25074578cfc8f094c5a1735bdca6b1cf78609"
+   },
+   {
+    "bytes": 46931945,
+    "path": "r0300.bin",
+    "records": 8547,
+    "request": "r0300",
+    "sha256": "a33ce4edbd41aeedadef7803b0673248598924193e2be851b1d15ff94f920521"
+   },
+   {
+    "bytes": 88201800,
+    "path": "r0066.bin",
+    "records": 16093,
+    "request": "r0066",
+    "sha256": "fbb649281a317d61db8ab4b02c5c34acec793b42b3e4c64bc4706f871f7abb8f"
+   },
+   {
+    "bytes": 81817955,
+    "path": "r0163.bin",
+    "records": 14847,
+    "request": "r0163",
+    "sha256": "93ce94a00ad9bc69901d93f6fed37153c45f8c090003ddb1194bb3505db79c15"
+   },
+   {
+    "bytes": 54585043,
+    "path": "r0177.bin",
+    "records": 10283,
+    "request": "r0177",
+    "sha256": "f58c2b47a63537f5a8ff2ac96df99288f317caaf356064587ef86cbfcbca5a19"
+   },
+   {
+    "bytes": 56145420,
+    "path": "r0243.bin",
+    "records": 10197,
+    "request": "r0243",
+    "sha256": "c1459e044cc79231e05c8ed9c6d2805dcb9e21727a64e68773f28263ff4face7"
+   },
+   {
+    "bytes": 49608265,
+    "path": "r0250.bin",
+    "records": 9095,
+    "request": "r0250",
+    "sha256": "2e64fe10980d800a8a8900c8646ef3a8a7fba6a88ba07103c0e1aab76f621d37"
+   },
+   {
+    "bytes": 86070900,
+    "path": "r0298.bin",
+    "records": 15597,
+    "request": "r0298",
+    "sha256": "844dd6f4064e2470b3e7fc750c946707708efc0b379c1a7513e83627550f7cdd"
+   },
+   {
+    "bytes": 70891799,
+    "path": "r0013.bin",
+    "records": 12943,
+    "request": "r0013",
+    "sha256": "a01fc56bccfdb87491d34fd1e9fbfc3b32478e1630dd90fda8fe75516c7574e5"
+   }
+  ],
+  "shards": 69,
+  "shards_verified": true
+ },
+ "prefill_chunk": 256,
+ "preflight_margin_gb": 5.0,
+ "preflight_satisfied_at_freeze": true,
+ "python": "3.12.9",
+ "python_executable": "/Users/carlos/Projects/slotstream/.venv/bin/python",
+ "reclaimable_gb_at_freeze": 32.488,
+ "run_id": "xla3-release-bench-22gb",
+ "schema": "expert-lookahead-protocol-v2",
+ "screen_max_tokens": 128,
+ "screen_prompt_ids": {
+  "code": [
+   "r0012",
+   "r0013"
+  ],
+  "prose": [
+   "r0168",
+   "r0169"
+  ],
+  "reasoning": [
+   "r0148",
+   "r0149"
+  ]
+ },
+ "screen_rounds": 2,
+ "seed": 42,
+ "thinking": false,
+ "tools_sha256": {
+  "Tools/expert_lookahead.py": "853a46adaf4b03e4d504b8b5342dcef905bd72a4d7894a54cbd1b2f4a7580200",
+  "Tools/expert_lookahead_bench.py": "1310ebd73d0cc59b5fe4333ef7b85acced3c4f72e190cb7f8f335c0ee6e9dfc0",
+  "Tools/expert_lookahead_coroute.py": "60073aef3d5f612531360f60478661e773825cd94c1a76bfd490a19e9c0333b3",
+  "Tools/expert_lookahead_corpus.py": "1050ceb5f1f6db0a421a6e6d534c3939ad4ab72027df9eaf4c048035468844f1",
+  "Tools/expert_lookahead_evictor.py": "b4124541c529b89fe16236f7efd2c4b11d20d192c8526ba744699e64bd6114b9",
+  "Tools/expert_lookahead_forecast.py": "107ea28cf1c20e7efee05800217ee8188b86cf518c2c7eb9c0eee995a11e1913",
+  "Tools/expert_lookahead_learned.py": "f78d031901efe0232635ad32108b93f23444fbe432e4fedc045001bd4b9a0682",
+  "Tools/expert_lookahead_plans.py": "370c62e5dabdb53b155f02666cd52d7b329e9cc7b09a0ba2b97016e1318e7ac5",
+  "Tools/expert_lookahead_probes.py": "a327d3abd19badf4cc47600724de9e7338414818dd363ed8cfcf442cb90eb13c",
+  "Tools/expert_lookahead_replacement.py": "1a7d8ebb943ad76a2b059322444279b279f40b4ec8dd14e50ec5077556fbf668",
+  "Tools/expert_lookahead_taps.py": "3edb27e30478a1b09a3db830be9003e1dcc541d741390198b0c43d9361f7eab6",
+  "Tools/expert_lookahead_train.py": "6be318cc936b7568e6e716db69b80a8346903a3849ee7a1f0ddb48dd5191f293"
+ }
+}

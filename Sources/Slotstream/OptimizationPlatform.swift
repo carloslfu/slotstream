@@ -22,6 +22,12 @@ package struct OptimizationPlatform: Equatable {
         nativeARM64 && machineModel == "Mac17,9" && chip == "Apple M5 Pro" && osBuild == "25G83"
     }
 
+    /// Automatic D256 fusion is qualified independently on the measured
+    /// machine/OS. Other devices keep MLX dispatch until measured explicitly.
+    package var qualifiedFusedPrefill: Bool {
+        nativeARM64 && machineModel == "Mac17,9" && chip == "Apple M5 Pro" && osBuild == "25G83"
+    }
+
     private static func systemString(_ name: String) -> String? {
         var count = 0
         guard sysctlbyname(name, nil, &count, nil, 0) == 0, 1 < count, count <= 256 else { return nil }

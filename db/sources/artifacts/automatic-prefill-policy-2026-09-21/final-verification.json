@@ -1,0 +1,24 @@
+{
+  "source_files": 199,
+  "source_matches_tested_build": true,
+  "binary_sha256": "3e094a2bb555c5704498da1ba940cb031158dd5867813c83d063abf4b562090e",
+  "archive_sha256": "551dda4f4b31ffc5467b39eee274894a9d2148923143632cf11b90946391774d",
+  "final_files": {
+    "brain-gates-final.log": "e1e83f63ce45e30ee266a8180ff40367ddac16aa0da768f175322f0a78b1c83a",
+    "current-source-verified.json": "6c2c76fcdb00a39ff2eb6a9ebed2649bb39f2029e9dbe9c2f5dfeb3d613220c3",
+    "finish_records.py": "bccabeffa422fd3eea3c2937830f80913a22806e004dfc5afaf0a617f63669b0",
+    "initial-registration.log": "b35c4809a8772788ce89a92b6acd3605c13af402634acb5e1c5b788a55cf6253",
+    "completed-registration.log": "117b9ca92593461d72a5212d15e3925306c76b15ebad52c2d4a254f7335f0bea",
+    "registration-status.json": "d49bf8eb45ce13719cab1baa7e427710fd630b3a2a6137d9f25b4d4654f913cf",
+    "final-log.json": "11483902b3a7f4ee6c5522a2a8f1896dc2b104eb95fbbe6167223b8afe96aa25"
+  },
+  "default_policy_adopted": true,
+  "performance_qualification_passed": false,
+  "primary_eligible_pairs": 0,
+  "validation_errors": 0,
+  "historical_validation_warnings": 2,
+  "model_checks_passed": true,
+  "native_app_checks_passed": true,
+  "static_checks_passed": true,
+  "local_unreleased": true
+}

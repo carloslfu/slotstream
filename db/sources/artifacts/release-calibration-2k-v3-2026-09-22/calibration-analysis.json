@@ -1,0 +1,82 @@
+{
+  "scope": "Descriptive family-held-out correction diagnostic; no proposed planner replacement.",
+  "qualified_fixture_cells": [],
+  "held_out_checks": [],
+  "prefill": {
+    "scope": "Exploratory family-held-out prefill diagnostic within one realized plan; not a production fit or cross-length validation. Positive error means estimated wait exceeds measured wait.",
+    "qualified_fixture_cells": [
+      {
+        "profile": "budget10_auto",
+        "fixture": "code2048",
+        "kind": "code",
+        "signature": [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ],
+        "measured": 139.1588690396053,
+        "predicted": 85.0
+      },
+      {
+        "profile": "budget10_auto",
+        "fixture": "prose2048",
+        "kind": "prose",
+        "signature": [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ],
+        "measured": 78.87707820625947,
+        "predicted": 85
+      }
+    ],
+    "held_out_checks": [
+      {
+        "profile": "budget10_auto",
+        "fixture": "code2048",
+        "kind": "code",
+        "signature": [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ],
+        "measured": 139.1588690396053,
+        "predicted": 85.0,
+        "training_families": [
+          "prose"
+        ],
+        "held_out_kind": "code",
+        "training_correction": 0.9279656259559937,
+        "original_wait_error_pct": 63.716316517182705,
+        "held_out_wait_error_pct": 76.42497947973183
+      },
+      {
+        "profile": "budget10_auto",
+        "fixture": "prose2048",
+        "kind": "prose",
+        "signature": [
+          961,
+          false,
+          256,
+          32768,
+          10
+        ],
+        "measured": 78.87707820625947,
+        "predicted": 85,
+        "training_families": [
+          "code"
+        ],
+        "held_out_kind": "prose",
+        "training_correction": 1.637163165171827,
+        "original_wait_error_pct": -7.203437404400626,
+        "held_out_wait_error_pct": -43.31868406906162
+      }
+    ]
+  }
+}

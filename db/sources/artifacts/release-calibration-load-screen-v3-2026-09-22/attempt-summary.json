@@ -1,0 +1,22 @@
+{
+  "samples": 144,
+  "elapsed_seconds": 300.4345462080091,
+  "reclaimable_gb_range": [
+    8.050688,
+    10.33125888
+  ],
+  "last_reclaimable_gb": 9.186885632,
+  "required_gb": 13,
+  "every_sample_below_required_headroom": true,
+  "model_launched": false,
+  "cleanup": {
+    "owned_pid": null,
+    "exit_code": null,
+    "reaped": true
+  },
+  "failure": {
+    "error": "readiness timeout; no model launched",
+    "type": "TimeoutError",
+    "completed_requests": 0
+  }
+}

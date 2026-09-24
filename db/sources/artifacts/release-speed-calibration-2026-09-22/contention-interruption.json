@@ -1,0 +1,16 @@
+{
+  "at": "2026-09-22T19:17:09.585957+00:00",
+  "controller_pid": 56446,
+  "reason": "Active concurrent audio/video/browser workload observed while repeated decode timings varied. Preserve all automatic verdicts, but do not publish these as idle-machine calibration. Sampling of background CPU was not in the original harness. Stop only the owned benchmark controller, which reaps its server.",
+  "observations": [
+    {
+      "category": "audio/video processing application",
+      "cpu_percent": 87.1
+    },
+    {
+      "category": "browser renderer",
+      "cpu_percent": 21.8
+    }
+  ],
+  "scope": "Contemporaneous manual observation, not retroactive proof of exact load during each earlier request."
+}

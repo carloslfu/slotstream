@@ -1,0 +1,587 @@
+{
+  "protocol": {
+    "schema": 3,
+    "created": "2026-09-22T22:31:27.920932+00:00",
+    "binary": "/Users/carlos/.slotstream/releases/1b499652c33e2eb46af702c64b4ed26f62191b9538804567d057b8914f62ed22-macos26/slotstream",
+    "binary_sha256": "5cb612361887c2a317376721dbe5df94810da5230759c47169fc6fa2e9b30b89",
+    "repository": "/Users/carlos/Projects/slotstream",
+    "model": "/Users/carlos/.slotstream/models/qwen38-flash-next-mlx-4bit",
+    "probe": "/private/tmp/slotstream-release-calibration-20260922/probe",
+    "probe_sha256": "503567672f716582be5382d19d7783855f3020833f8884ef420e1e09e15a312b",
+    "harness_hashes": {
+      "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/host_load.py": "96a01fc71771b69ce09c48026a4a54df9e63d777028b1af62ced94250c7efa1b",
+      "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/host_load_test.py": "d535879f4a86e5dd2dc7550e55a6dc9825138747401cca302b9fa0f318fb4aa8",
+      "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/prefill_bench.py": "000868d66f82cd1eba5973c0fa9b4259831a6bdbc5bcf7d4c4f858d86c71d472",
+      "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/release_speed_bench.py": "2005b9edf177db1566fc843b037739b428d196746a5efa2c4bf0034c5dbf680d",
+      "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/serve_bench.py": "95fdf6cfb2791aa71cad527bd6dd46557b9d4fd7874f098509e9b8e02943c5c7"
+    },
+    "fixtures": {
+      "r0058": {
+        "id": "r0058",
+        "kind": "code",
+        "messages": [
+          {
+            "content": "Continue writing this Python file from the exact point where the excerpt stops. Respond with code only, no explanation, starting immediately with the next line of code.\n\n```python\n#!/usr/bin/env python3\n\"\"\"Every public number has a claim record; every claim's needle is on its surfaces.\n\nReads db/records/claims/*.md. A `current` claim's `needle` must appear\nverbatim in every file listed in `surfaces`; a `withdrawn` claim's needle\nmust appear in none of them. The gate exists because numbers drifted between\nREADME, docs, and llms.txt for three releases before anyone noticed; a\nmeasurement that changes now fails CI until its claim and its surfaces move\ntogether. Matching ignores line wrapping: runs of whitespace on both sides\ncollapse to one space, so a needle may span a wrapped line. Standard library\nonly.\n\"\"\"\nimport os\nimport sys\n\nROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\nCLAIMS = os.path.join(ROOT, 'db', 'records', 'claims')\n\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nfrom projections import read_record  # noqa: E402\n\n\ndef squash(text):\n    return ' '.join(text.split())\n\n\ndef main():\n    if not os.path.isdir(CLAIMS):\n        print('no claims folder at %s' % CLAIMS, file=sys.stderr)\n        return 1\n    failures, checked = [], 0\n    for name in sorted(os.listdir(CLAIMS)):\n```",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0058.json",
+        "sha256": "3b843e3f5320bf8fbbb6865501eece39755c035fa99c21d3dbe8e100c0cb61ab",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0067": {
+        "id": "r0067",
+        "kind": "code",
+        "messages": [
+          {
+            "content": "Continue writing this Python file from the exact point where the excerpt stops. Respond with code only, no explanation, starting immediately with the next line of code.\n\n```python\n#!/usr/bin/env python3\n\"\"\"Live OpenAI agent protocol checks. Uses an already-running loopback server.\n\nNo tool is executed: the caller supplies a fixed diagnostic result after checking\nthe generated function and arguments. Raw requests/replies are preserved as JSONL.\n\"\"\"\nimport argparse\nimport base64\nimport json\nfrom pathlib import Path\nimport urllib.error\nimport urllib.request\n\n\ndef main():\n    p = argparse.ArgumentParser(description=__doc__)\n    p.add_argument(\"--port\", type=int, default=11434)\n    p.add_argument(\"--output\", type=Path, required=True)\n    p.add_argument(\"--vision\", action=\"store_true\", help=\"Also check a tool loop using the repository's dog image fixture\")\n    a = p.parse_args()\n    base = f\"http://127.0.0.1:{a.port}\"\n    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))\n    a.output.parent.mkdir(parents=True, exist_ok=True)\n    log = a.output.open(\"w\")\n    passed = []\n\n    def request(name, path, body=None, expected=200):\n        req = urllib.request.Request(base + path,\n            data=json.dumps(body).encode() if body is not None else None,\n            headers={\"Content-Type\": \"application/json\"})\n        try:\n            with opener.open(req, timeout=600) as response:\n                status, raw = response.status, response.read().decode()\n        except urllib.error.HTTPError as exc:\n            status, raw = exc.code, exc.read().decode()\n        log.write(json.dumps({\"case\": name, \"path\": path, \"request\": body,\n            \"status\": status, \"response\": raw}) + \"\\n\"); log.flush()\n        assert status == expected, (name, status, raw)\n        return raw\n\n    def check(name, condition, detail=None):\n        assert condition, (name, detail)\n        passed.append(name)\n        print(\"PASS\", name, flush=True)\n\n    catalog = json.loads(request(\"catalog\", \"/v1/models\"))[\"data\"][0]\n    model, cap = catalog[\"id\"], catalog[\"context_length\"]\n    show = json.loads(request(\"show\", \"/api/show\", {\"model\": model}))\n    check(\"runtime context discovery agrees\", f\"num_ctx {cap}\" in show[\"parameters\"]\n        and catalog[\"context_window\"] == cap and 0 < catalog[\"max_output_tokens\"] <= cap)\n    function = {\"type\": \"function\", \"function\": {\"name\": \"read_file\",\n        \"description\": \"Read a named diagnostic file.\", \"strict\": False,\n        \"parameters\": {\"type\": \"object\", \"properties\": {\"path\": {\"type\": \"string\"},\n            \"start_line\": {\"type\": \"integer\", \"default\": None}}, \"required\": [\"path\"]}}}\n    user = {\"role\": \"user\", \"content\": \"Call read_file for diagnostic.txt with start_line 1. Wait for its result.\"}\n    common = {\"model\": model, \"messages\": [user], \"tools\": [function], \"max_tokens\": 192,\n        \"temperature\": 0, \"seed\": 42, \"reasoning_effort\": \"none\", \"think\": False,\n        \"options\": {\"num_ctx\": cap}}\n\n    def completion(name, body):\n        raw = request(name, \"/v1/chat/completions\", body)\n        if not body.get(\"stream\"):\n            result = json.loads(raw)\n            return result[\"choices\"][0][\"message\"], result[\"choices\"][0][\"finish_reason\"], result[\"usage\"]\n        message = {\"role\": \"assistant\", \"content\": \"\"}\n        calls = {}; finish = None; usage = None; done = False\n        for line in raw.splitlines():\n            if not line.startswith(\"data: \"): continue\n            if line == \"data: [DONE]\": done = True; continue\n            item = json.loads(line[6:]); assert \"error\" not in item, item\n            for choice in item[\"choices\"]:\n                delta = choice[\"delta\"]\n                message[\"content\"] += delta.get(\"content\", \"\")\n                if \"reasoning_content\" in delta:\n                    message[\"reasoning_content\"] = message.get(\"reasoning_content\", \"\") + delta[\"reasoning_content\"]\n                for call in delta.get(\"tool_calls\", []):\n                    index = call[\"index\"]\n                    dest = calls.setdefault(index, {\"id\": \"\", \"type\": \"function\", \"function\": {\"name\": \"\", \"arguments\": \"\"}})\n                    dest[\"id\"] += call.get(\"id\", \"\")\n                    for key in (\"name\", \"arguments\"):\n                        dest[\"function\"][key] += call.get(\"function\", {}).get(key, \"\")\n                finish = choice.get(\"finish_reason\") or finish\n            usage = item.get(\"usage\") or usage\n        assert done and finish is not None, raw\n        if calls: message[\"tool_calls\"] = [calls[i] for i in sorted(calls)]\n        return message, finish, usage\n\n    for stream in (False, True):\n        label = \"stream\" if stream else \"nonstream\"\n        body = dict(common, stream=stream, tool_choice={\"type\": \"function\", \"function\": {\"name\": \"read_file\"}})\n        if stream: body[\"stream_options\"] = {\"include_usage\": True}\n        message, finish, usage = completion(label + \"-call\", body)\n        calls = message.get(\"tool_calls\", [])\n        check(label + \" returns executable OpenAI function\", finish == \"tool_calls\" and len(calls) == 1, message)\n        call = calls[0]\n```",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0067.json",
+        "sha256": "25c91286acadd88df9ee82ca5347136a731fccca01084b6d135c1779b8863493",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0092": {
+        "id": "r0092",
+        "kind": "reasoning",
+        "messages": [
+          {
+            "content": "Someone earns 3348 a month. Rent is 1248, food is 468, transport is 109, and they save 20 percent of what remains after those three expenses. How much do they save each month, and how much is left after saving? Work it out step by step and end with \"Answer: <saved>, <left>\".",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0092.json",
+        "sha256": "06aa43db3b218c79518cd984b134671798d3dd9d84f67d895d2215e6f5f4b483",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0132": {
+        "id": "r0132",
+        "kind": "reasoning",
+        "messages": [
+          {
+            "content": "A rectangle is 4 by 7. A path of width 1 runs around the outside. What are the area and perimeter of the outer boundary, and what is the area of the path alone? Step by step; end with \"Answer: <area>, <perimeter>, <path area>\".",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0132.json",
+        "sha256": "649fa6e39ee57609f89a1862006fa3d15270c815d413ac261f9bb9271a300afb",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0189": {
+        "id": "r0189",
+        "kind": "prose",
+        "messages": [
+          {
+            "content": "Summarize the following documentation excerpt in four to six sentences for someone who has never used the tool.\n\nThe main agent loop supports multiple tool calls per turn, tool results,\nfile reads and writes, images, and follow-up turns. Image parts must contain\ninline bytes; see [Images](API.md#images).\n\nReasoning is available through fx's effort setting and streams separately\nfrom the answer. slotstream retains compatible conversation state, including\nreasoning state, so follow-up turns process only the new material while that\nstate is cached.\n\nThe first turn processes fx's system prompt and tool schemas as well as your\nquestion. That can take minutes on a small memory target. The main agent\nstep has no client-side deadline in the tested client.\n\n## Limitations\n\n- **Automatic permission reviews:** `permission_mode: auto` sends a separate\n  review request with a different tool set. It misses the conversation cache\n  and can exceed fx's 30-second review deadline, leaving the action on hold.\n  Use the wrapper's `ask` setting to approve actions yourself.\n- **Session compaction:** fx gives each summary chunk a 120-second budget.\n  Generation can exceed it, even with the smaller window advertised for the\n  compactor alias. Start a new session if compaction fails.\n- **Structured output:** JSON-schema constrained output returns a typed\n  400 error.\n- **Provider tools:** tools executed by a hosted provider, such as fx's web\n  search, aren't available locally. They are removed from the request before\n  it reaches the model. Ordinary client-executed tools remain available.\n\nThese observations describe the tested fx integration. A client update can\nchange its accepted overrides, request fields, or deadlines.\n\n## Troubleshooting\n\n### The model list doesn't show slotstream\n\nCheck that the server is running and both URLs use loopback HTTP with an\nexplicit port. Use the model ID returned by `./fxs models` or\n`GET /coding-agent/v1/models`.\n\n### fx reports an invalid finish reason\n\nUpgrade slotstream. An older server may not implement this gateway protocol;\na proxy that changes the response stream can also cause this error.\n\n### The first turn takes minutes\n\nCheck the progress in the server terminal. A cold first turn processes fx's\nfull standing prompt. `slotstream doctor` estimates prompt-processing time\nfor your memory plan.\n\n### Requests fail with `unsupported_field`\n\nA client may be sending a field this server doesn't support. Open an issue\nwith the field name and both software versions.\n\n<a id=\"what-slotstream-serves\"></a>\n\n## Protocol reference\n\nslotstream implements the Vercel AI SDK Language Model Specification v4 over\nAI Gateway protocol 0.0.1.\n\n| Route | Purpose |\n|---|---|\n| `POST /v3/ai/language-model` | Model calls, streamed as Server-Sent Events |\n| `POST /v1/ai/language-model` | The same handler under the `v1` path |\n| `GET /coding-agent/v1/models` | Model IDs and capabilities |\n| `GET /coding-agent/v1/credits` | A zero balance for `fx credits` |\n\nThe model emits tool calls in its native XML format. slotstream parses them\nincrementally, converts arguments using the tool's JSON Schema, and returns\nAI SDK `tool-call` parts.\n\n<a id=\"how-it-is-tested\"></a>\n\n## Tests\n\n`slotstream-checks --tier t0` tests validation, prompt mapping, the model\ncatalogue, stream frames, and tool-call parsing without weights or a GPU.\n\n`Tools/fx_gates.sh` tests a live server: model discovery, rejected requests,\nstreaming, a complete tool loop, and conversation reuse. When fx is installed,\nit also tests the client completing a task with the local model.\n",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0189.json",
+        "sha256": "c047ba917110f3b9a3435026b72723bc57563292767e3e77eeacff5c8cd94e6b",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0211": {
+        "id": "r0211",
+        "kind": "prose",
+        "messages": [
+          {
+            "content": "Summarize the following documentation excerpt in four to six sentences for someone who has never used the tool.\n\ncan reuse parts already loaded into memory.\n\n## The first token takes a long time\n\nSlotstream has to process your question and conversation history before it\nstarts replying. The terminal shows progress during long requests.\n`slotstream doctor` estimates waits for different prompt lengths.\n\nFor a full conversation at the default limit, the estimated wait is about\n3.0 min for the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. These\nestimates come from the M5 Pro; slower SSDs can take longer. Follow-up turns\nreuse unchanged history while it stays in memory.\n\nIf Hermes or fx gives up before Slotstream replies, check the timeout\nsettings in the [Hermes guide](HERMES.md#troubleshooting) or\n[fx guide](FX.md#the-first-turn-takes-minutes).\n\n## A download was interrupted or may be damaged\n\nRun this again to resume:\n\n```sh\nslotstream pull\n```\n\nKeep the partially downloaded files; Slotstream reuses its saved progress.\nTo check existing files without downloading anything, run:\n\n```sh\nslotstream pull --verify\n```\n\nIt checks for corruption and names any damaged files. The optional file\nused for speculative decoding is skipped if absent.\n\nFor transport options and how verification works, see the\n[download reference](DOWNLOAD-FORMAT.md#download-behavior-and-measured-checks).\n\n## Store the weights on another disk\n\nThe model files are also called *weights*. Replace the path below with a\nfolder on your external SSD. Keep the quotes if the path contains spaces:\n\n```sh\nslotstream pull --dir \"/Volumes/My SSD/slotstream-model\"\nslotstream serve --model \"/Volumes/My SSD/slotstream-model\"\n```\n\nIf the model files are already there, only the second command is needed.\nAn external disk may be slower than the internal SSD.\n\n## Reclaim disk space or uninstall\n\nStop Slotstream first. In Finder, choose **Go \u2192 Go to Folder** and enter\n`~/.slotstream` to find its files.\n\nDelete the `models` folder there to remove the downloaded model and keep\nthe program. This frees about 105 GB after a full download.\n\nTo remove both, delete `~/.slotstream`. Also remove the\n`/usr/local/bin/slotstream` wrapper or the PATH entry the installer added to\nyour shell profile. If you chose a custom install or model folder, use\nthat location instead. The [installation reference](CLI.md#file-locations)\nlists the default paths.\n\n## Problems with older versions\n\n[Run the installer again](GETTING-STARTED.md#update-or-get-help) to update.\nThen stop and restart any running server. `slotstream --version` shows your\ninstalled version; the [changelog](../CHANGELOG.md) lists the fixes in each release.\n\n## Problems on macOS 14 or 15\n\nThe installer is tested on these versions; the runtime still needs testing.\n[Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the\nerror and your `slotstream doctor` output.\n\n## A long request is refused or interrupted\n\nThe feasibility report and request deadlines below are available starting\nin Slotstream 0.2.14. Check `slotstream --version` and the installed command's `--help`.\n",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0211.json",
+        "sha256": "72fe66718dc76de61f8439c9c2a338fbf71d4ffc6713f413571feab4e9dbad54",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0265": {
+        "id": "r0265",
+        "kind": "structured",
+        "messages": [
+          {
+            "content": "Convert this CSV data into a single JSON object that satisfies the JSON schema below. Respond with the JSON only.\n\nCSV:\nitem,amount,unit\nrice,400,g\nchicken thighs,600,g\nonion,1,piece\nsaffron,0.5,g\nolive oil,3,tbsp\n\nSchema:\n{\n  \"type\": \"object\",\n  \"required\": [\n    \"name\",\n    \"servings\",\n    \"ingredients\",\n    \"steps\"\n  ],\n  \"properties\": {\n    \"ingredients\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"item\",\n          \"amount\",\n          \"unit\"\n        ]\n      }\n    },\n    \"steps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  }\n}",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0265.json",
+        "sha256": "8397ac32e5b8661a4cf568b3de30198257b45d0231aac3a813569338bec22232",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "r0289": {
+        "id": "r0289",
+        "kind": "dialogue",
+        "messages": [
+          {
+            "content": "You are a cooking teacher who adapts recipes to what people have on hand.",
+            "role": "system"
+          },
+          {
+            "content": "I have rice, eggs, half an onion, soy sauce and some frozen peas. Dinner ideas?",
+            "role": "user"
+          },
+          {
+            "content": "That is a fried rice night. Cook the rice ahead if you can so it dries a little, scramble the eggs first and set them aside, then fry the onion, add rice and peas, and finish with soy sauce and the eggs.",
+            "role": "assistant"
+          },
+          {
+            "content": "I only have fresh rice just cooked. Does that matter?",
+            "role": "user"
+          }
+        ],
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0289.json",
+        "sha256": "f94884080aab45625ad98c3ee6fb0731b3d4575c642317e28f191ff8303a88c7",
+        "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+      },
+      "code2048": {
+        "id": "code2048",
+        "kind": "code",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code2048.txt",
+        "sha256": "83d5ed54dad7c2b4c6a77bf5456e97d4e90d38f6cacc45239d728b01e6ad33bb",
+        "raw_token_count": 2049,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "code8192": {
+        "id": "code8192",
+        "kind": "code",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code8192.txt",
+        "sha256": "04c3c098e80f146f45a8d81f11f168b5a60ab8a6af49ef7a532cc6fdd78f26e1",
+        "raw_token_count": 8193,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "code16384": {
+        "id": "code16384",
+        "kind": "code",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code16384.txt",
+        "sha256": "4325b8c2451dc94dc8922b03a22aebcf28ba521c065c79992cbaf135762cd3d5",
+        "raw_token_count": 16385,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "code31744": {
+        "id": "code31744",
+        "kind": "code",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code31744.txt",
+        "sha256": "4a201b7cda47ed2b38e8fcc8cada5747173f316e80254629e3f4eeba6e983270",
+        "raw_token_count": 31745,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "prose2048": {
+        "id": "prose2048",
+        "kind": "prose",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose2048.txt",
+        "sha256": "78af81465c955393dc90aa19e8f2b5c6ec65df5d38c9cd0ea84081659448f4bd",
+        "raw_token_count": 2049,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "prose8192": {
+        "id": "prose8192",
+        "kind": "prose",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose8192.txt",
+        "sha256": "582f67e0e17d73a5dc77aa7e7c9e28f64efde56749bd21fdd046073ec522c6a5",
+        "raw_token_count": 8193,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "prose16384": {
+        "id": "prose16384",
+        "kind": "prose",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose16384.txt",
+        "sha256": "5ff535a91214a8ed10ea213a74f90d92cc1cd0e133a49e930b2b8a4ee62b6c8c",
+        "raw_token_count": 16385,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      },
+      "prose31744": {
+        "id": "prose31744",
+        "kind": "prose",
+        "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose31744.txt",
+        "sha256": "037f6a1d3f958a0ed730e6035720259548e636775c9c06913ef54880715c0c3c",
+        "raw_token_count": 31745,
+        "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+      }
+    },
+    "profiles": {
+      "budget10_auto": {
+        "id": "budget10_auto",
+        "ceiling_gb": 10,
+        "required_headroom_gb": 13,
+        "plan_args": [
+          "--memory-gb",
+          "10"
+        ],
+        "decode_fixtures": [
+          "r0058",
+          "r0092",
+          "r0189",
+          "r0265",
+          "r0289"
+        ],
+        "prefill_fixtures": [
+          "code2048",
+          "prose2048"
+        ],
+        "scope": "Explicit total-memory measurement; ordinary prefix cache and planner-owned compute/context/MTP; not simulated hardware"
+      }
+    },
+    "primary_rounds": 3,
+    "settle_seconds": 120,
+    "between_requests_nominal_seconds": 15,
+    "readiness_timeout_seconds": 300,
+    "request_timeout_seconds": 1200,
+    "minimum_spare_gb": 3,
+    "minimum_decode_tokens": 32,
+    "warmup_tokens": 128,
+    "decode_max_tokens": 1024,
+    "prefill_output_tokens": 16,
+    "analysis_contract": {
+      "primary_decode": "Absolute measured decode rates on completed non-thinking greedy answers with at least32tokens, after128-token same-prompt warmup. Three environment-eligible repetitions for every included fixture; require repeat output IDs and realized plan stable within profile. Also report capped completions, first warmup/request costs and equal-kind weighted summaries. No direct speedup versus the different historic0.2.19 protocol.",
+      "primary_environment": "Prospective process-pageins-v1 criterion previously used for the published0.2.19 decode benchmark: no host swap-outs, own proc_pid_rusage page-in delta0..4096inclusive including file faults; nominal thermal/normal power throughout sampled interval; no known compiler/model transport contention. Native and sampled complete footprint must stay inside declared target. Strict global no-swap sensitivity is also always reported, never pooled with old studies. Additionally require the prospective v3 windowed host-load screen and unchanged actual runtime plan. These are load-screened desktop observations, not demonstrated host isolation. Retain v2 pointwise flags as sensitivity diagnostics.",
+      "prefill": "Normal-cache sequential unique requests and exact repeated requests, normal native template, planner-selected passes. Unique fixture identity appears before shared content so first requests must have zero reused tokens. Initial startup and later warm misses remain separate; order rotates. At least3eligible full-prefill observations per fixture/profile before updating an estimate; no universal ratio or unmeasured pass/context extrapolation.",
+      "supplemental": "At most2prospectively declared supplemental repetitions per fixture/profile if fewer than3eligible primary repetitions. Never select by latency. Preserve every attempt and include all eligible observations. Freeze supplemental subset before launching it.",
+      "model_update": "Separate MTP/lookahead/default profiles. Propose an estimator only within measured support and assess leave-one-prompt-family-out error and automatic-plan policy changes. If a one-variable curve cannot predict the measured variation, publish scoped measurements and explicit calibration limits instead of silently changing the safety/default planner.",
+      "coverage": "One available M5 Pro; other hardware requires actual access. Desktop profile is engine-policy evidence, not UI latency. Filesystem cache uncontrolled; no purge. All raw outputs/errors/exclusions retained."
+    },
+    "parent_protocol_sha256": "53d4cfc4a3f8332901676daf940e35d745ce9b1c91b0631c081701a5c3fe4b6c",
+    "host_load_screen": {
+      "purpose": "Prospective load-screened interactive-desktop timing, not proof of idle-machine isolation or a physical safety limit. CPU ps values are decaying estimates; one core is 100 percent. Normal UI bursts do not reset the readiness interval. Previous v1 and v2 populations and verdicts remain unchanged. Chosen before any v3 model results, informed by observed false v2 readiness refusals.",
+      "cpu_window_mean_max": 100,
+      "largest_process_window_mean_max": 50,
+      "idle_gpu_window_mean_max": 5,
+      "burst_limits": {
+        "cpu_total": 200,
+        "cpu_largest_process": 100,
+        "idle_gpu": 20
+      },
+      "maximum_burst_sample_fraction": 0.2,
+      "sample_seconds": 2,
+      "readiness_window_seconds": 120,
+      "between_requests_window_seconds": 15,
+      "request_window": "all before, 2-second monitor and after samples; GPU diagnostic during own inference",
+      "thermal_memory_lock_contention_swapout": "unchanged continuous preflight and original request gates",
+      "require_live_runtime_plan": true
+    },
+    "adaptive_preflight_policy": "Adaptive profiles must fit their actual expected physical peak plus3GB within both independently measured VM reclaimable memory and the planner available-memory reading. They retain the production governor and bounded declared ceiling. Fixed-budget profiles require target plus3GB. Actual runtime plans are captured before/after requests; changing plans are not pooled.",
+    "phase_scope": "Prospectively split 2K code/prose prefill phase with three fresh-server rounds and normal-cache repeats. Uses original fixture bytes and v3 screening. This does not complete the 8K/16K/31K or other profile matrix; not a full-context calibration."
+  },
+  "protocol_sha256": "425e7a77e482f76f719b91f5cd49e2f30816be9b4dbf26f36be2f0c636290b5d",
+  "build": {
+    "binary": "/Users/carlos/.slotstream/releases/1b499652c33e2eb46af702c64b4ed26f62191b9538804567d057b8914f62ed22-macos26/slotstream",
+    "identity": {
+      "source": {
+        "Makefile": "692cb361f9920d914aa394e6be98a05517e25df25556d5aa2f8da1976ee7874a",
+        "Package.resolved": "dfafdad45c4d8c76e978e80f44c74b623d9ba224f94b7feb8c123515c07efcb1",
+        "Package.swift": "ba6b728ad4071166eb54f698c96a1332418dbc94994330f98b18ffb04226ec67",
+        "Sources/CSlotpack/include/slotpack.h": "07301354bebebac253975abbd5981006be411fed444abab0b6bbc857e28bdd1b",
+        "Sources/CSlotpack/slotpack.c": "be45d2daf3e7e95d66cb9178f40dab292b85b1998086d71c53e41f59596d57a2",
+        "Sources/Slotstream/AdaptiveSpeculation.swift": "da8062ff16c1d72ccd28852ba18e43cd434a8165483d045759cd29a499f5fff6",
+        "Sources/Slotstream/AnthropicDialect.swift": "d482299fabfe268619b83fe864f622476db9fbd27e392e1b20f50bf6ee6bc21f",
+        "Sources/Slotstream/BlockSelection.swift": "16e5fb4a4ea82728e3caaf3d6f4cdbf7d91614b757b0624913ae14c052d6f27d",
+        "Sources/Slotstream/BoundedOutput.swift": "727c83b664e681539093f3c3a9c65c9ac58893e4a40bb26ac38948ac837486fc",
+        "Sources/Slotstream/CPUSlotWrite.swift": "da137aec8944dab6590cbea17afff28f094aef876688d20782b5791028d83349",
+        "Sources/Slotstream/CacheBookkeeping.swift": "0c3726c431b41a2c84fa2ea21ce49eb209f2c36955925754508a51cb54ae0779",
+        "Sources/Slotstream/Checkpoint.swift": "c12d46bb51943700c05f7de0269574de2077a15d347a542f7bb229f47b0d4353",
+        "Sources/Slotstream/CodingToolLaunch.swift": "5576d72a4a60fbe84b968f247e74eb77074f2c18e11077ccf33497bd8012c4e9",
+        "Sources/Slotstream/CompiledArithmetic.swift": "98611b31035459d237d901be7fff175072c30b32b992c7534d770b1bc6d117f2",
+        "Sources/Slotstream/Context.swift": "fc4cd04f6041348d4567d1ab50c7c9cfcefbdf6db16dfcdb8cc8b7d3f2044348",
+        "Sources/Slotstream/ContextFeasibility.swift": "7b331a6a4444a6d0aa43993590e79d15458a6069fbb9de69c8aa185f2ed47c68",
+        "Sources/Slotstream/ContextMemory.swift": "241dd70965d4ab3b549404e3da27acdc84e50865367bad55f828f115442e0516",
+        "Sources/Slotstream/ContextWindowPolicy.swift": "8d2ef9e6be2c0a6929ae2ce055708c5200bed334dd3d1ebbb760bcb6f550a160",
+        "Sources/Slotstream/DecodeLookahead+Configuration.swift": "82f8ebe02a37b882ea00c7b625008597bcfddf5df819df2592451d600ee0a9bd",
+        "Sources/Slotstream/DecodeLookahead.swift": "9cf0cb2d1ac342c85279764e39fe12dc169c24ffb5e85c42a66828271dbad2e0",
+        "Sources/Slotstream/DownloadConcurrency.swift": "cf872e6e99b9e1df121a9feba4c0c8420719fe62a5f5a50e58b26bf11cb8126e",
+        "Sources/Slotstream/DownloadHTTP.swift": "341a7a7157c575658ee7d7bc6c77ed593bf30f79d8c262906d7672e2e40c6cbc",
+        "Sources/Slotstream/EmbeddingRows.swift": "10c722abb55b03bd6ae0f8188ec156f97e2a7603a516bd91919e060d8fc5a645",
+        "Sources/Slotstream/Engine.swift": "c8bd3fbd8efdced641177d2c5d5b84fba45394f667c4790a14d6dbb435b4e981",
+        "Sources/Slotstream/Errors.swift": "3eaf858cc73980a2ca1e728478c302b8704de3ab95294029aa924ac632a21e0b",
+        "Sources/Slotstream/ExactRead.swift": "bd90fbeb1d400cb7dda746d434a5c4f1fbb4d767506013e4398de9ba1253a47e",
+        "Sources/Slotstream/ExpertLookaheadTrace.swift": "c5fe8736e143fa0922dde772301497e007e51095b78b358434a61442831a4304",
+        "Sources/Slotstream/ExpertPredictor.swift": "2f25044ff7258ac53973c3e5de7138ad078b0b90a1ab13cc332cab8bcfa0740e",
+        "Sources/Slotstream/ExpertPrefetch.swift": "46fb601813d05b788a3648139cbde2b88c94714a5e15f99456e4b2e7072f4b6a",
+        "Sources/Slotstream/ExpertStore.swift": "d24f87de86ed94eac598171ecdf27744b87978dea3ad0c45249ec5a859d7b36c",
+        "Sources/Slotstream/ExpertTransferProfile.swift": "17fe476f01b03d3a151506d324d9ad0d83d8dcf152489c9e88805ddea2b302ad",
+        "Sources/Slotstream/FusedPrefillAttention.swift": "a1464f0c495c72626969ce78c8ffc1646171d91acc894eb7cf2f7212f2c20a86",
+        "Sources/Slotstream/GDNPhaseProfile.swift": "f74d843773b549530cebe9e5df79a02b0104068e05c39ff6adfcbae3effaef66",
+        "Sources/Slotstream/GatewayDialect.swift": "93561b74b171c78d107dca5985a1c0601f7ca0ce4388f0a3aa03e9bd0c6bd0c8",
+        "Sources/Slotstream/Generate.swift": "daf392a54fd642ad094dd1135e7ebfb875db018835a092899161b622d49dc92c",
+        "Sources/Slotstream/GenerationPhase.swift": "1fd6b1d3b5a41c8626ec87b00a988ae85271c92853ce6a7f01e9af46fc5ea7e3",
+        "Sources/Slotstream/Governor.swift": "2d16e5703532171b0d8cf51f749506ac225ad25bd96c471ad5092bcbf94a56e1",
+        "Sources/Slotstream/LayerLocalVictim.swift": "9615385e6c2ac18573f4d2089a75a70d356d803c0c4a603b4db3397fafa6275c",
+        "Sources/Slotstream/Layers.swift": "3d84885d4452d14845271fc6deb2d9146d1b0d00ae78ab3fbcf98528e95560c9",
+        "Sources/Slotstream/MTP.swift": "10b63deee430c1e1d5792221f128bea0a6158161911676679665a168116cf743",
+        "Sources/Slotstream/Machine.swift": "33fc9e224d61200d51540991571b43e5fa01c7ed16a6a6dbf994f0b4a1600816",
+        "Sources/Slotstream/MemTrace.swift": "756d8032ad7558c84eb571c69e3d4773ff105eb0ab78790662aa637e4d0e19d6",
+        "Sources/Slotstream/Model.swift": "7fc7418d9f897c6fb773eace100e6faf4ace7bea6d0cd9a01083a55ae6edfe3a",
+        "Sources/Slotstream/NgramPrefetch.swift": "7342c07a6b475ea8d8568b08e041b0ffb0d35456892e79aaac6197db08b2e03c",
+        "Sources/Slotstream/NgramStore.swift": "f9f0cf609ac1bec2c7abb645b365fcb174dd4b5ec812b602985bacab847cdfbf",
+        "Sources/Slotstream/Observation.swift": "fcb7557541a5a0ce885737449d6b2b88009a8521a7c743cded5d120867529e10",
+        "Sources/Slotstream/OpenAIDialect.swift": "1b73944ffa18ad19980711d016508e20654a93cf59803afb2d8217faee39bddd",
+        "Sources/Slotstream/OpenAIOutput.swift": "7bc6c7a0bdccef3ea566643aa051a95855df5f6d30a7053db398b3a77fb22a59",
+        "Sources/Slotstream/OptimizationPlatform.swift": "faabf07d19c1dc6247e885ff426ade08a4252aa7f9594e234ac15653838d667e",
+        "Sources/Slotstream/Optimizations.swift": "7fefef4973ffa869c7eb55b7dffce647d5612d468d9a8a188a032d0125a99abd",
+        "Sources/Slotstream/PackedExpertLayout.swift": "c74e9867e2c37ba92d84bf7ce90253eea6db6f8531a6d6b8792874d4810cc6ee",
+        "Sources/Slotstream/PackedProjectionPair.swift": "84fa87130270092c16a538f7d50cfee55e71b52ecd8250a1bce7e0547c8b1d96",
+        "Sources/Slotstream/PartialRotation.swift": "57177495e6ba630c66744b2b9e2bde23acf9349fca52b97a4ea406c5839c7f8f",
+        "Sources/Slotstream/PersistentPrefixCache.swift": "40f593e5257e0ba5b9bcea0e154ea5431e22e105c487c00a4779c5517e95b157",
+        "Sources/Slotstream/PersistentPrefixConversation.swift": "a0810d8cbaf0b71174d7dcdda889e76f6256950da4cd8daa36c4326ec8baf9fa",
+        "Sources/Slotstream/PersistentPrefixFormat.swift": "876e363cdd56354c5c09d44f64ab907e53e8c635b4c8363e78957c2e2895da6c",
+        "Sources/Slotstream/PersistentPrefixGenerator.swift": "cda64da4acc47c29b1283c444e2a71bb2c752e2dc256303e8288a20e7aae719a",
+        "Sources/Slotstream/PersistentPrefixPolicy.swift": "b4a7d770c425562c256eb0c54d1dd8bc94490250a1cbc7a4ba05fb1bdd1ae9ba",
+        "Sources/Slotstream/PersistentPrefixRestore.swift": "1ac45c830b9d3ee18790babc470e4395564705f8be7ea9e986666f6c57f6b870",
+        "Sources/Slotstream/PersistentPrefixSave.swift": "ab5d412be85a4e188ba70fbe9167c688086909c32c3cd98c2ffcb0dae9208932",
+        "Sources/Slotstream/PinnedModel.swift": "0c7c16539bcb54924ff7306b03b470e2915b5bb41c4ecff9e60dc7912e7afdd2",
+        "Sources/Slotstream/PinnedTransport.swift": "f30c4c4bfeaf49c5e2dfcbfa728d6eab44d02a1f77d40217e84723fd03761d87",
+        "Sources/Slotstream/PinnedTransportManifest.swift": "6b0de220938fc91dd4dc24cd0fc9dffa086f09f04cd83823dc3de3a13de8ac11",
+        "Sources/Slotstream/Plan.swift": "60c91d3d143d8155b80d38a9951bafd9b01c6fc90fc7b6d918c306385f09b5a5",
+        "Sources/Slotstream/PlannerCostModel.swift": "a95e2781a7448418ec78480be356bac9eb80bb36cc64c63f6cb3e378043d29c0",
+        "Sources/Slotstream/PlannerDevice.swift": "528cdf93cf0fe600b8c53a3eb828b9b1922ee4817fa100393a11d4e2714784f8",
+        "Sources/Slotstream/PrefillReadPolicy.swift": "ec6fa9372390ba9812ba62f09f3ff91755f2e9d20d9d5ef9d587eb42b6f2b341",
+        "Sources/Slotstream/PrefixCache.swift": "6bf2d73088971a6ce426d6dc10be3f6a86f084ad9ce744f31f958bb4717295af",
+        "Sources/Slotstream/PressureBoundary.swift": "ed22537fccc321589eb3d33b3538984630daae951d00e4ac829412897b181a3d",
+        "Sources/Slotstream/ProcessMemory.swift": "0f063123f3dfee795b38a7919ab3ad8f36899123dd76e28688a41f64b2a95280",
+        "Sources/Slotstream/RequestControl.swift": "56c5e664aaf33454f5ef45efedb3849ee539fd91e844d58885bf304f5aab3c1d",
+        "Sources/Slotstream/ResidentExpertOverlap.swift": "4ddb3a027d92697dcc1e7373e66fc139abdc12063448d864ef635e5202f57dde",
+        "Sources/Slotstream/ResponsesDialect.swift": "efaafe08d7cf67097cf0769a7a5d3b7443e6a403ead6fe45450b8aee032d73e5",
+        "Sources/Slotstream/RouterProjection.swift": "880d9ee9a46eeb2cdae2560c5d4def671f3fe98e56f04cc036cb3e775d20baed",
+        "Sources/Slotstream/RouterSelection.swift": "35b122748ab05c00122bfb5b4c78416ee28b55abaa4d4e1379fd163aaf47b4a6",
+        "Sources/Slotstream/RouterTapCorrection.swift": "ea460d1e96eb4bd00796d027f4d03ecbd1c636acf3a10114b2e8e75a7b0db69d",
+        "Sources/Slotstream/RouterTrace.swift": "b34c1974f60015c913649a285023e57b15d92f37c2f7aa282b821eb2043652c1",
+        "Sources/Slotstream/RoutingReadbackQueue.swift": "477ad597e6e741cb939c9ade983934814e2a7c6b8e7c59fc659a1dc02eb4b4ab",
+        "Sources/Slotstream/SelectedAttention.swift": "70e61a089444f74cc74494d7f05005b0ff4dfe67043782befbbef80d96b911db",
+        "Sources/Slotstream/Server.swift": "7a46f4ffd5a6beed18b2090413abf2b25b53f443d7397894536a3350b60840b4",
+        "Sources/Slotstream/ServerActivity.swift": "c0194df615bcb815d188255823fd30d3373bee6d166fc7a13ccb2a5278b5875b",
+        "Sources/Slotstream/SlotWritePlan.swift": "9abde1de815522ff835d3c685a2e342293f3c9c7019cfc742265193ea2e286c1",
+        "Sources/Slotstream/SlotpackDownload.swift": "fb6f47ce70f30713cf1679ebda619c980e9d783dd6ae4cd1cc4e0a68b14705b7",
+        "Sources/Slotstream/SlotpackManifest.swift": "8664440e22653e64b85c0100345169dd93b3836d1bbd125ac2add4f621b9876d",
+        "Sources/Slotstream/StatePrefixFork.swift": "35ed6954bc927e37c117d53eb25e007b83b3385099bc9b18e01607f30abb7df7",
+        "Sources/Slotstream/StateRecovery.swift": "078521e0e08233c06706408bb6dbc53f902285fc4c891af2e164386bd41bf98b",
+        "Sources/Slotstream/TapCorrectionSidecar.swift": "581d7438fd01ce576691f5b322464337e85f03cca2911a6c8631f32484e72d82",
+        "Sources/Slotstream/ToolCallSplitter.swift": "75dba2c9d509c3f6f27781d6516f7ee95a4c471d1cac672aa698614b81065900",
+        "Sources/Slotstream/Vendored/GatedDelta.swift": "ac0a81ccd99ebb59a52ad0728221f34c59d2402d255b4e6a9cbb583b7d42dd6f",
+        "Sources/Slotstream/VerifyPassSelfCheck.swift": "4355a74e73b967e6331dc2d780aa506ccccc6655df253a593cd24a3276325ded",
+        "Sources/Slotstream/Version.swift": "d2fc14624d7f0433741286494ded627f1e88fdcf355b6e3f874d7a05abb91856",
+        "Sources/Slotstream/Vision.swift": "639b5c4bbe05654db411d587f31e7962d3db857aa4be38a2b54f982199d51eb5",
+        "Sources/Slotstream/VisionAttention.swift": "e8564b8cd946a6b049b3702a91f4441f18a7c3c51f19fae7f31c3cfa92522d25",
+        "Sources/Slotstream/VisionPrompt.swift": "561ecd55588533a21571eea4deaa820b7e906b9d228ee002d6bfa9918dfd45a9",
+        "Sources/Slotstream/WeightDownload.swift": "2758b2eea2631635cd3da5c18a87e724c57aab5c78ad816b7e18d7ff48c8c98d",
+        "Sources/Slotstream/WeightStore.swift": "b7b9c43d6aaee926a6c13701e65cded306e9eb8483477b61ff81dcf212f39999",
+        "Sources/Slotstream/Weights.swift": "350c3eef0d1dc5d5f721cb90e4c91df82e74937a1584ec6a635025c46175b00f",
+        "Sources/Slotstream/WordSlotWrite.swift": "1c19def2346669acc1afa811a7244233c6f593de91c02bfc4ff145465b95187e",
+        "Sources/SlotstreamDiagnostics/CheckReport.swift": "9bbe2106b5b55331cc3fbc093edd803eff6f9f00ebd5f30ce587754fe0bc7e47",
+        "Sources/SlotstreamDiagnostics/Diagnostics+AdaptiveSpeculation.swift": "e53d32c4f5a3fc7039a258db5c5b3c530416d07828c5d424a8f35e67d80dc256",
+        "Sources/SlotstreamDiagnostics/Diagnostics+AlignedResume.swift": "0f4f448f2d7d3438f5504ced42949607f9a2855ceb69b98aaab0e8eacea11b43",
+        "Sources/SlotstreamDiagnostics/Diagnostics+AllHitReplay.swift": "187a98c70c2e66008622db3727f0bf58126928862bc102782574fa0ba5f57513",
+        "Sources/SlotstreamDiagnostics/Diagnostics+BlockSelection.swift": "08d3f1fc29b6353443b795198295bacb85f57d0a2bdbac67450cf66d505f852c",
+        "Sources/SlotstreamDiagnostics/Diagnostics+CacheBookkeeping.swift": "6db1e4743b6adce39f32c2c5c0ff9c38bb86d7e9548c41e6c0e7d64299dd9cae",
+        "Sources/SlotstreamDiagnostics/Diagnostics+CompactIndexer.swift": "3dd65c8fac32f2804cce942845946debe74ca83b9cf6485a441ed15331711a5b",
+        "Sources/SlotstreamDiagnostics/Diagnostics+CompiledNorm.swift": "9f1beb774172bc33a27020261532e06723f0794adba9ab5dbca7807d01a0748f",
+        "Sources/SlotstreamDiagnostics/Diagnostics+CompletePrompt.swift": "2810f4873be52bc4b72e084a756bc5b58e7d9cff0248a7779a3ee1cb19b89aa4",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ComputeIslands.swift": "ac7f3b5ed140a566348e9be06274cf757144d2db099fe5af097c4a3807dc6801",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Context.swift": "3f9dfa7154aea3d076a1ca8c35d7b9888a368c1a563f4fbbb1b5eda82a501e2c",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ContextServing.swift": "19afe7d5f2a5c413c669f5f32725d2b4ab140fe1ea7a32d0c6c8b21d8737a6ef",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ContextSmallPass.swift": "90b83306d1966da794daf28cc84f426a42cd853075f5e236cf1bacae10787d8f",
+        "Sources/SlotstreamDiagnostics/Diagnostics+DecodeLookahead.swift": "21010a5472f074f99c06bfba5966359be29dafed3c89cd3abffa8f5d19224a76",
+        "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRows.swift": "a0f0532a43c1329b3a69f8a3bd8607df9f27793c0994ad23203936896b44e81f",
+        "Sources/SlotstreamDiagnostics/Diagnostics+EmbeddingRuntime.swift": "c5c37fafb45b2ac2434a36cd7c8b8804fac0e271e9e3f0fb10ef97481db77e24",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ExactRead.swift": "77a357f55c3f5aced5ba0d74012e35f73e678e0840024f24a5ab86909d335c59",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ExpertLookahead.swift": "ed94681eab3748c7ac1cda118e8c57a166c8e151bd7591e16f81241c5a878c87",
+        "Sources/SlotstreamDiagnostics/Diagnostics+FusedPrefill.swift": "e252d52ac1f86f39aa77d3cf4f5f4d1476143467f8b226eaa6e5505966402177",
+        "Sources/SlotstreamDiagnostics/Diagnostics+GDNProfile.swift": "6d982a575d6c6282941a9f9f3ac063b75d31996fcde387a63ca3ce44fea93242",
+        "Sources/SlotstreamDiagnostics/Diagnostics+GDNProjection.swift": "983a071e562451dbc22cfe09b005d9c68af687c10e7d94802d7d3cb28af1c7cd",
+        "Sources/SlotstreamDiagnostics/Diagnostics+GenerationPhase.swift": "b1937b268bc5c830ac3370c776719f753d2001111b99868d82b5a1b946fb2ab7",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift": "8ec85ff3609cd5657eae1a8434189e9474460aad0c850f6b88240457c8f0f1fc",
+        "Sources/SlotstreamDiagnostics/Diagnostics+HTTP.swift": "768204fbe0622cb63f9cbae87349b7b09bf3812b4dc178f9d623b1ca392a1cff",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ImageFailure.swift": "766742295107f924177f7f724a7be61f8ccb29b3e044a7de345523598c31cead",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ImageReuse.swift": "5d0e619769c0f7d4ea8c73439ac44bc499db6184c4954b417f4cb7804aec20e8",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Integrated.swift": "42f78edbc4592de08e11e7fdade5f5b01c51a25a6d503c321f544515a4c8e141",
+        "Sources/SlotstreamDiagnostics/Diagnostics+LayerLocalVictim.swift": "d512d93741a6675412cc9e6c739b940132ca3f20ebecd709884b00b1ebbc49b7",
+        "Sources/SlotstreamDiagnostics/Diagnostics+MTPIndexer.swift": "7784a18a1eddafa25ecaee9eeacfbcddf8bcabac8d53919f80367a4f4e5be476",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Machine.swift": "20f6edb816fc3a794143042e59847adbfc1fe06514fc990e8a3d81eb87abe50c",
+        "Sources/SlotstreamDiagnostics/Diagnostics+NgramCache.swift": "9bee4eb6c6cf09df5673e177d4b7f006681794bf680366b4549e4fa3d38b7368",
+        "Sources/SlotstreamDiagnostics/Diagnostics+NgramLookahead.swift": "3b0bc7ea21a57d2ce65e58773879f5f86ba7f0f37c47d8f1d08d51e61c486370",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Optimization.swift": "9d89c77c9605c3dec2142a3b5ebb360a78632b1ff94885b2061288aee4745700",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Output.swift": "e39951dc83e8410abdc840d0a739e1e1b2fbbdf1e2d06b3cb2d28c39ee9329cb",
+        "Sources/SlotstreamDiagnostics/Diagnostics+OutputServing.swift": "14d854261cbd1b3b2da79b4dc5402ff6ed8c2e0ee63f3761171a9bf391a3711a",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PackedLayout.swift": "14c31f94ebdd8bbbbb1479c77d0649b4c0632d978e4d8a60a8048214a1e08e65",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PartialRotation.swift": "de75d07feedc163834fe8e716683af8b2d373c51b0588ccc2cac922f775367ef",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PersistentConversation.swift": "c87367c4d786217fd186d7b441af01813137a5cc50e634acba17d0dc3e65f01d",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefix.swift": "8264b9045fafd8261026aabbb1718f5f4713906a28ba5ecc2589ad40fcc69c1b",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefixModel.swift": "3e06c67777ce3572d9bd7cce5d220be5f41af90e31b6f5da349ba6f3ec667798",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PersistentPrefixPolicy.swift": "7a54c47344e9f84f853c98d757854e9414bebe226ad874add21d0f161a694e80",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PoolRequests.swift": "e383c494263afa029a9ef107c90d6ba59f44cda5da7ca1035eae68cbda3562d2",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PrefillOpportunities.swift": "f1790a8d1ea348ac483aeff385a468d03038ba64666cab7d1bbe9493b107805c",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PrefillQualification.swift": "3641584e0ec8fb0b2f58abf027e83b293820250f880571a2d3f984bd3effb76f",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PrefixCapacity.swift": "e9c4a33b28ee50936bff92afae4b13a167126f6454729d4eeedd2215bbc9d1ee",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PrefixFork.swift": "e7a7094b3930cef8e380d711f20e8f82e2821c070579549692a6120e9ba3afc4",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PrefixRetention.swift": "5de9452266e8e59da03b078990689554fc7a419a5cd8e5879cc68e2e277ea8cb",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PrefixVision.swift": "5e4737dbe5344492fc2f9c6881f8d56e997668f674c91b28b9349c9420465f72",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PressureBoundary.swift": "1c8b9348f638ec791cbfc60cafbe4a1c2330a8cbe65421b6a3c1ada1fb39a255",
+        "Sources/SlotstreamDiagnostics/Diagnostics+PromptSpeed.swift": "ac50212dc0af91f64337fa6aa911294157d32b94e711ca135acbed33c1e46f0e",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Pull.swift": "224e4bf5210afbddd992894860343add73d1f52b12b2d9a00abf78fdc492ada0",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ReadFailureServing.swift": "1532f45714ceb98a5adcfa31abd31f065493164f49d2ee3aac868d5d4080b04c",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ReadHandles.swift": "9e98b6e0fd6c30f36d1d3ec8d556216f351a2f09ee5d15dbb4f5580858fad4b4",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ReadRecovery.swift": "5d51636a62b376e74dfefab207fdd42da61436210973f714819c7cc11488a04d",
+        "Sources/SlotstreamDiagnostics/Diagnostics+ResidentOverlap.swift": "c1e7b847cffa51939b0ae20027b289efcae5585a94ae5c1c751a66f110a25522",
+        "Sources/SlotstreamDiagnostics/Diagnostics+RopePerformance.swift": "19d040f21391a1ea87831b73a8adf055a78aeafe9d902bd11ce22fd6a492d892",
+        "Sources/SlotstreamDiagnostics/Diagnostics+RouterProjection.swift": "3981e415003e6258d41690216a7ab668652a0ce436bf644d99d88dbc2799db9e",
+        "Sources/SlotstreamDiagnostics/Diagnostics+RoutingReadback.swift": "f29aad2cde3bbb526f83dcec4565f3c382d071734acc47a0e31d7223312713cb",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Runtime.swift": "1349446ad76dfa74e5924100f13c555448cd9f5c0a624c7daa78596d1c77b7f8",
+        "Sources/SlotstreamDiagnostics/Diagnostics+RuntimeBudget.swift": "b5ce492456b9e27b19765a0bd4f23cbd81ccff034be5af3142737cdae7944d6e",
+        "Sources/SlotstreamDiagnostics/Diagnostics+SamplerPerformance.swift": "4e6dd7e85d7ac0f2b2af291343ab4cdc52fa94fe6edb588c1d517008a0c35cb3",
+        "Sources/SlotstreamDiagnostics/Diagnostics+SelectedAttention.swift": "8dd385da9b79c3625d1cc9ccc6c8821978f88437fcded918f049328b7a969e7a",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Selection.swift": "b737794c5a57cd224f36a93b960fa9834cabb51ef810945bab64fd71e59c91d0",
+        "Sources/SlotstreamDiagnostics/Diagnostics+SharedPrefix.swift": "63b48ea779e7364e168fffbc874525279e32b6b3976d072a9eba83db0fb85409",
+        "Sources/SlotstreamDiagnostics/Diagnostics+SlotSlices.swift": "32c10a839423b13a4dceff67a5b2a617f90d145376a70b19bd27f2e62452e288",
+        "Sources/SlotstreamDiagnostics/Diagnostics+StateRecovery.swift": "a53db99ff0f97a26e87586e35bf05daa26b9281fe7d686a1670c14984da2dd77",
+        "Sources/SlotstreamDiagnostics/Diagnostics+TerminalPrefill.swift": "7ef27bec8489f52ccdd3ea51c125d21eb94512924b163e854b7aaf25ef39f57a",
+        "Sources/SlotstreamDiagnostics/Diagnostics+VerifyPass.swift": "37baddc192c0f9083bef740f897d16cda315b82017349b122807bfbfcc77400e",
+        "Sources/SlotstreamDiagnostics/Diagnostics+Vision.swift": "7779c1339db28cce006d300d6bdd41e3e9a27c55314153aa12659c3e11d575b3",
+        "Sources/SlotstreamDiagnostics/Diagnostics+VisionAttention.swift": "66ddb233e4e1754d9b499e3bde590c073d32e47512ca7db79269aa9d25d40718",
+        "Sources/SlotstreamDiagnostics/Diagnostics+VisionCapacity.swift": "0610214d34b5f763aa65c17013082914f176ca176483a77a422c5a87d592b591",
+        "Sources/SlotstreamDiagnostics/Diagnostics.swift": "98ff2ba72838b5346d45ff18b87e43c2598a4ecf09a54b50c050150108a9fa03",
+        "Sources/SlotstreamDiagnostics/ExpertLookaheadCollector.swift": "4f8d1a402334a149eef2f7470ce96b7fad48f0fdcf2370143d25f3bc8ba0f423",
+        "Sources/SlotstreamDiagnostics/Goldens.swift": "aeb98c73b02c2e4f27baefee935fa4e7e67254da686e79ed96ffbdc26ca3c958",
+        "Sources/SlotstreamTestKit/AnthropicChecks.swift": "a681ebadaf2ed1f2c9a8dd7a02dd7e688974f5f2a213187220aac2532512235f",
+        "Sources/SlotstreamTestKit/Catalogue.swift": "bdfef7fffc2bbd801fc1880f9d9134783134a0e36e2424c3eb419b2767fe62a7",
+        "Sources/SlotstreamTestKit/CodexFixture.swift": "23839d1d776252c1c5cec6a3acaf6c08c1e89bc7def714f7b5f3180fae57aac0",
+        "Sources/SlotstreamTestKit/GatewayChecks.swift": "88193ae0b5aeb2403f98efb5109710cec9dd30a8d820ae58f30226dd501bd196",
+        "Sources/SlotstreamTestKit/LaunchChecks.swift": "8fd6f5920b219d68f0ea69295810a0a6b34effdee69ac855b04212399379e54d",
+        "Sources/SlotstreamTestKit/OpenAIChecks.swift": "1ee9c7110ef1f787343d64295b513ccef62332966bcb5019fb47e59e9a2ceb72",
+        "Sources/SlotstreamTestKit/ResponsesChecks.swift": "1dc4ab33a448eaf27ffd06b0dde845d19f79128fd6a8676b807e693378cae6fc",
+        "Sources/SlotstreamTestKit/T0Checks.swift": "150645b4d79240479757a885c1152105703606d534dee16fa8c624a7e82be6dd",
+        "Sources/SlotstreamTestKit/ToolCallChecks.swift": "6cdd5c4a9cd75ca02316aad3b75b8642384f2d1a757c5b2f07e5adf47813b7d4",
+        "Sources/SlotstreamTestKit/WeightStoreChecks.swift": "d26e43367ba2d61d7afd9f5b175e95b714409b1717b86b9fe71f1306e36b6a81",
+        "Sources/slotstream-checks/main.swift": "02ebabaf058afa95622ccd29fb65d80b7eac41c9e6232f0167ef288c2126e0d9",
+        "Sources/slotstream-cli/CheckRendering.swift": "0905dcbae17a5b3d66e13a760c4054fb29d930331d32942a528510ecfe9769a1",
+        "Sources/slotstream-cli/ContextCommands.swift": "3ba24ae3e24dd10214e3288f007952d9e2b06241c081e29313b42ac7aa7a31bb",
+        "Sources/slotstream-cli/ExpertLookaheadCommands.swift": "249274657b4f4f4c3e694a2b0db671b3af8b92a2148495647f3be9092f48f6b2",
+        "Sources/slotstream-cli/LaunchCommand.swift": "2e8375654cc80b5d067254e036f3a8c9bc9594bf7f3f08e88d2e5d3c714655dd",
+        "Sources/slotstream-cli/MTPCommands.swift": "1a7e54381bccd0cd1a99eea786e5026f414192b5ec30c54016922122c20eda7b",
+        "Sources/slotstream-cli/OptimizationCommands.swift": "88c23268acd27fafa77b729072ec241813a4e476574a058a3255e159ca636243",
+        "Sources/slotstream-cli/PackedExpertCommands.swift": "ea7f4485d60a985a0a1f759f077d28dc42f36512dc1dd07a7644a22e31346b12",
+        "Sources/slotstream-cli/PrefixCacheCommand.swift": "4b1c8adf3b42ce4e0d8e74537ff62080d839b0255411022ca29246576c907a3b",
+        "Sources/slotstream-cli/PrefixExactCommands.swift": "b70f0a6f2536f0eb1fc00007260cc6dffe2592b1f32271225fe1304261346e28",
+        "Sources/slotstream-cli/Pull.swift": "d60a4ea7cebd27aa7995b4ae3ea74718e5b5eaf9d473f5cf85dcef83c9dbefaf",
+        "Sources/slotstream-cli/StopCommand.swift": "a61e1ac21c157d1e11bc8676b9485ca8b79f1aadd04a20620b6bbed951ce5474",
+        "Sources/slotstream-cli/SweepCommands.swift": "f7a988326232c70586b2dc096427d9f5826a317da46b0085c61c0d70096c5e3a",
+        "Sources/slotstream-cli/VisionCommands.swift": "126a5bb05ccc6549337f04048d88256fcc106686dc8fb062d3759dad13af7971",
+        "Sources/slotstream-cli/main.swift": "cf23a732476c9371583ecd306e5e7be80ebeb25319eec10128968779a4ac6aec",
+        "Tools/build_identity.py": "d70a97380b1244727674861ae64ab166d034c941878e6e2c18f3ffd77bbf2e86",
+        "Tools/fetch_metallib.sh": "7df9293bbef54ff4fdd395adae9942f96ad6cec3f204e90dd334e4b0d779cc2a"
+      },
+      "source_archive_sha256": "cc03e14655154bc6a6205249eb5e302d2fcad19820e9dcdcbb44d62021b3ed38",
+      "binary_sha256": "5cb612361887c2a317376721dbe5df94810da5230759c47169fc6fa2e9b30b89",
+      "metallib_sha256": "dc59d1cceb1a5c7e578232e6e41e28e2c73c9463ac6dbc3886c3ee17ffc270ed"
+    }
+  },
+  "model": {
+    "chat_template.jinja": {
+      "bytes": 8952,
+      "mtime_ns": 1788227262420608630,
+      "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+    },
+    "config.json": {
+      "bytes": 33408,
+      "mtime_ns": 1788227262365742673,
+      "sha256": "0da22a8ed4323fbe969bf982aeb054743b315206791f28ef74a309c707080ba5"
+    },
+    "generation_config.json": {
+      "bytes": 202,
+      "mtime_ns": 1788227262233341994,
+      "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+    },
+    "model-00001.safetensors": {
+      "bytes": 10039592993,
+      "mtime_ns": 1788228748798695327,
+      "header_sha256": "475ce8af9dea80570da09375a5e1039090610ae77373bffcb8d95bb0be3a9ddc"
+    },
+    "model-00002.safetensors": {
+      "bytes": 10000066971,
+      "mtime_ns": 1788229557877052892,
+      "header_sha256": "430d68993347bf804c7ccc0a09b4811d503377fc9af4f524b0db0884790a12bf"
+    },
+    "model-00003.safetensors": {
+      "bytes": 10000066984,
+      "mtime_ns": 1788229795251654179,
+      "header_sha256": "28b4f8f5a8606a84f5dd5de3c061130a6a65e767edb86355ae35859a525426d6"
+    },
+    "model-00004.safetensors": {
+      "bytes": 10170248438,
+      "mtime_ns": 1788230029083645564,
+      "header_sha256": "c9df41567d842f9fbdf9ff53a3584ffacb1b220b43e9c9b49c0be96be6f2156d"
+    },
+    "model-00005.safetensors": {
+      "bytes": 10194989755,
+      "mtime_ns": 1788230267432612830,
+      "header_sha256": "c189a7de6a617e0a0f7d3e60576b363ae0d8c240e277d8726a4ab467b30e596c"
+    },
+    "model-00006.safetensors": {
+      "bytes": 10262727991,
+      "mtime_ns": 1788230565482789975,
+      "header_sha256": "b51ae1ca1c4c754dae0426f85c0f3e6c1539240bce1ae77fba8102cb08ebb977"
+    },
+    "model-00007.safetensors": {
+      "bytes": 10190937668,
+      "mtime_ns": 1788230945388951904,
+      "header_sha256": "b64d4e3ba45e61f2463c6357bdca894926f19db595d4e9dd189b04822a9c611d"
+    },
+    "model-00008.safetensors": {
+      "bytes": 10231122683,
+      "mtime_ns": 1788231233782376452,
+      "header_sha256": "ab49328405f98104ffab180748eba510fc6f31ba2bfa263a1d23e8b59ce261c9"
+    },
+    "model-00009.safetensors": {
+      "bytes": 10250305804,
+      "mtime_ns": 1788231584813847653,
+      "header_sha256": "326333ed9d0b8df41fb3ecca875d5b7eecb29f36d674f5edf8c969bb3e71e75d"
+    },
+    "model-00010.safetensors": {
+      "bytes": 10237786674,
+      "mtime_ns": 1788231912822219158,
+      "header_sha256": "962f992ebc7098380e89df4e6abd0dd5921a1702dc612eebee9d70bcc3035f37"
+    },
+    "model-00011.safetensors": {
+      "bytes": 2192353120,
+      "mtime_ns": 1788231963854477586,
+      "header_sha256": "db46770964a73082aeb4e714c0b6b4da30646146f3330a5b40d26cfd4f12a608"
+    },
+    "model.safetensors.index.json": {
+      "bytes": 317973,
+      "mtime_ns": 1788231961214440193,
+      "sha256": "072cc2c60b8af6cce82a387f62e39ca88754c3a6fccae0816dd21bb89d27470d"
+    },
+    "mtp.provenance.json": {
+      "bytes": 4514,
+      "mtime_ns": 1788285565619137302,
+      "sha256": "6e574308bd68dcf6611e84c312ba388f7eb205e0e09dff086e14f6df86262db6"
+    },
+    "mtp.safetensors": {
+      "bytes": 1470955171,
+      "mtime_ns": 1788285565030586634,
+      "header_sha256": "836ae4156c99452e932c7a81322bcca959ac6f7ed86d6270cfd56ff94c62f4b9"
+    },
+    "preprocessor_config.json": {
+      "bytes": 390,
+      "mtime_ns": 1788231961438795679,
+      "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+    },
+    "tokenizer.json": {
+      "bytes": 12809320,
+      "mtime_ns": 1788231963144872066,
+      "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+    },
+    "tokenizer_config.json": {
+      "bytes": 17928,
+      "mtime_ns": 1788231962481057833,
+      "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+    },
+    "video_preprocessor_config.json": {
+      "bytes": 385,
+      "mtime_ns": 1788231962565955466,
+      "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+    },
+    "vocab.json": {
+      "bytes": 6722759,
+      "mtime_ns": 1788231962924355528,
+      "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+    }
+  },
+  "selected_profiles": "budget10_auto",
+  "phase": "prefill"
+}

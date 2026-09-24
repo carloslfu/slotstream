@@ -102,6 +102,42 @@ private struct FixtureView: View {
         fixture.id = "first:latest"; fixture.text = "Latest page.\n\n" + String(repeating: "Newest message.\n\n", count: 90)
         try await settle { view.string.hasPrefix("Latest page.") && fixture.away }
         expect(abs(scroll.contentView.bounds.origin.y - saved) < 1, "returning to a thread restores its reading position")
+
+        // A long page lays out the text that shows first and the rest a slice
+        // at a time. A reader in its middle stays on their line meanwhile, and
+        // when the window narrows.
+        fixture.id = "long:latest"
+        fixture.text = (1...1500).map { "Paragraph \($0) of a long page, with **bold** words and `code` that wrap across lines of this window." }.joined(separator: "\n\n")
+        try await settle { view.string.contains("Paragraph 1500 of a long page") && view.isNearLatest && !fixture.away }
+        expect(view.isNearLatest && !fixture.away, "a long page opens at its latest text")
+        let manager = view.layoutManager!, container = view.textContainer!
+        func visible() -> NSRect { var r = scroll.contentView.bounds; r.origin.y -= view.textContainerOrigin.y; return r }
+        // Only the middle is laid out, as when a reader scrolls there first.
+        let length = view.textStorage!.length
+        manager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: length), actualCharacterRange: nil)
+        let middle = NSRange(location: length / 2, length: 1)
+        manager.ensureLayout(forCharacterRange: middle)
+        view.scrollRangeToVisible(middle)
+        manager.ensureLayout(forBoundingRect: visible(), in: container)
+        expect(manager.hasNonContiguousLayout && !view.isNearLatest, "the middle of a long page is laid out without the text above it")
+        let reading = view.readingAnchor!
+        // Where the reader's first character sits in the view, from its glyph.
+        func onScreen(_ character: Int) -> CGFloat {
+            let glyph = manager.glyphIndexForCharacter(at: character)
+            return manager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY + manager.location(forGlyphAt: glyph).y
+                + view.textContainerOrigin.y - scroll.contentView.bounds.minY
+        }
+        let readingAt = onScreen(reading.character)
+        view.completeLayout()
+        try await settle { !manager.hasNonContiguousLayout }
+        let settled = view.readingAnchor!
+        expect(settled.character == reading.character && abs(onScreen(reading.character) - readingAt) < 0.5,
+               "a reader's line holds while the rest of a long page is laid out")
+        window.setContentSize(NSSize(width: 360, height: 300))
+        window.contentView?.layoutSubtreeIfNeeded()
+        try await settle { !manager.hasNonContiguousLayout }
+        let line = manager.lineFragmentRect(forGlyphAt: manager.glyphIndexForCharacter(at: settled.character), effectiveRange: nil)
+        expect(line.minY <= visible().minY + 1 && line.maxY > visible().minY, "a reader stays on their line when the window narrows")
         window.contentView = nil
         print("PASS: production native transcript scroll lifecycle")
     }

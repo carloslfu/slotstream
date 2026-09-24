@@ -182,6 +182,22 @@ public enum ContextWorkspace {
     public static func prefillBytes(pass: Int, context: Int, scope: Int = 0, attentionHeads: Int = 24,
                                     referenceStart: Int = 0, referenceEnd: Int = ContextPolicy.modelLimit,
                                     minimumProjectionRows: Int = 0, padSmallQueries: Bool = false) -> Int {
+        prefillBytes(pass: pass, context: context, scope: scope, attentionHeads: attentionHeads,
+            referenceStart: referenceStart, referenceEnd: referenceEnd,
+            minimumProjectionRows: minimumProjectionRows, padSmallQueries: padSmallQueries,
+            fusedKVHeads: nil)
+    }
+
+    /// Fused reservation. The caller must prove the BF16 D256
+    /// NAX dispatch, including every fallback. Keep the linear activation
+    /// floor, full indexer/mask allowance, and replacement Q/K/V/output copies.
+    /// This removes only the full per-head score/probability matrices. The
+    /// qualified envelope is 256 query rows through 16384 keys; all other
+    /// shapes retain the original reserve, even if their kernel also fuses.
+    package static func prefillBytes(pass: Int, context: Int, scope: Int = 0, attentionHeads: Int = 24,
+                                    referenceStart: Int = 0, referenceEnd: Int = ContextPolicy.modelLimit,
+                                    minimumProjectionRows: Int = 0, padSmallQueries: Bool = false,
+                                    fusedKVHeads: Int?) -> Int {
         guard pass > 0, pass <= 4096, attentionHeads > 0, scope >= 0, context >= pass, context <= ContextPolicy.modelLimit,
               (0 ... 256).contains(minimumProjectionRows),
               pass <= PrefillSchedule.measuredQueryKeyProduct / context else { return Int.max }
@@ -192,8 +208,47 @@ public enum ContextWorkspace {
         // Indexer score/mask/top-k and selected attention coexist with layer
         // activations. Preserve the original linear allowance; bound the
         // query-by-context part even when late passes fall below 256.
+        let attention: Int
+        if let kv = fusedKVHeads, pass == 256, context <= 16384, !padSmallQueries,
+           kv > 0, kv <= attentionHeads, attentionHeads % kv == 0 {
+            attention = ContextBytes.sum(ContextBytes.product(queries, extent, 16),
+                ContextBytes.product(queries, attentionHeads, 256, 4),
+                ContextBytes.product(extent, kv, 256, 4))
+        } else {
+            attention = ContextBytes.product(queries, extent,
+                ContextBytes.sum(ContextBytes.product(attentionHeads, 8), 16))
+        }
         return ContextBytes.sum(max(ContextBytes.product(max(pass, minimumProjectionRows), PlannerCostModel.prefillBytesPerToken),
-            ContextBytes.product(queries, extent, ContextBytes.sum(ContextBytes.product(attentionHeads, 8), 16))), ContextBytes.product(max(0, scope - pass), 32_768))
+            attention), ContextBytes.product(max(0, scope - pass), 32_768))
+    }
+
+    /// The resident draft head runs after the main pass, while the entire
+    /// main multi-stream output remains live. Charge that tensor at FP32
+    /// width plus the largest chronological draft pass. Token zero has no
+    /// predecessor, so the first draft pass and every key offset are shifted
+    /// by one. Keep full attention pricing here, including the 255-row first
+    /// pass and short tails; eligibility of the main trunk proves nothing
+    /// about the draft weights or its dispatch. Resident draft weights and
+    /// replacement sequence buffers are charged by the caller separately.
+    package static func mtpPrefillBytes(passes: [Int], at start: Int,
+                                       hiddenSize: Int, hcCount: Int, attentionHeads: Int) -> Int {
+        guard !passes.isEmpty, start >= 0, start < ContextPolicy.modelLimit,
+              hiddenSize > 0, hcCount > 0, attentionHeads > 0 else { return Int.max }
+        var at = start, rows = 0, peak = 0
+        for pass in passes {
+            guard pass > 0, pass <= 4096 else { return Int.max }
+            let end = ContextBytes.sum(at, pass)
+            guard end <= ContextPolicy.modelLimit else { return Int.max }
+            let draftRows = pass - (at == 0 ? 1 : 0)
+            if draftRows > 0 {
+                peak = max(peak, prefillBytes(pass: draftRows, context: end - 1,
+                    attentionHeads: attentionHeads))
+            }
+            rows = ContextBytes.sum(rows, pass)
+            at = end
+        }
+        guard peak > 0 else { return 0 } // A lone first token has no draft work.
+        return ContextBytes.sum(peak, ContextBytes.product(rows, hiddenSize, hcCount, 4))
     }
 
     /// The optional workspace must fit both actual reclaimable memory and
@@ -214,7 +269,8 @@ public enum ContextWorkspace {
     /// This is a conservative allocation reservation, not a process peak.
     package static func expertWorkspaceBytes(tokens: Int, tile: Int, experts: Int,
         topK: Int, hidden: Int, intermediate: Int, recordBytes: Int, loadBatch: Int,
-        admissionPoolBytes: Int = 0, admissionRecords: Int = 0) -> Int {
+        admissionPoolBytes: Int = 0, admissionRecords: Int = 0,
+        largestWriteBytes: Int? = nil) -> Int {
         guard tokens > 0, tokens <= ContextPolicy.modelLimit,
               [256, 512, 1024, 2048, 4096].contains(tile),
               experts > 0, topK > 0, topK <= experts, hidden > 0, intermediate > 0,
@@ -222,10 +278,15 @@ public enum ContextWorkspace {
               admissionPoolBytes >= 0, admissionRecords >= 0, admissionRecords <= experts,
               admissionRecords == 0 || admissionPoolBytes > 0 else { return Int.max }
         let weights = ContextBytes.product(experts, recordBytes)
+        if let largestWriteBytes, largestWriteBytes <= 0 || largestWriteBytes > weights { return Int.max }
         // Nine aligned managed buffers; reserve a second staging copy so
         // admission never depends on a particular no-copy upload decision.
         let staging = ContextBytes.sum(ContextBytes.product(loadBatch, recordBytes, 2), 9 * 16_384)
-        let assembly = ContextBytes.sum(weights, staging)
+        // Batched eval can retain every original buffer while writing its
+        // replacements. Piecewise eval completes and releases each old piece
+        // before the next write, bounding replacement bytes by the largest
+        // actual buffer. The full original workspace is still charged below.
+        let assembly = ContextBytes.sum(largestWriteBytes ?? weights, staging)
         // Sweep admission can replace the decode pool while full workspace
         // weights and gathered hot records remain live.
         let admission = ContextBytes.sum(admissionPoolBytes,

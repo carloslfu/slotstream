@@ -1,0 +1,8 @@
+{
+  "requests": 14,
+  "environment_eligible": 13,
+  "strict_global_eligible": 6,
+  "exclusions": {
+    "sustained background CPU load or unavailable sample": 1
+  }
+}

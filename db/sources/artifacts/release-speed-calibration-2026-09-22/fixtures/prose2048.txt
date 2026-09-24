@@ -1,0 +1,160 @@
+Benchmark document prose2048. Read the supplied material.
+<material>
+DOCUMENT README.md
+# slotstream
+
+[![Latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](#star-history)
+
+**Run a 105 GB AI model on a 48 GB Mac.**
+
+Slotstream runs [Qwen3.8-Flash-Next](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit),
+a large open model, on your Mac by keeping most of it on SSD and loading the
+parts it needs into memory. It is built for Macs with 16 to 64 GB of memory,
+where the model cannot fit. After a one-time download the model works
+offline, with no Python and no cloud account. The whole engine is one native
+Swift program on Apple's MLX and Metal; see [Built native](#built-native).
+
+Use it to chat, ask about pictures, or work with files through a coding agent
+such as Claude Code, Codex, Pi, opencode or Hermes. Developers can connect
+their own apps through its APIs or Swift library.
+
+[Get started](#install) · [Speed](#speed) · [Guides](#guides) · [Get help](#support)
+
+> **I'm building Sevra on Slotstream: private, personal AI optimized for your computer.**
+> Sevra will choose a tested model for your hardware, keep that choice current
+> as models improve, and let you control what it remembers. The Mac app is in
+> development and runs Slotstream in process; see
+> [how it is built](docs/SEVRA-MAC.md) and
+> [join the waitlist](https://www.sevrahq.com/). Slotstream's command-line
+> tool, APIs and Swift library remain independently usable.
+
+## Who it's for
+
+Slotstream is built for Macs that cannot hold the model in memory: **16 to
+64 GB**. That is where the engineering, the measurements and the defaults go,
+so that frontier-class intelligence runs on the Macs most people already own.
+It also runs on 96 GB and larger Macs, where the model fits in memory, but it
+is not optimized for them: engines that keep the whole model in memory report
+faster replies there. See
+[related projects](docs/ENGINEERING.md#related-projects) if that is your Mac.
+
+## Will it run on my Mac?
+
+You need an **Apple Silicon Mac with at least 16 GB of memory, macOS 14 or
+later, and about 110 GB of free SSD space**. Open About This Mac from the
+Apple menu to check your chip and memory. On an 8 GB Mac even the smallest
+memory plan doesn't fit, so Slotstream refuses to start instead of swapping.
+Windows, Linux and Intel Macs are not supported. The
+[hardware guide](docs/HARDWARE.md#what-you-need) has the tested macOS versions.
+
+## Speed
+
+`tok/s` means tokens per second; a token is a small piece of text, often part
+of a word. Speeds describe replies after the model has warmed up.
+
+**Our development Mac, a 48 GB M5 Pro, generates 15.86 tok/s with 0.2.19 at a
+22 GB memory target, the automatic plan of a 32 GB Mac**, measured on eight
+prompts the engine was never tuned on. The engine predicts which experts the
+next layers will need and reads them from the SSD before they are asked for,
+which changes speed and never the output. The
+[expert lookahead guide](docs/EXPERT-LOOKAHEAD.md) has the measurements behind
+each release.
+
+<a id="speed-by-memory"></a>
+<a id="speed-by-mac-memory"></a>
+
+### What to expect by memory
+
+Rough planning ranges for warm replies, from community reports and our own
+measurements, rounded outward. Faster chips and SSDs sit at the top of each
+range; other apps and memory pressure pull results down.
+
+| Installed RAM | Estimated warm reply speed | Automatic context window |
+|---|---|---|
+| 8 GB | **Support coming soon.** The current model doesn't fit yet. | Not available yet |
+| 16–<24 GB | ~1–6 tok/s | 32,768 tokens |
+| 24–<48 GB | ~6–16 tok/s | 32,768 through 32 GB; 65,536 at 36 GB |
+| 48–<96 GB | ~15–27 tok/s | 32,768 at 48 GB; 131,072 at 64 GB |
+| 96 GB+, the model fits in memory | ~20–32 tok/s | 262,144 tokens, the model's full window |
+
+The middle rows are anchored on our M5 Pro's measurement; the top ends of the
+last two rows come from a 128 GB M5 Max with a larger, manually chosen memory
+target, and the last row is outside Slotstream's target range. These are
+estimates, not limits. The hardware guide has the
+[basis of each range](docs/HARDWARE.md#planning-ranges), every result
+[measured on real Macs](docs/HARDWARE.md#results) with credits and test
+conditions, and [every automatic memory plan](docs/HARDWARE.md#automatic-memory-plans).
+
+<a id="memory"></a>
+<a id="context"></a>
+
+### Memory and context
+
+**Auto mode picks the memory target, cache size, speculative decoding and
+context window for your Mac.** It takes the largest window in the table above
+that still leaves room for speculative decoding and a complete conversation,
+given the memory free at startup, without an unmeasured loss of useful
+expert cache. `slotstream doctor` shows the choice and
+why, and `--max-context 65536` sets a window yourself, up to 262,144 tokens.
+
+**Starting a reply takes time.** Slotstream first reads your question and the
+conversation history, which can take minutes for a long prompt. Follow-up
+turns reuse unchanged history, a new conversation reuses the system prompt
+earlier ones started with, and `serve --prefix-cache-dir` keeps long
+conversations and shared system prompts on disk so that they survive a
+restart. The hardware guide
+has the [prompt-reading estimates](docs/HARDWARE.md#automatic-memory-plans)
+for each memory size.
+
+## Install
+
+Open Terminal and paste this command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+```
+
+Run the same command to update. If `slotstream` isn't found afterward, open
+a new terminal window.
+
+## Use it
+
+Check your Mac, then ask for a first reply:
+
+```sh
+slotstream doctor
+slotstream run --prompt "Why is the sky blue?"
+```
+
+<a id="downloading-the-model"></a>
+
+`doctor` checks memory and disk space without loading the model. The first
+`run` asks to download it, then prints a reply. This download can take hours,
+but you only need to do it once. Interrupted downloads resume when you try
+again. Follow the [step-by-step setup](docs/GETTING-STARTED.md) for more help.
+
+<a id="chat-apps-and-the-api"></a>
+<a id="pictures"></a>
+<a id="coding-agents"></a>
+<a id="docs"></a>
+
+## Guides
+
+| What would you like to do? | Guide |
+|---|---|
+| Chat in Open WebUI or another app | [Connect a chat app](docs/CLIENTS.md) |
+| Ask about a picture | [Use an image](docs/GETTING-STARTED.md#ask-about-a-picture) |
+| Start a coding agent on the model, in one command | [Use coding agents](docs/CODING-AGENTS.md) |
+| Code with Claude Code | [Use Claude Code](docs/CLAUDE-CODE.md) |
+| Code with Codex | [Use Codex](docs/CODEX.md) |
+| Code with Pi or opencode | [Use Pi or opencode](docs/CODING-AGENTS.md#pi) |
+| Work with files and tools through Hermes | [Use Hermes](docs/HERMES.md) |
+| Code with fx, Vercel Labs' coding agent | [Use fx](docs/FX.md) |
+| Fix a problem, move the model, or uninstall | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+
+Install chat apps and agents separately. They provide the interface and tools;
+Slotstream runs the model. Keep its server running while a connected app uses it.
+`
+</material>
+Summarize the main responsibilities and operating limits in five concise bullets.

@@ -1,0 +1,1380 @@
+Benchmark document code16384. Read the supplied material.
+<material>
+FILE AdaptiveSpeculation.swift
+// Request-local experimentation: useful single-token target steps establish a
+// baseline, then completed speculative rounds justify their cost per output.
+// Wall-clock choices are observable and experimental; they are not promised
+// to choose the same batching schedule across repetitions of a seeded request.
+import Foundation
+
+package struct AdaptiveSpeculationPolicy {
+    package enum Action: Equatable { case calibrate, draft(Int), plain }
+    private var depth: Int
+    private var plainCosts: [Double] = []
+    private var draftCosts: [Double] = []
+    private var stopped = false
+    private var baselineContext = 0
+    private var roundsSinceCalibration = 0
+
+    package init(maximumDepth: Int) { depth = min(16, max(1, maximumDepth)) }
+
+    package mutating func action(contextTokens: Int) -> Action {
+        guard !stopped, contextTokens >= baselineContext else { stopped = true; return .plain }
+        if plainCosts.count == 3 && (roundsSinceCalibration >= 16
+            || contextTokens >= baselineContext && contextTokens - baselineContext >= 256) {
+            plainCosts.removeAll(keepingCapacity: true)
+            draftCosts.removeAll(keepingCapacity: true)
+            roundsSinceCalibration = 0
+        }
+        return plainCosts.count < 3 ? .calibrate : .draft(depth)
+    }
+
+    /// Only main verify plus sampling is the plain baseline. Keeping the head
+    /// aligned during calibration costs extra, but disabled drafting does not
+    /// maintain it, so that cost must not inflate the plain alternative.
+    package mutating func observePlain(seconds: Double, contextTokens: Int) {
+        guard seconds.isFinite, seconds > 0, contextTokens >= 0 else { stopped = true; return }
+        if plainCosts.count == 3 { plainCosts.removeFirst() }
+        plainCosts.append(seconds)
+        baselineContext = contextTokens
+    }
+
+    package mutating func observeDraft(seconds: Double, emitted: Int, drafted: Int, accepted count: Int) {
+        guard seconds.isFinite, seconds > 0, emitted > 0, drafted > 0, drafted <= 16,
+            count >= 0, count <= drafted, emitted <= drafted + 1, plainCosts.count == 3
+        else { stopped = true; return }
+        roundsSinceCalibration += 1
+        draftCosts.append(seconds / Double(emitted))
+        if draftCosts.count > 3 { draftCosts.removeFirst() }
+        guard draftCosts.count == 3 else { return }
+        let reference = plainCosts.sorted()[1], candidate = draftCosts.sorted()[1]
+        // Acceptance affects the denominator through actual emitted target
+        // tokens. Acceptance alone must not overrule a measured faster path.
+        if candidate > reference * 1.05 {
+            if depth == 1 { stopped = true }
+            else {
+                depth = max(1, depth / 2)
+                draftCosts.removeAll(keepingCapacity: true)
+            }
+        }
+    }
+}
+
+
+FILE AnthropicDialect.swift
+// The Anthropic Messages API dialect: what Claude Code speaks.
+//
+// `POST /v1/messages`, with `ANTHROPIC_BASE_URL` pointed at this server, is how
+// Claude Code, Pi's `anthropic-messages` providers and the Anthropic SDKs reach
+// a local model. Like ResponsesDialect, this file is pure: parsing, validation
+// and event construction are functions over values, with no socket and no
+// engine, so the T0 gates run the real contract on any machine in milliseconds.
+//
+// Five decisions differ from the OpenAI dialects, each for a reason read from
+// Claude Code 2.1.270's requests and its gateway guide:
+//
+//   * Unknown top-level fields are ignored, not refused. Claude Code adds a
+//     request field in most releases, each paired with a beta header, and its
+//     gateway guide asks servers in the path to accept them. A refusal would
+//     break every Claude Code update until this file caught up. Fields that
+//     ask for behavior this server cannot provide (`container`, `mcp_servers`,
+//     `output_config.format`) are still refused by name, and ignored names are
+//     reported to the client in the `x-slotstream-ignored-fields` header.
+//   * The attribution line Claude Code puts at the top of the system prompt
+//     (`x-anthropic-billing-header: ...`) is removed, as Anthropic's own API
+//     removes it. It changes with every conversation, so keeping it would give
+//     every prompt a different first line and defeat shared-prefix reuse.
+//   * Thinking follows the request: off unless `thinking` asks for it. This
+//     model's template thinks or does not, so `adaptive` means on, at the
+//     requested `output_config.effort`.
+//   * A thinking block's `signature` carries its own text. Claude Code asks
+//     for `display: "omitted"` and replays the empty block it received; the
+//     signature is what lets the model's reasoning survive a tool loop.
+//   * A prompt over the window fails with `prompt is too long: N tokens > M
+//     maximum`, the message Claude Code reads to compact and retry.
+
+import Foundation
+
+public enum AnthropicDialect {
+
+    // MARK: - Errors
+
+    /// A request that never reaches the model, in Anthropic's error shape.
+    public struct Failure: Error, Equatable, CustomStringConvertible {
+        public let type: String
+        public let message: String
+        public let status: String
+        public init(_ message: String, type: String = "invalid_request_error", status: String = "400 Bad Request") {
+            self.type = type
+            self.message = message
+            self.status = status
+        }
+        public var description: String { message }
+        public var body: [String: Any] { AnthropicDialect.errorBody(type: type, message: message) }
+    }
+
+    public static func errorBody(type: String, message: String) -> [String: Any] {
+        ["type": "error", "error": ["type": type, "message": message] as [String: Any]]
+    }
+
+    /// The Anthropic error type for an HTTP status this server returns.
+    /// Claude Code retries `overloaded_error`, so a transient memory refusal
+    /// maps there; everything else keeps the meaning of its status.
+    public static func errorType(httpStatus: String) -> String {
+        switch httpStatus.prefix(3) {
+        case "400": return "invalid_request_error"
+        case "401": return "authentication_error"
+        case "403": return "permission_error"
+        case "404": return "not_found_error"
+        case "413": return "request_too_large"
+        case "429": return "rate_limit_error"
+        case "503", "529": return "overloaded_error"
+        default: return "api_error"
+        }
+    }
+
+    /// The overflow message. Claude Code matches this form to start its own
+    /// compaction, so the wording is part of the contract.
+    public static func promptTooLong(tokens: Int, maximum: Int) -> String {
+        "prompt is too long: \(tokens) tokens > \(maximum) maximum"
+    }
+
+    // MARK: - Request
+
+    public struct Request {
+        public var messages: [ChatMessage]
+        public var tools: [ToolDefinition]
+        public var choice: GatewayDialect.ToolChoice
+        public var parallel: Bool
+        public var thinking: Bool
+        public var effort: String?
+        /// False for `thinking.display: "omitted"`: thinking blocks then carry
+        /// only their signature, as Anthropic's do.
+        public var showThinking: Bool
+        /// Zero only for a token count, which needs no reply budget.
+        public var maxTokens: Int
+        public var temperature: Float?
+        public var topP: Float?
+        public var topK: Int?
+        public var stopSequences: [String]
+        public var stream: Bool
+        /// Top-level fields this server does not know, ignored by name.
+        public var ignored: [String]
+        public var hasImages: Bool { messages.contains { !$0.images.isEmpty } }
+    }
+
+    /// Fields with an effect here.
+    static let handledFields: Set<String> = [
+        "model", "messages", "max_tokens", "system", "stop_sequences", "stream",
+        "temperature", "top_p", "top_k", "tools", "tool_choice", "thinking", "output_config",
+    ]
+
+    /// Fields the API defines that change nothing on this server. Their types
+    /// are still checked. `context_management` asks the API to clear old
+    /// thinking or tool results; keeping them costs context, never correctness.
+    static let inertFields: Set<String> = ["metadata", "context_management", "service_tier"]
+
+    /// Fields that ask the API to run something on its own servers.
+    static let refusedFields: [String: String] = [
+        "container": "code execution containers are not available; tools run in the client",
+        "mcp_servers": "remote MCP servers are not available; connect MCP tools in the client",
+    ]
+
+    /// Tool types the API runs on its own servers. Nothing here can run them,
+    /// so they are dropped before rendering, as the Responses dialect drops
+    /// hosted tools: showing the model a tool that cannot run invites a call
+    /// that can only fail.
+    static let hostedToolPrefixes = ["web_search_", "web_fetch_", "code_execution_", "tool_search_tool_", "mcp_toolset",
+                                     "advisor_"]
+
+    /// Effort labels `output_config.effort` takes.
+    static let effortLabels: Set<String> = ["low", "medium", "high", "xhigh", "max"]
+
+    /// The attribution line Claude Code prepends to the system prompt.
+    static let attributionPrefix = "x-anthropic-billing-header:"
+
+    static let imageMediaTypes: Set<String> = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+    /// Parse a Messages request. `counting` is the count_tokens form, which
+    /// has no `max_tokens` and no sampling.
+    public static func parse(_ raw: [String: Any], counting: Bool = false) throws -> Request {
+        let json = raw.filter { !($0.value is NSNull) }
+        for key in refusedFields.keys.sorted() where json[key] != nil {
+            throw Failure("\(key): not supported; \(refusedFields[key]!)")
+        }
+        let known = handledFields.union(inertFields).union(refusedFields.keys)
+        let ignored = Set(json.keys).subtracting(known).sorted()
+        if let v = json["metadata"], !(v is [String: Any]) { throw Failure("metadata: must be an object") }
+        if let v = json["context_management"], !(v is [String: Any]) { throw Failure("context_management: must be an object") }
+        if let v = json["service_tier"], !(v is String) { throw Failure("service_tier: must be text") }
+        guard json["model"] != nil else { throw Failure("model: field required") }
+        guard json["model"] is String else { throw Failure("model: must be text") }
+
+        var maxTokens = 0
+        if let v = json["max_tokens"] {
+            guard let n = integer(v), n > 0 else { throw Failure("max_tokens: must be a positive integer") }
+            maxTokens = n
+        } else if !counting {
+            throw Failure("max_tokens: field required")
+        }
+        var stream = false
+        if let v = json["stream"] {
+            guard let b = boolean(v) else { throw Failure("stream: must be true or false") }
+            stream = b
+        }
+        var temperature: Float?
+        if let v = json["temperature"] {
+            guard let d = number(v), d >= 0 else { throw Failure("temperature: must be a number of at least 0") }
+            temperature = Float(d)
+        }
+        var topP: Float?
+        if let v = json["top_p"] {
+            guard let d = number(v), d >= 0, d <= 1 else { throw Failure("top_p: must be a number from 0 to 1") }
+            topP = Float(d)
+        }
+        var topK: Int?
+        if let v = json["top_k"] {
+            guard let n = integer(v), n >= 0 else { throw Failure("top_k: must be an integer of at least 0") }
+            topK = n
+        }
+        var stops: [String] = []
+        if let v = json["stop_sequences"] {
+            guard let list = v as? [Any], list.allSatisfy({ $0 is String }) else {
+                throw Failure("stop_sequences: must be an array of text")
+            }
+            stops = (list as! [String]).filter { !$0.isEmpty }
+        }
+
+        let (tools, hosted) = try parseTools(json["tools"])
+        let (choice, parallel) = try parseToolChoice(json["tool_choice"], declared: Set(tools.map(\.name)), hosted: hosted)
+        if choice == .required && tools.isEmpty {
+            throw Failure("tool_choice: \"any\" needs at least one tool")
+        }
+        let (thinking, effort, showThinking) = try parseThinking(json["thinking"], json["output_config"])
+
+        var systems = try parseSystem(json["system"])
+        var messages = try parseMessages(json["messages"], systems: &systems, counting: counting)
+        if !systems.isEmpty {
+            messages.insert(ChatMessage(role: "system", content: systems.joined(separator: "\n\n")), at: 0)
+        }
+        return Request(messages: messages, tools: tools, choice: choice, parallel: parallel,
+            thinking: thinking, effort: effort, showThinking: showThinking, maxTokens: maxTokens,
+            temperature: temperature, topP: topP, topK: topK, stopSequences: stops, stream: stream,
+            ignored: ignored)
+    }
+
+    // MARK: Tools
+
+    /// The declared tools, and the names of the server tools dropped from them.
+    static func parseTools(_ value: Any?) throws -> ([ToolDefinition], Set<String>) {
+        guard let value else { return ([], []) }
+        guard let list = value as? [Any] else { throw Failure("tools: must be an array") }
+        var tools: [ToolDefinition] = []
+        var names = Set<String>()
+        var hosted = Set<String>()
+        for (i, element) in list.enumerated() {
+            guard let raw = element as? [String: Any] else { throw Failure("tools.\(i): must be an object") }
+            let tool = raw.filter { !($0.value is NSNull) }
+            let type = tool["type"] as? String ?? "custom"
+            if type != "custom" {
+                if hostedToolPrefixes.contains(where: { type.hasPrefix($0) }) {
+                    if let name = tool["name"] as? String { hosted.insert(name) }
+                    continue
+                }
+                throw Failure("tools.\(i): tool type '\(type)' is not supported here; declare the tool with a name, description and input_schema")
+            }
+            // `cache_control`, `strict`, `defer_loading`, `eager_input_streaming`,
+            // `input_examples` and `allowed_callers` change delivery, not the
+            // schema the model is shown. `strict` is not enforced: calls are
+            // checked for well-formed JSON, not validated against the schema.
+            guard let name = tool["name"] as? String, !name.isEmpty else { throw Failure("tools.\(i).name: field required") }
+            guard names.insert(name).inserted else { throw Failure("tools: tool names must be unique; '\(name)' appears twice") }
+            if let d = tool["description"], !(d is String) { throw Failure("tools.\(i).description: must be text") }
+            guard let schema = tool["input_schema"] as? [String: Any] else {
+                throw Failure("tools.\(i).input_schema: must be a JSON Schema object")
+            }
+            tools.append(ToolDefinition(name: name, description: tool["description"] as? String ?? "",
+                                        parameters: JSONValue.from(schema)))
+        }
+        return (tools, hosted)
+    }
+
+    static func parseToolChoice(_ value: Any?, declared: Set<String>,
+                                hosted: Set<String> = []) throws -> (GatewayDialect.ToolChoice, Bool) {
+        guard let value else { return (.auto, true) }
+        guard let object = value as? [String: Any], let type = object["type"] as? String else {
+            throw Failure("tool_choice: must be an object with a type")
+        }
+        var parallel = true
+        if let v = object["disable_parallel_tool_use"], !(v is NSNull) {
+            guard let b = boolean(v) else { throw Failure("tool_choice.disable_parallel_tool_use: must be true or false") }
+            parallel = !b
+        }
+        switch type {
+        case "auto": return (.auto, parallel)
+        case "any": return (.required, parallel)
+        case "none": return (.disabled, parallel)
+        case "tool":
+            // Claude Code's WebSearch asks for the hosted `web_search` tool by
+            // name; say why it cannot run rather than that it is undeclared.
+            if let name = object["name"] as? String, hosted.contains(name) {
+                throw Failure("tool_choice.name: '\(name)' is a server tool that runs on Anthropic's servers; this server cannot run it")
+            }
+            guard let name = object["name"] as? String, declared.contains(name) else {
+                throw Failure("tool_choice.name: must name a declared tool")
+            }
+            return (.tool(name), parallel)
+        default:
+            throw Failure("tool_choice.type: must be auto, any, tool, or none")
+        }
+    }
+
+    /// `thinking` and `output_config` together decide whether the model
+    /// thinks, at what effort, and whether the client sees the text.
+    static func parseThinking(_ thinkingValue: Any?, _ outputConfig: Any?) throws -> (Bool, String?, Bool) {
+        var label: String?
+        if let value = outputConfig {
+            guard let config = value as? [String: Any] else { throw Failure("output_config: must be an object") }
+            if let format = config["format"], !(format is NSNull) {
+                throw Failure("output_config.format: not supported; constrained output is not available on this server")
+            }
+            if let effort = config["effort"], !(effort is NSNull) {
+                guard let s = effort as? String, effortLabels.contains(s) else {
+                    throw Failure("output_config.effort: must be low, medium, high, xhigh, or max")
+                }
+                label = s
+            }
+        }
+        guard let value = thinkingValue else { return (false, nil, true) }
+        guard let object = value as? [String: Any], let type = object["type"] as? String else {
+            throw Failure("thinking: must be an object with a type")
+        }
+        var show = true
+        if let display = object["display"], !(display is NSNull) {
+            // `omitted` hides the text; every other mode, including ones added
+            // after this file was written, shows it.
+            guard let s = display as? String else { throw Failure("thinking.display: must be text") }
+            show = s != "omitted"
+        }
+        switch type {
+        case "disabled":
+            return (false, nil, show)
+        case "enabled":
+            guard let budget = object["budget_tokens"].flatMap(integer), budget > 0 else {
+                throw Failure("thinking.budget_tokens: must be a positive integer")
+            }
+            // An explicit effort wins; otherwise the budget picks one.
+            let mapped = GatewayDialect.mapReasoning(label ?? (budget < 4096 ? "low" : budget < 16384 ? "medium" : "high"))
+            return (true, mapped.effort, show)
+        case "adaptive":
+            let mapped = GatewayDialect.mapReasoning(label ?? "high")
+            return (mapped.thinking, mapped.effort, show)
+        default:
+            throw Failure("thinking.type: must be enabled, adaptive, or disabled")
+        }
+    }
+
+    // MARK: System and messages
+
+    static func parseSystem(_ value: Any?) throws -> [String] {
+        guard let value else { return [] }
+        if let text = value as? String {
+            let kept = withoutAttribution(text)
+            return kept.isEmpty ? [] : [kept]
+        }
+        guard let blocks = value as? [Any] else { throw Failure("system: must be text or an array of text blocks") }
+        var out: [String] = []
+        for (i, element) in blocks.enumerated() {
+            guard let block = element as? [String: Any], (block["type"] as? String) == "text",
+                  let text = block["text"] as? String else {
+                throw Failure("system.\(i): must be a text block")
+            }
+            let kept = withoutAttribution(text)
+            if !kept.isEmpty { out.append(kept) }
+        }
+        return out
+    }
+
+    /// The text without a leading attribution line.
+    static func withoutAttribution(_ text: String) -> String {
+        guard text.hasPrefix(attributionPrefix) else { return text }
+        guard let newline = text.firstIndex(of: "\n") else { return "" }
+        return String(text[text.index(after: newline)...]).trimmingCharacters(in: .newlines)
+    }
+
+    /// Anthropic messages to template messages.
+    ///
+    /// An assistant turn's `tool_use` blocks must be answered by `tool_result`
+    /// blocks at the start of the next user message; the template wants one
+    /// tool message per call, in call order, so results are re-ordered by
+    /// their call and any text or pictures in that user message follow them.
+    /// Consecutive messages of one role are one turn, as the API treats them.
+    /// A `system` message before the conversation joins the system prompt;
+    /// after it starts, it renders as user text, because the template renders
+    /// one system turn and rejects a later one.
+    static func parseMessages(_ value: Any?, systems: inout [String], counting: Bool = false) throws -> [ChatMessage] {
+        guard let value else { throw Failure("messages: field required") }
+        guard let list = value as? [Any] else { throw Failure("messages: must be an array") }
+        guard !list.isEmpty else { throw Failure("messages: at least one message is required") }
+        var out: [ChatMessage] = []
+        var assistant: ChatMessage?
+        var pending: [(id: String, name: String)] = []
+        var toolIDs = Set<String>()
+        var started = false
+
+        func flushAssistant() {
+            if let a = assistant { out.append(a); assistant = nil }
+        }
+        func unanswered(_ i: Int) -> Failure {
+            Failure("messages.\(i): tool_use ids were found without tool_result blocks immediately after: "
+                + pending.map(\.id).joined(separator: ", "))
+        }
+
+        for (i, element) in list.enumerated() {
+            guard let raw = element as? [String: Any] else { throw Failure("messages.\(i): must be an object") }
+            let message = raw.filter { !($0.value is NSNull) }
+            guard let role = message["role"] as? String else { throw Failure("messages.\(i).role: field required") }
+            let blocks = try contentBlocks(message["content"], at: "messages.\(i).content")
+            switch role {
+            case "user":
+                flushAssistant()
+                started = true
+                var results: [String: ChatMessage] = [:]
+                var texts: [String] = []
+                var images: [String] = []
+                for (j, block) in blocks.enumerated() {
+                    let label = "messages.\(i).content.\(j)"
+                    switch block["type"] as? String ?? "" {
+                    case "tool_result":
+                        guard let id = block["tool_use_id"] as? String,
+                              let call = pending.first(where: { $0.id == id }), results[id] == nil else {
+                            throw Failure("\(label): tool_result must answer a tool_use from the previous assistant message, once")
+                        }
+                        let result = try toolResult(block, at: label)
+                        var m = ChatMessage(role: "tool", content: result.text, toolCallId: id, toolName: call.name)
+                        m.images = result.images
+                        results[id] = m
+                    case "text":
+                        texts.append(try text(block, at: label))
+                    case "image":
+                        images.append(try imageSource(block, at: label))
+                    case "document":
+                        texts.append(try documentText(block, at: label))
+                    case "search_result":
+                        texts.append(try searchResultText(block, at: label))
+                    case let other:
+                        throw Failure("\(label): content type '\(other)' is not supported in a user message")
+                    }
+                }
+                if !pending.isEmpty {
+                    guard pending.allSatisfy({ results[$0.id] != nil }) else { throw unanswered(i) }
+                    out.append(contentsOf: pending.map { results[$0.id]! })
+                    pending.removeAll()
+                }
+                if !texts.isEmpty || !images.isEmpty {
+                    var m = ChatMessage(role: "user", content: texts.joined(separator: "\n\n"))
+                    m.images = images
+                    out.append(m)
+                }
+            case "assistant":
+                guard pending.isEmpty else { throw unanswered(i) }
+                started = true
+                var a = assistant ?? ChatMessage(role: "assistant", content: "")
+                for (j, block) in blocks.enumerated() {
+                    let label = "messages.\(i).content.\(j)"
+                    switch block["type"] as? String ?? "" {
+                    case "text":
+                        a.content += try text(block, at: label)
+                    case "thinking":
+                        let replayed = try thinkingText(block, at: label)
+                        if !replayed.isEmpty { a.reasoning = (a.reasoning.map { $0 + "\n" } ?? "") + replayed }
+                    case "redacted_thinking":
+                        continue  // Encrypted by another provider; nothing here can read it.
+                    case "tool_use":
+                        guard let id = block["id"] as? String, !id.isEmpty else { throw Failure("\(label).id: field required") }
+                        guard let name = block["name"] as? String, !name.isEmpty else { throw Failure("\(label).name: field required") }
+                        guard toolIDs.insert(id).inserted else { throw Failure("\(label): tool_use id '\(id)' is used twice") }
+                        guard let input = block["input"] as? [String: Any] else { throw Failure("\(label).input: must be an object") }
+                        guard case .object(let arguments) = JSONValue.from(input) else { throw Failure("\(label).input: must be an object") }
+                        a.toolCalls.append(ParsedToolCall(id: id, name: name, arguments: arguments))
+                        pending.append((id, name))
+                    case let other:
+                        throw Failure("\(label): content type '\(other)' is not supported in an assistant message")
+                    }
+                }
+                assistant = a
+            case "system":
+                guard pending.isEmpty else { throw unanswered(i) }
+                var texts: [String] = []
+                for (j, block) in blocks.enumerated() {
+                    let type = block["type"] as? String ?? ""
+                    // Claude Code announces tools that became available late
+                    // this way; every declared tool is already rendered.
+                    if type == "tool_addition" || type == "tool_removal" { continue }
+                    guard type == "text" else {
+                        throw Failure("messages.\(i).content.\(j): a system message carries text, not '\(type)'")
+                    }
+                    texts.append(withoutAttribution(try text(block, at: "messages.\(i).content.\(j)")))
+                }
+                let joined = texts.filter { !$0.isEmpty }.joined(separator: "\n\n")
+                guard !joined.isEmpty else { continue }
+                if started {
+                    flushAssistant()
+                    out.append(ChatMessage(role: "user", content: joined))
+                } else {
+                    systems.append(joined)
+                }
+            default:
+                throw Failure("messages.\(i).role: must be user or assistant")
+            }
+        }
+        guard pending.isEmpty else {
+            throw Failure("messages: the last assistant message has tool_use blocks with no tool_result after them")
+        }
+        flushAssistant()
+        guard out.contains(where: { $0.role == "user" || $0.role == "tool" }) else {
+            throw Failure("messages: at least one user message is required")
+        }
+        if out.last?.role == "assistant" && !counting {
+            throw Failure("messages: the last message must be from the user; continuing a partial assistant reply is not supported")
+        }
+        return out
+    }
+
+    /// Content as blocks: text becomes one text block.
+    static func contentBlocks(_ value: Any?, at label: String) throws -> [[String: Any]] {
+        guard let value else { throw Failure("\(label): field required") }
+        if let text = value as? String { return [["type": "text", "text": text]] }
+        guard let list = value as? [Any] else { throw Failure("\(label): must be text or an array of content blocks") }
+        return try list.enumerated().map { j, element in
+            guard let block = element as? [String: Any], block["type"] is String else {
+                throw Failure("\(label).\(j): must be a content block with a type")
+            }
+            return block.filter { !($0.value is NSNull) }
+        }
+    }
+
+    static func text(_ block: [String: Any], at label: String) throws -> String {
+        guard let text = block["text"] as? String else { throw Failure("\(label).text: must be text") }
+        return text
+    }
+
+    /// Only inline pictures: a URL or file id names something this server
+    /// would have to fetch or does not have.
+    static func imageSource(_ block: [String: Any], at label: String) throws -> String {
+        guard let source = block["source"] as? [String: Any], let kind = source["type"] as? String else {
+            throw Failure("\(label).source: field required")
+        }
+        switch kind {
+        case "base64":
+            guard let media = source["media_type"] as? String, imageMediaTypes.contains(media) else {
+                throw Failure("\(label).source.media_type: must be image/jpeg, image/png, image/gif, or image/webp")
+            }
+            guard let data = source["data"] as? String, !data.isEmpty else {
+                throw Failure("\(label).source.data: field required")
+            }
+            return "data:\(media);base64,\(data)"
+        case "url":
+            throw Failure("\(label): image URLs are not supported; send the picture as base64")
+        case "file":
+            throw Failure("\(label): file ids are not supported; send the picture as base64")
+        default:
+            throw Failure("\(label).source.type: must be base64")
+        }
+    }
+
+    /// Plain-text documents are read inline; PDFs and remote documents are not.
+    static func documentText(_ block: [String: Any], at label: String) throws -> String {
+        guard let source = block["source"] as? [String: Any], let kind = source["type"] as? String else {
+            throw Failure("\(label).source: field required")
+        }
+        var body: String
+        switch kind {
+        case "text":
+            guard let data = source["data"] as? String else { throw Failure("\(label).source.data: must be text") }
+            body = data
+        case "content":
+            guard let parts = source["content"] as? [Any] else { throw Failure("\(label).source.content: must be an array") }
+            body = try parts.enumerated().map { k, part -> String in
+                guard let block = part as? [String: Any], (block["type"] as? String) == "text" else {
+                    throw Failure("\(label).source.content.\(k): only text blocks can be read")
+                }
+                return try text(block, at: "\(label).source.content.\(k)")
+            }.joined(separator: "\n\n")
+        default:
+            // Refusing would end the turn and, for Claude Code, repeat on every
+            // turn after it; a note lets the model say so or extract the text.
+            let name = (block["title"] as? String).map { " '\($0)'" } ?? ""
+            return "[The document\(name) is not shown: this model reads plain text and pictures, not PDF or remote documents. "
+                + "Extract its text first, for example with `pdftotext file.pdf -`.]"
+        }
+        if let title = block["title"] as? String, !title.isEmpty { body = title + "\n\n" + body }
+        if let context = block["context"] as? String, !context.isEmpty { body = context + "\n\n" + body }
+        return body
+    }
+
+    /// A search result as text: its title, source and text blocks.
+    static func searchResultText(_ block: [String: Any], at label: String) throws -> String {
+        guard let parts = block["content"] as? [Any] else { throw Failure("\(label).content: must be an array") }
+        var lines: [String] = []
+        if let title = block["title"] as? String, !title.isEmpty { lines.append(title) }
+        if let source = block["source"] as? String, !source.isEmpty { lines.append("Source: " + source) }
+        for (k, element) in parts.enumerated() {
+            guard let part = element as? [String: Any], (part["type"] as? String) == "text" else {
+                throw Failure("\(label).content.\(k): only text blocks can be read")
+            }
+            lines.append(try text(part, at: "\(label).content.\(k)"))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    static func toolResult(_ block: [String: Any], at label: String) throws -> (text: String, images: [String]) {
+        var texts: [String] = []
+        var images: [String] = []
+        switch block["content"] {
+        case nil:
+            break
+        case let text as String:
+            texts.append(text)
+        case let parts as [Any]:
+            for (k, element) in parts.enumerated() {
+                let partLabel = "\(label).content.\(k)"
+                guard let part = element as? [String: Any] else { throw Failure("\(partLabel): must be a content block") }
+                switch part["type"] as? String ?? "" {
+                case "text": texts.append(try text(part, at: partLabel))
+                case "image": images.append(try imageSource(part, at: partLabel))
+                case "document": texts.append(try documentText(part, at: partLabel))
+                case "tool_reference":
+                    // Tool search results: the named tool is declared already.
+                    guard let name = part["tool_name"] as? String else { throw Failure("\(partLabel).tool_name: must be text") }
+                    texts.append("Tool available: \(name)")
+                case "search_result": texts.append(try searchResultText(part, at: partLabel))
+                case let other: throw Failure("\(partLabel): content type '\(other)' cannot be returned to the model here")
+                }
+            }
+        default:
+            throw Failure("\(label).content: must be text or an array of content blocks")
+        }
+        var joined = texts.joined(separator: "\n")
+        if let flag = block["is_error"], !(flag is NSNull) {
+            guard let isError = boolean(flag) else { throw Failure("\(label).is_error: must be true or false") }
+            if isError { joined = joined.isEmpty ? "Error" : "Error: " + joined }
+        }
+        return (joined, images)
+    }
+
+    /// The reasoning a replayed thinking block stands for: its text, or the
+    /// text this server stored in its signature when the client had asked for
+    /// the text to be omitted.
+    static func thinkingText(_ block: [String: Any], at label: String) throws -> String {
+        guard let thinking = block["thinking"] as? String else { throw Failure("\(label).thinking: must be text") }
+        if !thinking.isEmpty { return thinking }
+        if let signature = block["signature"] as? String, let stored = reasoning(fromSignature: signature) { return stored }
+        return ""
+    }
+
+    static let signaturePrefix = "slotstream.thinking.v1."
+
+    /// A signature that carries the reasoning it signs. Anthropic's signatures
+    /// are opaque and verified; this one is plain and trusted like the rest of
+    /// a replayed conversation, which the client could rewrite anyway.
+    public static func signature(for reasoning: String) -> String {
+        signaturePrefix + Data(reasoning.utf8).base64EncodedString()
+    }
+
+    public static func reasoning(fromSignature signature: String) -> String? {
+        guard signature.hasPrefix(signaturePrefix),
+              let data = Data(base64Encoded: String(signature.dropFirst(signaturePrefix.count))) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func boolean(_ value: Any) -> Bool? { ResponsesDialect.boolean(value) }
+    static func integer(_ value: Any) -> Int? { ResponsesDialect.integer(value) }
+    static func number(_ value: Any) -> Double? { ResponsesDialect.number(value) }
+
+    static func newID(_ prefix: String) -> String {
+        prefix + String(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(24))
+    }
+
+    public static func toolUseID() -> String { newID("toolu_") }
+
+    // MARK: - Response and events
+
+    public struct Usage: Equatable {
+        /// Every prompt token, reused or not.
+        public var prompt: Int
+        /// Prompt tokens served from a retained state.
+        public var cached: Int
+        public var output: Int
+        public init(prompt: Int, cached: Int, output: Int) {
+            self.prompt = prompt
+            self.cached = cached
+            self.output = output
+        }
+        /// Anthropic splits the prompt: `input_tokens` is what was read this
+        /// time and `cache_read_input_tokens` what was reused. Claude Code adds
+        /// the two to know how full the window is.
+        public var json: [String: Any] {
+            ["input_tokens": max(0, prompt - cached), "cache_creation_input_tokens": 0,
+             "cache_read_input_tokens": min(cached, prompt), "output_tokens": output]
+        }
+    }
+
+    /// One message as it is being produced: the finished content blocks, the
+    /// block currently open, and the SSE frames that describe each step.
+    ///
+    /// Every method returns frames and writes nothing; the server owns the
+    /// socket and the T0 gates read the frames as values. The non-streaming
+    /// reply is the same message object the stream describes.
+    public final class MessageStream {
+        public let id: String
+        public let model: String
+        public let showThinking: Bool
+        private var content: [[String: Any]] = []
+        private var open: (index: Int, thinking: Bool, text: String)?
+        public private(set) var toolUses = 0
+
+        public init(model: String, showThinking: Bool = true, id: String? = nil) {
+            self.model = model
+            self.showThinking = showThinking
+            self.id = id ?? AnthropicDialect.newID("msg_")
+        }
+
+        public func frame(_ type: String, _ fields: [String: Any] = [:]) -> String {
+            var object = fields
+            object["type"] = type
+            let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data("{}".utf8)
+            return "event: \(type)\ndata: " + String(decoding: data, as: UTF8.self) + "\n\n"
+        }
+
+        private func messageObject(stopReason: String?, stopSequence: String?, usage: [String: Any]) -> [String: Any] {
+            [
+                "id": id, "type": "message", "role": "assistant", "model": model, "content": content,
+                "stop_reason": stopReason.map { $0 as Any } ?? NSNull(),
+                "stop_sequence": stopSequence.map { $0 as Any } ?? NSNull(),
+                "usage": usage,
+            ]
+        }
+
+        /// `message_start` and a first `ping`, sent once the request is
+        /// admitted, when the reused part of the prompt is known. Claude Code
+        /// keeps a start's nonzero input count when the final one is zero, so
+        /// the start must already carry the real split.
+        public func start(promptTokens: Int, reused: Int = 0) -> [String] {
+            [frame("message_start", ["message": messageObject(stopReason: nil, stopSequence: nil,
+                usage: Usage(prompt: promptTokens, cached: reused, output: 0).json)]),
+             ping()]
+        }
+
+        public func ping() -> String { frame("ping") }
+
+        /// The event that keeps a quiet stream alive: a `ping`, or an empty
+        /// thinking delta while hidden thinking is open. Claude Code's idle
+        /// timer counts only its first 30 consecutive pings, so a long
+        /// reasoning it does not display needs events it counts.
+        public func keepalive() -> String {
+            if let block = open, block.thinking, !showThinking {
+                return frame("content_block_delta", [
+                    "index": block.index, "delta": ["type": "thinking_delta", "thinking": ""],
+                ])
+            }
+            return ping()
+        }
+
+        public func thinking(_ delta: String) -> [String] {
+            guard !delta.isEmpty else { return [] }
+            var out: [String] = []
+            if open?.thinking != true {
+                out += close()
+                open = (content.count, true, "")
+                out.append(frame("content_block_start", [
+                    "index": content.count,
+                    "content_block": ["type": "thinking", "thinking": "", "signature": ""],
+                ]))
+            }
+            open!.text += delta
+            if showThinking {
+                out.append(frame("content_block_delta", [
+                    "index": open!.index, "delta": ["type": "thinking_delta", "thinking": delta],
+                ]))
+            }
+            return out
+        }
+
+        public func text(_ delta: String) -> [String] {
+            guard !delta.isEmpty else { return [] }
+            var out: [String] = []
+            if open == nil || open!.thinking {
+                out += close()
+                open = (content.count, false, "")
+                out.append(frame("content_block_start", [
+                    "index": content.count, "content_block": ["type": "text", "text": ""],
+                ]))
+            }
+            open!.text += delta
+            out.append(frame("content_block_delta", [
+                "index": open!.index, "delta": ["type": "text_delta", "text": delta],
+            ]))
+            return out
+        }
+
+        /// A complete call. The parser publishes a call only after its closing
+        /// tag, so the input arrives whole: one delta, then the stop.
+        public func toolUse(_ call: ParsedToolCall) -> [String] {
+            var out = close()
+            let index = content.count
+            let inputText = call.inputJSON
+            let input = (try? JSONSerialization.jsonObject(with: Data(inputText.utf8))) as? [String: Any] ?? [:]
+            out.append(frame("content_block_start", [
+                "index": index,
+                "content_block": ["type": "tool_use", "id": call.id, "name": call.name, "input": [String: Any]()],
+            ]))
+            out.append(frame("content_block_delta", [
+                "index": index, "delta": ["type": "input_json_delta", "partial_json": inputText],
+            ]))
+            out.append(frame("content_block_stop", ["index": index]))
+            content.append(["type": "tool_use", "id": call.id, "name": call.name, "input": input])
+            toolUses += 1
+            return out
+        }
+
+        private func close() -> [String] {
+            guard let block = open else { return [] }
+            open = nil
+            var out: [String] = []
+            if block.thinking {
+                let signature = AnthropicDialect.signature(for: block.text)
+                out.append(frame("content_block_delta", [
+                    "index": block.index, "delta": ["type": "signature_delta", "signature": signature],
+                ]))
+                content.append(["type": "thinking", "thinking": showThinking ? block.text : "", "signature": signature])
+            } else {
+                content.append(["type": "text", "text": block.text])
+            }
+            out.append(frame("content_block_stop", ["index": block.index]))
+            return out
+        }
+
+        /// Why the reply ended. A delivered call wins: the client's next move
+        /// is to run it, whatever stopped the model afterwards. A reply cut
+        /// short by the window rather than by `max_tokens` says so, because a
+        /// larger `max_tokens` would not have helped.
+        public func stopReason(engineReason: String, stopSequence: String?, windowLimited: Bool = false) -> String {
+            if toolUses > 0 { return "tool_use" }
+            if stopSequence != nil { return "stop_sequence" }
+            guard engineReason == "length" else { return "end_turn" }
+            return windowLimited ? "model_context_window_exceeded" : "max_tokens"
+        }
+
+        public func finish(engineReason: String, stopSequence: String?, usage: Usage,
+                           windowLimited: Bool = false) -> [String] {
+            var out = close()
+            let reason = stopReason(engineReason: engineReason, stopSequence: stopSequence, windowLimited: windowLimited)
+            out.append(frame("message_delta", [
+                "delta": ["stop_reason": reason,
+                          "stop_sequence": (reason == "stop_sequence" ? stopSequence : nil).map { $0 as Any } ?? NSNull()],
+                "usage": usage.json,
+            ]))
+            out.append(frame("message_stop"))
+            return out
+        }
+
+        /// The non-streaming reply.
+        public func message(engineReason: String, stopSequence: String?, usage: Usage,
+                            windowLimited: Bool = false) -> [String: Any] {
+            _ = close()
+            let reason = stopReason(engineReason: engineReason, stopSequence: stopSequence, windowLimited: windowLimited)
+            return messageObject(stopReason: reason, stopSequence: reason == "stop_sequence" ? stopSequence : nil,
+                                 usage: usage.json)
+        }
+
+        /// An error after the head went out. Nothing open is closed as
+        /// complete: a partial block must not read as a finished one.
+        public func fail(type: String, message: String) -> [String] {
+            open = nil
+            return [frame("error", ["error": ["type": type, "message": message]])]
+        }
+    }
+}
+
+
+FILE BlockSelection.swift
+import MLX
+
+/// Exact keep-set prototype for the indexer's 512-of-N selection. It searches
+/// the sortable IEEE key space for the kth key, then resolves threshold ties
+/// in original-index order. Scores and their arithmetic remain unchanged.
+/// Storage is N/256 integer keys per lane plus eight shared integer counters;
+/// no N-wide sorted value/index pair or floating-point atomic is required.
+package enum BlockSelection {
+    private final class Kernels: Sendable {
+        static let shared = Kernels()
+        let select: MLXFast.MLXFastKernel? = MLXFast.metalKernel(name: "slotstream_block_keep512",
+            inputNames: ["scores"], outputNames: ["selected"], source: """
+            const uint tid = thread_position_in_grid.x % 256;
+            const uint row = thread_position_in_grid.x / 256;
+            const uint lane = thread_index_in_simdgroup;
+            const uint group = tid / 32;
+            constexpr uint Steps = (N + 255) / 256;
+            uint keys[Steps];
+            for (uint i = 0; i < Steps; ++i) {
+                uint index = i * 256 + tid;
+                uint bits = index < N ? as_type<uint>(scores[row * N + index]) : 0;
+                uint magnitude = bits & 0x7fffffffu;
+                // The pinned Metal comparator treats all FP32 subnormals as
+                // zero. Preserve that backend contract, including its ties.
+                if (magnitude < 0x00800000u) bits = 0;
+                keys[i] = magnitude > 0x7f800000u ? 0u
+                    : ((bits & 0x80000000u) ? ~bits : (bits ^ 0x80000000u));
+            }
+            threadgroup uint partial[8];
+            uint threshold = 0;
+            for (int bit = 31; bit >= 0; --bit) {
+                uint trial = threshold | (1u << uint(bit));
+                uint count = 0;
+                for (uint i = 0; i < Steps; ++i)
+                    count += (i * 256 + tid < N && keys[i] >= trial);
+                uint sum = simd_sum(count);
+                if (lane == 0) partial[group] = sum;
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+                uint total = 0;
+                for (uint g = 0; g < 8; ++g) total += partial[g];
+                if (total >= 512) threshold = trial;
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+            }
+            uint greater = 0;
+            for (uint i = 0; i < Steps; ++i)
+                greater += (i * 256 + tid < N && keys[i] > threshold);
+            uint sum = simd_sum(greater);
+            if (lane == 0) partial[group] = sum;
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            uint totalGreater = 0;
+            for (uint g = 0; g < 8; ++g) totalGreater += partial[g];
+            uint tieBudget = 512 - totalGreater;
+            uint earlierTies = 0;
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            for (uint i = 0; i < Steps; ++i) {
+                uint index = i * 256 + tid;
+                uint equal = index < N && keys[i] == threshold;
+                uint prefix = simd_prefix_inclusive_sum(equal);
+                uint sum = simd_sum(equal);
+                if (lane == 0) partial[group] = sum;
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+                uint beforeGroup = 0, tileTies = 0;
+                for (uint g = 0; g < 8; ++g) {
+                    if (g < group) beforeGroup += partial[g];
+                    tileTies += partial[g];
+                }
+                if (index < N) selected[row * N + index] = keys[i] > threshold
+                    || (equal && earlierTies + beforeGroup + prefix <= tieBudget);
+                earlierTies += tileTies;
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+            }
+            """)
+    }
+
+    package static func reference(_ scores: MLXArray, k: Int) -> MLXArray {
+        precondition(scores.ndim > 0)
+        let n = scores.dim(-1), count = min(n, max(0, k))
+        let empty = MLXArray.zeros(scores.shape, dtype: .bool)
+        if count == 0 || scores.size == 0 { return empty }
+        if count == n { return MLXArray.ones(scores.shape, dtype: .bool) }
+        let indices = argPartition(-scores, kth: count - 1, axis: -1)[.ellipsis, ..<count]
+        return putAlong(empty, indices, values: MLXArray(true), axis: -1)
+    }
+
+    package static func supported(_ scores: MLXArray, k: Int) -> Bool {
+        scores.ndim > 0 && scores.dtype == .float32 && scores.size > 0 && k == 512
+            && scores.dim(-1) > 512 && scores.dim(-1) <= 8192
+    }
+
+    private static func execute(_ scores: MLXArray, kernel: MLXFast.MLXFastKernel) -> MLXArray {
+        let n = scores.dim(-1)
+        return kernel([contiguous(scores)], template: [("N", n)],
+            grid: (scores.size / n * 256, 1, 1), threadGroup: (256, 1, 1),
+            outputShapes: [scores.shape], outputDTypes: [.bool])[0]
+    }
+
+    private static let initialized: Bool = {
+        guard let kernel = Kernels.shared.select else { return false }
+        let result = execute(MLXArray.zeros([1, 513], dtype: .float32), kernel: kernel)
+        guard result.asType(.uint8).asArray(UInt8.self) == [UInt8](repeating: 1, count: 512) + [0] else { return false }
+        let bits: [UInt32] = [0, 0x80000000, 1, 0x80000001, 0x007fffff, 0x807fffff, 0x00800000, 0x80800000]
+        let tiny = MLXArray((0 ..< 1024).map { Float(bitPattern: bits[$0 % bits.count]) })
+        return (execute(tiny, kernel: kernel) .== reference(tiny, k: 512)).all().item(Bool.self)
+    }()
+    @discardableResult package static func prepare() -> Bool { initialized }
+
+    package static func keep(_ scores: MLXArray, k: Int, enabled: Bool) -> MLXArray {
+        guard enabled, supported(scores, k: k), prepare(), let kernel = Kernels.shared.select else {
+            return reference(scores, k: k)
+        }
+        return execute(scores, kernel: kernel)
+    }
+}
+
+
+FILE BoundedOutput.swift
+import Foundation
+import Darwin
+
+/// One socket writer owns queued HTTP body bytes. The inference callback only
+/// enqueues: neither a slow peer nor a full queue may wait under the engine lock.
+/// The connection owner must finish/join this writer before closing its fd.
+package final class BoundedOutput: @unchecked Sendable {
+    package struct Snapshot: Codable {
+        package var queuedBytes = 0
+        package var writtenBytes = 0
+        package var queuedFrames = 0
+        package var writtenFrames = 0
+        package var peakOwnedBytes = 0
+        package var socketWaitSeconds = 0.0
+        package var firstWriteSeconds: Double?
+        package var failed = false
+        package var failureReason: String?
+    }
+
+    private let fd: Int32
+    private let originalFlags: Int32
+    private var flagsRestored = false
+    private let maxBytes: Int
+    private let maxFrames: Int
+    private let writeTimeout: Double
+    private let started = RuntimeClock.now()
+    private let lock = NSLock()
+    private let available = DispatchSemaphore(value: 0)
+    private let done = DispatchGroup()
+    private var queue: [Data] = []
+    // Includes the worker's in-flight Data: a partial write does not release it.
+    private var ownedBytes = 0
+    private var ownedFrames = 0
+    private var closing = false
+    private var counters = Snapshot()
+
+    package init(fd: Int32, maxBytes: Int = 1 << 20, maxFrames: Int = 64,
+                 writeTimeout: Double = 5) {
+        precondition(maxBytes > 0 && maxFrames > 0 && writeTimeout > 0 && writeTimeout <= 30)
+        self.fd = fd
+        originalFlags = fcntl(fd, F_GETFL)
+        self.maxBytes = maxBytes
+        self.maxFrames = maxFrames
+        self.writeTimeout = writeTimeout
+        var one: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+        // Darwin's local-socket send path did block with MSG_DONTWAIT alone
+        // in the saturation gate. Set the descriptor mode as well, after the
+        // request body has been read, and restore it only after joining.
+        if originalFlags < 0 || fcntl(fd, F_SETFL, originalFlags | O_NONBLOCK) != 0 {
+            counters.failed = true; closing = true
+            counters.failureReason = "could not configure nonblocking socket output"
+            available.signal()
+        }
+        done.enter()
+        DispatchQueue(label: "slotstream.socket-output").async { self.work() }
+    }
+
+    package var alive: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !counters.failed && !closing
+    }
+
+    package var snapshot: Snapshot {
+        lock.lock(); defer { lock.unlock() }
+        return counters
+    }
+
+    /// Bytes are already framed. Rejection cancels the stream; no partial frame
+    /// is enqueued and the producer must stop. Previously written bytes remain
+    /// distinct from accepted-but-not-yet-written bytes in the counters.
+    @discardableResult package func enqueue(_ data: Data) -> Bool {
+        lock.lock()
+        guard !closing && !counters.failed else { lock.unlock(); return false }
+        guard data.count <= maxBytes - ownedBytes && ownedFrames < maxFrames else {
+            failLocked("output queue capacity exceeded"); lock.unlock(); available.signal(); return false
+        }
+        queue.append(data)
+        ownedBytes += data.count; ownedFrames += 1
+        counters.queuedBytes += data.count; counters.queuedFrames += 1
+        counters.peakOwnedBytes = max(counters.peakOwnedBytes, ownedBytes)
+        lock.unlock()
+        available.signal()
+        return true
+    }
+
+    package func cancel() {
+        lock.lock(); failLocked("output cancelled or drain deadline exceeded"); lock.unlock()
+        available.signal()
+    }
+
+    private func failLocked(_ reason: String) {
+        if counters.failureReason == nil { counters.failureReason = reason }
+        counters.failed = true
+        closing = true
+        // Drop pending storage now; the worker owns at most one bounded frame.
+        for data in queue { ownedBytes -= data.count; ownedFrames -= 1 }
+        queue.removeAll()
+        shutdown(fd, SHUT_WR)
+    }
+
+    /// Called after generation releases its lock. The entire drain has one
+    /// monotonic deadline, so a peer cannot extend it by accepting a byte at a time.
+    @discardableResult package func finish() -> Bool {
+        lock.lock(); closing = true; lock.unlock()
+        available.signal()
+        if done.wait(timeout: .now() + writeTimeout) == .timedOut {
+            cancel()
+            // send is nonblocking; poll wakes at least every 50 ms and observes
+            // cancellation. Joining is mandatory before the owner closes/reuses fd.
+            done.wait()
+        }
+        lock.lock()
+        if !flagsRestored && originalFlags >= 0 {
+            _ = fcntl(fd, F_SETFL, originalFlags)
+            flagsRestored = true
+        }
+        let succeeded = !counters.failed
+        lock.unlock()
+        return succeeded
+    }
+
+    private var failed: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return counters.failed
+    }
+
+    private func work() {
+        defer { done.leave() }
+        while true {
+            available.wait()
+            lock.lock()
+            if counters.failed || (closing && queue.isEmpty) { lock.unlock(); return }
+            guard !queue.isEmpty else { lock.unlock(); continue }
+            let data = queue.removeFirst()
+            lock.unlock()
+            let written = write(data)
+            lock.lock()
+            ownedBytes -= data.count; ownedFrames -= 1
+            if written { counters.writtenFrames += 1 }
+            else { failLocked("socket write failed or timed out") }
+            let exit = counters.failed || (closing && queue.isEmpty)
+            lock.unlock()
+            if exit { return }
+        }
+    }
+
+    private func write(_ data: Data) -> Bool {
+        let start = RuntimeClock.now()
+        return data.withUnsafeBytes { bytes in
+            var sent = 0
+            while sent < bytes.count {
+                if failed || RuntimeClock.seconds(since: start) >= writeTimeout { return false }
+                let n = Darwin.send(fd, bytes.baseAddress! + sent, bytes.count - sent, MSG_DONTWAIT)
+                if n > 0 {
+                    sent += n
+                    lock.lock()
+                    counters.writtenBytes += n
+                    if counters.firstWriteSeconds == nil {
+                        counters.firstWriteSeconds = RuntimeClock.seconds(since: started)
+                    }
+                    lock.unlock()
+                    continue
+                }
+                if n < 0 && errno == EINTR { continue }
+                guard n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) else { return false }
+                var event = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
+                let waitStart = RuntimeClock.now()
+                let result = poll(&event, 1, 50)
+                let waited = RuntimeClock.seconds(since: waitStart)
+                lock.lock(); counters.socketWaitSeconds += waited; lock.unlock()
+                if result < 0 && errno != EINTR { return false }
+                if result > 0 && event.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 { return false }
+            }
+            return true
+        }
+    }
+}
+
+
+FILE CPUSlotWrite.swift
+import MLX
+
+/// Experimental shared-memory update using MLX's own CPU primitive. The graph
+/// owns all inputs and cross-stream dependencies; there are no raw writes or
+/// manual assumptions that an evaluated array has no surviving GPU reader.
+/// A fresh Swift context preserves external aliases and permits donation only
+/// when MLX proves exclusive storage ownership at evaluation.
+package enum CPUSlotWrite {
+    package static func apply(to destination: MLXArray, from source: MLXArray,
+                              slots: [Int32]) throws -> MLXArray {
+        guard destination.ndim >= 2, source.ndim == destination.ndim,
+            destination.dtype == source.dtype,
+            Array(destination.shape.dropFirst()) == Array(source.shape.dropFirst()),
+            !slots.isEmpty, slots.count <= 32, source.dim(0) == slots.count,
+            Set(slots).count == slots.count,
+            slots.allSatisfy({ $0 >= 0 && Int($0) < destination.dim(0) }) else {
+            throw ModelError("invalid CPU slot update geometry or destination rows")
+        }
+        let result = destination.reshaped(destination.shape, stream: .cpu)
+        // The pinned generic CPU scatter visits each element individually.
+        // Every validated batch has at most 32 runs; use the contiguous copy
+        // primitive even when CLOCK returns many disjoint destination rows.
+        // Donation and cross-stream dependencies still belong to MLX.
+        guard let runs = SlotWriteRun.plan(slots, capacity: destination.dim(0), maximumRuns: 32) else {
+            throw ModelError("invalid CPU slot copy plan")
+        }
+        for run in runs {
+            result[run.destination, stream: .cpu] = source[run.source, stream: .cpu]
+        }
+        return result
+    }
+}
+
+
+FILE CacheBookkeeping.swift
+// CPU-only bookkeeping with the same eviction/pinning policy as the original
+// containers. These change how keys are stored, never what model work runs.
+import Foundation
+
+package struct FIFOKeys {
+    private var storage: [Int64] = []
+    private var head = 0
+    package private(set) var count = 0
+    package let capacity: Int
+    package init(capacity: Int) {
+        precondition(capacity > 0)
+        self.capacity = capacity
+    }
+    package mutating func append(_ key: Int64) {
+        precondition(count < capacity)
+        let slot = (head + count) % capacity
+        if slot == storage.count { storage.append(key) }
+        else { storage[slot] = key }
+        count += 1
+    }
+    package mutating func popFirst() -> Int64? {
+        guard count > 0 else { return nil }
+        let key = storage[head]
+        head = (head + 1) % capacity
+        count -= 1
+        return key
+    }
+    package mutating func removeAll() {
+        storage.removeAll(); head = 0; count = 0
+    }
+}
+
+/// Direct indexing of the finite model expert domain. The small dictionary
+/// fallback makes the container total for diagnostic/non-model keys too.
+package struct ExpertSlotIndex {
+    private let layers: Int
+    private let experts: Int
+    private var dictionary: [ExpertKey: Int] = [:]
+    private var dense: [Int32] = []
+    package var isDense: Bool { !dense.isEmpty }
+    package init(layers: Int, experts: Int) {
+        precondition(layers > 0 && experts > 0)
+        self.layers = layers; self.experts = experts
+    }
+    private func offset(_ key: ExpertKey) -> Int? {
+        guard key.layer >= 0, key.layer < layers, key.expert >= 0, key.expert < experts else { return nil }
+        return key.layer * experts + key.expert
+    }
+    package mutating func configure(dense enabled: Bool) {
+        guard enabled != isDense else { return }
+        if enabled {
+            dense = Array(repeating: -1, count: layers * experts)
+            for (key, value) in dictionary {
+                if let i = offset(key) { dense[i] = Int32(value) }
+            }
+            dictionary = dictionary.filter { offset($0.key) == nil }
+        } else {
+            for i in dense.indices where dense[i] >= 0 {
+                dictionary[ExpertKey(i / experts, i % experts)] = Int(dense[i])
+            }
+            dense.removeAll()
+        }
+    }
+    package subscript(_ key: ExpertKey) -> Int? {
+        get {
+            if isDense, let i = offset(key) { return dense[i] < 0 ? nil : Int(dense[i]) }
+            return dictionary[key]
+        }
+        set {
+            if isDense, let i = offset(key) { dense[i] = newValue.map(Int32.init) ?? -1 }
+            else { dictionary[key] = newValue }
+        }
+    }
+    package mutating func removeValue(forKey key: ExpertKey) { self[key] = nil }
+    package mutating func removeAll(keepingCapacity: Bool) {
+        dictionary.removeAll(keepingCapacity: keepingCapacity)
+        for i in dense.indices { dense[i] = -1 }
+    }
+    package var denseBytes: Int { dense.count * MemoryLayout<Int32>.stride }
+}
+
+package struct SlotPins {
+    private var flags: [Bool]
+    private var touched: [Int] = []
+    private var sparse = false
+    package private(set) var count = 0
+
+    /// Pins normally live exactly one layer: the MoE retires the previous
+    /// layer's pins just before choosing its own victims, which is why the
+    /// engine must drain the GPU at every layer boundary before the next
+    /// layer's ensure() can scatter. Holding pins for several generations
+    /// instead removes that requirement, because a slot an unevaluated gather
+    /// still reads cannot be chosen as a victim while it stays pinned.
+    /// `depth == 1` is the original behaviour, bit for bit: `retireGeneration`
+    /// then does exactly what `unpinAll` did.
+    private var ring: [[Int]] = []
+    private var pinnedIn: [Int] = []
+    private var head = 0
+    private var absolute = 0
+    package private(set) var depth = 1
+
+    package init(count: Int, sparse: Bool = false) {
+        flags = Array(repeating: false, count: count)
+        self.sparse = sparse
+    }
+    package mutating func configure(sparse enabled: Bool) {
+        guard sparse != enabled else { return }
+        touched = enabled ? flags.indices.filter { flags[$0] } : []
+        sparse = enabled
+    }
+    /// Number of generations a pin survives. Raising it costs pinned capacity
+    /// (about one layer's routed experts per extra generation) and buys the
+    /// right to defer the layer barrier.
+    package mutating func configure(depth d: Int) {
+        let wanted = max(1, d)
+        guard wanted != depth else { return }
+        // Collapse whatever is pinned now into a single live generation, so a
+        // change of depth never strands a pin in a retired ring slot.
+        depth = wanted
+        absolute = 0
+        head = 0
+        if wanted == 1 {
+            ring = []; pinnedIn = []
+        } else {
+            ring = Array(repeating: [], count: wanted)
+            pinnedIn = Array(repeating: -1, count: flags.count)
+            for slot in flags.indices where flags[slot] {
+                pinnedIn[slot] = 0
+                ring[0].append(slot)
+            }
+        }
+    }
+    package subscript(_ slot: Int) -> Bool { flags[slot] }
+    package mutating func pin(_ slot: Int) {
+        if depth > 1 {
+            if !flags[slot] { flags[slot] = true; count += 1 }
+            // Re-pinning in a newer generation moves ownership forward, so the
+            // older generation's retirement leaves the slot pinned.
+            if pinnedIn[slot] != absolute { pinnedIn[slot] = absolute; ring[head].append(slot) }
+            return
+        }
+        guard !flags[slot] else { return }
+        flags[slot] = true
+        count += 1
+        if
+</material>
+Summarize the main responsibilities and operating limits in five concise bullets.

@@ -1,0 +1,21 @@
+{
+  "id": "budget10_auto",
+  "ceiling_gb": 10,
+  "required_headroom_gb": 13,
+  "plan_args": [
+    "--memory-gb",
+    "10"
+  ],
+  "decode_fixtures": [
+    "r0092"
+  ],
+  "prefill_fixtures": [
+    "code2048",
+    "prose2048",
+    "code8192",
+    "prose8192",
+    "code16384",
+    "prose16384"
+  ],
+  "scope": "Explicit total-memory measurement; ordinary prefix cache and planner-owned compute/context/MTP; not simulated hardware"
+}

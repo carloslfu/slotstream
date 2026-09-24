@@ -1,0 +1,15 @@
+{
+  "stream": true,
+  "think": false,
+  "options": {
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 128
+  },
+  "messages": [
+    {
+      "content": "Convert this CSV data into a single JSON object that satisfies the JSON schema below. Respond with the JSON only.\n\nCSV:\nitem,amount,unit\nrice,400,g\nchicken thighs,600,g\nonion,1,piece\nsaffron,0.5,g\nolive oil,3,tbsp\n\nSchema:\n{\n  \"type\": \"object\",\n  \"required\": [\n    \"name\",\n    \"servings\",\n    \"ingredients\",\n    \"steps\"\n  ],\n  \"properties\": {\n    \"ingredients\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"item\",\n          \"amount\",\n          \"unit\"\n        ]\n      }\n    },\n    \"steps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  }\n}",
+      "role": "user"
+    }
+  ]
+}

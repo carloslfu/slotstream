@@ -1875,3 +1875,177 @@ Body no longer says auto picks 65,536 tokens or more from 36 GB; at 48 GB it pic
 
 ## [2026-09-18 21:50] validate | db
 Automatic window docs aligned with 0.2.22: zero validation errors, two declared historical warnings, 302 claim needles current and llms-full.txt regenerated.
+## [2026-09-19 14:08] create | sources/runs/2026/09/2026-09-19-complete-prompt-image-key-and-answer-narration
+complete-prompt passes again (274 plain, 289 speculative): its image lookups now use the key generation stores under vision query tiling, and the speculative handoff is checked with the resume rule on and off. Sevra replies drop tool-round narration, which moves to Activity; the real-model PDF fixture is byte-stable and two runs matched byte for byte.
+
+## [2026-09-19 14:08] update | records/design/sevra-spec/implementation-status
+Added the narration and fixture fixes, corrected the greedy-decoding reason for two matching runs, and noted that the dbmd write window needs a compare-and-set in dbmd.
+
+## [2026-09-19 14:08] update | records/design/sevra-spec/runtime-contract
+Stated where tool-round words go (Activity, not the reply) and that closing the record write window needs a compare-and-set in dbmd.
+
+## [2026-09-19 15:13] create | sources/runs/2026/09/2026-09-19-sevra-names-attachments
+Sevra's instructions now name each attachment, quoted as data, with kind and access, so "what is this?" about one attached PDF reads it instead of asking. Scripted check fails without the change; the real-model check's new fourth job read and described the attached report, 14 of 14 in 636 s.
+
+## [2026-09-19 15:13] update | records/design/sevra-spec/runtime-contract
+Stated that the system instructions name each attachment and what "this" refers to.
+
+## [2026-09-19 15:13] update | records/design/sevra-spec/implementation-status
+Added the attachment-naming fix and its evidence.
+
+## [2026-09-20 19:56] update | records/design/sevra-spec/runtime-contract
+A tool turn thinks when the switch is on, a thought never takes a staged reply's budget, and a refused proposal is correctable twice instead of ending the job.
+
+## [2026-09-20 19:56] update | records/design/sevra-spec/ui-contract
+Think longer is unavailable only while AI is paused; an attached source no longer takes the switch away.
+
+## [2026-09-20 19:56] update | records/design/sevra-spec/implementation-status
+Recorded the thinking-with-tools measurement and the refused-proposal correction.
+
+## [2026-09-20 19:56] create | sources/runs/2026/09/2026-09-20-thinking-with-tools-and-refused-proposals
+Three real-model runs with thinking on: every tool call valid, the same reviewed edit, 783/682/1257 s against 636 s plain; a refused app proposal now corrects instead of ending the job.
+
+## [2026-09-21 04:38] create | sources/runs/2026/09/2026-09-20-sevra-response-details
+Response details in the Mac app: engine numbers per run, speed line, thinking line, live thought preview and working notes. Scripted gate passed in an isolated snapshot of HEAD 40209f8 plus this work; the real-model check matched the engine over three turns and found that a thinking turn reads its prompt tail and its thought twice.
+
+## [2026-09-21 04:38] create | records/claims/sevra-mac-working-notes-eight-responses
+Working notes stay in memory for the eight most recent responses; gated by sevra-mac-checks --response-details.
+
+## [2026-09-21 04:38] update | records/design/sevra-spec/runtime-contract
+Response metrics section; thinking receipts merge over a job's rounds with steps; the answer phase is a second engine request that reads again after the prompt's last pass boundary, no longer described as continuing the held state.
+
+## [2026-09-21 04:38] update | records/design/sevra-spec/ui-contract
+Thinking controls: live three-line thought preview and the thinking line above a reply. New Response details section: optional speed line, one details popover per response, working notes, Copy.
+
+## [2026-09-21 04:38] update | records/design/sevra-spec/implementation-status
+Response details section with verification, the thinking second-read finding and what remains open.
+
+## [2026-09-21 04:45] validate | records/decisions/adaptive-memory-limits.md
+Adaptive memory implementation verified with planner contracts, 399 CLI cases plus two text diagnostics, native policy/UI checks, real deferred changes and a complete bounded shrink/cooldown/regrowth drill. Raw evidence preserved. Store validation: zero errors and two pre-existing historical log warnings; claims and projections pass. No release performed.
+
+## [2026-09-21 05:04] create | sources/runs/2026/09/2026-09-21-issue21-regressions
+Preserved official 0.2.20 baseline, intermediate failed restart and final evidence with source/binary identities and hash-verified archives. T0, tensor round trip, OpenAI, streaming, disconnect and disk-restart checks pass.
+
+## [2026-09-21 05:04] create | records/measurements/issue21-serving-regressions-2026-09-21
+Recorded every issue-21 symptom separately: confirmed parser, truncation and memory/disk history defects repaired; prior fixes verified; adapter limits retained; silent exits, busy stall and pressure throughput remain unverified.
+
+## [2026-09-21 05:04] validate | records/measurements/issue21-serving-regressions-2026-09-21
+Zero validation errors, two pre-existing historical log warnings. Claims, projections, generated docs, Python syntax and whitespace pass. Model processes reaped. No release or GitHub mutation.
+
+## [2026-09-21 05:15] validate | records/decisions/adaptive-memory-limits.md
+Adversarial follow-up reproduced and repaired loss of the saved adaptive ceiling in the public server context setter; covered launch forwarding/status, fixed-diagnostic refusals, simulation isolation and out-of-range native settings. Preserved raw evidence and source snapshots. Passed 416 CLI cases, 964805 proxy assertions, 56 T0 groups, native policy and six UI renders, real server cooldown/request and complete bounded shrink/recovery with exact output. Claims/projections/whitespace pass; store has zero errors and two pre-existing log warnings. No release or real 64 GiB allocation qualification.
+
+## [2026-09-21 05:57] validate | records/decisions/adaptive-memory-limits.md
+Second adversarial pass corrected small-cache recovery after pressure and busy startup, fractional JSON/child-argument precision, bounded guidance and persisted response ceiling wording. Final build passed 420 CLI cases, 964819 pure assertions, 56 T0 groups, native policy/persistence, eight UI renders, public fractional/pinned serving and complete small/full live recovery with exact output. Native real deferred 10-to-9 GB change, reload and idle release passed. Archived and verified 154 evidence members. Claims, projections and whitespace pass; zero store errors, two pre-existing historical log warnings. All owned model processes and the bounded test driver ended. No release or real 64 GiB allocation qualification.
+
+## [2026-09-21 06:18] validate | records/decisions/adaptive-memory-limits.md
+Third adversarial memory pass repaired six legacy Swift callable signatures and rejected contradictory directly constructed adaptive plans before model allocation. External package and real Engine rejection pass; 420 CLI cases, 964828 pure assertions including 591 memory contracts, 56 T0 groups/29478 assertions, native policy/persistence and harness checks pass. Archived and hash-verified 100 evidence members. Frozen build sources still match. Live rerun did not start because another task retained the normal model lock through a bounded wait; previous live/UI evidence remains separate. Claims/projections/whitespace pass; zero store errors and two historical log warnings. No owned test processes remain. No release or real 64 GiB allocation qualification.
+
+## [2026-09-21 06:41] create | sources/runs/2026/09/2026-09-21-sevra-mac-ci
+Sevra Mac CI on GitHub Actions: five runs of the new sevra-mac workflow. Every Xcode build passed; runner-only check failures were fixed until run five passed. Two engine CI fixes: a racing scheduler check and the coverage ratchet's rounding.
+
+## [2026-09-21 06:41] update | records/design/sevra-spec/implementation-status
+The Xcode app target builds in CI; Repository validation records the Mac app workflow and its runs, and the open list keeps only launching the Xcode-built app.
+
+## [2026-09-21 06:41] update | records/design/sevra-spec/mac-platform
+The baseline notes that CI now builds the Xcode app target, which shows that it builds, not that it runs.
+
+## [2026-09-21 06:51] create | sources/runs/2026/09/2026-09-21-issue21-qualification.md
+Preserved 558 hash-verified evidence members across four archives: initial and intermediate failures, full acceptance, long conversation/restart, final checkout live API and adaptive server. Exact source/executable boundaries are retained; model states and executables excluded.
+
+## [2026-09-21 06:51] create | records/measurements/issue21-long-context-qualification-2026-09-21.md
+Issue 21 follow-up: full 29-gate acceptance passed on frozen build cc39e86e; 30K-to-51K prompts and exact restart passed at configured 64K/131K windows. Final checkout 7a4ae53b passed 56 T0 groups, runtime, streaming/tool/cache/reset/restart and bounded adaptive serving. Repaired stale aligned-cache, typed-pressure and in-scope cancellation diagnostic assumptions. Original intermittent exits and busy stall remain unreproduced; no clean performance claim or full-window prompt qualification.
+
+## [2026-09-21 06:51] validate | records/measurements/issue21-long-context-qualification-2026-09-21.md
+Brain gates pass: zero errors, two pre-existing historical log warnings, 303 claim needle checks. Projections and llms-full regenerated; Python harness compilation, whitespace and archive/source hashes pass. All owned test servers and waiters ended; normal model lock is free. Changes remain local and unreleased.
+
+## [2026-09-21 15:39] validate | records/decisions/adaptive-memory-limits.md
+Prepared a memory-only commit over 5d24e18, excluding concurrent issue-21 changes. Clean optimized local build, 964828 pure assertions, 420 CLI cases, 54 T0 groups, 22 verification/seven planner/four consumer harness checks and the previously blocked real fractional-ceiling server pass. Retained exact source hashes and a verified 22-member archive; owned server reaped. Zero validation errors and two historical warnings. User authorizes commit/push only; Unreleased marks next-release intent without a date, version bump, tag or publication.
+
+## [2026-09-21 17:15] create | records/measurements/prompt-speed-qualification-2026-09-21.md
+Implemented and qualified guarded larger expert reads, exact checkpoint and app restart reuse, and live thinking-to-answer phases. Three clean paired rounds show 15.2% less prefill time on the bounded M5 Pro fixture; contaminated rounds remain preserved. The fused MLX candidate stays excluded after three final-token mismatches. Engine, component, shared-prefix, native app, real cache/thinking/metrics and static gates pass. Exact source archives and failed attempts are recorded. Changes remain local and unreleased.
+
+## [2026-09-21 18:35] create | records/decisions/coverage-as-review-feedback.md
+Made historical coverage percentages advisory while keeping instrumented checks and report errors blocking; added GitHub summary feedback and direct memory-budget refusal cases. Coverage CLI success/failure checks, static harness tests and isolated context-policy suite pass; original CI LCOV remains visible as advisory findings. Documentation, projections, claims and whitespace checks pass. Brain validation has zero errors and the two existing historical log warnings. Changes remain local and uncommitted.
+
+## [2026-09-21 18:53] create | records/measurements/fused-attention-reassessment-2026-09-21.md
+Reassessed the fused-attention rejection. The 512-row control also changes a token; all 12 independent sampled float64 attention comparisons favor fused numerical fidelity. Four real tasks return identical tokens under both backends, including one shared arithmetic error. Same-fused-backend cache reuse is bit exact. Two clean 8K pairs show a preliminary 4.99% prefill-time reduction; three paging-contaminated pairs are excluded. Corrected diagnostic observability and interpretation without enabling the dependency upgrade. Main build, 56 T0 groups and 817 real scope checks pass; raw source archives and failures remain preserved.
+
+## [2026-09-21 21:38] update | records/measurements/fused-prefill-integration-2026-09-21
+Integrated pinned upstream MLX fused prefill with engine, Mac app, SDK and installer qualification. Preserved raw failures and paging exclusions. Three clean 8K paired rounds show 5.22% less prefill time for the complete integration; component percentages remain preliminary. Validation has zero errors and the two existing historical log warnings.
+
+## [2026-09-22 00:13] update | records/measurements/prefill-opportunities-2026-09-21.md
+Tested remaining prefill candidates with bounded paired timing, exact-state and lifecycle gates; retain guarded opt-in combination without changing defaults. Preserve all exclusions and rejected alternatives. App, static, projection and claim gates pass; two historical log warnings remain.
+
+## [2026-09-22 00:15] update | records/measurements/prefill-opportunities-2026-09-21.md
+Finalized immutable raw capture, run-specific binary references, generated documentation and final validation. All retained opt-in correctness, app and static checks pass; no new automatic default or qualified speed percentage is adopted.
+
+## [2026-09-22 02:46] update | records/measurements/automatic-prefill-policy-2026-09-21.md
+Adopt the guarded combined prefill policy automatically at the user’s explicit direction. Exact state, lifecycle, checkpoint/disk, MTP/image, low-budget and fusion-disabled checks pass, as do the native app and static suites. Preserve the failed timing qualification and all exclusions without a new qualified percentage. Source identities, raw artifacts and generated documentation are recorded. Changes remain local and unreleased.
+
+## [2026-09-22 05:05] update | records/measurements/mtp-prefill-policy-2026-09-21.md
+Qualified automatic MTP prefill with separate main/draft peaks and bounded expert writes. Three clean paired runs show 65.40% lower prefill time at the 16K/10 GB M5 Pro profile; exact state/output, lifecycle, low-memory fallback, persistent restart, native app and static gates pass. Preserved V1 failure and paging-excluded component screen. Local implementation, not a release.
+
+## [2026-09-22 05:25] update | records/measurements/mtp-prefill-policy-2026-09-21.md
+Completed next-release documentation for all six prompt-speed changes in CHANGELOG Unreleased, linked qualified measurements, corrected the engineering guide to distinguish historical cache timing from current exact reuse, and added a commit-pinned changelog link to generated GitHub release notes. Regenerated documentation; brain, claims, links, diff and offline workflow-rendering checks pass. No release was published.
+
+## [2026-09-22 05:40] update | records/measurements/mtp-prefill-policy-2026-09-21.md
+Preparing release 0.2.23 at Carlos’s explicit request, including all current engine, serving, memory, Mac app and documentation changes. The qualified runtime differs only in the version literal. Release remains pending complete main/Mac CI, native acceptance of the CI archive, and installed public-download verification.
+
+## [2026-09-22 14:57] update | records/measurements/release-0-2-23-published-2026-09-22.md
+Published v0.2.23 from the exact successful CI archive after 32 full native gates and 13 exact 16K MTP assertions. Verified public archive equality and provenance, installed through the public installer, and passed 31 installed serving checks with MTP on. Preserved earlier incomplete attempts and all raw receipts; cleaned up test processes.
+
+## [2026-09-22 18:31] update | records/measurements/published-prompt-speed-audit-2026-09-22.md
+Audited installed releases and feature ablations across 123 completed requests. Three clean exact prose follow-ups show 85.62% less request time versus checkpoints disabled, not a release delta; short requests show no consistent gain. Preserve paging, thermal, validator and empty-output exclusions. Record larger-planner, Desktop MTP and checkpoint-affordability limits. Fix only prospective benchmark refusal validation; 51 harness tests, six offline replays and 12 analysis tests pass. Archive all evidence with per-file hashes; runtime unchanged and owned model processes reaped.
+
+## [2026-09-22 18:38] update | records/measurements/speed-tables-review-2026-09-22.md
+Checked the published planner against every automatic memory/context row and kept the latest qualified 0.2.19 decode reference. Added separately scoped long-prompt and reuse results to README and HARDWARE, with claim records and links to the existing qualification. Documented that historical planner throughput estimates have not been recalibrated; no new inference benchmark or runtime change.
+
+## [2026-09-22 19:42] update | records/measurements/release-speed-calibration-2026-09-22.md
+Preserved 27 completed installed-release requests with exact wire replay and five narrow output checks; stopped the incomplete timing population after concurrent activity was observed. Added and unit-tested prospective CPU/GPU idle screening and live-plan checks; both quiet pilots stayed before model launch. Corrected the historical 22 GB benchmark equivalence in public tables and claims. No new qualified speed baseline, estimator change or inference change; remaining profiles require idle hardware and headroom.
+
+## [2026-09-22 22:26] update | records/measurements/release-speed-calibration-2026-09-22.md
+Corrected prospective benchmark readiness to tolerate brief desktop bursts while screening sustained load. Preserved v1/v2 and froze v3 before any model request; 23 load tests, 13 analysis tests and a simulated metadata capture pass. The five-minute 10 GB pilot stayed below its 13 GB physical headroom requirement in all 144 samples, so no model loaded and no new speed result is claimed. Retained all observations and cleanup; release and estimator unchanged.
+
+## [2026-09-22 22:37] update | records/measurements/release-speed-calibration-2026-09-22.md
+Passed the v3 real-model harness pilot at an 8.1 GB target: two exact capture replays, stable live plans, no sampled swap activity and 6.066900808 GB native lifetime peak. Excluded capped pilot timings from calibration. The following 10 GB three-round 2K code/prose phase passed memory preflight but timed out before model launch on sustained background GPU activity. Preserved all evidence and cleanup. Added tested full-prefill family-held-out diagnostics and fail-closed population registration; 19 analysis tests pass. No new speed anchor or runtime change.
+
+## [2026-09-23 00:34] update | records/measurements/issue21-current-review-2026-09-22.md
+Reassessed issue 21 against v0.2.23 and current production code. Verified release evidence and exact source identity; fresh T0/runtime, issue-specific API, 24 OpenAI checks and 51K/restart pass. Reproduced nullable-string type-array buffering/coercion and incompatible-longest-branch cache selection in focused library probes; neither repaired in this review. Preserved hashed evidence, regenerated projections, brain gates and diff checks pass with two historical warnings. No production edits; all owned model processes reaped.
+
+## [2026-09-23 03:09] update | records/measurements/issue21-edge-fixes-2026-09-22.md
+Repaired nullable type-array string streaming/coercion and compatible branch selection across memory/disk without relaxing numerical reuse. Added catalogue regressions and required issue-21 live/restart acceptance. Pre-fix HTTP branch failure reproduced with identical seed outputs; fixed build passes 73 catalogue groups, 31907 assertions, runtime, 24 OpenAI checks, exact prefix/logit parity, 51K/restart and full static gates. Archived hashed evidence and source identity, regenerated documentation, preserved unrelated experiments and historical warnings, reaped all owned servers and removed disposable test tensor caches. Changes remain local and unreleased; original intermittent exits/stall and pressure-tail cause remain unproven.
+
+## [2026-09-23 04:20] update | records/measurements/release-prefill-2k-2026-09-22.md
+Preserved fourteen completed installed-release 2K requests, thirteen primary timing-eligible, exact replay, scoped first-read ranges and actual cache reuse; updated README/HARDWARE claims. Also preserved eight incomplete long-prompt requests, explicit thermal/checkout exclusions and the subsequent GPU readiness refusal. No runtime or estimator change.
+
+## [2026-09-23 06:29] update | records/measurements/release-0-2-24-published-2026-09-23
+Published v0.2.24 from the exact CI archive and verified public installation: 73 catalogue groups/31,907 assertions, 33 native gates and 31 installed end-to-end checks passed. Preserved 72 post-release A/B requests: nullable tool streaming/type and branch reread benefits repeat; no general speed percentage qualifies under the frozen load/paging rule. Archived hashed evidence, linked historical repair follow-up and updated generated measurements.
+
+## [2026-09-23 07:28] update | records/measurements/sevra-app-speed-2026-09-23
+Measured the actual September 21 development app: three substantial replies at 10.5-12.6 tok/s, zero prompt reuse, 4.7-8.1 s to first token and 9.1 s first load. Verified stale embedded engine and explicit MTP-off desktop policy. Preserved three paired installed-engine MTP diagnostics, withheld clean gain claims because of paging and differing output, reaped the benchmark and reopened Sevra without changing its settings.
+
+## [2026-09-23 15:57] update | records/measurements/sevra-app-optimizations-2026-09-23
+Enabled fully budgeted automatic MTP, short-chat checkpoints, foreground readiness and APFS session verification in the development app; fixed stale-memory immediate reload planning. Preserved failed trials and three final alternating comparisons, passed all six real-model profiles, static/native/runtime checks and 31,907 catalogue assertions, and verified the rebuilt bundle inputs. Live-machine timings remain diagnostic; see the measurement for visible-app verification status.
+
+## [2026-09-23 16:06] update | sources/runs/2026/09/2026-09-23-sevra-verification-exact-mtime
+Strengthened the session-verification corruption test to preserve exact nanosecond mtime, inode and size. Rebuilt the checker and passed the complete scoped verification, budget, idle, sleep and resource-handoff checks. Production app and measured implementation remain unchanged.
+
+## [2026-09-23 16:45] update | sources/runs/2026/09/2026-09-23-sevra-native-replay-growth
+Completed native replay after unlock; preserved the initial between-request memory overshoot, removed the redundant warm-growth gather and admitted temporary replacement memory. Passed exact-byte and generation parity, live governor recovery, 73 catalogue groups, static gates and final native requests/reload. Updated measurements and operating policy without changing public benchmark anchors or publishing a release.
+
+## [2026-09-23 18:13] update | sources/runs/2026/09/2026-09-23-sevra-live-folder-navigation
+Replaced whole-folder inventory with live bounded native navigation, path reads and complete search continuation; preserved scoped grants, fresh-read edit checks and reviewed writes. Qualified large synthetic folders, real-model discovery after rename/edit, approval and undo, native UI and all runtime suites. Rebuilt and opened the local app, withdrew the old folder-cap claim and preserved raw evidence. No throughput or public-release claim.
+
+## [2026-09-24 07:23] create | sources/runs/2026/09/2026-09-24-sevra-window-responsiveness
+Captured offscreen window-harness output for 75430a5 and the working tree on a 1,002-thread, 9,990-message Home with scripted inference. Marked discarded because the Mac was in ordinary use; diagnostic before-and-after only, no public claim.
+
+## [2026-09-24 07:23] update | records/design/sevra-spec/runtime-contract
+Recorded write-behind saving beside the runtime, where only promised durability waits for disk and concurrent changes join the next save; draft autosave at least once a second during continuous typing; model verification starting at launch at utility priority. Full Mac check suite passed: 189 checks.
+
+## [2026-09-24 07:23] update | records/design/sevra-spec/mac-platform
+Incognito cleanup after a private reply now drops that conversation's prompt state and reusable buffers but keeps the weights loaded.
+
+## [2026-09-24 07:23] update | records/design/sevra-spec/ui-contract
+Recorded the sticky latest page, partial transcript layout that holds the reader's line while the rest is laid out, message-anchored reading positions, parallel rendering with a bounded cache of recently shown messages, and panels that cover a kept conversation. Linked diagnostic before-and-after timings; scroll checks cover the new behavior.
+

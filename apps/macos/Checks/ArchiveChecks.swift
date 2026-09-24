@@ -7,7 +7,7 @@ func archiveChecks(root: URL, dbmd: URL) async throws {
     try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
     try Data("Cedar review evidence: verify backups before enabling AI.".utf8).write(to: source.appendingPathComponent("notes.md"))
     let probe = ScriptedInference(turns: [
-        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")])]),
+        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:notes.md")])]),
         EngineTurn(text: "Review this document.", calls: [ProposedTool(name: "artifact.propose", arguments: ["filename": .string("archive-proof.md"), "content": .string("# Restored proposal\n\nVerify before enabling AI. [S1]\n")])])])
     let runtime = try SevraRuntime(homeURL: root.appendingPathComponent("archive-owner"), dbmd: dbmd, inference: probe)
     try await runtime.attach(threadID: "home", folder: source)
@@ -20,11 +20,15 @@ func archiveChecks(root: URL, dbmd: URL) async throws {
     let privateID = try await runtime.newThread(mode: .incognito)
     try await runtime.saveDraft(threadID: privateID, text: "ARCHIVE-INCOGNITO-CANARY")
     let archive = root.appendingPathComponent("proof.sevrahome")
+    let cacheDirectory = runtime.homeURL.appendingPathComponent(".sevra/prefix-cache")
+    try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+    try Data("INFERENCE-CACHE-BACKUP-CANARY".utf8).write(to: cacheDirectory.appendingPathComponent("fixture"))
     let exported = try await runtime.exportHome(to: archive)
     try require(exported.manifest.homeDataComplete && !exported.manifest.evidenceComplete && !exported.manifest.authorityReady && !exported.manifest.runtimeReady, "backup distinguishes owned data, external evidence, runtime and authority")
     try require(exported.manifest.files.contains { $0.path.hasPrefix("db/records/drafts/") }, "backup includes persistent drafts")
     try require(!exported.manifest.files.contains { $0.path.contains(".sevra") || $0.path.contains(".dbmd") }, "backup excludes device authority and disposable indexes")
     try inspectCanaryFiles(archive, canary: "ARCHIVE-INCOGNITO-CANARY")
+    try inspectCanaryFiles(archive, canary: "INFERENCE-CACHE-BACKUP-CANARY")
     let nested = archive.appendingPathComponent("Nested restored Home")
     do { _ = try HomeArchive.restore(archive, to: nested, dbmd: dbmd); throw SevraError.refused("CHECK FAILED: nested restore changed backup") }
     catch { try require(!error.localizedDescription.contains("CHECK FAILED") && !FileManager.default.fileExists(atPath: nested.path), "restore cannot publish into its source backup") }

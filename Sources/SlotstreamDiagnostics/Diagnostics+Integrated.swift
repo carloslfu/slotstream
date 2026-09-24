@@ -116,9 +116,8 @@ extension Diagnostics {
                 c.equal("\(candidate)/\(label): cancelled prefill releases request pins", model.pool.pinnedSlotCount, 0)
                 generator.onPrefillProgress = nil
                 c.expect("\(candidate)/\(label): cancellation commits complete prefill", prefill.0.isEmpty && prefill.1.runtimeError == nil && prefill.1.prefillTokens == ids.count)
-                guard let taken = cache.take(matching: ids + [17], images: vp?.cacheSegments(
-                    attentionPadding: model.optimizations.visionAttentionPadding,
-                    queryTile: model.optimizations.visionQueryTile) ?? []) else {
+                guard let taken = cache.take(matching: ids + [17],
+                    images: vp?.cacheSegments(for: model.optimizations) ?? []) else {
                     throw ModelError("integrated prefill lost its complete committed state")
                 }
                 c.equal("\(candidate)/\(label): exact committed offset", taken.state.tokenCount, ids.count)

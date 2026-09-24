@@ -1,0 +1,10 @@
+{
+  "requests": 8,
+  "environment_eligible": 5,
+  "strict_global_eligible": 0,
+  "exclusions": {
+    "generator OS thermal/power state unavailable or non-nominal": 2,
+    "non-nominal thermal or power state": 2,
+    "Documentation worktree checkout performed by this task overlapped this request; possible SSD/CPU contention. Excluded before its result was inspected. Original automatic verdict remains unchanged.": 1
+  }
+}

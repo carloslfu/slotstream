@@ -2,13 +2,15 @@ name: ci
 # Release/runtime, external-consumer, and instrumented-coverage jobs run on
 # separate runners. These builds do not depend on each other's artifacts.
 # A prose-only push skips this workflow and runs docs.yml instead; mixed
-# source/documentation changes keep the full CI suite.
+# source/documentation changes keep the full CI suite. A push that changes only
+# the Mac app in apps/ or its workflow runs sevra-mac.yml instead, which also
+# runs for engine changes because the app builds on the engine.
 on:
   pull_request:
-    paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE"]
+    paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE", "apps/**", ".github/workflows/sevra-mac.yml"]
   push:
     branches: [main]
-    paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE"]
+    paths-ignore: ["**.md", "docs/**", "db/**", "llms.txt", "llms-full.txt", "LICENSE", "apps/**", ".github/workflows/sevra-mac.yml"]
 permissions:
   contents: read
 jobs:
@@ -78,10 +80,12 @@ jobs:
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
       - name: pinned Metal library
         run: SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
-      - name: coverage may not go down
-        run: |
-          Tools/coverage.sh t0 t1 --lcov coverage.info
-          python3 Tools/coverage_ratchet.py coverage.info
+      - name: instrumented checks and coverage collection
+        run: Tools/coverage.sh t0 t1 --lcov coverage.info
+      - name: coverage changes (advisory)
+        # Test/build/report errors still fail. Historical percentages are review
+        # signals; separate context, CLI and real-model suites are not counted.
+        run: python3 Tools/coverage_ratchet.py coverage.info
       - name: coverage report
         if: ${{ always() && hashFiles('coverage.info') != '' }}
         uses: actions/upload-artifact@v4

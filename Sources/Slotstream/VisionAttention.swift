@@ -35,7 +35,10 @@ package enum VisionAttention {
             }
             return concatenated(pieces, axis: 2)
         }
-        guard width == 72, [80, 128].contains(padding),
+        // Padding FP32 to a fused width selects TF32 on the new backend
+        // and misses the existing oracle tolerance. Keep full-precision
+        // fallback for this experimental option; deployed BF16 is unaffected.
+        guard q.dtype != .float32, width == 72, [80, 128].contains(padding),
               q.ndim == 4, k.ndim == 4, v.ndim == 4,
               k.dim(-1) == width, v.dim(-1) == width else {
             return MLXFast.scaledDotProductAttention(queries: q, keys: k, values: v, scale: scale, mask: .none)

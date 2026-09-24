@@ -1,0 +1,16 @@
+{
+  "scope": "Functional pilot only; not a speed baseline",
+  "requests": 2,
+  "both_environment_eligible": true,
+  "both_strict_global_swap_eligible": true,
+  "max_native_peak_gb": 6.066900808,
+  "ceiling_gb": 8.1,
+  "fixed_pool_slots": 640,
+  "fixed_prefill_chunk": 256,
+  "fixed_context": 32768,
+  "output_token_counts": [
+    16,
+    32
+  ],
+  "note": "Both answers intentionally length-capped; no full-answer quality qualification."
+}

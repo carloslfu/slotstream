@@ -533,6 +533,45 @@ extension Catalogue {
     /// a wrong accept silently answers from another conversation's state.
     static func chatSplice() -> CheckReport {
         var c = CheckBuilder("chat-splice")
+        let descendant = [1, 2, 3, 90, 91, 4, 5, 6, 90, 91, 7]
+        c.equal("descendant ends at the first assistant boundary",
+            Engine.assistantTurnIds(in: descendant, after: 2, turnEnd: [90, 91]), [3])
+        c.equal("later assistant turn uses its own boundary",
+            Engine.assistantTurnIds(in: descendant, after: 7, turnEnd: [90, 91]), [6])
+        c.equal("unfed terminal token need not be cached",
+            Engine.assistantTurnIds(in: [1, 2, 3], after: 2, turnEnd: [90]), [3])
+        c.equal("delimiter prefix alone is not a boundary",
+            Engine.assistantTurnIds(in: [1, 90, 3], after: 1, turnEnd: [90, 91]), [90, 3])
+        // Two regenerated replies share a producer but only one describes the
+        // history supplied by the client. Length must not hide that branch.
+        let cache = PrefixCache(maxTokens: 100)
+        let wanted = [1, 2, 11, 99, 21], other = [1, 2, 12, 99, 22, 23, 24]
+        for ids in [wanted, other] {
+            let state = Qwen4ExpModel.State()
+            state.tokenCount = ids.count
+            cache.store(state: state, tokens: ids)
+        }
+        let held = cache.heldTokens
+        c.equal("public lookup still returns the longest branch", cache.peek(extending: [1, 2]), other)
+        let matching = cache.peek(extending: [1, 2], matching: { ids in
+            // Reading the cache inside the callback also proves the selector
+            // does not call client validation while holding its lock.
+            guard cache.heldTokens == held else { return false }
+            let turn = Engine.assistantTurnIds(in: ids, after: 2, turnEnd: [99])
+            let text = turn == [11] ? "<think>retained reasoning</think>Wanted answer." : "Different answer."
+            return Engine.spliceDescribes(text, ChatMessage(role: "assistant", content: "Wanted answer."), tools: [])
+        })
+        c.equal("incompatible longer branch cannot hide matching reply", matching, wanted)
+        c.equal("matching lookup consumes no state", cache.heldTokens, held)
+        c.expect("no compatible branch is a miss", cache.peek(extending: [1, 2], matching: { _ in false }) == nil)
+        enum Cancelled: Error { case request }
+        do {
+            _ = try cache.peek(extending: [1, 2], matching: { _ in throw Cancelled.request })
+            c.expect("branch validation cancellation propagates", false)
+        } catch { c.expect("branch validation cancellation propagates", error is Cancelled) }
+        cache.enabled = false
+        c.expect("disabled cache cannot offer a compatible branch",
+            cache.peek(extending: [1, 2], matching: { _ in true }) == nil)
         let tools = [
             ToolDefinition(
                 name: "read_file", description: "Read a file.",
@@ -759,6 +798,36 @@ extension Catalogue {
         c.equal("an optional integer resolves to integer", p["count"], .integer)
         c.equal("an optional boolean resolves to boolean", p["flag"], .boolean)
         c.equal("a genuine two-type union stays unknown", p["either"], .unknown)
+
+        let typeArrays: [(String, JSONValue, ToolParamKind)] = [
+            ("nullable string", .array([.string("string"), .string("null")]), .string),
+            ("null first", .array([.string("null"), .string("string")]), .string),
+            ("singleton", .array([.string("string")]), .string),
+            ("nullable integer", .array([.string("integer"), .string("null")]), .integer),
+            ("nullable boolean", .array([.string("null"), .string("boolean")]), .boolean),
+            ("real union", .array([.string("string"), .string("integer")]), .unknown),
+            ("empty", .array([]), .unknown),
+            ("null only", .array([.string("null")]), .unknown),
+            ("invalid member", .array([.string("string"), .int(3)]), .unknown),
+            ("unknown type", .array([.string("unrecognized"), .string("null")]), .unknown),
+        ]
+        for (label, shape, expected) in typeArrays {
+            let definition = ToolDefinition(name: "save_page", description: "", parameters: .object([
+                "type": .string("object"), "properties": .object(["content": .object(["type": shape])])]))
+            c.equal("type array: \(label)", definition.schema.params["content"], expected)
+            if expected == .string {
+                for value in ["00123", "false", "null", "", "quotes \" and slash \\ and 🙂\n"] {
+                    let raw = "<tool_call><function=save_page><parameter=content>\n\(value)\n</parameter></function></tool_call>"
+                    let whole = ToolCallSplitter.parseAll(raw, tools: [definition.schema], idFactory: countingIDs())
+                    if case .toolCall(let call) = whole.last {
+                        c.equal("\(label): preserve string \(value)", call.arguments["content"], .string(value))
+                    } else { c.expect("\(label): completed call", false) }
+                    let parser = ToolCallSplitter(tools: [definition.schema], idFactory: countingIDs())
+                    let streamed = raw.flatMap { parser.push(String($0)) } + parser.flush()
+                    c.equal("\(label): character splits preserve output", normalize(streamed), normalize(whole))
+                }
+            }
+        }
 
         // The failure this prevents: a numeric-looking value in an optional
         // string field must stay a string.

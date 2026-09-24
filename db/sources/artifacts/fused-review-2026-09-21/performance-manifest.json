@@ -1,0 +1,29 @@
+{
+  "archive_sha256": "2b61cf9b5711241b9a67438df8e22ba36386c2356706b4776b5e4e15073629ef",
+  "members": {
+    "fused-review-performance.json": {
+      "bytes": 4223,
+      "sha256": "fb8817c66a2314801a3fd3ed174f7613ad6216556e09ce0de6fe4842b2eca2ab"
+    },
+    "fused-review-performance.stderr": {
+      "bytes": 1378,
+      "sha256": "0df806a256ac2a4a70f06102dad558f3f57c73d7072fc4dabe847a9cca57f248"
+    },
+    "fused-review-performance-receipt.json": {
+      "bytes": 636,
+      "sha256": "7abf71efc78ff8df3ccdb5c043f84769f1b31af911a0d4ed2a89dd59f14d1176"
+    },
+    "identity.json": {
+      "bytes": 23882,
+      "sha256": "9daad9dc942601a1075e07684b69f8a3c9fa446c49edb1160d13e58281ce28da"
+    },
+    "source.tar.gz": {
+      "bytes": 1256198,
+      "sha256": "fad6a4151e0972ba0eab4d9d96dcc3518e55ebe69bb1f30b150e402c176b4cbe"
+    },
+    "run.py": {
+      "bytes": 2271,
+      "sha256": "3eb9c9aaaaf96b16c01ea8d6522eabb2eb26a082d72159871d15ef0a6cec157a"
+    }
+  }
+}

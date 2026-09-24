@@ -73,7 +73,7 @@ safety_before() {
         self.assertEqual(rows[0]['arguments'],
                          ['vision-parity', '--out', str(self.root/"vision output's; $(touch injected)")] if vision else
                          ['template-check'] if template else
-                         ['parity', '--tokens', '9707,11,1246,525,498,30', '--layers', '2', '--compare', 'bench/parity31'])
+                         ['parity', '--tokens', '9707,11,1246,525,498,30', '--layers', '2', '--compare', 'bench/parity31', '--row-invariant'])
         if not template:
             self.assertEqual(self.safety.read_text(), '13\n')
 
@@ -189,21 +189,29 @@ printf 'AFTER_CONTEXT\\nCOUNTS %s %s\\n' "$PASS" "$FAIL"
 
 
 class VerifyGovernorStatus(unittest.TestCase):
+    small = False
+
     def run_status(self, text, status=0):
         with tempfile.TemporaryDirectory(prefix='slotstream-governor-status-') as directory:
             root = Path(directory)
             result = root/"results PASS; $(touch injected)"
             result.mkdir()
             fixture = root/"selected binary's path"
+            args = (['elastic-drill', '--memory-limit-gb', '10', '--max-memory-gb', '10', '--mtp', 'off']
+                    if self.small else ['elastic-drill', '--slots', '1000', '--max-memory-gb', '13', '--memory-limit-gb', '13', '--mtp', 'off'])
             fixture.write_text("#!/usr/bin/env python3\nimport os,sys\n"
-                               "assert sys.argv[1:] == ['elastic-drill','--slots','1000','--max-memory-gb','13']\n"
+                               f"assert sys.argv[1:] == {args!r}\n"
                                "sys.stdout.write(os.environ['VERIFY_DRILL_TEXT'])\n"
                                "raise SystemExit(int(os.environ['VERIFY_DRILL_STATUS']))\n")
             fixture.chmod(0o755)
             # Execute the actual verification block with the real system sed.
             # Only the native model-producing command is replaced by a fixture.
-            start = SCRIPT.index('DRILL_LOG=')
-            end = SCRIPT.index('\nesac', start)+len('\nesac')
+            if self.small:
+                start = SCRIPT.index('SMALL_DRILL_LOG=')
+                end = SCRIPT.index('\nfi', start)+len('\nfi')
+            else:
+                start = SCRIPT.index('DRILL_LOG=')
+                end = SCRIPT.index('\nesac', start)+len('\nesac')
             block = 'set -eo pipefail\nPASS=0; FAIL=0\n'+SCRIPT[start:end]+'''
 printf 'COUNTS %s %s\\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
@@ -213,7 +221,7 @@ printf 'COUNTS %s %s\\n' "$PASS" "$FAIL"
             process = subprocess.run(['bash','-c',block], cwd=root, env=env,
                                      text=True, capture_output=True, timeout=10)
             self.assertFalse((root/'injected').exists(), process.stdout+process.stderr)
-            self.assertEqual((result/'elastic-drill.txt').read_text(), text)
+            self.assertEqual((result/('elastic-drill-small.txt' if self.small else 'elastic-drill.txt')).read_text(), text)
             return process
 
     def test_real_status_shape_passes_with_progress_and_memory_record(self):
@@ -256,6 +264,39 @@ printf 'COUNTS %s %s\\n' "$PASS" "$FAIL"
                 process = self.run_status(text)
                 self.assertNotEqual(process.returncode, 0, process.stdout+process.stderr)
                 self.assertIn('COUNTS 0 1', process.stdout)
+
+
+class VerifySmallGovernorStatus(VerifyGovernorStatus):
+    small = True
+
+
+class VerifyHistoricalBackendDiagnostic(unittest.TestCase):
+    def run_status(self, code, output):
+        begin = SCRIPT.index('  LEGACY_MTP_STATUS=0')
+        end = SCRIPT.index('  # MTP is priced', begin)
+        with tempfile.TemporaryDirectory(prefix='legacy-backend-diagnostic-') as temp:
+            env = dict(os.environ, VERIFY_OUT=temp, FIXTURE_STATUS=str(code), FIXTURE_OUTPUT=output)
+            return subprocess.run(['bash', '-c', '''set -eo pipefail
+FAIL=0
+run_binary() { printf '%s\\n' "$FIXTURE_OUTPUT"; return "$FIXTURE_STATUS"; }
+''' + SCRIPT[begin:end] + '\n[ "$FAIL" -eq 0 ]\n'],
+                env=env, text=True, capture_output=True, timeout=10)
+
+    def test_old_agreement_and_numerical_difference_are_distinct_diagnostics(self):
+        for code, output, expected in [(0, 'MTP PARITY PASS', 'also agrees'),
+                                        (2, 'MTP PARITY FAIL', 'differs')]:
+            result = self.run_status(code, output)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('DIAGNOSTIC', result.stdout)
+            self.assertIn(expected, result.stdout)
+            self.assertNotIn('PASS ', result.stdout)
+
+    def test_unrelated_errors_are_not_waived(self):
+        for code, output in [(2, 'missing weights'), (1, 'MTP PARITY FAIL'),
+                             (139, 'MTP PARITY FAIL')]:
+            result = self.run_status(code, output)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('FAIL  historical draft-head diagnostic could not complete', result.stdout)
 
 
 if __name__ == '__main__':

@@ -33,7 +33,7 @@ func auditChecks(root: URL, dbmd: URL) async throws {
     let source = root.appendingPathComponent("audit-source.md")
     try Data("The audit project is Juniper. Launch is October 12.\n".utf8).write(to: source)
     let engine = ScriptedInference(turns: [
-        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")])]),
+        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:audit-source.md")])]),
         EngineTurn(text: "Juniper launches October 12. [S1]", calls: [ProposedTool(name: "artifact.propose", arguments: ["filename": .string("audit.md"), "content": .string("# Juniper\n\nLaunch is October 12. [S1]\n")])]),
         EngineTurn(text: "A later ordinary answer.")
     ])
@@ -102,7 +102,7 @@ func auditChecks(root: URL, dbmd: URL) async throws {
     print("PASS: idempotent memory admission and complete eligible memory text in AI context")
 
     let malformed = [EngineTurn(text: "", finishReason: "tool_calls"),
-        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")]), ProposedTool(name: "shell", arguments: [:])]),
+        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:audit-source.md")]), ProposedTool(name: "shell", arguments: [:])]),
         EngineTurn(text: "", calls: [ProposedTool(name: "artifact.propose", arguments: ["filename": .string("one.md"), "content": .string("One [S1]")]), ProposedTool(name: "artifact.propose", arguments: ["filename": .string("two.md"), "content": .string("Two [S1]")])])]
     for (index, response) in malformed.enumerated() {
         let invalid = try SevraRuntime(homeURL: root.appendingPathComponent("audit-tools-\(index)"), dbmd: dbmd, inference: ScriptedInference(turns: [response]))
@@ -114,9 +114,9 @@ func auditChecks(root: URL, dbmd: URL) async throws {
     }
     print("PASS: malformed termination, undeclared mixed calls and multiple proposals fail before execution")
 
-    let invalidReadSet = EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")]), ProposedTool(name: "source.list", arguments: ["limit": .int(1)])])
+    let invalidReadSet = EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:audit-source.md")]), ProposedTool(name: "source.list", arguments: ["limit": .int(1)])])
     let repairEngine = ScriptedInference(turns: [invalidReadSet,
-        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")])]),
+        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:audit-source.md")])]),
         EngineTurn(text: "", calls: [ProposedTool(name: "artifact.propose", arguments: ["filename": .string("repaired.md"), "content": .string("Juniper launches October 12. [S1]")])])])
     let repair = try SevraRuntime(homeURL: root.appendingPathComponent("audit-correction"), dbmd: dbmd, inference: repairEngine)
     try await repair.attach(threadID: "home", folder: source)
@@ -145,7 +145,7 @@ func auditChecks(root: URL, dbmd: URL) async throws {
 
     let misspelled = ProposedTool(name: "artifact=propose", arguments: ["filename": .string("spelling.md"), "content": .string("Juniper launches October 12. [S1]")])
     let spellingEngine = ScriptedInference(turns: [
-        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("file-1")])]),
+        EngineTurn(text: "", calls: [ProposedTool(name: "source.read", arguments: ["id": .string("a1:audit-source.md")])]),
         EngineTurn(text: "", calls: [misspelled]),
         EngineTurn(text: "", calls: [ProposedTool(name: "artifact.propose", arguments: misspelled.arguments)])])
     let spelling = try SevraRuntime(homeURL: root.appendingPathComponent("audit-real-tool-spelling"), dbmd: dbmd, inference: spellingEngine)
@@ -185,9 +185,9 @@ func auditChecks(root: URL, dbmd: URL) async throws {
     let unicode = root.appendingPathComponent("unicode-source.md")
     try Data("é👋text".utf8).write(to: unicode)
     let reader = try SourceFolder(url: unicode)
-    do { _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-1"), "offset": .int(1)]), cancellation: Cancellation()); throw SevraError.refused("CHECK FAILED: split UTF-8 offset accepted") }
+    do { _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["id": .string("a1:unicode-source.md"), "offset": .int(1)]), cancellation: Cancellation()); throw SevraError.refused("CHECK FAILED: split UTF-8 offset accepted") }
     catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "UTF-8 offset boundary enforced") }
-    _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["id": .string("file-1"), "offset": .int(2)]), cancellation: Cancellation())
+    _ = try reader.execute(ProposedTool(name: "source.read", arguments: ["id": .string("a1:unicode-source.md"), "offset": .int(2)]), cancellation: Cancellation())
     try require(reader.citations.first?.content == "👋text", "valid Unicode offset preserves exact text")
     let badFolder = root.appendingPathComponent("source-init-failure")
     try FileManager.default.createDirectory(at: badFolder, withIntermediateDirectories: true)
@@ -195,18 +195,9 @@ func auditChecks(root: URL, dbmd: URL) async throws {
     try Data("kept".utf8).write(to: badFolder.appendingPathComponent("plain.md"))
     let linked = try SourceFolder(url: badFolder)
     let linkedList = try linked.execute(ProposedTool(name: "source.list", arguments: [:]), cancellation: Cancellation())
-    try require(linkedList.contains("plain.md") && !linkedList.contains("link.md") && linked.infos.first?.skipped == 1, "symbolic links are skipped, never listed or followed")
-    let crowded = root.appendingPathComponent("source-too-many")
-    try FileManager.default.createDirectory(at: crowded, withIntermediateDirectories: true)
-    for n in 0...SourceLimits.files { try Data().write(to: crowded.appendingPathComponent("f\(n).txt")) }
-    let sentinel = open(source.path, O_RDONLY)
-    defer { close(sentinel) }
-    for _ in 0..<30 {
-        do { _ = try SourceFolder(url: crowded); throw SevraError.refused("CHECK FAILED: oversized inventory accepted") }
-        catch { try require(!error.localizedDescription.contains("CHECK FAILED"), "oversized folder initialization refused") }
-    }
-    try require(fcntl(sentinel, F_GETFD) >= 0, "failed source initialization preserves unrelated descriptor ownership")
-    print("PASS: source Unicode boundaries, skipped symbolic links and repeated oversized-inventory cleanup")
+    let skippedLinks = (try JSONSerialization.jsonObject(with: Data(linkedList.utf8)) as? [String: Any])?["skipped"] as? [String: Int]
+    try require(linkedList.contains("plain.md") && !linkedList.contains("link.md") && skippedLinks == ["symbolic_links": 1], "symbolic links are skipped, never listed or followed")
+    print("PASS: source Unicode boundaries and skipped symbolic links")
 
     let hashFile = root.appendingPathComponent("hash-cancellation.bin")
     try Data(repeating: 42, count: 16 * 1024 * 1024).write(to: hashFile)

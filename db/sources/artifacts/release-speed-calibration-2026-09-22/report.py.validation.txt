@@ -1,0 +1,6 @@
+{
+  "requests": 27,
+  "environment_eligible": 27,
+  "strict_global_eligible": 15,
+  "exclusions": {}
+}

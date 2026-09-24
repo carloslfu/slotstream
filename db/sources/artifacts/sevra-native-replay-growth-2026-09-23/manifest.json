@@ -1,0 +1,275 @@
+{
+  "scope": "Synthetic native Sevra conversations, numeric memory observations, initial resize overshoot, corrected growth implementation and qualification. Live-host timings are diagnostic. No Home records, IPC credentials or unrelated conversations.",
+  "files": [
+    {
+      "path": "first-native/app-build-inputs.json",
+      "sha256": "2df33ba2e975861ed5e007b8b595214a3f73e975d69b147dd48047df445acd6f",
+      "bytes": 30794
+    },
+    {
+      "path": "first-native/app-build.log",
+      "sha256": "32cc07ccae07593953c01d46ac663fd624873b6eacabcc5ebd6bfc44515058d9",
+      "bytes": 889
+    },
+    {
+      "path": "first-native/app-cold-bicycle.json",
+      "sha256": "e1bd49ce59457fc2f7366bb5a9cd2d8fddd3b982de812751a1d90136197b4fd6",
+      "bytes": 703
+    },
+    {
+      "path": "first-native/app-final-samples.jsonl",
+      "sha256": "9f8d7a26967b6185b0f7f254ed666dc918e556b275f4fb7749fd16cc2b2dd6c3",
+      "bytes": 96643
+    },
+    {
+      "path": "first-native/app-identity.json",
+      "sha256": "e47c9b9dd48a89f80058cd99b9f02795fb8e8f8eb77b5efe3d3057ad7e6f8cee",
+      "bytes": 331
+    },
+    {
+      "path": "first-native/app-observation-summary.json",
+      "sha256": "e58f489c016e580726fd9599abf937bd669ed48581e8b5035b5581853169fe96",
+      "bytes": 358
+    },
+    {
+      "path": "first-native/app-reload-results.json",
+      "sha256": "79322df1390ea190f0c5e798e4bf7bdd9701be46ac0a43535ba85e875c970891",
+      "bytes": 873
+    },
+    {
+      "path": "first-native/app-reloaded-short.json",
+      "sha256": "e0f0aecec4820e602ca0e341b54c2ca76c47d153b8faa8e0214f1a94b1dcad96",
+      "bytes": 809
+    },
+    {
+      "path": "first-native/app-reloaded-short.log",
+      "sha256": "34752a90c5abc5843fb20952a48e391eeffefd0bd1a4b67eeaf88b29a8115047",
+      "bytes": 185
+    },
+    {
+      "path": "first-native/app-results.json",
+      "sha256": "f7356c1a9a1a01d34e0221275075569e2ebdcde034a8ab41b1a200496734df0c",
+      "bytes": 3528
+    },
+    {
+      "path": "first-native/app-warm-caching.json",
+      "sha256": "243ecf4ad07678608c7a985be58de89b14cbf54982227c55c84134bc963ebae2",
+      "bytes": 918
+    },
+    {
+      "path": "first-native/app-warm-caching.log",
+      "sha256": "7ccfeed45227fff07f04a71aca441c94c455a8bf54f54803e0c2595bd5102809",
+      "bytes": 1505
+    },
+    {
+      "path": "first-native/app-warm-rain.json",
+      "sha256": "3cb44e01cc2465b92821d74a89e1ce82433b7c105a259a67f6cdf801cddbb819",
+      "bytes": 893
+    },
+    {
+      "path": "first-native/app-warm-rain.log",
+      "sha256": "0b09281e245fe7ef5e1b855bfcdbd335af0d8d5bd93c86e23be3343e58f80dcc",
+      "bytes": 1532
+    },
+    {
+      "path": "first-native/app-warm-short.json",
+      "sha256": "04bc04594b83d2dcb28602821beec53d7a3091b32c240b9d9a3c55a66b3bdc10",
+      "bytes": 776
+    },
+    {
+      "path": "first-native/app-warm-short.log",
+      "sha256": "53153c328a7e2d510da9bc90bb1880784f9f77cdf7e1914524c11ecd632503b1",
+      "bytes": 156
+    },
+    {
+      "path": "first-native/measure_app.py",
+      "sha256": "8d4eb0e4602932a31cbab030a140e3425edc17168485cdf43435b7721d046317",
+      "bytes": 2373
+    },
+    {
+      "path": "first-native/monitor_app.py",
+      "sha256": "af73c02726f562eb193ddc40d35b7dc0c3b4b8886fd3a03d9eb02183ebec027c",
+      "bytes": 830
+    },
+    {
+      "path": "growth-fixed/app-build-inputs.json",
+      "sha256": "1d7e04db072d2f6db5573c261b7039e5060463beeb95b08fbe31b00b9bf18e48",
+      "bytes": 30795
+    },
+    {
+      "path": "growth-fixed/app-build.log",
+      "sha256": "2500412541c01a12f0358125d7a63436eaa79cd69e72579a10f1d7e953b42d8d",
+      "bytes": 2008
+    },
+    {
+      "path": "growth-fixed/app-cold-bicycle.json",
+      "sha256": "ae5a514a1676ae26dd1abec3e7cad6f2f472b40dba6a81133c163a1ae28fd3de",
+      "bytes": 690
+    },
+    {
+      "path": "growth-fixed/app-final-samples.jsonl",
+      "sha256": "31fdab58531e3a5daf0e22318bbd6dafd8aab05c9485437ade68de583e408eea",
+      "bytes": 122833
+    },
+    {
+      "path": "growth-fixed/app-identity.json",
+      "sha256": "609e94fff7a6a5f06b6ad1632b36c92cf938a3105e3e217ac5be5bcdc4e2a2b1",
+      "bytes": 258
+    },
+    {
+      "path": "growth-fixed/app-observation-summary.json",
+      "sha256": "2285c03ab27bd1bf8cbf309427db3759fc349732106745bd6e5c9539ea0eaf51",
+      "bytes": 416
+    },
+    {
+      "path": "growth-fixed/app-reload-results.json",
+      "sha256": "2fd2de83b6480bc799d13a05e92a4e8f09c0a27dd6112c6472c08bde42999e83",
+      "bytes": 877
+    },
+    {
+      "path": "growth-fixed/app-reloaded-short.json",
+      "sha256": "bd08fa0705fcd17965c0708447ee000f2157c01981dba6383189e77f77228213",
+      "bytes": 813
+    },
+    {
+      "path": "growth-fixed/app-reloaded-short.log",
+      "sha256": "d01de658e082eb064ace82811be2b76e4572a2eca8b95a049db8a49806a02359",
+      "bytes": 188
+    },
+    {
+      "path": "growth-fixed/app-results.json",
+      "sha256": "8b07ccfca6b5797c6071823298bc5400d5321bf5788eebd7f5090bc337d7074a",
+      "bytes": 3483
+    },
+    {
+      "path": "growth-fixed/app-warm-caching.json",
+      "sha256": "75c4ce64d820305e64ad1f6eae1cf12b89fc9c60ef14b239325aeb528fb1a70b",
+      "bytes": 905
+    },
+    {
+      "path": "growth-fixed/app-warm-caching.log",
+      "sha256": "b858939111ea8819a3bd1a54f97fa3278c2837ea4a147e03ea638e721de147f5",
+      "bytes": 1508
+    },
+    {
+      "path": "growth-fixed/app-warm-rain.json",
+      "sha256": "f3997476989a840f35f2a4a665157c96aa7db87d67e033c19b7726ccb1f982cc",
+      "bytes": 883
+    },
+    {
+      "path": "growth-fixed/app-warm-rain.log",
+      "sha256": "7c39b2b13cca2f7956a7d2884fe76fcb66a7167af49597d19b9131b795f7b71a",
+      "bytes": 1535
+    },
+    {
+      "path": "growth-fixed/app-warm-short.json",
+      "sha256": "85770fd9cf25bceba85aaa683f49a27f099b00fbe5cdb8654d2327f4dc9c7585",
+      "bytes": 767
+    },
+    {
+      "path": "growth-fixed/app-warm-short.log",
+      "sha256": "5dca5cce6fdc7d5c976a8f08e2e5fb181db297074ccbdb7967d497d361039ba8",
+      "bytes": 159
+    },
+    {
+      "path": "growth-fixed/build-exact-bytes.log",
+      "sha256": "e515e217c348d2345fbec10a9f3bc5b959a448022afc33a417e6ba7059a6b484",
+      "bytes": 10431
+    },
+    {
+      "path": "growth-fixed/build-gates.json",
+      "sha256": "3fb6279a6a713a7f5df04866fff4080f92a7019176bed9efb768a2150b10748f",
+      "bytes": 241
+    },
+    {
+      "path": "growth-fixed/catalogue.log",
+      "sha256": "298f39d25ca9e8f73fc7462d00517d97b202b5497e680820c90e9c1cdd5cae86",
+      "bytes": 3316
+    },
+    {
+      "path": "growth-fixed/checks.json",
+      "sha256": "21b954711d8328c255a45d127b46eca56957e2ac90364332cd5ebc239ca68cd9",
+      "bytes": 1132
+    },
+    {
+      "path": "growth-fixed/ci-predecessors.json",
+      "sha256": "ddcf1358403b89a1e37e4b5a2af051f737fd835b4070a26c18907521ef34aa6d",
+      "bytes": 1424
+    },
+    {
+      "path": "growth-fixed/docs.log",
+      "sha256": "6bd1f79f8c509e2c5ab1357218dac1cb770ca5ac8b63aaba3c2e7e01d2a5b0d6",
+      "bytes": 127
+    },
+    {
+      "path": "growth-fixed/elastic-equality.log",
+      "sha256": "4f64c378219a5f924eef0f8c60d83974bb6c05a0846cc9aad859d78c78c3ec01",
+      "bytes": 323
+    },
+    {
+      "path": "growth-fixed/elastic-governor.log",
+      "sha256": "d665f5c4d19843ab0d836c7081c2a2e6622b8a9d2143ff2dc4bded9d55755442",
+      "bytes": 1348
+    },
+    {
+      "path": "growth-fixed/engine-identity.json",
+      "sha256": "84676b77b0d1dc1d746976f3e2849d201750c232ed6b3e28ce5443f02703f7ab",
+      "bytes": 871
+    },
+    {
+      "path": "growth-fixed/implementation.patch",
+      "sha256": "b97ef119212a12c53d1733dfbc19a27f3439a9e2928e091de496ee8fb41f9ba7",
+      "bytes": 10308
+    },
+    {
+      "path": "growth-fixed/measure_app.py",
+      "sha256": "d58a07f26795f0e73bfcfa64d16c3347c1ba2225bf236ad08c9012a230fcf8b3",
+      "bytes": 2379
+    },
+    {
+      "path": "growth-fixed/monitor_app.py",
+      "sha256": "447f91e3be42cb3921f8d17b71e3203149620da2f3e0c9bff42f6ef95ec2d072",
+      "bytes": 833
+    },
+    {
+      "path": "growth-fixed/pool-bytes.log",
+      "sha256": "5972798d6f7df579feb8d03d2c80de95ccb5d6fd160c81b61359cff088837493",
+      "bytes": 23148
+    },
+    {
+      "path": "growth-fixed/pool-exact-bytes.log",
+      "sha256": "5972798d6f7df579feb8d03d2c80de95ccb5d6fd160c81b61359cff088837493",
+      "bytes": 23148
+    },
+    {
+      "path": "growth-fixed/static.log",
+      "sha256": "afe128327e39b79fe48a19fb774734fa90744f0beeabddfb3646ca4baabd7999",
+      "bytes": 28335
+    },
+    {
+      "path": "growth-fixed/ui-observation.json",
+      "sha256": "670dc27433a33670fa9975e067192e57d75ce603f720567cbd0fd17f67336ad6",
+      "bytes": 604
+    },
+    {
+      "path": "implementation/Sources/Slotstream/ExpertStore.swift",
+      "sha256": "34b9a173850a1d74dbe3871af70d69e33019ffd68df0a4a2d7d5496a6e3831d2",
+      "bytes": 65625
+    },
+    {
+      "path": "implementation/Sources/Slotstream/Governor.swift",
+      "sha256": "cf799c5c4eb11d241e6beb93e9273a94ed7f61bb53143dbbce8892610364f4b0",
+      "bytes": 26154
+    },
+    {
+      "path": "implementation/Sources/SlotstreamDiagnostics/Diagnostics+PoolRequests.swift",
+      "sha256": "627e5c7d56ee8a0206cc16d1355b2dfeb956e6fbc7880c193c239e11fa9be7b2",
+      "bytes": 6855
+    },
+    {
+      "path": "implementation/Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift",
+      "sha256": "6e6386ef8131c8742279e08d9ea71e04f42d10173a8a5f8084a78ac8742ee768",
+      "bytes": 10286
+    }
+  ]
+}

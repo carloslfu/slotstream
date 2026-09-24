@@ -1,0 +1,260 @@
+{
+  "schema": 3,
+  "created": "2026-09-23T03:45:06.362410+00:00",
+  "binary": "/Users/carlos/.slotstream/releases/1b499652c33e2eb46af702c64b4ed26f62191b9538804567d057b8914f62ed22-macos26/slotstream",
+  "binary_sha256": "5cb612361887c2a317376721dbe5df94810da5230759c47169fc6fa2e9b30b89",
+  "repository": "/Users/carlos/Projects/slotstream",
+  "model": "/Users/carlos/.slotstream/models/qwen38-flash-next-mlx-4bit",
+  "probe": "/private/tmp/slotstream-release-calibration-20260922/probe",
+  "probe_sha256": "503567672f716582be5382d19d7783855f3020833f8884ef420e1e09e15a312b",
+  "harness_hashes": {
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/host_load.py": "96a01fc71771b69ce09c48026a4a54df9e63d777028b1af62ced94250c7efa1b",
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/host_load_test.py": "d535879f4a86e5dd2dc7550e55a6dc9825138747401cca302b9fa0f318fb4aa8",
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/prefill_bench.py": "000868d66f82cd1eba5973c0fa9b4259831a6bdbc5bcf7d4c4f858d86c71d472",
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/release_speed_bench.py": "2005b9edf177db1566fc843b037739b428d196746a5efa2c4bf0034c5dbf680d",
+    "/tmp/slotstream-release-calibration-20260922/harness-idle-v3/serve_bench.py": "95fdf6cfb2791aa71cad527bd6dd46557b9d4fd7874f098509e9b8e02943c5c7"
+  },
+  "fixtures": {
+    "r0058": {
+      "id": "r0058",
+      "kind": "code",
+      "messages": [
+        {
+          "content": "Continue writing this Python file from the exact point where the excerpt stops. Respond with code only, no explanation, starting immediately with the next line of code.\n\n```python\n#!/usr/bin/env python3\n\"\"\"Every public number has a claim record; every claim's needle is on its surfaces.\n\nReads db/records/claims/*.md. A `current` claim's `needle` must appear\nverbatim in every file listed in `surfaces`; a `withdrawn` claim's needle\nmust appear in none of them. The gate exists because numbers drifted between\nREADME, docs, and llms.txt for three releases before anyone noticed; a\nmeasurement that changes now fails CI until its claim and its surfaces move\ntogether. Matching ignores line wrapping: runs of whitespace on both sides\ncollapse to one space, so a needle may span a wrapped line. Standard library\nonly.\n\"\"\"\nimport os\nimport sys\n\nROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\nCLAIMS = os.path.join(ROOT, 'db', 'records', 'claims')\n\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nfrom projections import read_record  # noqa: E402\n\n\ndef squash(text):\n    return ' '.join(text.split())\n\n\ndef main():\n    if not os.path.isdir(CLAIMS):\n        print('no claims folder at %s' % CLAIMS, file=sys.stderr)\n        return 1\n    failures, checked = [], 0\n    for name in sorted(os.listdir(CLAIMS)):\n```",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0058.json",
+      "sha256": "3b843e3f5320bf8fbbb6865501eece39755c035fa99c21d3dbe8e100c0cb61ab",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0067": {
+      "id": "r0067",
+      "kind": "code",
+      "messages": [
+        {
+          "content": "Continue writing this Python file from the exact point where the excerpt stops. Respond with code only, no explanation, starting immediately with the next line of code.\n\n```python\n#!/usr/bin/env python3\n\"\"\"Live OpenAI agent protocol checks. Uses an already-running loopback server.\n\nNo tool is executed: the caller supplies a fixed diagnostic result after checking\nthe generated function and arguments. Raw requests/replies are preserved as JSONL.\n\"\"\"\nimport argparse\nimport base64\nimport json\nfrom pathlib import Path\nimport urllib.error\nimport urllib.request\n\n\ndef main():\n    p = argparse.ArgumentParser(description=__doc__)\n    p.add_argument(\"--port\", type=int, default=11434)\n    p.add_argument(\"--output\", type=Path, required=True)\n    p.add_argument(\"--vision\", action=\"store_true\", help=\"Also check a tool loop using the repository's dog image fixture\")\n    a = p.parse_args()\n    base = f\"http://127.0.0.1:{a.port}\"\n    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))\n    a.output.parent.mkdir(parents=True, exist_ok=True)\n    log = a.output.open(\"w\")\n    passed = []\n\n    def request(name, path, body=None, expected=200):\n        req = urllib.request.Request(base + path,\n            data=json.dumps(body).encode() if body is not None else None,\n            headers={\"Content-Type\": \"application/json\"})\n        try:\n            with opener.open(req, timeout=600) as response:\n                status, raw = response.status, response.read().decode()\n        except urllib.error.HTTPError as exc:\n            status, raw = exc.code, exc.read().decode()\n        log.write(json.dumps({\"case\": name, \"path\": path, \"request\": body,\n            \"status\": status, \"response\": raw}) + \"\\n\"); log.flush()\n        assert status == expected, (name, status, raw)\n        return raw\n\n    def check(name, condition, detail=None):\n        assert condition, (name, detail)\n        passed.append(name)\n        print(\"PASS\", name, flush=True)\n\n    catalog = json.loads(request(\"catalog\", \"/v1/models\"))[\"data\"][0]\n    model, cap = catalog[\"id\"], catalog[\"context_length\"]\n    show = json.loads(request(\"show\", \"/api/show\", {\"model\": model}))\n    check(\"runtime context discovery agrees\", f\"num_ctx {cap}\" in show[\"parameters\"]\n        and catalog[\"context_window\"] == cap and 0 < catalog[\"max_output_tokens\"] <= cap)\n    function = {\"type\": \"function\", \"function\": {\"name\": \"read_file\",\n        \"description\": \"Read a named diagnostic file.\", \"strict\": False,\n        \"parameters\": {\"type\": \"object\", \"properties\": {\"path\": {\"type\": \"string\"},\n            \"start_line\": {\"type\": \"integer\", \"default\": None}}, \"required\": [\"path\"]}}}\n    user = {\"role\": \"user\", \"content\": \"Call read_file for diagnostic.txt with start_line 1. Wait for its result.\"}\n    common = {\"model\": model, \"messages\": [user], \"tools\": [function], \"max_tokens\": 192,\n        \"temperature\": 0, \"seed\": 42, \"reasoning_effort\": \"none\", \"think\": False,\n        \"options\": {\"num_ctx\": cap}}\n\n    def completion(name, body):\n        raw = request(name, \"/v1/chat/completions\", body)\n        if not body.get(\"stream\"):\n            result = json.loads(raw)\n            return result[\"choices\"][0][\"message\"], result[\"choices\"][0][\"finish_reason\"], result[\"usage\"]\n        message = {\"role\": \"assistant\", \"content\": \"\"}\n        calls = {}; finish = None; usage = None; done = False\n        for line in raw.splitlines():\n            if not line.startswith(\"data: \"): continue\n            if line == \"data: [DONE]\": done = True; continue\n            item = json.loads(line[6:]); assert \"error\" not in item, item\n            for choice in item[\"choices\"]:\n                delta = choice[\"delta\"]\n                message[\"content\"] += delta.get(\"content\", \"\")\n                if \"reasoning_content\" in delta:\n                    message[\"reasoning_content\"] = message.get(\"reasoning_content\", \"\") + delta[\"reasoning_content\"]\n                for call in delta.get(\"tool_calls\", []):\n                    index = call[\"index\"]\n                    dest = calls.setdefault(index, {\"id\": \"\", \"type\": \"function\", \"function\": {\"name\": \"\", \"arguments\": \"\"}})\n                    dest[\"id\"] += call.get(\"id\", \"\")\n                    for key in (\"name\", \"arguments\"):\n                        dest[\"function\"][key] += call.get(\"function\", {}).get(key, \"\")\n                finish = choice.get(\"finish_reason\") or finish\n            usage = item.get(\"usage\") or usage\n        assert done and finish is not None, raw\n        if calls: message[\"tool_calls\"] = [calls[i] for i in sorted(calls)]\n        return message, finish, usage\n\n    for stream in (False, True):\n        label = \"stream\" if stream else \"nonstream\"\n        body = dict(common, stream=stream, tool_choice={\"type\": \"function\", \"function\": {\"name\": \"read_file\"}})\n        if stream: body[\"stream_options\"] = {\"include_usage\": True}\n        message, finish, usage = completion(label + \"-call\", body)\n        calls = message.get(\"tool_calls\", [])\n        check(label + \" returns executable OpenAI function\", finish == \"tool_calls\" and len(calls) == 1, message)\n        call = calls[0]\n```",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0067.json",
+      "sha256": "25c91286acadd88df9ee82ca5347136a731fccca01084b6d135c1779b8863493",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0092": {
+      "id": "r0092",
+      "kind": "reasoning",
+      "messages": [
+        {
+          "content": "Someone earns 3348 a month. Rent is 1248, food is 468, transport is 109, and they save 20 percent of what remains after those three expenses. How much do they save each month, and how much is left after saving? Work it out step by step and end with \"Answer: <saved>, <left>\".",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0092.json",
+      "sha256": "06aa43db3b218c79518cd984b134671798d3dd9d84f67d895d2215e6f5f4b483",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0132": {
+      "id": "r0132",
+      "kind": "reasoning",
+      "messages": [
+        {
+          "content": "A rectangle is 4 by 7. A path of width 1 runs around the outside. What are the area and perimeter of the outer boundary, and what is the area of the path alone? Step by step; end with \"Answer: <area>, <perimeter>, <path area>\".",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0132.json",
+      "sha256": "649fa6e39ee57609f89a1862006fa3d15270c815d413ac261f9bb9271a300afb",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0189": {
+      "id": "r0189",
+      "kind": "prose",
+      "messages": [
+        {
+          "content": "Summarize the following documentation excerpt in four to six sentences for someone who has never used the tool.\n\nThe main agent loop supports multiple tool calls per turn, tool results,\nfile reads and writes, images, and follow-up turns. Image parts must contain\ninline bytes; see [Images](API.md#images).\n\nReasoning is available through fx's effort setting and streams separately\nfrom the answer. slotstream retains compatible conversation state, including\nreasoning state, so follow-up turns process only the new material while that\nstate is cached.\n\nThe first turn processes fx's system prompt and tool schemas as well as your\nquestion. That can take minutes on a small memory target. The main agent\nstep has no client-side deadline in the tested client.\n\n## Limitations\n\n- **Automatic permission reviews:** `permission_mode: auto` sends a separate\n  review request with a different tool set. It misses the conversation cache\n  and can exceed fx's 30-second review deadline, leaving the action on hold.\n  Use the wrapper's `ask` setting to approve actions yourself.\n- **Session compaction:** fx gives each summary chunk a 120-second budget.\n  Generation can exceed it, even with the smaller window advertised for the\n  compactor alias. Start a new session if compaction fails.\n- **Structured output:** JSON-schema constrained output returns a typed\n  400 error.\n- **Provider tools:** tools executed by a hosted provider, such as fx's web\n  search, aren't available locally. They are removed from the request before\n  it reaches the model. Ordinary client-executed tools remain available.\n\nThese observations describe the tested fx integration. A client update can\nchange its accepted overrides, request fields, or deadlines.\n\n## Troubleshooting\n\n### The model list doesn't show slotstream\n\nCheck that the server is running and both URLs use loopback HTTP with an\nexplicit port. Use the model ID returned by `./fxs models` or\n`GET /coding-agent/v1/models`.\n\n### fx reports an invalid finish reason\n\nUpgrade slotstream. An older server may not implement this gateway protocol;\na proxy that changes the response stream can also cause this error.\n\n### The first turn takes minutes\n\nCheck the progress in the server terminal. A cold first turn processes fx's\nfull standing prompt. `slotstream doctor` estimates prompt-processing time\nfor your memory plan.\n\n### Requests fail with `unsupported_field`\n\nA client may be sending a field this server doesn't support. Open an issue\nwith the field name and both software versions.\n\n<a id=\"what-slotstream-serves\"></a>\n\n## Protocol reference\n\nslotstream implements the Vercel AI SDK Language Model Specification v4 over\nAI Gateway protocol 0.0.1.\n\n| Route | Purpose |\n|---|---|\n| `POST /v3/ai/language-model` | Model calls, streamed as Server-Sent Events |\n| `POST /v1/ai/language-model` | The same handler under the `v1` path |\n| `GET /coding-agent/v1/models` | Model IDs and capabilities |\n| `GET /coding-agent/v1/credits` | A zero balance for `fx credits` |\n\nThe model emits tool calls in its native XML format. slotstream parses them\nincrementally, converts arguments using the tool's JSON Schema, and returns\nAI SDK `tool-call` parts.\n\n<a id=\"how-it-is-tested\"></a>\n\n## Tests\n\n`slotstream-checks --tier t0` tests validation, prompt mapping, the model\ncatalogue, stream frames, and tool-call parsing without weights or a GPU.\n\n`Tools/fx_gates.sh` tests a live server: model discovery, rejected requests,\nstreaming, a complete tool loop, and conversation reuse. When fx is installed,\nit also tests the client completing a task with the local model.\n",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0189.json",
+      "sha256": "c047ba917110f3b9a3435026b72723bc57563292767e3e77eeacff5c8cd94e6b",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0211": {
+      "id": "r0211",
+      "kind": "prose",
+      "messages": [
+        {
+          "content": "Summarize the following documentation excerpt in four to six sentences for someone who has never used the tool.\n\ncan reuse parts already loaded into memory.\n\n## The first token takes a long time\n\nSlotstream has to process your question and conversation history before it\nstarts replying. The terminal shows progress during long requests.\n`slotstream doctor` estimates waits for different prompt lengths.\n\nFor a full conversation at the default limit, the estimated wait is about\n3.0 min for the 48 GB M5 Pro plan and 6.4 min for the 16 GB plan. These\nestimates come from the M5 Pro; slower SSDs can take longer. Follow-up turns\nreuse unchanged history while it stays in memory.\n\nIf Hermes or fx gives up before Slotstream replies, check the timeout\nsettings in the [Hermes guide](HERMES.md#troubleshooting) or\n[fx guide](FX.md#the-first-turn-takes-minutes).\n\n## A download was interrupted or may be damaged\n\nRun this again to resume:\n\n```sh\nslotstream pull\n```\n\nKeep the partially downloaded files; Slotstream reuses its saved progress.\nTo check existing files without downloading anything, run:\n\n```sh\nslotstream pull --verify\n```\n\nIt checks for corruption and names any damaged files. The optional file\nused for speculative decoding is skipped if absent.\n\nFor transport options and how verification works, see the\n[download reference](DOWNLOAD-FORMAT.md#download-behavior-and-measured-checks).\n\n## Store the weights on another disk\n\nThe model files are also called *weights*. Replace the path below with a\nfolder on your external SSD. Keep the quotes if the path contains spaces:\n\n```sh\nslotstream pull --dir \"/Volumes/My SSD/slotstream-model\"\nslotstream serve --model \"/Volumes/My SSD/slotstream-model\"\n```\n\nIf the model files are already there, only the second command is needed.\nAn external disk may be slower than the internal SSD.\n\n## Reclaim disk space or uninstall\n\nStop Slotstream first. In Finder, choose **Go \u2192 Go to Folder** and enter\n`~/.slotstream` to find its files.\n\nDelete the `models` folder there to remove the downloaded model and keep\nthe program. This frees about 105 GB after a full download.\n\nTo remove both, delete `~/.slotstream`. Also remove the\n`/usr/local/bin/slotstream` wrapper or the PATH entry the installer added to\nyour shell profile. If you chose a custom install or model folder, use\nthat location instead. The [installation reference](CLI.md#file-locations)\nlists the default paths.\n\n## Problems with older versions\n\n[Run the installer again](GETTING-STARTED.md#update-or-get-help) to update.\nThen stop and restart any running server. `slotstream --version` shows your\ninstalled version; the [changelog](../CHANGELOG.md) lists the fixes in each release.\n\n## Problems on macOS 14 or 15\n\nThe installer is tested on these versions; the runtime still needs testing.\n[Open an issue](https://github.com/carloslfu/slotstream/issues/new) with the\nerror and your `slotstream doctor` output.\n\n## A long request is refused or interrupted\n\nThe feasibility report and request deadlines below are available starting\nin Slotstream 0.2.14. Check `slotstream --version` and the installed command's `--help`.\n",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0211.json",
+      "sha256": "72fe66718dc76de61f8439c9c2a338fbf71d4ffc6713f413571feab4e9dbad54",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0265": {
+      "id": "r0265",
+      "kind": "structured",
+      "messages": [
+        {
+          "content": "Convert this CSV data into a single JSON object that satisfies the JSON schema below. Respond with the JSON only.\n\nCSV:\nitem,amount,unit\nrice,400,g\nchicken thighs,600,g\nonion,1,piece\nsaffron,0.5,g\nolive oil,3,tbsp\n\nSchema:\n{\n  \"type\": \"object\",\n  \"required\": [\n    \"name\",\n    \"servings\",\n    \"ingredients\",\n    \"steps\"\n  ],\n  \"properties\": {\n    \"ingredients\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"item\",\n          \"amount\",\n          \"unit\"\n        ]\n      }\n    },\n    \"steps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  }\n}",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0265.json",
+      "sha256": "8397ac32e5b8661a4cf568b3de30198257b45d0231aac3a813569338bec22232",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "r0289": {
+      "id": "r0289",
+      "kind": "dialogue",
+      "messages": [
+        {
+          "content": "You are a cooking teacher who adapts recipes to what people have on hand.",
+          "role": "system"
+        },
+        {
+          "content": "I have rice, eggs, half an onion, soy sauce and some frozen peas. Dinner ideas?",
+          "role": "user"
+        },
+        {
+          "content": "That is a fried rice night. Cook the rice ahead if you can so it dries a little, scramble the eggs first and set them aside, then fry the onion, add rice and peas, and finish with soy sauce and the eggs.",
+          "role": "assistant"
+        },
+        {
+          "content": "I only have fresh rice just cooked. Does that matter?",
+          "role": "user"
+        }
+      ],
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/r0289.json",
+      "sha256": "f94884080aab45625ad98c3ee6fb0731b3d4575c642317e28f191ff8303a88c7",
+      "provenance": "existing public 0.2.19 benchmark fixture; not newly held out"
+    },
+    "code2048": {
+      "id": "code2048",
+      "kind": "code",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code2048.txt",
+      "sha256": "83d5ed54dad7c2b4c6a77bf5456e97d4e90d38f6cacc45239d728b01e6ad33bb",
+      "raw_token_count": 2049,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "code8192": {
+      "id": "code8192",
+      "kind": "code",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code8192.txt",
+      "sha256": "04c3c098e80f146f45a8d81f11f168b5a60ab8a6af49ef7a532cc6fdd78f26e1",
+      "raw_token_count": 8193,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "code16384": {
+      "id": "code16384",
+      "kind": "code",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code16384.txt",
+      "sha256": "4325b8c2451dc94dc8922b03a22aebcf28ba521c065c79992cbaf135762cd3d5",
+      "raw_token_count": 16385,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "code31744": {
+      "id": "code31744",
+      "kind": "code",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/code31744.txt",
+      "sha256": "4a201b7cda47ed2b38e8fcc8cada5747173f316e80254629e3f4eeba6e983270",
+      "raw_token_count": 31745,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "prose2048": {
+      "id": "prose2048",
+      "kind": "prose",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose2048.txt",
+      "sha256": "78af81465c955393dc90aa19e8f2b5c6ec65df5d38c9cd0ea84081659448f4bd",
+      "raw_token_count": 2049,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "prose8192": {
+      "id": "prose8192",
+      "kind": "prose",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose8192.txt",
+      "sha256": "582f67e0e17d73a5dc77aa7e7c9e28f64efde56749bd21fdd046073ec522c6a5",
+      "raw_token_count": 8193,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "prose16384": {
+      "id": "prose16384",
+      "kind": "prose",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose16384.txt",
+      "sha256": "5ff535a91214a8ed10ea213a74f90d92cc1cd0e133a49e930b2b8a4ee62b6c8c",
+      "raw_token_count": 16385,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    },
+    "prose31744": {
+      "id": "prose31744",
+      "kind": "prose",
+      "path": "/private/tmp/slotstream-release-calibration-20260922/fixtures/prose31744.txt",
+      "sha256": "037f6a1d3f958a0ed730e6035720259548e636775c9c06913ef54880715c0c3c",
+      "raw_token_count": 31745,
+      "provenance": "public release source excerpts; normal native chat formatting adds tokens"
+    }
+  },
+  "profiles": {
+    "budget10_auto": {
+      "id": "budget10_auto",
+      "ceiling_gb": 10,
+      "required_headroom_gb": 13,
+      "plan_args": [
+        "--memory-gb",
+        "10"
+      ],
+      "decode_fixtures": [
+        "r0058",
+        "r0092",
+        "r0189",
+        "r0265",
+        "r0289"
+      ],
+      "prefill_fixtures": [
+        "code2048"
+      ],
+      "scope": "Explicit total-memory measurement; ordinary prefix cache and planner-owned compute/context/MTP; not simulated hardware"
+    }
+  },
+  "primary_rounds": 1,
+  "settle_seconds": 120,
+  "between_requests_nominal_seconds": 15,
+  "readiness_timeout_seconds": 300,
+  "request_timeout_seconds": 1200,
+  "minimum_spare_gb": 3,
+  "minimum_decode_tokens": 32,
+  "warmup_tokens": 128,
+  "decode_max_tokens": 1024,
+  "prefill_output_tokens": 16,
+  "analysis_contract": {
+    "primary_decode": "Absolute measured decode rates on completed non-thinking greedy answers with at least32tokens, after128-token same-prompt warmup. Three environment-eligible repetitions for every included fixture; require repeat output IDs and realized plan stable within profile. Also report capped completions, first warmup/request costs and equal-kind weighted summaries. No direct speedup versus the different historic0.2.19 protocol.",
+    "primary_environment": "Prospective process-pageins-v1 criterion previously used for the published0.2.19 decode benchmark: no host swap-outs, own proc_pid_rusage page-in delta0..4096inclusive including file faults; nominal thermal/normal power throughout sampled interval; no known compiler/model transport contention. Native and sampled complete footprint must stay inside declared target. Strict global no-swap sensitivity is also always reported, never pooled with old studies. Additionally require the prospective v3 windowed host-load screen and unchanged actual runtime plan. These are load-screened desktop observations, not demonstrated host isolation. Retain v2 pointwise flags as sensitivity diagnostics.",
+    "prefill": "Normal-cache sequential unique requests and exact repeated requests, normal native template, planner-selected passes. Unique fixture identity appears before shared content so first requests must have zero reused tokens. Initial startup and later warm misses remain separate; order rotates. At least3eligible full-prefill observations per fixture/profile before updating an estimate; no universal ratio or unmeasured pass/context extrapolation.",
+    "supplemental": "At most2prospectively declared supplemental repetitions per fixture/profile if fewer than3eligible primary repetitions. Never select by latency. Preserve every attempt and include all eligible observations. Freeze supplemental subset before launching it.",
+    "model_update": "Separate MTP/lookahead/default profiles. Propose an estimator only within measured support and assess leave-one-prompt-family-out error and automatic-plan policy changes. If a one-variable curve cannot predict the measured variation, publish scoped measurements and explicit calibration limits instead of silently changing the safety/default planner.",
+    "coverage": "One available M5 Pro; other hardware requires actual access. Desktop profile is engine-policy evidence, not UI latency. Filesystem cache uncontrolled; no purge. All raw outputs/errors/exclusions retained."
+  },
+  "parent_protocol_sha256": "425e7a77e482f76f719b91f5cd49e2f30816be9b4dbf26f36be2f0c636290b5d",
+  "host_load_screen": {
+    "purpose": "Prospective load-screened interactive-desktop timing, not proof of idle-machine isolation or a physical safety limit. CPU ps values are decaying estimates; one core is 100 percent. Normal UI bursts do not reset the readiness interval. Previous v1 and v2 populations and verdicts remain unchanged. Chosen before any v3 model results, informed by observed false v2 readiness refusals.",
+    "cpu_window_mean_max": 100,
+    "largest_process_window_mean_max": 50,
+    "idle_gpu_window_mean_max": 5,
+    "burst_limits": {
+      "cpu_total": 200,
+      "cpu_largest_process": 100,
+      "idle_gpu": 20
+    },
+    "maximum_burst_sample_fraction": 0.2,
+    "sample_seconds": 2,
+    "readiness_window_seconds": 120,
+    "between_requests_window_seconds": 15,
+    "request_window": "all before, 2-second monitor and after samples; GPU diagnostic during own inference",
+    "thermal_memory_lock_contention_swapout": "unchanged continuous preflight and original request gates",
+    "require_live_runtime_plan": true
+  },
+  "adaptive_preflight_policy": "Adaptive profiles must fit their actual expected physical peak plus3GB within both independently measured VM reclaimable memory and the planner available-memory reading. They retain the production governor and bounded declared ceiling. Fixed-budget profiles require target plus3GB. Actual runtime plans are captured before/after requests; changing plans are not pooled.",
+  "phase_scope": "First prospectively frozen supplemental repetition for code2048 only. Primary attempt5 completed 3 eligible misses and only 2 eligible repeats; round3 repeat was excluded for background CPU. Include every eligible observation, including this paired miss, regardless of latency. At most one additional supplemental repetition remains permitted for this fixture/profile."
+}

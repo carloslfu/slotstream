@@ -1,0 +1,23 @@
+Prospective load-screen v3 for the installed Slotstream 0.2.23 release.
+This corrects v2 benchmark readiness. It is not a runtime optimization or a
+new speed claim. Original absolute paths and hashes are preserved.
+
+Run offline host-load tests in a disposable copy:
+  cd harness-idle-v3
+  python3 -m unittest host_load_test.py
+
+The 13 analysis tests and the original input fixtures/probe belong to the
+sibling release-speed-calibration-2026-09-22 archive. Its REPRODUCE.txt gives
+the offline analysis commands. No v1 or v2 source bytes were changed.
+
+For a new native run, copy the protocol to a new identity, resolve the installed
+binary, model, probe and fixture paths, and recompute the exact input hashes
+before requests. Never edit the frozen protocols or reuse previous attempts.
+Run the 10 GB functional pilot first. Primary measurements still require
+three eligible repetitions, complete native resource accounting, stable live
+plans and matching output IDs. Keep all attempts and report strict global
+no-swap sensitivity. Load-screened desktop measurements do not establish
+complete host isolation. The benchmark cannot lower physical headroom checks.
+
+The pilot population is excluded from timing calibration. No production
+estimator, kernel or release binary was changed.

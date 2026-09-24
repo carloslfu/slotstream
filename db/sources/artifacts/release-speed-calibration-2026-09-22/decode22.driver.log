@@ -1,0 +1,78 @@
+{"phase": "decode", "profile": "budget22_auto", "round": 1, "event": "session_start"}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 26, "free_gb": 29.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 31, "stable_s": 31, "need_gb": 26, "free_gb": 29.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 62, "stable_s": 62, "need_gb": 26, "free_gb": 29.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 93, "stable_s": 93, "need_gb": 26, "free_gb": 29.9, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 16.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0058", "round": 1, "stage": "warmup", "seconds": 14.93, "decode_tps": 14.13, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 17.3, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0058", "round": 1, "stage": "measured", "seconds": 48.37, "decode_tps": 13.92, "outputs": 673, "stop": "stop", "reuse": 343, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 15.7, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0067", "round": 1, "stage": "warmup", "seconds": 16.79, "decode_tps": 14.17, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 18.0, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0067", "round": 1, "stage": "measured", "seconds": 21.31, "decode_tps": 13.91, "outputs": 296, "stop": "stop", "reuse": 1287, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 17.4, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0092", "round": 1, "stage": "warmup", "seconds": 15.01, "decode_tps": 12.59, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 12.5, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0092", "round": 1, "stage": "measured", "seconds": 31.21, "decode_tps": 12.24, "outputs": 382, "stop": "stop", "reuse": 93, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 9.6, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0132", "round": 1, "stage": "warmup", "seconds": 12.99, "decode_tps": 12.94, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 9.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0132", "round": 1, "stage": "measured", "seconds": 54.32, "decode_tps": 12.41, "outputs": 640, "stop": "stop", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 9.4, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0189", "round": 1, "stage": "warmup", "seconds": 18.78, "decode_tps": 11.32, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.9, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0189", "round": 1, "stage": "measured", "seconds": 20.7, "decode_tps": 10.96, "outputs": 158, "stop": "stop", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 14.1, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0211", "round": 1, "stage": "warmup", "seconds": 18.97, "decode_tps": 10.55, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.9, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0211", "round": 1, "stage": "measured", "seconds": 20.17, "decode_tps": 10.45, "outputs": 143, "stop": "stop", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 12.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0265", "round": 1, "stage": "warmup", "seconds": 15.03, "decode_tps": 13.65, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 12.4, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0265", "round": 1, "stage": "measured", "seconds": 19.33, "decode_tps": 13.89, "outputs": 196, "stop": "stop", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 11.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0289", "round": 1, "stage": "warmup", "seconds": 14.71, "decode_tps": 11.81, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 11.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0289", "round": 1, "stage": "measured", "seconds": 44.13, "decode_tps": 11.42, "outputs": 463, "stop": "stop", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "decode", "profile": "budget22_auto", "round": 2, "event": "session_start"}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 26, "free_gb": 29.9, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 31, "stable_s": 31, "need_gb": 26, "free_gb": 29.7, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 62, "stable_s": 62, "need_gb": 26, "free_gb": 29.5, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 93, "stable_s": 93, "need_gb": 26, "free_gb": 29.7, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 15.5, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0067", "round": 2, "stage": "warmup", "seconds": 17.59, "decode_tps": 13.58, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 14.9, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0067", "round": 2, "stage": "measured", "seconds": 22.35, "decode_tps": 13.25, "outputs": 296, "stop": "stop", "reuse": 1287, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.9, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0092", "round": 2, "stage": "warmup", "seconds": 12.66, "decode_tps": 13.43, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.1, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0092", "round": 2, "stage": "measured", "seconds": 30.97, "decode_tps": 12.34, "outputs": 382, "stop": "stop", "reuse": 93, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 12.1, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0132", "round": 2, "stage": "warmup", "seconds": 14.48, "decode_tps": 12.27, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 11.3, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0132", "round": 2, "stage": "measured", "seconds": 50.78, "decode_tps": 12.6, "outputs": 640, "stop": "stop", "reuse": 73, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 10.5, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0189", "round": 2, "stage": "warmup", "seconds": 30.07, "decode_tps": 6.6, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": false, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.6, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0189", "round": 2, "stage": "measured", "seconds": 31.4, "decode_tps": 6.32, "outputs": 158, "stop": "stop", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.2, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0211", "round": 2, "stage": "warmup", "seconds": 24.15, "decode_tps": 7.36, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 11.4, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0211", "round": 2, "stage": "measured", "seconds": 19.75, "decode_tps": 10.74, "outputs": 143, "stop": "stop", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 13.1, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+{"profile": "budget22_auto", "fixture": "r0265", "round": 2, "stage": "warmup", "seconds": 14.54, "decode_tps": 13.75, "outputs": 128, "stop": "length", "reuse": 0, "eligible": true, "strict": true, "excluded": []}
+{"phase": "readiness", "wait_s": 0, "stable_s": 0, "need_gb": 0, "free_gb": 11.8, "state": {"lowPowerModeEnabled": false, "thermalState": "nominal"}}
+Traceback (most recent call last):
+  File "/tmp/slotstream-release-calibration-20260922/harness/release_speed_bench.py", line 172, in <module>
+    main()
+  File "/tmp/slotstream-release-calibration-20260922/harness/release_speed_bench.py", line 167, in main
+    run_session(p,profile,r,out,a.phase)
+  File "/tmp/slotstream-release-calibration-20260922/harness/release_speed_bench.py", line 141, in run_session
+    settle(p['probe'],p['between_requests_nominal_seconds'],0,p['readiness_timeout_seconds'],lock_required=False)
+  File "/tmp/slotstream-release-calibration-20260922/harness/release_speed_bench.py", line 46, in settle
+    time.sleep(2)
+  File "/tmp/slotstream-release-calibration-20260922/harness/release_speed_bench.py", line 170, in interrupt
+    def interrupt(*_):raise KeyboardInterrupt('benchmark interrupted')
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt: benchmark interrupted

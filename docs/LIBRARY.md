@@ -36,15 +36,56 @@ For a command-line build, place a prebuilt `mlx.metallib` **next to the
 running executable**. MLX looks there for its Metal shaders. SwiftPM doesn't
 compile them in the Command Line Tools setup.
 
-- **An Xcode app**: Xcode compiles the shaders itself. No manual copy is needed.
-- **A command-line build** (`swift build`): copy it yourself, once.
+- **Sevra's Xcode project**: its build phase bundles the pinned library.
+  Other app targets must also include the matching MLX shaders at runtime.
+- **A command-line build** (`swift build`): copy the matching library beside
+  each executable after building.
 
   ```bash
   Tools/fetch_metallib.sh                       # from a slotstream checkout
-  cp Tools/lib/mlx-0.31.1.metallib .build/debug/mlx.metallib
+  cp Tools/lib/mlx-0.32.2.metallib .build/debug/mlx.metallib
   ```
   Without it, the first MLX call fails with `Failed to load the default
   metallib`. A test bundle needs its own copy in `.xctest/Contents/MacOS/`.
+
+The runtime pins mlx-swift to an exact revision and packages the matching MLX
+shader library. Upgrade those together. The engine's qualified fused prefill
+path uses upstream MLX attention; the experimental selected-block kernel
+remains a separate control. `SLOTSTREAM_OPT_FUSED_PREFILL=0` restores MLX's
+own dispatch heuristics, and `=1` requests the fused path on supported NAX
+hardware. Automatic activation is limited to the measured M5 Pro profile;
+other profiles retain MLX dispatch. Short decode and speculative verify calls
+retain their existing paths. Persistent prompt-cache identities include the
+attention settings, MLX backend overrides, GPU architecture and OS build, so changing arithmetic
+starts a fresh cache.
+
+The qualified profile also chooses expert-read groups automatically using the
+fused kernel's workspace requirements. No application setting is needed. For
+supported BF16 text prefill, including MTP, groups may share reads across more
+chronological compute passes while staying within the existing memory target.
+The larger groups end within the supported key range. Each candidate still
+has to fit the actual process footprint, live headroom and request reservation;
+the scheduler chooses a smaller group or an ordinary pass when necessary.
+MTP prices the main and draft phases separately, including the hidden states
+retained between them, and admits against the larger peak. The draft phase
+keeps its full attention allowance regardless of whether its own kernel fuses.
+When MTP's memory budget limits grouping, the engine can assemble expert
+buffers one at a time. It uses that extra synchronization only when it can
+at least double the group that fits with batched writes. This is an internal
+performance policy, with the same memory and cancellation guards.
+Images, CPU, other dtypes, small-query padding and attention fallbacks keep
+full main-attention accounting and their established automatic grouping limits.
+
+Diagnostic overrides remain available: `SLOTSTREAM_OPT_FUSED_WORKSPACE=0`
+restores both the original accounting and automatic group cap;
+`SLOTSTREAM_OPT_FUSED_PREFILL=0` also disables the combined policy.
+`SLOTSTREAM_OPT_AUTO_SCOPE_LIMIT=8192|16384` can test grouping independently.
+These controls do not increase the memory target or select a larger compute
+pass. `InferenceOptimizations.environment()` selects the deployment policy;
+the explicit reference initializer and older serialized settings retain their
+original reservation. The [initial automatic-policy validation](../db/records/measurements/automatic-prefill-policy-2026-09-21.md)
+and [MTP qualification](../db/records/measurements/mtp-prefill-policy-2026-09-21.md)
+record the tested scope, with earlier experiments and exclusions preserved.
 
 Planning, weight checks, prefill estimates, and most diagnostics run without
 loading Metal. An app can show a memory plan and download status before the
@@ -101,8 +142,21 @@ print(plan.expertsPerLayerCached, "experts per layer,",
 
 `Machine.simulated(ramGB: 16)` previews a decimal-GB memory size, like
 `slotstream doctor --sim-ram 16`; it does not simulate another chip or SSD.
-`Engine.load` rejects simulated plans;
+`Engine` rejects simulated plans;
 use `Machine.current()` for a plan that will allocate memory.
+
+In the development version, `PlanRequest(memoryLimitGB: chosenLimitGB)` sets
+an adaptive process ceiling. The supported hardware budget and available
+memory may lower `plan.targetGB`; `plan.memoryLimitGB` keeps the saved ceiling.
+Existing `memoryGB`, `poolGB` and `expertsPerLayer` controls keep a fixed cache
+and cannot be combined with this option.
+
+An embedding app must retain a `MemoryGovernor(engine:)` and call `start()`
+to enable live resizing. Call `await governor.stopAndWait()` before releasing
+the engine. Construct plans through `Planner.plan`; directly constructed
+adaptive plans must use `.auto` and a positive target within the saved limit.
+The engine validates these conditions before model allocation. The original
+planner and initializer signatures remain available for existing Swift code.
 
 <a id="pricing-a-prompt-before-you-send-it"></a>
 
@@ -121,6 +175,21 @@ before starting a long prompt.
 The library exposes the same `Server` used by the CLI. It listens on loopback
 and provides the [Ollama/OpenAI endpoints](API.md) and [AI SDK gateway](FX.md).
 
+## A thinking phase followed by an answer
+
+`Engine.generatePhased` runs two phases under one generation gate, with
+independent sampling parameters and output budgets. Its `transition` callback
+returns nonempty separator or closure token ids. The engine transfers the
+live state and consumes any pending sampled token exactly once, then reads
+only the suffix needed for the second phase. Both phases obey the caller's
+context and memory limits; cancellation also reaches the second phase.
+
+Callbacks must not re-enter generation or configuration on the same engine.
+The first phase throws on failure; inspect the returned second phase's
+`stats.requestFailure` and `stats.runtimeError` as with ordinary generation.
+Neither phase writes its private working state to the disk tier. Generated
+rows remain ineligible for cold-equivalent reuse by a later conversation.
+
 ## Persistent prefix cache
 
 `Engine.enablePersistentPrefixCache(_:)` adds a disk tier under
@@ -135,10 +204,14 @@ let tier = try engine.enablePersistentPrefixCache(
 tier.onEvent = { print("prefix cache disk:", $0) }
 ```
 
-A state is written after its reply completes, for text requests of at least
-`minimumTokens`. A later turn of the same conversation writes its recurrent
-state and only the tokens added since, keeps the previous turn's state for
-regenerating or editing the last reply, and removes older ones. `maxBytes`
+With aligned resume enabled, the generator saves states at completed prefill
+pass boundaries, for text prefixes of at least `minimumTokens`. A restored
+state must match the incoming prompt's boundaries and the producing prefill
+pass size as well as the binary, model and optimization settings. Legacy
+heads with unknown pass sizes are not eligible for aligned state reuse.
+Generated conversation ids can still help render a later prompt, but do not
+certify a numerical checkpoint. Unchanged persisted rows can be referenced
+by later checkpoints instead of being written again. `maxBytes`
 bounds the directory: when it is full, states nobody continued go first, then
 kept previous turns, then conversations, then shared prefixes, least recently
 used first. `maxAge`
@@ -183,6 +256,18 @@ request.persistsPrefixState = false
 deleted, given its latest prompt ids, and `tier.clear()` removes everything.
 Each request's `GenStats.persistentPrefix` reports what it restored, wrote and
 reused, and `prefixCache.json()["persistent"]` holds the tier's totals.
+
+`Engine.disablePersistentPrefixCache()` detaches the tier without deleting
+saved files. Detach before encoding a private conversation, because chat
+encoding can consult saved conversation ids. Clear the in-memory prefix
+cache as well when changing ownership or privacy scope.
+
+The native Mac app enables the tier for ordinary, non-thinking conversations
+inside that Home's disposable `.sevra/prefix-cache` directory. Home backups
+exclude this directory. Incognito and conversations with a recorded thinking
+phase do not use the disk tier; Home and privacy transitions clear held
+in-memory state before encoding. An unavailable disk cache falls back to
+ordinary inference.
 
 ## Diagnostics
 

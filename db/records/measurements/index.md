@@ -2,11 +2,31 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-18T21:09:57.710768Z
+updated: 2026-09-23T16:45:55.741336Z
 ---
 
 # records/measurements
 
+- [[records/measurements/sevra-app-optimizations-2026-09-23]] — Sevra desktop defaults: MTP, useful checkpoints and verified reloads
+- [[records/measurements/sevra-app-speed-2026-09-23]] — Sevra desktop speed: short-turn rereads and disabled MTP
+- [[records/measurements/issue21-edge-fixes-2026-09-22]] — Issue 21 nullable tool strings and branched conversation reuse repaired
+- [[records/measurements/release-0-2-24-performance-2026-09-23]] — v0.2.24 post-release responsiveness and reuse comparison
+- [[records/measurements/release-0-2-24-published-2026-09-23]] — v0.2.24 published, installed and accepted
+- [[records/measurements/release-speed-calibration-2026-09-22]] — Incomplete active-Mac calibration preserves functional evidence, corrects historical benchmark equivalence and adds prospective host-load screening.
+- [[records/measurements/release-prefill-2k-2026-09-22]] — Measured installed-release 2K first reads and exact repeats at 10 GB; request history changes read batching and prevents a universal estimator correction.
+- [[records/measurements/issue21-current-review-2026-09-22]] — Issue 21 reassessment: v0.2.23 release acceptance is complete; fresh 51K/restart checks pass, but nullable-string schema and branched-cache defects remain.
+- [[records/measurements/hardware-planning-ranges-2026-09-13]] — Hardware speed planning ranges and inference limits
+- [[records/measurements/speed-tables-review-2026-09-22]] — Keep the latest qualified decode result and rough ranges; add scoped prompt-policy and reuse results, and mark historical planner calibration.
+- [[records/measurements/published-prompt-speed-audit-2026-09-22]] — Published v0.2.23 audit: 123 requests; repeated exact prefix reuse is faster, short gains are inconsistent, and long timing exclusions and default-profile limits remain explicit.
+- [[records/measurements/release-0-2-23-published-2026-09-22]] — v0.2.23 published from the exact CI archive, provenance verified, publicly installed and accepted: full native battery 32/32, 16K MTP 13/13, installed serving 31/31.
+- [[records/measurements/prefill-opportunities-2026-09-21]] — Remaining long-prompt opportunities: tested gains and rejected alternatives
+- [[records/measurements/fused-prefill-integration-2026-09-21]] — Qualified fused prefill integration and remaining bottlenecks
+- [[records/measurements/automatic-prefill-policy-2026-09-21]] — Automatic prefill policy: validation and bounded adoption
+- [[records/measurements/mtp-prefill-policy-2026-09-21]] — Automatic MTP prefill: phase accounting and bounded expert writes
+- [[records/measurements/prompt-speed-qualification-2026-09-21]] — Prompt speed: three qualified changes and one rejected attention upgrade
+- [[records/measurements/fused-attention-reassessment-2026-09-21]] — Fused attention reassessment: usability, fidelity and qualification
+- [[records/measurements/issue21-long-context-qualification-2026-09-21]] — Issue 21: long conversations and full acceptance pass; original intermittent failures remain unproven
+- [[records/measurements/issue21-serving-regressions-2026-09-21]] — Issue 21: confirmed serving bugs repaired, remaining crash and pressure reports unverified
 - [[records/measurements/release-0-2-22-published-2026-09-18]] — v0.2.22 published, installed and accepted: memory and context policy fixed, exact conversation resume, verified release bytes, installed end to end 31/31.
 - [[records/measurements/conversation-resume-exactness]] — A continued conversation now computes what a cold one computes, bit for bit; a follow-up turn pays one partial prefill pass, 2.47 s against 8.56 s at 961 slots
 - [[records/measurements/memory-budget-context-policy-2026-09-18]] — Memory budget: preserve expert cache when context cost is unmeasured
@@ -15,7 +35,6 @@ updated: 2026-09-18T21:09:57.710768Z
 - [[records/measurements/coding-agents-launch-2026-09-17]] — Coding agents at 12 GB: Claude Code, Codex, Pi, opencode and Hermes pass every task via slotstream launch; second sessions reuse 84 to 98% of the opening prompt, also after a picture
 - [[records/measurements/speculative-verify-pass-split-attention-2026-09-17]] — Split verify attention from 6,144 tokens: a verification round 12% cheaper at 16k, x1.013 there and x1.29 at 32k on a quiet machine; an opt-in exact mode makes speculative output equal plain output
 - [[records/measurements/release-0-2-20-published-2026-09-16]] — v0.2.20 published, installed and accepted: 25/25 model gates on the CI artifact, 31/31 installed checks, 11 prefix checks, Codex and the OpenAI SDK 18/18 on the installed binary
-- [[records/measurements/hardware-planning-ranges-2026-09-13]] — Hardware speed planning ranges and inference limits
 - [[records/measurements/shared-prefix-cache-2026-09-16]] — Shared prefixes at 10 GB: a system prompt kept during its prefill is reused exactly from memory and across restarts; first token 2.6 to 4.4 s against 21 to 52 s cold
 - [[records/measurements/release-0-2-19-published-2026-09-16]] — v0.2.19 published, installed and accepted: 25 of 25 model gates on the CI artifact, 31 of 31 installed-release checks, 11 prefix checks, corrected forecast planned at 22 GB
 - [[records/measurements/corrected-forecast-release-benchmark-2026-09-16]] — Shipping build's default 1.10x over the 0.2.18 forecast at 22 GB: aggregate 1.108 (bootstrap 1.092 to 1.147), 24 of 24 pairs above 1, outputs identical, 14.38 to 15.86 tok/s

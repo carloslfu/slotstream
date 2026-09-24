@@ -1,0 +1,152 @@
+{
+  "requests": 8,
+  "environment_eligible": 5,
+  "strict_global_eligible": 0,
+  "exclusions": {
+    "generator OS thermal/power state unavailable or non-nominal": 2,
+    "non-nominal thermal or power state": 2,
+    "Documentation worktree checkout performed by this task overlapped this request; possible SSD/CPU contention. Excluded before its result was inspected. Original automatic verdict remains unchanged.": 1
+  },
+  "groups": [
+    {
+      "population": "load-prefill-long-v3",
+      "profile": "budget10_auto",
+      "fixture": "code16384",
+      "stage": "repeat",
+      "server_history": "after_other_prompts",
+      "cache": "miss",
+      "slots": 961,
+      "mtp": false,
+      "chunk": 256,
+      "context": 32768,
+      "n": 1,
+      "strict_n": 0,
+      "same_output": true,
+      "median_decode_tps": 4.38770627238262,
+      "median_client_seconds": 219.54530091700144,
+      "median_first_visible_seconds": 215.8948173749959,
+      "median_prefill_seconds": 215.839473542,
+      "median_peak_gb": 8.250117504,
+      "median_prefill_estimate_error_pct": -10.625299817827905,
+      "median_decode_estimate_error_pct": -8.741232477890627,
+      "reused_tokens": [
+        0
+      ],
+      "output_tokens": [
+        16
+      ]
+    },
+    {
+      "population": "load-prefill-long-v3",
+      "profile": "budget10_auto",
+      "fixture": "code8192",
+      "stage": "prefill_miss",
+      "server_history": "first_prompt",
+      "cache": "miss",
+      "slots": 961,
+      "mtp": false,
+      "chunk": 256,
+      "context": 32768,
+      "n": 1,
+      "strict_n": 0,
+      "same_output": true,
+      "median_decode_tps": 6.909563990762695,
+      "median_client_seconds": 34.36917258403264,
+      "median_first_visible_seconds": 32.05299495905638,
+      "median_prefill_seconds": 32.012612458,
+      "median_peak_gb": 8.242318504,
+      "median_prefill_estimate_error_pct": 201.53556474452316,
+      "median_decode_estimate_error_pct": -42.04892418653646,
+      "reused_tokens": [
+        0
+      ],
+      "output_tokens": [
+        16
+      ]
+    },
+    {
+      "population": "load-prefill-long-v3",
+      "profile": "budget10_auto",
+      "fixture": "code8192",
+      "stage": "repeat",
+      "server_history": "first_prompt",
+      "cache": "miss",
+      "slots": 961,
+      "mtp": false,
+      "chunk": 256,
+      "context": 32768,
+      "n": 1,
+      "strict_n": 0,
+      "same_output": true,
+      "median_decode_tps": 6.750719808684601,
+      "median_client_seconds": 49.223841959028505,
+      "median_first_visible_seconds": 46.85283266706392,
+      "median_prefill_seconds": 46.82407075,
+      "median_peak_gb": 8.250117504,
+      "median_prefill_estimate_error_pct": 106.15339550482355,
+      "median_decode_estimate_error_pct": -40.68533756184897,
+      "reused_tokens": [
+        0
+      ],
+      "output_tokens": [
+        16
+      ]
+    },
+    {
+      "population": "load-prefill-long-v3",
+      "profile": "budget10_auto",
+      "fixture": "prose16384",
+      "stage": "prefill_miss",
+      "server_history": "after_other_prompts",
+      "cache": "miss",
+      "slots": 961,
+      "mtp": false,
+      "chunk": 256,
+      "context": 32768,
+      "n": 1,
+      "strict_n": 0,
+      "same_output": true,
+      "median_decode_tps": 6.782154392671585,
+      "median_client_seconds": 225.91585637500975,
+      "median_first_visible_seconds": 223.55514058307745,
+      "median_prefill_seconds": 223.504457334,
+      "median_peak_gb": 8.250117504,
+      "median_prefill_estimate_error_pct": -13.69036454397552,
+      "median_decode_estimate_error_pct": -40.960254886067716,
+      "reused_tokens": [
+        0
+      ],
+      "output_tokens": [
+        16
+      ]
+    },
+    {
+      "population": "load-prefill-long-v3",
+      "profile": "budget10_auto",
+      "fixture": "prose8192",
+      "stage": "prefill_miss",
+      "server_history": "after_other_prompts",
+      "cache": "miss",
+      "slots": 961,
+      "mtp": false,
+      "chunk": 256,
+      "context": 32768,
+      "n": 1,
+      "strict_n": 0,
+      "same_output": true,
+      "median_decode_tps": 6.804004071345936,
+      "median_client_seconds": 84.11729137506336,
+      "median_first_visible_seconds": 81.76505137502681,
+      "median_prefill_seconds": 81.738481417,
+      "median_peak_gb": 8.250117504,
+      "median_prefill_estimate_error_pct": 18.095430807244806,
+      "median_decode_estimate_error_pct": -41.14984904947917,
+      "reused_tokens": [
+        0
+      ],
+      "output_tokens": [
+        16
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@ type: native-spec
 meta-type: operational
 id: 01m2gb63bjf3kzznf6ta8jp920
 created: 2026-09-14T16:14:44.082480+00:00
-updated: 2026-09-18T04:55:47.951956+00:00
+updated: 2026-09-21T17:07:30.935279+00:00
 summary: Mac application implementation progress and unpassed release gates
 ---
 # Mac implementation status
@@ -18,7 +18,7 @@ Implementation started September 14, 2026, at Carlos's request. A functional nat
 | Persistence | Official dbmd mutations, compact Home index, independent thread/draft records, immutable conversation/excerpt events, native hash/recovery ledger, create-only artifact publication. Actual process termination at intent/documents/artifact/record seams recovers idempotently. External edits pause writes and preserve bytes. | Complete export and inert restore, interactive reconciliation, cross-implementation schema conformance, full source-folder closure and power-loss proof remain pending. A process-crash test is not a storage power-loss test. |
 | Local CLI | Separate sevra-local consumer uses the same runtime. Authenticated bounded Unix IPC, same-user peers, long Home paths, ephemeral capability, duplicate acceptance and detached completion pass; unbound Incognito access is refused. The CLI can reopen the completed real-test Home. | Full CLI grammar, historical event replay and the optional authenticated network server are not complete. |
 | Model setup | Settings is wired to explicit pinned WeightStore inspection/download/resume/repair; model maintenance excludes inference. Startup does not download. Existing verified model inference was exercised. | Fresh acquisition/repair/cancellation, automatic maintained hardware selection and the same-hardware model-value comparison remain unqualified. |
-| Build and brand | Independent apps/macos package preserves the root engine package. Local source/dependency hashes stay identical across the app build; dbmd, Metal and licensed Inter/Poppins resources are bundled and ad-hoc signature verification passes. Native Observer geometry and a multiresolution bundled ICNS are included, with the same image in About. The Xcode project is now explicitly included despite the general ignore rule. App/CLI/check products compile; Xcode project and Info.plist parse. | Full Xcode is absent on this host, so its app target has not been built. Modern layered-icon and Finder/Dock-shell appearance qualification remain open. Developer ID, notarization, installed updater/rollback, clean-machine compatibility, voluntary feedback, external users and all release gates remain pending. |
+| Build and brand | Independent apps/macos package preserves the root engine package. Local source/dependency hashes stay identical across the app build; dbmd, Metal and licensed Inter/Poppins resources are bundled and ad-hoc signature verification passes. Native Observer geometry and a multiresolution bundled ICNS are included, with the same image in About. The Xcode project is now explicitly included despite the general ignore rule. App/CLI/check products compile; Xcode project and Info.plist parse. | Full Xcode is absent on this host. Since September 21, CI builds the Xcode app target in Release for Apple silicon, ad hoc signed, and verifies the bundle; see Repository validation. Modern layered-icon and Finder/Dock-shell appearance qualification remain open. Developer ID, notarization, installed updater/rollback, clean-machine compatibility, voluntary feedback, external users and all release gates remain pending. |
 
 ## Evidence
 
@@ -50,6 +50,10 @@ the raw outputs were preserved. The engine brain has no validation errors and
 retains its two historical log warnings. This work does not claim a warning-free brain cleanup.
 
 [[sources/runs/2026/09/2026-09-14-sevra-mac-static-regressions]]
+
+Since September 21 the app has its own CI workflow, `sevra-mac.yml`, for every change to the app, to the engine sources it builds on, or to its scripts. It runs `Tools/check_sevra_mac.sh`, the scripted checks without model weights, and `Tools/build_sevra_xcode.sh`, a Release build of the Xcode project for Apple silicon that fails on any package version other than the app's pins, on a bundle missing its executable, Metal library, dbmd or document helper, or on an ad hoc signature that does not verify. The Xcode build passed on every run. The first runs showed four failures that only the runner produced: a composer timing assumption, a disclosure that a synthesized click did not open, a slash that text recognition misread, and a 10 GB test limit the runner cannot hold. Each was fixed or replaced. Text recognition is unavailable inside the document helper's sandbox on the runner, so CI accepts the helper's own error for images and scanned pages; a development Mac must still read them. The fifth run, on `92dffed`, passed both jobs.
+
+[[sources/runs/2026/09/2026-09-21-sevra-mac-ci]]
 
 ## Resume order
 Start with the latest adversarial review's unresolved gates: replay the unchanged real Cedar fixture using the final corrected candidate when the other model experiment has finished, then recheck the last Queue/archive-filter/Find-focus/quiet-cancel fixes when the Mac is unlocked. Preserve failure evidence and exact executable/source identity. The prior scoped native pass is not a full final-binary UI qualification.
@@ -189,7 +193,7 @@ Verification on the development Mac, with the real bundled dbmd, in an isolated 
 - The offscreen apps check (`Tools/check_sevra_apps_ui.sh`) loads a hostile page twice into the production app host. The page tries fetch, XHR, WebSocket, EventSource, workers, beacons, peer connections from the page and from a fresh frame, popups, storage, undeclared and read-only collections, a link click with a ping, a form, location changes and a meta refresh. A loopback TCP listener and a UDP socket saw no connection and no datagram. The check then clicks through the change review and the app review flows in the production views, including a second app that sees the first app's saved record, with light and dark snapshots.
 - Removing the new record re-check, measuring only the helper process for its memory limit, leaving link preconnects on or allowing every app write makes the corresponding check fail. Before the echo fix, the check that reproduces a save-on-change app counted 40 records within about four seconds; afterwards it counts one.
 - On an earlier build of this work, the real-model basics check passed all twelve of its checks in 544 seconds at the 10 GB plan, with a peak physical footprint of 7.4 GB and no swap growth. The model answered the PDF question with the budget and page 2 from a PDF citation. It staged the exact status edit after one bounded correction of a malformed argument name. It proposed a 4,521-byte counter app with no review notes, which was turned on. Run in the production host by the new app-under-test mode, that app counted to 3 but showed 0 after reopening and left two records, because it looked for a record id it had chosen itself. The app guidance now explains host-assigned ids and change events.
-- On the final build, the same check passed again in 512 seconds with the same peak footprint and no swap growth. Its counter app followed the corrected guidance and passed the app-under-test mode, showing 3 after reopening with one saved record. The PDF answer and the edit trace matched the first run byte for byte, because answers are decoded greedily. A traced replay showed that the malformed edit call comes from the engine's cached continuation, not from the model's preference. Read fresh, the same prompt gives a correct call, and the flipped token scores 4%.
+- On the final build, the same check passed again in 512 seconds with the same peak footprint and no swap growth. Its counter app followed the corrected guidance and passed the app-under-test mode, showing 3 after reopening with one saved record. The PDF answer and the edit trace matched the first run byte for byte, although the generated PDF differed between the two runs; see the fixture fix below. A traced replay showed that the malformed edit call comes from the engine's cached continuation, not from the model's preference. Read fresh, the same prompt gives a correct call, and the flipped token scores 4%.
 
 Defects found and fixed while verifying:
 
@@ -204,16 +208,46 @@ Defects found and fixed while verifying:
 - The host echoed an app's own saves back as change events, so an app that saves on every change could create records in a loop until the collection limit. Open apps now hear only about changes they did not make, the preview follows the same rule, and each app has a write budget.
 - Single-suite check modes signaled completion before removing their temporary folder, leaving files behind. The signal now follows cleanup.
 - Engine results no longer depend on cache history. A turn resumes only its own prefill pass boundaries, so the continued conversation computes what a cold one computes, bit for bit, and the check's first `file.edit` call is now correct with no correction round. Canonical: [[records/decisions/a-continued-conversation-computes-what-a-cold-one-computes]], measured in [[records/measurements/conversation-resume-exactness]].
+- The reply opened with the model's words from its tool rounds: the real-model PDF answer began "I'll look through the attached files...". Those words now go to the run's Activity as one line ahead of the calls they introduce, and the reply is the final round's text. A new scripted check fails without the change, and the real-model PDF answer now starts with the budget.
+- The real-model checks' PDF fixture had new bytes on every run, because Quartz stamps the time and a random document ID, and `source.read` hands the model the file's SHA-256. The same check could therefore word its answer differently from run to run. The fixture is now pinned, and two consecutive real-model runs gave the same answer, edit and app file byte for byte. Evidence: [[sources/runs/2026/09/2026-09-19-complete-prompt-image-key-and-answer-narration]].
+- Asked "what is this?" about one attached PDF in the live app, the model asked what "this" meant and read nothing. Its instructions said files were attached but never named them. They now name each attachment, quoted as data, with its kind and access. A scripted check fails without the change, and a new real-model job asks the same question about an attached report and reads it. Evidence: [[sources/runs/2026/09/2026-09-19-sevra-names-attachments]].
+- Think longer was unavailable whenever a source was attached, which is where a person most wants it. It is now unavailable only while the Home is paused, and a tool turn thinks too; a thought shortens only a plain answer, never a turn that can stage work. Measured rather than assumed: across three real-model runs with thinking on, every tool call was valid, no response was rejected, and the reviewed edit wrote the same file; the four jobs took 783, 682 and 1,257 seconds against 636 with thinking off.
+- A proposal refused for something the model can fix ended the job. One real-model run lost its whole app job to an app id that matched nothing, with nothing staged and no way on. A refusal now returns as a tool result, at most twice per job, and a later run recovered a refused oversized app and still reached its review. Evidence: [[sources/runs/2026/09/2026-09-20-thinking-with-tools-and-refused-proposals]].
 
 Still open:
 
 - A VoiceOver pass and a person's review of the new panels in the live app.
 - App Sandbox, signing and notarization for the app and its helper.
-- An Xcode build of the project. Xcode is not installed on this Mac; the project's structure and its helper build phase were checked without it.
+- Launching the Xcode-built app. CI builds and verifies it but does not run it.
 - A recheck of WebKit's private feature switches on each macOS release.
 - The documented helper residuals: global metadata reads and folder listing in the dbmd modes.
-- The narrow window between the record re-check and dbmd's own write.
+- The narrow window between the record re-check and dbmd's own write. Closing it needs a compare-and-set in dbmd, which `body set` does not offer.
 - Measured revision of the new operating bounds and of the larger window's first-token cost.
 - Local-model task reliability with these tools.
 
-Evidence: [[sources/runs/2026/09/2026-09-17-sevra-mac-basics]].
+Evidence: [[sources/runs/2026/09/2026-09-17-sevra-mac-basics]], [[sources/runs/2026/09/2026-09-19-complete-prompt-image-key-and-answer-narration]], [[sources/runs/2026/09/2026-09-19-sevra-names-attachments]] and [[sources/runs/2026/09/2026-09-20-thinking-with-tools-and-refused-proposals]].
+
+## Response details
+Implemented on September 20 at Carlos's request that the app show its speed and its thinking as optional extra information, as specified in [[records/design/sevra-spec/runtime-contract]] (Thinking before answers, Response metrics) and [[records/design/sevra-spec/ui-contract]] (Thinking controls, Response details):
+
+- Each run records the engine's own numbers for its model requests, summed over a job's rounds, a refused round included. Numbers only, never text.
+- While a thought runs, its last lines stream under the run status, at most three lines with the top line fading, and open the response's details. This replaces the collapsed "Working notes (thinking)" box.
+- A reply that thought carries a quiet "Thought for 42 s ›" line above its text, outside the message's Markdown, copies, export and search. A job that thought before several rounds reads as one receipt.
+- "Show response details", off by default and remembered on this Mac, adds a speed line under each finished reply and the live writing speed to the run status.
+- One details popover per response, from the thinking line, the speed line, the reply's context menu or View > Response Details (⌥⌘I): thinking with every working note still in memory, speed, context with Inspect, activity, and Copy for the numbers.
+- Working notes stay in process memory for the eight most recent responses, within 64 KiB each.
+
+Verification on the development Mac:
+
+- `Tools/check_sevra_mac.sh` passes with 168 PASS lines in an isolated snapshot of HEAD `40209f8` plus this work. The new checks are the scripted response-details suite, a presentation test that keeps the new lines out of the message and its copies, and the offscreen thinking check's 39 checks over the production views in light and dark appearance.
+- The real-model metrics check (`--real-metrics`), run from the same snapshot at the 10 GB plan, matched the engine's statistics field by field over three turns: a thinking turn that loaded the model, a second thinking turn that reused 256 tokens from earlier in the conversation, and a plain turn after switching thinking off. Replies were written at 5.5 and 6.0 tokens per second. The peak physical footprint was 8.35 GB, and swap did not grow.
+
+Found while verifying: a thinking turn reads its prompt tail and its thought twice. The thought and the answer are two engine requests, and the engine resumes a request only from one of its own prefill pass boundaries, so the answer reads again everything after the prompt's last boundary, and the whole thought. In the real run that second read took 4.8 and 5.4 s, longer than writing one of the answers, and a person sees it as a pause before the first word. Those timings describe the previous implementation and remain historical evidence. The qualified September 21 prompt-speed change now continues the live state under one generation gate, while later turns still obey [[records/decisions/a-continued-conversation-computes-what-a-cold-one-computes]]. Real thinking controls and exact response metrics pass; see [[records/measurements/prompt-speed-qualification-2026-09-21]].
+
+Still open:
+
+- A VoiceOver pass and a person's review of the preview, the lines and the popover in the live app.
+- The second read before a thinking turn's answer.
+- The memory budget row reads the plan's total process budget. Another session's uncommitted adaptive memory limit may give a person's limit a field of its own, which the row would then have to follow.
+
+Evidence: [[sources/runs/2026/09/2026-09-20-sevra-response-details]].

@@ -267,17 +267,43 @@ extension Diagnostics {
         engine.generator.onPrefillProgress = nil
         c.expect("Gateway: actual governor event reaches committed prefill", triggered && acknowledged)
         guard triggered, finished.wait(timeout: .now() + 10) == .success else { throw ModelError("HTTP pressure event failed to drain") }
-        c.expect("Gateway: streamed pressure failure is explicit", response.head.hasPrefix("HTTP/1.1 200") && response.body.contains("memory pressure interrupted inference") && response.body.contains("inference_error"))
+        c.expect("Gateway: streamed pressure failure is explicit", response.head.hasPrefix("HTTP/1.1 200")
+            && response.body.contains("memory pressure interrupted") && response.body.contains("insufficient_memory"),
+            response.head + "\n" + response.body)
         c.expect("Gateway: pressure never emits a false successful finish", !response.body.contains("\"type\":\"finish\"") && !response.body.contains("[DONE]"))
         c.equal("Gateway: shrink respects pool floor", engine.poolSnapshot().slots, Geometry.floorSlots)
         c.expect("Gateway: completed pressure is acknowledged", engine.pressureBoundary.snapshot() == nil)
         c.equal("Gateway: pressure releases every expert pin", engine.model.pool.pinnedSlotCount, 0)
+        let unavailable = try OutputHTTPConnection(server: server, path: "/api/generate", object: fastBody)
+        let unavailableResponse = try unavailable.readResponse(); unavailable.closeAndJoin()
+        c.expect("Gateway: infeasible context refuses retry until memory recovers",
+            unavailableResponse.head.hasPrefix("HTTP/1.1 503") && unavailableResponse.body.contains("insufficient_memory"))
+        guard let current = engine.currentPlan, let available = Planner.deviceAvailableGB() else {
+            throw ModelError("HTTP governor recovery requires a real memory reading")
+        }
+        let recovery = stride(from: 0.0, through: min(10, available), by: 0.125).first { value in
+            let inputs = GovernorPolicy.Inputs(currentSlots: engine.poolSnapshot().slots,
+                availableGB: value, ramGB: current.ramGB, workingSetGB: current.workingSetGB,
+                ramPercent: current.ramPercent, secondsSincePressure: 0,
+                mtpEnabled: current.mtpEnabled, visionEnabled: current.visionEnabled,
+                visionResidentReserved: current.visionResidentReserved,
+                maxContextTokens: current.maxContextTokens,
+                runtimeAllocationPolicy: current.runtimeAllocationPolicy,
+                contextQualification: current.contextQualification)
+            return GovernorPolicy.desiredPlan(inputs) != nil && GovernorPolicy.decide(inputs) == .hold
+        }
+        guard let recovery else { throw ModelError("no bounded feasible HTTP governor recovery is available") }
+        Planner.availabilityOverride = recovery
+        governor.pollNow()
+        c.equal("Gateway: recovery keeps the bounded arena", engine.poolSnapshot().slots, Geometry.floorSlots)
+        c.expect("Gateway: recovery clears the admission latch",
+            engine.contextPolicyJSON["allocation_available"] as? Bool == true)
         c.equal("Gateway: retry after pressure is exact", try fastRequest(), expected)
         // A pending event must also fail a non-streamed request before model work.
         let ticket = engine.pressureBoundary.request()
         let refused = try OutputHTTPConnection(server: server, path: "/api/generate", object: fastBody)
         let refusal = try refused.readResponse(); refused.closeAndJoin()
-        c.expect("queued JSON: pending pressure reports HTTP failure", refusal.head.hasPrefix("HTTP/1.1 500") && refusal.body.contains("memory pressure interrupted inference"))
+        c.expect("queued JSON: pending pressure reports HTTP failure", refusal.head.hasPrefix("HTTP/1.1 503") && refusal.body.contains("insufficient_memory"))
         engine.pressureBoundary.acknowledge(ticket)
         c.equal("queued JSON: acknowledgement restores exact inference", try fastRequest(), expected)
         return c.report()

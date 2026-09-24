@@ -19,6 +19,7 @@ import Foundation
             try defaults()
             try planning()
             try automaticWindows()
+            try adaptiveBudgets()
             schedules()
             try requests()
         } catch { failures.append("unexpected error: \(error)") }
@@ -27,6 +28,216 @@ import Foundation
                                     "hardware_qualified": false, "model_loaded": false]
         print(String(decoding: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), as: UTF8.self))
         if !failures.isEmpty { exit(1) }
+    }
+
+    static func adaptiveBudgets() throws {
+        let legacyPlanRequest: (Int?, Double?, Double?, Double?, Planner.MTPMode, Planner.VisionMode, Int) -> PlanRequest = PlanRequest.init
+        let legacyMemoryPlan: (MemoryPlan.Source, Int, Double?, Double, Double, Double, Double?, Bool, Int, Int, Bool, Bool, Bool, Int, [String], Bool, RuntimeAllocationPolicy?, Double, Bool, Int, Bool) -> MemoryPlan = MemoryPlan.init
+        let legacyGovernorPolicyInputs: (Int, Double, Double, Double, Double, Double?, Double?, GovernorPolicy.Pressure?, Bool, Bool, Bool, Int, RuntimeAllocationPolicy?, Int, Bool, Bool, Int) -> GovernorPolicy.Inputs = GovernorPolicy.Inputs.init
+        let legacyPlanner2: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning, Planner.ContextRetention) throws -> MemoryPlan = Planner.plan
+        let legacyPlanner1: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool, RuntimeAllocationPolicy?) throws -> MemoryPlan = Planner.plan
+        let legacyPlanner0: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool) throws -> MemoryPlan = Planner.plan
+        _ = (legacyPlanRequest, legacyMemoryPlan, legacyGovernorPolicyInputs, legacyPlanner2, legacyPlanner1, legacyPlanner0)
+        let machine = Machine.simulated(ramGB: 64 * 1.073741824,
+            workingSetGB: 64 * 1.073741824 * 0.75, availableGB: 62)
+        let legacyRequest = legacyPlanRequest(nil, nil, 10, nil, .off, .off, 32768)
+        check("M01", "legacy request initializer keeps its policy", legacyRequest.memoryGB == 10 && legacyRequest.memoryLimitGB == nil)
+        for legacy in [
+            try legacyPlanner0(nil, nil, 10, machine.ramGB, machine.workingSetGB, 62, nil, .off, false, .off, false, false, 32768, true),
+            try legacyPlanner1(nil, nil, 10, machine.ramGB, machine.workingSetGB, 62, nil, .off, false, .off, false, false, 32768, true, nil),
+            try legacyPlanner2(nil, nil, 10, machine.ramGB, machine.workingSetGB, 62, nil, .off, false, .off, false, false, 32768, true, false, nil, .automatic, .automatic)
+        ] {
+            check("M01", "legacy planner function value retains fixed behavior", legacy.source == .memoryGB && legacy.targetGB == 10 && legacy.memoryLimitGB == nil)
+        }
+        let legacyPlan = legacyMemoryPlan(.auto, Geometry.floorSlots, 10, machine.ramGB, machine.workingSetGB, 70,
+            62, false, 256, 0, false, false, false, 32768, [], true, nil, 17, false, 0, false)
+        check("M01", "legacy plan initializer preserves values", legacyPlan.memoryLimitGB == nil && legacyPlan.maxPrefillWaitMinutes == 17 && legacyPlan.simulated)
+        let legacyInput = legacyGovernorPolicyInputs(Geometry.floorSlots, 30, machine.ramGB, machine.workingSetGB, 70,
+            61, 61, nil, false, false, false, 32768, nil, 0, false, false, 0)
+        check("M01", "legacy governor input initializer preserves policy", legacyInput.memoryLimitGB == nil && legacyInput.ramPercent == 70)
+        let automatic = try Planner.plan(PlanRequest(mtp: .off), on: machine)
+        for limit in [10.0, 24, 33, 40, 48, 60, 64] {
+            for available in [13.0, 18, 30, 62] {
+                var device = machine; device.availableGB = available
+                let request = PlanRequest(memoryLimitGB: limit, mtp: .off, vision: .auto)
+                let plan = try Planner.plan(request, on: device, visionAvailable: true)
+                check("M01", "saved adaptive limit", plan.memoryLimitGB == limit && plan.source == .auto)
+                check("M01", "available target fits all bounds", plan.targetGB! <= min(limit,
+                    Planner.maximumMemoryLimitGB(ramGB: device.ramGB, workingSetGB: device.workingSetGB),
+                    available - Planner.availabilitySlackGB(ramGB: device.ramGB)))
+                check("M01", "complete ledger fits target", plan.expectedPeakGB <= plan.targetGB!)
+                let input = GovernorPolicy.Inputs(currentSlots: plan.slots, availableGB: 62,
+                    ramGB: device.ramGB, workingSetGB: device.workingSetGB, ramPercent: plan.ramPercent,
+                    secondsSincePressure: 100, secondsSinceResize: 100, visionEnabled: true, memoryLimitGB: limit)
+                let recovered = GovernorPolicy.desiredPlan(input)
+                check("M01", "recovery preserves selected limit", recovered?.memoryLimitGB == limit)
+                check("M01", "recovery stays below selected limit", (recovered?.targetGB ?? .infinity) <= limit)
+                if limit > 33, available == 62 {
+                    check("M01", "custom exceeds automatic cache", plan.slots > automatic.slots)
+                }
+                if limit >= 24 {
+                    let vision = try Planner.loadingVision(plan)
+                    check("M01", "vision preserves limit", vision.memoryLimitGB == limit)
+                    check("M01", "vision ledger fits limit", vision.expectedPeakGB <= limit)
+                }
+                let configured = try plan.withRequestPolicy(ContextConfiguration())
+                let policy = try RuntimeAllocationPolicy(prefixCacheEnabled: false)
+                let adjusted = try Planner.applyingRuntimePolicy(plan, policy: policy)
+                check("M01", "plan transformations preserve ceiling", configured.memoryLimitGB == limit
+                    && adjusted.memoryLimitGB == limit && plan.addingNotes(["test"]).memoryLimitGB == limit)
+            }
+        }
+        let bounded = try Planner.plan(PlanRequest(memoryLimitGB: 48, maxRAMPercent: 40, mtp: .off), on: machine)
+        check("M01", "explicit RAM share can lower adaptive ceiling", bounded.targetGB! <= machine.ramGB * 0.4)
+        for limit in [8.15, 9.99, 12.345678901234, 48.123456789] {
+            let p = try Planner.plan(PlanRequest(memoryLimitGB: limit, mtp: .off), on: machine)
+            let json = p.json()
+            check("M01", "fractional target survives JSON without rounding above ceiling",
+                json["target_gb"] as? Double == p.targetGB && p.targetGB! <= limit)
+        }
+        var busy = machine; busy.availableGB = 18
+        let capped = try Planner.plan(PlanRequest(memoryLimitGB: 64, mtp: .off), on: busy)
+        check("M01", "busy oversized ceiling explains its hardware bound",
+            capped.notes.contains { $0.contains("bounded by this Mac") }
+                && !capped.notes.contains { $0.contains("toward your 64.0 GB limit") })
+        let small = try Planner.plan(PlanRequest(memoryLimitGB: 10, mtp: .off), on: machine)
+        var recovery = GovernorPolicy.Inputs(currentSlots: Geometry.floorSlots, availableGB: 30,
+            ramGB: machine.ramGB, workingSetGB: machine.workingSetGB, ramPercent: 100,
+            secondsSincePressure: 61, secondsSinceResize: 61, memoryLimitGB: 10)
+        check("M01", "small recovery is below ordinary growth deadband",
+            Geometry.gb(small.slots - Geometry.floorSlots) < 2)
+        if case .resize(let slots, _) = GovernorPolicy.decide(recovery) {
+            check("M01", "small cache returns to its prior budget", slots == small.slots)
+        } else { check("M01", "small cache returns to its prior budget", false) }
+        recovery.secondsSinceResize = 1
+        check("M01", "small recovery respects resize cooldown", GovernorPolicy.decide(recovery) == .hold)
+        recovery.secondsSinceResize = 61; recovery.secondsSincePressure = 1
+        check("M01", "small recovery respects pressure cooldown", GovernorPolicy.decide(recovery) == .hold)
+        recovery.secondsSincePressure = 61; recovery.availableGB = 0
+        check("M01", "recovery never invents available memory", GovernorPolicy.decide(recovery) == .hold)
+        recovery.availableGB = 30; recovery.memoryLimitGB = 9
+        check("M01", "a lower saved ceiling still bounds recovery",
+            (GovernorPolicy.desiredPlan(recovery)?.targetGB ?? .infinity) <= 9)
+        var startupMachine = machine; startupMachine.availableGB = 12
+        let busyStart = try Planner.plan(PlanRequest(memoryLimitGB: 10, mtp: .off), on: startupMachine)
+        recovery.currentSlots = busyStart.slots; recovery.memoryLimitGB = 10
+        recovery.secondsSinceResize = nil; recovery.secondsSincePressure = nil
+        check("M01", "busy startup begins below its saved ceiling", busyStart.clamped && busyStart.slots < small.slots)
+        if case .resize(let slots, _) = GovernorPolicy.decide(recovery) {
+            check("M01", "busy startup reaches a fully available small ceiling", slots == small.slots)
+        } else { check("M01", "busy startup reaches a fully available small ceiling", false) }
+        recovery.currentSlots = Geometry.floorSlots; recovery.availableGB = 4.5
+        check("M01", "partial availability keeps the ordinary growth deadband",
+            GovernorPolicy.desiredPlan(recovery)?.clamped == true && GovernorPolicy.decide(recovery) == .hold)
+        for invalid in [Double.nan, .infinity, -1, 0, 8] {
+            check("M01", "invalid adaptive budget refused", (try? Planner.plan(
+                PlanRequest(memoryLimitGB: invalid, mtp: .off), on: machine)) == nil)
+        }
+        for request in [PlanRequest(memoryGB: 20, memoryLimitGB: 48),
+                        PlanRequest(poolGB: 10, memoryLimitGB: 48),
+                        PlanRequest(expertsPerLayer: 40, memoryLimitGB: 48)] {
+            check("M01", "conflicting fixed budget refused", (try? Planner.plan(request, on: machine)) == nil)
+        }
+        for target in [48.0, 60] {
+            let request = PlanRequest(memoryGB: target, mtp: .off)
+            let p = try Planner.plan(request, on: machine)
+            let startupAccepts = (try? Planner.validateMemoryBudget(p, availableGB: machine.availableGB)) != nil
+            let diagnosticAccepts = Planner.contextFeasibility(request, on: machine).requestedPlan != nil
+            check("M01", "startup and doctor agree", startupAccepts == diagnosticAccepts)
+            check("M01", "Metal excess refused by both", startupAccepts == (target == 48))
+        }
+        check("M01", "startup fails closed on unavailable reading", (try? Planner.validateMemoryBudget(automatic, availableGB: nil)) == nil)
+        let request = PlanRequest(memoryLimitGB: 48, mtp: .off)
+        let autoWindow = try Planner.resolveContextWindow(.automatic, request: request, on: machine).plan
+        check("M01", "automatic context retains larger adaptive cache", autoWindow.maxContextTokens == 32768
+            && autoWindow.memoryLimitGB == 48 && autoWindow.slots > automatic.slots)
+        let legacy = Data("{\"mtp\":\"off\",\"vision\":\"off\",\"maxContextTokens\":32768}".utf8)
+        check("M01", "legacy request still decodes", try JSONDecoder().decode(PlanRequest.self, from: legacy).memoryLimitGB == nil)
+        let pristine = Machine.simulated(ramGB: machine.ramGB, workingSetGB: machine.workingSetGB)
+        let unconstrained = try Planner.plan(request, on: pristine)
+        let explicitInfinity = try Planner.plan(request, on: Machine.simulated(ramGB: machine.ramGB,
+            workingSetGB: machine.workingSetGB, availableGB: .infinity))
+        check("M01", "simulated nil availability never reads the host", unconstrained.slots == explicitInfinity.slots
+            && unconstrained.targetGB == 48 && unconstrained.availableGB == .infinity)
+        let pristineWindow = try Planner.resolveContextWindow(.automatic, request: request, on: pristine).plan
+        check("M01", "automatic simulated window is independent of host availability",
+            pristineWindow.slots == explicitInfinity.slots && pristineWindow.memoryLimitGB == 48)
+        var fitted = 0, refused = 0
+        for limit in [8.1, 10, 13, 33, 48, 64, 1e300] {
+            for window in [1, 32768, 65536, 262144] {
+                for mtp: Planner.MTPMode in [.off, .auto, .on] {
+                    for policy in [try RuntimeAllocationPolicy(prefillChunkOverride: 256, prefixCacheEnabled: false),
+                                   try RuntimeAllocationPolicy(prefillChunkOverride: 4096)] {
+                        do {
+                            let value = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil,
+                                memoryLimitGB: limit, ramGB: machine.ramGB, workingSetGB: machine.workingSetGB,
+                                availableGB: 62, mtp: mtp, mtpAvailable: true,
+                                vision: .on, visionAvailable: true, visionResidentReserved: true,
+                                maxContextTokens: window, simulated: true, qualification: false, runtimePolicy: policy,
+                                decodeLookahead: .reserved(bytes: 512 << 20))
+                            fitted += 1
+                            check("M01", "combined resident and workspace charges fit adaptive ceiling",
+                                value.memoryLimitGB == limit && value.targetGB! <= limit
+                                && value.expectedPeakGB <= value.targetGB!)
+                            check("M01", "combined plan passes physical feasibility",
+                                (try? Planner.validateMemoryBudget(value, availableGB: 62)) != nil)
+                            let next = GovernorPolicy.desiredPlan(.init(currentSlots: value.slots,
+                                availableGB: 30, ramGB: machine.ramGB, workingSetGB: machine.workingSetGB,
+                                ramPercent: value.ramPercent, mtpEnabled: value.mtpEnabled,
+                                visionEnabled: true, visionResidentReserved: true, maxContextTokens: window,
+                                runtimeAllocationPolicy: policy, lookaheadReserveBytes: value.lookaheadReserveBytes,
+                                memoryLimitGB: limit))
+                            check("M01", "combined live replan retains adaptive policy", next == nil
+                                || (next!.memoryLimitGB == limit && next!.expectedPeakGB <= limit
+                                    && next!.visionResidentReserved && next!.mtpEnabled == value.mtpEnabled))
+                        } catch { refused += 1 }
+                    }
+                }
+            }
+        }
+        check("M01", "combined feature sweep includes fits and refusals", fitted > 0 && refused > 0)
+        for invalid in [Double.nan, .infinity, -.infinity, -1, 0] {
+            let manual = MemoryPlan(source: .auto, slots: Geometry.floorSlots, targetGB: 10,
+                ramGB: machine.ramGB, workingSetGB: machine.workingSetGB, ramPercent: 100,
+                availableGB: 62, clamped: false, prefillChunk: 256, prefixCacheTokens: 0,
+                notes: [], simulated: true, memoryLimitGB: invalid)
+            check("M01", "hand-built invalid adaptive plan is refused at startup",
+                (try? Planner.validateMemoryBudget(manual, availableGB: 62)) == nil)
+        }
+        for (source, target) in [(MemoryPlan.Source.auto, Optional(11.0)), (.auto, nil), (.poolGB, 10.0)] {
+            let manual = MemoryPlan(source: source, slots: Geometry.floorSlots, targetGB: target,
+                ramGB: machine.ramGB, workingSetGB: machine.workingSetGB, ramPercent: 100,
+                availableGB: 62, clamped: false, prefillChunk: 256, prefixCacheTokens: 0,
+                notes: [], simulated: true, memoryLimitGB: 10)
+            check("M01", "inconsistent hand-built adaptive policy is refused",
+                (try? Planner.validateMemoryBudget(manual, availableGB: 62)) == nil)
+        }
+        // Direct callers can bypass planning. Validate their device values,
+        // unavailable observations and underfunded targets before allocation.
+        func manualBudget(ram: Double = 64, workingSet: Double = 48,
+                          target: Double? = 10) -> MemoryPlan {
+            MemoryPlan(source: .memoryGB, slots: Geometry.floorSlots, targetGB: target,
+                ramGB: ram, workingSetGB: workingSet, ramPercent: 70,
+                availableGB: 62, clamped: false, prefillChunk: 256,
+                prefixCacheTokens: 0, notes: [], simulated: true)
+        }
+        for invalid in [Double.nan, .infinity, -1, 0] {
+            for plan in [manualBudget(ram: invalid), manualBudget(workingSet: invalid),
+                         manualBudget(target: invalid)] {
+                check("M01", "invalid direct memory budget is refused",
+                    (try? Planner.validateMemoryBudget(plan, availableGB: 62)) == nil)
+            }
+        }
+        let valid = manualBudget()
+        check("M01", "valid direct budget is accepted",
+            (try? Planner.validateMemoryBudget(valid, availableGB: 62)) != nil)
+        for unavailable in [nil, Double.nan, -1.0] as [Double?] {
+            check("M01", "unknown or invalid availability cannot authorize allocation",
+                (try? Planner.validateMemoryBudget(valid, availableGB: unavailable)) == nil)
+        }
+        check("M01", "a direct target below the allocation is refused",
+            (try? Planner.validateMemoryBudget(manualBudget(target: valid.expectedPeakGB / 2),
+                                               availableGB: 62)) == nil)
     }
 
     static func defaults() throws {

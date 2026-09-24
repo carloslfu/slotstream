@@ -162,14 +162,21 @@ extension Diagnostics {
         // ---- 4. The same rule on the disk tier.
         let entries = [768, 1280, 1299].map {
             PersistentPrefixEntry(file: "s\($0)", identity: "own", tokens: Array(prompt.prefix($0)),
-                bytes: 1, lastUsed: 1, sequenceBytes: 1, residentBytes: 1)
+                bytes: 1, lastUsed: 1, sequenceBytes: 1, residentBytes: 1, prefillChunk: chunk)
         }
         c.equal("the tier offers its longest state when nothing constrains it",
             PersistentPrefixPolicy.bestMatch(entries, identity: "own", prompt: prompt, longerThan: 0,
                 requireDraft: false, now: 1, maxAge: nil)?.tokens.count, 1299)
         c.equal("the tier offers only a boundary state under the rule",
             PersistentPrefixPolicy.bestMatch(entries, identity: "own", prompt: prompt, longerThan: 0,
-                requireDraft: false, now: 1, maxAge: nil, boundaries: rule.boundaries)?.tokens.count, 1280)
+                requireDraft: false, now: 1, maxAge: nil, boundaries: rule.boundaries, prefillChunk: chunk)?.tokens.count, 1280)
+        c.expect("a common boundary cannot hide different producing passes",
+            PersistentPrefixPolicy.bestMatch(entries, identity: "own", prompt: prompt, longerThan: 0,
+                requireDraft: false, now: 1, maxAge: nil, boundaries: rule.boundaries, prefillChunk: chunk * 2) == nil)
+        let unknown = PersistentPrefixEntry(file: "legacy", identity: "own", tokens: Array(prompt.prefix(1280)), bytes: 1, lastUsed: 1)
+        c.expect("unknown producing arithmetic cannot satisfy an aligned restore",
+            PersistentPrefixPolicy.bestMatch([unknown], identity: "own", prompt: prompt, longerThan: 0,
+                requireDraft: false, now: 1, maxAge: nil, boundaries: rule.boundaries, prefillChunk: chunk) == nil)
 
         // ---- 5. The switch itself.
         c.expect("the deployed family resumes on pass boundaries",

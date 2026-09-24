@@ -55,6 +55,9 @@ struct PrefixExactCheck: ParsableCommand {
     }
 
     func run() throws {
+        if model.memoryLimitGB != nil && !plan {
+            throw ValidationError("--memory-limit-gb requires --plan for this diagnostic")
+        }
         let sem = DispatchSemaphore(value: 0)
         var result: Result<Void, Error> = .success(())
         let tokens = maxTokens, poolSlots = slots

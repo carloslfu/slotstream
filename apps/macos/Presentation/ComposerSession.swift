@@ -36,7 +36,7 @@ import Combine
     }
     @Published public private(set) var threadID = "home"
     @Published public private(set) var text = ""
-    @Published public private(set) var saved = true
+    @Published public private(set) var saved = true { didSet { if saved { unsavedSince = nil } } }
     @Published public private(set) var saving = false
     @Published public private(set) var sending = false
     @Published public private(set) var transitioning = false
@@ -50,6 +50,9 @@ import Combine
     }
     private let store: Store
     private let delay: UInt64
+    private let maxWait: UInt64
+    /// When the oldest edit not yet saved was made, on the uptime clock.
+    private var unsavedSince: UInt64?
     private var acknowledged = Draft(text: "", revision: 0)
     private var generation = 0
     private var debounce: Task<Void, Never>?
@@ -59,8 +62,11 @@ import Combine
     // with the same nonce instead of creating a duplicate user message.
     private var submission: (text: String, nonce: String)?
 
-    public init(store: Store, debounceNanoseconds: UInt64 = 300_000_000) {
-        self.store = store; delay = debounceNanoseconds
+    /// Autosave waits for a pause in typing, but never longer than
+    /// `maxWaitNanoseconds` after the first unsaved edit, so typing that never
+    /// pauses is still saved about once a second.
+    public init(store: Store, debounceNanoseconds: UInt64 = 300_000_000, maxWaitNanoseconds: UInt64 = 1_000_000_000) {
+        self.store = store; delay = debounceNanoseconds; maxWait = max(debounceNanoseconds, maxWaitNanoseconds)
     }
     public func open(_ id: String) async throws {
         guard !ready else { return }
@@ -69,11 +75,13 @@ import Combine
     }
     private func activate(_ id: String, _ value: Draft) {
         debounce?.cancel(); threadID = id; acknowledged = value; text = value.text
-        generation += 1; saved = true; issue = nil; submission = nil; ready = true
+        generation += 1; saved = true; issue = nil; submission = nil; ready = true; unsavedSince = nil
     }
+    private static var now: UInt64 { DispatchTime.now().uptimeNanoseconds }
     public func edit(_ value: String) {
         guard ready, !finished, !closing, text != value else { return }
         text = value; generation += 1; saved = text == acknowledged.text
+        if saved { unsavedSince = nil } else if unsavedSince == nil { unsavedSince = Self.now }
         // A real competing edit needs an explicit choice, never blind rebasing.
         if case .conflict = issue { return }
         issue = nil
@@ -82,26 +90,43 @@ import Combine
     private func schedule() {
         debounce?.cancel()
         guard !finished, !sending, !saved, issue == nil else { return }
-        debounce = Task { [weak self, delay] in
-            do { try await Task.sleep(nanoseconds: delay) } catch { return }
+        let elapsed = unsavedSince.map { Self.now &- $0 } ?? 0
+        let wait = min(delay, maxWait > elapsed ? maxWait - elapsed : 0)
+        debounce = Task { [weak self] in
+            if wait > 0 { do { try await Task.sleep(nanoseconds: wait) } catch { return } }
             guard let self, !Task.isCancelled else { return }
-            _ = await self.flush()
+            await self.autosave()
         }
     }
-    /// Join an existing writer. It drains the newest text, including edits made
-    /// while a write is awaiting disk, before allowing navigation or close.
+    /// One write per wait. Typing that continued meanwhile schedules the next
+    /// write, so continuous typing never turns into back-to-back disk writes.
+    private func autosave() async {
+        guard ready, !finished, !sending, writer == nil, !saved else { return }
+        if case .conflict = issue { return }
+        let task = Task { await self.drain(once: true) }
+        writer = task
+        _ = await task.value
+        writer = nil
+        schedule()
+    }
+    /// Join an existing writer, then drain the newest text, including edits
+    /// made while a write is awaiting disk, before allowing navigation or close.
     @discardableResult public func flush() async -> Bool {
         guard ready, !finished, !sending else { return false }
-        if let writer { _ = await writer.value; return saved && issue == nil }
+        if let writer {
+            _ = await writer.value
+            guard issue == nil else { return false }
+        }
         if case .conflict = issue { return false }
         if saved { return true }
+        debounce?.cancel()
         let task = Task { await self.drain() }
         writer = task
         let result = await task.value
         writer = nil
         return result && saved
     }
-    private func drain() async -> Bool {
+    private func drain(once: Bool = false) async -> Bool {
         saving = true
         defer { saving = false }
         var rebases = 0
@@ -110,7 +135,9 @@ import Combine
             do {
                 acknowledged = try await store.write(threadID, attempt, base.revision)
                 saved = text == acknowledged.text
+                unsavedSince = saved ? nil : Self.now
                 if case .save = issue { issue = nil }
+                if once { break }
             } catch let changed as Changed {
                 // A lost acknowledgement or revision-only change is safe to
                 // reconcile. A different saved draft must remain protected.

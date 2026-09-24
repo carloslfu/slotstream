@@ -1,0 +1,5 @@
+{
+  "complete": true,
+  "initial_failure": "The frontmatter CLI required an explicit store context; record creation and the historical measurement note succeeded before it.",
+  "correction": "Resume remaining metadata and derived-record updates from the store directory. No record was recreated and no raw wrapper modified."
+}

@@ -75,6 +75,8 @@ import SevraRuntime
     @objc func stop(_ sender: Any?) { model.stop() }
     @objc func thinkLonger(_ sender: Any?) { model.toggleThinking() }
     @objc func answerNow(_ sender: Any?) { model.answerNow() }
+    @objc func toggleResponseDetails(_ sender: Any?) { model.toggleResponseDetails() }
+    @objc func responseDetails(_ sender: Any?) { model.showLatestDetails() }
     @objc func willSleep(_ notification: Notification) { model.prepareForSleep() }
     @objc func didWake(_ notification: Notification) { model.wake() }
     @objc func focusComposer(_ sender: Any?) { model.panel = ""; model.focusRevision += 1 }
@@ -92,15 +94,19 @@ import SevraRuntime
         if menuItem.action == #selector(attachSources(_:)) { return model.composer.ready && !model.working && !model.attaching && !model.aiPaused }
         if menuItem.action == #selector(thinkLonger(_:)) { menuItem.state = model.thinkingEnabled ? .on : .off; return model.composer.ready && !model.thinkingUnavailable }
         if menuItem.action == #selector(answerNow(_:)) { return model.liveThinking?.active == true }
+        if menuItem.action == #selector(toggleResponseDetails(_:)) { menuItem.state = model.showResponseDetails ? .on : .off; return true }
+        if menuItem.action == #selector(responseDetails(_:)) { return model.panel.isEmpty && model.thread?.run != nil && model.details.anchor("status") != nil }
         if menuItem.action == #selector(newThread(_:)) || menuItem.action == #selector(incognito(_:)) { return model.composer.ready && !model.composer.transitioning }
         if menuItem.action == #selector(find(_:)) { return findTarget != nil }
-        if menuItem.action == #selector(jumpLatest(_:)) { return (model.panel.isEmpty || model.panel == "Artifact") && model.textSession.conversation?.window != nil }
+        if menuItem.action == #selector(jumpLatest(_:)) { return (model.panel.isEmpty || model.panel == "Artifact") && model.textSession.visibleConversation != nil }
         return true
     }
     private var findTarget: DocumentTextView? {
         let current = window.firstResponder as? DocumentTextView
         let view = current ?? (model.panel == "Artifact" ? model.textSession.artifact : model.textSession.conversation)
-        return view?.window != nil ? view : nil
+        // The conversation stays in the window, hidden, under a panel.
+        guard let view, view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return nil }
+        return view
     }
     @objc func find(_ sender: Any?) { findTarget?.findDocument() }
     private func buildMenus() {
@@ -140,6 +146,9 @@ import SevraRuntime
         add(view, "Focus Composer", #selector(focusComposer(_:)), target: self)
         add(view, "Focus Conversation", #selector(focusConversation(_:)), target: self)
         add(view, "Jump to Latest Message", #selector(jumpLatest(_:)), target: self)
+        view.addItem(.separator())
+        add(view, "Show Response Details", #selector(toggleResponseDetails(_:)), target: self)
+        add(view, "Response Details", #selector(responseDetails(_:)), target: self)
         add(view, "Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])
         let windows = menu("Window"); add(windows, "Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"); add(windows, "Zoom", #selector(NSWindow.performZoom(_:)))
         NSApp.windowsMenu = windows; NSApp.mainMenu = main

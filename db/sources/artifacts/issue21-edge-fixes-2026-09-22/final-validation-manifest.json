@@ -1,0 +1,32 @@
+{
+  "archive": "final-validation.tar.gz",
+  "bytes": 7645,
+  "sha256": "45fa91779d1cca446332e78b7e15ae2a3f6b3fb634609c835a6b5751b6c13f06",
+  "members": [
+    {
+      "path": "final-checks-corrected.log",
+      "bytes": 94,
+      "sha256": "91438b7a870839ad0d0e3086af0bb085d9595c32f264a1309cfa3252d355be00"
+    },
+    {
+      "path": "final-git-status.txt",
+      "bytes": 1853,
+      "sha256": "5927695eb9a73686f95e9be4531f8ec3f781bfff8a2186b70f9b8a4aadd33271"
+    },
+    {
+      "path": "final-receipt.json",
+      "bytes": 245,
+      "sha256": "2b4694b2dc3e72674a6a36bf927a1475b5e35fb50a938fb09d38ae16a97ee3b7"
+    },
+    {
+      "path": "static-receipt.json",
+      "bytes": 155,
+      "sha256": "45ea4125264735994a05458b9a7b55e2e0c2e251076aa2637e360d7f404e8f4c"
+    },
+    {
+      "path": "static.log",
+      "bytes": 28337,
+      "sha256": "18816d9dbf5c3e54d353983e8562af5a687fb21024556be597a8056cb536c6b1"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+Incomplete 8K/16K installed-release calibration.
+
+Recompute completed captures without a model:
+  python3 analysis-v4/capture_check.py .
+  python3 analysis-v4/analyze.py .
+  python3 analysis-v4/report.py .
+  python3 analysis-v4/calibration.py .
+
+Eight requests completed in round one. Two fail the original thermal screen. One additional request is excluded in derived analysis because this task performed a documentation checkout during it; the exclusion was registered before its result was inspected. Original automatic verdicts remain unchanged. Population policy carries the exact affected result path. Round two failed readiness and loaded no model. All owned models were reaped. No fixture has the required three qualified repetitions.
+
+The prospective protocol and per-population manifest preserve exact binary, model, fixture and harness identities. The harness, probe source and original fixture bytes are available in the sibling release-calibration-2k-v3-2026-09-22 artifact. protocol.json is an exact convenience copy of the named phase protocol. Original absolute paths are evidence; reruns on another host require a new prospective protocol. Hypotheses in the included note have not been implemented or measured as optimizations.

@@ -424,7 +424,7 @@ extension Diagnostics {
         // so it is far longer than a loaded machine needs.
         let holdGate = DispatchSemaphore(value: 0)
         let entered = DispatchSemaphore(value: 0)
-        let holdKey = ExpertKey(1, 1)
+        let holdKey = ExpertKey(2, 1), waitingKey = ExpertKey(2, 2)
         let holding: ExpertPieceReader = { key, piece, destination, shouldContinue in
             if key == holdKey, piece == 1 { entered.signal(); _ = holdGate.wait(timeout: .now() + 60) }
             guard shouldContinue() else { throw CheckpointReadError.cancelled }
@@ -433,19 +433,32 @@ extension Diagnostics {
         let split = ExpertPrefetchScheduler(reader: holding, isResident: { _ in false }, pieceBytes: pieces,
             configuration: splitConfiguration, predictor: nil, layers: 6, experts: 16)
         split.beginPass(id: 3, features: [])
-        split.forecast(target: 1, ids: [1, 2], margins: [1, 1])
+        // Tickets issued at one tick start in no fixed order, and either can
+        // take the single lane first. Issue the holding ticket alone and let it
+        // take the lane; the second key arrives as a refresh of the same target
+        // and is issued at the next tick, when it can only wait.
+        split.forecast(target: 2, ids: [1], margins: [1])
         split.layerCompleted(0)
         c.expect("holding ticket entered its second piece", entered.wait(timeout: .now() + 60) == .success)
-        c.expect("second ticket waits for the single lane with no progress", split.diagnosticState(ExpertKey(1, 2)) == .reading)
-        let claimed = split.claimSplit([holdKey, ExpertKey(1, 2), ExpertKey(1, 9)])
+        split.forecast(target: 2, ids: [2], margins: [1])
+        split.layerCompleted(1)
+        c.expect("second ticket waits for the single lane with no progress", split.diagnosticState(waitingKey) == .reading)
+        let claimed = split.claimSplit([holdKey, waitingKey, ExpertKey(2, 9)])
         c.equal("ticket with progress returned for a later join", claimed.reading.count, 1)
         c.expect("reading ticket is the held one", claimed.reading[holdKey] != nil)
         c.equal("nothing ready yet", claimed.ready.count, 0)
-        c.expect("lane-waiting ticket left the live set", split.diagnosticState(ExpertKey(1, 2)) == nil)
+        c.expect("lane-waiting ticket left the live set", split.diagnosticState(waitingKey) == nil)
         var splitObservation = split.observation
         c.equal("lane-waiting ticket and unknown key counted as demand", splitObservation.demandMisses, 2)
         c.equal("lane-waiting ticket counted as cancelled", splitObservation.cancelled, 1)
+        // The demand batch for the misses runs now. The promoted ticket reads its
+        // remaining pieces at demand priority instead of waiting for the batch.
+        split.lanes.beginDemand()
         holdGate.signal()
+        let heldTicket = claimed.reading[holdKey]
+        for _ in 0 ..< 12000 where heldTicket?.state == .reading { usleep(5000) }
+        c.expect("promoted ticket reads on during the demand batch", heldTicket?.state == .ready)
+        split.lanes.endDemand()
         let finished = split.finishReading(claimed.reading)
         c.equal("joined ticket promoted after the demand batch", finished.count, 1)
         c.expect("promoted ticket ready", finished[holdKey]?.state.rawValue == "ready")

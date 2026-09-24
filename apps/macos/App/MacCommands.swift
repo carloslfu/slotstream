@@ -14,6 +14,7 @@ struct MacCommand {
         .init(title: "Focus Composer", key: "l", shortcut: "⌘L"),
         .init(title: "Focus Conversation", key: "l", modifiers: [.command, .shift], shortcut: "⌘⇧L"),
         .init(title: "Jump to Latest Message", key: "\u{F701}", modifiers: [.command, .control], shortcut: "⌃⌘↓"),
+        .init(title: "Response Details", key: "i", modifiers: [.command, .option], shortcut: "⌥⌘I"),
         .init(title: "Home", key: "1", shortcut: "⌘1"),
         .init(title: "Apps & Skills", key: "2", shortcut: "⌘2"),
         .init(title: "Attach Files…", key: "a", modifiers: [.command, .shift], shortcut: "⌘⇧A"),

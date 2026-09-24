@@ -1,0 +1,642 @@
+Benchmark document prose8192. Read the supplied material.
+<material>
+DOCUMENT README.md
+# slotstream
+
+[![Latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](#star-history)
+
+**Run a 105 GB AI model on a 48 GB Mac.**
+
+Slotstream runs [Qwen3.8-Flash-Next](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit),
+a large open model, on your Mac by keeping most of it on SSD and loading the
+parts it needs into memory. It is built for Macs with 16 to 64 GB of memory,
+where the model cannot fit. After a one-time download the model works
+offline, with no Python and no cloud account. The whole engine is one native
+Swift program on Apple's MLX and Metal; see [Built native](#built-native).
+
+Use it to chat, ask about pictures, or work with files through a coding agent
+such as Claude Code, Codex, Pi, opencode or Hermes. Developers can connect
+their own apps through its APIs or Swift library.
+
+[Get started](#install) · [Speed](#speed) · [Guides](#guides) · [Get help](#support)
+
+> **I'm building Sevra on Slotstream: private, personal AI optimized for your computer.**
+> Sevra will choose a tested model for your hardware, keep that choice current
+> as models improve, and let you control what it remembers. The Mac app is in
+> development and runs Slotstream in process; see
+> [how it is built](docs/SEVRA-MAC.md) and
+> [join the waitlist](https://www.sevrahq.com/). Slotstream's command-line
+> tool, APIs and Swift library remain independently usable.
+
+## Who it's for
+
+Slotstream is built for Macs that cannot hold the model in memory: **16 to
+64 GB**. That is where the engineering, the measurements and the defaults go,
+so that frontier-class intelligence runs on the Macs most people already own.
+It also runs on 96 GB and larger Macs, where the model fits in memory, but it
+is not optimized for them: engines that keep the whole model in memory report
+faster replies there. See
+[related projects](docs/ENGINEERING.md#related-projects) if that is your Mac.
+
+## Will it run on my Mac?
+
+You need an **Apple Silicon Mac with at least 16 GB of memory, macOS 14 or
+later, and about 110 GB of free SSD space**. Open About This Mac from the
+Apple menu to check your chip and memory. On an 8 GB Mac even the smallest
+memory plan doesn't fit, so Slotstream refuses to start instead of swapping.
+Windows, Linux and Intel Macs are not supported. The
+[hardware guide](docs/HARDWARE.md#what-you-need) has the tested macOS versions.
+
+## Speed
+
+`tok/s` means tokens per second; a token is a small piece of text, often part
+of a word. Speeds describe replies after the model has warmed up.
+
+**Our development Mac, a 48 GB M5 Pro, generates 15.86 tok/s with 0.2.19 at a
+22 GB memory target, the automatic plan of a 32 GB Mac**, measured on eight
+prompts the engine was never tuned on. The engine predicts which experts the
+next layers will need and reads them from the SSD before they are asked for,
+which changes speed and never the output. The
+[expert lookahead guide](docs/EXPERT-LOOKAHEAD.md) has the measurements behind
+each release.
+
+<a id="speed-by-memory"></a>
+<a id="speed-by-mac-memory"></a>
+
+### What to expect by memory
+
+Rough planning ranges for warm replies, from community reports and our own
+measurements, rounded outward. Faster chips and SSDs sit at the top of each
+range; other apps and memory pressure pull results down.
+
+| Installed RAM | Estimated warm reply speed | Automatic context window |
+|---|---|---|
+| 8 GB | **Support coming soon.** The current model doesn't fit yet. | Not available yet |
+| 16–<24 GB | ~1–6 tok/s | 32,768 tokens |
+| 24–<48 GB | ~6–16 tok/s | 32,768 through 32 GB; 65,536 at 36 GB |
+| 48–<96 GB | ~15–27 tok/s | 32,768 at 48 GB; 131,072 at 64 GB |
+| 96 GB+, the model fits in memory | ~20–32 tok/s | 262,144 tokens, the model's full window |
+
+The middle rows are anchored on our M5 Pro's measurement; the top ends of the
+last two rows come from a 128 GB M5 Max with a larger, manually chosen memory
+target, and the last row is outside Slotstream's target range. These are
+estimates, not limits. The hardware guide has the
+[basis of each range](docs/HARDWARE.md#planning-ranges), every result
+[measured on real Macs](docs/HARDWARE.md#results) with credits and test
+conditions, and [every automatic memory plan](docs/HARDWARE.md#automatic-memory-plans).
+
+<a id="memory"></a>
+<a id="context"></a>
+
+### Memory and context
+
+**Auto mode picks the memory target, cache size, speculative decoding and
+context window for your Mac.** It takes the largest window in the table above
+that still leaves room for speculative decoding and a complete conversation,
+given the memory free at startup, without an unmeasured loss of useful
+expert cache. `slotstream doctor` shows the choice and
+why, and `--max-context 65536` sets a window yourself, up to 262,144 tokens.
+
+**Starting a reply takes time.** Slotstream first reads your question and the
+conversation history, which can take minutes for a long prompt. Follow-up
+turns reuse unchanged history, a new conversation reuses the system prompt
+earlier ones started with, and `serve --prefix-cache-dir` keeps long
+conversations and shared system prompts on disk so that they survive a
+restart. The hardware guide
+has the [prompt-reading estimates](docs/HARDWARE.md#automatic-memory-plans)
+for each memory size.
+
+## Install
+
+Open Terminal and paste this command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+```
+
+Run the same command to update. If `slotstream` isn't found afterward, open
+a new terminal window.
+
+## Use it
+
+Check your Mac, then ask for a first reply:
+
+```sh
+slotstream doctor
+slotstream run --prompt "Why is the sky blue?"
+```
+
+<a id="downloading-the-model"></a>
+
+`doctor` checks memory and disk space without loading the model. The first
+`run` asks to download it, then prints a reply. This download can take hours,
+but you only need to do it once. Interrupted downloads resume when you try
+again. Follow the [step-by-step setup](docs/GETTING-STARTED.md) for more help.
+
+<a id="chat-apps-and-the-api"></a>
+<a id="pictures"></a>
+<a id="coding-agents"></a>
+<a id="docs"></a>
+
+## Guides
+
+| What would you like to do? | Guide |
+|---|---|
+| Chat in Open WebUI or another app | [Connect a chat app](docs/CLIENTS.md) |
+| Ask about a picture | [Use an image](docs/GETTING-STARTED.md#ask-about-a-picture) |
+| Start a coding agent on the model, in one command | [Use coding agents](docs/CODING-AGENTS.md) |
+| Code with Claude Code | [Use Claude Code](docs/CLAUDE-CODE.md) |
+| Code with Codex | [Use Codex](docs/CODEX.md) |
+| Code with Pi or opencode | [Use Pi or opencode](docs/CODING-AGENTS.md#pi) |
+| Work with files and tools through Hermes | [Use Hermes](docs/HERMES.md) |
+| Code with fx, Vercel Labs' coding agent | [Use fx](docs/FX.md) |
+| Fix a problem, move the model, or uninstall | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+
+Install chat apps and agents separately. They provide the interface and tools;
+Slotstream runs the model. Keep its server running while a connected app uses it.
+`slotstream launch claude` (or `codex`, `pi`, `opencode`, `hermes`) starts
+that agent already connected, and starts the server in the background first
+when none is running.
+
+<a id="use-it-from-swift"></a>
+<a id="testing"></a>
+<a id="building-and-testing"></a>
+
+For developers, the [engineering guide](docs/ENGINEERING.md) links to the
+OpenAI- and Ollama-compatible API references, Swift library, command options,
+build instructions, and tests. [Release notes](CHANGELOG.md) show what changed.
+
+## How it works
+
+Qwen3.8-Flash-Next is a *mixture-of-experts* model: generating each piece of
+text uses only a subset of its expert networks. Slotstream keeps shared
+weights in memory and reads the needed experts from SSD into a cache.
+Frequently used experts stay in RAM, reducing repeated disk reads.
+
+The whole model stays available even though it doesn't all fit in memory.
+Slotstream chooses a memory target for your Mac and adjusts its cache as
+other apps need room. Cache size changes speed without removing experts
+from the model. The [engineering explanation](docs/ENGINEERING.md#how-it-works)
+covers the implementation.
+
+<a id="built-native"></a>
+
+## Built native
+
+Slotstream is one native Mac program: the command-line tool, the HTTP server,
+the memory planner, the expert cache and the model itself are Swift on Apple's
+MLX framework and Metal, with Slotstream's own Metal kernels compiled at run
+time where a step needed one (the gated-delta recurrence, the selected
+attention, the expert routing). No Python runtime or interpreter sits between
+a request and the GPU.
+
+That is deliberate. Built around one model on one kind of hardware, each layer
+is tuned for the one below it: expert records are read from the SSD straight
+into the cache slots the GPU computes from, the memory plan is checked against
+what the process really uses, and a governor resizes the cache while other apps
+need room. It is also why the engine ships as one file that installs with one
+command, and why a Mac app such as Sevra can run it in process. The speed on
+this page comes from measured mechanisms that this control allows, not from
+the language itself; every published number has a recorded method in the
+[measurements](MEASUREMENTS.md). The trade is that the engine runs only on
+Apple Silicon; Windows and Linux are planned in Sevra with their own native
+engines.
+
+## Status and limits
+
+- **Not optimized for 96 GB and larger Macs**, where the model fits in memory;
+  see [Who it's for](#who-its-for).
+- **One generation at a time:** connected apps share the same running model.
+- **Conversation length is limited:** longer histories take more memory and
+  time. Auto mode picks a [window for each memory size](#speed-by-memory), and
+  the coding agent guides include the larger window agents need.
+- **No broad benchmarks yet:** image input and tool calling have integration
+  tests, but there is no image-accuracy benchmark or completed comparison with
+  other models on the same Mac.
+
+## FAQ
+
+### Does it work offline?
+
+Yes, after downloading the model. Inference runs on your Mac. Connected
+agents may still use internet services for web searches or other tools;
+their settings determine what those tools send.
+
+### Why doesn't Slotstream use all of my RAM?
+
+`--memory-gb 48` is a maximum process budget, not a promise to keep 48 GB
+resident. Slotstream allocates the expert cache at load, while conversation
+state and temporary work grow only when a request needs them. A short request
+can therefore peak well below the target. The startup report shows the budget,
+expert cache, runtime allowances and safety headroom separately.
+
+Without an explicit target, Auto uses a **33 GB** base ceiling, or **34.6 GB**
+with speculative decoding at the 32,768-token window. This measured default
+leaves memory for other apps. To use more, stop any running server and preview
+the plan without loading the model:
+
+```sh
+slotstream doctor --memory-gb 40
+```
+
+If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget
+with a fixed cache. In the current development version, use
+`--memory-limit-gb` instead to choose an upper limit while the cache adapts
+to other apps. Custom limits can exceed the automatic default; the Mac's
+supported budget and available memory still bound actual use.
+Auto keeps expert cache when a larger automatic context would trade it away
+without a measured benefit. Use `--max-context N` when you explicitly want a
+longer window. Leave room for macOS and other apps. See the
+[memory options](docs/CLI.md#memory-options) for details.
+
+### Is Slotstream the fastest way to run this model?
+
+On a Mac that cannot hold the model, 16 to 64 GB, it is the way to run it at
+all, and the engineering goes into making that fast. On 96 GB and larger Macs
+the model fits in memory and engines that keep it there report faster replies.
+See [Who it's for](#who-its-for) and
+[related projects](docs/ENGINEERING.md#related-projects).
+
+### Why is it written in Swift and not Python?
+
+The engine needs direct control of memory, disk reads and the GPU, and it
+has to ship as one file that a Mac app can call in process. Swift on MLX and
+Metal gives that; a Python runtime would put an interpreter and a second
+process in the way. The Python in the repository is tooling (the reference
+model the port is checked against, benchmark drivers, release checks), and
+none of it runs when you use Slotstream. See [Built native](#built-native).
+
+### Will this wear out my SSD?
+
+Generation reads the model files without rewriting them. macOS swap adds
+writes when memory runs short. Automatic memory sizing helps, but a small
+Mac or an oversized manual setting can still swap heavily. With
+`serve --prefix-cache-dir`, Slotstream also saves long conversations to that
+folder after each reply, and the system prompts conversations share, within a
+disk quota.
+
+### Can I run it on Linux or Windows?
+
+Support for AMD and NVIDIA on Windows and Linux is planned for Sevra.
+It isn't available in the current Slotstream engine.
+
+<a id="related-projects"></a>
+
+### Can I use a different model?
+
+Not with Slotstream today. Its loader and memory planner are built for this
+model. See [related projects](docs/ENGINEERING.md#related-projects) for runtimes
+with different model and hardware support.
+
+## Why this exists
+
+I wanted to run this model on my own Mac, but the standard loader exhausted
+memory before producing a reply. Slotstream grew out of that experiment.
+The [published measurements](MEASUREMENTS.md#m07--the-naive-path-fails-why-slotstream-exists)
+include that failed load and the experiments that followed.
+
+The project was also [discussed on Hacker News](https://news.ycombinator.com/item?id=49524447).
+The questions and hardware reports from that discussion help guide the work.
+
+## Support
+
+[Report a bug](https://github.com/carloslfu/slotstream/issues/new) if something
+doesn't work, or [share your Mac's results](docs/HARDWARE.md#how-to-measure)
+to help others know what to expect. Reports are credited to their authors.
+Code and documentation contributions are welcome; see
+[Contributing](CONTRIBUTING.md) for the workflow.
+
+## Grants and sponsors
+
+<p>
+  <a href="https://github.com/rauchg">
+    <img src="https://avatars.githubusercontent.com/u/13041?v=4&amp;s=160" width="80" height="80" alt="Guillermo Rauch's GitHub profile photo"><br>
+    <strong>Guillermo Rauch</strong>
+  </a>
+</p>
+
+Slotstream was selected for [Guillermo Rauch's personal grants for foundational
+open-source software](https://rauchg-oss-grants.vercel.app/).
+Thank you for supporting its development.
+
+## Who made this
+
+I'm [Carlos Galarza](https://www.carlosgalarza.com). I build local AI and
+make it run efficiently on the computers people already own. Slotstream is
+the engine, written natively for the Mac and tuned as one system, and
+[Sevra](https://www.sevrahq.com/) is the private AI app I'm building on it.
+I also help teams run open models on their own hardware and debug agent
+workflows. For help or consulting, [email me](mailto:carloslfu@gmail.com).
+
+## Star history
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/star-history-dark.svg">
+  <img alt="Slotstream GitHub star history, updated weekly" src="docs/assets/star-history.svg" width="960">
+</picture>
+
+The badge at the top shows the latest star count; this chart is updated weekly.
+
+## License
+
+Slotstream is [MIT-licensed](LICENSE). The model weights have their own
+[Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/blob/main/LICENSE).
+See [credits](docs/ENGINEERING.md#credits) for the model and code this project builds on.
+
+
+DOCUMENT API.md
+# HTTP API
+
+For client configuration and integration troubleshooting, start with
+[Connect apps and agents](CLIENTS.md).
+
+Start the server with `slotstream serve`. It listens on **127.0.0.1:11434**;
+use `--port N` to choose another port. It has no authentication, so local
+processes can use it. Browser requests must come from an allowed loopback
+origin. See [Security](../SECURITY.md).
+
+This page covers the Ollama-style `/api/*` endpoints, the OpenAI-style
+`/v1/*` endpoints, and the Anthropic Messages API at `/v1/messages`. For the
+AI SDK gateway, see the [fx guide](FX.md). OpenAI tool calling is described
+below. The OpenAI tool and reasoning additions require Slotstream 0.2.8 or
+later; the Responses API requires Slotstream 0.2.20 or later; the Messages
+API requires Slotstream 0.2.21 or later. Use `qwen3.8-flash-next:4bit` as the
+model name.
+
+Unknown fields, unsupported features, and malformed values return a 400
+error describing the problem, except on `/v1/messages`, which ignores unknown
+top-level fields as described there. A wrong model name returns 400, or 404
+on `/api/show` and `/v1/messages`. Some client compatibility fields are
+accepted without an effect; these are listed below.
+
+## Endpoints
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/chat` | Chat completion in Ollama format; streams by default |
+| `POST /api/generate` | Prompt completion in Ollama format; streams by default |
+| `POST /v1/chat/completions` | Chat completion in OpenAI format; doesn't stream by default |
+| `POST /v1/responses` | Response in OpenAI Responses format, the API Codex uses; doesn't stream by default |
+| `GET`/`DELETE /v1/responses/{id}` | Returns 404; responses aren't stored |
+| `POST /v1/messages` | Message in Anthropic Messages format, the API Claude Code uses; doesn't stream by default |
+| `POST /v1/messages/count_tokens` | Counts a Messages request's prompt tokens |
+| `GET /v1/models` | Lists the model in OpenAI format |
+| `GET /api/tags` | Lists the model in Ollama format |
+| `GET /api/ps` | Reports the loaded model and its current memory use |
+| `POST /api/show` | Returns model metadata and capabilities |
+| `GET /api/version` | Returns `{"version": "..."}` |
+| `POST /api/embed`, `/api/embeddings` | Returns 400; embeddings aren't supported |
+| `POST /api/pull`, `/api/create` | Returns 501; use `slotstream pull` on the host |
+| `GET /slotstream/status` | Reports the server's process, window and use; see [server status](#server-status) |
+| `POST /slotstream/clients` | Keeps a server started with `--idle-exit` running while a process runs |
+
+`/api/show` accepts `model` (or the deprecated `name` alias) and optional
+`verbose`. Empty `system`, `template`, and `options` fields are accepted for
+Ollama CLI compatibility; non-empty overrides return 400.
+
+## `/api/chat`
+
+Accepted fields: `model`, `messages`, `stream` (default `true`), `think`
+(boolean), `options`, and `keep_alive`. `keep_alive` has no effect because
+the server keeps the model loaded.
+
+Each message has a `role` and `content`, with optional `images`. Content can
+be text or an array of supported image/text parts; see [Images](#images).
+Tool calls aren't supported on this endpoint. Tool clients should use
+`/v1/chat/completions` with OpenAI function definitions and tool-result messages.
+
+```bash
+curl localhost:11434/api/chat -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "stream": false,
+  "options": {"temperature": 0.2, "seed": 7}
+}'
+```
+
+`options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+`presence_penalty`, `num_predict`, `seed`, and `stop` (a string or array).
+JSON `null` is treated as an unset field.
+
+With `think: true`, reasoning appears in `message.thinking` and the answer
+in `message.content`, for both streamed and complete responses. If the token
+budget runs out during reasoning, `content` is empty.
+
+## `/api/generate`
+
+Accepted fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`,
+`images`, `keep_alive`, and the same `options` as chat. Empty `suffix` and
+`template` fields are accepted for Ollama CLI compatibility. A non-empty
+suffix or template override returns 400.
+
+`think: true` returns reasoning in `thinking` and the answer in `response`.
+`raw: true` sends the prompt without the chat template and can't be combined
+with a system prompt, thinking, or images.
+
+An empty prompt acknowledges Ollama's load request with
+`done: true, done_reason: "load"`. `/api/chat` does the same for an empty
+message list. The model is already loaded in either case.
+
+## `/v1/chat/completions`
+
+Set an OpenAI-compatible client's base URL to `http://localhost:11434/v1`.
+If it requires an API key, use any placeholder string. For example, with the
+Python OpenAI SDK installed:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="unused")
+reply = client.chat.completions.create(
+    model="qwen3.8-flash-next:4bit",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(reply.choices[0].message.content)
+```
+
+Accepted fields: `model`, `messages`, `stream`, `temperature`, `top_p`,
+`top_k`, `min_p`, `presence_penalty`, `max_tokens` / `max_completion_tokens`,
+`seed`, `stop`, `stream_options` (`{"include_usage": true}`), `tools`,
+`tool_choice`, `parallel_tool_calls`, and `reasoning_effort`. `top_k`,
+`min_p`, `think` (boolean), and `options.num_ctx` are slotstream extensions.
+Without `max_tokens` or `max_completion_tokens`, a reply may use a quarter of
+the served window, at most 8,192 tokens and never more than the room the
+prompt leaves. `num_ctx` may lower the
+request's prompt-plus-reply budget; it cannot exceed the served context.
+JSON `null` is treated as unset.
+
+For SDK compatibility, these fields are accepted only at the listed values:
+`n: 1`, `frequency_penalty: 0`, `logprobs: false`, `logit_bias: {}`,
+`response_format: {"type": "text"}`. Other values for these options return
+400. These are accepted and have no effect, because nothing is stored or
+billed: `store: false`, `metadata` (an object of text values), and the text
+fields `user`, `prompt_cache_key`, `prompt_cache_retention`,
+`safety_identifier` and `service_tier`. `store: true` returns 400: it asks
+for a completion to fetch later, and the server keeps none.
+
+Function tools use OpenAI's `{"type":"function","function":{"name":...,
+"description":...,"parameters":...}}` shape. The server renders their schemas
+with the model's native template and converts complete generated calls into
+`message.tool_calls`, each with an `id`, `type: "function"`, and a function
+name plus JSON argument string. The finish reason is `tool_calls`. Send the
+assistant message back unchanged, followed by a `role: "tool"` message with
+the matching `tool_call_id` and textual result. Each outstanding call needs
+exactly one result before the next conversation message. Results may arrive
+in any order; the adapter matches their IDs and restores call order for the
+native model template.
+
+`tool_choice` accepts `auto` (default), `none`, `required`, or a named
+function object. A required/named choice is both prompted and checked; an
+unsatisfied choice produces an inference error unless the output token budget
+was exhausted. `parallel_tool_calls: false`
+ends generation after the first complete call. The default allows multiple
+calls, with distinct IDs and stream indices. The caller executes tools.
+Chat Completions streams a declared string argument while it is generated,
+including large file contents. Reassemble `delta.tool_calls` by `index`,
+concatenating each function's `arguments` fragments. Calls become complete
+only when their closing tags arrive. If the output budget is exhausted,
+the reply ends with `finish_reason: "length"`, requested usage, and `[DONE]`,
+including when a required tool call has not finished. Partial argument strings
+can be incomplete JSON; do not execute them. A completed tool reply ends with
+`finish_reason: "tool_calls"`. Non-streaming replies use the same length
+semantics. Malformed calls on a normal stop and undeclared function names
+produce an inference error. Strict
+schema enforcement is unavailable: omit `strict` or use `false`, and validate
+arguments in the caller before execution.
+
+`reasoning_effort: "none"` or `"minimal"` disables reasoning. `low`, `medium`,
+`high`, `xhigh`, and `max` enable it, using the same model mapping as the
+gateway. Reasoning is returned separately in `reasoning_content`, which is
+accepted on assistant history messages. A conflicting `think` flag is a 400.
+Initial `system` and `developer` instructions are combined in order.
+
+## `/v1/responses`
+
+The OpenAI Responses API, which Codex and newer OpenAI SDK code use. Set the
+client's base URL to `http://localhost:11434/v1`; a placeholder API key works.
+For Codex, follow the [Codex guide](CODEX.md).
+
+```bash
+curl localhost:11434/v1/responses -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "instructions": "Answer briefly.",
+  "input": "What is 2+2?"
+}'
+```
+
+Accepted fields: `model`, `input` (text or an array of items),
+`instructions`, `tools`, `tool_choice`, `parallel_tool_calls`,
+`reasoning.effort`, `max_output_tokens`, `temperature`, `top_p`, and
+`stream` (default `false`). JSON `null` is treated as unset.
+
+Input items are `message` (roles `system`, `developer`, `user`, `assistant`;
+content as text or `input_text`, `output_text`, and `input_image` parts),
+`reasoning`, `function_call`, and `function_call_output` (text, or content
+items with text and `input_image` parts). System and developer messages
+before the conversation join `instructions`; a later one renders as user
+text, which is what Codex does with its own context messages. Function call
+outputs may arrive in any order; the adapter matches `call_id` and restores
+the call order for the native model template. An `input_image` needs an
+inline `image_url` data URL; see [Images](#images).
+
+Tools use the Responses shape, `{"type":"function","name":...,
+"description":...,"parameters":...}`. A `namespace` tool is flattened: each
+member renders as `namespace.name`, and a call to it is reported with the
+`name` and `namespace` fields split again. Hosted `web_search` and
+`file_search` tools are dropped because the model cannot run them. Other
+tool types, `strict: true`, and the `text.format` constrained-output
+setting return 400, as on `/v1/chat/completions`. `tool_choice` accepts
+`auto`, `none`, `required`, `{"type": "function", "name": ...}`, or
+`{"type": "custom", "name": ...}` for a freeform tool; `allowed_tools`
+returns 400.
+
+Accepted without effect, because the server has nothing to change:
+`store` (nothing is stored either way), `include`, `metadata`,
+`prompt_cache_key`, `prompt_cache_retention`, `safety_identifier`, `user`,
+`service_tier`, `stream_options`, `text.verbosity`, `truncation:
+"disabled"`, and the Codex fields `client_metadata` and `access_programs`.
+Refused with 400: `previous_response_id` and `conversation` (no responses are
+stored, so every request carries its whole conversation), `background:
+true`, `prompt` templates, `context_management`, `max_tool_calls`,
+`top_logprobs`, `truncation: "auto"`, `input_file` and `input_audio` parts,
+`file_id` images, encrypted reasoning or tool output from another provider,
+and an input that ends with an assistant item.
+
+`reasoning.effort` uses the same mapping as `reasoning_effort` on the chat
+endpoint: `none` and `minimal` disable thinking, the other levels enable it.
+The model's reasoning streams as `reasoning_summary_text` deltas and is
+returned as the reasoning item's `summary`, which clients echo back on the
+next turn. Without `max_output_tokens` the reply budget is the
+`max_output_tokens` value `/v1/models` reports, a quarter of the served window
+up to 8,192 tokens, bounded by the room the prompt leaves.
+
+The response object, returned whole without `stream` and carried by the
+`response.created` and `response.completed` events, has `id`, `status`,
+`model`, `output`, and `usage`, and repeats the request's `tools`,
+`tool_choice`, `parallel_tool_calls`, `instructions`, `temperature`,
+`top_p`, `max_output_tokens`, `reasoning`, and `text` as the API does. It
+reports `store: false` and a null `previous_response_id` because nothing is
+kept.
+
+A streamed reply is Server-Sent Events, each with an `event:` line and a
+`data:` line: `response.created`, `response.in_progress`,
+`response.output_item.added` and `.done`, `response.content_part.added` and
+`.done`, `response.output_text.delta` and `.done`,
+`response.reasoning_summary_part.added`, `.delta` and `.done`,
+`response.function_call_arguments.delta` and `.done`, and
+`response.completed` with `usage`. During a long prompt read the server sends
+a `response.in_progress` event every 10 seconds, because Codex's idle timeout
+counts events rather than bytes. Running out of tokens before the reply ends
+is `response.incomplete` with `incomplete_details.reason:
+"max_output_tokens"`, unless a complete function call was already delivered,
+in which case the response completes. An inference failure after the stream
+starts is a `response.failed` event carrying `error.code` and `error.message`,
+with no `response.completed` after it. Function calls are delivered whole:
+`response.output_item.added`, one arguments delta, `arguments.done`, and
+`output_item.done`, only once the model's call block is complete.
+
+## `/v1/messages`
+
+The Anthropic Messages API, which Claude Code and the Anthropic SDKs use. Set
+the client's base URL to `http://127.0.0.1:11434`, without `/v1`; any API key
+or token works. For Claude Code, follow the [Claude Code guide](CLAUDE-CODE.md).
+
+```bash
+curl localhost:11434/v1/messages -H 'content-type: application/json' -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "max_tokens": 256,
+  "messages": [{"role": "user", "content": "What is 2+2?"}]
+}'
+```
+
+With the Python SDK:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(base_url="http://127.0.0.1:11434", api_key="unused")
+reply = client.messages.create(
+    model="qwen3.8-flash-next:4bit",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(reply.content[0].text)
+```
+
+Accepted fields: `model`, `messages`, `max_tokens` (required), `system` (text
+or text blocks), `stop_sequences`, `stream` (default `false`), `temperature`,
+`top_p`, `top_k`, `tools`, `tool_choice`, `thinking`, and
+`output_config.effort`. JSON `null` is treated as unset. `metadata`,
+`context_management` and `service_tier` are accepted without effect.
+`container`, `mcp_servers` and `output_config.format` return 400, because
+they ask for work this server cannot do.
+
+Other top-level fields are ignored rather than refused, because Claude Code
+adds request fields in most releases. The reply names them in an
+`X-Slotstream-Ignored-Fields` header, and the server's output, in its window
+or its log, names each one once. Inside messages and tools, an unknown content block type or tool
+type returns 400, and other fields, such as `cache_control`, are ignored.
+Headers such as `anthropic-version` and `anthropic-beta` are not
+</material>
+Summarize the main responsibilities and operating limits in five concise bullets.

@@ -3,7 +3,7 @@ type: design
 meta-type: conclusion
 id: 01m246aw461nyrejaspmzhxkms
 created: 2026-09-09T22:59:04.454986+00:00
-updated: 2026-09-17T08:32:00+00:00
+updated: 2026-09-21T04:23:23.381617+00:00
 summary: Measured operating policies and revision criteria
 date: 2026-09-09
 doc: plan
@@ -45,13 +45,11 @@ Use first principles to identify the bottleneck and feasible alternatives, then 
 When a revision is justified, compare configurations with matched work, controlled warm/cold state and relevant context/draft settings. Measure user-visible time and the full resource cost; fewer cache misses or a faster estimate alone is insufficient. Freeze meaningful comparison criteria before scored runs and retain failures. Change the default only within its proven safety and correctness envelope. A simpler measured profile may suffice; a live tuner needs evidence that its benefit repays its complexity and transition cost.
 
 ## Memory ceiling example and maintenance
-
-The base automatic total-process ceiling remains 33 GB. The clean development-Mac cache ladder showed diminishing returns near 120 to 150 experts/layer, and the target accommodates the chosen prefill workspace. An enabled draft head adds its separately charged cost. RAM share, Metal limits and live availability may lower the target. Explicit memory sizing bypasses the operating ceiling and pins the cache.
+The base automatic total-process ceiling remains 33 GB. The clean development-Mac cache ladder showed diminishing returns near 120 to 150 experts/layer, and the target accommodates the chosen prefill workspace. An enabled draft head adds its separately charged cost. RAM share, Metal limits and live availability may lower the target. The fixed-size CLI flags bypass the operating ceiling and pin the cache. The adaptive `--memory-limit-gb` override and the Mac app’s Custom limit instead preserve resizing within the selected ceiling and supported hardware budget. This also makes the first Custom selection inherit the current budget. See [[records/decisions/adaptive-memory-limits]].
 
 The original larger-target sweep evaluated an already-bounded prediction curve. It cannot prove that all larger allocations have no benefit. The existing ceiling is still a defensible default; no allocation change is justified merely by that limitation in the evidence. See [[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]], [[records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram]] and [[records/claims/auto-memory-target-ceiling-33-gb]].
 
 Keep code comments, CLI help/diagnostics, policy checks, canonical decisions/claims and relevant README/guides aligned. Regenerate PLAN.md, MEASUREMENTS.md and llms-full.txt from their declared sources. Preserve historical source bytes and annotate interpretations through records. This policy documents ongoing engineering responsibility; it does not claim a completed audit of every existing constant or authorize new benchmarks, spending, telemetry or background tuning.
-
 ## Functional memory acceptance and benchmark eligibility
 
 Global macOS paging is diagnostic for ordinary correctness, context-capacity and process-budget acceptance. It cannot attribute system activity to Slotstream. Keep process ceilings, real headroom, OS pressure handling, allocation safeguards and complete numerical/work checks; report paging separately. Performance comparisons retain declared clean-interval rules, and historical frozen results stay unchanged. The controlling decision is [[records/decisions/global-paging-is-diagnostic]].

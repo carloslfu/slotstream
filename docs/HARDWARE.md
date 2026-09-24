@@ -31,7 +31,8 @@ slotstream doctor
 
 A **token** is a small piece of text, often part of a word. `tok/s` means
 tokens per second. The speeds below describe a reply after the model's
-cache has warmed up. The first reply also needs time to load the model and
+cache has warmed up. Prompt-processing measurements appear separately below.
+The first reply also needs time to load the model and
 process your question. Long conversations take longer to process.
 
 Your chip, SSD, and other running apps affect speed. A memory size alone
@@ -41,7 +42,10 @@ isn't enough to predict it.
 
 ## Results
 
-These results were measured on real Macs, using different releases and settings:
+These reply-generation results were measured on real Macs, using different
+releases and settings. The leading result remains the latest qualified warm
+decode benchmark. The [0.2.23 calibration attempt](../db/records/measurements/release-speed-calibration-2026-09-22.md)
+has not yet qualified a replacement full-answer baseline:
 
 | Mac | Memory | Reply speed |
 |---|---|---|
@@ -54,9 +58,11 @@ These results were measured on real Macs, using different releases and settings:
 | Same M5 Max, 0.2.3, 48 GB target | 128 GB | ~26.9 tok/s |
 | Same M5 Max, 0.2.3, 73 GB target | 128 GB | ~31.5 tok/s |
 
-The latest M5 Pro result is the 0.2.19 release benchmark of the shipping
-build's default against the 0.2.18 forecast (1.10x faster, 14.38 to 15.86 tok/s,
-identical output); the 0.2.16 row is the pre-release benchmark of that release's
+The historical leading M5 Pro result is the 0.2.19 release benchmark of the
+shipping forecast against the 0.2.18 forecast (1.10x faster, 14.38 to 15.86 tok/s,
+identical output). Both arms used smaller prompt passes and disabled prefix
+caching, so more of the same budget held experts. These are controlled
+benchmark settings, not today's automatic configuration; the 0.2.16 row is the pre-release benchmark of that release's
 configuration. The M5 Pro results are from the author; the
 others are community reports. The M5 Max rows are outside the target range:
 the model fits in memory on that Mac, and engines that keep it resident
@@ -120,6 +126,61 @@ the M5 Pro throughout, the M2 in C1, the M5 Max in C2, and the M5 Air in C3.
 
 </details>
 
+## Recent prompt-processing results
+
+Changes shipped in 0.2.23 have separate prompt-processing measurements on the
+48 GB M5 Pro at a 10 GB target. Each row has three clean matched pairs and
+identical generated token IDs within every pair. Times are medians within
+each arm; the percentage is the median of paired reductions, so it need not
+equal the percentage calculated from the two displayed medians.
+
+| Workload | Matched control | Median times, control → enabled | Median paired time reduction |
+|---|---|---|---|
+| 16K inventory prompt, MTP on | Larger-read workspace policy off | 155.22 s → 53.94 s prefill | 65.40% |
+| 2K prose follow-up, MTP off | Prefix checkpoints disabled | 30.73 s → 4.42 s request | 85.62% |
+
+The inventory fixture reads 16,387 synthetic tokens with two MTP drafts and
+emits 11 tokens before its stop token. Both arms use fused attention; the
+control disables fused-workspace accounting. It qualifies the automatic
+read policy before release, not the complete change from the prior release.
+See the [policy qualification](../db/records/measurements/mtp-prefill-policy-2026-09-21.md).
+
+The prose fixture tests the installed release. It reads 2,090 tokens on its
+first request, then 2,092 on the follow-up, reusing 2,048 and emitting the
+same 16 capped output tokens in both arms. The table measures only the
+follow-up. Only one complete two-request pair passes the timing gates, so the
+percentage is not a repeated full-session result. Earlier releases already
+had prefix caching; this is its benefit against disabled checkpoints, not an
+incremental release gain.
+
+The [published-release audit](../db/records/measurements/published-prompt-speed-audit-2026-09-22.md)
+also covers other prompt types, lengths, budgets, MTP settings and disk reuse.
+Short requests show no consistent speedup. Paging-affected long-request
+comparisons stay excluded from qualified timing claims; the larger-memory
+release comparison and kernel-only attribution have too few clean pairs for
+a repeated claim. None of these percentages updates the warm reply-speed
+ranges or establishes a speedup on another Mac.
+
+### Fresh installed-release first reads and exact repeats
+
+The same development Mac and memory target were measured with ordinary
+caching and planner-owned settings. The table separates prompt processing
+from the full repeated request, which includes a capped reply:
+
+| Prompt | Eligible first reads / repeats | First-read prefill range | Median repeated request |
+|---|---:|---:|---:|
+| 2K code | 4 / 3 | 13.86–28.11 s | 2.79 s |
+| 2K prose | 3 / 3 | 14.91–26.51 s | 3.22 s |
+
+The prospective desktop load and process-page-in screen passed for the
+included observations. Several runs had system swap-ins; the stricter global
+no-swap subset is insufficient for a repeated first-read claim. Request
+history changed read batching despite an unchanged memory plan. The linked
+[measurement](../db/records/measurements/release-prefill-2k-2026-09-22.md)
+keeps server-first prompts and later misses separate and preserves every
+excluded request. These observations do not establish a new decode headline,
+a general ETA correction, or a whole-release speedup.
+
 ## Does more memory help?
 
 Within Slotstream, yes: a larger expert cache reduces SSD reads and improves
@@ -162,7 +223,7 @@ confidence intervals. Endpoints are rounded outward to whole tok/s.
 | Installed RAM | Estimated warm reply speed | Basis and main inference |
 |---|---|---|
 | 16–<24 GB | ~1–6 tok/s | The M2 mini reported 1.41 tok/s; the M5 Pro-based 16/18 GB simulations estimate about 4 to 5.5 tok/s. The upper end has not been measured on a real Mac in this band. |
-| 24–<48 GB | ~6–16 tok/s | The 32 GB M5 Air reported 6.22 tok/s on 0.2.11; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, the automatic target of a 32 GB Mac, rounded outward to 16. The upper end assumes a comparable chip and SSD; no Mac in this band has been timed on 0.2.19. |
+| 24–<48 GB | ~6–16 tok/s | The 32 GB M5 Air reported 6.22 tok/s on 0.2.11; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, rounded outward to 16. That benchmark used different prompt-workspace and cache settings from today's automatic plan. The upper end assumes a comparable chip and SSD; no Mac in this band has been timed on 0.2.19. |
 | 48–<96 GB | ~15–27 tok/s | The lower reference rounds down from the 48 GB M5 Pro's 15.86 tok/s on 0.2.19 at a 22 GB target, below its own 33.6 GB automatic target, whose larger cache has not been timed; the 0.2.16 result at a 20 GB target was 13.47 tok/s, and the older ~12 tok/s result remains historical evidence. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
 | 96 GB+ | ~20–32 tok/s | The 128 GB M5 Max reported about 21 to 22 tok/s in auto and 31.5 tok/s at a 73 GB process target. Applying this range to other Macs in the band is an estimate. This row is outside Slotstream's target range: the model fits in memory from 96 GB. |
 
@@ -184,7 +245,8 @@ guidance, independently of reply speed.
 
 ### Automatic memory plans
 
-The columns describe the current source plans in auto mode, which picks the
+The columns were checked against the published 0.2.23 binary. They describe
+the plans in auto mode, which picks the
 context window along with the target and speculative decoding. The draft file
 is available and no other apps hold memory. Simulated RAM is in decimal GB; a
 Mac's marketed memory capacity can produce a different decimal-GB device
@@ -207,12 +269,14 @@ Speculative decoding in the source plans includes 0.2.16's decode lookahead.
 These are allocation plans, not measured performance tiers. The matching
 M5 Pro-based warm-decode estimates without speculative decoding are
 ~4 tok/s at 16 GB, ~5.5 tok/s at 18 GB and ~8 tok/s at 24 GB of simulated
-RAM. At 32 GB the automatic 22 GB target has been measured directly: the M5 Pro
-generates 15.86 tok/s on 0.2.19 with two drafts at about 100 experts per
-layer (14.38 with the 0.2.18 forecast), replacing the earlier estimate of
-about 10 tok/s from the two-draft measurement at 76 experts per layer on
-0.2.14. That assumes the M5 Pro's chip and SSD; the real M5 Air result above
-was slower.
+RAM. The historical 22 GB benchmark measured 15.86 tok/s on 0.2.19 with two
+drafts at about 100 experts per layer (14.38 with the 0.2.18 forecast).
+Although its total budget matches the 32 GB simulation, its smaller prompt
+passes and disabled prefix cache leave a different expert pool. It does not
+measure the current automatic plan. The earlier estimate of about 10 tok/s
+came from a two-draft measurement at 76 experts per layer on 0.2.14; the real
+M5 Air result above was slower. A shared memory budget does not establish
+matching runtime settings or speed.
 
 The 15.86 tok/s result with the corrected forecast at about 100 experts per
 layer, and the 13.47 tok/s result of 0.2.16 at about 88, are measured references,
@@ -246,7 +310,10 @@ window without speculative decoding.
 For prompts near 32,768 tokens, the planner estimates about 3 minutes of
 prefill from 24 GB and 6.4 minutes at 16 GB; near 65,536 it estimates
 about 8 minutes from 24 GB. These estimates use the M5 Pro's prefill curve,
-not measurements on those memory sizes. Windows above 128,256 tokens have no
+not measurements on those memory sizes. The planner's historical prefill
+curve has not been recalibrated for the new read policy; the bounded results
+above cannot supply a multiplier for every pass size, prompt and context.
+Windows above 128,256 tokens have no
 calibrated estimate yet. On the development Mac, a full 131,072-token prompt
 took 38 minutes to read at a 16 GB target, and its passes slowed as the prompt
 grew: the planner's estimates, which ignore position, came within a few

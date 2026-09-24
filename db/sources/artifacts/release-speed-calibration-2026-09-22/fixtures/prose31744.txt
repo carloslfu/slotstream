@@ -1,0 +1,2199 @@
+Benchmark document prose31744. Read the supplied material.
+<material>
+DOCUMENT README.md
+# slotstream
+
+[![Latest release](https://img.shields.io/github/v/release/carloslfu/slotstream?label=latest%20release)](https://github.com/carloslfu/slotstream/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/carloslfu/slotstream?style=flat&logo=github&label=stars)](#star-history)
+
+**Run a 105 GB AI model on a 48 GB Mac.**
+
+Slotstream runs [Qwen3.8-Flash-Next](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit),
+a large open model, on your Mac by keeping most of it on SSD and loading the
+parts it needs into memory. It is built for Macs with 16 to 64 GB of memory,
+where the model cannot fit. After a one-time download the model works
+offline, with no Python and no cloud account. The whole engine is one native
+Swift program on Apple's MLX and Metal; see [Built native](#built-native).
+
+Use it to chat, ask about pictures, or work with files through a coding agent
+such as Claude Code, Codex, Pi, opencode or Hermes. Developers can connect
+their own apps through its APIs or Swift library.
+
+[Get started](#install) · [Speed](#speed) · [Guides](#guides) · [Get help](#support)
+
+> **I'm building Sevra on Slotstream: private, personal AI optimized for your computer.**
+> Sevra will choose a tested model for your hardware, keep that choice current
+> as models improve, and let you control what it remembers. The Mac app is in
+> development and runs Slotstream in process; see
+> [how it is built](docs/SEVRA-MAC.md) and
+> [join the waitlist](https://www.sevrahq.com/). Slotstream's command-line
+> tool, APIs and Swift library remain independently usable.
+
+## Who it's for
+
+Slotstream is built for Macs that cannot hold the model in memory: **16 to
+64 GB**. That is where the engineering, the measurements and the defaults go,
+so that frontier-class intelligence runs on the Macs most people already own.
+It also runs on 96 GB and larger Macs, where the model fits in memory, but it
+is not optimized for them: engines that keep the whole model in memory report
+faster replies there. See
+[related projects](docs/ENGINEERING.md#related-projects) if that is your Mac.
+
+## Will it run on my Mac?
+
+You need an **Apple Silicon Mac with at least 16 GB of memory, macOS 14 or
+later, and about 110 GB of free SSD space**. Open About This Mac from the
+Apple menu to check your chip and memory. On an 8 GB Mac even the smallest
+memory plan doesn't fit, so Slotstream refuses to start instead of swapping.
+Windows, Linux and Intel Macs are not supported. The
+[hardware guide](docs/HARDWARE.md#what-you-need) has the tested macOS versions.
+
+## Speed
+
+`tok/s` means tokens per second; a token is a small piece of text, often part
+of a word. Speeds describe replies after the model has warmed up.
+
+**Our development Mac, a 48 GB M5 Pro, generates 15.86 tok/s with 0.2.19 at a
+22 GB memory target, the automatic plan of a 32 GB Mac**, measured on eight
+prompts the engine was never tuned on. The engine predicts which experts the
+next layers will need and reads them from the SSD before they are asked for,
+which changes speed and never the output. The
+[expert lookahead guide](docs/EXPERT-LOOKAHEAD.md) has the measurements behind
+each release.
+
+<a id="speed-by-memory"></a>
+<a id="speed-by-mac-memory"></a>
+
+### What to expect by memory
+
+Rough planning ranges for warm replies, from community reports and our own
+measurements, rounded outward. Faster chips and SSDs sit at the top of each
+range; other apps and memory pressure pull results down.
+
+| Installed RAM | Estimated warm reply speed | Automatic context window |
+|---|---|---|
+| 8 GB | **Support coming soon.** The current model doesn't fit yet. | Not available yet |
+| 16–<24 GB | ~1–6 tok/s | 32,768 tokens |
+| 24–<48 GB | ~6–16 tok/s | 32,768 through 32 GB; 65,536 at 36 GB |
+| 48–<96 GB | ~15–27 tok/s | 32,768 at 48 GB; 131,072 at 64 GB |
+| 96 GB+, the model fits in memory | ~20–32 tok/s | 262,144 tokens, the model's full window |
+
+The middle rows are anchored on our M5 Pro's measurement; the top ends of the
+last two rows come from a 128 GB M5 Max with a larger, manually chosen memory
+target, and the last row is outside Slotstream's target range. These are
+estimates, not limits. The hardware guide has the
+[basis of each range](docs/HARDWARE.md#planning-ranges), every result
+[measured on real Macs](docs/HARDWARE.md#results) with credits and test
+conditions, and [every automatic memory plan](docs/HARDWARE.md#automatic-memory-plans).
+
+<a id="memory"></a>
+<a id="context"></a>
+
+### Memory and context
+
+**Auto mode picks the memory target, cache size, speculative decoding and
+context window for your Mac.** It takes the largest window in the table above
+that still leaves room for speculative decoding and a complete conversation,
+given the memory free at startup, without an unmeasured loss of useful
+expert cache. `slotstream doctor` shows the choice and
+why, and `--max-context 65536` sets a window yourself, up to 262,144 tokens.
+
+**Starting a reply takes time.** Slotstream first reads your question and the
+conversation history, which can take minutes for a long prompt. Follow-up
+turns reuse unchanged history, a new conversation reuses the system prompt
+earlier ones started with, and `serve --prefix-cache-dir` keeps long
+conversations and shared system prompts on disk so that they survive a
+restart. The hardware guide
+has the [prompt-reading estimates](docs/HARDWARE.md#automatic-memory-plans)
+for each memory size.
+
+## Install
+
+Open Terminal and paste this command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/install.sh | sh
+```
+
+Run the same command to update. If `slotstream` isn't found afterward, open
+a new terminal window.
+
+## Use it
+
+Check your Mac, then ask for a first reply:
+
+```sh
+slotstream doctor
+slotstream run --prompt "Why is the sky blue?"
+```
+
+<a id="downloading-the-model"></a>
+
+`doctor` checks memory and disk space without loading the model. The first
+`run` asks to download it, then prints a reply. This download can take hours,
+but you only need to do it once. Interrupted downloads resume when you try
+again. Follow the [step-by-step setup](docs/GETTING-STARTED.md) for more help.
+
+<a id="chat-apps-and-the-api"></a>
+<a id="pictures"></a>
+<a id="coding-agents"></a>
+<a id="docs"></a>
+
+## Guides
+
+| What would you like to do? | Guide |
+|---|---|
+| Chat in Open WebUI or another app | [Connect a chat app](docs/CLIENTS.md) |
+| Ask about a picture | [Use an image](docs/GETTING-STARTED.md#ask-about-a-picture) |
+| Start a coding agent on the model, in one command | [Use coding agents](docs/CODING-AGENTS.md) |
+| Code with Claude Code | [Use Claude Code](docs/CLAUDE-CODE.md) |
+| Code with Codex | [Use Codex](docs/CODEX.md) |
+| Code with Pi or opencode | [Use Pi or opencode](docs/CODING-AGENTS.md#pi) |
+| Work with files and tools through Hermes | [Use Hermes](docs/HERMES.md) |
+| Code with fx, Vercel Labs' coding agent | [Use fx](docs/FX.md) |
+| Fix a problem, move the model, or uninstall | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+
+Install chat apps and agents separately. They provide the interface and tools;
+Slotstream runs the model. Keep its server running while a connected app uses it.
+`slotstream launch claude` (or `codex`, `pi`, `opencode`, `hermes`) starts
+that agent already connected, and starts the server in the background first
+when none is running.
+
+<a id="use-it-from-swift"></a>
+<a id="testing"></a>
+<a id="building-and-testing"></a>
+
+For developers, the [engineering guide](docs/ENGINEERING.md) links to the
+OpenAI- and Ollama-compatible API references, Swift library, command options,
+build instructions, and tests. [Release notes](CHANGELOG.md) show what changed.
+
+## How it works
+
+Qwen3.8-Flash-Next is a *mixture-of-experts* model: generating each piece of
+text uses only a subset of its expert networks. Slotstream keeps shared
+weights in memory and reads the needed experts from SSD into a cache.
+Frequently used experts stay in RAM, reducing repeated disk reads.
+
+The whole model stays available even though it doesn't all fit in memory.
+Slotstream chooses a memory target for your Mac and adjusts its cache as
+other apps need room. Cache size changes speed without removing experts
+from the model. The [engineering explanation](docs/ENGINEERING.md#how-it-works)
+covers the implementation.
+
+<a id="built-native"></a>
+
+## Built native
+
+Slotstream is one native Mac program: the command-line tool, the HTTP server,
+the memory planner, the expert cache and the model itself are Swift on Apple's
+MLX framework and Metal, with Slotstream's own Metal kernels compiled at run
+time where a step needed one (the gated-delta recurrence, the selected
+attention, the expert routing). No Python runtime or interpreter sits between
+a request and the GPU.
+
+That is deliberate. Built around one model on one kind of hardware, each layer
+is tuned for the one below it: expert records are read from the SSD straight
+into the cache slots the GPU computes from, the memory plan is checked against
+what the process really uses, and a governor resizes the cache while other apps
+need room. It is also why the engine ships as one file that installs with one
+command, and why a Mac app such as Sevra can run it in process. The speed on
+this page comes from measured mechanisms that this control allows, not from
+the language itself; every published number has a recorded method in the
+[measurements](MEASUREMENTS.md). The trade is that the engine runs only on
+Apple Silicon; Windows and Linux are planned in Sevra with their own native
+engines.
+
+## Status and limits
+
+- **Not optimized for 96 GB and larger Macs**, where the model fits in memory;
+  see [Who it's for](#who-its-for).
+- **One generation at a time:** connected apps share the same running model.
+- **Conversation length is limited:** longer histories take more memory and
+  time. Auto mode picks a [window for each memory size](#speed-by-memory), and
+  the coding agent guides include the larger window agents need.
+- **No broad benchmarks yet:** image input and tool calling have integration
+  tests, but there is no image-accuracy benchmark or completed comparison with
+  other models on the same Mac.
+
+## FAQ
+
+### Does it work offline?
+
+Yes, after downloading the model. Inference runs on your Mac. Connected
+agents may still use internet services for web searches or other tools;
+their settings determine what those tools send.
+
+### Why doesn't Slotstream use all of my RAM?
+
+`--memory-gb 48` is a maximum process budget, not a promise to keep 48 GB
+resident. Slotstream allocates the expert cache at load, while conversation
+state and temporary work grow only when a request needs them. A short request
+can therefore peak well below the target. The startup report shows the budget,
+expert cache, runtime allowances and safety headroom separately.
+
+Without an explicit target, Auto uses a **33 GB** base ceiling, or **34.6 GB**
+with speculative decoding at the 32,768-token window. This measured default
+leaves memory for other apps. To use more, stop any running server and preview
+the plan without loading the model:
+
+```sh
+slotstream doctor --memory-gb 40
+```
+
+If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget
+with a fixed cache. In the current development version, use
+`--memory-limit-gb` instead to choose an upper limit while the cache adapts
+to other apps. Custom limits can exceed the automatic default; the Mac's
+supported budget and available memory still bound actual use.
+Auto keeps expert cache when a larger automatic context would trade it away
+without a measured benefit. Use `--max-context N` when you explicitly want a
+longer window. Leave room for macOS and other apps. See the
+[memory options](docs/CLI.md#memory-options) for details.
+
+### Is Slotstream the fastest way to run this model?
+
+On a Mac that cannot hold the model, 16 to 64 GB, it is the way to run it at
+all, and the engineering goes into making that fast. On 96 GB and larger Macs
+the model fits in memory and engines that keep it there report faster replies.
+See [Who it's for](#who-its-for) and
+[related projects](docs/ENGINEERING.md#related-projects).
+
+### Why is it written in Swift and not Python?
+
+The engine needs direct control of memory, disk reads and the GPU, and it
+has to ship as one file that a Mac app can call in process. Swift on MLX and
+Metal gives that; a Python runtime would put an interpreter and a second
+process in the way. The Python in the repository is tooling (the reference
+model the port is checked against, benchmark drivers, release checks), and
+none of it runs when you use Slotstream. See [Built native](#built-native).
+
+### Will this wear out my SSD?
+
+Generation reads the model files without rewriting them. macOS swap adds
+writes when memory runs short. Automatic memory sizing helps, but a small
+Mac or an oversized manual setting can still swap heavily. With
+`serve --prefix-cache-dir`, Slotstream also saves long conversations to that
+folder after each reply, and the system prompts conversations share, within a
+disk quota.
+
+### Can I run it on Linux or Windows?
+
+Support for AMD and NVIDIA on Windows and Linux is planned for Sevra.
+It isn't available in the current Slotstream engine.
+
+<a id="related-projects"></a>
+
+### Can I use a different model?
+
+Not with Slotstream today. Its loader and memory planner are built for this
+model. See [related projects](docs/ENGINEERING.md#related-projects) for runtimes
+with different model and hardware support.
+
+## Why this exists
+
+I wanted to run this model on my own Mac, but the standard loader exhausted
+memory before producing a reply. Slotstream grew out of that experiment.
+The [published measurements](MEASUREMENTS.md#m07--the-naive-path-fails-why-slotstream-exists)
+include that failed load and the experiments that followed.
+
+The project was also [discussed on Hacker News](https://news.ycombinator.com/item?id=49524447).
+The questions and hardware reports from that discussion help guide the work.
+
+## Support
+
+[Report a bug](https://github.com/carloslfu/slotstream/issues/new) if something
+doesn't work, or [share your Mac's results](docs/HARDWARE.md#how-to-measure)
+to help others know what to expect. Reports are credited to their authors.
+Code and documentation contributions are welcome; see
+[Contributing](CONTRIBUTING.md) for the workflow.
+
+## Grants and sponsors
+
+<p>
+  <a href="https://github.com/rauchg">
+    <img src="https://avatars.githubusercontent.com/u/13041?v=4&amp;s=160" width="80" height="80" alt="Guillermo Rauch's GitHub profile photo"><br>
+    <strong>Guillermo Rauch</strong>
+  </a>
+</p>
+
+Slotstream was selected for [Guillermo Rauch's personal grants for foundational
+open-source software](https://rauchg-oss-grants.vercel.app/).
+Thank you for supporting its development.
+
+## Who made this
+
+I'm [Carlos Galarza](https://www.carlosgalarza.com). I build local AI and
+make it run efficiently on the computers people already own. Slotstream is
+the engine, written natively for the Mac and tuned as one system, and
+[Sevra](https://www.sevrahq.com/) is the private AI app I'm building on it.
+I also help teams run open models on their own hardware and debug agent
+workflows. For help or consulting, [email me](mailto:carloslfu@gmail.com).
+
+## Star history
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/star-history-dark.svg">
+  <img alt="Slotstream GitHub star history, updated weekly" src="docs/assets/star-history.svg" width="960">
+</picture>
+
+The badge at the top shows the latest star count; this chart is updated weekly.
+
+## License
+
+Slotstream is [MIT-licensed](LICENSE). The model weights have their own
+[Qwen community license](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit/blob/main/LICENSE).
+See [credits](docs/ENGINEERING.md#credits) for the model and code this project builds on.
+
+
+DOCUMENT API.md
+# HTTP API
+
+For client configuration and integration troubleshooting, start with
+[Connect apps and agents](CLIENTS.md).
+
+Start the server with `slotstream serve`. It listens on **127.0.0.1:11434**;
+use `--port N` to choose another port. It has no authentication, so local
+processes can use it. Browser requests must come from an allowed loopback
+origin. See [Security](../SECURITY.md).
+
+This page covers the Ollama-style `/api/*` endpoints, the OpenAI-style
+`/v1/*` endpoints, and the Anthropic Messages API at `/v1/messages`. For the
+AI SDK gateway, see the [fx guide](FX.md). OpenAI tool calling is described
+below. The OpenAI tool and reasoning additions require Slotstream 0.2.8 or
+later; the Responses API requires Slotstream 0.2.20 or later; the Messages
+API requires Slotstream 0.2.21 or later. Use `qwen3.8-flash-next:4bit` as the
+model name.
+
+Unknown fields, unsupported features, and malformed values return a 400
+error describing the problem, except on `/v1/messages`, which ignores unknown
+top-level fields as described there. A wrong model name returns 400, or 404
+on `/api/show` and `/v1/messages`. Some client compatibility fields are
+accepted without an effect; these are listed below.
+
+## Endpoints
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/chat` | Chat completion in Ollama format; streams by default |
+| `POST /api/generate` | Prompt completion in Ollama format; streams by default |
+| `POST /v1/chat/completions` | Chat completion in OpenAI format; doesn't stream by default |
+| `POST /v1/responses` | Response in OpenAI Responses format, the API Codex uses; doesn't stream by default |
+| `GET`/`DELETE /v1/responses/{id}` | Returns 404; responses aren't stored |
+| `POST /v1/messages` | Message in Anthropic Messages format, the API Claude Code uses; doesn't stream by default |
+| `POST /v1/messages/count_tokens` | Counts a Messages request's prompt tokens |
+| `GET /v1/models` | Lists the model in OpenAI format |
+| `GET /api/tags` | Lists the model in Ollama format |
+| `GET /api/ps` | Reports the loaded model and its current memory use |
+| `POST /api/show` | Returns model metadata and capabilities |
+| `GET /api/version` | Returns `{"version": "..."}` |
+| `POST /api/embed`, `/api/embeddings` | Returns 400; embeddings aren't supported |
+| `POST /api/pull`, `/api/create` | Returns 501; use `slotstream pull` on the host |
+| `GET /slotstream/status` | Reports the server's process, window and use; see [server status](#server-status) |
+| `POST /slotstream/clients` | Keeps a server started with `--idle-exit` running while a process runs |
+
+`/api/show` accepts `model` (or the deprecated `name` alias) and optional
+`verbose`. Empty `system`, `template`, and `options` fields are accepted for
+Ollama CLI compatibility; non-empty overrides return 400.
+
+## `/api/chat`
+
+Accepted fields: `model`, `messages`, `stream` (default `true`), `think`
+(boolean), `options`, and `keep_alive`. `keep_alive` has no effect because
+the server keeps the model loaded.
+
+Each message has a `role` and `content`, with optional `images`. Content can
+be text or an array of supported image/text parts; see [Images](#images).
+Tool calls aren't supported on this endpoint. Tool clients should use
+`/v1/chat/completions` with OpenAI function definitions and tool-result messages.
+
+```bash
+curl localhost:11434/api/chat -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "stream": false,
+  "options": {"temperature": 0.2, "seed": 7}
+}'
+```
+
+`options` accepts `temperature`, `top_p`, `top_k`, `min_p`,
+`presence_penalty`, `num_predict`, `seed`, and `stop` (a string or array).
+JSON `null` is treated as an unset field.
+
+With `think: true`, reasoning appears in `message.thinking` and the answer
+in `message.content`, for both streamed and complete responses. If the token
+budget runs out during reasoning, `content` is empty.
+
+## `/api/generate`
+
+Accepted fields: `model`, `prompt`, `system`, `raw`, `stream`, `think`,
+`images`, `keep_alive`, and the same `options` as chat. Empty `suffix` and
+`template` fields are accepted for Ollama CLI compatibility. A non-empty
+suffix or template override returns 400.
+
+`think: true` returns reasoning in `thinking` and the answer in `response`.
+`raw: true` sends the prompt without the chat template and can't be combined
+with a system prompt, thinking, or images.
+
+An empty prompt acknowledges Ollama's load request with
+`done: true, done_reason: "load"`. `/api/chat` does the same for an empty
+message list. The model is already loaded in either case.
+
+## `/v1/chat/completions`
+
+Set an OpenAI-compatible client's base URL to `http://localhost:11434/v1`.
+If it requires an API key, use any placeholder string. For example, with the
+Python OpenAI SDK installed:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="unused")
+reply = client.chat.completions.create(
+    model="qwen3.8-flash-next:4bit",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(reply.choices[0].message.content)
+```
+
+Accepted fields: `model`, `messages`, `stream`, `temperature`, `top_p`,
+`top_k`, `min_p`, `presence_penalty`, `max_tokens` / `max_completion_tokens`,
+`seed`, `stop`, `stream_options` (`{"include_usage": true}`), `tools`,
+`tool_choice`, `parallel_tool_calls`, and `reasoning_effort`. `top_k`,
+`min_p`, `think` (boolean), and `options.num_ctx` are slotstream extensions.
+Without `max_tokens` or `max_completion_tokens`, a reply may use a quarter of
+the served window, at most 8,192 tokens and never more than the room the
+prompt leaves. `num_ctx` may lower the
+request's prompt-plus-reply budget; it cannot exceed the served context.
+JSON `null` is treated as unset.
+
+For SDK compatibility, these fields are accepted only at the listed values:
+`n: 1`, `frequency_penalty: 0`, `logprobs: false`, `logit_bias: {}`,
+`response_format: {"type": "text"}`. Other values for these options return
+400. These are accepted and have no effect, because nothing is stored or
+billed: `store: false`, `metadata` (an object of text values), and the text
+fields `user`, `prompt_cache_key`, `prompt_cache_retention`,
+`safety_identifier` and `service_tier`. `store: true` returns 400: it asks
+for a completion to fetch later, and the server keeps none.
+
+Function tools use OpenAI's `{"type":"function","function":{"name":...,
+"description":...,"parameters":...}}` shape. The server renders their schemas
+with the model's native template and converts complete generated calls into
+`message.tool_calls`, each with an `id`, `type: "function"`, and a function
+name plus JSON argument string. The finish reason is `tool_calls`. Send the
+assistant message back unchanged, followed by a `role: "tool"` message with
+the matching `tool_call_id` and textual result. Each outstanding call needs
+exactly one result before the next conversation message. Results may arrive
+in any order; the adapter matches their IDs and restores call order for the
+native model template.
+
+`tool_choice` accepts `auto` (default), `none`, `required`, or a named
+function object. A required/named choice is both prompted and checked; an
+unsatisfied choice produces an inference error unless the output token budget
+was exhausted. `parallel_tool_calls: false`
+ends generation after the first complete call. The default allows multiple
+calls, with distinct IDs and stream indices. The caller executes tools.
+Chat Completions streams a declared string argument while it is generated,
+including large file contents. Reassemble `delta.tool_calls` by `index`,
+concatenating each function's `arguments` fragments. Calls become complete
+only when their closing tags arrive. If the output budget is exhausted,
+the reply ends with `finish_reason: "length"`, requested usage, and `[DONE]`,
+including when a required tool call has not finished. Partial argument strings
+can be incomplete JSON; do not execute them. A completed tool reply ends with
+`finish_reason: "tool_calls"`. Non-streaming replies use the same length
+semantics. Malformed calls on a normal stop and undeclared function names
+produce an inference error. Strict
+schema enforcement is unavailable: omit `strict` or use `false`, and validate
+arguments in the caller before execution.
+
+`reasoning_effort: "none"` or `"minimal"` disables reasoning. `low`, `medium`,
+`high`, `xhigh`, and `max` enable it, using the same model mapping as the
+gateway. Reasoning is returned separately in `reasoning_content`, which is
+accepted on assistant history messages. A conflicting `think` flag is a 400.
+Initial `system` and `developer` instructions are combined in order.
+
+## `/v1/responses`
+
+The OpenAI Responses API, which Codex and newer OpenAI SDK code use. Set the
+client's base URL to `http://localhost:11434/v1`; a placeholder API key works.
+For Codex, follow the [Codex guide](CODEX.md).
+
+```bash
+curl localhost:11434/v1/responses -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "instructions": "Answer briefly.",
+  "input": "What is 2+2?"
+}'
+```
+
+Accepted fields: `model`, `input` (text or an array of items),
+`instructions`, `tools`, `tool_choice`, `parallel_tool_calls`,
+`reasoning.effort`, `max_output_tokens`, `temperature`, `top_p`, and
+`stream` (default `false`). JSON `null` is treated as unset.
+
+Input items are `message` (roles `system`, `developer`, `user`, `assistant`;
+content as text or `input_text`, `output_text`, and `input_image` parts),
+`reasoning`, `function_call`, and `function_call_output` (text, or content
+items with text and `input_image` parts). System and developer messages
+before the conversation join `instructions`; a later one renders as user
+text, which is what Codex does with its own context messages. Function call
+outputs may arrive in any order; the adapter matches `call_id` and restores
+the call order for the native model template. An `input_image` needs an
+inline `image_url` data URL; see [Images](#images).
+
+Tools use the Responses shape, `{"type":"function","name":...,
+"description":...,"parameters":...}`. A `namespace` tool is flattened: each
+member renders as `namespace.name`, and a call to it is reported with the
+`name` and `namespace` fields split again. Hosted `web_search` and
+`file_search` tools are dropped because the model cannot run them. Other
+tool types, `strict: true`, and the `text.format` constrained-output
+setting return 400, as on `/v1/chat/completions`. `tool_choice` accepts
+`auto`, `none`, `required`, `{"type": "function", "name": ...}`, or
+`{"type": "custom", "name": ...}` for a freeform tool; `allowed_tools`
+returns 400.
+
+Accepted without effect, because the server has nothing to change:
+`store` (nothing is stored either way), `include`, `metadata`,
+`prompt_cache_key`, `prompt_cache_retention`, `safety_identifier`, `user`,
+`service_tier`, `stream_options`, `text.verbosity`, `truncation:
+"disabled"`, and the Codex fields `client_metadata` and `access_programs`.
+Refused with 400: `previous_response_id` and `conversation` (no responses are
+stored, so every request carries its whole conversation), `background:
+true`, `prompt` templates, `context_management`, `max_tool_calls`,
+`top_logprobs`, `truncation: "auto"`, `input_file` and `input_audio` parts,
+`file_id` images, encrypted reasoning or tool output from another provider,
+and an input that ends with an assistant item.
+
+`reasoning.effort` uses the same mapping as `reasoning_effort` on the chat
+endpoint: `none` and `minimal` disable thinking, the other levels enable it.
+The model's reasoning streams as `reasoning_summary_text` deltas and is
+returned as the reasoning item's `summary`, which clients echo back on the
+next turn. Without `max_output_tokens` the reply budget is the
+`max_output_tokens` value `/v1/models` reports, a quarter of the served window
+up to 8,192 tokens, bounded by the room the prompt leaves.
+
+The response object, returned whole without `stream` and carried by the
+`response.created` and `response.completed` events, has `id`, `status`,
+`model`, `output`, and `usage`, and repeats the request's `tools`,
+`tool_choice`, `parallel_tool_calls`, `instructions`, `temperature`,
+`top_p`, `max_output_tokens`, `reasoning`, and `text` as the API does. It
+reports `store: false` and a null `previous_response_id` because nothing is
+kept.
+
+A streamed reply is Server-Sent Events, each with an `event:` line and a
+`data:` line: `response.created`, `response.in_progress`,
+`response.output_item.added` and `.done`, `response.content_part.added` and
+`.done`, `response.output_text.delta` and `.done`,
+`response.reasoning_summary_part.added`, `.delta` and `.done`,
+`response.function_call_arguments.delta` and `.done`, and
+`response.completed` with `usage`. During a long prompt read the server sends
+a `response.in_progress` event every 10 seconds, because Codex's idle timeout
+counts events rather than bytes. Running out of tokens before the reply ends
+is `response.incomplete` with `incomplete_details.reason:
+"max_output_tokens"`, unless a complete function call was already delivered,
+in which case the response completes. An inference failure after the stream
+starts is a `response.failed` event carrying `error.code` and `error.message`,
+with no `response.completed` after it. Function calls are delivered whole:
+`response.output_item.added`, one arguments delta, `arguments.done`, and
+`output_item.done`, only once the model's call block is complete.
+
+## `/v1/messages`
+
+The Anthropic Messages API, which Claude Code and the Anthropic SDKs use. Set
+the client's base URL to `http://127.0.0.1:11434`, without `/v1`; any API key
+or token works. For Claude Code, follow the [Claude Code guide](CLAUDE-CODE.md).
+
+```bash
+curl localhost:11434/v1/messages -H 'content-type: application/json' -d '{
+  "model": "qwen3.8-flash-next:4bit",
+  "max_tokens": 256,
+  "messages": [{"role": "user", "content": "What is 2+2?"}]
+}'
+```
+
+With the Python SDK:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(base_url="http://127.0.0.1:11434", api_key="unused")
+reply = client.messages.create(
+    model="qwen3.8-flash-next:4bit",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(reply.content[0].text)
+```
+
+Accepted fields: `model`, `messages`, `max_tokens` (required), `system` (text
+or text blocks), `stop_sequences`, `stream` (default `false`), `temperature`,
+`top_p`, `top_k`, `tools`, `tool_choice`, `thinking`, and
+`output_config.effort`. JSON `null` is treated as unset. `metadata`,
+`context_management` and `service_tier` are accepted without effect.
+`container`, `mcp_servers` and `output_config.format` return 400, because
+they ask for work this server cannot do.
+
+Other top-level fields are ignored rather than refused, because Claude Code
+adds request fields in most releases. The reply names them in an
+`X-Slotstream-Ignored-Fields` header, and the server's output, in its window
+or its log, names each one once. Inside messages and tools, an unknown content block type or tool
+type returns 400, and other fields, such as `cache_control`, are ignored.
+Headers such as `anthropic-version` and `anthropic-beta` are not required
+and have no effect.
+
+Messages alternate between `user` and `assistant`; consecutive assistant
+messages are joined. User content is text or blocks: `text`, `image` (a
+`base64` source in JPEG, PNG, GIF or WebP; see [Images](#images)),
+`document`, `search_result` (read as its title, source and text), and
+`tool_result`. A `document` with a plain-text source is read inline; a PDF,
+URL or file document is replaced by a note telling the model it cannot see
+it, so the conversation can go on. Assistant content is
+`text`, `thinking`, `redacted_thinking` (skipped, since it is encrypted by
+another provider) and `tool_use`. A `system` message before the conversation
+joins `system`; a later one renders as user text, which is where Claude Code
+puts its environment details. Its `tool_addition` and `tool_removal` blocks
+are skipped, and any other non-text block returns 400. `cache_control`
+markers have no effect: the server reuses prompts on its own. Image `url` and
+`file` sources return 400, and so does a conversation that ends with an
+assistant message, except in a token count.
+
+Every `tool_use` needs a `tool_result` with its id in the next user message,
+and the results may come in any order. A result's content is text or `text`,
+`image`, `document`, `search_result` and `tool_reference` blocks (read as
+`Tool available: <name>`); `is_error: true` prefixes the text with `Error:`.
+Tools use `name`, `description` and `input_schema`. Server tools the API runs
+itself, such as `web_search`, `code_execution` and `advisor`, are dropped
+because the model cannot run them, and a `tool_choice` that names one returns
+400; other typed tools return 400. `strict` is
+accepted but not enforced: calls are checked to be complete JSON objects,
+not validated against the schema. `tool_choice` accepts `auto`, `any`,
+`none`, and `{"type": "tool", "name": ...}`, with
+`disable_parallel_tool_use`, and is prompted and checked as on
+`/v1/chat/completions`.
+
+Thinking is off unless `thinking` asks for it. `{"type": "adaptive"}` turns
+it on at `output_config.effort` (`high` when absent), and `{"type":
+"enabled", "budget_tokens": N}` at an effort chosen from the budget; both use
+the same model mapping as `reasoning_effort` on the chat endpoint.
+`{"type": "disabled"}` turns it off. `display: "omitted"` returns thinking
+blocks with empty text; any other `display` value shows it. Each thinking block carries a `signature` that holds
+its reasoning, so a client that sends the block back, even with its text
+omitted as Claude Code does, gives the model its earlier reasoning.
+
+Without a stop, the reply ends with `stop_reason` `end_turn`, or `tool_use`
+after a complete tool call, `max_tokens` when the budget runs out, or
+`stop_sequence` with the matched `stop_sequence`. When `max_tokens` was
+larger than the room the prompt left in the window and the reply filled that
+room, the reason is `model_context_window_exceeded` instead of
+`max_tokens`. `usage` reports
+`input_tokens` (the prompt tokens read for this request),
+`cache_read_input_tokens` (the tokens reused from an earlier request),
+`cache_creation_input_tokens` (always 0) and `output_tokens`; the first two
+add up to the whole prompt.
+
+A streamed reply is Server-Sent Events in Anthropic's order:
+`message_start` (sent once the request is admitted), `ping`,
+`content_block_start`, `content_block_delta` (`thinking_delta`,
+`signature_delta`, `text_delta` or `input_json_delta`), `content_block_stop`,
+`message_delta` with `stop_reason` and `usage`, and `message_stop`. During a
+long prompt read the server sends a `ping` every 10 seconds, or, while a
+thinking block with omitted text is open, an empty `thinking_delta`.
+`message_start` reports the prompt tokens read and reused for the request. A tool call is
+delivered whole: its start, one `input_json_delta` with the complete input,
+and its stop, once the model's call block is complete. An inference failure
+after the stream starts is an `error` event, and nothing follows it.
+
+Errors use Anthropic's shape, `{"type": "error", "error": {"type": ...,
+"message": ...}}`, with `invalid_request_error` for 400, `not_found_error`
+for 404, `request_too_large` for 413, `api_error` for 500, and
+`overloaded_error` for 503. A prompt longer than the served window fails
+with `prompt is too long: N tokens > M maximum`, the message Claude Code
+reads to compact its conversation.
+
+`POST /v1/messages/count_tokens` takes the same body without `max_tokens`
+and returns `{"input_tokens": N}`: the prompt the model would read, with the
+same template, tools, thinking setting and images. It needs no generation and
+answers while another request runs.
+
+## Sampling defaults
+
+The table applies to ordinary chat. Tool-enabled requests default to temperature
+0.2, top_p 0.9 and presence_penalty 0 to preserve the repeated tool grammar.
+Reasoning without tools uses the existing thinking profile. Explicit request
+values override these defaults.
+
+| Option | Default |
+|---|---|
+| `temperature` | 0.7 |
+| `top_p` | 0.8 |
+| `top_k` | 20 |
+| `min_p` | 0 |
+| `presence_penalty` | 1.5 |
+| `num_predict` / `max_tokens` | 512 on the Ollama endpoints; a nonpositive `num_predict` uses the remaining context. On `/v1/chat/completions` and `/v1/responses`, a quarter of the served window, at most 8,192 tokens; their output limits must be positive. |
+| `seed` | Random for each request |
+| `stop` | None |
+
+Set `seed` for reproducible sampling. For comparisons, keep the model,
+prompt, and generation settings fixed and start the server with
+`--no-prefix-cache`: reusing conversation state can change nearly tied
+outputs. Out-of-range sampling values are clamped to supported ranges.
+
+## Streaming
+
+Ollama endpoints stream newline-delimited JSON. The final object has
+`done: true`, `done_reason`, `prompt_eval_count`, and `eval_count`.
+
+The OpenAI endpoint streams Server-Sent Events (SSE) as `data:` lines ending
+with `[DONE]`. Its first delta includes `"role": "assistant"`.
+
+Text is sent incrementally. Incomplete UTF-8 characters and possible stop
+sequences are held back until resolved. Concatenating the text deltas gives
+the same text as a non-streamed response under the same generation
+conditions; `Tools/api_robustness.sh` checks this.
+
+Tool streams carry `delta.tool_calls` with an `index`, ID, function name and
+complete argument string. The final choice has `finish_reason: "tool_calls"`.
+Reasoning uses `delta.reasoning_content`; it is excluded from answer text.
+An inference error after streaming starts is an SSE `error` object followed
+by connection termination, without a successful finish or `[DONE]` marker.
+
+## Images
+
+Every API accepts images, using these request shapes:
+
+| API | Image field |
+|---|---|
+| Ollama chat | `images: [base64]` on the user message |
+| Ollama generate | `images: [base64]` on the request |
+| OpenAI chat | An `image_url` content part with a `data:` URL |
+| OpenAI Responses | An `input_image` part with an `image_url` data URL, in a message or a `function_call_output` |
+| AI SDK gateway | A `file` part with an `image/*` media type and inline `data` |
+
+This Python 3 example sends `cat.jpg` to the Ollama chat endpoint. It uses
+only the standard library:
+
+```python
+import base64
+import json
+from pathlib import Path
+from urllib.request import Request, urlopen
+
+image = base64.b64encode(Path("cat.jpg").read_bytes()).decode("ascii")
+body = {
+    "model": "qwen3.8-flash-next:4bit",
+    "messages": [{"role": "user", "content": "What is in this picture?",
+                  "images": [image]}],
+    "stream": False,
+}
+request = Request(
+    "http://localhost:11434/api/chat",
+    data=json.dumps(body).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response)["message"]["content"])
+```
+
+For the OpenAI endpoint, replace the message above with:
+
+```python
+{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + image}},
+    {"type": "text", "text": "What is in this picture?"},
+]}
+```
+
+Send it to `/v1/chat/completions` and read
+`choices[0].message.content` from the JSON response. Use a media type that
+matches your image. From the terminal, `slotstream run --image cat.jpg
+--prompt "What is in this picture?"` is the shorter option.
+
+The server accepts **inline bytes only**, as bare base64 or a `data:` URL.
+It rejects `http://`, `https://`, and `file://` URLs. It applies EXIF
+orientation, composites transparency onto white, and rejects truncated files.
+
+Each resized image uses one token per 32×32 pixels, up to 2,304 tokens, from
+the shared context, which a request with images may fill up to 65,536 tokens. The decoded image file must be at most
+24 MiB, with an aspect ratio no greater than 200:1.
+
+The vision tower uses 0.9 GB and loads on the first image request. For auto
+and `--memory-gb` plans, that reservation stays inside the original process
+target, reducing expert capacity as needed. Explicit pool-size settings retain
+their pool and add the resident cost to the expected footprint.
+Image attention and decoded pixels also need workspace;
+a request is rejected before dispatch if its budget or real headroom is insufficient.
+`serve --vision off` disables images. Follow-up turns reuse image state while
+the matching conversation remains cached; image identity is checked by a
+digest of its bytes.
+
+<a id="server-status"></a>
+
+## Server status and idle stop
+
+These endpoints are available starting in Slotstream 0.2.21. `slotstream
+launch` and `slotstream stop` use them to find the server's process and to
+see whether it is in use.
+
+`GET /slotstream/status` returns:
+
+```json
+{
+  "server": "slotstream",
+  "version": "0.2.21",
+  "pid": 4242,
+  "port": 11434,
+  "model": "qwen3.8-flash-next:4bit",
+  "context_window": 32768,
+  "started_at": 1789660800,
+  "active_requests": 0,
+  "clients": 1,
+  "idle_seconds": 0,
+  "idle_exit_minutes": 30,
+  "memory_source": "--memory-gb",
+  "memory_target_gb": 12
+}
+```
+
+`started_at` is in Unix seconds. `active_requests` counts requests being
+handled, other than status checks. `clients` counts registered processes
+still running. `idle_seconds` is how long the server has had neither, and 0
+while it has either. `idle_exit_minutes` is the `serve --idle-exit` setting,
+or `null` when the server does not stop by itself. `memory_source` says what
+sized the memory plan (`--memory-gb`, `auto`, `--pool-gb` or
+`--experts-per-layer`) and `memory_target_gb` the whole-process target, or
+`null` for a plan without one. Reading the status is not activity.
+
+The development version also reports `memory_limit_gb`: the saved adaptive
+ceiling, or `null` when none was selected. Adaptive plans still use
+`memory_source: "auto"`; their current `memory_target_gb` can be lower than
+the saved limit while other apps need memory.
+
+`POST /slotstream/clients` with `{"pid": 4242}` registers a running process
+of the user the server runs as, and returns `{"clients": 1}`, the number
+registered. A server started with `--idle-exit` keeps running while any
+registered process runs, and counts from the last one's exit. A pid that is
+not a positive process id, or not a running process of that user, returns
+400. `slotstream launch` registers the agent it starts this way.
+
+Once a server with `--idle-exit` has decided to stop, every request other
+than the status returns 503 with `the server is stopping`, and the process
+exits. A request that is running when the server decides has already made it
+not idle, so the stop never interrupts one. `slotstream stop` sends the
+process `SIGTERM`, which stops it at once, also during a request.
+
+<a id="errors"></a>
+<a id="limits"></a>
+
+## Errors and limits
+
+Ollama errors use `{"error": "message"}`. OpenAI errors use
+`{"error": {"message": "..."}}`; validation failures also include
+`"type": "invalid_request_error"`. Anthropic errors use the shape described
+under [`/v1/messages`](#v1messages).
+
+| Status | Meaning |
+|---|---|
+| 400 | Invalid or unsupported request, including tools on the Ollama endpoints, JSON-schema output, strict tool schemas, logprobs, embeddings, or named reasoning levels for `think` |
+| 500 | Inference failure, including an incomplete generated tool call or unsatisfied required tool choice |
+| 411 | Chunked request body; send `Content-Length` instead |
+| 413 | Request body exceeds 32 MiB |
+| 431 | Request headers exceed 64 KiB |
+| 503 | Too many open connections, insufficient memory, an expired request-to-first-token deadline, including a request that waited behind others until its prefill no longer fit the wait budget, or a server that is [stopping by itself](#server-status) |
+
+A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
+requested path.
+
+Prompt plus completion is capped by the served window. By default the server
+picks it for the Mac: 32,768 tokens through 32 GB of RAM, 65,536 at 36 GB,
+32,768 at 48 GB, 131,072 at 64 GB and 262,144 from 96 GB, or less on a Mac
+that is busy at startup. Use `serve --max-context 65536` to fix a
+65,536-token window, or any size from 1 to 262,144. Requests with images stay
+within 65,536 tokens. The
+planner charges extra state and transient memory before allocating the pool.
+A prompt over the configured cap returns 400 with the actual limit. A known
+prefill estimate can also refuse work that exceeds the remaining wait budget. `/v1/models` and `/api/show` report the actual served window;
+the model's training window must not be used as the request limit.
+
+Generation requests run one at a time; a second waits for the first. Metadata
+endpoints read a separate snapshot and remain responsive during generation.
+
+The server log identifies each accepted request and periodically reports its
+elapsed time and current guarded phase, including prompt preparation and
+waiting for inference. Cache diagnostics say whether memory or disk supplied
+the prefix, or why retained state could not be reused. Exact token prefixes,
+compatible prefill boundaries and available memory remain required; a saved
+state does not guarantee a cache hit for a changed prompt.
+The disk cache also retains the exact generated token IDs needed to reconstruct
+history when a client omits reasoning. These IDs share the checkpoint's quota,
+expiry and deletion rules; the reusable numerical state still ends at its
+original prefill boundary.
+
+Prefill progress reports completed passes by elapsed time. Its remaining-time
+estimate uses recent throughput, so a slow tail replaces the faster early
+rate. The initial plan estimate cannot predict other applications' memory or
+SSD contention. A stalled pass still appears in the request-phase heartbeat.
+Socket output failures are logged separately from request completion.
+
+## Request deadlines and resource failures
+
+The request policy and structured resource failures in this section are
+available starting in Slotstream 0.2.14.
+
+`--max-prefill-wait` bounds the interval from accepting a complete request to
+sampling its first model token. Its default is 30 minutes; `0` disables only
+time. Upload and model startup are outside this clock; queueing, prompt
+preparation, image work and prefill are inside it. Decode after the first token
+remains subject to memory and cancellation checks. SSE keepalives preserve
+transport liveness and never reset the clock.
+
+Admission resolves the current memory plan and exact reusable prefix while
+holding the generation gate. It prices missing input from its absolute position;
+an unknown estimate stays unknown. `/api/show`, `/v1/models` and the gateway
+catalog expose an additive `context_policy` with configured, model and qualified
+mode limits. `doctor --json` additionally computes memory feasibility, which is
+independent of the wait policy.
+
+| Code | Before streaming headers | Action |
+|---|---|---|
+| `context_length_exceeded` | 400 | Send less input or restart with a supported larger window. |
+| `prefill_wait_exceeded` | 400 | The estimated prefill alone exceeds the wait budget. Reduce missing input, reuse a valid prefix or raise the wait budget. |
+| `insufficient_memory` | 503 | Free memory, lower the target/context, or resize an image. |
+| `prefill_deadline_exceeded` | 503 | The deadline passed, or the request waited behind others until its estimated prefill no longer fit. Retry when the server is free, with less work, or with a deliberate longer wait budget. |
+| `inference_error` | 500 | Inspect the error and retry after correcting its cause. |
+
+After headers, failures use the dialect's terminal error frame and close the
+stream. They never emit a successful OpenAI finish or `[DONE]`, Ollama
+`done: true`, or gateway success terminal. Disconnection stops bounded work.
+A tool proposal from an errored, truncated or incomplete turn is not a completed
+tool request; receiving clients must require successful termination before
+executing it. The engine's strict consumer fixture covers its wire contract;
+application-side tool authority remains the receiver's responsibility.
+
+Memory checks precede the next bounded allocation and leave safety headroom.
+They cannot prevent another application from allocating between checks. The
+engine joins readers and synchronizes GPU users before releasing request pins,
+and failed state is not reused. A subsequent request either succeeds or receives
+an explicit still-unavailable error.
+
+
+DOCUMENT CLAUDE-CODE.md
+<a id="use-claude-code-with-slotstream"></a>
+
+# Use Claude Code with Slotstream
+
+Run Anthropic's Claude Code on the model Slotstream serves. Claude Code edits
+files and runs commands through its own tools; Slotstream provides the model
+over the Anthropic Messages API on your Mac. No Anthropic account or API key
+is needed, and the model runs offline.
+
+## Before you start
+
+- Slotstream 0.2.21 or later, installed with its model, from the
+  [getting started guide](GETTING-STARTED.md). `slotstream --version` shows
+  yours; the install command updates it.
+- Claude Code installed, from its
+  [setup guide](https://code.claude.com/docs/en/setup).
+
+These steps were verified with Claude Code 2.1.270. If a newer version
+behaves differently, start with the troubleshooting table at the end.
+
+## Start Claude Code
+
+In Terminal, go to your project directory and run:
+
+```sh
+slotstream launch claude
+```
+
+If Slotstream is not running, this starts it in the background first and shows
+its start until the model answers. The first reply then takes a while: Claude
+Code's instructions and tool descriptions, about 15,000 tokens, are read once
+before the first token. Later turns, and later sessions, read only what is
+new.
+
+The server keeps running while Claude Code runs, and stops 30 minutes after
+the last session ends. `slotstream stop` stops it sooner, and
+`tail -f ~/.slotstream/logs/serve.log` shows what it is doing. To start the
+server yourself instead, see [run the server yourself](#run-the-server-yourself).
+
+`slotstream launch claude` asks the server for its model and window, then
+starts Claude Code with:
+
+- the server as its API address, a placeholder token, and the Slotstream
+  model for every model name Claude Code uses, so subagents and background
+  tasks run on your Mac too;
+- the served context window and reply limit, so Claude Code compacts the
+  conversation before it outgrows the window;
+- thinking off, request and stream timeouts long enough for a first
+  prompt, and Claude Code's nonessential network traffic (telemetry, error
+  reports, update checks) off;
+- its `WebSearch` tool off, since it runs on Anthropic's servers.
+
+The connection is passed with `--settings`. Claude Code applies those
+settings over the `env` in your own settings files, so nothing there can send
+this run elsewhere: Claude Code's switches for Bedrock, Vertex, Foundry and
+its other cloud providers are turned off, and any `ANTHROPIC_API_KEY` or
+`apiKeyHelper` is cleared, so no key of yours reaches the server. An exported
+`CLAUDE_CODE_OAUTH_TOKEN` is not sent either; the placeholder token is. Your
+settings files are not changed, and plain `claude` keeps using your
+account. A managed settings file from your organization still takes
+precedence over the launch.
+
+Anything after `claude` goes to Claude Code:
+
+```sh
+slotstream launch claude --continue
+slotstream launch claude -p "Summarize this repository"
+```
+
+If the server runs on another port, pass it before the tool name:
+`slotstream launch --port 8080 claude`. To see the command and settings
+without starting anything, add `--dry-run`.
+
+## Try it
+
+Ask for something that needs a file edit and a command:
+
+```text
+Create a file named hello.txt whose entire content is the single line: SLOTSTREAM OK. Then read the file back and tell me exactly what it contains.
+```
+
+Claude Code writes the file with its `Write` tool, reads it back, and reports
+the contents. Check that `hello.txt` exists and holds the line.
+
+Pictures you paste into Claude Code are read by the model on your Mac.
+
+## Thinking
+
+Thinking is off by default, which is faster. To turn it on, set
+`MAX_THINKING_TOKENS` to any positive number; `CLAUDE_CODE_EFFORT_LEVEL`
+(`low`, `medium` or `high`, the default) sets how much the model thinks:
+
+```sh
+MAX_THINKING_TOKENS=1 CLAUDE_CODE_EFFORT_LEVEL=low slotstream launch claude
+```
+
+Claude Code asks for its thinking to be hidden, so it shows that the model is
+thinking but not the text.
+
+## What differs from Claude
+
+- **Cost.** Claude Code estimates a price for a model it does not know, so its
+  cost figures are not zero. Nothing is billed; the model runs on your Mac.
+- **Web search.** Claude Code's `WebSearch` tool runs on Anthropic's servers,
+  so the launch turns it off.
+- **Files.** Text files and pictures work. PDF documents and files uploaded
+  through the Files API do not.
+- **Prompt caching.** Claude Code's cache markers are ignored. Slotstream
+  reuses prompts on its own: a conversation's next turn reads only what is
+  new, and a new session starts from the instructions an earlier session
+  read. See [shared prompts](#keep-shared-prompts-on-disk).
+- **Model choice.** The model aliases `opus`, `sonnet` and `haiku`, in
+  `/model`, `--model` and subagent settings, all run the Slotstream model. A
+  full Claude model name, such as one pinned in a subagent file, is refused
+  with a not-found error; use an alias there instead.
+
+<a id="keep-shared-prompts-on-disk"></a>
+
+## Keep shared prompts on disk
+
+The server keeps a few recent conversations in memory. When other
+conversations fill that space, a new Claude Code session would read the
+instructions again. A server `slotstream launch` starts also keeps them on
+disk, in `~/.slotstream/prefix-cache`, so new sessions start from the saved
+instructions, also after the server restarts. `slotstream prefix-cache` lists
+what is saved, and `slotstream prefix-cache --clear` removes it while no server
+runs. [The `serve` reference](CLI.md#slotstream-serve) describes the directory
+and its disk quota.
+
+<a id="run-the-server-yourself"></a>
+
+## Run the server yourself
+
+To watch the server or choose its window, start it in its own Terminal window
+before `slotstream launch claude`:
+
+```sh
+slotstream serve --max-context 65536 --prefix-cache-dir ~/.slotstream/prefix-cache
+```
+
+Wait for `slotstream listening on http://127.0.0.1:11434`. `slotstream launch
+claude` then uses this server as it is, and it runs until you press
+**Control+C** in its window or run `slotstream stop`. The larger window leaves
+more room for the conversation. On a Mac with little memory it can leave too
+little to keep a whole conversation for the next turn:
+`slotstream doctor --max-context 65536` shows how much is kept at that size.
+A server `slotstream launch` starts uses the window `slotstream doctor` picks.
+
+## Configure Claude Code yourself
+
+`slotstream launch claude` is the simplest way to start. To start `claude`
+directly instead, set these variables first. Use the model name and window
+that `curl -s http://127.0.0.1:11434/v1/models` shows:
+
+```sh
+export ANTHROPIC_BASE_URL=http://127.0.0.1:11434
+export ANTHROPIC_AUTH_TOKEN=slotstream-local
+export ANTHROPIC_MODEL=qwen3.8-flash-next:4bit
+export ANTHROPIC_DEFAULT_OPUS_MODEL=qwen3.8-flash-next:4bit
+export ANTHROPIC_DEFAULT_SONNET_MODEL=qwen3.8-flash-next:4bit
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=qwen3.8-flash-next:4bit
+export ANTHROPIC_SMALL_FAST_MODEL=qwen3.8-flash-next:4bit
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS=65536
+export CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
+export CLAUDE_CODE_ATTRIBUTION_HEADER=0
+export MAX_THINKING_TOKENS=0
+export API_TIMEOUT_MS=1800000
+export CLAUDE_STREAM_IDLE_TIMEOUT_MS=1800000
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+unset ANTHROPIC_API_KEY CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
+claude --disallowedTools WebSearch
+```
+
+An `env` block in a Claude Code settings file overrides these variables, so
+first remove any `ANTHROPIC_` and `CLAUDE_CODE_USE_` entries, and any
+`apiKeyHelper`, from `~/.claude/settings.json` and the project's
+`.claude/settings.json`.
+
+`CLAUDE_CODE_ATTRIBUTION_HEADER=0` removes a line that changes with every
+conversation from the start of the instructions; Slotstream ignores that line
+anyway.
+
+## Troubleshooting
+
+| Problem | What to check |
+|---|---|
+| `slotstream launch: no Slotstream server answered on port 11434` | You ran it with `--no-start`. Start `slotstream serve` in another Terminal window, or run `slotstream launch claude` without `--no-start`. If the server uses another port, pass it with `--port`. |
+| `another Slotstream model process is running` | A server on another port, `slotstream run` or a check holds the model, and only one fits in memory. Stop it, or pass that server's port with `--port`. |
+| `Slotstream stopped while starting` | The lines above it, and `~/.slotstream/logs/serve.log`, say why. If memory is short, close memory-heavy apps or pass a smaller `--memory-gb`. |
+| ``slotstream launch: `claude` is not on your PATH`` | Install Claude Code from its setup guide, or add the folder that holds `claude` to `PATH`. |
+| `does not have the Anthropic Messages API Claude Code needs` | The server is older than 0.2.21. Update Slotstream with the install command and restart the server. |
+| Claude Code asks you to log in | It was started without the connection. Start it with `slotstream launch claude`. |
+| `API Error: Request timed out` | The first prompt took longer than Claude Code waited. Give the server more memory so the prompt reads faster (`slotstream stop`, then `slotstream launch --memory-gb <gb> claude`), or export larger `API_TIMEOUT_MS` and `CLAUDE_STREAM_IDLE_TIMEOUT_MS` values before `slotstream launch claude`. |
+| `the server on port 11434 is busy` | Every connection the server takes is in use. Wait for running requests to finish and try again. |
+| `prompt is too long` | The conversation outgrew the window. Claude Code compacts it and continues; if it keeps happening, [run the server yourself](#run-the-server-yourself) with a larger `--max-context`. |
+| `ignoring request field(s)` in the server's log | Claude Code sent options Slotstream does not use. The request still runs; the message appears once per field. |
+| Every new session reads the instructions again | With a server you started yourself, add `--prefix-cache-dir`; see [keep shared prompts on disk](#keep-shared-prompts-on-disk). |
+| Connection refused | The server stopped, with `slotstream stop` or 30 minutes after the last session. Run `slotstream launch claude` again. Otherwise check that the port matches; see [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
+
+For details of the wire protocol, see the [API reference](API.md#v1messages).
+[General troubleshooting](TROUBLESHOOTING.md) covers startup, memory, and
+model files.
+
+
+DOCUMENT CLI.md
+# Command reference
+
+This page covers everyday commands, memory settings, and common diagnostics.
+Run `slotstream <command> --help` for the options in your installed version.
+Only one model process can run per user at a time.
+
+The shared `run` context option, request-wait controls, feasibility metadata
+and expanded `context-check` flags below are available starting in Slotstream 0.2.14.
+
+<a id="where-things-live"></a>
+
+## File locations
+
+| Path | What |
+|---|---|
+| `~/.slotstream/bin/` | Symlink to the active release: the `slotstream` binary and its `mlx.metallib`. |
+| `~/.slotstream/releases/<sha256>-macos<NN>/` | Each installed release, content-addressed. The installer stages a release here, verifies it, then switches the `bin` symlink. |
+| `~/.slotstream/launch/codex/` | The model descriptions and base instructions `slotstream launch codex` gives Codex, one per Codex version and window. |
+| `~/.slotstream/launch/server-<port>.json` | The server `slotstream launch` started on that port, by process id and start time, so a later launch knows it may restart it. |
+| `~/.slotstream/launch/start-<port>.lock` | Held while a launch may start a server on that port, so a second launch waits for that server. |
+| `~/.slotstream/logs/serve.log` | The log of the server `slotstream launch` started (`serve-<port>.log` on another port), with the previous start's as `.1`. |
+| `~/.slotstream/prefix-cache/` | Prompt caches the server `slotstream launch` started keeps on disk: token ids and model state, 20 GB at most. `slotstream prefix-cache` lists or clears them. |
+| `~/.slotstream/models/qwen38-flash-next-mlx-4bit/` | The weights: 25 files, 105.3 GB (the 1.5 GB draft head is optional). Compressed pulls use `.slotpack-state.json` and `.slotpack.part` files while in progress; legacy raw pulls use `.partmap` and `.part`. |
+| `/usr/local/bin/slotstream`, or a PATH line in `~/.zshrc` / `~/.bash_profile` | How the installer puts the command on your PATH (the wrapper when `/usr/local/bin` is writable, the profile line otherwise). |
+| `/tmp/slotstream-model-<uid>.lock` | The one-process lock, held while a model is loaded. |
+
+## Reading tokens per second
+
+`slotstream run` prints a `-- decode` line with average `tok/s` after the
+response, and a separate prefill rate for reading the prompt. Add
+`--stats-json stats.json` to save the raw generation measurements.
+
+When using an existing `slotstream serve`, the Ollama-compatible `/api/chat`
+and `/api/generate` endpoints return `eval_count` and `eval_duration` in the
+final response. For streaming, read the final frame. Duration is in
+nanoseconds: divide the count by `eval_duration / 1e9` when that duration is
+positive. This measures the decode phase and excludes prefill. The ordinary
+OpenAI-compatible response supplies token usage without these duration fields.
+
+These are end-of-response statistics. A planner's expected speed is an
+estimate; it is separate from the measured rate of a completed request.
+[The serving benchmark and throughput expectations](../MEASUREMENTS.md#three-prompt-serving-benchmark-and-throughput-expectations)
+show the observed variation, prompt-reuse behavior and measurement limits.
+
+## Everyday commands
+
+### `slotstream run`
+
+Generate once from a prompt, with no server.
+
+| Flag | Meaning |
+|---|---|
+| `--prompt <text>` | The prompt (default: "Why is the sky blue?"). |
+| `--max-context <auto or n>` | Window shared by the final templated input and reply. Default `auto`; the same planning and bounds as `serve`. |
+| `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including preparation. Default 30 minutes; `0` disables only the time policy. |
+| `--max-tokens <n>` | Tokens to generate; `<= 0` means as many as the context allows (default 128). |
+| `--greedy` | Deterministic greedy sampling. |
+| `--raw` | Send the prompt without the chat template. |
+| `--think` | Enable the model's thinking mode. |
+| `--image <path>` | Attach a local image; repeat the flag for multiple images. |
+
+Plus the [memory options](#memory-options) below.
+
+### `slotstream serve`
+
+Start the local API server. See the [API reference](API.md) for the Ollama
+and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
+
+| Flag | Meaning |
+|---|---|
+| `--port <n>` | Listen port on 127.0.0.1 (default 11434). |
+| `--max-context <auto or n>` | Maximum tokens shared by prompt and reply. Default `auto`: the largest of 32768, 65536, 131072 and 262144 tokens that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time. Auto declines cache reductions above the measured decode range because their performance cost is unknown; `doctor` shows each tradeoff. A number fixes the window, from 1 to 262144, the model's limit. Requests with images stay within 65536. A larger window is priced before allocating the expert cache; a prompt above the configured cap returns 400. Main sequence-cache capacity costs about 27 KiB per token, plus recurrent, retained, draft and transient allocations. |
+| `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
+| `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
+| `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
+| `--prefix-cache-dir <dir>` | Also keep conversation states on disk, so a restarted server, or a conversation longer than the in-memory cache holds, resumes from its last committed state instead of processing its prompt again. Off unless set. A state is written after its reply completes. The first write stores the fixed recurrent state and every cached token; each later turn writes the recurrent state plus only the tokens it added, keeps the previous turn's state so that reply can still be regenerated after a restart, and removes older states of the conversation. Files hold the conversation's token ids and model state and are used only by the same binary, model files and settings that wrote them; starting the server removes files from other builds. Requests with images are not written. The prefix conversations share is written too: when a prompt's system message ends 512 tokens or more in, or a prompt shares at least 512 tokens with a state already kept, that head is stored during the prompt's own prefill, rounded down to the prefill pass grid, the 256-token grid by default, so the next conversation with the same system prompt resumes from it, in the same process or after a restart. A shared prefix is kept once, is never replaced by the conversations that extend it, and is listed as such. `slotstream prefix-cache` lists or clears the directory. |
+| `--prefix-cache-disk-gb <gb>` | Disk quota for `--prefix-cache-dir` (default 20), applied at startup and before each write. When it is full, states nobody continued go first, then previous-turn states kept for regenerating, then conversations, then the prefixes several conversations start from, least recently used first within each. |
+| `--prefix-cache-min-tokens <n>` | Shortest state written to `--prefix-cache-dir` (default 2048 tokens), for conversation states and shared prefixes alike; a shorter shared prefix is still kept in memory. |
+| `--prefix-cache-max-age-days <days>` | Remove states in `--prefix-cache-dir` unused for this many days (default 30), at startup and before writes. `0` keeps them until the quota needs room. |
+| `--idle-exit <minutes>` | Stop after this many minutes with no request and no registered agent still running (default 0, keep serving). `slotstream launch` starts its server with 30 and registers each agent it opens through `POST /slotstream/clients`. The log says why the server stopped. |
+
+Plus the memory options.
+
+### `slotstream launch [agent] [arguments...]`
+
+Start a coding agent connected to Slotstream. The agent is `claude`, `codex`,
+`pi`, `opencode` or `hermes`; everything after its name is passed to it.
+Without a name, the command lists the agents installed and asks which one to
+start. It asks the server for its model, context window and reply limit,
+prepares the agent's connection, and replaces itself with the agent, so the
+agent runs in the same Terminal window. [Coding agents](CODING-AGENTS.md)
+describes what each agent receives and which files are written.
+
+When no server answers on the port, the command starts one in the background
+and shows its start until it answers:
+
+- with the window the agent needs (the automatic window, or 65,536 tokens for
+  Hermes when the automatic one is smaller) and the `--memory-gb` given here;
+- with prompt caches kept on disk in `~/.slotstream/prefix-cache`
+  (`--prefix-cache-dir`, 20 GB at most), so a restarted server does not read an
+  agent's instructions again;
+- with its log in `~/.slotstream/logs/serve.log` (`serve-<port>.log` on another
+  port), the previous start's kept as `.1`;
+- in its own session, so Control-C and a closed Terminal reach only the agent.
+
+That server keeps running while any agent `slotstream launch` opened is
+running, and stops 30 minutes after the last one exits and its last request
+ends (`--idle-exit`). `slotstream stop` stops it sooner. Control-C while it
+starts stops it too. A server you started yourself is used as it is; the
+command never restarts it. Two launches at the same time start one server:
+the second waits for the first to finish starting, then uses its server.
+
+| Flag | Meaning |
+|---|---|
+| `--port <n>` | The port the server listens on (default 11434). |
+| `--memory-gb <gb>` | Memory target for a server this command starts, as in `serve`. Default: automatic. When a server with another target is already running, it is left as it is and a note names its target. |
+| `--memory-limit-gb <gb>` | Adaptive ceiling for a server this command starts (development version). Cannot be combined with `--memory-gb`. An existing server keeps its settings; a note explains when the requested limit does not apply. |
+| `--idle-exit <minutes>` | How long a server this command starts keeps running after its last agent exits (default 30, at most 10080); `0` keeps it running until `slotstream stop`. |
+| `--no-start` | Use a running server only; never start or restart one. |
+| `--dry-run` | Print the server it would start, the command, the variables it sets or removes, the files it would write, and notes; start, download and write nothing. Keys and tokens in the output are hidden, and for Pi only the `slotstream` entry of its models file is shown. |
+
+The served window must reach the agent's minimum: 32,768 tokens for Claude Code
+and Codex, 16,384 for Pi and opencode, 65,536 for Hermes. When the running
+server's window is smaller, a server this command started and no agent is
+using is restarted with the larger window; any other server is left running,
+and the message says how to restart it.
+
+It stops with a message, before starting the agent, when another server
+answers on the port, when the server is busy with every connection it takes,
+when another Slotstream model process runs for this user, when the model is
+not downloaded and there is no terminal to ask on (with one, it asks first),
+when the server is too old for the agent's API, or when the agent is not on
+`PATH`. It also refuses what would not run on this Mac: `codex cloud`, Codex's
+`--output-schema`, Pi with another `--provider` and no `--model`, and a Hermes
+configuration whose `context_length` is larger than the served window. The
+agent's arguments and files are checked before a server starts, so these
+refusals come before the server's start, and before the model download is
+offered. Codex needs its version's base instructions for the model
+description; the first launch of each Codex version downloads them from the
+Codex repository and keeps them under `~/.slotstream/launch/codex/`.
+
+### `slotstream stop`
+
+Stop the Slotstream server on a port: the one `slotstream launch` started in
+the background, also while it is still starting, or one running in a Terminal
+window. The server's requests end at once; prompt caches already on disk stay
+for the next server. When no server answers, it says so and exits
+successfully.
+
+| Flag | Meaning |
+|---|---|
+| `--port <n>` | The port the server listens on (default 11434). |
+
+### `slotstream prefix-cache`
+
+Show what a `serve --prefix-cache-dir` directory holds, or clear it. Nothing is
+loaded, so this works while no server runs; listing also works while one does.
+
+| Flag | Meaning |
+|---|---|
+| `--dir <path>` | The directory given to `--prefix-cache-dir`. Default: `~/.slotstream/prefix-cache`, the one servers that `slotstream launch` starts use. |
+| `--clear` | Remove every state file. Refused while a server or app holds the directory. |
+| `--json` | Print JSON instead of text. |
+
+Each state is listed with the build that wrote it, its token count, the size of
+its own file and when it was last used. Cached tokens that several states share
+are stored once and reported as one total.
+
+### `slotstream pull [model]`
+
+Download losslessly compressed model weights from Hugging Face, reconstructing
+the original files with resumable transfers and hash verification.
+The only model name is `qwen3.8-flash-next:4bit`, which is also the default.
+
+| Flag | Meaning |
+|---|---|
+| `--dir <path>` | Destination directory (default `~/.slotstream/models/qwen38-flash-next-mlx-4bit`). |
+| `--connections <n>` | Fixed independent connections, 1–32. Omit to start at 8 and test increases only while throughput improves. |
+| `--transport automatic\|compressed\|raw` | Automatic uses compressed Hugging Face objects for new pulls and preserves legacy raw resumes. Explicit raw selects file-based mirrors. |
+| `--verify` | Check existing files against pinned SHA-256 hashes without downloading. |
+
+The complete compressed package uses **16.12% fewer bytes**. Decode and writes
+overlap the transfer. Historical raw-path testing measured 112 MB/s on a
+1 Gbit/s link; that is not a guarantee for another connection. Ctrl-C safely
+preserves verified chunks. See [the download guide](DOWNLOAD-FORMAT.md).
+
+Since 0.2.19, `pull` also fetches one optional file outside the compressed
+package: the 37.5 MB decode forecast correction
+`lookahead/tap-correction-attention-rank128-v1.safetensors`, verified by size and
+SHA-256 against the pinned mirror commit. `--verify` reports it, an installed
+model gets it by running `slotstream pull` again, and a model directory without
+it runs the 0.2.16 forecast.
+
+Weights placed elsewhere are used by passing that directory to `--model`, or
+by symlinking it into the default location. Symlinked directories work from
+0.2.1 onward.
+
+### `slotstream doctor`
+
+Show your Mac's memory plan, disk space, and estimated speed. This command
+never loads the model and can run while the server is working.
+
+| Flag | Meaning |
+|---|---|
+| `--sim-ram <gb>` | Preview this much RAM in decimal GB. Simulates memory capacity, not another chip or SSD. Assumes no other apps are using memory unless `--sim-available` is set; working set defaults to 75% of RAM. |
+| `--sim-working-set <gb>` | Use this Metal working-set limit in the simulation. |
+| `--sim-available <gb>` | Use this much available memory in the simulation. |
+| `--max-context <auto or n>` | Default `auto` reports the automatic window, every candidate and the reason it was or wasn't taken. A number previews that window's allocation and reports the largest memory-feasible window under these inputs. |
+| `--max-prefill-wait <minutes>` | Preview the request deadline separately from memory feasibility; default 30 minutes, `0` disables only time. |
+| `--json` | The resolved plan as JSON, with estimates unrounded (`max_context_tokens`, `est_prefill_s_at_max_context`), plus `context_window_source` and, in auto mode, `automatic_context_window`. |
+
+Plus the memory options, so `doctor --memory-gb 16` shows exactly what
+`serve --memory-gb 16` would plan under the same conditions. Its estimated
+prefill times use M5 Pro measurements; they exclude startup, queueing,
+image preparation and reasoning before visible answer text. The full-window
+estimate is a planning reference; actual requests also need room for a reply.
+
+### `slotstream context-check`
+
+Run an explicit capacity diagnostic with a synthetic prompt. Conversation
+reuse is disabled by default; the retained-state mode first fills distinct
+conversations and exercises their interleaved follow-ups. The report includes
+actual prompt and reply IDs, compute shapes, sampled physical footprint and
+swap observations. Incomplete output, exceeded process budgets and missing
+required process-memory evidence fail qualification. Global paging is recorded
+separately and does not fail capacity acceptance; it can exclude clean timing.
+
+Stop any running model process first. Results are printed without writing
+files; contributors can register them in the measurement records under `db/`.
+
+| Flag | Meaning |
+|---|---|
+| `--tokens <n>` | Prompt length (default 8192); prompt plus the required reply must fit the model limit. |
+| `--reply-tokens <n>` | Required nonempty output, reserved before model loading (default 16). An early stop is incomplete qualification. |
+| `--max-prefill-wait <minutes>` | The same request deadline; `0` disables only this deadline. |
+| `--wall-seconds <seconds>` | Independent hard duration bound per rung (default 7200). |
+| `--plan-only` | Print the unqualified memory plan and resolved runtime controls without loading an engine. |
+| `--warm-conversations <n>` | Fill and revisit retained conversations before the main request. Requires a single rung and enough configured room. |
+| `--warm-tokens <n>` | Length of each distinct warm-up prompt. Its reply and follow-up must also fit the configured window. |
+| `--sample-footprint` | Compatibility flag; this diagnostic always samples physical footprint in addition to lifetime process RSS and allocator telemetry. |
+| `--ladder` | Run 2048, 4096, … up to `--tokens`, stopping at the first rung that leaves the plan. |
+| `--min-free-gb <gb>` | Abort a pass when reclaimable memory falls below this (default: the planner's slack, 5% of RAM, at least 1.5 GB). |
+| `--json` | One JSON object per rung. |
+
+Plus the memory options; give it the same target you would give `serve`.
+With retained conversations, the wall-clock ceiling covers both warm-up and
+the main request. Diagnostic access above the public implementation ceiling
+does not make that window supported by `serve` or `run`.
+
+## Memory options
+
+Shared by `run`, `serve`, `doctor`, and every check that loads the model.
+With no sizing override, auto sizes the process to the machine (see
+[memory defaults](../README.md#why-doesnt-slotstream-use-all-of-my-ram)).
+
+| Flag | Meaning |
+|---|---|
+| `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
+| `--memory-limit-gb <gb>` | Adaptive total process ceiling, in decimal GB (development version). Can exceed the default model ceiling. The cache shrinks when other apps need memory and can grow back when it is available, within the saved limit and the Mac's supported budget. Cannot be combined with the fixed memory/cache options below. |
+| `--memory-gb <gb>` | Total process memory budget, in decimal GB. The cache gets what remains after runtime, context, workspace and a nominal 1 GB margin. Near the minimum cache size, the plan can use part of that margin; `doctor` shows the actual planned headroom. Minimum 8.1 for the 32,768-token window; larger windows raise the minimum. This is a planning allowance, not an instruction to fill RAM. Conversation state and workspace use memory as needed, so measured usage can be lower. Auto picks the context window inside this target and preserves cache whose loss it cannot price; `--max-context N` chooses the context tradeoff explicitly. |
+| `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
+| `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |
+| `--vision auto\|on\|off` | Accept images (default `auto`). `auto` loads the image encoder on first use; `on` also requires the checkpoint to contain vision weights; `off` rejects images. |
+| `--mtp auto\|on\|off` | Speculative decode (default `auto`); see [Speculative decode](#speculative-decode). |
+| `--max-ram-percent <p>` | Auto only: the largest share of RAM auto may target (default 70). Alone it cannot raise the 33 GB base ceiling plus enabled draft/context charges. With `--memory-limit-gb`, it can further lower that ceiling; without this percentage option the adaptive limit is bounded by hardware and availability. Ignored when a fixed size is given. |
+
+Precedence when several are given: `--experts-per-layer` beats `--pool-gb`,
+which beats `--memory-gb`. An explicit size keeps its expert-pool policy. Physical headroom is still
+checked before model loading and request growth. Preview it with `doctor`;
+an unavailable window is reported separately from a request that may take
+too long to prefill.
+
+`--memory-limit-gb` keeps resizing enabled unless you also pass `--no-elastic`.
+The requested limit stays saved even when the current target is lower. `doctor`
+and model startup use the same budget feasibility check, including at the
+default context window. Metal's recommendation is read from the system;
+Slotstream keeps additional headroom and checks live reclaimable memory too.
+
+
+A larger context reserves allocated cache capacity, retained conversations,
+resident components and transient work before assigning the expert pool.
+`doctor --json` includes the byte ledger and a discrete feasibility result;
+a smaller history does not turn unused long-context reservation into free RAM.
+Unknown prefill estimates appear as JSON `null` and remain deadline-bound.
+Neither a fixed pool nor `--no-elastic` disables request memory checks.
+
+The target is a budget, so current usage can be lower while reserved context
+and temporary workspace are unused. `doctor` previews a new plan; it does not
+change an already running server. `/api/ps` includes that server's actual
+`details.memory_plan`, including its sizing source, target and expert pool.
+For an adaptive limit, `memory_limit_gb` is the saved ceiling and `target_gb`
+is the current budget, which can be smaller.
+
+For `run`, the default memory summary separates the **lifetime footprint peak**
+from **current footprint**. The lifetime value includes loading and all earlier
+requests in that process, including GPU memory already freed. With
+`--sample-footprint`, the summary instead labels the sampled generation peak.
+Saved statistics retain `peakMemoryGB` as the maximum of lifetime footprint,
+lifetime RSS and current footprint; `lifetimePhysicalFootprintPeakBytes` exposes
+the native footprint peak separately. Sampling remains useful for attributing
+memory to a particular request and can miss allocations between samples.
+
+## Optimization defaults
+
+The CLI resolves the selected optimization family automatically: compact
+runtime state and n-gram rows, bounded prompt-read grouping, committed prompt
+checkpoints, bounded output buffering and memory-governor response. Long
+prompt grouping is admitted only when its additional workspace fits; ordinary
+chronological passes remain the fallback. Explicit prefill and optimization
+controls retain their precedence and validation. With the draft head, the
+[decode lookahead](#decode-lookahead) is on by default too, and so is the
+[split verify attention](#speculative-decode) from 6,144 tokens of context.
+
+Prompt checkpoints help only when the token and image history actually
+matches. Use `--no-prefix-cache` for comparisons that require fresh prompt
+computation. Query tiling bounds vision attention workspace; it does not grant
+extra permanent expert-cache capacity. The specialized fused rotation keeps
+its qualified platform and shape checks, with the original rotation elsewhere.
+
+The `SLOTSTREAM_OPT_` switches remain available for reference comparisons and
+qualification. They include experimental paths that were rejected or remain
+conditional. Enabling every switch is not the selected configuration.
+[Integrated measurements](../MEASUREMENTS.md#final-integrated-optimization-results)
+report the tested workloads and limits; [the unified plan](../PLAN.md) retains
+the disposition of each candidate.
+
+The automatic ceiling is a conservative default based on development-Mac
+measurements, separate from RAM-share and physical-memory bounds. The
+[M5 Max community sweep](HARDWARE.md#does-more-memory-help) demonstrates gains
+from larger manual targets; auto is not calibrated to every hardware profile.
+See
+[why auto retains a ceiling](ENGINEERING.md#memory) and the
+[operating-policy contract](../db/records/design/measured-operating-policies.md).
+
+## Environment variables
+
+| Variable | Read by | Meaning |
+|---|---|---|
+| `SLOTSTREAM_WEIGHTS_SOURCES` | `pull` | Comma-separated raw-file bases tried in order. Selects raw transport in automatic mode; every file must match the original pins. |
+| `SLOTSTREAM_COMPRESSED_SOURCES` | `pull` | Comma-separated Slotpack package bases; every object must match the embedded package. |
+| `SLOTSTREAM_PULL_TRANSPORT` | `pull` | `automatic`, `compressed`, or `raw`; an explicit non-automatic CLI flag takes precedence. |
+| `SLOTSTREAM_PULL_CONNECTIONS` | `pull` | Fixes parallel connections, capped at 32; the CLI flag takes precedence. |
+| `SLOTSTREAM_PREFIX_CACHE` | engine | `0` disables conversation prefix reuse, like `--no-prefix-cache`. |
+| `SLOTSTREAM_PREFILL_CHUNK` | engine | Override the largest prefill pass in tokens instead of taking it from the memory plan; the schedule still shrinks it as the context grows. Measurement work only. |
+| `SLOTSTREAM_IO_QUEUE_DEPTH` | engine | Expert read parallelism, 1…128 (default 12). The development-Mac sweep found little benefit from 12 to 32; other SSDs and workloads can differ. |
+| `SLOTSTREAM_EXPERT_LOAD_BATCH` | engine | Expert records staged at once during prefill, 1…512 (default 32): the sweep's group size on a pass of 256 tokens or more, the pool's load slice below that. Bounds peak memory on long prompts. |
+| `SLOTSTREAM_SWEEP` | engine | `0` selects the older pool path instead of the prefill sweep when ordinary prefill is used. A/B work only; slower in the recorded development-Mac comparisons. Other optimization controls can select a different qualified path. |
+| `SLOTSTREAM_SWEEP_ADMIT` | engine | `0` stops the last pass of a prompt from admitting the prompt's hottest experts into the pool, so decode starts cold. A/B work only. |
+| `SLOTSTREAM_SWEEP_TRACE` | engine | `1` prints, after each prefill, where the sweep's time went: reads, waiting for the GPU, sorting rows, copies out of the pool, and MLX's peak and cache. |
+| `SLOTSTREAM_PREFILL_CACHE_MB` | engine | MLX buffer-cache cap while a prompt is read. The plan sets 512 at targets of 12 GB and under (the sweep's varying array sizes otherwise fill the 2 GB cache, 1.7 GB of peak at the floor) and no cap above, where it costs ~6% of prefill; this forces a value at any target. |
+| `SLOTSTREAM_OPT_EXPERT_PREFETCH` | engine | `0` turns off the decode lookahead and its 373 MiB charge (409 MiB with the checkpoint's forecast correction file). `1` selects an experimental prefetch configuration from the `SLOTSTREAM_EXPERT_PREFETCH_*` tuning variables instead; for comparisons only. |
+| `SLOTSTREAM_OPT_ROUTER_WEIGHTS` | engine | `0` or `1` overrides the FP32 router weight cache that the decode lookahead turns on. |
+| `SLOTSTREAM_OPT_VERIFY_SPLIT` | engine | `0` runs the speculative verify pass through the dense attention kernel at every context, the previous behavior. The default splits it into two-row vector-kernel calls from 6,144 tokens of context. |
+| `SLOTSTREAM_OPT_VERIFY_SPLIT_CONTEXT` | engine | Context, in tokens, from which the verify pass splits (default 6144, the measured crossover on the development Mac); `0` splits at every context. |
+| `SLOTSTREAM_OPT_ROW_INVARIANT` | engine | `1` selects the exact mode: the model's small dense matmuls run through one kernel at every row count, and the split verify attention makes one call per row. With `SLOTSTREAM_OPT_VERIFY_SPLIT_CONTEXT=0`, speculative and plain decode give identical output for draft depths up to 4. It changes plain decode's rounding, so it is off by default. |
+| `SLOTSTREAM_DECODE_BARRIER_LAYERS` | engine | Layers between GPU drains, 1…48. The decode lookahead uses 4; `1` drains after every layer. A pass that could not keep that many layers of experts pinned drains after every layer anyway. |
+| `SLOTSTREAM_EXPERT_PREFETCH_TAP` | engine | `boundary` keeps the 0.2.16 forecast (the layer-boundary router forecast at stride 2) when the correction file is present, charging 373 MiB instead of 409; the configuration 0.2.19 was benchmarked against. Other values belong to the experimental configuration and are for comparisons only. |
+| `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
+| `SLOTSTREAM_RELEASE_BASE` | installer | Fetch the release from another base URL (CI uses it to test unpublished builds). |
+
+## Checks and diagnostics
+
+These checks help diagnose an installation. The first group needs no weights;
+the second loads the model. Use small explicit memory targets for model
+checks (`--memory-gb 8.1` to `10`) and stop other model processes first.
+See [Testing](TESTING.md) for the full suites.
+
+Fixed-profile diagnostics reject `--memory-limit-gb` because they use their
+own bounded allocation. `prefix-exact-check` accepts it with `--plan`;
+`elastic-drill` can exercise it within the diagnostic's separate memory ceiling.
+
+**Weights-free**
+
+| Command | Proves |
+|---|---|
+| `runtime-check` | Process RSS accounting and the prefix cache's four-conversation bound. |
+| `governor-check` | The elastic resize policy across pressure, availability, and cooldowns. |
+| `sampler-golden` | Sampling from reproducible synthetic logits, compared against `Tools/sampler_ref.py`. Flags: `--vocab`, `--draws`, `--seed`, `--logit-seed`, `--temperature`, `--top-p`, `--top-k`, `--min-p`, `--presence-penalty`, `--accumulate`. |
+| `pull-check` | Same-size corruption detection and HTTP range validation in the downloader. |
+| `prefill-schedule` | The prefill passes a prompt runs at a given pass size and the wait they imply; the same wait arithmetic `doctor` and the 400 message use. JSON includes actual canonical pass sizes, physical query rows and key extents, including numerical padding. `--chunk` (4096), `--tokens` (32768), `--from` (0), `--json`. |
+
+**Load the model**
+
+| Command | Proves |
+|---|---|
+| `elastic-check` | Greedy output is byte-identical across a live pool grow and shrink. `--max-tokens` (24), `--big-slots` (960; lower it on small machines). |
+| `elastic-drill` | Drives the live governor through shrink, cooldown, recovery and exact output. `--slots` (4000), `--max-memory-gb` (10), `--quick` skips recovery. Use `--memory-limit-gb 10 --max-memory-gb 10 --mtp off` for small-cache pressure recovery, or `--slots 1000 --max-memory-gb 13 --memory-limit-gb 13 --mtp off` for the full availability drill. Both require the target plus 3 GB physically reclaimable and report sampled memory and swap. An insufficient ceiling refuses before model allocation. |
+| `prefix-check` | Conversation prefix reuse is equivalent, bounded, and deterministic. `--slots` (640), `--max-tokens` (24). |
+| `prefix-exact-check` | A continued conversation computes what a cold one does: same tokens and bit-identical prompt logits whether a turn resumed a retained state or read its whole prompt, with reuse still happening, an identical prompt reusing its complete state, an edited history rebuilding, and a second conversation resuming a shared prefix. `--slots` (640), `--max-tokens` (24), `--plan` to run a real memory plan so `--memory-gb` and `--mtp` apply. |
+| `sweep-check` | The prefill sweep (passes of 256 tokens or more) stays inside the prefill-rechunk band against the pool path, is deterministic, gives bit-identical logits on a cold and a warm pool, and leaves the pool consistent after admission. `--slots` (640). |
+| `parity` | N truncated layers match the Python reference dumps. `--layers` (4), `--tokens`, `--compare <dir>`, `--out <dir>`. |
+| `template-check` | Renders the chat template for a canned conversation and prints token ids. `--think`. |
+| `ngram-golden` | Prints n-gram row ids for a token sequence, for comparison with Python. `--tokens`. |
+| `dequant-golden` | CPU-dequantizes one n-gram row for comparison with `mx.dequantize`. `--gid` (12345). |
+
+<a id="new-in-020"></a>
+
+## Speculative decode
+
+- `--mtp auto|on|off` on `run`, `serve`, and `doctor`: speculative decode with the
+  model's draft head, `mtp.safetensors`, which `pull` fetches with the
+  weights. The file is optional; downloads can complete without it. `on`
+  without the file is an error; `auto`, the default, turns it on when the
+  cache reaches 76 experts per layer after the head's 1.6 GB and context
+  charges, before the separate lookahead reservation. A 21 GB target qualifies
+  at the default context; actual availability and the selected window can
+  keep the head off on a larger Mac. Before 0.2.16 the floor
+  was 120; two drafts later measured 31.7% faster than plain decode on the same
+  memory at 76 per layer
+  ([decision](../db/records/decisions/draft-head-auto-floor-76-per-layer.md)).
+  The floor is separate from draft depth. The historical one-draft measurement
+  at the former 28 GB memory target was ×1.24 decode; MEASUREMENTS.md M9
+  preserves its configuration, ladder and ceiling.
+- `mtp-parity`, `mtp-accept`, `mtp-check`, `mtp-rowcheck`: the draft head's
+  parity with the Python reference, its measured accept rate (`--depth`,
+  default 4), the speculative-decode gates, and the row-equality gate: in the
+  exact mode, every row of a two-row and a three-row verify pass must equal
+  the one-row pass at its position in the same mode bit for bit, and the
+  state a three-row pass leaves must equal the state three one-row passes
+  leave, on a prompt whose positions cross 1,024 keys (`--cross`), where the
+  attention kernel changes, and one above the indexer budget (the stock
+  deviation is reported alongside).
+- The verify pass checks the drafts in one pass of draft depth plus one rows.
+  The backend's vector attention kernel takes at most two such rows at this
+  model's head layout, so a three-row pass used to fall to the dense kernel,
+  which reads every cached key and whose cost grows with the context. From
+  6,144 tokens of context the pass now runs two rows at a time through the
+  vector kernel, the kernel plain decode's attention uses. The gain grows with
+  the context. On a quiet machine at a 22 GB target, speculative decode
+  measured 11.82 against 11.67 tok/s (x1.013) with a 16,356-token prompt,
+  x1.085 on a second 16,356-token prompt and x1.29 with a 32,740-token prompt;
+  the fetch-free pass is 32% cheaper at 32,740 tokens and 45% at 65,508. The
+  split changes which drafts are accepted, so the 16k gain follows the prompt,
+  1% and 8% in the two measured, while at 32k both arms accept alike.
+  `SLOTSTREAM_OPT_VERIFY_SPLIT=0` restores the dense pass. Below the threshold
+  the dense kernel is faster
+  ([measurement](../db/records/measurements/speculative-verify-pass-split-attention-2026-09-17.md)).
+- Exact mode: a multi-row pass rounds a little differently from one-row
+  passes, so speculative and plain decode can pick different tokens at near
+  ties. `SLOTSTREAM_OPT_ROW_INVARIANT=1` with
+  `SLOTSTREAM_OPT_VERIFY_SPLIT_CONTEXT=0` removes the difference for draft
+  depths up to 4. The small dense matmuls use one kernel at every row count,
+  and each verify row attends in its own call over the keys plain decode
+  reads, so the backend picks the same attention kernel. Every row of a verify
+  pass then equals plain decode in the same mode, and a speculative run's
+  output equals a plain run's. The mode changes plain decode's rounding too,
+  and it costs 4 to 6% of plain decode's speed, so it is off by default;
+  `mtp-rowcheck` gates it.
+- `SLOTSTREAM_DRAFT_DEPTH`: draft chain depth, 1–16 (default 2).
+  Two drafts are the adopted operating choice for mixed workloads. The recent
+  automatic-memory comparison found two and three effectively tied overall;
+  this is not a universal performance optimum. Rejected drafts roll back to
+  recorded state. Explicit valid overrides still work; invalid values fall
+  back to the default. See the [decision and evidence](../db/records/decisions/draft-depth-defaults-to-two.md).
+  This changes draft depth when MTP is enabled, not the automatic activation
+  floor or the RAM-share default.
+
+### Decode lookahead
+
+From 0.2.16 the decode lookahead runs by default with the draft head when
+the cache reaches the same 76-per-layer floor before the lookahead's own
+reservation. The final printed cache can therefore be smaller. As each layer's
+routing comes back, the engine reads the model's state after the previous layer's
+attention step, applies the next layer's router to it, corrects the result with a
+small learned table shipped for the checkpoint
+(`lookahead/tap-correction-attention-rank128-v1.safetensors`, 37.5 MB, which
+`pull` fetches next to the weights), and reads the experts it picks from the SSD
+straight into cache slots before that layer asks for them. It also keeps FP32
+copies of the router weights and drains the GPU every four layers instead of
+every layer. Output is unchanged.
+
+The memory plan charges 373 MiB for it before sizing the expert cache, 409 MiB
+when the correction file is present, and `doctor` prints `lookahead: on` with the
+charge. On twelve held-out prompts at a 20 GB target with two drafts, the 0.2.16
+lookahead decoded 1.11x faster than without it; the corrected forecast of 0.2.19
+decoded 1.10x faster than the 0.2.18 forecast on eight held-out prompts at a 22 GB target,
+14.38 to 15.86 tok/s (see the [expert lookahead guide](EXPERT-LOOKAHEAD.md)). A head
+forced onto a smaller cache runs without it. `SLOTSTREAM_OPT_EXPERT_PREFETCH=0`
+turns it off, `SLOTSTREAM_EXPERT_PREFETCH_TAP=boundary` keeps the 0.2.16 forecast
+with the file present, and the two variables above override its router cache and
+drain period. The
+[decision](../db/records/decisions/decode-lookahead-default-with-the-draft-head.md)
+and the [corrected forecast decision](../db/records/decisions/corrected-decode-forecast-default-with-the-sidecar.md)
+record the evidence and limits.
+
+
+DOCUMENT CLIENTS.md
+# Connect apps and agents to Slotstream
+
+Slotstream runs the model; your app provides the chat interface or tools.
+Install both separately, then connect the app to the running Slotstream server.
+
+## Choose a connection
+
+| I use… | Follow… |
+|---|---|
+| Claude Code, Codex, Pi or opencode | [Coding agents](CODING-AGENTS.md): `slotstream launch` starts each one connected |
+| Hermes | [Hermes setup](HERMES.md), which includes all the settings it needs |
+| Open WebUI or the Ollama CLI | [Ollama-compatible clients](#ollama-compatible-clients) below |
+| An app with an OpenAI-compatible or custom provider | [OpenAI-compatible clients](#openai-compatible-clients) below |
+| fx | [fx setup](FX.md), including its permission and long-session limitations |
+
+Start with [Get started](GETTING-STARTED.md) if Slotstream isn't installed.
+For agents that use tools, you need **Slotstream 0.2.8 or later**. Check with
+`slotstream --version`; run the [installer](../README.md#install) again to update.
+
+## Start one server
+
+**Hermes and fx users:** follow your app's guide above for the server command
+and configuration. For an ordinary chat app, open Terminal and run:
+
+```sh
+slotstream serve
+```
+
+On first use, accept the model download and wait for it to finish.
+Once you see `slotstream listening on http://127.0.0.1:11434`, leave this
+window open. Stop the server with **Control+C** when finished.
+
+The settings below are for an app running directly on the same Mac.
+Apps running in Docker or on another computer need separate networking
+configuration. See [Security](../SECURITY.md) for the server's local-access limits.
+
+## OpenAI-compatible clients
+
+In your app's provider settings, choose **OpenAI-compatible** or **custom
+OpenAI**, then enter:
+
+| Setting | Value |
+|---|---|
+| API mode, if offered | Chat Completions or Responses |
+| Base URL | `http://127.0.0.1:11434/v1` |
+| Model | `qwen3.8-flash-next:4bit` |
+| API key, if required | `unused` |
+
+No OpenAI account or key is needed for this local connection. Leave `unused`
+as written. Apps that use the OpenAI Responses API work on the same base URL;
+Codex needs the setup in the [Codex guide](CODEX.md). Apps that use the
+Anthropic Messages API use `http://127.0.0.1:11434` as the base URL, without
+`/v1`; see the [Claude Code guide](CLAUDE-CODE.md).
+
+If the app asks for a **full endpoint** instead of a base URL, use:
+
+```text
+http://127.0.0.1:11434/v1/chat/completions
+```
+
+Apps may have separate model settings for conversation titles, summaries,
+and fallbacks. Set those to the same local provider if you want those model
+requests to stay on your Mac. Hermes's [configuration](HERMES.md#configure-hermes)
+already does this. Tools that use web services still need their own connections.
+
+## Ollama-compatible clients
+
+In Open WebUI or another app with an Ollama provider, use:
+
+| Setting | Value |
+|---|---|
+| Provider | Ollama |
+| Server URL | `http://127.0.0.1:11434` |
+| Model | `qwen3.8-flash-next:4bit` |
+
+These settings support chat and images. For agents that use tools, choose
+OpenAI Chat Completions or follow the [Hermes guide](HERMES.md).
+
+If you already have the Ollama CLI installed, you can also open a chat in
+a second Terminal window:
+
+```sh
+OLLAMA_HOST=http://127.0.0.1:11434 ollama run qwen3.8-flash-next:4bit
+```
+
+## Check the connection
+
+Select the model in your app and send a short message, such as “Hello.”
+You should see activity in the Slotstream terminal, followed by a reply in
+your app. A first reply may take a while to begin.
+
+For an agent, try the [file-reading example](HERMES.md#try-it). Check that
+it actually reads the file and returns its contents.
+
+## Troubleshooting
+
+| Problem | What to check |
+|---|---|
+| Connection refused or the wrong model appears | Keep the Slotstream server running and copy the address and model name exactly. Check for [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
+| Tools don't work | Use OpenAI Chat Completions with Slotstream 0.2.8 or later. The Ollama connection does not support tools. |
+| The app calls `/v1/responses` | Supported from Slotstream 0.2.20. Update with the install command if `slotstream --version` is older. Codex needs the [custom provider setup](CODEX.md); it cannot use `--oss`. |
+| The app calls `/v1/messages` | The Anthropic Messages API, supported from Slotstream 0.2.21. Set the base URL without `/v1`. |
+| The app sends `store` and gets a 400 | Update Slotstream; from 0.2.21 chat completions accept `store: false` without effect. `store: true` still returns 400, since the server keeps no completions to fetch later. |
+| The conversation is too long | The window includes instructions, history, and reply. Auto picks it per Mac, often 32,768 tokens; `slotstream doctor` shows yours. Hermes needs the `--max-context 65536` setup in its guide. |
+| The first answer times out | Check progress in the Slotstream window. Long prompts can take minutes. See your agent's guide for its timeout settings. |
+| Summaries stop early or use a cloud model | Check the separate summary-provider and reply-length settings. Use the full configuration in the Hermes guide; fx has known summary limitations. |
+| The app requires strict structured output | JSON-schema constrained output and strict tool schemas are unsupported. The app needs a mode that works without that requirement. |
+| An image fails | Check available memory and that you haven't started Slotstream with `--vision off`. Developers can check the [image request format](API.md#images). |
+
+<a id="reporting-an-integration-problem"></a>
+
+[General troubleshooting](TROUBLESHOOTING.md) covers startup, memory, and
+model files. For a bug report, include the app and Slotstream versions, Mac
+model and memory, server command, connection settings, and error text.
+Remove credentials and private conversation or file contents.
+
+Developers: see the [API reference](API.md) for supported fields and request
+examples, and [integration tests](TESTING.md#openai-agent-integration) for
+protocol and real-client checks.
+
+
+DOCUMENT CODEX.md
+<a id="use-codex-with-slotstream"></a>
+
+# Use Codex with Slotstream
+
+Run OpenAI's Codex CLI on the model Slotstream serves. Codex edits files and
+runs commands through its own tools; Slotstream provides the model over the
+OpenAI Responses API on your Mac. No OpenAI account or API key is needed, and
+the model runs offline; only the first start downloads a file, described
+below.
+
+## Before you start
+
+- Slotstream 0.2.21 or later, installed with its model, from the
+  [getting started guide](GETTING-STARTED.md). `slotstream --version` shows
+  yours; the install command updates it.
+- Codex CLI installed: `npm install -g @openai/codex`. The
+  [Codex repository](https://github.com/openai/codex) lists other ways.
+
+These steps were verified with Codex 0.148.0. Codex changes quickly; if a
+newer version behaves differently, start with the troubleshooting table at
+the end.
+
+## Start Codex
+
+In Terminal, go to your project directory and run:
+
+```sh
+slotstream launch codex
+```
+
+If Slotstream is not running, this starts it in the background first and shows
+its start until the model answers. Codex then starts with
+`provider: slotstream` and the model name in its header. The first reply takes
+a while: Codex's instructions and tool descriptions are read once before the
+first token, and later turns read only what is new. A new session reuses the
+instructions an earlier one read.
+
+The server keeps running while Codex runs, and stops 30 minutes after the last
+session ends. `slotstream stop` stops it sooner, and
+`tail -f ~/.slotstream/logs/serve.log` shows what it is doing. To run the
+server yourself, in its own Terminal window, start `slotstream serve` before
+`slotstream launch codex`; launch then uses it as it is.
+
+`slotstream launch codex` does three things before starting Codex:
+
+- It asks the server for its model and context window.
+- It describes the model to Codex in a catalog file under
+  `~/.slotstream/launch/codex/`. Codex needs this for a model it does not
+  know: without it Codex assumes a far larger window than the server has,
+  and the model's first file edit fails because the `apply_patch` tool is
+  not declared. The catalog carries the base instructions your installed
+  Codex version ships. The first start downloads them once from the Codex
+  repository on GitHub; later starts use the saved copy.
+- It passes the connection to Codex as `-c` settings.
+
+Your `~/.codex/config.toml` is not changed, and plain `codex` keeps using
+your usual provider.
+
+Anything after `codex` goes to Codex:
+
+```sh
+slotstream launch codex exec "Summarize this repository"
+slotstream launch codex -i picture.png
+```
+
+If the server runs on another port, pass it before the tool name:
+`slotstream launch --port 8080 codex`. To see the command, settings and
+files without starting anything, add `--dry-run`:
+`slotstream launch --dry-run codex`.
+
+## Try it
+
+Ask for something that needs a file edit and a command:
+
+```text
+Create a file named hello.txt whose entire content is the single line: SLOTSTREAM OK. Then read the file back and tell me exactly what it contains.
+```
+
+Codex applies the edit through its `apply_patch` tool, runs a shell command
+through `exec_command`, and reports the contents. Check that `hello.txt`
+exists and holds the line.
+
+Pictures work in both directions. Attach one with
+`slotstream launch codex -i picture.png` and ask what it shows, or ask Codex
+to look at an image file in the project and it uses its `view_image` tool;
+either way the model reads the picture on your Mac.
+
+Thinking is off by default, which is faster and is the mode the model's tool
+calls were measured in. To turn it on for a session, run
+`slotstream launch codex -c model_reasoning_effort="low"` (or `medium` or
+`high`).
+
+## Configure Codex yourself
+
+`slotstream launch codex` is the simplest way to start. To start Codex
+directly instead, for example from an editor integration, set the
+connection up once by hand.
+
+With the server running (`slotstream serve`, or one `slotstream launch` started), download the catalog script and run it:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/carloslfu/slotstream/main/Tools/codex_catalog.py -o codex_catalog.py
+python3 codex_catalog.py
+```
+
+In a Slotstream source checkout, `python3 Tools/codex_catalog.py` does the
+same. It reads the served context window from the running server, downloads
+the base instructions that ship with your installed Codex version, and
+writes `~/.codex/slotstream-models.json`. Run it again after updating Codex
+or changing `--max-context`.
+
+Then create `~/.codex/slotstream.config.toml` with:
+
+```toml
+model = "qwen3.8-flash-next:4bit"
+model_provider = "slotstream"
+model_catalog_json = "/Users/YOUR-USER/.codex/slotstream-models.json"
+
+[model_providers.slotstream]
+name = "Slotstream"
+base_url = "http://127.0.0.1:11434/v1"
+wire_api = "responses"
+stream_idle_timeout_ms = 1800000
+```
+
+Replace `YOUR-USER` with your macOS user name; the path must be absolute.
+Keep `model_catalog_json` above the `[model_providers.slotstream]` header;
+in TOML a key below a header belongs to that table. This file is a Codex
+profile: start Codex with it using
+
+```sh
+codex --profile slotstream
+```
+
+To make Slotstream your default instead, put the same lines in
+`~/.codex/config.toml`.
+
+`stream_idle_timeout_ms` gives a long first prompt time to read: Codex's idle
+limit counts events, and a cold prompt on this model is read for minutes
+before the first token. Slotstream sends a progress event every ten seconds
+during that read, so the default limit usually holds, but a large first
+prompt on a small memory target can exceed it. `slotstream launch codex`
+sets the same limit.
+
+Codex cannot use Slotstream through `codex --oss`. That mode checks the
+Ollama server version and refuses anything older than the release that
+added Ollama's own Responses API, and Slotstream reports its own version
+number there.
+
+## Troubleshooting
+
+| Problem | What to check |
+|---|---|
+| `slotstream launch: no Slotstream server answered on port 11434` | You ran it with `--no-start`. Start `slotstream serve` in another Terminal window, or run `slotstream launch codex` without `--no-start`. If the server uses another port, pass it with `--port`. |
+| `another Slotstream model process is running` | A server on another port, `slotstream run` or a check holds the model, and only one fits in memory. Stop it, or pass that server's port with `--port`. |
+| `Slotstream stopped while starting` | The lines above it, and `~/.slotstream/logs/serve.log`, say why. If memory is short, close memory-heavy apps or pass a smaller `--memory-gb`. |
+| ``slotstream launch: `codex` is not on your PATH`` | Install Codex with `npm install -g @openai/codex`, or add the folder that holds `codex` to `PATH`. |
+| `could not download Codex ...'s instructions` | The first start of each Codex version needs the internet once. Try again when online. A version that is not published on GitHub, such as one you built yourself, has no instructions to download. |
+| `` `codex cloud` runs tasks on OpenAI's servers `` | Codex Cloud does not use this Mac, so the launch does not start it. Run `codex cloud` directly. |
+| `` `--output-schema` asks for a reply that follows a JSON schema `` | Slotstream does not produce schema-constrained replies yet. Run the task without `--output-schema`. |
+| `the server on port 11434 is busy` | Every connection the server takes is in use. Wait for running requests to finish and try again. |
+| `Model metadata for ... not found. Defaulting to fallback metadata` | Codex is running without the catalog. Start it with `slotstream launch codex`, or check the manual setup: `model_catalog_json` above every `[...]` header, an absolute path, and an existing file. |
+| `404` or `tool type 'custom' is not supported` | The server is older than 0.2.20. Update Slotstream with the install command. |
+| `model called an undeclared tool: apply_patch` | Codex was started without the catalog, so `apply_patch` was never declared. Start it with `slotstream launch codex`. |
+| `Reconnecting... waiting for network` | The server stopped, with `slotstream stop` or 30 minutes after the last session. Run `slotstream launch codex` again. |
+| `stream disconnected before completion` or an idle timeout | The first prompt took longer than Codex waited. Raise `stream_idle_timeout_ms`, or give the server more memory so the prompt reads faster (`slotstream stop`, then `slotstream launch --memory-gb <gb> codex`). |
+| `context_length_exceeded` | The prompt no longer fits the served window. Run the server yourself with a larger `--max-context`, then restart Codex with `slotstream launch codex`, so Codex knows the real window and compacts in time. |
+| `No running Ollama server detected` or `Ollama ... is too old` | You used `codex --oss`. Use `slotstream launch codex` instead. |
+| Connection refused | The server stopped, with `slotstream stop` or 30 minutes after the last session. Run `slotstream launch codex` again. Otherwise check that the port matches; see [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
+
+For details of the wire protocol, see the [API reference](API.md#v1responses).
+[General troubleshooting](TROUBLESHOOTING.md) covers startup, memory, and
+model files.
+
+
+DOCUMENT CODING-AGENTS.md
+<a id="coding-agents"></a>
+
+# Use coding agents with Slotstream
+
+Coding agents such as Claude Code, Codex, Pi, opencode and Hermes run their
+own loop: they read your files, run commands and ask a model what to do next.
+Slotstream can be that model, running on your Mac. One command starts an
+agent already connected to it:
+
+```sh
+slotstream launch <agent>
+```
+
+| Agent | Command | Guide |
+|---|---|---|
+| Claude Code | `slotstream launch claude` | [Claude Code](CLAUDE-CODE.md) |
+| Codex | `slotstream launch codex` | [Codex](CODEX.md) |
+| Pi | `slotstream launch pi` | [Pi](#pi) below |
+| opencode | `slotstream launch opencode` | [opencode](#opencode) below |
+| Hermes | `slotstream launch hermes` | [Hermes](HERMES.md) |
+
+`slotstream launch` needs Slotstream 0.2.21 or later and the agent itself,
+installed separately. These agent versions were verified: Claude Code
+2.1.270, Codex 0.148.0, Pi 0.85.1, opencode 1.18.31 and Hermes 0.21.1.
+
+## How it works
+
+In your project's folder, run `slotstream launch` with the agent's name, or
+without one to pick from the agents installed. It asks the server for its
+model and context window, connects the agent to it, and starts the agent in
+the same window. The agent then works as usual. Everything after the agent's
+name is passed to the agent, for example
+`slotstream launch pi -p "Summarize this repository"`.
+
+When no server is running, `slotstream launch` starts one in the background
+first and shows its start until the model answers:
+
+- with the context window `slotstream doctor` picks for this Mac, or 65,536
+  tokens for Hermes when that is smaller, since Hermes needs it;
+- with prompt caches on disk in `~/.slotstream/prefix-cache`, so an agent's
+  instructions are read once, also across restarts;
+- with its log in `~/.slotstream/logs/serve.log`.
+
+That server keeps running while any agent `slotstream launch` opened runs, so
+the next session starts from the instructions already read. It stops 30
+minutes after the last agent exits; `slotstream stop` stops it sooner.
+
+To watch the server or choose its window, run it yourself in its own Terminal
+window before `slotstream launch`:
+
+```sh
+slotstream serve --max-context 65536
+```
+
+The agents' instructions and tool descriptions are long, and the larger
+window leaves room for the conversation. Hermes needs it; for the others it
+helps on a Mac with memory to spare. `slotstream launch` uses a server you
+started as it is, and never restarts it.
+
+Options for `slotstream launch` go before the agent's name:
+
+| Option | Meaning |
+|---|---|
+| `--port <n>` | The port the server listens on (default 11434). |
+| `--memory-gb <gb>` | Memory target for a server it starts. Default: automatic. |
+| `--idle-exit <minutes>` | How long a server it starts keeps running after the last agent exits (default 30); `0` keeps it running until `slotstream stop`. |
+| `--no-start` | Use a running server only. |
+| `--dry-run` | Print the server it would start, the command, variables and files, and start, download and write nothing. Keys and tokens are hidden. |
+
+Each agent is connected in the way that leaves your own setup alone:
+
+| Agent | How the connection is passed | What stays yours |
+|---|---|---|
+| Claude Code | Variables and `--settings` for this run | Your settings files and login |
+| Codex | `-c` settings for this run, and a model description under `~/.slotstream/launch/codex/` | `~/.codex/config.toml` |
+| Pi | A `slotstream` provider in `~/.pi/agent/models.json` | Everything else in that file, as written, and your default model |
+| opencode | The `OPENCODE_CONFIG_CONTENT` variable for this run | Your opencode configuration files |
+| Hermes | Its own folder, `~/.hermes-slotstream`, created once | Your usual `~/.hermes` |
+
+The launch also closes the ways an agent could send your code to a hosted
+model while you think it runs on your Mac. Claude Code's cloud provider
+switches are turned off and its API key and key helper cleared for the run,
+and its `WebSearch` tool, which runs on Anthropic's servers, is turned off.
+opencode may use only the `slotstream` provider during the run. Hermes's
+side tasks, such as the check that decides whether a command needs your
+approval, use the same model. `codex cloud`, which runs tasks on OpenAI's
+servers, is refused.
+
+Thinking starts off, which is faster; each guide shows how to turn it on.
+The first reply of a session takes a while, because the agent's instructions
+are read before the first token; the server's log shows the progress, and
+later turns read only what is new.
+
+<a id="pi"></a>
+
+## Pi
+
+[Pi](https://github.com/earendil-works/pi) is a minimal terminal coding
+agent. Install it with:
+
+```sh
+npm install -g @earendil-works/pi-coding-agent
+```
+
+Start Pi in your project:
+
+```sh
+slotstream launch pi
+```
+
+Pi reads custom providers from `~/.pi/agent/models.json`, so the launch adds
+a `slotstream` provider there, or updates its address and window. Everything
+else in the file stays as you wrote it, including other models you added to
+that provider, and a file that is a link to your dotfiles stays a link. It
+then starts Pi with `--provider slotstream --model qwen3.8-flash-next:4bit
+--thinking off`. A `--model` or `--thinking` you pass yourself replaces the
+launch's own. Pi uses `--provider` only together with `--model`, so
+`--provider slotstream` alone gets the model added, and another provider
+without a model is refused. Pi's own commands, such as `pi install` or
+`pi update`, pass through unchanged. Your default model does not change:
+plain `pi` starts as before, and the Slotstream model appears in Pi's model
+list.
+
+To think before answering, pass a level: `slotstream launch pi --thinking
+low` (or `medium` or `high`).
+
+### Configure Pi yourself
+
+To add the provider by hand, put this in `~/.pi/agent/models.json`, merged
+with any providers already there:
+
+```json
+{
+  "providers": {
+    "slotstream": {
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "slotstream-local",
+      "compat": { "supportsStore": false, "supportsStrictMode": false },
+      "models": [
+        {
+          "id": "qwen3.8-flash-next:4bit",
+          "name": "Qwen3.8-Flash-Next (Slotstream)",
+          "reasoning": true,
+          "thinkingLevelMap": { "minimal": null, "xhigh": null, "max": null },
+          "input": ["text", "image"],
+          "contextWindow": 65536,
+          "maxTokens": 8192,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  }
+}
+```
+
+Set `contextWindow` to the window `slotstream serve` reports, and start the
+server yourself as shown in [how it works](#how-it-works). Then run
+`pi --provider slotstream --model qwen3.8-flash-next:4bit --thinking off`.
+Pi asks for medium thinking unless told otherwise, so keep `--thinking off`
+for the faster mode.
+
+<a id="opencode"></a>
+
+## opencode
+
+[opencode](https://opencode.ai) is a terminal coding agent with its own
+interface. Install it with:
+
+```sh
+npm install -g opencode-ai
+```
+
+Start it in your project:
+
+```sh
+slotstream launch opencode
+```
+
+The launch passes a `slotstream` provider, and the Slotstream model as the
+main model, the small model opencode uses for titles, and the model of its
+`build` and `plan` agents, in the `OPENCODE_CONFIG_CONTENT` variable. It also
+enables only the `slotstream` provider for the run, so an agent or command
+set to another provider fails instead of sending your code there. opencode
+merges that with your own configuration files, which stay unchanged. If you
+already export `OPENCODE_CONFIG_CONTENT`, the launch adds to it.
+
+For a single task without the interface, use `slotstream launch opencode run
+"Summarize this repository"`.
+
+### Configure opencode yourself
+
+To use Slotstream from plain `opencode`, add the provider to
+`~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "slotstream/qwen3.8-flash-next:4bit",
+  "small_model": "slotstream/qwen3.8-flash-next:4bit",
+  "provider": {
+    "slotstream": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Slotstream",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1",
+        "apiKey": "slotstream-local"
+      },
+      "models": {
+        "qwen3.8-flash-next:4bit": {
+          "name": "Qwen3.8-Flash-Next (Slotstream)",
+          "tool_call": true,
+          "attachment": true,
+          "limit": { "context": 65536, "output": 8192 }
+        }
+      }
+    }
+  }
+}
+```
+
+Set `limit.context` to the window `slotstream serve` reports, and start the
+server yourself as shown in [how it works](#how-it-works).
+
+## Troubleshooting
+
+| Problem | What to check |
+|---|---|
+| `slotstream launch: no Slotstream server answered on port 11434` | You ran it with `--no-start
+</material>
+Summarize the main responsibilities and operating limits in five concise bullets.

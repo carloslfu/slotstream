@@ -386,7 +386,6 @@ FP8/BF16 on a rented box is the fallback if community quants prove broken (bille
 needs an explicit decision).
 
 ### 4.2 Slot pool mechanics
-
 > **Measured 2026-08-28 — the slot pool is mandatory, not an optimisation.**
 > MLX has no sparse-materialisation path out of a memory-mapped tensor:
 > `mx.gather_qmm` with top-10 indices materialises **all 512 experts of the layer**
@@ -417,6 +416,9 @@ needs an explicit decision).
   — no full-pool copy per update) and sustain > 5 GB/s of slot fills. If MLX's
   functional-update semantics force copies at this size, switch to preads directly into
   the pool's MTLBuffer contents (shared storage mode needs no sync on Apple Silicon).
+
+
+Warm growth now preserves slot positions and appends zeroed capacity one tensor piece at a time. It does not gather a full extra copy of occupied rows. The live governor checks the peak replacement-plus-tail allocation, including already grown pieces, against the current process footprint, requested target and actual system headroom before starting. If temporary growth does not fit, it keeps the current warm cache and retries later. This may leave a small amount of usable final-size capacity unclaimed; it avoids a transient overshoot to gain it. Shrink retains its free-before-allocation behavior. Evidence and revision scope: [[records/measurements/sevra-app-optimizations-2026-09-23]].
 
 ### 4.3 N-gram/PLE path
 
@@ -532,13 +534,11 @@ Use first principles to identify the bottleneck and feasible alternatives, then 
 When a revision is justified, compare configurations with matched work, controlled warm/cold state and relevant context/draft settings. Measure user-visible time and the full resource cost; fewer cache misses or a faster estimate alone is insufficient. Freeze meaningful comparison criteria before scored runs and retain failures. Change the default only within its proven safety and correctness envelope. A simpler measured profile may suffice; a live tuner needs evidence that its benefit repays its complexity and transition cost.
 
 ## Memory ceiling example and maintenance
-
-The base automatic total-process ceiling remains 33 GB. The clean development-Mac cache ladder showed diminishing returns near 120 to 150 experts/layer, and the target accommodates the chosen prefill workspace. An enabled draft head adds its separately charged cost. RAM share, Metal limits and live availability may lower the target. Explicit memory sizing bypasses the operating ceiling and pins the cache.
+The base automatic total-process ceiling remains 33 GB. The clean development-Mac cache ladder showed diminishing returns near 120 to 150 experts/layer, and the target accommodates the chosen prefill workspace. An enabled draft head adds its separately charged cost. RAM share, Metal limits and live availability may lower the target. The fixed-size CLI flags bypass the operating ceiling and pin the cache. The adaptive `--memory-limit-gb` override and the Mac app’s Custom limit instead preserve resizing within the selected ceiling and supported hardware budget. This also makes the first Custom selection inherit the current budget. See [[records/decisions/adaptive-memory-limits]].
 
 The original larger-target sweep evaluated an already-bounded prediction curve. It cannot prove that all larger allocations have no benefit. The existing ceiling is still a defensible default; no allocation change is justified merely by that limitation in the evidence. See [[records/measurements/automatic-memory-default-evidence-scope-2026-09-09]], [[records/decisions/auto-target-is-the-33-gb-knee-not-70-percent-of-ram]] and [[records/claims/auto-memory-target-ceiling-33-gb]].
 
 Keep code comments, CLI help/diagnostics, policy checks, canonical decisions/claims and relevant README/guides aligned. Regenerate PLAN.md, MEASUREMENTS.md and llms-full.txt from their declared sources. Preserve historical source bytes and annotate interpretations through records. This policy documents ongoing engineering responsibility; it does not claim a completed audit of every existing constant or authorize new benchmarks, spending, telemetry or background tuning.
-
 ## Functional memory acceptance and benchmark eligibility
 
 Global macOS paging is diagnostic for ordinary correctness, context-capacity and process-budget acceptance. It cannot attribute system activity to Slotstream. Keep process ceilings, real headroom, OS pressure handling, allocation safeguards and complete numerical/work checks; report paging separately. Performance comparisons retain declared clean-interval rules, and historical frozen results stay unchanged. The controlling decision is [[records/decisions/global-paging-is-diagnostic]].

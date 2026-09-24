@@ -1,0 +1,279 @@
+slotstream memory plan (--memory-gb)
+  device: 52 GB RAM (40.9 GB reclaimable now), 40.2 GB Metal working set
+  target: 10.0 GB total process budget, not a RAM usage goal
+  cache:  ~20 of 512 experts per layer  (961 global slots = 2.7 GB pool)
+  plan:   ~9.0 GB full-workload envelope, ~4 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 2.7 GB expert cache at load; 6.3 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 13382 tokens across 4 conversations (~0.7 GB), so a follow-up turn re-prefills only what is new
+  window: automatic for this Mac, 32768 tokens: the largest of 32768, 65536, 131072, 262144 that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time without an unmeasured cache tradeoff; --max-context N chooses another window up to 262144
+engine ready in 0.7s: expert cache ~20/512 per layer (961 global slots = 2.7 GB), eos [248044, 248046]
+elastic: off — an explicit size is pinned; omit the size flag for elastic auto
+[10:50:44 PM] request D1907421 /api/generate: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[10:50:44 PM] prefill: reading 8205 prompt tokens, ~1.6 min to the first token at this plan (follow-up turns read only what is new)
+[10:50:59 PM] request D1907421 /api/generate: 15 s elapsed, inference boundary
+[10:51:14 PM] request D1907421 /api/generate: 30 s elapsed, inference boundary
+[10:51:15 PM] prefill: 8192/8205 tokens (100%), 263 tok/s recently, ~0 s left at this rate
+[10:51:16 PM] prefill: done, 8205 tokens in 32 s (256 tok/s)
+[10:51:18 PM] request D1907421 /api/generate: ended after 34.4 s
+[10:51:35 PM] request C74F11CD /api/generate: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[10:51:35 PM] prefill: reading 8205 prompt tokens, ~1.6 min to the first token at this plan (follow-up turns read only what is new)
+[10:51:50 PM] request C74F11CD /api/generate: 15 s elapsed, inference boundary
+[10:51:54 PM] prefill: 4096/8205 tokens (50%), 222 tok/s recently, ~19 s left at this rate
+[10:52:05 PM] request C74F11CD /api/generate: 30 s elapsed, inference boundary
+[10:52:11 PM] prefill: 7424/8205 tokens (90%), 197 tok/s recently, ~4 s left at this rate
+[10:52:18 PM] prefill: 7936/8205 tokens (97%), 70 tok/s recently, ~4 s left at this rate
+[10:52:20 PM] request C74F11CD /api/generate: 45 s elapsed, prefill pass
+[10:52:22 PM] prefill: done, 8205 tokens in 47 s (175 tok/s)
+[10:52:25 PM] request C74F11CD /api/generate: ended after 49.2 s
+[10:52:42 PM] request A66B677E /api/generate: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[10:52:42 PM] prefill: reading 8205 prompt tokens, ~1.6 min to the first token at this plan (follow-up turns read only what is new)
+[10:52:57 PM] request A66B677E /api/generate: 15 s elapsed, inference boundary
+[10:52:57 PM] prefill: 2816/8205 tokens (34%), 184 tok/s recently, ~29 s left at this rate
+[10:53:03 PM] prefill: 3328/8205 tokens (41%), 80 tok/s recently, ~1.0 min left at this rate
+[10:53:10 PM] prefill: 3840/8205 tokens (47%), 80 tok/s recently, ~55 s left at this rate
+[10:53:12 PM] request A66B677E /api/generate: 30 s elapsed, prefill pass
+[10:53:16 PM] prefill: 4352/8205 tokens (53%), 82 tok/s recently, ~47 s left at this rate
+[10:53:22 PM] prefill: 4864/8205 tokens (59%), 82 tok/s recently, ~41 s left at this rate
+[10:53:27 PM] request A66B677E /api/generate: 45 s elapsed, prefill pass
+[10:53:28 PM] prefill: 5376/8205 tokens (66%), 82 tok/s recently, ~34 s left at this rate
+[10:53:35 PM] prefill: 5888/8205 tokens (72%), 79 tok/s recently, ~29 s left at this rate
+[10:53:41 PM] prefill: 6400/8205 tokens (78%), 89 tok/s recently, ~20 s left at this rate
+[10:53:42 PM] request A66B677E /api/generate: 60 s elapsed, prefill pass
+[10:53:47 PM] prefill: 6912/8205 tokens (84%), 81 tok/s recently, ~16 s left at this rate
+[10:53:53 PM] prefill: 7424/8205 tokens (90%), 86 tok/s recently, ~9 s left at this rate
+[10:53:57 PM] request A66B677E /api/generate: 75 s elapsed, prefill pass
+[10:53:59 PM] prefill: 7936/8205 tokens (97%), 80 tok/s recently, ~3 s left at this rate
+[10:54:03 PM] prefill: done, 8205 tokens in 1.4 min (100 tok/s)
+[10:54:06 PM] request A66B677E /api/generate: ended after 84.1 s
+[10:54:23 PM] request 5E2BCF1D /api/generate: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[10:54:23 PM] prefill: reading 8205 prompt tokens, ~1.6 min to the first token at this plan (follow-up turns read only what is new)
+[10:54:35 PM] prefill: 2048/8205 tokens (25%), 164 tok/s recently, ~37 s left at this rate
+[10:54:38 PM] request 5E2BCF1D /api/generate: 15 s elapsed, prefill pass
+[10:54:41 PM] prefill: 2560/8205 tokens (31%), 84 tok/s recently, ~1.1 min left at this rate
+[10:54:47 PM] prefill: 3072/8205 tokens (37%), 86 tok/s recently, ~60 s left at this rate
+[10:54:53 PM] request 5E2BCF1D /api/generate: 30 s elapsed, prefill pass
+[10:54:53 PM] prefill: 3584/8205 tokens (44%), 84 tok/s recently, ~55 s left at this rate
+[10:55:00 PM] prefill: 4096/8205 tokens (50%), 81 tok/s recently, ~51 s left at this rate
+[10:55:06 PM] prefill: 4608/8205 tokens (56%), 82 tok/s recently, ~44 s left at this rate
+[10:55:08 PM] request 5E2BCF1D /api/generate: 45 s elapsed, prefill pass
+[10:55:12 PM] prefill: 5120/8205 tokens (62%), 86 tok/s recently, ~36 s left at this rate
+[10:55:18 PM] prefill: 5632/8205 tokens (69%), 82 tok/s recently, ~31 s left at this rate
+[10:55:23 PM] request 5E2BCF1D /api/generate: 60 s elapsed, prefill pass
+[10:55:24 PM] prefill: 6144/8205 tokens (75%), 89 tok/s recently, ~23 s left at this rate
+[10:55:30 PM] prefill: 6656/8205 tokens (81%), 83 tok/s recently, ~19 s left at this rate
+[10:55:36 PM] prefill: 7168/8205 tokens (87%), 87 tok/s recently, ~12 s left at this rate
+[10:55:38 PM] request 5E2BCF1D /api/generate: 75 s elapsed, prefill pass
+[10:55:42 PM] prefill: 7680/8205 tokens (94%), 86 tok/s recently, ~6 s left at this rate
+[10:55:49 PM] prefill: 8192/8205 tokens (100%), 75 tok/s recently, ~0 s left at this rate
+[10:55:50 PM] prefill: done, 8205 tokens in 1.4 min (94 tok/s)
+[10:55:52 PM] request 5E2BCF1D /api/generate: ended after 89.4 s
+[10:56:30 PM] request 3FBC8972 /api/generate: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[10:56:30 PM] prefill: reading 16397 prompt tokens, ~3.2 min to the first token at this plan (follow-up turns read only what is new)
+[10:56:45 PM] request 3FBC8972 /api/generate: 15 s elapsed, inference boundary
+[10:56:45 PM] prefill: 2048/16397 tokens (12%), 136 tok/s recently, ~1.8 min left at this rate
+[10:56:53 PM] prefill: 2560/16397 tokens (16%), 69 tok/s recently, ~3.4 min left at this rate
+[10:57:00 PM] prefill: 3072/16397 tokens (19%), 70 tok/s recently, ~3.2 min left at this rate
+[10:57:00 PM] request 3FBC8972 /api/generate: 30 s elapsed, prefill pass
+[10:57:07 PM] prefill: 3584/16397 tokens (22%), 75 tok/s recently, ~2.8 min left at this rate
+[10:57:14 PM] prefill: 4096/16397 tokens (25%), 72 tok/s recently, ~2.8 min left at this rate
+[10:57:15 PM] request 3FBC8972 /api/generate: 45 s elapsed, prefill pass
+[10:57:21 PM] prefill: 4608/16397 tokens (28%), 75 tok/s recently, ~2.6 min left at this rate
+[10:57:28 PM] prefill: 5120/16397 tokens (31%), 74 tok/s recently, ~2.5 min left at this rate
+[10:57:30 PM] request 3FBC8972 /api/generate: 60 s elapsed, prefill pass
+[10:57:34 PM] prefill: 5632/16397 tokens (34%), 81 tok/s recently, ~2.2 min left at this rate
+[10:57:41 PM] prefill: 6144/16397 tokens (37%), 78 tok/s recently, ~2.2 min left at this rate
+[10:57:45 PM] request 3FBC8972 /api/generate: 75 s elapsed, prefill pass
+[10:57:48 PM] prefill: 6656/16397 tokens (41%), 73 tok/s recently, ~2.2 min left at this rate
+[10:57:54 PM] prefill: 7168/16397 tokens (44%), 75 tok/s recently, ~2.0 min left at this rate
+[10:58:00 PM] request 3FBC8972 /api/generate: 90 s elapsed, prefill pass
+[10:58:02 PM] prefill: 7680/16397 tokens (47%), 71 tok/s recently, ~2.1 min left at this rate
+[10:58:09 PM] prefill: 8192/16397 tokens (50%), 72 tok/s recently, ~1.9 min left at this rate
+[10:58:15 PM] request 3FBC8972 /api/generate: 105 s elapsed, prefill pass
+[10:58:16 PM] prefill: 8704/16397 tokens (53%), 72 tok/s recently, ~1.8 min left at this rate
+[10:58:23 PM] prefill: 9216/16397 tokens (56%), 74 tok/s recently, ~1.6 min left at this rate
+[10:58:29 PM] prefill: 9728/16397 tokens (59%), 79 tok/s recently, ~1.4 min left at this rate
+[10:58:30 PM] request 3FBC8972 /api/generate: 120 s elapsed, prefill pass
+[10:58:36 PM] prefill: 10240/16397 tokens (62%), 79 tok/s recently, ~1.3 min left at this rate
+[10:58:43 PM] prefill: 10752/16397 tokens (66%), 76 tok/s recently, ~1.2 min left at this rate
+[10:58:45 PM] request 3FBC8972 /api/generate: 135 s elapsed, prefill pass
+[10:58:50 PM] prefill: 11264/16397 tokens (69%), 73 tok/s recently, ~1.2 min left at this rate
+[10:58:56 PM] prefill: 11776/16397 tokens (72%), 84 tok/s recently, ~55 s left at this rate
+[10:59:00 PM] request 3FBC8972 /api/generate: 150 s elapsed, prefill pass
+[10:59:02 PM] prefill: 12288/16397 tokens (75%), 83 tok/s recently, ~50 s left at this rate
+[10:59:09 PM] prefill: 12800/16397 tokens (78%), 76 tok/s recently, ~47 s left at this rate
+[10:59:15 PM] request 3FBC8972 /api/generate: 165 s elapsed, prefill pass
+[10:59:16 PM] prefill: 13312/16397 tokens (81%), 73 tok/s recently, ~42 s left at this rate
+[10:59:23 PM] prefill: 13824/16397 tokens (84%), 74 tok/s recently, ~35 s left at this rate
+[10:59:29 PM] prefill: 14336/16397 tokens (87%), 75 tok/s recently, ~28 s left at this rate
+[10:59:30 PM] request 3FBC8972 /api/generate: 180 s elapsed, prefill pass
+[10:59:37 PM] prefill: 14848/16397 tokens (91%), 69 tok/s recently, ~22 s left at this rate
+[10:59:44 PM] prefill: 15360/16397 tokens (94%), 70 tok/s recently, ~15 s left at this rate
+[10:59:45 PM] request 3FBC8972 /api/generate: 195 s elapsed, prefill pass
+[10:59:53 PM] prefill: 15872/16397 tokens (97%), 60 tok/s recently, ~9 s left at this rate
+[11:00:00 PM] prefill: 16384/16397 tokens (100%), 70 tok/s recently, ~0 s left at this rate
+[11:00:00 PM] request 3FBC8972 /api/generate: 210 s elapsed, prefill pass
+[11:00:01 PM] prefill: done, 16397 tokens in 3.5 min (78 tok/s)
+[11:00:04 PM] request 3FBC8972 /api/generate: ended after 213.5 s
+[11:01:45 PM] request 87B48A49 /api/generate: accepted
+prefix cache: miss: no retained state (4 prior evictions)
+[11:01:45 PM] prefill: reading 16397 prompt tokens, ~3.2 min to the first token at this plan (follow-up turns read only what is new)
+[11:01:55 PM] prefill: 1280/16397 tokens (8%), 123 tok/s recently, ~2.0 min left at this rate
+[11:02:00 PM] request 87B48A49 /api/generate: 15 s elapsed, prefill pass
+[11:02:02 PM] prefill: 1792/16397 tokens (11%), 74 tok/s recently, ~3.3 min left at this rate
+[11:02:08 PM] prefill: 2304/16397 tokens (14%), 83 tok/s recently, ~2.8 min left at this rate
+[11:02:14 PM] prefill: 2816/16397 tokens (17%), 83 tok/s recently, ~2.7 min left at this rate
+[11:02:15 PM] request 87B48A49 /api/generate: 30 s elapsed, prefill pass
+[11:02:21 PM] prefill: 3328/16397 tokens (20%), 81 tok/s recently, ~2.7 min left at this rate
+[11:02:27 PM] prefill: 3840/16397 tokens (23%), 79 tok/s recently, ~2.7 min left at this rate
+[11:02:30 PM] request 87B48A49 /api/generate: 45 s elapsed, prefill pass
+[11:02:34 PM] prefill: 4352/16397 tokens (27%), 78 tok/s recently, ~2.6 min left at this rate
+[11:02:40 PM] prefill: 4864/16397 tokens (30%), 78 tok/s recently, ~2.5 min left at this rate
+[11:02:45 PM] request 87B48A49 /api/generate: 60 s elapsed, prefill pass
+[11:02:47 PM] prefill: 5376/16397 tokens (33%), 80 tok/s recently, ~2.3 min left at this rate
+[11:02:53 PM] prefill: 5888/16397 tokens (36%), 86 tok/s recently, ~2.0 min left at this rate
+[11:02:59 PM] prefill: 6400/16397 tokens (39%), 80 tok/s recently, ~2.1 min left at this rate
+[11:03:00 PM] request 87B48A49 /api/generate: 75 s elapsed, prefill pass
+[11:03:06 PM] prefill: 6912/16397 tokens (42%), 76 tok/s recently, ~2.1 min left at this rate
+[11:03:12 PM] prefill: 7424/16397 tokens (45%), 76 tok/s recently, ~2.0 min left at this rate
+[11:03:15 PM] request 87B48A49 /api/generate: 90 s elapsed, prefill pass
+[11:03:19 PM] prefill: 7936/16397 tokens (48%), 74 tok/s recently, ~1.9 min left at this rate
+[11:03:26 PM] prefill: 8448/16397 tokens (52%), 74 tok/s recently, ~1.8 min left at this rate
+[11:03:30 PM] request 87B48A49 /api/generate: 105 s elapsed, prefill pass
+[11:03:33 PM] prefill: 8960/16397 tokens (55%), 76 tok/s recently, ~1.6 min left at this rate
+[11:03:39 PM] prefill: 9472/16397 tokens (58%), 84 tok/s recently, ~1.4 min left at this rate
+[11:03:45 PM] request 87B48A49 /api/generate: 120 s elapsed, prefill pass
+[11:03:45 PM] prefill: 9984/16397 tokens (61%), 83 tok/s recently, ~1.3 min left at this rate
+[11:03:52 PM] prefill: 10496/16397 tokens (64%), 80 tok/s recently, ~1.2 min left at this rate
+[11:03:58 PM] prefill: 11008/16397 tokens (67%), 77 tok/s recently, ~1.2 min left at this rate
+[11:04:00 PM] request 87B48A49 /api/generate: 135 s elapsed, prefill pass
+[11:04:05 PM] prefill: 11520/16397 tokens (70%), 83 tok/s recently, ~59 s left at this rate
+[11:04:10 PM] prefill: 12032/16397 tokens (73%), 94 tok/s recently, ~47 s left at this rate
+[11:04:15 PM] request 87B48A49 /api/generate: 150 s elapsed, prefill pass
+[11:04:16 PM] prefill: 12544/16397 tokens (77%), 90 tok/s recently, ~43 s left at this rate
+[11:04:23 PM] prefill: 13056/16397 tokens (80%), 70 tok/s recently, ~48 s left at this rate
+[11:04:30 PM] prefill: 13568/16397 tokens (83%), 77 tok/s recently, ~37 s left at this rate
+[11:04:30 PM] request 87B48A49 /api/generate: 165 s elapsed, prefill pass
+[11:04:37 PM] prefill: 14080/16397 tokens (86%), 73 tok/s recently, ~32 s left at this rate
+[11:04:45 PM] prefill: 14592/16397 tokens (89%), 65 tok/s recently, ~28 s left at this rate
+[11:04:45 PM] request 87B48A49 /api/generate: 180 s elapsed, prefill pass
+[11:04:53 PM] prefill: 15104/16397 tokens (92%), 60 tok/s recently, ~22 s left at this rate
+[11:05:00 PM] request 87B48A49 /api/generate: 195 s elapsed, prefill pass
+[11:05:03 PM] prefill: 15616/16397 tokens (95%), 54 tok/s recently, ~15 s left at this rate
+[11:05:08 PM] prefill: 15872/16397 tokens (97%), 47 tok/s recently, ~11 s left at this rate
+[11:05:13 PM] prefill: 16128/16397 tokens (98%), 48 tok/s recently, ~6 s left at this rate
+[11:05:15 PM] request 87B48A49 /api/generate: 210 s elapsed, prefill pass
+[11:05:19 PM] prefill: 16384/16397 tokens (100%), 46 tok/s recently, ~0 s left at this rate
+[11:05:21 PM] prefill: done, 16397 tokens in 3.6 min (76 tok/s)
+[11:05:24 PM] request 87B48A49 /api/generate: ended after 219.5 s
+[11:05:41 PM] request CDB6EBC0 /api/generate: accepted
+prefix cache: miss: no retained state (4 prior evictions)
+[11:05:41 PM] prefill: reading 16397 prompt tokens, ~3.2 min to the first token at this plan (follow-up turns read only what is new)
+[11:05:51 PM] prefill: 1024/16397 tokens (6%), 108 tok/s recently, ~2.4 min left at this rate
+[11:05:56 PM] request CDB6EBC0 /api/generate: 15 s elapsed, prefill pass
+[11:05:56 PM] prefill: 1280/16397 tokens (8%), 47 tok/s recently, ~5.4 min left at this rate
+[11:06:06 PM] prefill: 1792/16397 tokens (11%), 53 tok/s recently, ~4.6 min left at this rate
+[11:06:11 PM] request CDB6EBC0 /api/generate: 30 s elapsed, prefill pass
+[11:06:15 PM] prefill: 2304/16397 tokens (14%), 56 tok/s recently, ~4.2 min left at this rate
+[11:06:24 PM] prefill: 2816/16397 tokens (17%), 59 tok/s recently, ~3.8 min left at this rate
+[11:06:26 PM] request CDB6EBC0 /api/generate: 45 s elapsed, prefill pass
+[11:06:32 PM] prefill: 3328/16397 tokens (20%), 65 tok/s recently, ~3.4 min left at this rate
+[11:06:40 PM] prefill: 3840/16397 tokens (23%), 64 tok/s recently, ~3.3 min left at this rate
+[11:06:41 PM] request CDB6EBC0 /api/generate: 60 s elapsed, prefill pass
+[11:06:47 PM] prefill: 4352/16397 tokens (27%), 67 tok/s recently, ~3.0 min left at this rate
+[11:06:54 PM] prefill: 4864/16397 tokens (30%), 73 tok/s recently, ~2.6 min left at this rate
+[11:06:56 PM] request CDB6EBC0 /api/generate: 75 s elapsed, prefill pass
+[11:07:01 PM] prefill: 5376/16397 tokens (33%), 75 tok/s recently, ~2.4 min left at this rate
+[11:07:08 PM] prefill: 5888/16397 tokens (36%), 72 tok/s recently, ~2.4 min left at this rate
+[11:07:11 PM] request CDB6EBC0 /api/generate: 90 s elapsed, prefill pass
+[11:07:14 PM] prefill: 6400/16397 tokens (39%), 84 tok/s recently, ~2.0 min left at this rate
+[11:07:21 PM] prefill: 6912/16397 tokens (42%), 76 tok/s recently, ~2.1 min left at this rate
+[11:07:26 PM] request CDB6EBC0 /api/generate: 105 s elapsed, prefill pass
+[11:07:27 PM] prefill: 7424/16397 tokens (45%), 81 tok/s recently, ~1.8 min left at this rate
+[11:07:34 PM] prefill: 7936/16397 tokens (48%), 77 tok/s recently, ~1.8 min left at this rate
+[11:07:40 PM] prefill: 8448/16397 tokens (52%), 82 tok/s recently, ~1.6 min left at this rate
+[11:07:41 PM] request CDB6EBC0 /api/generate: 120 s elapsed, prefill pass
+[11:07:47 PM] prefill: 8960/16397 tokens (55%), 81 tok/s recently, ~1.5 min left at this rate
+[11:07:53 PM] prefill: 9472/16397 tokens (58%), 78 tok/s recently, ~1.5 min left at this rate
+[11:07:56 PM] request CDB6EBC0 /api/generate: 135 s elapsed, prefill pass
+[11:08:00 PM] prefill: 9984/16397 tokens (61%), 78 tok/s recently, ~1.4 min left at this rate
+[11:08:07 PM] prefill: 10496/16397 tokens (64%), 72 tok/s recently, ~1.4 min left at this rate
+[11:08:11 PM] request CDB6EBC0 /api/generate: 150 s elapsed, prefill pass
+[11:08:14 PM] prefill: 11008/16397 tokens (67%), 74 tok/s recently, ~1.2 min left at this rate
+[11:08:20 PM] prefill: 11520/16397 tokens (70%), 78 tok/s recently, ~1.0 min left at this rate
+[11:08:26 PM] prefill: 12032/16397 tokens (73%), 84 tok/s recently, ~52 s left at this rate
+[11:08:26 PM] request CDB6EBC0 /api/generate: 165 s elapsed, prefill pass
+[11:08:33 PM] prefill: 12544/16397 tokens (77%), 80 tok/s recently, ~48 s left at this rate
+[11:08:39 PM] prefill: 13056/16397 tokens (80%), 78 tok/s recently, ~43 s left at this rate
+[11:08:41 PM] request CDB6EBC0 /api/generate: 180 s elapsed, prefill pass
+[11:08:46 PM] prefill: 13568/16397 tokens (83%), 82 tok/s recently, ~34 s left at this rate
+[11:08:52 PM] prefill: 14080/16397 tokens (86%), 77 tok/s recently, ~30 s left at this rate
+[11:08:56 PM] request CDB6EBC0 /api/generate: 195 s elapsed, prefill pass
+[11:08:59 PM] prefill: 14592/16397 tokens (89%), 75 tok/s recently, ~24 s left at this rate
+[11:09:06 PM] prefill: 15104/16397 tokens (92%), 72 tok/s recently, ~18 s left at this rate
+[11:09:11 PM] request CDB6EBC0 /api/generate: 210 s elapsed, prefill pass
+[11:09:13 PM] prefill: 15616/16397 tokens (95%), 73 tok/s recently, ~11 s left at this rate
+[11:09:20 PM] prefill: 16128/16397 tokens (98%), 73 tok/s recently, ~4 s left at this rate
+[11:09:25 PM] prefill: done, 16397 tokens in 3.7 min (73 tok/s)
+[11:09:26 PM] request CDB6EBC0 /api/generate: 225 s elapsed, decode cache growth
+[11:09:27 PM] request CDB6EBC0 /api/generate: ended after 225.9 s
+[11:09:44 PM] request EB872731 /api/generate: accepted
+prefix cache: miss: no retained state (4 prior evictions)
+[11:09:44 PM] prefill: reading 16397 prompt tokens, ~3.2 min to the first token at this plan (follow-up turns read only what is new)
+[11:09:52 PM] prefill: 512/16397 tokens (3%), 72 tok/s recently, ~3.7 min left at this rate
+[11:09:59 PM] prefill: 1024/16397 tokens (6%), 68 tok/s recently, ~3.8 min left at this rate
+[11:09:59 PM] request EB872731 /api/generate: 15 s elapsed, prefill pass
+[11:10:05 PM] prefill: 1536/16397 tokens (9%), 84 tok/s recently, ~3.0 min left at this rate
+[11:10:11 PM] prefill: 2048/16397 tokens (12%), 83 tok/s recently, ~2.9 min left at this rate
+[11:10:14 PM] request EB872731 /api/generate: 30 s elapsed, prefill pass
+[11:10:17 PM] prefill: 2560/16397 tokens (16%), 84 tok/s recently, ~2.7 min left at this rate
+[11:10:23 PM] prefill: 3072/16397 tokens (19%), 86 tok/s recently, ~2.6 min left at this rate
+[11:10:29 PM] request EB872731 /api/generate: 45 s elapsed, prefill pass
+[11:10:30 PM] prefill: 3584/16397 tokens (22%), 83 tok/s recently, ~2.6 min left at this rate
+[11:10:36 PM] prefill: 4096/16397 tokens (25%), 78 tok/s recently, ~2.6 min left at this rate
+[11:10:43 PM] prefill: 4608/16397 tokens (28%), 81 tok/s recently, ~2.4 min left at this rate
+[11:10:44 PM] request EB872731 /api/generate: 60 s elapsed, prefill pass
+[11:10:49 PM] prefill: 5120/16397 tokens (31%), 84 tok/s recently, ~2.2 min left at this rate
+[11:10:55 PM] prefill: 5632/16397 tokens (34%), 81 tok/s recently, ~2.2 min left at this rate
+[11:10:59 PM] request EB872731 /api/generate: 75 s elapsed, prefill pass
+[11:11:01 PM] prefill: 6144/16397 tokens (37%), 87 tok/s recently, ~2.0 min left at this rate
+[11:11:07 PM] prefill: 6656/16397 tokens (41%), 82 tok/s recently, ~2.0 min left at this rate
+[11:11:14 PM] prefill: 7168/16397 tokens (44%), 72 tok/s recently, ~2.1 min left at this rate
+[11:11:14 PM] request EB872731 /api/generate: 90 s elapsed, prefill pass
+[11:11:20 PM] prefill: 7680/16397 tokens (47%), 87 tok/s recently, ~1.7 min left at this rate
+[11:11:27 PM] prefill: 8192/16397 tokens (50%), 76 tok/s recently, ~1.8 min left at this rate
+[11:11:29 PM] request EB872731 /api/generate: 105 s elapsed, prefill pass
+[11:11:33 PM] prefill: 8704/16397 tokens (53%), 80 tok/s recently, ~1.6 min left at this rate
+[11:11:39 PM] prefill: 9216/16397 tokens (56%), 81 tok/s recently, ~1.5 min left at this rate
+[11:11:44 PM] request EB872731 /api/generate: 120 s elapsed, prefill pass
+[11:11:48 PM] prefill: 9728/16397 tokens (59%), 62 tok/s recently, ~1.8 min left at this rate
+[11:11:54 PM] prefill: 10240/16397 tokens (62%), 76 tok/s recently, ~1.3 min left at this rate
+[11:11:59 PM] request EB872731 /api/generate: 135 s elapsed, prefill pass
+[11:12:02 PM] prefill: 10752/16397 tokens (66%), 73 tok/s recently, ~1.3 min left at this rate
+[11:12:08 PM] prefill: 11264/16397 tokens (69%), 79 tok/s recently, ~1.1 min left at this rate
+[11:12:14 PM] request EB872731 /api/generate: 150 s elapsed, prefill pass
+[11:12:15 PM] prefill: 11776/16397 tokens (72%), 75 tok/s recently, ~1.0 min left at this rate
+[11:12:21 PM] prefill: 12288/16397 tokens (75%), 83 tok/s recently, ~49 s left at this rate
+[11:12:27 PM] prefill: 12800/16397 tokens (78%), 79 tok/s recently, ~46 s left at this rate
+[11:12:29 PM] request EB872731 /api/generate: 165 s elapsed, prefill pass
+[11:12:34 PM] prefill: 13312/16397 tokens (81%), 84 tok/s recently, ~37 s left at this rate
+[11:12:43 PM] prefill: 13824/16397 tokens (84%), 57 tok/s recently, ~45 s left at this rate
+[11:12:44 PM] request EB872731 /api/generate: 180 s elapsed, prefill pass
+[11:12:50 PM] prefill: 14336/16397 tokens (87%), 66 tok/s recently, ~31 s left at this rate
+[11:12:57 PM] prefill: 14848/16397 tokens (91%), 74 tok/s recently, ~21 s left at this rate
+[11:12:59 PM] request EB872731 /api/generate: 195 s elapsed, prefill pass
+[11:13:05 PM] prefill: 15360/16397 tokens (94%), 69 tok/s recently, ~15 s left at this rate
+[11:13:12 PM] prefill: 15872/16397 tokens (97%), 73 tok/s recently, ~7 s left at this rate
+[11:13:14 PM] request EB872731 /api/generate: 210 s elapsed, prefill pass
+[11:13:19 PM] prefill: 16384/16397 tokens (100%), 72 tok/s recently, ~0 s left at this rate
+[11:13:20 PM] prefill: done, 16397 tokens in 3.6 min (76 tok/s)
+[11:13:22 PM] request EB872731 /api/generate: ended after 217.7 s
+[11:13:22 PM] stopping: asked to stop (SIGTERM)

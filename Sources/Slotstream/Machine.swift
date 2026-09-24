@@ -22,11 +22,12 @@ import Foundation
 public struct Machine: Sendable, Codable, Equatable {
     /// Physical memory, in GB.
     public var ramGB: Double
-    /// The Metal working-set limit: the real ceiling on this machine, always
-    /// below RAM (40.2 of 51.5 GB on the 48 GB dev Mac).
+    /// Metal's recommended working-set size, used by our supported budgeting
+    /// policy. This is not a hard allocation limit or a free-memory reading.
     public var workingSetGB: Double
     /// Memory that can be taken right now without pushing anything else out —
-    /// free plus purgeable plus file-backed. Nil means "do not clamp".
+    /// free plus purgeable plus file-backed. Nil is unreadable for a real Mac,
+    /// or unconstrained availability for a simulated machine.
     public var availableGB: Double?
     /// True when any figure above was supplied rather than measured.
     public var isSimulated: Bool
@@ -82,14 +83,30 @@ public struct PlanRequest: Sendable, Codable, Equatable {
     public var expertsPerLayer: Int?
     public var poolGB: Double?
     public var memoryGB: Double?
+    /// An adaptive total-process ceiling. Unlike memoryGB, the cache may resize.
+    public var memoryLimitGB: Double?
     /// Auto only: the largest share of RAM auto may target.
     public var maxRAMPercent: Double?
     public var mtp: Planner.MTPMode
     public var vision: Planner.VisionMode
     public var maxContextTokens: Int
 
+    /// Preserve the original initializer, including its function-value type.
     public init(
         expertsPerLayer: Int? = nil, poolGB: Double? = nil, memoryGB: Double? = nil,
+        maxRAMPercent: Double? = nil, mtp: Planner.MTPMode = .auto,
+        vision: Planner.VisionMode = .auto,
+        maxContextTokens: Int = ContextPolicy.defaultTokens
+    ) {
+        self.init(
+            expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB,
+            memoryLimitGB: nil, maxRAMPercent: maxRAMPercent, mtp: mtp,
+            vision: vision, maxContextTokens: maxContextTokens)
+    }
+
+    public init(
+        expertsPerLayer: Int? = nil, poolGB: Double? = nil, memoryGB: Double? = nil,
+        memoryLimitGB: Double?,
         maxRAMPercent: Double? = nil, mtp: Planner.MTPMode = .auto,
         vision: Planner.VisionMode = .auto,
         maxContextTokens: Int = ContextPolicy.defaultTokens
@@ -97,6 +114,7 @@ public struct PlanRequest: Sendable, Codable, Equatable {
         self.expertsPerLayer = expertsPerLayer
         self.poolGB = poolGB
         self.memoryGB = memoryGB
+        self.memoryLimitGB = memoryLimitGB
         self.maxRAMPercent = maxRAMPercent
         self.mtp = mtp
         self.vision = vision
@@ -117,7 +135,7 @@ extension Planner {
     ) throws -> MemoryPlan {
         try plan(
             expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
-            memoryGB: request.memoryGB, ramGB: device.ramGB,
+            memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB,
             workingSetGB: device.workingSetGB, availableGB: device.availableGB,
             ramPercent: request.maxRAMPercent, mtp: request.mtp, mtpAvailable: mtpAvailable,
             vision: request.vision, visionAvailable: visionAvailable,

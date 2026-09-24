@@ -1,0 +1,29 @@
+{
+  "load-prefill-2k-v3-attempt2": {
+    "population": "prospective v3 2K prefill phase, second readiness attempt after user requested recheck",
+    "idle_calibration_eligible": true,
+    "scope": "same frozen protocol; previous attempt ran zero model requests; retain all observations"
+  },
+  "load-prefill-2k-v3-attempt3": {
+    "population": "prospective v3 2K prefill phase, third readiness attempt after user requested recheck",
+    "idle_calibration_eligible": true,
+    "scope": "same frozen protocol; earlier timing attempts ran zero model requests; preserve all attempts"
+  },
+  "load-prefill-2k-v3-attempt4": {
+    "population": "prospective v3 2K prefill phase, readiness retry after independently observed competing Swift build finished",
+    "idle_calibration_eligible": true,
+    "scope": "same frozen protocol; earlier timing attempts ran zero model requests; preserve all attempts"
+  },
+  "load-prefill-2k-v3-attempt5": {
+    "population": "prospective v3 2K prefill phase, readiness retry after user requested check and competing native test released lock",
+    "idle_calibration_eligible": true,
+    "scope": "same frozen protocol; earlier timing attempts ran zero model requests; preserve all attempts",
+    "registered_at": "2026-09-23T03:32:22.467043+00:00"
+  },
+  "load-prefill-2k-v3-supplement1": {
+    "population": "prospective v3 supplemental 2K code repetition 1 of maximum 2",
+    "idle_calibration_eligible": true,
+    "scope": "First prospectively frozen supplemental repetition for code2048 only. Primary attempt5 completed 3 eligible misses and only 2 eligible repeats; round3 repeat was excluded for background CPU. Include every eligible observation, including this paired miss, regardless of latency. At most one additional supplemental repetition remains permitted for this fixture/profile.",
+    "registered_at": "2026-09-23T03:45:06.362410+00:00"
+  }
+}

@@ -24,6 +24,7 @@ struct MTPParity: ParsableCommand {
     @Option(help: "Write per-stage dumps here (debug)") var dump: String?
 
     func run() throws {
+        try model.rejectAdaptiveLimitForFixedDiagnostic()
         let cfg = try ModelConfig.load(from: model.modelURL)
         let head = MTPHead(try MTPWeights(modelDir: model.modelURL, config: cfg))
         if let dir = dump {
@@ -252,6 +253,7 @@ struct MTPFixtureInputs: ParsableCommand {
     @Option var out: String = "Tools/reference/fixtures/mtp_parity_inputs.safetensors"
 
     func run() throws {
+        try model.rejectAdaptiveLimitForFixedDiagnostic()
         // Same ids the fixture always used; a real chat-ish opening.
         let ids = [151644, 8948, 198, 40, 1079]
         let step2 = 25

@@ -98,13 +98,24 @@ extension Diagnostics {
     }
 
     public static func optimizationScopeLifecycle(modelDir: URL, integratedBase: Bool = false) throws -> CheckReport {
+        try optimizationScopeLifecycle(modelDir: modelDir, integratedBase: integratedBase, followup: false)
+    }
+
+    package static func optimizationScopeLifecycle(modelDir: URL, integratedBase: Bool, followup: Bool) throws -> CheckReport {
+        var baseOptions = InferenceOptimizations.integrationCandidate
+        if followup { baseOptions = try InferenceOptimizations.environment() }
+        // This fixture deliberately seeds the legacy cache without producer
+        // provenance and asks for its fixed common-prefix checkpoint. Keep
+        // that contract explicit. promptSpeedCheckpoint separately qualifies
+        // deployed aligned resume, cold equivalence and disk reopen.
+        baseOptions.alignedPrefixResume = nil
         MLX.Memory.cacheLimit = 128 << 20
         let model = try Qwen4ExpModel(index: CheckpointIndex(dir: modelDir), poolSlots: 640,
             embeddingRowCache: integratedBase ? true : nil)
         let generator = Generator(model: model)
         generator.prefillChunk = 256
         generator.prefillCacheLimit = 128 << 20
-        var options = integratedBase ? InferenceOptimizations.integrationCandidate : InferenceOptimizations()
+        var options = integratedBase ? baseOptions : InferenceOptimizations()
         options.compactStateWindows = true; options.compactMTPRow = true
         options.boundedIndexer = true; options.boundedPLE = true
         options.layerExpertWorkspace = true; options.skipUnusedFinalForward = true
@@ -276,7 +287,7 @@ extension Diagnostics {
                     generator.readScopeFootprintLimitBytes = savedLimit; model.routerObserver = savedObserver
                     generator.automaticScopePricingObserver = savedPricingObserver
                 }
-                var selected = InferenceOptimizations.integrationCandidate
+                var selected = baseOptions
                 selected.automaticReadScope = enabled ? true : nil
                 model.optimizations = selected; generator.prefillChunk = chunk
                 generator.readScopeFootprintLimitBytes = processLimit
@@ -415,7 +426,7 @@ extension Diagnostics {
             c.equal("automatic short request retains exact routes", shortAutomatic.routes, shortOriginal.routes)
             let callerOptions = model.optimizations, callerChunk = generator.prefillChunk
             let callerLimit = generator.readScopeFootprintLimitBytes
-            var automaticOptions = InferenceOptimizations.integrationCandidate
+            var automaticOptions = baseOptions
             automaticOptions.automaticReadScope = true
             model.optimizations = automaticOptions; generator.prefillChunk = 256
             generator.readScopeFootprintLimitBytes = nil
@@ -464,16 +475,25 @@ extension Diagnostics {
     /// Synthetic already-encoded image rows isolate span/offset/state
     /// handling. The separate real-image serving gate covers tower execution.
     public static func optimizationScopeMTPVision(modelDir: URL, integratedBase: Bool = false) throws -> CheckReport {
+        try optimizationScopeMTPVision(modelDir: modelDir, integratedBase: integratedBase, followup: false)
+    }
+
+    package static func optimizationScopeMTPVision(modelDir: URL, integratedBase: Bool, followup: Bool) throws -> CheckReport {
         MLX.Memory.cacheLimit = 128 << 20
         let model = try Qwen4ExpModel(index: CheckpointIndex(dir: modelDir), poolSlots: 640,
             embeddingRowCache: integratedBase ? true : nil)
         try model.enableMTP(modelDir: modelDir)
         let head = model.mtpHead!
         var options = integratedBase ? InferenceOptimizations.integrationCandidate : InferenceOptimizations()
+        if followup { options = try InferenceOptimizations.environment() }
         options.compactStateWindows = true; options.compactMTPRow = true
         options.boundedIndexer = true; options.boundedPLE = true; options.layerExpertWorkspace = true
         options.workspaceTokenTile = model.optimizations.workspaceTokenTile
         options.compactScopeFrontier = model.optimizations.compactScopeFrontier
+        // The followup policy can trade write barriers for a larger MTP
+        // group. Exercise those writes through draft cancellation and checked
+        // read-error rollback here; the later automatic loop restores defaults.
+        if followup { options.workspacePiecewiseWrites = true }
         model.optimizations = options
         let ids = (0 ..< 1024).map { 1000 + (($0 * 7919) % 200_000) }
         let rows = MLXArray((0 ..< 640 * model.cfg.hiddenSize).map { Float($0 % 29 - 14) / 32 },
@@ -547,6 +567,10 @@ extension Diagnostics {
         c.expect("direct scope read-error retry commits", recovered.committed && recovered.logits != nil)
         c.equal("direct scope read-error retry restores buffer-cache limit", MLX.Memory.cacheLimit, callerCacheLimit)
         equal(reference, failedState, "direct scope read-error retry exact")
+        if followup {
+            c.expect("MTP lifecycle actually exercises piecewise workspace writes", model.pool.workspacePieceWriteCompletions > 0)
+            c.measure("piecewise_workspace_writes", Double(model.pool.workspacePieceWriteCompletions))
+        }
         let r = model.lastLogits([907], state: reference), n = model.lastLogits([907], state: candidate)
         c.expect("next target logits exact", (r .== n).all().item(Bool.self))
         if integratedBase {
@@ -559,6 +583,13 @@ extension Diagnostics {
                 var outputs: [[Int]] = [], stats: [GenStats] = [], states: [Qwen4ExpModel.State] = []
                 for automatic in [false, true] {
                     var selected = InferenceOptimizations.integrationCandidate
+                    if followup { selected = try InferenceOptimizations.environment() }
+                    // Isolate grouping here. With aligned resume, the last
+                    // interior checkpoint splits this four-pass fixture into
+                    // three plus one, correctly preventing a four-pass scope.
+                    // Checkpoint coexistence is tested by the separate prompt
+                    // and long MTP equality diagnostics.
+                    selected.prefixCheckpointTokens = 0
                     selected.automaticReadScope = automatic ? true : nil
                     model.optimizations = selected; generator.prefillChunk = chunk
                     let cache = PrefixCache(maxTokens: 8192)

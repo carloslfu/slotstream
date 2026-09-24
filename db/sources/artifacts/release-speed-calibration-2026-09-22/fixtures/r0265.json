@@ -1,0 +1,15 @@
+{
+ "corpus_prompt_sha256": "2fa1c55bb395751b18283d140249543e25805d13785a64a6bb72cd34a2538f76",
+ "family": "structured:recipes",
+ "id": "r0265",
+ "kind": "structured",
+ "max_tokens": 256,
+ "messages": [
+  {
+   "content": "Convert this CSV data into a single JSON object that satisfies the JSON schema below. Respond with the JSON only.\n\nCSV:\nitem,amount,unit\nrice,400,g\nchicken thighs,600,g\nonion,1,piece\nsaffron,0.5,g\nolive oil,3,tbsp\n\nSchema:\n{\n  \"type\": \"object\",\n  \"required\": [\n    \"name\",\n    \"servings\",\n    \"ingredients\",\n    \"steps\"\n  ],\n  \"properties\": {\n    \"ingredients\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"item\",\n          \"amount\",\n          \"unit\"\n        ]\n      }\n    },\n    \"steps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  }\n}",
+   "role": "user"
+  }
+ ],
+ "prompt_sha256": "4ac15e5e924e12012def6d74f6e58e2f70c3992ef49e2879dd954867efb8d9f3",
+ "split": "train"
+}

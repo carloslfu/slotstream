@@ -81,16 +81,30 @@ enum LineDiff {
     static let previewLines = 600
     static let lineCharacters = 400
     /// Unified-style preview with two lines of context around each change.
+    /// Largest changed region, in old lines times new lines, aligned line by
+    /// line. Alignment time grows with its square; past this, the region is
+    /// shown as removed and then added, which is still exactly what changes.
+    static let alignmentBudget = 4_000_000
     static func preview(before: String, after: String) -> (lines: [DiffLine], truncated: Bool, added: Int, removed: Int) {
         let old = before.isEmpty ? [] : before.components(separatedBy: "\n")
         let new = after.components(separatedBy: "\n")
-        let difference = new.difference(from: old)
+        // Unchanged leading and trailing lines need no alignment.
+        var prefix = 0
+        while prefix < old.count, prefix < new.count, old[prefix] == new[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < old.count - prefix, suffix < new.count - prefix, old[old.count - 1 - suffix] == new[new.count - 1 - suffix] { suffix += 1 }
+        let oldChanged = Array(old[prefix..<(old.count - suffix)]), newChanged = Array(new[prefix..<(new.count - suffix)])
         var removedOffsets = Set<Int>(), insertedOffsets = Set<Int>()
-        for change in difference {
-            switch change {
-            case .remove(let offset, _, _): removedOffsets.insert(offset)
-            case .insert(let offset, _, _): insertedOffsets.insert(offset)
+        if oldChanged.count * newChanged.count <= alignmentBudget {
+            for change in newChanged.difference(from: oldChanged) {
+                switch change {
+                case .remove(let offset, _, _): removedOffsets.insert(prefix + offset)
+                case .insert(let offset, _, _): insertedOffsets.insert(prefix + offset)
+                }
             }
+        } else {
+            removedOffsets = Set(prefix..<(old.count - suffix))
+            insertedOffsets = Set(prefix..<(new.count - suffix))
         }
         var all: [DiffLine] = []
         var i = 0, j = 0

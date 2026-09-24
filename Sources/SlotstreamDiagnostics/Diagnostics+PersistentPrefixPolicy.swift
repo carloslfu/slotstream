@@ -59,6 +59,16 @@ extension Diagnostics {
             Policy.longestExtension([all[3]], identity: "own", of: [1, 2], now: now, maxAge: nil) == nil)
         c.expect("splice skips expired states",
             Policy.longestExtension([stale], identity: "own", of: [1, 2], now: now, maxAge: 30 * day) == nil)
+        c.equal("branch candidates retain shorter own extensions and exclude expired or foreign ids",
+            Policy.extensions(all + [stale], identity: "own", of: [1, 2], now: now, maxAge: 30 * day),
+            [[1, 2, 3], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6]])
+        var transcript = all[0]
+        transcript.splicingTokens = [1, 2, 3, 42, 43]
+        c.equal("branch lookup uses generated metadata beyond the numerical checkpoint",
+            Policy.extensions([transcript], identity: "own", of: [1, 2, 3, 42], now: now, maxAge: nil),
+            [[1, 2, 3, 42, 43]])
+        c.expect("identical transcripts are not extensions",
+            Policy.extensions([transcript], identity: "own", of: transcript.splicingTokens!, now: now, maxAge: nil).isEmpty)
         c.equal("a save replaces older ancestors but keeps its parent",
             Set(Policy.redundantAncestors(all, identity: "own", by: prompt).map(\.file)), ["a", "b"])
         c.expect("a save with one ancestor keeps it",

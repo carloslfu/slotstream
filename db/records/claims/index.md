@@ -2,11 +2,21 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-18T21:49:31.700660Z
+updated: 2026-09-23T17:54:18.617026Z
 ---
 
 # records/claims
 
+- [[records/claims/sevra-mac-folders-2000-files]] — Sevra reads folders of up to 2,000 files
+- [[records/claims/release-2k-prose-current-timing]] — Installed-release prose first-read range and ordinary exact-repeat latency at the measured small-budget profile.
+- [[records/claims/release-2k-code-current-timing]] — Installed-release code first-read range and ordinary exact-repeat latency at the measured small-budget profile.
+- [[records/claims/tier-estimate-10-tok-s-at-32-gb]] — A 32 GB Mac is estimated at about 10 tok/s with speculative decoding
+- [[records/claims/hardware-planning-range-high]] — Estimated warm reply range for 48 to less than 96 GB Macs
+- [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
+- [[records/claims/warm-decode-0-2-19-at-22-gb]] — Warm decode is 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target on the development Mac
+- [[records/claims/prose-prefix-reuse-public-timing]] — Exact prose prefix reuse reduces follow-up request time
+- [[records/claims/mtp-prefill-policy-public-timing]] — Qualified long MTP prefill policy reduces paired prefill time
+- [[records/claims/sevra-mac-working-notes-eight-responses]] — Sevra keeps working notes in memory for the eight most recent responses
 - [[records/claims/context-opt-in-65536]] — --max-context 65536 fixes a 65,536-token window
 - [[records/claims/context-cap-32768-tokens]] — Auto keeps a 32,768-token window through 32 GB of RAM
 - [[records/claims/automatic-context-at-36-gb]] — Automatic context at the simulated 36 GB tier
@@ -37,7 +47,6 @@ updated: 2026-09-18T21:49:31.700660Z
 - [[records/claims/claude-code-instructions-about-15000-tokens]] — Claude Code's instructions and tool descriptions take about 15,000 tokens
 - [[records/claims/coding-agents-verified-versions]] — The coding agents guide names the agent versions that were verified
 - [[records/claims/claude-code-guide-verified-version]] — The Claude Code guide was verified with Claude Code 2.1.270
-- [[records/claims/sevra-mac-folders-2000-files]] — Sevra reads folders of up to 2,000 files
 - [[records/claims/sevra-mac-recognition-40-pages]] — Sevra recognizes text on at most 40 pages per request
 - [[records/claims/sevra-mac-documents-64-mb]] — Sevra reads rich documents up to 64 MB
 - [[records/claims/sevra-mac-text-files-8-mb]] — Sevra reads text and code files up to 8 MB each
@@ -64,14 +73,10 @@ updated: 2026-09-18T21:49:31.700660Z
 - [[records/claims/decode-lookahead-11-8-to-13-5-tok-s]] — Median decode rose from 11.79 to 13.47 tok/s with decode lookahead on the development Mac
 - [[records/claims/decode-lookahead-1-11x-on-held-out-prompts]] — The decode lookahead makes decode 1.11x faster on held-out prompts
 - [[records/claims/context-read-38-minutes-at-131072]] — A 131,072-token prompt took 38 minutes to read at a 16 GB target
-- [[records/claims/tier-estimate-10-tok-s-at-32-gb]] — A 32 GB Mac is estimated at about 10 tok/s with speculative decoding
-- [[records/claims/hardware-planning-range-high]] — Estimated warm reply range for 48 to less than 96 GB Macs
-- [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
 - [[records/claims/persistent-prefix-default-minimum-tokens]] — The opt-in persistent prefix cache writes states of 2048 tokens or more by default
 - [[records/claims/shared-prefix-save-grid-256-tokens]] — A shared prefix is saved at the last existing prefill pass end at or before its boundary, the 256-token grid by default
 - [[records/claims/shared-prefix-minimum-512-tokens]] — A shared prefix is kept from 512 tokens; the disk tier's own minimum applies on top
 - [[records/claims/hardware-planning-range-ultra]] — Estimated warm reply range for 96 GB or more Macs
-- [[records/claims/warm-decode-0-2-19-at-22-gb]] — Warm decode is 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target on the development Mac
 - [[records/claims/expert-lookahead-default-two-layer-forecast]] — The qualified expert lookahead forecasts two layers ahead
 - [[records/claims/decode-lookahead-charges-409-mib-with-the-correction]] — The decode lookahead charges 409 MiB with the checkpoint's correction file
 - [[records/claims/decode-forecast-corrected-over-shipped-1-111x]] — The corrected forecast decoded 1.111x over the shipped configuration on held-out prompts

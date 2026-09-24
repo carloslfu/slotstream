@@ -1,0 +1,28 @@
+test_brief_cpu_burst_does_not_exclude_request (host_load_test.HostLoadTests.test_brief_cpu_burst_does_not_exclude_request) ... ok
+test_brief_desktop_burst_allowed (host_load_test.HostLoadTests.test_brief_desktop_burst_allowed) ... ok
+test_does_not_persist_process_identifiers (host_load_test.HostLoadTests.test_does_not_persist_process_identifiers) ... ok
+test_excludes_only_owned_processes (host_load_test.HostLoadTests.test_excludes_only_owned_processes) ... ok
+test_fail_closed_empty_cpu (host_load_test.HostLoadTests.test_fail_closed_empty_cpu) ... ok
+test_fail_closed_negative_cpu (host_load_test.HostLoadTests.test_fail_closed_negative_cpu) ... ok
+test_fail_closed_nonfinite_cpu (host_load_test.HostLoadTests.test_fail_closed_nonfinite_cpu) ... ok
+test_frequent_bursts_rejected_even_with_low_mean (host_load_test.HostLoadTests.test_frequent_bursts_rejected_even_with_low_mean) ... ok
+test_gpu_across_devices (host_load_test.HostLoadTests.test_gpu_across_devices) ... ok
+test_gpu_bool_not_number (host_load_test.HostLoadTests.test_gpu_bool_not_number) ... ok
+test_incomplete_window_rejected (host_load_test.HostLoadTests.test_incomplete_window_rejected) ... ok
+test_mean_gpu_gate_retained (host_load_test.HostLoadTests.test_mean_gpu_gate_retained) ... ok
+test_mid_request_load_excludes (host_load_test.HostLoadTests.test_mid_request_load_excludes) ... ok
+test_mid_request_thermal_excludes (host_load_test.HostLoadTests.test_mid_request_thermal_excludes) ... ok
+test_missing_gpu_not_idle (host_load_test.HostLoadTests.test_missing_gpu_not_idle) ... ok
+test_model_gpu_activity_is_diagnostic_during_request (host_load_test.HostLoadTests.test_model_gpu_activity_is_diagnostic_during_request) ... ok
+test_model_gpu_not_mistaken_for_background (host_load_test.HostLoadTests.test_model_gpu_not_mistaken_for_background) ... ok
+test_pageins_swapouts_remain_independent (host_load_test.HostLoadTests.test_pageins_swapouts_remain_independent) ... ok
+test_single_process_background_load (host_load_test.HostLoadTests.test_single_process_background_load) ... ok
+test_sustained_single_process_rejected (host_load_test.HostLoadTests.test_sustained_single_process_rejected) ... ok
+test_sustained_total_cpu_rejected (host_load_test.HostLoadTests.test_sustained_total_cpu_rejected) ... ok
+test_threshold_boundaries (host_load_test.HostLoadTests.test_threshold_boundaries) ... ok
+test_total_background_load (host_load_test.HostLoadTests.test_total_background_load) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.001s
+
+OK

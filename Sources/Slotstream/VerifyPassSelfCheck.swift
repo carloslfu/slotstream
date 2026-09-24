@@ -303,12 +303,14 @@ package enum VerifyPassSelfCheck {
 
     /// Quantized matmuls in the model's format (4 bits, groups of 64): one to
     /// `exactMaxRows` rows equal the same product one row at a time, for an
-    /// output in each of the backend's batch-limit classes. Six to eight rows
-    /// are counted, not required: at six the smallest limit switches the
-    /// widest class to the tiled kernel.
+    /// output in each of the backend's batch-limit classes. Exact mode owns
+    /// row-by-row quantized projections because MLX 0.32 changes kernels even
+    /// below five rows. Stock six-to-eight-row deviations remain diagnostic.
     package static func quantizedRows() -> (results: [Result], wideDiffering: Int, wideCompared: Int) {
         var results: [Result] = []
         var wideDiffering = 0, wideCompared = 0
+        let savedMode = RowInvariantMatmul.enabled
+        defer { RowInvariantMatmul.enabled = savedMode }
         let cases: [(label: String, k: Int, n: Int)] = [
             ("2560x640", 2560, 640), ("2560x6144", 2560, 6144), ("10240x2560", 10240, 2560),
         ]
@@ -320,10 +322,16 @@ package enum VerifyPassSelfCheck {
             func product(_ a: MLXArray) -> MLXArray {
                 quantizedMM(a, wq, scales: scales, biases: biases, transpose: true, groupSize: 64, bits: 4)
             }
+            let linear = QLinear(w: wq, scales: scales, biases: biases, groupSize: 64, bits: 4)
+            RowInvariantMatmul.enabled = false
+            results.append(Result(name: "4-bit \(label): disabled mode preserves stock products",
+                passed: (linear(x) .== product(x)).all().item(Bool.self)))
+            RowInvariantMatmul.enabled = true
             let single = (0 ..< RowInvariantMatmul.maxRows).map { product(x[0..., $0 ..< $0 + 1, 0...]) }
             var exact = true
             for rows in 1 ... RowInvariantMatmul.maxRows {
-                let many = product(x[0..., 0 ..< rows, 0...])
+                let many = rows <= MultiRowAttention.exactMaxRows
+                    ? linear(x[0..., 0 ..< rows, 0...]) : product(x[0..., 0 ..< rows, 0...])
                 eval(many)
                 let same = (many .== concatenated(Array(single[0 ..< rows]), axis: 1)).all().item(Bool.self)
                 if rows <= MultiRowAttention.exactMaxRows { exact = exact && same }

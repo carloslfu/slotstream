@@ -1,0 +1,18 @@
+{"type":"run","written":"records/run/2026/09/2026-09-21-automatic-prefill-policy-timing.md"}
+
+{"links_rewritten":0,"renamed":{"from":"records/run/2026/09/2026-09-21-automatic-prefill-policy-timing.md","to":"sources/runs/2026/09/2026-09-21-automatic-prefill-policy-timing.md"}}
+{"type":"run","written":"records/run/2026/09/2026-09-21-automatic-prefill-policy-correctness.md"}
+
+{"links_rewritten":0,"renamed":{"from":"records/run/2026/09/2026-09-21-automatic-prefill-policy-correctness.md","to":"sources/runs/2026/09/2026-09-21-automatic-prefill-policy-correctness.md"}}
+{"type":"measurement","written":"records/measurements/automatic-prefill-policy-2026-09-21.md"}
+
+{"type":"decision","written":"records/decisions/automatic-prefill-read-policy.md"}
+
+{"action":"set","bytes":5870,"file":"records/measurements/prefill-opportunities-2026-09-21.md","index_updated":true}
+{"error":{"code":"NOT_A_STORE","hint":"run from inside a db.md store (any directory at or under a DB.md), or author a DB.md at the store root first","message":"not a db.md store: no DB.md found at or above /Users/carlos/Projects/slotstream"}}
+Traceback (most recent call last):
+  File "/tmp/slotstream-prefill-auto-20260922/write_records.py", line 84, in <module>
+    subprocess.run(['dbmd','fm','set',str(db/old),'status=reversed','--json'],check=True)
+  File "/Users/carlos/.pyenv/versions/3.12.9/lib/python3.12/subprocess.py", line 573, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['dbmd', 'fm', 'set', '/Users/carlos/Projects/slotstream/db/records/decisions/prefill-opportunities-remain-experimental.md', 'status=reversed', '--json']' returned non-zero exit status 3.

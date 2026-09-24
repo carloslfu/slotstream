@@ -2,7 +2,7 @@
 type: claim
 id: 01m2dtc5q2ebnctx8mbwhxwhj0
 created: 2026-09-13T16:42:28.450829+00:00
-updated: 2026-09-16T21:10:05.384173+00:00
+updated: 2026-09-22T19:23:15.968973+00:00
 summary: Estimated warm reply range for 24 to less than 48 GB Macs
 basis: estimated
 gate: none; semantic review against the supporting evidence
@@ -27,3 +27,17 @@ The upper end now rounds outward from the development Mac's 15.86 tok/s at a
 ([[records/measurements/corrected-forecast-release-benchmark-2026-09-16]]),
 instead of the 13.47 tok/s measured at a 20 GB target on 0.2.16. It assumes a
 comparable chip and SSD; the real 32 GB M5 Air result is 6.22 tok/s on 0.2.11.
+## Benchmark-profile clarification, 2026-09-22
+
+The historical throughput remains a valid controlled forecast comparison.
+Its protocol forces a 256-token prefill pass, disables prefix caching, uses
+two drafts, and disables adaptive speculation and the draft-tail experiment.
+That leaves about 100 experts per layer at the 22 GB target. The installed
+0.2.23 normal-cache profile at that target instead plans 2048-token passes
+and about 74 experts per layer. Equal total memory therefore does not mean
+equal runtime settings. The historical figure does not measure the current
+automatic plan of a 32 GB Mac and cannot qualify a release-wide speed ratio.
+
+The new calibration attempt, retained raw observations, stricter prospective
+host-load screen and remaining gaps are recorded in
+[[records/measurements/release-speed-calibration-2026-09-22]].

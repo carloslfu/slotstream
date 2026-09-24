@@ -1,0 +1,13 @@
+{
+  "load-prefill-long-v3": {
+    "population": "prospective v3 8K/16K prefill phase",
+    "idle_calibration_eligible": true,
+    "scope": "original frozen fixture bytes and unchanged v3 gates; all requests preserved",
+    "registered_at": "2026-09-23T03:48:24.698927+00:00",
+    "manual_exclusions": {
+      "load-prefill-long-v3/prefill-budget10_auto-r1/prose8192/repeat-result.json": [
+        "Documentation worktree checkout performed by this task overlapped this request; possible SSD/CPU contention. Excluded before its result was inspected. Original automatic verdict remains unchanged."
+      ]
+    }
+  }
+}

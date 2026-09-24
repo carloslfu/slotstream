@@ -1,0 +1,75 @@
+name: sevra-mac
+# The Sevra Mac app in apps/macos, built against the engine in this repository.
+# `checks` runs the command a development Mac runs: scripted inference in
+# disposable Homes, the sandboxed document helper and offscreen checks of the
+# production views, with no model weights. `xcode` builds the Xcode project,
+# which the development Mac cannot, since it has only the Command Line Tools.
+# Checks against the real model need its weights and stay on a development Mac.
+# Engine-only CI is ci.yml; it skips pushes that change only apps/.
+on:
+  pull_request:
+    paths:
+      - "apps/macos/**"
+      - "Sources/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - "Tools/check_sevra*.sh"
+      - "Tools/build_sevra_xcode.sh"
+      - "Tools/dbmd_install.sh"
+      - "Tools/fetch_metallib.sh"
+      - ".github/workflows/sevra-mac.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/macos/**"
+      - "Sources/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - "Tools/check_sevra*.sh"
+      - "Tools/build_sevra_xcode.sh"
+      - "Tools/dbmd_install.sh"
+      - "Tools/fetch_metallib.sh"
+      - ".github/workflows/sevra-mac.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: toolchain
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: pinned dbmd
+        run: Tools/dbmd_install.sh
+      - name: scripted checks, no model weights
+        # The document helper's text-recognition self-test fails inside its
+        # sandbox on these runners, though Vision works outside it. The basics
+        # suite then accepts the helper's own "unavailable" error for images
+        # and scanned pages; a development Mac must still recognize them.
+        env:
+          SEVRA_CHECKS_OCR_OPTIONAL: "1"
+        run: bash Tools/check_sevra_mac.sh
+      - name: offscreen view snapshots, light and dark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sevra-mac-ui-snapshots
+          path: |
+            .build/sevra-thinking-ui/
+            .build/sevra-apps-ui/
+          if-no-files-found: ignore
+  xcode:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: toolchain
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: pinned dbmd and Metal library, which the app bundle carries
+        run: |
+          Tools/dbmd_install.sh
+          SLOTSTREAM_METALLIB_MACOS=26 Tools/fetch_metallib.sh
+      - name: Xcode project build, ad hoc signed
+        run: bash Tools/build_sevra_xcode.sh
