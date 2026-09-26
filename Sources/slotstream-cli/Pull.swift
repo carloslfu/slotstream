@@ -87,7 +87,12 @@ func withInterruptiblePull(_ operation: (PullCancellation) throws -> Void) throw
         sources.forEach { $0.cancel() }
         for (value, handler) in zip(signals, previous) { signal(value, handler) }
     }
-    do { try operation(cancellation) }
+    do {
+        try operation(cancellation)
+        // An optional stage may catch its own error and return after a signal.
+        // Cancellation must still prevent the caller's successful "ready" tail.
+        if cancellation.isCancelled { throw ExitCode(130) }
+    }
     catch where cancellation.isCancelled {
         print("download interrupted; rerun to resume verified chunks")
         throw ExitCode(130)

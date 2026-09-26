@@ -49,6 +49,7 @@ fi
 # It compiles the production counter directly, without MLX or model weights.
 python3 Tools/process_memory_gate.py
 "$BIN" pull-check
+python3 Tools/pull_interrupt_gate.py
 python3 Tools/slotpack/checks.py
 Tools/planner_gates.sh
 python3 Tools/memory_override_gate.py --binary "$BIN"
