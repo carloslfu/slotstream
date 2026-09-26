@@ -2,7 +2,7 @@
 type: measurement
 id: 01m2dtc5nvwg0t0jfr4fra1nx6
 created: 2026-09-13T16:42:28.411325+00:00
-updated: 2026-09-24T17:32:16.222221+00:00
+updated: 2026-09-26T16:03:31+00:00
 summary: Hardware speed planning ranges and inference limits
 date: 2026-09-13
 doc: measurements
@@ -149,3 +149,15 @@ Three community reports added real Macs to the two middle bands
   case described above, not a band endpoint.
 
 No release-speedup multiplier was applied to the community reports.
+
+## A 24 GB report, 2026-09-26
+
+- 24 to less than 48 GB: a 24 GB M4 Pro reported 3.57 tok/s on 0.2.24
+  ([[records/measurements/c7-macbook-pro-m4-pro-24gb-community]]), below the
+  ~6 floor, and 3.85 to 3.97 tok/s in a later round. Two known differences may
+  account for the gap. Its 512 GB SSD read cold experts at 3.7 GB/s, well below
+  the development Mac's 17.3 GB/s, and the ranges assume a fast internal SSD.
+  And on 0.2.24 a 24 GB plan ran without the draft head and decode lookahead,
+  which 0.2.25 enables at that size. The floor stays ~6 until a rerun on 0.2.25
+  separates the release from the hardware; the public range names the report
+  beside it.

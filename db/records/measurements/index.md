@@ -2,17 +2,18 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-24T22:55:22.761465Z
+updated: 2026-09-26T16:03:31Z
 ---
 
 # records/measurements
 
+- [[records/measurements/hardware-planning-ranges-2026-09-13]] — Hardware speed planning ranges and inference limits
+- [[records/measurements/c7-macbook-pro-m4-pro-24gb-community]] — C7: MacBook Pro M4 Pro, 24 GB (community, 2026-09-25)
 - [[records/measurements/release-0-2-25-published-2026-09-24]] — v0.2.25 published, installed and accepted
 - [[records/measurements/prefix-cache-floor-community-2026-09-16]] — Prefix-cache floor at 2048 and 1024 tokens across a restart (community, 2026-09-16)
 - [[records/measurements/decode-perf-2026-09-24]] — Decode speed search: a GPU keepalive and direct demand reads 1.28x at 10 GB and 1.22x at 22 GB, a streamed draft head 1.23x at 12 GB, plain-decode lookahead 1.11x at 10 GB; keepalive energy +7%
 - [[records/measurements/c5-macbook-pro-m4-max-64gb-community]] — C5: MacBook Pro M4 Max, 64 GB, internal and external SSD (community, 2026-09-19)
 - [[records/measurements/c4-macbook-pro-m3-max-64gb-community]] — C4: MacBook Pro M3 Max, 64 GB (community, 2026-09-16)
-- [[records/measurements/hardware-planning-ranges-2026-09-13]] — Hardware speed planning ranges and inference limits
 - [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]] — C1 — Mac mini M2, 16 GB, base storage (community, 2026-09-02): 1.41 tok/s warm decode against a ~4 tok/s estimate, because a 1.5 GB/s SSD puts the IO ceiling at 2.00 tok/s.
 - [[records/measurements/c6-macbook-pro-m4-max-36gb-community]] — C6: MacBook Pro M4 Max, 36 GB (community, 2026-09-20)
 - [[records/measurements/shared-prefix-boundary-upgrade-2026-09-23]] — A shared prefix at a prompt's own resume boundary: the head is upgraded, and the gate that fails without it

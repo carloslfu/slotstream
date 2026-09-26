@@ -8,7 +8,7 @@ date: 2026-09-03
 doc: measurements
 level: '2'
 machines: '[[records/machines/macbook-pro-m5-max-128gb]]'
-order: '715'
+order: '711'
 title: 'C2: MacBook Pro M5 Max, 128 GB (community, 2026-09-03)'
 status: measured
 ---

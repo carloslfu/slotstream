@@ -2,7 +2,7 @@
 type: claim
 id: 01m2dtc5q2ebnctx8mbwhxwhj0
 created: 2026-09-13T16:42:28.450829+00:00
-updated: 2026-09-22T19:23:15.968973+00:00
+updated: 2026-09-26T16:03:31+00:00
 summary: Estimated warm reply range for 24 to less than 48 GB Macs
 basis: estimated
 gate: none; semantic review against the supporting evidence
@@ -12,7 +12,7 @@ surfaces: README.md, docs/HARDWARE.md
 title: Estimated warm reply range for 24 to less than 48 GB Macs
 status: current
 ---
-~6–14 tok/s is a rough planning range, not a measurement of every Mac in this
+~6–16 tok/s is a rough planning range, not a measurement of every Mac in this
 memory band or a performance bound. Endpoint construction, mixed-release
 scope, hardware-transfer assumptions and revision conditions are in
 [[records/measurements/hardware-planning-ranges-2026-09-13]]. Public surfaces
@@ -41,3 +41,13 @@ automatic plan of a 32 GB Mac and cannot qualify a release-wide speed ratio.
 The new calibration attempt, retained raw observations, stricter prospective
 host-load screen and remaining gaps are recorded in
 [[records/measurements/release-speed-calibration-2026-09-22]].
+
+## A report below the range, 2026-09-26
+
+A 24 GB M4 Pro reported 3.57 tok/s on 0.2.24
+([[records/measurements/c7-macbook-pro-m4-pro-24gb-community]]), below the
+~6 floor. Its 512 GB SSD read cold experts at 3.7 GB/s, and on 0.2.24 a 24 GB
+plan ran without the draft head and decode lookahead that 0.2.25 enables there.
+The range stays ~6–16 tok/s until that Mac is rerun on the current release,
+and the hardware guide names the report beside the range. Reasoning in
+[[records/measurements/hardware-planning-ranges-2026-09-13]].

@@ -2085,3 +2085,21 @@ Landed the streamed draft head, its automatic floor of 28 experts per layer and 
 ## [2026-09-24 22:55] create | records/measurements/release-0-2-25-published-2026-09-24
 Published v0.2.25 from the exact CI archive of a0cca84 and verified the public installation: 75 catalogue groups/32,004 assertions, 35 native gates and 31 installed end-to-end checks passed. The first candidate, 5a54b68, failed both elastic drills and was not tagged: the drill predicted the governor without the reserve of the lookahead that plain decode now runs; the fix changed only the drill. Archived 233 hashed files with both candidates' logs, added the run and the measurement, regenerated MEASUREMENTS.md. Validation: zero errors, the two historical log warnings.
 
+## [2026-09-26 16:03] create | records/machines/macbook-pro-m4-pro-24gb
+Registered the 24 GB M4 Pro from issue #41 (512 GB SSD, macOS 26.6.2).
+
+## [2026-09-26 16:03] create | sources/community/2026/09/2026-09-25-macbook-pro-m4-pro-24gb-davidcavazos
+Captured @davidcavazos's issue #41 and his follow-up comment verbatim; one home path in the weights line redacted.
+
+## [2026-09-26 16:03] create | records/measurements/c7-macbook-pro-m4-pro-24gb-community
+C7: 3.57 tok/s warm on 0.2.24, 3.85 to 3.97 in a later round, against a ~8 tok/s estimate; cold reads at 3.7 GB/s, and no draft head or lookahead at 24 GB before 0.2.25. Renumbered C2 to C6 to orders 711 to 715 so the community reports stay in number order.
+
+## [2026-09-26 16:03] create | records/claims/warm-decode-m4-pro-24gb-community
+Needle 3.57 tok/s on the hardware guide's summary row.
+
+## [2026-09-26 16:03] update | records/claims/hardware-planning-range-medium
+The 24 GB report sits below the ~6 floor; the range stays until a 0.2.25 rerun, and the first sentence now states ~6-16, the value since the 2026-09-16 re-anchor.
+
+## [2026-09-26 16:03] update | records/measurements/hardware-planning-ranges-2026-09-13
+Added the 24 GB M4 Pro report and why the floor stays pending a 0.2.25 rerun.
+
