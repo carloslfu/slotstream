@@ -13,6 +13,8 @@ extension Catalogue {
         [
             Check("gateway-request", tier: .t0) { gatewayRequest() },
             Check("gateway-prompt", tier: .t0) { gatewayPrompt() },
+            Check("gateway-tool-results", tier: .t0) { gatewayToolResults() },
+            Check("gateway-v4-images", tier: .t0) { gatewayV4Images() },
             Check("gateway-catalog", tier: .t0) { gatewayCatalog() },
             Check("gateway-events", tier: .t0) { gatewayEvents() },
             Check("chat-splice", tier: .t0) { chatSplice() },
@@ -334,6 +336,10 @@ extension Catalogue {
             let p: [[String: Any]] = [
                 ["role": "user", "content": [["type": "text", "text": "x"]]],
                 [
+                    "role": "assistant",
+                    "content": [["type": "tool-call", "toolCallId": "c", "toolName": "t", "input": [:]]],
+                ],
+                [
                     "role": "tool",
                     "content": [
                         [
@@ -371,6 +377,112 @@ extension Catalogue {
                     ["role": "user", "content": [["type": "text", "text": "hi"]]],
                     ["role": "assistant", "content": [["type": "text", "text": "partial"]]],
                 ])), "assistant_prefill_unsupported")
+        return c.report()
+    }
+
+    /// The native template omits result IDs; restore the call order first.
+    static func gatewayToolResults() -> CheckReport {
+        var c = CheckBuilder("gateway-tool-results")
+        let user: [String: Any] = ["role": "user", "content": [["type": "text", "text": "read both"]]]
+        func call(_ id: String, _ path: String) -> [String: Any] {
+            ["type": "tool-call", "toolCallId": id, "toolName": "read", "input": ["path": path]]
+        }
+        func result(_ id: String, _ value: String, name: String = "read") -> [String: Any] {
+            ["type": "tool-result", "toolCallId": id, "toolName": name,
+             "output": ["type": "text", "value": value]]
+        }
+        let assistant: [String: Any] = ["role": "assistant", "content": [call("a", "A"), call("b", "B")]]
+        let a = result("a", "A contents"), b = result("b", "B contents")
+        func checkOrder(_ label: String, _ messages: [[String: Any]]) {
+            switch GatewayDialect.mapPrompt([user, assistant] + messages) {
+            case .success(let mapped):
+                let results = mapped.filter { $0.role == "tool" }
+                c.equal(label + ": IDs", results.map { $0.toolCallId ?? "" }, ["a", "b"])
+                c.equal(label + ": template contents", results.map { $0.templateValue["content"] as? String ?? "" },
+                        ["A contents", "B contents"])
+                c.equal(label + ": names", results.map { $0.toolName ?? "" }, ["read", "read"])
+            case .failure(let failure):
+                c.expect(label + ": parses", false, failure.message)
+            }
+        }
+        checkOrder("in-order results", [["role": "tool", "content": [a, b]]])
+        checkOrder("reversed results", [["role": "tool", "content": [b, a]]])
+        checkOrder("results in separate messages", [["role": "tool", "content": [b]], ["role": "tool", "content": [a]]])
+        var withoutName = a
+        withoutName.removeValue(forKey: "toolName")
+        checkOrder("result without redundant name", [["role": "tool", "content": [b, withoutName]]])
+        let second: [String: Any] = ["role": "assistant", "content": [call("c", "C")]]
+        let multiTurn = [user, assistant, ["role": "tool", "content": [b, a]], second,
+                         ["role": "tool", "content": [result("c", "C contents")]]]
+        if case .success(let mapped) = GatewayDialect.mapPrompt(multiTurn) {
+            c.equal("later tool turn keeps its own result", mapped.filter { $0.role == "tool" }.map(\.content),
+                    ["A contents", "B contents", "C contents"])
+        } else { c.expect("multiple tool turns parse", false) }
+        let invalid: [(String, [[String: Any]])] = [
+            ("missing result", [user, assistant, ["role": "tool", "content": [a]]]),
+            ("user before complete results", [user, assistant, ["role": "tool", "content": [b]], user]),
+            ("assistant before complete results", [user, assistant, second]),
+            ("duplicate result", [user, assistant, ["role": "tool", "content": [a, a, b]]]),
+            ("unknown result", [user, assistant, ["role": "tool", "content": [a, result("other", "wrong")]]]),
+            ("result name mismatch", [user, assistant, ["role": "tool", "content": [a, result("b", "wrong", name: "write")]]]),
+            ("orphan result", [user, ["role": "tool", "content": [a]]]),
+            ("duplicate call IDs", [user, ["role": "assistant", "content": [call("a", "A"), call("a", "B")]],
+                                    ["role": "tool", "content": [a]]]),
+            ("empty call ID", [user, ["role": "assistant", "content": [call("", "A")]],
+                              ["role": "tool", "content": [result("", "wrong")]]]),
+        ]
+        for (label, prompt) in invalid {
+            if case .failure = GatewayDialect.mapPrompt(prompt) { c.expect(label + " is refused", true) }
+            else { c.expect(label + " is refused", false) }
+        }
+        return c.report()
+    }
+
+    /// AI SDK v4 keeps a tagged inline-data object on the Gateway wire.
+    static func gatewayV4Images() -> CheckReport {
+        var c = CheckBuilder("gateway-v4-images")
+        let png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a54cAAAAASUVORK5CYII="
+        let dataURL = "data:image/png;base64," + png
+        func image(_ data: Any, media: String = "image/png") -> [String: Any] {
+            ["type": "file", "mediaType": media, "data": data]
+        }
+        let accepted: [(String, Any, String)] = [
+            ("legacy base64", png, png),
+            ("legacy data URL", dataURL, dataURL),
+            ("v4 base64", ["type": "data", "data": png], png),
+            ("v4 data URL", ["type": "data", "data": dataURL], dataURL),
+        ]
+        for (label, data, expected) in accepted {
+            switch GatewayDialect.mapPrompt([["role": "user", "content": [image(data)]]]) {
+            case .success(let mapped): c.equal(label + " preserves inline source", mapped.first?.images ?? [], [expected])
+            case .failure(let failure): c.expect(label + " parses", false, failure.message)
+            }
+        }
+        let mixed: [[String: Any]] = [["role": "user", "content": [
+            ["type": "text", "text": "first"], image(["type": "data", "data": png]),
+            ["type": "text", "text": "second"], image(dataURL),
+        ]]]
+        if case .success(let mapped) = GatewayDialect.mapPrompt(mixed) {
+            c.equal("mixed images retain their order", mapped.first?.images ?? [], [png, dataURL])
+            c.equal("text beside tagged images survives", mapped.first?.content ?? "", "first\nsecond")
+        } else { c.expect("mixed text and pictures parse", false) }
+        let refused: [(String, Any)] = [
+            ("remote URL", ["type": "url", "url": "https://example.com/a.png"]),
+            ("provider reference", ["type": "reference", "reference": ["provider": "file-id"]]),
+            ("text data", ["type": "text", "text": png]),
+            ("untyped object", ["data": png]),
+            ("missing bytes", ["type": "data"]),
+            ("empty bytes", ["type": "data", "data": ""]),
+            ("non-string bytes", ["type": "data", "data": 1]),
+            ("nested bytes", ["type": "data", "data": ["type": "data", "data": png]]),
+        ]
+        for (label, data) in refused {
+            c.equal(label + " is refused",
+                    failureCode(fxBody(prompt: [["role": "user", "content": [image(data)]]])), "unsupported_file_part")
+        }
+        c.equal("tagged non-image still refused", failureCode(fxBody(prompt: [["role": "user", "content": [
+            image(["type": "data", "data": png], media: "application/pdf"),
+        ]]])), "unsupported_file_part")
         return c.report()
     }
 
@@ -739,7 +851,7 @@ extension Catalogue {
         // A JSON tool result carrying a null becomes text, so it can never
         // reach the bridge, but the text must still say null.
         if case .success(let r) = GatewayDialect.parse(
-            fxBody(prompt: user + [[
+            fxBody(prompt: Array(withNullArgs.prefix(2)) + [[
                 "role": "tool",
                 "content": [[
                     "type": "tool-result", "toolCallId": "c1", "toolName": "terminal",

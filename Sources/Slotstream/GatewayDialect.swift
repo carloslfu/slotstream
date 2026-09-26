@@ -232,9 +232,17 @@ public enum GatewayDialect {
         var out: [ChatMessage] = []
         var systems: [String] = []
         var sawNonSystem = false
+        var pending: [String: String] = [:]
+        var pendingOrder: [String] = []
+        var pendingResults: [String: ChatMessage] = [:]
+        var callIDs = Set<String>()
 
         for (i, m) in raw.enumerated() {
             let role = m["role"] as? String ?? ""
+            if role != "tool" && !pending.isEmpty {
+                return .failure(Failure("invalid_tool_result",
+                    "prompt[\(i)]: supply results for outstanding tool calls before another message"))
+            }
             switch role {
             case "system":
                 // The template renders one system turn and rejects a later one,
@@ -268,7 +276,15 @@ public enum GatewayDialect {
                                     "prompt[\(i)]: this model reads images; a `file` part of type "
                                         + "'\(media.isEmpty ? "unknown" : media)' is not supported"))
                         }
-                        guard let data = p["data"] as? String, !data.isEmpty else {
+                        // v4 wraps inline bytes in {type: "data", data: ...}.
+                        // The Gateway SDK base64-encodes the inner bytes and
+                        // preserves the wrapper. Older fx clients sent a bare
+                        // string, which remains accepted. URL/reference/text
+                        // variants still cannot be read by this server.
+                        let tagged = p["data"] as? [String: Any]
+                        let data = (p["data"] as? String)
+                            ?? (tagged?["type"] as? String == "data" ? tagged?["data"] as? String : nil)
+                        guard let data, !data.isEmpty else {
                             return .failure(
                                 Failure(
                                     "unsupported_file_part",
@@ -299,6 +315,10 @@ public enum GatewayDialect {
                     case "tool-call":
                         let id = p["toolCallId"] as? String ?? ""
                         let name = p["toolName"] as? String ?? ""
+                        guard !id.isEmpty, !name.isEmpty, callIDs.insert(id).inserted else {
+                            return .failure(Failure("invalid_tool_call",
+                                "prompt[\(i)]: tool calls need unique nonempty IDs and names"))
+                        }
                         // `input` is a JSON string in the specification, but fx
                         // sends the object; both are accepted.
                         var args: [String: JSONValue] = [:]
@@ -313,6 +333,8 @@ public enum GatewayDialect {
                         }
                         calls.append(
                             ParsedToolCall(id: id, name: name, arguments: args, order: order))
+                        pending[id] = name
+                        pendingOrder.append(id)
                     default:
                         return .failure(
                             Failure(
@@ -335,13 +357,28 @@ public enum GatewayDialect {
                                 "unsupported_part",
                                 "prompt[\(i)]: a tool message carries `tool-result` parts only"))
                     }
+                    guard let id = p["toolCallId"] as? String, let name = pending[id],
+                          pendingResults[id] == nil else {
+                        return .failure(Failure("invalid_tool_result",
+                            "prompt[\(i)]: a tool result must answer an outstanding toolCallId exactly once"))
+                    }
+                    if let supplied = p["toolName"], supplied as? String != name {
+                        return .failure(Failure("invalid_tool_result",
+                            "prompt[\(i)]: tool result name does not match its call"))
+                    }
                     switch toolResultText(p["output"]) {
                     case .success(let text):
-                        out.append(
-                            ChatMessage(
-                                role: "tool", content: text,
-                                toolCallId: p["toolCallId"] as? String,
-                                toolName: p["toolName"] as? String))
+                        pendingResults[id] = ChatMessage(
+                            role: "tool", content: text, toolCallId: id, toolName: name)
+                        pending.removeValue(forKey: id)
+                        // The native template omits IDs and pairs results
+                        // positionally. Wait for the complete group, even if
+                        // it spans tool messages, then restore call order.
+                        if pending.isEmpty {
+                            out.append(contentsOf: pendingOrder.map { pendingResults[$0]! })
+                            pendingOrder.removeAll()
+                            pendingResults.removeAll()
+                        }
                     case .failure(let e): return .failure(e)
                     }
                 }
@@ -351,6 +388,9 @@ public enum GatewayDialect {
             }
         }
 
+        guard pending.isEmpty else {
+            return .failure(Failure("invalid_tool_result", "prompt is missing results for tool calls"))
+        }
         if out.last?.role == "assistant" {
             return .failure(
                 Failure(
