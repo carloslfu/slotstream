@@ -177,6 +177,16 @@ public final class PersistentPrefixCache {
 
     // MARK: opening
 
+    /// A file the system would not let the cache read, for a reason other
+    /// than its format: permissions or an I/O error. Its state may still be
+    /// valid, so opening keeps it and refuses the directory instead of
+    /// indexing without it or deleting it.
+    public struct UnreadableFile: Error, CustomStringConvertible {
+        public let name: String
+        public let reason: String
+        public var description: String { reason.contains(name) ? reason : "prefix cache file \(name): \(reason)" }
+    }
+
     private func openDirectory() throws -> Maintenance {
         let directory = configuration.directory
         var result = Maintenance()
@@ -207,6 +217,8 @@ public final class PersistentPrefixCache {
                 }
             } catch is PersistentPrefixFileError {
                 discard(name, Self.fileSize(path), \.unreadable)
+            } catch {
+                throw UnreadableFile(name: name, reason: "\(error)")
             }
         }
         let now = Self.now()
@@ -675,6 +687,7 @@ extension PersistentPrefixCache {
         }
         var files = 0
         var bytes: Int64 = 0
+        var failures: [String] = []
         for name in try FileManager.default.contentsOfDirectory(atPath: directory.path) where isStateFile(name) {
             let path = directory.appendingPathComponent(name).path
             let size = fileSize(path)
@@ -682,11 +695,15 @@ extension PersistentPrefixCache {
                 files += 1
                 bytes += size
             } else {
+                // An erase removes every file it can, then names each one it
+                // could not, rather than stopping at the first.
                 let code = errno
-                if code != ENOENT {
-                    throw ModelError("cannot remove prefix cache file \(path): \(String(cString: strerror(code)))")
-                }
+                if code != ENOENT { failures.append("\(path): \(String(cString: strerror(code)))") }
             }
+        }
+        guard failures.isEmpty else {
+            throw ModelError("removed \(files) prefix cache file\(files == 1 ? "" : "s") but could not remove "
+                + "\(failures.count): " + failures.joined(separator: "; "))
         }
         return (files, bytes)
     }

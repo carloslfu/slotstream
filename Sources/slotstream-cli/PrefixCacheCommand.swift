@@ -85,7 +85,9 @@ struct PrefixCacheCommand: ParsableCommand {
         }
         if report.unreadableFiles > 0 {
             print("  \(report.unreadableFiles) unreadable file\(report.unreadableFiles == 1 ? "" : "s") "
-                + "(\(Self.gigabytes(report.unreadableBytes))), removed when a current build opens the directory")
+                + "(\(Self.gigabytes(report.unreadableBytes))): a damaged file is removed when a current build opens "
+                + "the directory; one the system refuses to read is kept, and servers run without the disk cache "
+                + "until it is fixed or cleared")
         }
     }
 

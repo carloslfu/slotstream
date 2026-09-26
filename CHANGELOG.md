@@ -18,6 +18,41 @@ determines which version the installer downloads.
   170 MB, within the same quota. Measured by
   [@jasen215](https://github.com/jasen215) in
   [#17](https://github.com/carloslfu/slotstream/issues/17).
+- `slotstream parity --compare` refuses a NaN or infinite value instead of
+  printing `PARITY PASS`. Swift's `max` drops a NaN, so such a dump could
+  pass. By [@Pybsama](https://github.com/Pybsama) in
+  [#31](https://github.com/carloslfu/slotstream/pull/31).
+- `/v1/responses` accepts its own output replayed after parallel tool calls.
+  The model writes a newline between calls, which streams as a message item
+  between them, and a client replaying that output, as Codex does, got a
+  400. By [@Pybsama](https://github.com/Pybsama) in
+  [#32](https://github.com/carloslfu/slotstream/pull/32).
+- Raw downloads (`--transport raw`, source overrides and resumed legacy
+  downloads) honor a server's `Retry-After` and `RateLimit` headers, as
+  compressed downloads have since 0.2.11, instead of retrying after 2 to 8
+  seconds. Each wait is capped at 10 minutes. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#33](https://github.com/carloslfu/slotstream/pull/33).
+- `slotstream prefix-cache --clear` names every file it could not remove and
+  exits with an error, instead of reporting only the files it removed. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#34](https://github.com/carloslfu/slotstream/pull/34).
+- Control+C while `slotstream pull`, or the download `run`, `serve` and
+  `launch` offer on first use, fetches the decode-forecast file now stops
+  the command with exit code 130. The fetch caught the cancellation, so
+  `pull` reported ready and the others went on to load the model. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#36](https://github.com/carloslfu/slotstream/pull/36).
+- Opening the prefix cache directory keeps a file the system refuses to
+  read, because of its permissions or an I/O error, instead of deleting it
+  and the states that depend on it; damaged files are still removed. `serve`
+  then runs without the disk cache and names the file. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#37](https://github.com/carloslfu/slotstream/pull/37).
+- `/v1/messages` joins consecutive messages of one role into one turn, as
+  the Messages API does, so tool results split across adjacent user messages
+  are accepted. By [@Pybsama](https://github.com/Pybsama) in
+  [#40](https://github.com/carloslfu/slotstream/pull/40).
 
 ## 0.2.25 - 2026-09-24
 

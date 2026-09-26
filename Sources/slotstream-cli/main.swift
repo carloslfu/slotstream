@@ -725,8 +725,20 @@ struct Serve: ParsableCommand {
                 "prefix cache: off — every request re-prefills its whole prompt\n"
                     .data(using: .utf8)!)
         }
+        var diskTier: PersistentPrefixCache?
         if let persistentConfiguration {
-            let tier = try engine.enablePersistentPrefixCache(persistentConfiguration)
+            do {
+                diskTier = try engine.enablePersistentPrefixCache(persistentConfiguration)
+            } catch let error as PersistentPrefixCache.UnreadableFile {
+                // A file the system refused to read may still hold a valid
+                // state, so keep it and serve from the memory tier instead of
+                // refusing to start.
+                FileHandle.standardError.write(
+                    ("prefix cache disk: off, \(error). The files are kept: fix that file's permissions or run "
+                        + "`slotstream prefix-cache --clear`, then restart the server.\n").data(using: .utf8)!)
+            }
+        }
+        if let persistentConfiguration, let tier = diskTier {
             tier.onEvent = { line in
                 let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
                 FileHandle.standardError.write("[\(stamp)] prefix cache disk: \(line)\n".data(using: .utf8)!)

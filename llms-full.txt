@@ -1992,7 +1992,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 | `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
-| `--prefix-cache-dir <dir>` | Also keep conversation states on disk, so a restarted server, or a conversation longer than the in-memory cache holds, resumes from its last committed state instead of processing its prompt again. Off unless set. A state is written after its reply completes. The first write stores the fixed recurrent state and every cached token; each later turn writes the recurrent state plus only the tokens it added, keeps the previous turn's state so that reply can still be regenerated after a restart, and removes older states of the conversation. Files hold the conversation's token ids and model state and are used only by the same binary, model files and settings that wrote them; starting the server removes files from other builds. Requests with images are not written. The prefix conversations share is written too: when a prompt's system message ends 512 tokens or more in, or a prompt shares at least 512 tokens with a state already kept, that head is stored during the prompt's own prefill, rounded down to the prefill pass grid, the 256-token grid by default, so the next conversation with the same system prompt resumes from it, in the same process or after a restart. A shared prefix is kept once, is never replaced by the conversations that extend it, and is listed as such. `slotstream prefix-cache` lists or clears the directory. |
+| `--prefix-cache-dir <dir>` | Also keep conversation states on disk, so a restarted server, or a conversation longer than the in-memory cache holds, resumes from its last committed state instead of processing its prompt again. Off unless set. A state is written after its reply completes. The first write stores the fixed recurrent state and every cached token; each later turn writes the recurrent state plus only the tokens it added, keeps the previous turn's state so that reply can still be regenerated after a restart, and removes older states of the conversation. Files hold the conversation's token ids and model state and are used only by the same binary, model files and settings that wrote them; starting the server removes files from other builds. Requests with images are not written. The prefix conversations share is written too: when a prompt's system message ends 512 tokens or more in, or a prompt shares at least 512 tokens with a state already kept, that head is stored during the prompt's own prefill, rounded down to the prefill pass grid, the 256-token grid by default, so the next conversation with the same system prompt resumes from it, in the same process or after a restart. A shared prefix is kept once, is never replaced by the conversations that extend it, and is listed as such. A file the system cannot read is kept, and the server runs without the disk cache until the file is fixed or the directory cleared. `slotstream prefix-cache` lists or clears the directory. |
 | `--prefix-cache-disk-gb <gb>` | Disk quota for `--prefix-cache-dir` (default 20), applied at startup and before each write. When it is full, states nobody continued go first, then previous-turn states kept for regenerating, then conversations, then the prefixes several conversations start from, least recently used first within each. |
 | `--prefix-cache-min-tokens <n>` | Shortest state written to `--prefix-cache-dir` (default 1024 tokens), for conversation states and shared prefixes alike; a shorter shared prefix is still kept in memory. |
 | `--prefix-cache-max-age-days <days>` | Remove states in `--prefix-cache-dir` unused for this many days (default 30), at startup and before writes. `0` keeps them until the quota needs room. |
@@ -2717,8 +2717,8 @@ type returns 400, and other fields, such as `cache_control`, are ignored.
 Headers such as `anthropic-version` and `anthropic-beta` are not required
 and have no effect.
 
-Messages alternate between `user` and `assistant`; consecutive assistant
-messages are joined. User content is text or blocks: `text`, `image` (a
+Messages alternate between `user` and `assistant`; consecutive messages of
+one role are joined into one turn, as the Messages API treats them. User content is text or blocks: `text`, `image` (a
 `base64` source in JPEG, PNG, GIF or WebP; see [Images](#images)),
 `document`, `search_result` (read as its title, source and text), and
 `tool_result`. A `document` with a plain-text source is read inline; a PDF,
@@ -2733,8 +2733,9 @@ markers have no effect: the server reuses prompts on its own. Image `url` and
 `file` sources return 400, and so does a conversation that ends with an
 assistant message, except in a token count.
 
-Every `tool_use` needs a `tool_result` with its id in the next user message,
-and the results may come in any order. A result's content is text or `text`,
+Every `tool_use` needs a `tool_result` with its id in the next user turn,
+which may span consecutive user messages, and the results may come in any
+order. A result's content is text or `text`,
 `image`, `document`, `search_result` and `tool_reference` blocks (read as
 `Tool available: <name>`); `is_error: true` prefixes the text with `Error:`.
 Tools use `name`, `description` and `input_schema`. Server tools the API runs
@@ -3286,7 +3287,10 @@ used first. `maxAge`
 (30 days by default, `nil` to keep states until the quota needs room) removes
 unused states. Opening the directory removes files from other binaries, models
 or settings, expired and damaged files, and anything over the quota;
-`tier.maintenance` reports what it removed.
+`tier.maintenance` reports what it removed. A file the system refuses to read,
+because of its permissions or an I/O error, is kept: opening throws
+`PersistentPrefixCache.UnreadableFile`, which names it, and `slotstream serve`
+then runs without the disk tier.
 
 The prefix conversations share is kept too, with or without the disk tier.
 While a prompt is processed, the head other conversations will start with is
@@ -5987,6 +5991,41 @@ determines which version the installer downloads.
   170 MB, within the same quota. Measured by
   [@jasen215](https://github.com/jasen215) in
   [#17](https://github.com/carloslfu/slotstream/issues/17).
+- `slotstream parity --compare` refuses a NaN or infinite value instead of
+  printing `PARITY PASS`. Swift's `max` drops a NaN, so such a dump could
+  pass. By [@Pybsama](https://github.com/Pybsama) in
+  [#31](https://github.com/carloslfu/slotstream/pull/31).
+- `/v1/responses` accepts its own output replayed after parallel tool calls.
+  The model writes a newline between calls, which streams as a message item
+  between them, and a client replaying that output, as Codex does, got a
+  400. By [@Pybsama](https://github.com/Pybsama) in
+  [#32](https://github.com/carloslfu/slotstream/pull/32).
+- Raw downloads (`--transport raw`, source overrides and resumed legacy
+  downloads) honor a server's `Retry-After` and `RateLimit` headers, as
+  compressed downloads have since 0.2.11, instead of retrying after 2 to 8
+  seconds. Each wait is capped at 10 minutes. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#33](https://github.com/carloslfu/slotstream/pull/33).
+- `slotstream prefix-cache --clear` names every file it could not remove and
+  exits with an error, instead of reporting only the files it removed. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#34](https://github.com/carloslfu/slotstream/pull/34).
+- Control+C while `slotstream pull`, or the download `run`, `serve` and
+  `launch` offer on first use, fetches the decode-forecast file now stops
+  the command with exit code 130. The fetch caught the cancellation, so
+  `pull` reported ready and the others went on to load the model. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#36](https://github.com/carloslfu/slotstream/pull/36).
+- Opening the prefix cache directory keeps a file the system refuses to
+  read, because of its permissions or an I/O error, instead of deleting it
+  and the states that depend on it; damaged files are still removed. `serve`
+  then runs without the disk cache and names the file. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#37](https://github.com/carloslfu/slotstream/pull/37).
+- `/v1/messages` joins consecutive messages of one role into one turn, as
+  the Messages API does, so tool results split across adjacent user messages
+  are accepted. By [@Pybsama](https://github.com/Pybsama) in
+  [#40](https://github.com/carloslfu/slotstream/pull/40).
 
 ## 0.2.25 - 2026-09-24
 

@@ -292,8 +292,8 @@ type returns 400, and other fields, such as `cache_control`, are ignored.
 Headers such as `anthropic-version` and `anthropic-beta` are not required
 and have no effect.
 
-Messages alternate between `user` and `assistant`; consecutive assistant
-messages are joined. User content is text or blocks: `text`, `image` (a
+Messages alternate between `user` and `assistant`; consecutive messages of
+one role are joined into one turn, as the Messages API treats them. User content is text or blocks: `text`, `image` (a
 `base64` source in JPEG, PNG, GIF or WebP; see [Images](#images)),
 `document`, `search_result` (read as its title, source and text), and
 `tool_result`. A `document` with a plain-text source is read inline; a PDF,
@@ -308,8 +308,9 @@ markers have no effect: the server reuses prompts on its own. Image `url` and
 `file` sources return 400, and so does a conversation that ends with an
 assistant message, except in a token count.
 
-Every `tool_use` needs a `tool_result` with its id in the next user message,
-and the results may come in any order. A result's content is text or `text`,
+Every `tool_use` needs a `tool_result` with its id in the next user turn,
+which may span consecutive user messages, and the results may come in any
+order. A result's content is text or `text`,
 `image`, `document`, `search_result` and `tool_reference` blocks (read as
 `Tool available: <name>`); `is_error: true` prefixes the text with `Error:`.
 Tools use `name`, `description` and `input_schema`. Server tools the API runs
