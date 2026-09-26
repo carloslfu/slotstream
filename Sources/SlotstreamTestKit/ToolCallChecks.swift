@@ -51,6 +51,9 @@ extension Catalogue {
             Check("toolcall-check", tier: .t0) { toolCallParsing() },
             Check("toolcall-stream-check", tier: .t0) { toolCallStreaming() },
             Check("toolcall-coercion", tier: .t0) { toolCallCoercion() },
+            Check("tool-schema-refs", tier: .t0) { toolSchemaRefs() },
+            Check("tool-schema-ref-output", tier: .t0) { toolSchemaRefOutput() },
+            Check("tool-schema-ref-dialects", tier: .t0) { try toolSchemaRefDialects() },
         ]
     }
 
@@ -302,6 +305,195 @@ extension Catalogue {
         c.equal(
             "string: quotes and backslashes escaped",
             coerce("\nsay \"hi\"\\\n", .string), #""say \"hi\"\\""#)
+        return c.report()
+    }
+
+    static let referencedToolParameters: JSONValue = .object([
+        "type": .string("object"),
+        "$defs": .object(["Text": .object(["type": .string("string")])]),
+        "properties": .object(["value": .object(["$ref": .string("#/$defs/Text")])]),
+    ])
+
+    static func toolSchemaRefs() -> CheckReport {
+        var c = CheckBuilder("tool-schema-refs")
+        func kind(_ field: JSONValue, definitions: [String: JSONValue] = [:]) -> ToolParamKind? {
+            ToolDefinition(name: "echo", description: "", parameters: .object([
+                "$defs": .object(definitions), "properties": .object(["value": field]),
+            ])).schema.params["value"]
+        }
+        func ref(_ pointer: String) -> JSONValue { .object(["$ref": .string(pointer)]) }
+        let string: JSONValue = .object(["type": .string("string")])
+        let defs: [String: JSONValue] = [
+            "Text": string, "Alias": ref("#/$defs/Text"),
+            "a/b~c": string, "~1": string, "white space": string, "雪": string, "": string,
+            "Nullable": .object(["anyOf": .array([ref("#/$defs/Text"), .object(["type": .string("null")])])]),
+            "Null": .object(["type": .string("null")]),
+            "List": .array([string]),
+            "Self": ref("#/$defs/Self"), "A": ref("#/$defs/B"), "B": ref("#/$defs/A"),
+            "Scalar": .string("string"), "BooleanSchema": .bool(true),
+            "Resource": .object(["$id": .string("other.json"), "$defs": .object(["Text": string]),
+                "properties": .object(["text": ref("#/$defs/Text")])]),
+        ]
+        for pointer in ["#/$defs/Text", "#/$defs/Alias", "#/$defs/a~1b~0c", "#/$defs/~01",
+                        "#/$defs/white%20space", "#/$defs/%E9%9B%AA", "#/$defs/", "#/$defs/List/0",
+                        "#/%24defs/Text", "#/$defs/Nullable"] {
+            c.equal("local pointer resolves: \(pointer)", kind(ref(pointer), definitions: defs), .string)
+        }
+        for pointer in ["#/$defs/Missing", "#/$defs/Self", "#/$defs/A", "#anchor", "other.json#/$defs/Text",
+                        "https://example.invalid/schema", "#/$defs/Scalar", "#/$defs/BooleanSchema",
+                        "#/$defs/List/00", "#/$defs/List/-", "#/$defs/List/1", "#/$defs/a~2b",
+                        "#/$defs/white%ZZspace", "#/$defs/Resource", "#/$defs/Resource/properties/text"] {
+            c.equal("unsupported pointer stays unknown: \(pointer)", kind(ref(pointer), definitions: defs), .unknown)
+        }
+        c.equal("nullable anyOf resolves referenced null and string", kind(.object([
+            "anyOf": .array([ref("#/$defs/Text"), ref("#/$defs/Null")]),
+        ]), definitions: defs), .string)
+        c.equal("mixed anyOf remains ambiguous", kind(.object([
+            "anyOf": .array([ref("#/$defs/Text"), .object(["type": .string("number")])]),
+        ]), definitions: defs), .unknown)
+        c.equal("repeated union branches do not become a single type", kind(.object([
+            "anyOf": .array([ref("#/$defs/Text"), ref("#/$defs/Text")]),
+        ]), definitions: defs), .unknown)
+        c.equal("ref annotations do not hide its type", kind(.object([
+            "$ref": .string("#/$defs/Text"), "description": .string("Text"), "default": .null,
+        ]), definitions: defs), .string)
+        c.equal("conflicting ref siblings are not guessed", kind(.object([
+            "$ref": .string("#/$defs/Text"), "type": .string("number"),
+        ]), definitions: defs), .unknown)
+        c.equal("ref composition is not flattened", kind(.object([
+            "$ref": .string("#/$defs/Text"), "allOf": .array([string]),
+        ]), definitions: defs), .unknown)
+        c.equal("a local id changes the reference resource", kind(.object([
+            "$id": .string("other.json"), "$ref": .string("#/$defs/Text"),
+        ]), definitions: defs), .unknown)
+        for id in ["$id", "id"] {
+            c.equal("\(id) does not hide a direct type", kind(.object([
+                id: .string("other.json"), "type": .string("string"),
+            ])), .string)
+            c.equal("\(id) does not hide direct nullable types", kind(.object([
+                id: .string("other.json"), "anyOf": .array([string, .object(["type": .string("null")])]),
+            ])), .string)
+            c.equal("\(id) prevents nested anyOf references from using the outer resource", kind(.object([
+                id: .string("other.json"), "anyOf": .array([ref("#/$defs/Text"), .object(["type": .string("null")])]),
+            ]), definitions: defs), .unknown)
+            c.equal("definition named \(id) is not a resource boundary",
+                kind(ref("#/$defs/Text"), definitions: [id: string, "Text": string]), .string)
+        }
+        c.equal("pointer matches exact Unicode code points",
+            kind(ref("#/$defs/e\u{0301}"), definitions: ["é": string]), .unknown)
+        c.equal("exact decomposed Unicode key resolves",
+            kind(ref("#/$defs/e\u{0301}"), definitions: ["e\u{0301}": string]), .string)
+        for (key, pointer) in [("tilde~\u{0301}key", "#/$defs/tilde~0\u{0301}key"),
+                               ("slash/\u{0301}key", "#/$defs/slash~1\u{0301}key"),
+                               ("\u{0301}leading", "#/$defs/\u{0301}leading")] {
+            c.equal("pointer grammar uses code points: \(pointer)",
+                kind(ref(pointer), definitions: [key: string]), .string)
+        }
+        var deep = string
+        for _ in 0..<200 { deep = .object(["anyOf": .array([deep, .object(["type": .string("null")])])]) }
+        c.equal("excessive nesting is bounded", kind(deep), .unknown)
+        var chain: [String: JSONValue] = ["200": string]
+        for i in 0..<200 { chain[String(i)] = ref("#/$defs/\(i + 1)") }
+        c.equal("excessive ref chain is bounded", kind(ref("#/$defs/0"), definitions: chain), .unknown)
+
+        let parameters: JSONValue = .object([
+            "$id": .string("https://example.invalid/tool"), "$ref": .string("#/definitions/Params"),
+            "definitions": .object(["Text": string, "Params": .object([
+                "type": .string("object"), "properties": .object([
+                    "first": ref("#/definitions/Text"), "second": ref("#/definitions/Text"),
+                    "recursive": ref("#"),
+                ]),
+            ])]),
+        ])
+        let tool = ToolDefinition(name: "echo", description: "", parameters: parameters)
+        c.equal("root ref and legacy definitions", tool.schema.params["first"], .string)
+        c.equal("independent properties may share references", tool.schema.params["second"], .string)
+        c.equal("recursive object needs no recursive value coercion", tool.schema.params["recursive"], .object)
+        let template = tool.templateValue["function"] as? [String: any Sendable]
+        let templateParameters = template?["parameters"]
+            .flatMap { try? JSONSerialization.data(withJSONObject: $0, options: [.sortedKeys]) }
+        let originalParameters = try? JSONSerialization.data(withJSONObject: parameters.any, options: [.sortedKeys])
+        c.expect("original schema document serializes", originalParameters != nil)
+        c.equal("prompt retains the original schema document", templateParameters, originalParameters)
+        c.equal("root ref loop terminates", ToolDefinition(name: "echo", description: "",
+            parameters: ref("#")).schema.params, [:])
+        return c.report()
+    }
+
+    static func toolSchemaRefOutput() -> CheckReport {
+        var c = CheckBuilder("tool-schema-ref-output")
+        let cases: [(ToolParamKind, String, JSONValue)] = [
+            (.string, "00123", .string("00123")), (.string, "false", .string("false")),
+            (.string, #"{"flag":true}"#, .string(#"{"flag":true}"#)),
+            (.string, " \t雪🙂\nnext\n", .string(" \t雪🙂\nnext\n")),
+            (.number, "1.25", .double(1.25)), (.number, "1e-3", .double(0.001)),
+            (.integer, "42", .int(42)), (.boolean, "false", .bool(false)),
+            (.object, #"{"code":"00123","flag":"false","nested":["1",null]}"#,
+                .object(["code": .string("00123"), "flag": .string("false"), "nested": .array([.string("1"), .null])])),
+            (.array, #"["00123","false",{"code":"00123"}]"#,
+                .array([.string("00123"), .string("false"), .object(["code": .string("00123")])])),
+        ]
+        for (type, raw, expected) in cases {
+            let scalar: JSONValue = .object(["type": .string(type.rawValue)])
+            let direct = ToolDefinition(name: "echo", description: "", parameters: .object([
+                "properties": .object(["value": scalar]),
+            ]))
+            let referenced = ToolDefinition(name: "echo", description: "", parameters: .object([
+                "$defs": .object(["Value": scalar]), "properties": .object([
+                    "value": .object(["anyOf": .array([.object(["$ref": .string("#/$defs/Value")]),
+                        .object(["type": .string("null")])])]),
+                ]),
+            ]))
+            c.equal("\(type): referenced type is retained", referenced.schema.params["value"], type)
+            let xml = "<tool_call>\n<function=echo>\n<parameter=value>\n\(raw)\n</parameter>\n</function>\n</tool_call>"
+            let whole = ToolCallSplitter.parseAll(xml, tools: [direct.schema], idFactory: countingIDs())
+            let chars = Array(xml)
+            var mismatches = 0
+            for cut in 0...chars.count {
+                let parser = ToolCallSplitter(tools: [referenced.schema], idFactory: countingIDs())
+                let events = parser.push(String(chars[..<cut])) + parser.push(String(chars[cut...])) + parser.flush()
+                if normalize(events) != normalize(whole) { mismatches += 1 }
+            }
+            c.equal("\(type)/\(raw): every split matches direct type", mismatches, 0)
+            let parser = ToolCallSplitter(tools: [referenced.schema], idFactory: countingIDs())
+            let events = chars.flatMap { parser.push(String($0)) } + parser.flush()
+            c.equal("\(type)/\(raw): character stream matches direct type", normalize(events), normalize(whole))
+            let call = events.compactMap { if case .toolCall(let call) = $0 { return call }; return nil }.first
+            c.equal("\(type)/\(raw): value retains JSON type and contents", call?.arguments["value"], expected)
+            let deltas = events.compactMap { if case .toolInputDelta(_, let delta) = $0 { return delta }; return nil }.joined()
+            c.equal("\(type)/\(raw): streamed JSON equals final input", call?.inputJSON, deltas)
+        }
+        return c.report()
+    }
+
+    static func toolSchemaRefDialects() throws -> CheckReport {
+        var c = CheckBuilder("tool-schema-ref-dialects")
+        let schema = referencedToolParameters.any
+        let function: [String: Any] = ["name": "echo", "parameters": schema]
+        let openAI = try OpenAIDialect.conversation([
+            "messages": [["role": "user", "content": "echo"]],
+            "tools": [["type": "function", "function": function]],
+        ], contextLimit: 32768).tools
+        let responses = try ResponsesDialect.parse([
+            "input": "echo", "tools": [function.merging(["type": "function"]) { _, new in new }],
+        ]).tools
+        let anthropic = try AnthropicDialect.parse([
+            "model": "m", "max_tokens": 16, "messages": [["role": "user", "content": "echo"]],
+            "tools": [["name": "echo", "input_schema": schema]],
+        ]).tools
+        let gateway = try GatewayDialect.parse([
+            "prompt": [["role": "user", "content": [["type": "text", "text": "echo"]]]],
+            "tools": [["type": "function", "name": "echo", "inputSchema": schema]],
+        ], modelID: "m").get().tools
+        for (name, tools) in [("OpenAI", openAI), ("Responses", responses), ("Anthropic", anthropic), ("Gateway", gateway)] {
+            c.equal("\(name): raw schema is retained", tools.first?.parameters, referencedToolParameters)
+            c.equal("\(name): local reference reaches type inference", tools.first?.schema.params["value"], .string)
+            let events = ToolCallSplitter.parseAll(
+                "<tool_call>\n<function=echo>\n<parameter=value>\n00123\n</parameter>\n</function>\n</tool_call>",
+                tools: tools.map(\.schema))
+            let call = events.compactMap { if case .toolCall(let call) = $0 { return call }; return nil }.first
+            c.equal("\(name): argument bytes survive", call?.arguments["value"], .string("00123"))
+        }
         return c.report()
     }
 

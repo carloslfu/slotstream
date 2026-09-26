@@ -547,66 +547,115 @@ public struct ToolDefinition: Sendable {
     }
 
     /// The parameter types, including a single non-null type expressed through
-    /// `type: ["string", "null"]` or `anyOf`. Genuine unions and unrecognized
-    /// declarations stay `.unknown`. A nullable string must retain its bytes
-    /// and stream just like the equivalent scalar string declaration.
+    /// `type: ["string", "null"]` or `anyOf`, and same-document JSON Pointer
+    /// references. Genuine unions and unsupported references stay `.unknown`.
+    /// The original schema remains intact for the prompt.
     public var schema: ToolSchema {
         var params: [String: ToolParamKind] = [:]
-        if case .object(let root) = parameters, case .object(let props)? = root["properties"] {
+        var inference = SchemaInference(document: parameters)
+        if let (root, _, referencesAllowed) = inference.resolve(parameters, isRoot: true),
+           case .object(let props)? = root["properties"] {
             for (key, value) in props {
-                guard case .object(let field) = value else {
-                    params[key] = .unknown
-                    continue
-                }
-                if let type = field["type"] {
-                    params[key] = Self.typeKind(type) ?? .unknown
-                } else if let resolved = Self.anyOfKind(field["anyOf"]) {
-                    // `anyOf: [{"type":"string"},{"type":"null"}]` is how fx
-                    // declares an optional string, and it is the shape of three
-                    // of the five required fields on its `terminal` tool. Left
-                    // as `.unknown` the coercion would read a numeric-looking
-                    // command or working directory as a number and fx would
-                    // reject the call, so a union of one real type plus null is
-                    // resolved to that type.
-                    params[key] = resolved
-                } else {
-                    params[key] = .unknown
-                }
+                // A shared definition used by another property is not a cycle.
+                var fieldInference = SchemaInference(document: parameters)
+                let types = fieldInference.types(value, referencesAllowed: referencesAllowed) ?? []
+                let concrete = types.filter { $0 != "null" }
+                params[key] = concrete.count == 1
+                    ? ToolParamKind(rawValue: concrete[0]) ?? .unknown : .unknown
             }
         }
         return ToolSchema(name: name, params: params)
     }
 
-    private static func typeKind(_ raw: JSONValue) -> ToolParamKind? {
-        if case .string(let type) = raw { return ToolParamKind(rawValue: type) }
-        guard case .array(let options) = raw else { return nil }
-        var types: [String] = []
-        for option in options {
-            guard case .string(let type) = option else { return nil }
-            types.append(type)
+    /// Type inference only: no validation, remote retrieval, anchors or resource
+    /// rebasing. A nested `$id` can change what `#` means, so it is not traversed.
+    private struct SchemaInference {
+        let document: JSONValue
+        // Bound schema visits AND pointer steps per property, including branching
+        // anyOf/ref graphs. Exhaustion keeps the existing unknown-type fallback;
+        // this is a defensive work limit, not a supported schema-depth promise.
+        var remaining = 128
+        private static let refSiblings: Set<String> = [
+            "$ref", "$defs", "definitions", "$schema", "$id", "$comment", "$anchor",
+            "title", "description", "default", "examples", "deprecated", "readOnly", "writeOnly",
+        ]
+
+        private static func hasResourceID(_ field: [String: JSONValue]) -> Bool {
+            // In a properties/$defs map, a key named "$id" holds a schema,
+            // not a URI. Do not mistake it for a resource identifier.
+            ["$id", "id"].contains { if case .string? = field[$0] { return true }; return false }
         }
-        return singleNonNullKind(types)
-    }
 
-    private static func singleNonNullKind(_ types: [String]) -> ToolParamKind? {
-        let concrete = types.filter { $0 != "null" }
-        guard concrete.count == 1 else { return nil }
-        return ToolParamKind(rawValue: concrete[0])
-    }
-
-    /// The single non-null type in an `anyOf`, when there is exactly one.
-    /// A genuine union of two real types stays `.unknown`, where the
-    /// conservative coercion is the right answer.
-    static func anyOfKind(_ raw: JSONValue?) -> ToolParamKind? {
-        guard case .array(let options)? = raw else { return nil }
-        var types: [String] = []
-        for option in options {
-            guard case .object(let o) = option, case .string(let t)? = o["type"] else {
-                return nil
+        mutating func resolve(_ value: JSONValue, visited: Set<[String]> = [],
+                             referencesAllowed: Bool = true, isRoot: Bool = false)
+            -> ([String: JSONValue], Set<[String]>, Bool)? {
+            guard remaining > 0, case .object(let field) = value else { return nil }
+            remaining -= 1
+            let canReference = referencesAllowed && (isRoot || !Self.hasResourceID(field))
+            // A resource ID does not affect a directly declared scalar type,
+            // but references anywhere beneath it need unsupported rebasing.
+            guard let reference = field["$ref"] else { return (field, visited, canReference) }
+            // Ref siblings have different semantics across schema drafts. Only
+            // annotations/definitions are safe here; do not merge constraints.
+            guard canReference, Set(field.keys).isSubset(of: Self.refSiblings),
+                  case .string(let ref) = reference, ref.unicodeScalars.first == "#",
+                  let pointer = String(ref.unicodeScalars.dropFirst()).removingPercentEncoding,
+                  pointer.isEmpty || pointer.unicodeScalars.first == "/" else { return nil }
+            var tokens: [String] = []
+            for raw in pointer.unicodeScalars.split(separator: "/", omittingEmptySubsequences: false).dropFirst() {
+                var token = ""
+                var characters = raw.makeIterator()
+                while let ch = characters.next() {
+                    if ch == "~" {
+                        guard let escaped = characters.next(), escaped == "0" || escaped == "1" else { return nil }
+                        token.unicodeScalars.append(escaped == "0" ? "~" : "/")
+                    } else { token.unicodeScalars.append(ch) }
+                }
+                tokens.append(token)
             }
-            types.append(t)
+            guard !visited.contains(tokens) else { return nil }
+            var target = document
+            for (index, token) in tokens.enumerated() {
+                guard remaining > 0 else { return nil }
+                remaining -= 1
+                switch target {
+                case .object(let object):
+                    // Do not cross an embedded resource on the way to a target.
+                    guard index == 0 || !Self.hasResourceID(object),
+                          let entryIndex = object.index(forKey: token) else { return nil }
+                    let (key, next) = object[entryIndex]
+                    // Swift String equality normalizes Unicode; JSON Pointer
+                    // requires the same code points, without normalization.
+                    guard key.utf8.elementsEqual(token.utf8) else { return nil }
+                    target = next
+                case .array(let array):
+                    guard let index = Int(token), String(index) == token,
+                          array.indices.contains(index) else { return nil }
+                    target = array[index]
+                default: return nil
+                }
+            }
+            if !tokens.isEmpty, case .object(let object) = target, Self.hasResourceID(object) { return nil }
+            return resolve(target, visited: visited.union([tokens]), isRoot: tokens.isEmpty)
         }
-        return singleNonNullKind(types)
+
+        mutating func types(_ value: JSONValue, visited: Set<[String]> = [], referencesAllowed: Bool = true) -> [String]? {
+            guard let (field, path, canReference) = resolve(value, visited: visited, referencesAllowed: referencesAllowed)
+            else { return nil }
+            if let type = field["type"] {
+                if case .string(let name) = type { return [name] }
+                guard case .array(let options) = type else { return nil }
+                let names = options.compactMap { if case .string(let name) = $0 { return name }; return nil }
+                return names.count == options.count ? names : nil
+            }
+            guard case .array(let options)? = field["anyOf"], !options.isEmpty else { return nil }
+            var names: [String] = []
+            for option in options {
+                guard let branch = types(option, visited: path, referencesAllowed: canReference) else { return nil }
+                names += branch
+            }
+            return names
+        }
     }
 
     /// The value the chat template expects in its `tools` list.
