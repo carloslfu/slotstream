@@ -356,6 +356,9 @@ public enum AnthropicDialect {
         var assistant: ChatMessage?
         var pending: [(id: String, name: String)] = []
         var toolIDs = Set<String>()
+        var userResults: [String: ChatMessage] = [:]
+        var userTexts: [String] = []
+        var userImages: [String] = []
         var started = false
 
         func flushAssistant() {
@@ -375,45 +378,52 @@ public enum AnthropicDialect {
             case "user":
                 flushAssistant()
                 started = true
-                var results: [String: ChatMessage] = [:]
-                var texts: [String] = []
-                var images: [String] = []
                 for (j, block) in blocks.enumerated() {
                     let label = "messages.\(i).content.\(j)"
                     switch block["type"] as? String ?? "" {
                     case "tool_result":
                         guard let id = block["tool_use_id"] as? String,
-                              let call = pending.first(where: { $0.id == id }), results[id] == nil else {
+                              let call = pending.first(where: { $0.id == id }), userResults[id] == nil else {
                             throw Failure("\(label): tool_result must answer a tool_use from the previous assistant message, once")
                         }
                         let result = try toolResult(block, at: label)
                         var m = ChatMessage(role: "tool", content: result.text, toolCallId: id, toolName: call.name)
                         m.images = result.images
-                        results[id] = m
+                        userResults[id] = m
                     case "text":
-                        texts.append(try text(block, at: label))
+                        userTexts.append(try text(block, at: label))
                     case "image":
-                        images.append(try imageSource(block, at: label))
+                        userImages.append(try imageSource(block, at: label))
                     case "document":
-                        texts.append(try documentText(block, at: label))
+                        userTexts.append(try documentText(block, at: label))
                     case "search_result":
-                        texts.append(try searchResultText(block, at: label))
+                        userTexts.append(try searchResultText(block, at: label))
                     case let other:
                         throw Failure("\(label): content type '\(other)' is not supported in a user message")
                     }
                 }
+                // Validate and emit a whole user turn, even when its results
+                // arrive in several adjacent messages. Parsing each message
+                // above keeps errors at their original content-block index.
+                if i + 1 < list.count, (list[i + 1] as? [String: Any])?["role"] as? String == "user" {
+                    continue
+                }
                 if !pending.isEmpty {
-                    guard pending.allSatisfy({ results[$0.id] != nil }) else { throw unanswered(i) }
-                    out.append(contentsOf: pending.map { results[$0.id]! })
+                    guard pending.allSatisfy({ userResults[$0.id] != nil }) else { throw unanswered(i) }
+                    out.append(contentsOf: pending.map { userResults[$0.id]! })
                     pending.removeAll()
                 }
-                if !texts.isEmpty || !images.isEmpty {
-                    var m = ChatMessage(role: "user", content: texts.joined(separator: "\n\n"))
-                    m.images = images
+                if !userTexts.isEmpty || !userImages.isEmpty {
+                    var m = ChatMessage(role: "user", content: userTexts.joined(separator: "\n\n"))
+                    m.images = userImages
                     out.append(m)
                 }
+                userResults.removeAll()
+                userTexts.removeAll()
+                userImages.removeAll()
             case "assistant":
-                guard pending.isEmpty else { throw unanswered(i) }
+                // Calls may span adjacent assistant messages in the same turn.
+                guard assistant != nil || pending.isEmpty else { throw unanswered(i) }
                 started = true
                 var a = assistant ?? ChatMessage(role: "assistant", content: "")
                 for (j, block) in blocks.enumerated() {
