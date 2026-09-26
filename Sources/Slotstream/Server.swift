@@ -205,7 +205,7 @@ public final class Server {
     /// Why a request could not be read. `.closed` means the peer went away or
     /// timed out, so there is nobody left to tell; everything else gets a real
     /// status line, because dropping the connection reads as a crash.
-    enum ReadOutcome {
+    package enum ReadOutcome {
         case ok(Request)
         case closed
         /// `target` is the request line's target, when it was read, so the
@@ -255,7 +255,7 @@ public final class Server {
         return first.count >= 2 ? String(first[1]) : nil
     }
 
-    private func readRequest(_ fd: Int32) -> ReadOutcome {
+    package static func readRequest(_ fd: Int32) -> ReadOutcome {
         var buf = Data()
         var tmp = [UInt8](repeating: 0, count: 65536)
         var headerEnd: Range<Data.Index>? = nil
@@ -264,7 +264,10 @@ public final class Server {
             if n <= 0 { return .closed }
             buf.append(contentsOf: tmp[0 ..< n])
             headerEnd = buf.range(of: Data("\r\n\r\n".utf8))
-            if headerEnd == nil, buf.count > 64 << 10 {
+            // Enforce the bound even when this read completes the head.
+            // Count through CRLFCRLF, but not body bytes read alongside it.
+            let headerBytes = headerEnd?.upperBound ?? buf.count
+            if headerBytes > 64 << 10 {
                 return .fail(
                     status: "431 Request Header Fields Too Large",
                     message: "request headers are larger than 64 KiB",
@@ -495,7 +498,7 @@ public final class Server {
     package func handle(_ fd: Int32) {
         defer { close(fd) }
         let req: Request
-        switch readRequest(fd) {
+        switch Self.readRequest(fd) {
         case .ok(let r): req = r
         case .closed: return
         case .fail(let status, let message, let target):
