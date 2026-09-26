@@ -14,6 +14,7 @@ python3 Tools/static_gates_binary_test.py
 python3 Tools/installer_gates_binary_test.py
 python3 Tools/installer_metal_test.py
 python3 Tools/verify_binary_test.py
+python3 Tools/parity_comparison_test.py
 python3 Tools/sampler_gates_test.py
 python3 Tools/planner_gates_test.py
 python3 Tools/api_generation_test.py

@@ -48,6 +48,7 @@ BIN=${BIN:-.build/release/slotstream}
                      'Tools/reference/fixture.py', 'Tools/slotpack/checks.py']:
             self.write(path, '# Model-free dependency fixture.\n')
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
+        self.write('Tools/parity_comparison_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PARITY') == '1' else 0)\n")
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
         self.write('Tools/planner_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PLANNER') == '1' else 0)\n")
         self.write('Tools/api_generation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_API_GENERATION') == '1' else 0)\n")
@@ -109,6 +110,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 
     def test_failed_planner_fixture_stops_before_native_checks(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_PLANNER': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_parity_comparison_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_PARITY': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
         self.assertEqual(rows, [])
 

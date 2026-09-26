@@ -863,6 +863,12 @@ struct Parity: ParsableCommand {
                 var maxAbs: Float = 0
                 var refScale: Float = 0
                 for i in 0 ..< ref.count {
+                    guard ref[i].isFinite else {
+                        throw ValidationError("layer \(l) reference contains a non-finite value at index \(i)")
+                    }
+                    guard got[i].isFinite else {
+                        throw ValidationError("layer \(l) generated dump contains a non-finite value at index \(i)")
+                    }
                     maxAbs = max(maxAbs, abs(ref[i] - got[i]))
                     refScale = max(refScale, abs(ref[i]))
                 }
