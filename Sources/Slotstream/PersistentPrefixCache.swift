@@ -670,6 +670,11 @@ extension PersistentPrefixCache {
             if unlink(path) == 0 {
                 files += 1
                 bytes += size
+            } else {
+                let code = errno
+                if code != ENOENT {
+                    throw ModelError("cannot remove prefix cache file \(path): \(String(cString: strerror(code)))")
+                }
             }
         }
         return (files, bytes)

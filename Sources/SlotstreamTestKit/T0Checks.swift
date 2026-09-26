@@ -24,6 +24,7 @@ extension Catalogue {
             Check("runtime-check", tier: .t0) { try Diagnostics.runtime() },
             Check("prefix-client-capacity", tier: .t0) { try Diagnostics.optimizationPrefixCapacity() },
             Check("persistent-prefix-policy", tier: .t0) { Diagnostics.persistentPrefixPolicy() },
+            Check("persistent-prefix-clear", tier: .t0) { try persistentPrefixClear() },
             Check("persistent-conversation-ids", tier: .t0) { try Diagnostics.persistentConversationIDs() },
             Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
             Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
