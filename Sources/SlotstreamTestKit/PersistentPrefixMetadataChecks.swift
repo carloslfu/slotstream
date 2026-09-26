@@ -61,6 +61,9 @@ extension Catalogue {
             ("overlap before later array", try write(extra: [1]) { $0.arrays[1].offset -= 1 }),
             ("duplicate name", try write(extra: [1]) { $0.arrays[1].name = "tokens" }),
             ("maximum offset", try write { $0.arrays[0].offset = Int64.max }),
+            ("sequence end overflow", try write {
+                $0.sequences = [.init(name: "rows", dtype: "uint8", shape: [1], axis: 0, base: Int.max, live: 1, extents: [])]
+            }),
         ]
         for (label, name) in invalid {
             do {

@@ -53,6 +53,16 @@ determines which version the installer downloads.
   the Messages API does, so tool results split across adjacent user messages
   are accepted. By [@Pybsama](https://github.com/Pybsama) in
   [#40](https://github.com/carloslfu/slotstream/pull/40).
+- The server answers 431 for any request whose headers exceed 64 KiB.
+  Headers of up to 128 KiB were served when their closing blank line arrived
+  in the read that crossed the limit. By
+  [@Pybsama](https://github.com/Pybsama) in
+  [#42](https://github.com/carloslfu/slotstream/pull/42).
+- A prefix cache file whose header gives an impossible array length or row
+  range is removed as damaged when the directory opens, instead of crashing
+  the server, the development Mac app or `slotstream prefix-cache` every time
+  they open it. By [@Pybsama](https://github.com/Pybsama) in
+  [#43](https://github.com/carloslfu/slotstream/pull/43).
 
 ## 0.2.25 - 2026-09-24
 
