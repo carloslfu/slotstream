@@ -16,6 +16,7 @@ extension Catalogue {
         [
             Check("responses-request", tier: .t0) { responsesRequest() },
             Check("responses-events", tier: .t0) { responsesEvents() },
+            Check("responses-replay", tier: .t0) { responsesReplay() },
             Check("responses-codex-tools", tier: .t0) { responsesCodexTools() },
             Check("responses-codex-fixture", tier: .t0) { responsesCodexFixture() },
         ]
@@ -411,6 +412,82 @@ extension Catalogue {
         c.equal("object keeps the text format beside a sent verbosity",
             ((echoObject["text"] as? [String: Any])?["format"] as? [String: Any])?["type"] as? String, "text")
         c.equal("...and the verbosity", (echoObject["text"] as? [String: Any])?["verbosity"] as? String, "low")
+        return c.report()
+    }
+
+    static func responsesReplay() -> CheckReport {
+        var c = CheckBuilder("responses-replay")
+        let user: [String: Any] = ["role": "user", "content": "Inspect the fixture."]
+        let usage = ResponsesDialect.Usage(input: 1, cached: 0, output: 1, reasoning: 0)
+        for custom in [false, true] {
+            for reasoning in [false, true] {
+                let label = "\(custom ? "custom" : "function") call followed by \(reasoning ? "reasoning" : "text")"
+                let name = custom ? "apply_patch" : "exec_command"
+                let tool: [String: Any] = ["type": custom ? "custom" : "function", "name": name]
+                let s = ResponsesDialect.ResponseStream(model: "m", id: "resp_replay", createdAt: 1,
+                    freeform: custom ? [name] : [])
+                _ = s.text("Before.")
+                _ = s.functionCall(ParsedToolCall(id: "call_1", name: name, arguments: ["input": .string("first")]))
+                if reasoning { _ = s.reasoning("Continue thinking.") } else { _ = s.text("After.") }
+                _ = s.functionCall(ParsedToolCall(id: "call_2", name: name, arguments: ["input": .string("second")]))
+                let response = s.finished(engineReason: "stop", usage: usage)
+                let resultType = custom ? "custom_tool_call_output" : "function_call_output"
+                let first: [String: Any] = ["type": resultType, "call_id": "call_1", "output": "first result"]
+                let second: [String: Any] = ["type": resultType, "call_id": "call_2", "output": "second result"]
+                do {
+                    // Clients append the complete output before the tool results.
+                    // Cross the JSON boundary so this replays actual wire values.
+                    let data = try JSONSerialization.data(withJSONObject: response)
+                    let wire = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+                    let items = wire["output"] as! [[String: Any]]
+                    let r = try ResponsesDialect.parse(["input": [user] + items + [second, first], "tools": [tool]])
+                    c.equal("\(label): message roles", r.messages.map(\.role), ["user", "assistant", "tool", "tool"])
+                    let assistant = r.messages.first { $0.role == "assistant" }
+                    c.equal("\(label): content preserved", assistant?.content, reasoning ? "Before." : "Before.After.")
+                    c.equal("\(label): reasoning preserved", assistant?.reasoning, reasoning ? "Continue thinking." : nil)
+                    c.equal("\(label): calls stay in order", assistant?.toolCalls.map(\.id), ["call_1", "call_2"])
+                    c.equal("\(label): arguments preserved", assistant?.toolCalls.map { $0.arguments["input"] },
+                        [.string("first"), .string("second")])
+                    c.equal("\(label): results restore call order", r.messages.filter { $0.role == "tool" }.map(\.toolCallId),
+                        ["call_1", "call_2"])
+                    c.equal("\(label): result content preserved", r.messages.filter { $0.role == "tool" }.map(\.content),
+                        ["first result", "second result"])
+                } catch { c.expect("\(label): complete response replays", false, "\(error)") }
+            }
+        }
+
+        let call1: [String: Any] = ["type": "function_call", "call_id": "call_1", "name": "exec_command", "arguments": "{}"]
+        let call2: [String: Any] = ["type": "function_call", "call_id": "call_2", "name": "exec_command", "arguments": "{}"]
+        let result1: [String: Any] = ["type": "function_call_output", "call_id": "call_1", "output": "first result"]
+        let result2: [String: Any] = ["type": "function_call_output", "call_id": "call_2", "output": "second result"]
+        let text: [String: Any] = ["role": "assistant", "content": "Another turn."]
+        let thought: [String: Any] = ["type": "reasoning", "summary": [["type": "summary_text", "text": "Another thought."]]]
+        func rejected(_ items: [[String: Any]]) -> Bool {
+            do { _ = try ResponsesDialect.parse(["input": items]); return false }
+            catch let failure as ResponsesDialect.Failure { return failure.code == "invalid_request" }
+            catch { return false }
+        }
+        c.expect("missing result still refused", rejected([user, call1, text]))
+        c.expect("duplicate result still refused", rejected([user, call1, result1, result1]))
+        c.expect("user before results still refused", rejected([user, call1, user, result1]))
+        for (label, continuation) in [("text", text), ("reasoning", thought)] {
+            let context: [String: Any] = ["role": "developer", "content": "Updated context."]
+            c.expect("\(label) cannot continue a flushed turn", rejected([user, call1, context, continuation, result1]))
+            c.expect("\(label) after partial results refused", rejected([user, call1, call2, result1, continuation, result2]))
+            let call3: [String: Any] = ["type": "function_call", "call_id": "call_3", "name": "exec_command", "arguments": "{}"]
+            let result3: [String: Any] = ["type": "function_call_output", "call_id": "call_3", "output": "third result"]
+            c.expect("another call cannot reopen a flushed turn for \(label)",
+                rejected([user, call1, context, call2, continuation, result1, result2]))
+            c.expect("another call cannot reopen \(label) during partial results",
+                rejected([user, call1, call2, result1, call3, continuation, result2, result3]))
+        }
+        do {
+            let r = try ResponsesDialect.parse(["input": [user, call1, call2, result2, result1, thought, text, user]])
+            c.equal("completed results allow a new assistant turn", r.messages.map(\.role),
+                ["user", "assistant", "tool", "tool", "assistant", "user"])
+            c.equal("new assistant turn keeps its own content", r.messages[4].content, "Another turn.")
+            c.equal("new assistant turn keeps its own reasoning", r.messages[4].reasoning, "Another thought.")
+        } catch { c.expect("completed results allow a new assistant turn", false, "\(error)") }
         return c.report()
     }
 

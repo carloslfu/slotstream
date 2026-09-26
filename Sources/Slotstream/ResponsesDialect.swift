@@ -467,7 +467,12 @@ public enum ResponsesDialect {
                 default:  // assistant
                     started = true
                     guard content.images.isEmpty else { throw Failure("invalid_request", "input[\(i)]: assistant messages carry text only") }
-                    if !pending.isEmpty { throw Failure("invalid_request", "input[\(i)] must first supply outputs for outstanding function calls") }
+                    // Continuations must belong to the turn with every pending
+                    // call, before any result arrives. A later call cannot
+                    // reopen a turn flushed by intervening context.
+                    if !pending.isEmpty && (assistant?.toolCalls.count != pending.count || !pendingResults.isEmpty) {
+                        throw Failure("invalid_request", "input[\(i)] must first supply outputs for outstanding function calls")
+                    }
                     var a = openAssistant()
                     a.content += content.text
                     assistant = a
@@ -478,7 +483,9 @@ public enum ResponsesDialect {
                     throw Failure("unsupported_field", "input[\(i)]: encrypted reasoning from another provider cannot be replayed here")
                 }
                 started = true
-                if !pending.isEmpty { throw Failure("invalid_request", "input[\(i)] must first supply outputs for outstanding function calls") }
+                if !pending.isEmpty && (assistant?.toolCalls.count != pending.count || !pendingResults.isEmpty) {
+                    throw Failure("invalid_request", "input[\(i)] must first supply outputs for outstanding function calls")
+                }
                 let text = try reasoningText(item, at: "input[\(i)]")
                 if !text.isEmpty {
                     var a = openAssistant()
