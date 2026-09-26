@@ -305,7 +305,9 @@ package enum PersistentPrefixPolicy {
     /// Do the extents tile rows base..<base+live exactly, in order, over
     /// valid segment names?
     package static func tiles(_ record: SequenceRecord) -> Bool {
-        guard record.base >= 0, record.live >= 0 else { return false }
+        // `end` is base + live: bound it before it is computed, so a damaged
+        // header is rejected instead of trapping on overflow.
+        guard record.base >= 0, record.live >= 0, record.base <= Int.max - record.live else { return false }
         var next = record.base
         for extent in record.extents {
             guard PersistentPrefixFile.isSegmentName(extent.segment), extent.start == next,
