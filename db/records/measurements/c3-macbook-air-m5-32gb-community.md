@@ -8,7 +8,7 @@ date: 2026-09-07
 doc: measurements
 level: '2'
 machines: '[[records/machines/macbook-air-m5-32gb]]'
-order: '716'
+order: '712'
 title: 'C3: MacBook Air M5, 32 GB (community, 2026-09-07)'
 status: measured
 ---

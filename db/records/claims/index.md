@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-24T19:28:14.428838Z
+updated: 2026-09-26T16:03:31Z
 ---
 
 # records/claims
 
+- [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
+- [[records/claims/warm-decode-m4-pro-24gb-community]] — M4 Pro 24 GB community report: 3.57 tok/s
 - [[records/claims/persistent-prefix-default-minimum-tokens]] — The persistent prefix cache writes states of 1024 tokens or more by default
 - [[records/claims/full-context-wait-about-8-minutes-at-65536]] — M5 Pro-based prefill estimate is about 8 minutes near the larger window from a 32 GB simulation, about 9 at 24 GB
 - [[records/claims/mtp-auto-floor-28-per-layer-12-gb-target]] — Auto turns speculative decode on when the cache still reaches 28 experts per layer after the head, a 12 GB target
@@ -33,7 +35,6 @@ updated: 2026-09-24T19:28:14.428838Z
 - [[records/claims/release-2k-prose-current-timing]] — Installed-release prose first-read range and ordinary exact-repeat latency at the measured small-budget profile.
 - [[records/claims/release-2k-code-current-timing]] — Installed-release code first-read range and ordinary exact-repeat latency at the measured small-budget profile.
 - [[records/claims/tier-estimate-10-tok-s-at-32-gb]] — A 32 GB Mac is estimated at about 10 tok/s with speculative decoding
-- [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
 - [[records/claims/warm-decode-0-2-19-at-22-gb]] — Warm decode is 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target on the development Mac
 - [[records/claims/prose-prefix-reuse-public-timing]] — Exact prose prefix reuse reduces follow-up request time
 - [[records/claims/mtp-prefill-policy-public-timing]] — Qualified long MTP prefill policy reduces paired prefill time
