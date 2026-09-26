@@ -8,6 +8,7 @@ import SlotstreamDiagnostics
 extension Catalogue {
     static var t0Checks: [Check] {
         [
+            Check("persistent-prefix-metadata-bounds", tier: .t0) { try persistentPrefixMetadataBounds() },
             Check("prefill-schedule", tier: .t0) { Diagnostics.prefillSchedule() },
             Check("context-policy", tier: .t0) { contextPolicy() },
             Check("automatic-context-window", tier: .t0) { try automaticContextWindow() },

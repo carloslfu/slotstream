@@ -314,7 +314,11 @@ public final class PersistentPrefixCache {
         var expected = Int64(PersistentPrefixFile.magic.count)
         var names = Set<String>()
         for record in header.arrays {
-            guard record.offset == expected, record.byteCount >= 0, names.insert(record.name).inserted else {
+            // Validate against the real payload before adding an untrusted
+            // length: a damaged header must throw, not overflow and trap.
+            guard record.offset == expected, record.byteCount >= 0,
+                  expected <= payloadEnd, record.byteCount <= payloadEnd - expected,
+                  names.insert(record.name).inserted else {
                 throw Failure("array \(record.name) is out of place")
             }
             expected += record.byteCount
