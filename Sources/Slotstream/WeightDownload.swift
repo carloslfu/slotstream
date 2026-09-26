@@ -399,7 +399,7 @@ final class PullJob: NSObject, URLSessionDataDelegate {
     }
 
     private func workerLoop(session: URLSession) {
-        while let chunk = nextWork() {
+        chunks: while let chunk = nextWork() {
             var lastError: Error?
             var attempt = 0
             var ok = false
@@ -414,8 +414,10 @@ final class PullJob: NSObject, URLSessionDataDelegate {
                     if error is DownloadCancelled { return }
                     lastError = error
                     let ns = error as NSError
+                    let http = error as? DownloadHTTPError
                     let permanent =
                         ns.domain == "pull-protocol" || (ns.domain == "pull" && (400 ..< 500).contains(ns.code) && ns.code != 408 && ns.code != 429)
+                        || (http.map { (400 ..< 500).contains($0.status) && $0.status != 408 && $0.status != 429 } ?? false)
                     if permanent || attempt >= 5 {
                         // A source that is missing the file, repeatedly times
                         // out, or returns 5xx is not a reason to ignore the
@@ -426,9 +428,9 @@ final class PullJob: NSObject, URLSessionDataDelegate {
                         }
                         break
                     }
-                    let until = Date().addingTimeInterval(Double(attempt) * 2)
-                    while Date() < until && !cancellation.isCancelled { Thread.sleep(forTimeInterval: 0.1) }
-                    if cancellation.isCancelled { return }
+                    let until = Date().addingTimeInterval(http?.retryAfter ?? Double(attempt) * 2)
+                    while Date() < until && !shouldStop(file: chunk.file) { Thread.sleep(forTimeInterval: 0.1) }
+                    if shouldStop(file: chunk.file) { continue chunks }
                 }
             }
             if ok {
@@ -437,6 +439,14 @@ final class PullJob: NSObject, URLSessionDataDelegate {
                 return
             }
         }
+    }
+
+    /// Stop a cooldown when the pull fails or this optional file is skipped.
+    /// The worker can still take another file when only this one was skipped.
+    private func shouldStop(file: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancellation.isCancelled || failure != nil || hashFailure != nil || skipped.contains(file)
     }
 
     private func nextWork() -> Chunk? {
@@ -590,13 +600,16 @@ final class PullJob: NSObject, URLSessionDataDelegate {
         } else {
             // 200 for a partial range means the server ignored Range; accepting
             // it would write the whole file into one chunk slot.
-            st.error = NSError(
-                domain: (code == 200 || code == 206) ? "pull-protocol" : "pull", code: code,
-                userInfo: [
-                    NSLocalizedDescriptionKey: code == 200
-                        ? "server ignored the Range request"
-                        : code == 206 ? "invalid Content-Range" : "HTTP \(code)"
-                ])
+            if code == 200 || code == 206 {
+                st.error = NSError(
+                    domain: "pull-protocol", code: code,
+                    userInfo: [NSLocalizedDescriptionKey: code == 200
+                        ? "server ignored the Range request" : "invalid Content-Range"])
+            } else {
+                st.error = DownloadHTTPError(status: code, retryAfter: DownloadRetry.delay(
+                    status: code, retryAfter: http?.value(forHTTPHeaderField: "Retry-After"),
+                    rateLimit: http?.value(forHTTPHeaderField: "RateLimit")))
+            }
             completionHandler(.cancel)
         }
     }
