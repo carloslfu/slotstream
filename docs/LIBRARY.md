@@ -131,7 +131,8 @@ bytes, and permits an absent optional draft head.
 `download` fetches the weights only. The 37.5 MB decode-forecast file that
 `slotstream pull` also fetches is optional and makes decode faster; fetch it
 the same way after the weights. A failure is logged and returns `false`
-instead of throwing:
+instead of throwing. A cancelled fetch returns `false` too, so check
+`cancellation.isCancelled` afterwards to tell a stop from a failure:
 
 ```swift
 for file in TapCorrectionSidecar.files {
@@ -225,27 +226,31 @@ Generated conversation ids can still help render a later prompt, but do not
 certify a numerical checkpoint. Unchanged persisted rows can be referenced
 by later checkpoints instead of being written again. `maxBytes`
 bounds the directory: when it is full, states nobody continued go first, then
-kept previous turns, then conversations, then shared prefixes, least recently
-used first. `maxAge`
+kept previous turns, then conversations, then prefixes several conversations
+start from, least recently used first. `maxAge`
 (30 days by default, `nil` to keep states until the quota needs room) removes
 unused states. Opening the directory removes files from other binaries, models
 or settings, expired and damaged files, and anything over the quota;
 `tier.maintenance` reports what it removed. A file the system refuses to read,
 because of its permissions or an I/O error, is kept: opening throws
-`PersistentPrefixCache.UnreadableFile`, which names it, and `slotstream serve`
-then runs without the disk tier.
+`PersistentPrefixCache.InaccessibleFile`, which names it, and `slotstream
+serve` then runs without the disk tier.
 
 The prefix conversations share is kept too, with or without the disk tier.
 While a prompt is processed, the head other conversations will start with is
 stored as a shared prefix: the system message when it ends
 `Generator.sharedPrefixMinimumTokens` (512) tokens or more in, and the longest
-head the prompt shares with a state already in memory or on disk. The save
+head it shares with a prompt already kept in memory or on disk, up to where it
+parts from that prompt. A conversation's next turn, which sends back the reply
+the model generated, parts from nothing another conversation starts with. The
+save
 point is the last prefill pass end at or before that boundary, so no pass is
 reshaped and outputs are unchanged; the state is forked into `prefixCache` and,
 at `minimumTokens` or more, written to disk. The next conversation starting
 with the same system prompt reuses it instead of processing it again. A shared
-prefix is kept once, is never replaced by the conversations that extend it, and
-is evicted after them. An app that knows where its stable preamble ends, for
+prefix is kept once and is never replaced by the conversations that extend it;
+when the quota is full, one that two or more conversations start from is
+removed after them. An app that knows where its stable preamble ends, for
 example one without a system message, names it on the request; `0` leaves only
 the shared-head rule:
 

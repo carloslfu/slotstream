@@ -148,10 +148,15 @@ extension Generator {
 
     /// Boundaries inside this prompt worth a shared-prefix state, ascending:
     /// where its system prompt ends, and the longest start it has in common
-    /// with a state some tier already holds. Both are the exact boundaries;
-    /// the prefill loop saves at the last completed pass at or before each,
-    /// so no pass is ever reshaped for a save. Text prompts only, and only
-    /// beyond what this request already reuses.
+    /// with a state some tier already holds, where the prompt parts from the
+    /// input that state read. A state it extends outright, or parts from only
+    /// inside the reply that state generated, is its own conversation's
+    /// earlier turn, not a branch: a save there would only write this
+    /// request's own checkpoint again, as a shared prefix kept for no other
+    /// conversation. Both are the exact boundaries; the prefill loop saves at
+    /// the last completed pass at or before each, so no pass is ever reshaped
+    /// for a save. Text prompts only, and only beyond what this request
+    /// already reuses.
     func sharedPrefixTargets(cache: PrefixCache?, promptIds: [Int], images: [ImageSegment], reused: Int,
                              request: RequestController?, stats: inout GenStats) -> [Int] {
         guard let cache, cache.enabled, images.isEmpty else { return [] }
@@ -160,9 +165,9 @@ extension Generator {
             PersistentPrefixPolicy.systemPrefixBoundary(promptIds, header: $0.systemHeader, turnEnd: $0.turnEnd)
         }
         if let hint { targets.insert(hint) }
-        var common = cache.longestCommonPrefix(with: promptIds)
+        var common = cache.longestCommonPrefix(with: promptIds, diverging: true)
         if let tier = persistentTier(cache, images: images) {
-            common = max(common, tier.longestCommonPrefix(with: promptIds))
+            common = max(common, tier.longestCommonPrefix(with: promptIds, diverging: true))
         }
         if common > 0 { targets.insert(common) }
         stats.sharedPrefixHint = hint

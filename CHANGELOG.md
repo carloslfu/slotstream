@@ -9,15 +9,27 @@ determines which version the installer downloads.
 ## Unreleased
 
 - The prefix cache's disk tier now writes states from 1,024 tokens instead
-  of 2,048 (`--prefix-cache-min-tokens`). After a restart, a 1,919-token
-  conversation re-read its whole prompt in 45.5 s under the old default and
-  resumed with 6.0 s of prefill under the new one. The servers `slotstream
-  launch` starts and the development Mac app use this default, so Pi's
-  opening prompt of about 1,600 tokens now reaches the disk. Each turn of a
-  conversation between the two lengths now writes its state, about 120 to
-  170 MB, within the same quota. Measured by
+  of 2,048 (`--prefix-cache-min-tokens`). On 0.2.18, after a restart, a
+  1,919-token conversation re-read its whole prompt in 45.5 s under the old
+  default and resumed with 6.0 s of prefill under the new one. Since 0.2.22
+  a restart resumes at the previous prompt's last prefill pass boundary, so
+  it also re-reads the previous reply and up to one pass of that prompt. The
+  servers `slotstream launch` starts and the development Mac app use this
+  default, so Pi's opening prompt of about 1,600 tokens now reaches the
+  disk. Each turn of a conversation between the two lengths now writes its
+  state, about 120 to 170 MB, within the same quota. Measured by
   [@jasen215](https://github.com/jasen215) in
   [#17](https://github.com/carloslfu/slotstream/issues/17).
+- A continued conversation writes one state per turn again. Since 0.2.22 the
+  end of the previous reply also counted as a prefix other conversations
+  share once the reply crossed a prefill pass boundary. When the new message
+  crossed another boundary, that point was written as a second state;
+  otherwise 0.2.25's fix for colliding shared prefixes rewrote the turn's
+  own state as shared, which made it the first state removed when the quota
+  needed room. Each of these writes added about 116 MB, kept until the quota
+  removed it. Only the end of a system prompt, or the point where a prompt
+  parts from another kept prompt, is saved as a shared prefix now.
+  `Tools/prefix_turn_writes_e2e.py` checks it live.
 - `slotstream parity --compare` refuses a NaN or infinite value instead of
   printing `PARITY PASS`. Swift's `max` drops a NaN, so such a dump could
   pass. By [@Pybsama](https://github.com/Pybsama) in
@@ -30,7 +42,8 @@ determines which version the installer downloads.
 - Raw downloads (`--transport raw`, source overrides and resumed legacy
   downloads) honor a server's `Retry-After` and `RateLimit` headers, as
   compressed downloads have since 0.2.11, instead of retrying after 2 to 8
-  seconds. Each wait is capped at 10 minutes. By
+  seconds. Like compressed downloads, they wait 5 minutes after a 429 that
+  carries neither header, and each wait is capped at 10 minutes. By
   [@Pybsama](https://github.com/Pybsama) in
   [#33](https://github.com/carloslfu/slotstream/pull/33).
 - `slotstream prefix-cache --clear` names every file it could not remove and
@@ -45,13 +58,20 @@ determines which version the installer downloads.
   [#36](https://github.com/carloslfu/slotstream/pull/36).
 - Opening the prefix cache directory keeps a file the system refuses to
   read, because of its permissions or an I/O error, instead of deleting it
-  and the states that depend on it; damaged files are still removed. `serve`
-  then runs without the disk cache and names the file. By
+  and the states that depend on it; damaged files are still removed.
+  `PersistentPrefixCache(configuration:identity:)` and
+  `Engine.enablePersistentPrefixCache(_:)` then throw
+  `PersistentPrefixCache.InaccessibleFile`, which names the file. `serve`
+  runs without the disk cache and says so, and the development Mac app runs
+  without it until the file can be read. By
   [@Pybsama](https://github.com/Pybsama) in
   [#37](https://github.com/carloslfu/slotstream/pull/37).
 - `/v1/messages` joins consecutive messages of one role into one turn, as
-  the Messages API does, so tool results split across adjacent user messages
-  are accepted. By [@Pybsama](https://github.com/Pybsama) in
+  the Messages API does. Tool results split across adjacent user messages
+  are accepted, and a turn's tool calls may continue in the next assistant
+  message. Adjacent plain user messages, which rendered as separate turns,
+  now render as one, with the turn's pictures before its text as in a single
+  message. By [@Pybsama](https://github.com/Pybsama) in
   [#40](https://github.com/carloslfu/slotstream/pull/40).
 - The server answers 431 for any request whose headers exceed 64 KiB.
   Headers of up to 128 KiB were served when their closing blank line arrived
@@ -63,6 +83,18 @@ determines which version the installer downloads.
   the server, the development Mac app or `slotstream prefix-cache` every time
   they open it. By [@Pybsama](https://github.com/Pybsama) in
   [#43](https://github.com/carloslfu/slotstream/pull/43).
+- `slotstream launch` exits with code 130, as `run` and `serve` do, when
+  Control+C interrupts the download it offers on first use; it reported a
+  generic failure. On `/v1/messages`, an oversized request header is typed
+  `request_too_large` instead of `api_error`, and the missing-result error
+  lists only the calls still unanswered. When `serve` runs without its disk
+  cache, the `prefix-cache --clear` command it suggests names that
+  directory; without `--dir` it cleared launch's directory instead.
+  Restoring a state from disk keeps a file the system refuses to open, as
+  opening the directory does, instead of deleting it. A state rewritten for
+  another draft mode or prefill pass size keeps its shared flag and the
+  conversation ids recorded with it. The development Mac app's setup says
+  when the decode-forecast file is missing.
 
 ## 0.2.25 - 2026-09-24
 
@@ -138,8 +170,9 @@ determines which version the installer downloads.
   second copy of the occupied cache. The live governor also checks temporary
   replacement memory against the process target and available system memory.
   When growth cannot fit, it keeps the current warm cache and retries later.
-- The download `slotstream run` offers on first use and the development Mac
-  app's model download now also fetch the 37.5 MB decode-forecast file 0.2.19
+- The download `slotstream run`, `serve` and `launch` offer on first use and
+  the development Mac app's model download now also fetch the 37.5 MB
+  decode-forecast file 0.2.19
   added. Only `slotstream pull` did, so models downloaded the other ways
   decoded with the earlier, slower forecast. A model already downloaded
   without the file still needs one `slotstream pull`: `slotstream doctor` now

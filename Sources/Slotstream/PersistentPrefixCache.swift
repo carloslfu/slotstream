@@ -180,8 +180,9 @@ public final class PersistentPrefixCache {
     /// A file the system would not let the cache read, for a reason other
     /// than its format: permissions or an I/O error. Its state may still be
     /// valid, so opening keeps it and refuses the directory instead of
-    /// indexing without it or deleting it.
-    public struct UnreadableFile: Error, CustomStringConvertible {
+    /// indexing without it or deleting it. Files the scan reached earlier and
+    /// found damaged or written by another build are already removed.
+    public struct InaccessibleFile: Error, CustomStringConvertible {
         public let name: String
         public let reason: String
         public var description: String { reason.contains(name) ? reason : "prefix cache file \(name): \(reason)" }
@@ -218,7 +219,7 @@ public final class PersistentPrefixCache {
             } catch is PersistentPrefixFileError {
                 discard(name, Self.fileSize(path), \.unreadable)
             } catch {
-                throw UnreadableFile(name: name, reason: "\(error)")
+                throw InaccessibleFile(name: name, reason: "\(error)")
             }
         }
         let now = Self.now()
@@ -263,9 +264,9 @@ public final class PersistentPrefixCache {
         typealias Failure = PersistentPrefixFileError
         let fd = open(directory.appendingPathComponent(name).path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else {
-            let reason = String(cString: strerror(errno))
-            if errno == ENOENT { throw Failure("file \(name) is missing") }
-            throw ModelError("cannot open prefix cache file \(name): \(reason)")
+            let code = errno
+            if code == ENOENT { throw Failure("file \(name) is missing") }
+            throw ModelError("cannot open prefix cache file \(name): \(String(cString: strerror(code)))")
         }
         defer { close(fd) }
         var info = stat()
@@ -408,11 +409,12 @@ public final class PersistentPrefixCache {
 
     /// How many leading tokens of `prompt` some own unexpired state shares:
     /// the boundary a shared-prefix save of this prompt would use.
-    package func longestCommonPrefix(with prompt: [Int]) -> Int {
+    /// `diverging` counts only states the prompt parts from before their end.
+    package func longestCommonPrefix(with prompt: [Int], diverging: Bool = false) -> Int {
         let now = Self.now()
         return lock.withLock {
             PersistentPrefixPolicy.longestCommonPrefix(heads, identity: identity.digest, prompt: prompt, now: now,
-                maxAge: configuration.maxAge)
+                maxAge: configuration.maxAge, diverging: diverging)
         }
     }
 

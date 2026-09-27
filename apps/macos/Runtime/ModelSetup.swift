@@ -40,8 +40,8 @@ public final class ModelSetup: @unchecked Sendable {
                 self?.set { $0.detail = line.localizedCaseInsensitiveContains("verif") ? "Verifying downloaded files" : "Downloading verified model files. Progress is saved so you can resume." }
             })
             // The optional decode-forecast file `slotstream pull` also fetches;
-            // without it decode uses the earlier, slower forecast. A failure is
-            // logged by the library and never fails setup.
+            // without it decode uses the earlier, slower forecast. A failure
+            // never fails setup; `finish` reports the file if it is missing.
             for file in TapCorrectionSidecar.files where !token.isCancelled {
                 set { $0.detail = "Downloading the decode forecast file" }
                 TapCorrectionSidecar.ensure(modelDir: store.modelDirectory, file: file, cancellation: token, log: { _ in })
@@ -62,11 +62,17 @@ public final class ModelSetup: @unchecked Sendable {
         token?.cancel()
     }
     private func finish(_ result: WeightStatus) {
+        let forecastMissing = result.isReady && TapCorrectionSidecar.files.contains {
+            TapCorrectionSidecar.status(modelDir: store.modelDirectory, file: $0) != .present
+        }
         set {
             $0.ready = result.isReady; $0.busy = false; $0.requiredBytes = result.bytesToFetch
             $0.freeBytes = result.freeDiskBytes ?? WeightStore.freeDiskBytes(near: store.modelDirectory)
             switch result {
-            case .ready: $0.phase = "Local model ready"; $0.detail = "The installed model matches its pinned file hashes."
+            case .ready:
+                $0.phase = "Local model ready"
+                $0.detail = "The installed model matches its pinned file hashes."
+                    + (forecastMissing ? " The decode forecast file is missing, so replies use the earlier, slower forecast." : "")
             case .missing: $0.phase = "Model download needed"; $0.detail = "Download the pinned model files to use local inference."
             case .incomplete: $0.phase = "Download incomplete"; $0.detail = "Resume setup to finish and verify the local model."
             case .corrupt: $0.phase = "Model repair needed"; $0.detail = "Some files failed verification. Repair them before using the model."

@@ -72,8 +72,11 @@ extension Catalogue {
             do {
                 _ = try PersistentPrefixCache(configuration: config(directory), identity: identity)
                 c.expect("\(label): incomplete index is refused", false)
+            } catch let error as PersistentPrefixCache.InaccessibleFile {
+                // serve matches this type to fall back to the memory tier.
+                c.equal("\(label): the refusal names the file", error.name, name)
             } catch {
-                c.expect("\(label): incomplete index is refused", true)
+                c.expect("\(label): the refusal is an InaccessibleFile", false, "\(error)")
             }
             c.expect("\(label): failed open preserves the head", fm.fileExists(atPath: directory.appendingPathComponent(headName).path))
             c.expect("\(label): failed open preserves its segment", fm.fileExists(atPath: directory.appendingPathComponent(segmentName).path))
@@ -85,6 +88,28 @@ extension Catalogue {
             c.equal("\(label): retry recovers the state", retry.indexedEntries.first?.tokens, tokens)
             c.equal("\(label): retry recovers its segment", retry.storedSegments, 1)
             c.equal("\(label): retry removes nothing", retry.maintenance.files, 0)
+        }
+
+        // A head the system refuses to open at restore is kept as well: only
+        // a missing or invalid file condemns it.
+        do {
+            let directory = try fixture("restore")
+            let tier = try PersistentPrefixCache(configuration: config(directory), identity: identity)
+            guard let entry = tier.indexedEntries.first else { throw ModelError("restore fixture did not index") }
+            let file = directory.appendingPathComponent(headName)
+            guard chmod(file.path, 0) == 0 else { throw ModelError("cannot set fixture permissions") }
+            defer { chmod(file.path, 0o600) }
+            do {
+                _ = try tier.restore(entry, layout: PersistentPrefixLayout(linearLayers: [], attentionLayers: [],
+                    compactIndexerRaw: false), modelIdentity: nil, includeDraft: false)
+                c.expect("restore: OS denies reading", false)
+            } catch {
+                c.expect("restore: a read error does not condemn the head", !(error is PersistentPrefixFileError),
+                    "\(error)")
+            }
+            c.expect("restore: the head stays on disk", fm.fileExists(atPath: file.path))
+            c.equal("restore: and in the index", tier.indexedEntries.map(\.file), [headName])
+            c.equal("restore: its segment too", tier.storedSegments, 1)
         }
 
         // Real corruption still permits cleanup, including dependent files.

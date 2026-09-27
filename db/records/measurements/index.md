@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-09-26T16:03:31Z
+updated: 2026-09-27T04:53:41.043255Z
 ---
 
 # records/measurements
 
+- [[records/measurements/prefix-turn-writes-2026-09-26]] — A continued conversation writes one prefix cache state per turn again; the released 0.2.25 rewrote a turn's own state as a shared prefix
 - [[records/measurements/hardware-planning-ranges-2026-09-13]] — Hardware speed planning ranges and inference limits
 - [[records/measurements/c7-macbook-pro-m4-pro-24gb-community]] — C7: MacBook Pro M4 Pro, 24 GB (community, 2026-09-25)
 - [[records/measurements/release-0-2-25-published-2026-09-24]] — v0.2.25 published, installed and accepted

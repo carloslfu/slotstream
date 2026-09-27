@@ -320,10 +320,10 @@ none of it runs when you use Slotstream. See [Built native](#built-native).
 
 Generation reads the model files without rewriting them. macOS swap adds
 writes when memory runs short. Automatic memory sizing helps, but a small
-Mac or an oversized manual setting can still swap heavily. With
-`serve --prefix-cache-dir`, Slotstream also saves long conversations to that
-folder after each reply, and the system prompts conversations share, within a
-disk quota.
+Mac or an oversized manual setting can still swap heavily. Servers that
+`slotstream launch` starts, and `serve --prefix-cache-dir`, also save each
+turn of a longer conversation to a cache folder, and the system prompts
+conversations share, within a disk quota.
 
 ### Can I run it on Linux or Windows?
 
@@ -1992,7 +1992,7 @@ and OpenAI endpoints and the [fx guide](FX.md) for the AI SDK gateway.
 | `--max-prefill-wait <minutes>` | Accepted request to first sampled model token, including queueing, tokenization and images. Default 30 minutes; `0` disables only time. |
 | `--no-elastic` | Pin the cache at its startup size. By default an auto-sized cache resizes between requests as memory pressure changes; explicit sizes are always pinned. |
 | `--no-prefix-cache` | Process each prompt from scratch. Useful for reproducibility comparisons. |
-| `--prefix-cache-dir <dir>` | Also keep conversation states on disk, so a restarted server, or a conversation longer than the in-memory cache holds, resumes from its last committed state instead of processing its prompt again. Off unless set. A state is written after its reply completes. The first write stores the fixed recurrent state and every cached token; each later turn writes the recurrent state plus only the tokens it added, keeps the previous turn's state so that reply can still be regenerated after a restart, and removes older states of the conversation. Files hold the conversation's token ids and model state and are used only by the same binary, model files and settings that wrote them; starting the server removes files from other builds. Requests with images are not written. The prefix conversations share is written too: when a prompt's system message ends 512 tokens or more in, or a prompt shares at least 512 tokens with a state already kept, that head is stored during the prompt's own prefill, rounded down to the prefill pass grid, the 256-token grid by default, so the next conversation with the same system prompt resumes from it, in the same process or after a restart. A shared prefix is kept once, is never replaced by the conversations that extend it, and is listed as such. A file the system cannot read is kept, and the server runs without the disk cache until the file is fixed or the directory cleared. `slotstream prefix-cache` lists or clears the directory. |
+| `--prefix-cache-dir <dir>` | Also keep conversation states on disk, so a restarted server, or a conversation longer than the in-memory cache holds, resumes from its last committed state instead of processing its prompt again. Off unless set; the servers `slotstream launch` starts set it. A request writes its state during prefill, at the last pass boundary before the end of its prompt, and records the conversation's token ids after its reply; the next turn resumes from that state. The first write stores the fixed recurrent state and every cached token; each later turn writes the recurrent state plus only the tokens it added, keeps the previous turn's state so that reply can still be regenerated after a restart, and removes older states of the conversation. Files hold the conversation's token ids and model state and are used only by the same binary, model files and settings that wrote them; starting the server removes files from other builds. Requests with images are not written. The prefix conversations share is written too: when a prompt's system message ends 512 tokens or more in, or a prompt shares at least 512 tokens with a prompt already kept and parts from it there, that head is stored during the prompt's own prefill, rounded down to the prefill pass grid, the 256-token grid by default, so the next conversation with the same system prompt resumes from it, in the same process or after a restart. A shared prefix is kept once, is never replaced by the conversations that extend it, and is listed as such. A file the system cannot read is kept, and the server runs without the disk cache until the file is fixed or the directory cleared and the server restarted. `slotstream prefix-cache` lists or clears the directory. |
 | `--prefix-cache-disk-gb <gb>` | Disk quota for `--prefix-cache-dir` (default 20), applied at startup and before each write. When it is full, states nobody continued go first, then previous-turn states kept for regenerating, then conversations, then the prefixes several conversations start from, least recently used first within each. |
 | `--prefix-cache-min-tokens <n>` | Shortest state written to `--prefix-cache-dir` (default 1024 tokens), for conversation states and shared prefixes alike; a shorter shared prefix is still kept in memory. |
 | `--prefix-cache-max-age-days <days>` | Remove states in `--prefix-cache-dir` unused for this many days (default 30), at startup and before writes. `0` keeps them until the quota needs room. |
@@ -3188,7 +3188,8 @@ bytes, and permits an absent optional draft head.
 `download` fetches the weights only. The 37.5 MB decode-forecast file that
 `slotstream pull` also fetches is optional and makes decode faster; fetch it
 the same way after the weights. A failure is logged and returns `false`
-instead of throwing:
+instead of throwing. A cancelled fetch returns `false` too, so check
+`cancellation.isCancelled` afterwards to tell a stop from a failure:
 
 ```swift
 for file in TapCorrectionSidecar.files {
@@ -3282,27 +3283,31 @@ Generated conversation ids can still help render a later prompt, but do not
 certify a numerical checkpoint. Unchanged persisted rows can be referenced
 by later checkpoints instead of being written again. `maxBytes`
 bounds the directory: when it is full, states nobody continued go first, then
-kept previous turns, then conversations, then shared prefixes, least recently
-used first. `maxAge`
+kept previous turns, then conversations, then prefixes several conversations
+start from, least recently used first. `maxAge`
 (30 days by default, `nil` to keep states until the quota needs room) removes
 unused states. Opening the directory removes files from other binaries, models
 or settings, expired and damaged files, and anything over the quota;
 `tier.maintenance` reports what it removed. A file the system refuses to read,
 because of its permissions or an I/O error, is kept: opening throws
-`PersistentPrefixCache.UnreadableFile`, which names it, and `slotstream serve`
-then runs without the disk tier.
+`PersistentPrefixCache.InaccessibleFile`, which names it, and `slotstream
+serve` then runs without the disk tier.
 
 The prefix conversations share is kept too, with or without the disk tier.
 While a prompt is processed, the head other conversations will start with is
 stored as a shared prefix: the system message when it ends
 `Generator.sharedPrefixMinimumTokens` (512) tokens or more in, and the longest
-head the prompt shares with a state already in memory or on disk. The save
+head it shares with a prompt already kept in memory or on disk, up to where it
+parts from that prompt. A conversation's next turn, which sends back the reply
+the model generated, parts from nothing another conversation starts with. The
+save
 point is the last prefill pass end at or before that boundary, so no pass is
 reshaped and outputs are unchanged; the state is forked into `prefixCache` and,
 at `minimumTokens` or more, written to disk. The next conversation starting
 with the same system prompt reuses it instead of processing it again. A shared
-prefix is kept once, is never replaced by the conversations that extend it, and
-is evicted after them. An app that knows where its stable preamble ends, for
+prefix is kept once and is never replaced by the conversations that extend it;
+when the quota is full, one that two or more conversations start from is
+removed after them. An app that knows where its stable preamble ends, for
 example one without a system message, names it on the request; `0` leaves only
 the shared-head rule:
 
@@ -5982,15 +5987,27 @@ determines which version the installer downloads.
 ## Unreleased
 
 - The prefix cache's disk tier now writes states from 1,024 tokens instead
-  of 2,048 (`--prefix-cache-min-tokens`). After a restart, a 1,919-token
-  conversation re-read its whole prompt in 45.5 s under the old default and
-  resumed with 6.0 s of prefill under the new one. The servers `slotstream
-  launch` starts and the development Mac app use this default, so Pi's
-  opening prompt of about 1,600 tokens now reaches the disk. Each turn of a
-  conversation between the two lengths now writes its state, about 120 to
-  170 MB, within the same quota. Measured by
+  of 2,048 (`--prefix-cache-min-tokens`). On 0.2.18, after a restart, a
+  1,919-token conversation re-read its whole prompt in 45.5 s under the old
+  default and resumed with 6.0 s of prefill under the new one. Since 0.2.22
+  a restart resumes at the previous prompt's last prefill pass boundary, so
+  it also re-reads the previous reply and up to one pass of that prompt. The
+  servers `slotstream launch` starts and the development Mac app use this
+  default, so Pi's opening prompt of about 1,600 tokens now reaches the
+  disk. Each turn of a conversation between the two lengths now writes its
+  state, about 120 to 170 MB, within the same quota. Measured by
   [@jasen215](https://github.com/jasen215) in
   [#17](https://github.com/carloslfu/slotstream/issues/17).
+- A continued conversation writes one state per turn again. Since 0.2.22 the
+  end of the previous reply also counted as a prefix other conversations
+  share once the reply crossed a prefill pass boundary. When the new message
+  crossed another boundary, that point was written as a second state;
+  otherwise 0.2.25's fix for colliding shared prefixes rewrote the turn's
+  own state as shared, which made it the first state removed when the quota
+  needed room. Each of these writes added about 116 MB, kept until the quota
+  removed it. Only the end of a system prompt, or the point where a prompt
+  parts from another kept prompt, is saved as a shared prefix now.
+  `Tools/prefix_turn_writes_e2e.py` checks it live.
 - `slotstream parity --compare` refuses a NaN or infinite value instead of
   printing `PARITY PASS`. Swift's `max` drops a NaN, so such a dump could
   pass. By [@Pybsama](https://github.com/Pybsama) in
@@ -6003,7 +6020,8 @@ determines which version the installer downloads.
 - Raw downloads (`--transport raw`, source overrides and resumed legacy
   downloads) honor a server's `Retry-After` and `RateLimit` headers, as
   compressed downloads have since 0.2.11, instead of retrying after 2 to 8
-  seconds. Each wait is capped at 10 minutes. By
+  seconds. Like compressed downloads, they wait 5 minutes after a 429 that
+  carries neither header, and each wait is capped at 10 minutes. By
   [@Pybsama](https://github.com/Pybsama) in
   [#33](https://github.com/carloslfu/slotstream/pull/33).
 - `slotstream prefix-cache --clear` names every file it could not remove and
@@ -6018,13 +6036,20 @@ determines which version the installer downloads.
   [#36](https://github.com/carloslfu/slotstream/pull/36).
 - Opening the prefix cache directory keeps a file the system refuses to
   read, because of its permissions or an I/O error, instead of deleting it
-  and the states that depend on it; damaged files are still removed. `serve`
-  then runs without the disk cache and names the file. By
+  and the states that depend on it; damaged files are still removed.
+  `PersistentPrefixCache(configuration:identity:)` and
+  `Engine.enablePersistentPrefixCache(_:)` then throw
+  `PersistentPrefixCache.InaccessibleFile`, which names the file. `serve`
+  runs without the disk cache and says so, and the development Mac app runs
+  without it until the file can be read. By
   [@Pybsama](https://github.com/Pybsama) in
   [#37](https://github.com/carloslfu/slotstream/pull/37).
 - `/v1/messages` joins consecutive messages of one role into one turn, as
-  the Messages API does, so tool results split across adjacent user messages
-  are accepted. By [@Pybsama](https://github.com/Pybsama) in
+  the Messages API does. Tool results split across adjacent user messages
+  are accepted, and a turn's tool calls may continue in the next assistant
+  message. Adjacent plain user messages, which rendered as separate turns,
+  now render as one, with the turn's pictures before its text as in a single
+  message. By [@Pybsama](https://github.com/Pybsama) in
   [#40](https://github.com/carloslfu/slotstream/pull/40).
 - The server answers 431 for any request whose headers exceed 64 KiB.
   Headers of up to 128 KiB were served when their closing blank line arrived
@@ -6036,6 +6061,18 @@ determines which version the installer downloads.
   the server, the development Mac app or `slotstream prefix-cache` every time
   they open it. By [@Pybsama](https://github.com/Pybsama) in
   [#43](https://github.com/carloslfu/slotstream/pull/43).
+- `slotstream launch` exits with code 130, as `run` and `serve` do, when
+  Control+C interrupts the download it offers on first use; it reported a
+  generic failure. On `/v1/messages`, an oversized request header is typed
+  `request_too_large` instead of `api_error`, and the missing-result error
+  lists only the calls still unanswered. When `serve` runs without its disk
+  cache, the `prefix-cache --clear` command it suggests names that
+  directory; without `--dir` it cleared launch's directory instead.
+  Restoring a state from disk keeps a file the system refuses to open, as
+  opening the directory does, instead of deleting it. A state rewritten for
+  another draft mode or prefill pass size keeps its shared flag and the
+  conversation ids recorded with it. The development Mac app's setup says
+  when the decode-forecast file is missing.
 
 ## 0.2.25 - 2026-09-24
 
@@ -6111,8 +6148,9 @@ determines which version the installer downloads.
   second copy of the occupied cache. The live governor also checks temporary
   replacement memory against the process target and available system memory.
   When growth cannot fit, it keeps the current warm cache and retries later.
-- The download `slotstream run` offers on first use and the development Mac
-  app's model download now also fetch the 37.5 MB decode-forecast file 0.2.19
+- The download `slotstream run`, `serve` and `launch` offer on first use and
+  the development Mac app's model download now also fetch the 37.5 MB
+  decode-forecast file 0.2.19
   added. Only `slotstream pull` did, so models downloaded the other ways
   decoded with the earlier, slower forecast. A model already downloaded
   without the file still needs one `slotstream pull`: `slotstream doctor` now

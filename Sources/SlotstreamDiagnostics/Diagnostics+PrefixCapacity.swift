@@ -125,6 +125,23 @@ extension Diagnostics {
         c.equal("shared prefix: a prompt that extends the held state shares all of it",
             held.longestCommonPrefix(with: firstSession + [907, 5]), firstSession.count + 1)
         c.equal("shared prefix: an unrelated prompt shares nothing", held.longestCommonPrefix(with: [1, 2, 3]), 0)
+        c.equal("shared prefix: a new session parts from the held one after the instructions",
+            held.longestCommonPrefix(with: nextSession, diverging: true), instructions.count)
+        c.equal("shared prefix: the held state's own next turn parts from nothing",
+            held.longestCommonPrefix(with: firstSession + [907, 5], diverging: true), 0)
+        // A conversation entry also holds the reply it generated, and the next
+        // turn sends that reply back, often re-rendered. Parting inside it is
+        // that turn, not a branch; parting inside the prompt still counts.
+        let replied = PrefixCache(maxTokens: 8192)
+        let conversation = firstSession + [910, 911, 912]
+        replied.store(state: state(conversation), tokens: conversation, images: [], freshEquivalent: false, key: nil,
+            inputTokens: firstSession.count)
+        c.equal("shared prefix: a next turn that re-renders the reply parts from nothing",
+            replied.longestCommonPrefix(with: firstSession + [910, 999, 5], diverging: true), 0)
+        c.equal("shared prefix: the plain count still reaches into the reply",
+            replied.longestCommonPrefix(with: firstSession + [910, 999, 5]), firstSession.count + 1)
+        c.equal("shared prefix: a session that parts inside the held prompt still counts",
+            replied.longestCommonPrefix(with: nextSession, diverging: true), instructions.count)
 
         for adoption in 0..<3 {
             let cache = PrefixCache(maxTokens: 8192)

@@ -199,13 +199,17 @@ package enum PersistentPrefixPolicy {
     /// the start of `prompt`. Zero when no state shares a first token. The
     /// state that shares the most is usually another conversation with the
     /// same system prompt or document: a save at that boundary lets every
-    /// later prompt that starts the same way skip it.
+    /// later prompt that starts the same way skip it. `diverging` counts only
+    /// states the prompt parts from before their end: one it extends outright
+    /// is where a single conversation continues, not where two branch.
     package static func longestCommonPrefix(_ entries: [PersistentPrefixEntry], identity: String, prompt: [Int],
-                                            now: Double, maxAge: TimeInterval?) -> Int {
+                                            now: Double, maxAge: TimeInterval?, diverging: Bool = false) -> Int {
         var best = 0
         for entry in entries where entry.identity == identity && !entry.tokens.isEmpty
             && !isExpired(entry, now: now, maxAge: maxAge) {
-            best = max(best, commonPrefixLength(entry.tokens, prompt))
+            let shared = commonPrefixLength(entry.tokens, prompt)
+            if diverging, shared == entry.tokens.count { continue }
+            best = max(best, shared)
         }
         return best
     }

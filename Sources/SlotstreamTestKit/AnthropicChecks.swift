@@ -396,9 +396,11 @@ extension Catalogue {
         c.equal("the body is typed as an error", AnthropicDialect.Failure("bad").body["type"] as? String, "error")
         c.equal("overflow wording Claude Code compacts on", AnthropicDialect.promptTooLong(tokens: 40000, maximum: 32767),
                 "prompt is too long: 40000 tokens > 32767 maximum")
-        c.equal("status to error type", ["400 Bad Request", "404 Not Found", "413 Content Too Large", "503 Service Unavailable",
+        c.equal("status to error type", ["400 Bad Request", "404 Not Found", "413 Content Too Large",
+                                         "431 Request Header Fields Too Large", "503 Service Unavailable",
                                          "500 Internal Server Error"].map(AnthropicDialect.errorType(httpStatus:)),
-                ["invalid_request_error", "not_found_error", "request_too_large", "overloaded_error", "api_error"])
+                ["invalid_request_error", "not_found_error", "request_too_large", "request_too_large",
+                 "overloaded_error", "api_error"])
         c.equal("only plain field names reach a header", Server.headerSafeFieldNames(["speed", "bad\r\nX-Evil: 1", "", "a.b-c_d"]),
                 ["speed", "a.b-c_d"])
         c.equal("header names are capped", Server.headerSafeFieldNames((0 ..< 40).map { "f\($0)" }).count, 16)

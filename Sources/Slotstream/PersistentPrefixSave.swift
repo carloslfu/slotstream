@@ -71,6 +71,7 @@ extension PersistentPrefixCache {
             plan = try Self.plan(state: state, tokens: tokens, identity: identity.digest, includeDraft: includeDraft)
         } catch { return finish(.skipped("\(error)")) }
         let name = PersistentPrefixFile.fileName(identity: identity.digest, tokens: tokens)
+        let existing = lock.withLock { heads.first { $0.file == name && $0.tokens == tokens } }
         // A head already holding these exact ids is a no-op only when it also
         // carries this save's shared flag. The engine writes a conversation's
         // own checkpoint at the same boundary a long system prompt's shared
@@ -80,11 +81,15 @@ extension PersistentPrefixCache {
         // the conversation's own, so a later save would remove it as a
         // redundant ancestor and no other conversation could start from it.
         // Rewriting the head is what puts the flag in the file.
-        if let existing = lock.withLock({ heads.first { $0.file == name } }), existing.tokens == tokens, existing.prefillChunk == prefillChunk,
+        if let existing, existing.prefillChunk == prefillChunk,
            existing.hasDraft || !includeDraft, existing.shared || !shared {
             touch(name)
             return finish(.present)
         }
+        // A rewrite for another draft state or pass size keeps what is known
+        // about these ids: a prefix other conversations start with stays one,
+        // and the conversation recorded after it stays spliceable.
+        let keepsShared = shared || existing?.shared == true
 
         // Rows below the lineage boundary equal that head's rows, so they can
         // be referenced. The head name binds the lineage to these exact ids.
@@ -198,7 +203,8 @@ extension PersistentPrefixCache {
             var arrays = plan.arrays
             var header = plan.header
             header.continued = continued
-            header.shared = shared ? true : nil
+            header.shared = keepsShared ? true : nil
+            header.splicingTokens = existing?.splicingTokens
             header.prefillChunk = prefillChunk
             header.sequences = sequences
             let temp = temporary(name)
@@ -216,10 +222,12 @@ extension PersistentPrefixCache {
                 throw ModelError("cannot rename \(temp): \(String(cString: strerror(errno)))")
             }
             written += size
-            entry = PersistentPrefixEntry(file: name, identity: identity.digest, tokens: tokens, bytes: size,
+            var indexed = PersistentPrefixEntry(file: name, identity: identity.digest, tokens: tokens, bytes: size,
                 lastUsed: Self.now(), sequenceBytes: header.sequenceBytes, residentBytes: header.residentBytes,
-                hasDraft: header.draft != nil, continued: continued, shared: shared, prefillChunk: prefillChunk,
+                hasDraft: header.draft != nil, continued: continued, shared: keepsShared, prefillChunk: prefillChunk,
                 sequences: Dictionary(uniqueKeysWithValues: sequences.map { ($0.name, $0) }))
+            indexed.splicingTokens = header.splicingTokens
+            entry = indexed
         } catch {
             if let newSegment {
                 unlink(path(newSegment.file))

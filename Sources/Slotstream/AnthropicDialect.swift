@@ -62,7 +62,7 @@ public enum AnthropicDialect {
         case "401": return "authentication_error"
         case "403": return "permission_error"
         case "404": return "not_found_error"
-        case "413": return "request_too_large"
+        case "413", "431": return "request_too_large"
         case "429": return "rate_limit_error"
         case "503", "529": return "overloaded_error"
         default: return "api_error"
@@ -341,10 +341,11 @@ public enum AnthropicDialect {
     /// Anthropic messages to template messages.
     ///
     /// An assistant turn's `tool_use` blocks must be answered by `tool_result`
-    /// blocks at the start of the next user message; the template wants one
-    /// tool message per call, in call order, so results are re-ordered by
-    /// their call and any text or pictures in that user message follow them.
-    /// Consecutive messages of one role are one turn, as the API treats them.
+    /// blocks in the next user turn, which may span consecutive user
+    /// messages; the template wants one tool message per call, in call order,
+    /// so results are re-ordered by their call and any text or pictures in
+    /// that turn follow them. Consecutive messages of one role are one turn,
+    /// as the API treats them.
     /// A `system` message before the conversation joins the system prompt;
     /// after it starts, it renders as user text, because the template renders
     /// one system turn and rejects a later one.
@@ -366,7 +367,7 @@ public enum AnthropicDialect {
         }
         func unanswered(_ i: Int) -> Failure {
             Failure("messages.\(i): tool_use ids were found without tool_result blocks immediately after: "
-                + pending.map(\.id).joined(separator: ", "))
+                + pending.filter { userResults[$0.id] == nil }.map(\.id).joined(separator: ", "))
         }
 
         for (i, element) in list.enumerated() {

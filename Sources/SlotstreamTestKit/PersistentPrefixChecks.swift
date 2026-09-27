@@ -44,11 +44,14 @@ extension Catalogue {
         // unlink cannot remove a directory, even when the check runs as root.
         let blocked = dir.appendingPathComponent("blocked.slotprefix")
         try fm.createDirectory(at: blocked, withIntermediateDirectories: false)
+        try Data(count: 17).write(to: head)
         var failure: String?
         do { _ = try PersistentPrefixCache.clear(directory: dir) } catch { failure = String(describing: error) }
         c.expect("a failed unlink throws instead of reporting successful clearance", failure != nil)
         c.expect("the unlink failure identifies the path", failure?.contains(blocked.path) == true, failure)
         c.expect("the failed entry remains on disk", fm.fileExists(atPath: blocked.path))
+        c.expect("an erase still removes every file it can", !fm.fileExists(atPath: head.path))
+        c.expect("and counts what it removed", failure?.contains("removed 1 prefix cache file but") == true, failure)
         try fm.removeItem(at: blocked)
         try Data(count: 13).write(to: head)
         let retried = try PersistentPrefixCache.clear(directory: dir)

@@ -50,10 +50,19 @@ extension PersistentPrefixCache {
                       includeDraft: Bool) throws -> (Qwen4ExpModel.State, Int64) {
         typealias Failure = PersistentPrefixFileError
         let fd = open(path(entry.file), O_RDONLY | O_CLOEXEC)
-        guard fd >= 0 else { throw Failure("cannot open: \(String(cString: strerror(errno)))") }
+        guard fd >= 0 else {
+            let code = errno
+            // Only a missing file condemns the head. Permissions, too many
+            // open files or an I/O error say nothing about its state.
+            if code == ENOENT { throw Failure("file is missing") }
+            throw ModelError("cannot open \(entry.file): \(String(cString: strerror(code)))")
+        }
         defer { close(fd) }
         var info = stat()
-        guard fstat(fd, &info) == 0, Int64(info.st_size) == entry.bytes else { throw Failure("file changed on disk") }
+        guard fstat(fd, &info) == 0 else {
+            throw ModelError("cannot stat \(entry.file): \(String(cString: strerror(errno)))")
+        }
+        guard Int64(info.st_size) == entry.bytes else { throw Failure("file changed on disk") }
         let (data, payloadEnd) = try PersistentPrefixFile.readHeaderData(fd, size: entry.bytes)
         guard let header = try? JSONDecoder().decode(PersistentPrefixFile.Head.self, from: data),
               header.format == PersistentPrefixFile.formatVersion, header.kind == .head,
@@ -238,10 +247,10 @@ extension PersistentPrefixCache {
         guard PersistentPrefixFile.isSegmentName(segment) else { throw PersistentPrefixFileError("invalid segment name") }
         let fd = open(directory.appendingPathComponent(segment).path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else {
-            let reason = String(cString: strerror(errno))
+            let code = errno
             // Only a missing file condemns the segment; other errors may pass.
-            if errno == ENOENT { throw PersistentPrefixFileError("segment \(segment) is missing") }
-            throw ModelError("cannot open segment \(segment): \(reason)")
+            if code == ENOENT { throw PersistentPrefixFileError("segment \(segment) is missing") }
+            throw ModelError("cannot open segment \(segment): \(String(cString: strerror(code)))")
         }
         readers[segment] = fd
         return fd

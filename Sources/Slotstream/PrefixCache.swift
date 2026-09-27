@@ -187,6 +187,9 @@ public final class PrefixCache {
         /// The settings this state was actually built under, so a later
         /// request cannot continue it with a different pass size or draft mode.
         var producedKey: PromptCheckpointKey?
+        /// How many leading tokens were the prompt, when the state also holds
+        /// tokens it generated. Nil when every token was read as input.
+        var inputTokens: Int?
     }
 
     /// Do a held entry and an incoming prompt describe the same images?
@@ -449,14 +452,21 @@ public final class PrefixCache {
 
     /// How many leading tokens of a text prompt some held text state shares:
     /// the boundary a shared-prefix checkpoint of this prompt would use. A
-    /// state that the prompt extends outright shares all of its tokens, which
-    /// the caller already reuses; the value matters when it exceeds that.
-    package func longestCommonPrefix(with promptIds: [Int]) -> Int {
+    /// state that the prompt extends outright shares all of its tokens.
+    /// `diverging` counts only states the prompt parts from inside the prompt
+    /// they read. Parting later, in the reply a conversation entry generated,
+    /// is that conversation's next turn sending the reply back, re-rendered
+    /// or not; under `PrefixResumeRule` the entry is never continued, so its
+    /// length is not reused either, and a save there would only repeat the
+    /// turn's own checkpoint.
+    package func longestCommonPrefix(with promptIds: [Int], diverging: Bool = false) -> Int {
         lock.withLock {
             guard _enabled else { return 0 }
             var best = 0
             for entry in entries where entry.images.isEmpty {
-                best = max(best, PersistentPrefixPolicy.commonPrefixLength(entry.tokens, promptIds))
+                let shared = PersistentPrefixPolicy.commonPrefixLength(entry.tokens, promptIds)
+                if diverging, shared >= min(entry.inputTokens ?? entry.tokens.count, entry.tokens.count) { continue }
+                best = max(best, shared)
             }
             return best
         }
@@ -555,7 +565,7 @@ public final class PrefixCache {
     /// `PrefixResumeRule` can tell whether continuing it is exact.
     package func store(
         state s: Qwen4ExpModel.State, tokens t: [Int], images: [ImageSegment],
-        freshEquivalent: Bool, key: PromptCheckpointKey?
+        freshEquivalent: Bool, key: PromptCheckpointKey?, inputTokens: Int? = nil
     ) {
         lock.lock()
         defer { lock.unlock() }
@@ -578,10 +588,10 @@ public final class PrefixCache {
                 return
             }
             entries[i] = Entry(state: s, tokens: t, images: images, used: clock,
-                freshEquivalent: freshEquivalent, producedKey: key)
+                freshEquivalent: freshEquivalent, producedKey: key, inputTokens: inputTokens)
         } else {
             entries.append(Entry(state: s, tokens: t, images: images, used: clock,
-                freshEquivalent: freshEquivalent, producedKey: key))
+                freshEquivalent: freshEquivalent, producedKey: key, inputTokens: inputTokens))
         }
         keepPrefixesCurrent(of: t, images: images)
         while entries.count > Self.maxEntries

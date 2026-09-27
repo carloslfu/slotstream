@@ -465,6 +465,9 @@ struct Launch: ParsableCommand {
             }
         } catch let failure as CodingToolLaunch.Failure {
             throw failure
+        } catch let code as ExitCode {
+            // An interrupted download already said so and exits 130.
+            throw code
         } catch {
             throw CodingToolLaunch.Failure("\(error)")
         }

@@ -133,9 +133,10 @@ public struct GenStats: Codable {
     public var completePromptHits = 0
     public var completePromptStores = 0
     /// Shared prefixes: where the system prompt ended, the longest start the
-    /// prompt had in common with a held state, the pass boundaries at or
-    /// before those where this request kept a state, and how the in-memory
-    /// checkpoints of those fared. Disk outcomes are in `persistentPrefix`.
+    /// prompt had in common with a held state it parts from, the pass
+    /// boundaries at or before those where this request kept a state, and how
+    /// the in-memory checkpoints of those fared. Disk outcomes are in
+    /// `persistentPrefix`.
     public var sharedPrefixHint: Int?
     public var sharedPrefixCommon: Int?
     public var sharedPrefixBoundaries: [Int] = []
@@ -1307,7 +1308,7 @@ public final class Generator {
             // exact ids, which `peek` splices into the next prompt. The state
             // a later turn resumes is the boundary checkpoint above.
             cache?.store(state: state, tokens: consumed, images: images,
-                freshEquivalent: false, key: producedKey)
+                freshEquivalent: false, key: producedKey, inputTokens: promptIds.count)
             if resumeRule == nil {
                 persistPrefix(cache: cache, state: state, tokens: consumed, images: images,
                     request: request, aligned: true, stats: &stats)

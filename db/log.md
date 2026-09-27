@@ -2103,3 +2103,9 @@ The 24 GB report sits below the ~6 floor; the range stays until a 0.2.25 rerun, 
 ## [2026-09-26 16:03] update | records/measurements/hardware-planning-ranges-2026-09-13
 Added the 24 GB M4 Pro report and why the floor stays pending a 0.2.25 rerun.
 
+## [2026-09-27 04:53] create | sources/runs/2026/09/2026-09-26-prefix-turn-writes-e2e
+Live per-turn prefix cache writes on 0.2.25 and on the branch-point fix, with the catalogue and both live gates.
+
+## [2026-09-27 04:53] create | records/measurements/prefix-turn-writes-2026-09-26
+A continued turn wrote its own state twice on 0.2.25 (once as a shared prefix); the fix writes it once with identical ids.
+

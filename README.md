@@ -312,10 +312,10 @@ none of it runs when you use Slotstream. See [Built native](#built-native).
 
 Generation reads the model files without rewriting them. macOS swap adds
 writes when memory runs short. Automatic memory sizing helps, but a small
-Mac or an oversized manual setting can still swap heavily. With
-`serve --prefix-cache-dir`, Slotstream also saves long conversations to that
-folder after each reply, and the system prompts conversations share, within a
-disk quota.
+Mac or an oversized manual setting can still swap heavily. Servers that
+`slotstream launch` starts, and `serve --prefix-cache-dir`, also save each
+turn of a longer conversation to a cache folder, and the system prompts
+conversations share, within a disk quota.
 
 ### Can I run it on Linux or Windows?
 

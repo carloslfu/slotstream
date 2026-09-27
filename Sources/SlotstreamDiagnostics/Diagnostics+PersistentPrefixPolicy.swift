@@ -91,6 +91,14 @@ extension Diagnostics {
             Policy.longestCommonPrefix([all[3]], identity: "own", prompt: prompt, now: now, maxAge: nil), 0)
         c.equal("an expired state shares nothing",
             Policy.longestCommonPrefix([stale], identity: "own", prompt: prompt, now: now, maxAge: 30 * day), 0)
+        // Targets count only states a prompt parts from: one it extends
+        // outright is the same conversation going on, not a branch point.
+        c.equal("a prompt that extends every state outright parts from none",
+            Policy.longestCommonPrefix(all, identity: "own", prompt: [1, 2, 3, 4, 5, 6, 9], now: now, maxAge: nil,
+                diverging: true), 0)
+        c.equal("where a prompt parts from a state, past one it extends outright",
+            Policy.longestCommonPrefix(all, identity: "own", prompt: [1, 2, 3, 4, 9], now: now, maxAge: nil,
+                diverging: true), 4)
         c.equal("a common prefix stops at the first difference", Policy.commonPrefixLength([1, 2, 3], [1, 2, 4]), 2)
         c.equal("an empty list shares nothing", Policy.commonPrefixLength([], [1]), 0)
         let header = [10, 11, 12], turnEnd = [20, 21]
