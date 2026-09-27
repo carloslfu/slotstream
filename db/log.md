@@ -2109,3 +2109,36 @@ Live per-turn prefix cache writes on 0.2.25 and on the branch-point fix, with th
 ## [2026-09-27 04:53] create | records/measurements/prefix-turn-writes-2026-09-26
 A continued turn wrote its own state twice on 0.2.25 (once as a shared prefix); the fix writes it once with identical ids.
 
+## [2026-09-27 05:04] create | sources/community/2026/09/2026-09-26-macbook-pro-m4-pro-24gb-davidcavazos-0-2-25-rerun
+The 24 GB M4 Pro's 0.2.25 re-run from issue #41, verbatim except the redacted home path.
+
+## [2026-09-27 05:04] update | records/measurements/c7-macbook-pro-m4-pro-24gb-community
+Added the 0.2.25 re-run: 5.41 tok/s with the draft head, lookahead and corrected forecast; engine read rate compared like for like.
+
+## [2026-09-27 05:04] update | records/measurements/hardware-planning-ranges-2026-09-13
+24 to <48 GB now ~5-16 from the 0.2.25 re-run; corrected the M3 Max SSD location, C4's reasoning and the 3.7 vs 17.3 GB/s comparison.
+
+## [2026-09-27 05:04] create | records/claims/warm-decode-m4-pro-24gb-0-2-25-rerun-community
+Needle 5.41 tok/s on the hardware guide's summary and re-run rows.
+
+## [2026-09-27 05:04] update | records/claims/hardware-planning-range-medium
+Needle ~5-16 tok/s after the 24 GB re-run stayed below ~6.
+
+## [2026-09-27 05:04] update | records/claims/hardware-planning-range-high
+First sentence states ~15-27, the needle since the 2026-09-16 re-anchor.
+
+## [2026-09-27 05:04] update | records/claims/two-tier-rows-are-measured-on-real-macs
+The 24 GB size now has rows; only 18 GB lacks one. Summary no longer lists four Macs.
+
+## [2026-09-27 05:04] update | records/design/measured-operating-policies
+The 1,024-token floor landed on main on 2026-09-25, after 0.2.25, not 2026-09-24.
+
+## [2026-09-27 05:04] update | records/measurements/prefix-cache-floor-community-2026-09-16
+Corrected the date the default changed to 2026-09-25 (#30 merge).
+
+## [2026-09-27 05:04] update | records/claims/persistent-prefix-default-minimum-tokens
+Corrected the date the default changed to 2026-09-25 (#30 merge).
+
+## [2026-09-27 05:04] update | records/measurements/c5-macbook-pro-m4-max-64gb-community
+serve and launch offered the same first-use download without the forecast file through 0.2.24.
+

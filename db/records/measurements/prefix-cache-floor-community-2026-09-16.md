@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3ae6n907455neqzrfnmh3yj
 created: 2026-09-24T19:27:43.392684+00:00
-updated: 2026-09-24T19:27:43.392684+00:00
+updated: 2026-09-27T05:04:11.888581+00:00
 summary: Prefix-cache floor at 2048 and 1024 tokens across a restart (community, 2026-09-16)
 date: 2026-09-16
 doc: measurements
@@ -39,7 +39,7 @@ prompt, about 1,600 tokens ([[records/design/measured-operating-policies]]),
 is also below 2048, so the servers `slotstream launch` starts kept it in memory
 but never wrote it to disk.
 
-On this evidence the default fell to 1024 tokens on 2026-09-24. The cost is one
+On this evidence the default fell to 1024 tokens on main on 2026-09-25, after 0.2.25. The cost is one
 head plus the new rows on each turn of a conversation between 1,024 and 2,048
 tokens, within the same disk quota. Nothing below 1,024 was measured.
 

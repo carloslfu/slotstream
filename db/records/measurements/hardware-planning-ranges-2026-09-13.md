@@ -2,7 +2,7 @@
 type: measurement
 id: 01m2dtc5nvwg0t0jfr4fra1nx6
 created: 2026-09-13T16:42:28.411325+00:00
-updated: 2026-09-26T16:03:31+00:00
+updated: 2026-09-27T05:04:11.738503+00:00
 summary: Hardware speed planning ranges and inference limits
 date: 2026-09-13
 doc: measurements
@@ -161,3 +161,24 @@ No release-speedup multiplier was applied to the community reports.
   which 0.2.25 enables at that size. The floor stays ~6 until a rerun on 0.2.25
   separates the release from the hardware; the public range names the report
   beside it.
+
+## The 24 GB re-run, 2026-09-27
+
+The 24 GB M4 Pro's 0.2.25 re-run decoded **5.41 tok/s**
+([[records/measurements/c7-macbook-pro-m4-pro-24gb-community]]), up from 3.57
+on 0.2.24, with the draft head, the decode lookahead and the corrected
+forecast on. That is the rerun the 2026-09-26 section waited for, and it stays
+below ~6, so the 24 to less than 48 GB range now rounds outward from 5.41 and
+15.86: ~5–16 tok/s. The upper end is unchanged. That Mac read cold experts at
+3.7 GB/s through the engine, about a third of the development Mac's engine
+rate, and other apps held memory during both of its runs; the range does not
+say which of these sets the gap.
+
+Corrections to the two sections above. The 64 GB M3 Max report gives a 512 GB
+SSD without saying whether it is internal, so only the M4 Max's reports are
+known to be from an internal SSD. C4's reason is weaker than "unlikely to
+close it": the M4 Max ran the same pre-0.2.19 forecast and still decoded
+faster, which points at the chip and SSD more than the release, but the two
+runs also differ in release, 0.2.18 against 0.2.22. And the 3.7 GB/s against
+17.3 GB/s comparison set an engine read rate against a raw SSD figure; through
+the engine the development Mac read 11.5 to 12.6 GB/s (C7).

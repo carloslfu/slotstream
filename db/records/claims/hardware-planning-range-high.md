@@ -2,7 +2,7 @@
 type: claim
 id: 01m2dtc5qm5k3khph0d5j5zer2
 created: 2026-09-13T16:42:28.468306+00:00
-updated: 2026-09-24T17:32:16.266308+00:00
+updated: 2026-09-27T05:04:11.813504+00:00
 summary: Estimated warm reply range for 48 to less than 96 GB Macs
 basis: estimated
 gate: none; semantic review against the supporting evidence
@@ -12,7 +12,7 @@ surfaces: README.md, docs/HARDWARE.md
 title: Estimated warm reply range for 48 to less than 96 GB Macs
 status: current
 ---
-~13–27 tok/s is a rough planning range, not a measurement of every Mac in this
+~15–27 tok/s is a rough planning range, not a measurement of every Mac in this
 memory band or a performance bound. Endpoint construction, mixed-release
 scope, hardware-transfer assumptions and revision conditions are in
 [[records/measurements/hardware-planning-ranges-2026-09-13]]. Public surfaces

@@ -2,8 +2,8 @@
 type: claim
 id: 01m1jprea7c6hgmtxdgpzth8xf
 created: 2026-09-03T03:59:46.503841+00:00
-updated: 2026-09-24T17:11:21.917279+00:00
-summary: Hardware reports cover the M5 Pro, M2 mini, M5 Max, and M5 Air; planner estimates remain separate.
+updated: 2026-09-27T05:04:11.851250+00:00
+summary: Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
 basis: measured
 gate: none
 needle: measured on real Macs
@@ -55,3 +55,10 @@ the 16 GB M2's 0.2.3 re-run, supported by
 [[records/measurements/c6-macbook-pro-m4-max-36gb-community]] and
 [[records/measurements/c1-mac-mini-m2-16gb-base-storage-community-2026-09-02]].
 The 18 and 24 GB sizes still have no community rows.
+
+## A 24 GB report, 2026-09-27
+
+The hardware tables now also include a 24 GB M4 Pro, on 0.2.24 and in its
+0.2.25 re-run, supported by
+[[records/measurements/c7-macbook-pro-m4-pro-24gb-community]]. The 18 GB size
+still has no community row.

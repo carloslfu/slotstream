@@ -53,7 +53,7 @@ has not yet qualified a replacement full-answer baseline:
 | Same M5 Pro, 0.2.16 configuration at a 20 GB target | 48 GB | 13.47 tok/s |
 | Same M5 Pro, historical 0.2.3 result | 48 GB | ~12 tok/s |
 | Mac mini, M2 (base storage) | 16 GB | 1.41 tok/s |
-| MacBook Pro, M4 Pro | 24 GB | 3.57 tok/s |
+| MacBook Pro, M4 Pro | 24 GB | 5.41 tok/s |
 | MacBook Air, M5 | 32 GB | 6.22 tok/s |
 | MacBook Pro, M4 Max | 36 GB | 8.41 tok/s |
 | MacBook Pro, M3 Max | 64 GB | 12.38 tok/s |
@@ -86,6 +86,7 @@ model. Open the details below for versions, settings, and credits.
 | Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.2 | auto: 10.2 GB target, ~21 experts/layer | **1.41 tok/s** | not measured; `context-check` postdates 0.2.2 | 6.1 GB | [@flol's report](https://github.com/carloslfu/slotstream/issues/5), 2026-09-02 |
 | Same Mac mini, M2 | 16 GB | internal, 256 GB | 26.6.2 | 0.2.3 | auto: 10.7 GB target, ~25 experts/layer | **1.48 tok/s** | 11 tok/s for 8192 tokens (12.1 min) | 8.1 GB RSS on the long prompt | [@flol's re-run](https://github.com/carloslfu/slotstream/issues/5#issuecomment-5525389653), 2026-09-03 |
 | MacBook Pro, M4 Pro | 24 GB | 512 GB; location not specified | 26.6.2 | 0.2.24 | auto: 15.9 GB target, ~53 experts/layer; no draft head or lookahead at this size before 0.2.25 | **3.57 tok/s**; 3.85 to 3.97 in a later round | 93 tok/s for 8192 tokens (18.0 GB target) | 16.6 GB process peak on the long prompt | [@davidcavazos's report](https://github.com/carloslfu/slotstream/issues/41), 2026-09-25 |
+| Same M4 Pro | 24 GB | 512 GB; location not specified | 26.6.2 | 0.2.25 | auto: 17.4 GB target, ~58 experts/layer; draft head and decode lookahead on | **5.41 tok/s**; 5.58 and 4.92 in the same round | 86 tok/s for 8192 tokens (18.0 GB target) | 16.7 GB process peak on the long prompt | [@davidcavazos's re-run](https://github.com/carloslfu/slotstream/issues/41#issuecomment-5850068364), 2026-09-26 |
 | MacBook Air, M5 | 32 GB | 1 TB; location not specified | 26.6.2 | 0.2.11 | 22 GB target, ~75 experts/layer planned | **6.22 tok/s** | 126.28 tok/s for 8192 tokens, 2048-token passes | 17.75 GB RSS on the long prompt | [@arczhi's report](https://github.com/carloslfu/slotstream/issues/12), 2026-09-07 |
 | MacBook Pro, M4 Max | 36 GB | internal, 1 TB | 26.0.1 | 0.2.22 | auto: 27.1 GB target, ~90 experts/layer | **8.41 tok/s** | 166 tok/s for 8192 tokens (27.1 GB target) | 24.8 GB process peak on the long prompt | [@JohnClarkson's report](https://github.com/carloslfu/slotstream/issues/26), 2026-09-20 |
 | MacBook Pro 14", M3 Max | 64 GB | 512 GB; location not specified | 27.0 | 0.2.18 | auto: 48.1 GB target, ~119 experts/layer | **12.38 tok/s** | 213 tok/s for 8192 tokens (34.6 GB target) | 30.1 GB process peak on the long prompt | [@merken's report](https://github.com/carloslfu/slotstream/issues/20), 2026-09-16 |
@@ -100,8 +101,9 @@ M5 Pro figure is a planner estimate, and older reported values do not establish
 the kernel lifetime footprint peak added by the reporting correction. These
 hardware configurations have not been requalified with the new counter.
 
-The 16 GB M2 and 32 GB M5 Air results are below the planner's estimates,
-and the 36 GB M4 Max's 8.41 tok/s is just under its ~9. The 64 GB M3 Max and
+The 16 GB M2, 24 GB M4 Pro and 32 GB M5 Air results are below the planner's
+estimates, the M4 Pro's 5.41 tok/s on 0.2.25 against its ~8, and the 36 GB
+M4 Max's 8.41 tok/s is just under its ~9. The 64 GB M3 Max and
 the 64 GB M4 Max on its internal SSD are above their ~11 estimate, and the
 128 GB M5 Max result is above its estimate. The planner uses the M5 Pro curve
 and doesn't model these differences.
@@ -114,7 +116,8 @@ still help separate disk speed from memory capacity at the small end.
 The three 0.2.22 reports ran without the decode-forecast file added in 0.2.19.
 Their logs print `no correction at lookahead/tap-correction-attention-rank128-v1.safetensors`.
 `slotstream pull` fetches the 37.5 MB file; through 0.2.24, the download
-`slotstream run` offers on first use did not.
+`slotstream run`, `serve` and `launch` offer on first use did not. The 24 GB
+M4 Pro's 0.2.25 re-run had it.
 
 The Air's long-prompt test explicitly used a 22 GB target with vision and
 speculative decoding off. Its full warm-server command and system load were
@@ -124,7 +127,8 @@ rerun by the author.
 
 Full methods, raw reports, and limits are in [MEASUREMENTS.md](../MEASUREMENTS.md):
 the M5 Pro throughout, the M2 in C1, the M5 Max in C2, the M5 Air in C3, the
-M3 Max in C4, the 64 GB M4 Max in C5 and the 36 GB M4 Max in C6.
+M3 Max in C4, the 64 GB M4 Max in C5, the 36 GB M4 Max in C6 and the 24 GB
+M4 Pro in C7.
 
 ### What the columns mean
 
@@ -241,7 +245,7 @@ confidence intervals. Endpoints are rounded outward to whole tok/s.
 | Installed RAM | Estimated warm reply speed | Basis and main inference |
 |---|---|---|
 | 16–<24 GB | ~1–6 tok/s | The M2 mini reported 1.41 tok/s; the M5 Pro-based 16/18 GB simulations estimate about 3.5 to 5 tok/s before the decode lookahead's gain. The upper end has not been measured on a real Mac in this band. |
-| 24–<48 GB | ~6–16 tok/s | The 32 GB M5 Air reported 6.22 tok/s on 0.2.11; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, rounded outward to 16. That benchmark used different prompt-workspace and cache settings from today's automatic plan. The upper end assumes a comparable chip and SSD; no Mac in this band has been timed on 0.2.19. The 36 GB M4 Max reported 8.41 tok/s on 0.2.22, inside the range. A 24 GB M4 Pro reported 3.57 tok/s on 0.2.24, below this range: its 512 GB SSD read cold experts at 3.7 GB/s, and before 0.2.25 a 24 GB plan ran without the draft head and decode lookahead; a rerun on 0.2.25 is pending. |
+| 24–<48 GB | ~5–16 tok/s | The 24 GB M4 Pro reported 5.41 tok/s on 0.2.25, rounded outward to 5; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, rounded outward to 16. That benchmark used different prompt-workspace and cache settings from today's automatic plan, and the upper end assumes a comparable chip and SSD. The 36 GB M4 Max reported 8.41 tok/s on 0.2.22 and the 32 GB M5 Air 6.22 tok/s on 0.2.11. The M4 Pro's first report, 3.57 tok/s on 0.2.24, ran before 0.2.25 turned on its draft head and decode lookahead; its SSD read cold experts through the engine at 3.7 GB/s, about a third of the development Mac's rate, and other apps held memory during both runs. |
 | 48–<96 GB | ~15–27 tok/s | The lower reference rounds down from the 48 GB M5 Pro's 15.86 tok/s on 0.2.19 at a 22 GB target, below its own 33.6 GB automatic target, whose larger cache has not been timed; the 0.2.16 result at a 20 GB target was 13.47 tok/s, and the older ~12 tok/s result remains historical evidence. A 64 GB M4 Max reported 15.93 tok/s on 0.2.22. A 64 GB M3 Max reported 12.38 tok/s on 0.2.18, below this range; a rerun on the current release is pending. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
 | 96 GB+ | ~20–32 tok/s | The 128 GB M5 Max reported about 21 to 22 tok/s in auto and 31.5 tok/s at a 73 GB process target. Applying this range to other Macs in the band is an estimate. This row is outside Slotstream's target range: the model fits in memory from 96 GB. |
 

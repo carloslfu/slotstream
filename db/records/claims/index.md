@@ -2,14 +2,17 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-26T16:03:31Z
+updated: 2026-09-27T05:04:20.963807Z
 ---
 
 # records/claims
 
+- [[records/claims/warm-decode-m4-pro-24gb-0-2-25-rerun-community]] — M4 Pro 24 GB community re-run on 0.2.25: 5.41 tok/s
+- [[records/claims/persistent-prefix-default-minimum-tokens]] — The persistent prefix cache writes states of 1024 tokens or more by default
+- [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
+- [[records/claims/hardware-planning-range-high]] — Estimated warm reply range for 48 to less than 96 GB Macs
 - [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
 - [[records/claims/warm-decode-m4-pro-24gb-community]] — M4 Pro 24 GB community report: 3.57 tok/s
-- [[records/claims/persistent-prefix-default-minimum-tokens]] — The persistent prefix cache writes states of 1024 tokens or more by default
 - [[records/claims/full-context-wait-about-8-minutes-at-65536]] — M5 Pro-based prefill estimate is about 8 minutes near the larger window from a 32 GB simulation, about 9 at 24 GB
 - [[records/claims/mtp-auto-floor-28-per-layer-12-gb-target]] — Auto turns speculative decode on when the cache still reaches 28 experts per layer after the head, a 12 GB target
 - [[records/claims/mtp-auto-floor-76-per-layer-21-gb-target]] — Auto turns speculative decode on when the cache still reaches 76 experts per layer after the head, a 21 GB target
@@ -25,12 +28,10 @@ updated: 2026-09-26T16:03:31Z
 - [[records/claims/keepalive-and-direct-reads-1-22x-at-22-gb]] — The GPU keepalive and direct demand reads made decode 1.22x faster at 22 GB with the draft head and lookahead
 - [[records/claims/keepalive-and-direct-reads-1-28x-at-10-gb]] — The GPU keepalive and direct demand reads made decode 1.28x faster at a 10 GB target without the draft head
 - [[records/claims/warm-decode-m3-max-64gb-community]] — M3 Max 64 GB community report: 12.38 tok/s
-- [[records/claims/hardware-planning-range-high]] — Estimated warm reply range for 48 to less than 96 GB Macs
 - [[records/claims/warm-decode-m4-max-36gb-community]] — M4 Max 36 GB community report: 8.41 tok/s
 - [[records/claims/warm-decode-m4-max-64gb-external-ssd-community]] — M4 Max 64 GB from a 10 Gb/s external SSD: 2.98 tok/s
 - [[records/claims/warm-decode-m4-max-64gb-community]] — M4 Max 64 GB community report: 15.93 tok/s
 - [[records/claims/warm-decode-m2-16gb-0-2-3-rerun-community]] — M2 mini 0.2.3 re-run: 1.48 tok/s
-- [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware reports cover the M5 Pro, M2 mini, M5 Max, and M5 Air; planner estimates remain separate.
 - [[records/claims/sevra-mac-folders-2000-files]] — Sevra reads folders of up to 2,000 files
 - [[records/claims/release-2k-prose-current-timing]] — Installed-release prose first-read range and ordinary exact-repeat latency at the measured small-budget profile.
 - [[records/claims/release-2k-code-current-timing]] — Installed-release code first-read range and ordinary exact-repeat latency at the measured small-budget profile.

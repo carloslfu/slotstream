@@ -84,8 +84,10 @@ agent still need their own internet access.
 The transfer alone is estimated at about 2 hours at 100 Mbps or 8 hours at 25 Mbps.
 Connection overhead and processing add to that time. You can stop with
 **Control+C** and run the same command later to resume. Downloaded files are
-checked for corruption automatically. Since 0.2.19 the download also includes
-a small forecast-correction file (37.5 MB) that makes replies faster. If
+checked for corruption automatically. Since 0.2.19 `slotstream pull` also
+downloads a small forecast-correction file (37.5 MB) that makes replies
+faster; the download `run`, `serve` and `launch` offer on first use includes
+it since 0.2.25. If
 `slotstream doctor` says it is missing, run `slotstream pull` once more to
 fetch it.
 
