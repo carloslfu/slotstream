@@ -2154,3 +2154,15 @@ The VQ checkpoint's model card quality table, pinned at the revision issue 7 ins
 ## [2026-09-28 21:01] create | records/decisions/vq-weights-behind-qualification-gates
 VQ builds approved as a second weight format behind parity, quality and speed gates (issue 7).
 
+## [2026-09-28 21:24] create | sources/runs/2026/09/2026-09-22-decode-opportunities
+Landed from the September 22 decode opportunities study (baseline 0.2.23), which was recorded but never committed: neither remaining decode proposal qualified a default change.
+
+## [2026-09-28 21:24] create | sources/runs/2026/09/2026-09-22-decode-opportunities-excluded
+Landed from the September 22 decode opportunities study (baseline 0.2.23), which was recorded but never committed: neither remaining decode proposal qualified a default change.
+
+## [2026-09-28 21:24] create | records/measurements/decode-opportunities-2026-09-22
+Landed from the September 22 decode opportunities study (baseline 0.2.23), which was recorded but never committed: neither remaining decode proposal qualified a default change.
+
+## [2026-09-28 21:24] create | records/decisions/decode-opportunities-stay-opt-in-2026-09-22
+Landed from the September 22 decode opportunities study (baseline 0.2.23), which was recorded but never committed: neither remaining decode proposal qualified a default change.
+

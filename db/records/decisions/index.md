@@ -17,6 +17,7 @@ updated: 2026-09-28T21:01:20.740899Z
 - [[records/decisions/gpu-keepalive-on-ac-power]] — A one-thread spin kernel keeps the GPU awake while a request generates, on AC power outside Low Power Mode by default: 1.22x with direct reads at 22 GB, energy per token +7%
 - [[records/decisions/sevra-live-folder-navigation]] — Live folder access with bounded navigation, reliable search cursors and fresh-read edit checks
 - [[records/decisions/sevra-app-speed-defaults-2026-09-23]] — Enable qualified desktop speedups without extra user switches
+- [[records/decisions/decode-opportunities-stay-opt-in-2026-09-22]] — Keep existing decode barriers and remove the unhelpful fusion prototype
 - [[records/decisions/automatic-prefill-read-policy]] — Apply supported prefill improvements automatically
 - [[records/decisions/automatic-mtp-prefill-read-policy]] — Apply MTP prefill improvements automatically
 - [[records/decisions/qualified-upstream-fused-prefill]] — Adopt qualified upstream fused prefill on the measured M5 Pro profile

@@ -31,6 +31,7 @@ updated: 2026-09-27T14:16:52.684697Z
 - [[records/measurements/speed-tables-review-2026-09-22]] — Keep the latest qualified decode result and rough ranges; add scoped prompt-policy and reuse results, and mark historical planner calibration.
 - [[records/measurements/published-prompt-speed-audit-2026-09-22]] — Published v0.2.23 audit: 123 requests; repeated exact prefix reuse is faster, short gains are inconsistent, and long timing exclusions and default-profile limits remain explicit.
 - [[records/measurements/release-0-2-23-published-2026-09-22]] — v0.2.23 published from the exact CI archive, provenance verified, publicly installed and accepted: full native battery 32/32, 16K MTP 13/13, installed serving 31/31.
+- [[records/measurements/decode-opportunities-2026-09-22]] — Remaining decode opportunities: current-backend tests do not qualify new defaults
 - [[records/measurements/prefill-opportunities-2026-09-21]] — Remaining long-prompt opportunities: tested gains and rejected alternatives
 - [[records/measurements/fused-prefill-integration-2026-09-21]] — Qualified fused prefill integration and remaining bottlenecks
 - [[records/measurements/automatic-prefill-policy-2026-09-21]] — Automatic prefill policy: validation and bounded adoption

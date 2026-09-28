@@ -778,31 +778,50 @@ extension Diagnostics {
         c.equal("token-only allowance cannot hide unused buffer capacity", logicalOnly.heldTokens, 0)
         generator.onPrefillProgressAbsolute = nil
         try model.enableMTP(modelDir: modelDir)
-        for firstLimit in [1, 3] {
-            let cache = PrefixCache(maxTokens: 4096)
-            var ids = [1000, 1079, 25, 1237, 460, 11, 279, 1917]
-            generator.speculationEnabled = true
-            params.maxTokens = firstLimit
-            let (first, _) = generator.generate(promptIds: ids, params: params, eosIds: [], cache: cache)
-            ids += first + [908]
-            let hit = cache.take(matching: ids, reserveTokens: 100)!
-            c.expect("on \(firstLimit): aligned draft", hit.state.hasValidMTP)
-            cache.store(state: hit.state, tokens: Array(ids.prefix(hit.state.tokenCount)))
-            generator.speculationEnabled = false
-            params.maxTokens = 3
-            let (plain, ps) = generator.generate(promptIds: ids, params: params, eosIds: [], cache: cache)
-            c.expect("off \(firstLimit): reused main prefix", ps.reusedPrefixTokens > 0)
-            c.equal("off \(firstLimit): no verification", ps.verifyPasses, 0)
-            ids += plain + [909]
-            let off = cache.take(matching: ids, reserveTokens: 100)!
-            c.expect("off \(firstLimit): draft invalidated", off.state.mtp == nil && off.state.lastMulti == nil)
-            cache.store(state: off.state, tokens: Array(ids.prefix(off.state.tokenCount)))
-            generator.speculationEnabled = true
-            let (_, resumed) = generator.generate(promptIds: ids, params: params, eosIds: [], cache: cache)
-            c.expect("on again \(firstLimit): reuses main state", resumed.reusedPrefixTokens > 0)
-            c.equal("on again \(firstLimit): stale draft never used", resumed.verifyPasses, 0)
-            let (_, fresh) = generator.generate(promptIds: [2000, 21, 907, 34], params: params, eosIds: [])
-            c.expect("fresh \(firstLimit): speculation available", fresh.verifyPasses > 0)
+        let savedAlignment = model.optimizations.alignedPrefixResume
+        defer { model.optimizations.alignedPrefixResume = savedAlignment }
+        for aligned in [true, false] {
+            model.optimizations.alignedPrefixResume = aligned ? true : nil
+            for firstLimit in [1, 3] {
+                let label = "\(aligned ? "aligned" : "legacy") \(firstLimit)"
+                let cache = PrefixCache(maxTokens: 4096)
+                var ids = [1000, 1079, 25, 1237, 460, 11, 279, 1917]
+                generator.speculationEnabled = true
+                params.maxTokens = firstLimit
+                let (first, _) = generator.generate(promptIds: ids, params: params, eosIds: [], cache: cache)
+                ids += first + [908]
+                let hit = cache.take(matching: ids, reserveTokens: 100)!
+                c.expect("on \(label): aligned draft", hit.state.hasValidMTP)
+                cache.store(state: hit.state, tokens: Array(ids.prefix(hit.state.tokenCount)))
+                generator.speculationEnabled = false
+                params.maxTokens = 3
+                let (plain, ps) = generator.generate(promptIds: ids, params: params, eosIds: [], cache: cache)
+                // A short decoded continuation has no committed prefill boundary.
+                // The deployed aligned policy rebuilds it; the legacy policy reuses it.
+                if aligned {
+                    c.equal("off \(label): rebuilds unaligned prefix", ps.reusedPrefixTokens, 0)
+                } else {
+                    c.expect("off \(label): reused main prefix", ps.reusedPrefixTokens > 0)
+                }
+                c.equal("off \(label): no verification", ps.verifyPasses, 0)
+                ids += plain + [909]
+                let off = cache.take(matching: ids, reserveTokens: 100)!
+                c.expect("off \(label): draft invalidated", off.state.mtp == nil && off.state.lastMulti == nil)
+                cache.store(state: off.state, tokens: Array(ids.prefix(off.state.tokenCount)))
+                generator.speculationEnabled = true
+                let (continued, resumed) = generator.generate(promptIds: ids, params: params, eosIds: [], cache: cache)
+                if aligned {
+                    c.equal("on again \(label): rebuilds unaligned prefix", resumed.reusedPrefixTokens, 0)
+                    c.expect("on again \(label): fresh draft verifies", resumed.verifyPasses > 0)
+                    let rebuilt = cache.take(matching: ids + continued + [910], reserveTokens: 100)
+                    c.expect("on again \(label): rebuilt draft remains aligned", rebuilt?.state.hasValidMTP == true)
+                } else {
+                    c.expect("on again \(label): reuses main state", resumed.reusedPrefixTokens > 0)
+                    c.equal("on again \(label): stale draft never used", resumed.verifyPasses, 0)
+                }
+                let (_, fresh) = generator.generate(promptIds: [2000, 21, 907, 34], params: params, eosIds: [])
+                c.expect("fresh \(label): speculation available", fresh.verifyPasses > 0)
+            }
         }
         return c.report()
     }
@@ -981,8 +1000,11 @@ extension Diagnostics {
     /// both cache ownership modes. Uses one model and a bounded 640-slot pool.
     public static func optimizationState(modelDir: URL, tokens: Int, variant: String = "compact-state") throws -> CheckReport {
         guard tokens >= 1, tokens <= 2112 else { throw ModelError("state check tokens must be 1...2112") }
-        var candidateOptions = InferenceOptimizations()
+        let referenceOptions: InferenceOptimizations = variant == "decode-barrier"
+            ? .deploymentCandidate() : InferenceOptimizations()
+        var candidateOptions = referenceOptions
         switch variant {
+        case "decode-barrier": break
         case "packed-layout": break
         case "ngram-lookahead": candidateOptions.ngramLookahead = true
         case "slot-slices": candidateOptions.contiguousSlotWrites = true
@@ -1042,7 +1064,7 @@ extension Diagnostics {
         var candidateRouting = false
         var referenceRoutes: [Int: [Int32]] = [:], candidateRoutes: [Int: [Int32]] = [:]
         var latestReferenceRoutes: [Int: [Int32]] = [:]
-        if variant == "resident-overlap" || variant == "router" || variant == "router-weights" || variant == "cache-bookkeeping" || variant == "compiled-norm" || variant == "read-handles" || variant == "floor-cache" || variant == "indexer-raw" || variant == "packed-layout" || variant == "ngram-lookahead" || variant == "slot-slices" || variant == "slot-words" || variant == "slot-cpu" || variant == "gdn-projection" {
+        if variant == "decode-barrier" || variant == "resident-overlap" || variant == "router" || variant == "router-weights" || variant == "cache-bookkeeping" || variant == "compiled-norm" || variant == "read-handles" || variant == "floor-cache" || variant == "indexer-raw" || variant == "packed-layout" || variant == "ngram-lookahead" || variant == "slot-slices" || variant == "slot-words" || variant == "slot-cpu" || variant == "gdn-projection" {
             model.routerObserver = { layer, ids in
                 if candidateRouting { candidateRoutes[layer, default: []].append(contentsOf: ids) }
                 else {
@@ -1076,7 +1098,8 @@ extension Diagnostics {
             if variant == "ngram-lookahead" {
                 model.ngram.compactRows = true; model.ngram.compactRows = false
             }
-            model.optimizations = candidate ? candidateOptions : InferenceOptimizations()
+            model.optimizations = candidate ? candidateOptions : referenceOptions
+            if variant == "decode-barrier" { model.decodeBarrierLayers = candidate ? 4 : 1 }
         }
         func run(_ compact: Bool) -> (Qwen4ExpModel.State, MLXArray) {
             controls(compact)
@@ -1153,8 +1176,12 @@ extension Diagnostics {
             equal("continuation after restoring released history", rNext, gNext)
             compare("restored long continuation")
         }
-        if variant == "router" || variant == "router-weights" || variant == "cache-bookkeeping" || variant == "compiled-norm" || variant == "read-handles" || variant == "floor-cache" || variant == "indexer-raw" || variant == "packed-layout" || variant == "ngram-lookahead" || variant == "slot-slices" || variant == "slot-words" || variant == "slot-cpu" || variant == "gdn-projection" {
+        if variant == "decode-barrier" || variant == "router" || variant == "router-weights" || variant == "cache-bookkeeping" || variant == "compiled-norm" || variant == "read-handles" || variant == "floor-cache" || variant == "indexer-raw" || variant == "packed-layout" || variant == "ngram-lookahead" || variant == "slot-slices" || variant == "slot-words" || variant == "slot-cpu" || variant == "gdn-projection" {
             c.equal("ordered router traces across prefill, verify and continuation", candidateRoutes, referenceRoutes)
+        }
+        if variant == "decode-barrier" {
+            c.equal("deferred pin generations engaged", model.pool.pinGenerations, 5)
+            c.expect("single-row retained pins stay bounded", model.pool.pinnedSlotCount <= 5 * model.cfg.topK)
         }
         if variant == "packed-layout" {
             c.expect("candidate performed verified-layout reads",model.pool.packedRecordsRead > 0)

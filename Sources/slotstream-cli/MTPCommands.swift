@@ -829,6 +829,7 @@ struct MTPPassCost: ParsableCommand {
     var maxContext: ContextWindowArgument = .automatic
     @Option(help: "Comma-separated verify-pass modes to time per pass (stock,split,exact) at every context; each mode sets the split and row-invariant controls itself; stock is always the reference and rebuild timings are skipped")
     var attentionModes: String = ""
+    @Flag(help: "Wait up to 180 seconds for ten nominal seconds after prompt preparation") var settleBeforeTiming = false
 
     func run() throws {
         let plan: MemoryPlan
@@ -875,11 +876,17 @@ struct MTPPassCost: ParsableCommand {
                 let mtpState = MTPState()
                 state.mtp = mtpState
                 let prefix = Array(seq[0 ..< ids.count])
-                let (_, pm) = m.hiddenStatesWithMulti(prefix, state: state)
-                eval(pm)
-                state.lastMulti = head.consume(
-                    chunk: prefix, chunkMulti: pm, prevMulti: nil,
-                    resident: m.resident, rope: m.sharedRope, state: mtpState)
+                // Rebuild in bounded passes, as the generator does. A whole
+                // long-context prefix here bypasses its workspace budget.
+                for start in stride(from: 0, to: prefix.count, by: 256) {
+                    let chunk = Array(prefix[start ..< min(start + 256, prefix.count)])
+                    let (_, pm) = m.hiddenStatesWithMulti(chunk, state: state)
+                    eval(pm)
+                    state.lastMulti = head.consume(
+                        chunk: chunk, chunkMulti: pm, prevMulti: state.lastMulti,
+                        resident: m.resident, rope: m.sharedRope, state: mtpState)
+                    eval(state.lastMulti!)
+                }
 
                 func timed(_ body: () -> Void) -> Double {
                     let t0 = DispatchTime.now().uptimeNanoseconds
@@ -915,6 +922,22 @@ struct MTPPassCost: ParsableCommand {
                     m.optimizations.rowInvariantProjection = mode.attention == .exact ? true : nil
                 }
 
+                // Optional diagnostic policy, never a run/serve delay: require
+                // ten consecutive nominal observations, abort after 180 seconds.
+                // These are bounded observation limits, not thermal guarantees.
+                // Evidence: db/records/measurements/decode-opportunities-2026-09-22.md.
+                if settleBeforeTiming {
+                    let deadline = Date().addingTimeInterval(180)
+                    var stable = 0
+                    while Date() < deadline && stable < 10 {
+                        let conditions = ProcessMemory.operatingConditions()
+                        stable = conditions.thermalState == "nominal" && !conditions.lowPowerModeEnabled ? stable + 1 : 0
+                        try await Task.sleep(nanoseconds: 1_000_000_000)
+                    }
+                    guard stable == 10 else { throw ModelError("nominal timing conditions did not return after preparation") }
+                }
+                let timingVMBefore = ProcessMemory.vmActivity()
+                let timingPolicyBefore = ProcessMemory.operatingConditions()
                 var p = ids.count
                 for pos in 0 ... positions {  // position 0 is the warm-up (kernel compiles)
                     let record = pos > 0
@@ -964,6 +987,20 @@ struct MTPPassCost: ParsableCommand {
                             var logitsByMode: [PassVariant: MLXArray] = [:]
                             for mode in order {
                                 setMode(mode)
+                                // CLOCK can need another lap before every routed record
+                                // survives a replay. Prove the fetch-free precondition
+                                // before timing each mode instead of assuming one cold pass
+                                // makes a warm cache. Fail if the bounded warmup
+                                // cannot establish this diagnostic precondition.
+                                var allHit = false
+                                for _ in 0 ..< 4 {
+                                    m.pool.resetStats()
+                                    let (l, mu) = m.allLogitsWithMulti(chunk, state: state)
+                                    eval(l, mu)
+                                    state.restore(ck)
+                                    if m.pool.misses == 0 { allHit = true; break }
+                                }
+                                guard allHit else { throw ModelError("verification pass still reads experts after four warmup replays") }
                                 m.pool.resetStats()
                                 var logits: MLXArray? = nil
                                 let warm = timed {
@@ -973,8 +1010,10 @@ struct MTPPassCost: ParsableCommand {
                                 }
                                 let warmMiss = m.pool.misses
                                 state.restore(ck)
+                                guard warmMiss == 0 else { throw ModelError("timed mode fetched expert records") }
                                 if record {
                                     modeMs[key(mode, k), default: []].append(warm)
+                                    print("PASSCOST_SAMPLE pos=\(pos) rows=\(k) mode=\(mode.name) ms=\(warm) misses=\(warmMiss)")
                                     if mode == .stock { verify[k, default: []].append((cold, coldMiss, warm, warmMiss)) }
                                 }
                                 logitsByMode[mode] = logits
@@ -1006,6 +1045,7 @@ struct MTPPassCost: ParsableCommand {
                                     let maxDiff = abs(l - ref).max().item(Float.self)
                                     let flips = (argMax(l, axis: -1) .!= refTop).asType(.int32).sum().item(Int32.self)
                                     modeDiff[key(mode, k), default: []].append(spread > 0 ? Double(maxDiff / spread) : 0)
+                                    print("PASSCOST_EXACT pos=\(pos) rows=\(k) mode=\(mode.name) maxDiff=\(maxDiff) flips=\(flips)")
                                     modeFlips[key(mode, k), default: 0] += Int(flips)
                                 }
                             }
@@ -1035,6 +1075,19 @@ struct MTPPassCost: ParsableCommand {
                     p += maxBatch
                 }
 
+                let timingVMAfter = ProcessMemory.vmActivity()
+                let timingPolicyAfter = ProcessMemory.operatingConditions()
+                let window: [String: Any] = [
+                    "swapins_before": timingVMBefore.map { $0.swapins } ?? NSNull(),
+                    "swapins_after": timingVMAfter.map { $0.swapins } ?? NSNull(),
+                    "swapouts_before": timingVMBefore.map { $0.swapouts } ?? NSNull(),
+                    "swapouts_after": timingVMAfter.map { $0.swapouts } ?? NSNull(),
+                    "thermal_before": timingPolicyBefore.thermalState,
+                    "thermal_after": timingPolicyAfter.thermalState,
+                    "low_power_before": timingPolicyBefore.lowPowerModeEnabled,
+                    "low_power_after": timingPolicyAfter.lowPowerModeEnabled]
+                let windowData = try JSONSerialization.data(withJSONObject: window, options: [.sortedKeys])
+                print("PASSCOST_WINDOW " + String(data: windowData, encoding: .utf8)!)
                 let t1 = median(verify[1]!.map { $0.2 })
                 print(String(
                     format: "fetch-free pass cost at ~%.0f experts/layer, median of %d positions (ms; ratio to the 1-token pass):",
@@ -1085,6 +1138,7 @@ struct MTPPassCost: ParsableCommand {
                                     median(rowDiff[key(mode, k)] ?? []), rowFlips[key(mode, k)] ?? 0))
                         }
                     }
+                    print("PASSCOST_PEAK bytes=\(ProcessMemory.peakResidentBytes())")
                     print("  engaged: split or exact attention in \(m.multiRowSplits) layer passes; row-invariant matmul in \(RowInvariantMatmul.calls) calls")
                 }
                 result = .success(())
