@@ -101,6 +101,10 @@ private struct FixtureView: View {
         expect(view.isNearLatest, "short conversations need no jump control")
         fixture.id = "first:latest"; fixture.text = "Latest page.\n\n" + String(repeating: "Newest message.\n\n", count: 90)
         try await settle { view.string.hasPrefix("Latest page.") && fixture.away }
+        // The page opens at the reader's line, with the text above it only
+        // estimated, then lays that text out a slice at a time and holds the
+        // line in place. The position is exact once the page is laid out.
+        try await settle { !view.layoutManager!.hasNonContiguousLayout }
         expect(abs(scroll.contentView.bounds.origin.y - saved) < 1, "returning to a thread restores its reading position")
 
         // A long page lays out the text that shows first and the rest a slice
