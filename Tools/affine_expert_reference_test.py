@@ -75,8 +75,10 @@ class ReferenceTests(unittest.TestCase):
    archive,source,module=self.make_table(root)
    try:
     source.verify(lambda:None);table=m.Table(archive,module)
-    p=Path(root)/'source'
+    p=Path(root)/'source';before=p.stat()
     with p.open('r+b') as handle:handle.seek(-1,os.SEEK_END);handle.write(b'x')
+    # Make the identity change deterministic on filesystems with coarse timestamps.
+    os.utime(p,ns=(before.st_atime_ns,before.st_mtime_ns+1_000_000_000))
     with self.assertRaises(ValueError):table.gather([0])
    finally:source.close()
  def test_proof_scope_binding(self):

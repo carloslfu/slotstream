@@ -36,6 +36,9 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--limit-gb', type=float, default=10, help='Bounded test ceiling, between 8.1 and 10 GB')
     parser.add_argument('--no-elastic', action='store_true', help='Also exercise the explicitly pinned serving path')
+    parser.add_argument('--gpu-keepalive', choices=('auto', 'on', 'off'),
+                        default=os.environ.get('SLOTSTREAM_GPU_KEEPALIVE', 'auto'),
+                        help='Public runtime profile; preserve the caller selection while clearing unrelated experiment controls')
     args = parser.parse_args()
     if not math.isfinite(args.limit_gb) or not 8.1 <= args.limit_gb <= 10:
         parser.error('--limit-gb must be between 8.1 and 10 for this bounded test')
@@ -59,18 +62,24 @@ def main():
             probe.bind(('127.0.0.1', 0))
             port = probe.getsockname()[1]
         command = [str(binary), 'serve', '--memory-limit-gb', str(args.limit_gb), '--max-context', '32768',
-                   '--max-prefill-wait', '17', '--mtp', 'off', '--vision', 'off', '--port', str(port)]
+                   '--max-prefill-wait', '17', '--mtp', 'off', '--vision', 'off',
+                   '--gpu-keepalive', args.gpu_keepalive, '--port', str(port)]
         if args.no_elastic:
             command.append('--no-elastic')
         env = {key: value for key, value in os.environ.items() if not key.startswith('SLOTSTREAM_')}
         report['command'] = [binary.name, *command[1:]]
         with (args.out / 'server.log').open('w') as log:
             process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
-            deadline = time.monotonic() + 45
+            # The named pinned model hashes all payloads before announcing
+            # its plan. Allow the same bounded hash budget as verify.sh;
+            # the old 45 seconds expired during a valid 105 GB SHA256 pass.
+            started = time.monotonic()
+            deadline = started + 600
             while True:
                 assert process.poll() is None, 'server exited before answering'
                 try:
                     initial = exchange(port, 'GET', '/api/ps')['models'][0]['details']['memory_plan']
+                    report['startup_seconds'] = time.monotonic() - started
                     break
                 except OSError:
                     assert time.monotonic() < deadline, 'startup timed out'
