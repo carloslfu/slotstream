@@ -1,0 +1,13 @@
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 0.9s: expert cache ~35/512 per layer (1690 global slots = 4.7 GB), eos [248044, 248046]
+  (machine has 29.7 GB reclaimable; drill capped at a 4.7 GB pool)
+  start:  1690 slots (~35/layer) -> Nile, Amazon, Mississippi
+elastic: availability dropped — cache ~35 → ~22 experts/layer (4.7 → 2.9 GB pool, cold — refills from SSD)
+  squeeze: 1044 slots (~22/layer) -> Nile, Amazon, Mississippi
+  recovery stimulus: 6.1 GB available -> 1690 desired slots (1.8 GB growth)
+  cooldown: held at 1044 slots, as designed
+  waiting out the 60 s grow cooldown...
+elastic: memory freed — cache ~22 → ~35 experts/layer (2.9 → 4.7 GB pool, contents kept)
+  recover: 1690 slots (~35/layer) -> Nile, Amazon, Mississippi
+ELASTIC DRILL MEMORY {"ceiling_gb":13,"complete":true,"lifetime_physical_footprint_peak_bytes":9431109472,"lifetime_rss_peak_bytes":7559643136,"output_ids":[[45,448,11,7919,11,27509],[45,448,11,7919,11,27509],[45,448,11,7919,11,27509]],"physical_footprint_end_bytes":8255609360,"sampled_peak_bytes":9411891040,"samples":4383,"swap_clean":true,"swapins_after":227004,"swapins_before":227004,"swapouts_after":1424237,"swapouts_before":1424237,"target_gb":13}
+ELASTIC DRILL PASS: governor shrank under simulated pressure, honored the grow cooldown, grew back when memory returned, and every generation was byte-identical

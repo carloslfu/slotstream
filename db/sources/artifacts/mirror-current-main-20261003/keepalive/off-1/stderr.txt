@@ -1,0 +1,23 @@
+slotstream memory plan (--experts-per-layer)
+  device: 34 GB RAM (28.5 GB reclaimable now), 30.1 GB Metal working set
+  cache:  ~118 of 512 experts per layer  (5664 global slots = 15.7 GB pool)
+  plan:   ~26.2 GB full-workload envelope, ~11 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 15.7 GB expert cache at load; 10.5 GB allowed for runtime, context and workspace. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 2048 tokens per pass (~205 tok/s here; costs ~2.7 GB of the target)
+  mtp:    draft head on — speculative decode (1.6 GB resident, charged above)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 8192 tokens per request (prompt + reply); a full-length prompt takes ~40 s before its first token here, follow-up turns read only what is new
+  reuse:  up to 8192 tokens across 4 conversations (~0.6 GB), so a follow-up turn re-prefills only what is new
+  lookahead: on, expert prefetch with the draft head, router cache and a GPU barrier every 4 layers (373 MiB, charged above)
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 2.3s: expert cache ~118/512 per layer (5664 global slots = 15.7 GB), mtp draft head on, eos [248044, 248046]
+prompt tokens: 47 (~0 s to the first token at this plan)
+  prefill: reading 47 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+  prefill: done, 47 tokens in 7 s (7 tok/s)
+
+-- prefill 47 tok in 7.13s (6.6 tok/s)
+-- prefill split: io 5.65s + scatter 0.00s | 6539 records (18.1 GB, 3.2 GB/s)
+-- decode 12 tok in 1.68s (7.14 tok/s)
+-- decode split: io 0.69s + scatter 0.00s | 608 records | mtp 7/8 drafts accepted (88%), 4 verify passes
+-- expert cache ~118/512 experts per layer, hit rate 0.773 | ngram rows 104h/88m | lifetime footprint peak 20.897 GB, current footprint 20.897 GB | total 8.9s

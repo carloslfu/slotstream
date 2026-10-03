@@ -175,6 +175,57 @@ Record exact parallel-prefill staging, bounded full-task reproduction, CLI refus
 ## [2026-10-03 23:41] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Record complete bounded original4-to-affine3 expert conversion, strict independent reference and mixed six-context calibration; preserve setup/static failures and keep native qualification and product integration open.
 
+## [2026-10-04 00:24] create | records/machines/mac-mini-m4-32gb
+Two-disk Mac mini M4 (32 GB, macOS 15.7.4): internal Apple SSD and external WD_BLACK SN8100 on Thunderbolt 4, the machine behind the mirror measurement.
+
+## [2026-10-04 00:24] create | sources/runs/2026/09
+Four runs behind the mirror measurement: the three-round decode A/B on the September 18 binary, the iostat device witness, the router trace from a development build, and the byte-for-byte comparison of both checkpoint copies.
+
+## [2026-10-04 00:24] create | records/measurements/mirror-reads-across-two-disks-2026-09-18
+Paired single-disk and mirrored runs on the September 18 binary; not re-measured on the branch rebased onto current main.
+
+## [2026-10-04 00:24] create | records/claims
+Four mirror claims (disk rates, internal-disk share, prefill and decode lift, split report example), each surfaced in docs/CLI.md.
+
+## [2026-10-04 00:24] index-rebuild | .
+Indexes rebuilt for the mirror records.
+
+## [2026-10-04 00:24] create | sources/runs/2026/10/2026-10-03-mirror-current-main-paired
+Retain current-source 200-token AB/BA pairs, model verification, exact binary/library/source identity and single-variable keepalive diagnosis.
+
+## [2026-10-04 00:24] create | records/measurements/mirror-current-main-paired-2026-10-03
+Record identical-output current-source mirror lift on the explicit keepalive-off M4/macOS15 profile; no default-auto or cold-SSD claim.
+
+## [2026-10-04 00:24] create | records/claims/mirror-current-main-keepalive-off-lift
+Surface qualified current-source decode and prefill medians on CLI docs, preserving September history separately.
+
+## [2026-10-04 00:24] create | sources/runs/2026/10/2026-10-04-mirror-physical-read-witness
+Capture all 36 readonly seeded file-read points, physical-driver counters, cache controls, VM snapshots and source/compiler identity; all prospective qualification checks pass.
+
+## [2026-10-04 00:24] create | records/measurements/mirror-physical-read-witness-2026-10-04
+Record three-round queue-depth file-reader medians with physical-byte corroboration; no universal disk or inference-throughput claim.
+
+## [2026-10-04 00:24] create | sources/runs/2026/10/2026-10-04-mirror-current-baseline-paired
+Capture complete f37412f/base57aa493 paired raw metrics, identical token IDs/stdout digests, both pinned-copy checks and exact executable/source identity; explicit keepalive off.
+
+## [2026-10-04 00:24] create | records/measurements/mirror-current-baseline-paired-2026-10-04
+Record eligible six-arm decode/prefill medians and median paired ratio; update current CLI claim and supersede October3 source26 numbers without changing dated observations.
+
+## [2026-10-04 00:24] update | records/claims/mirror-disk-rates-3-18-and-1-81
+Withdraw unsupported current hardware rating for missing original fio output; replace machine/CLI prose with current protocol evidence, preserve dated reported rates separately.
+
+## [2026-10-04 00:24] update | sources/artifacts/mirror-qualified-20261004/acceptance-fixes
+Retain actual passing 13GB full-budget recovery, 10GB small recovery and adaptive lifecycle with 53.899-second startup, forty plan observations, completed request and owned-server cleanup. Full remaining model acceptance continues separately.
+
+## [2026-10-04 00:24] create | sources/runs/2026/10/2026-10-04-mirror-local-validation
+Capture all seven Mac gates at actual f37412f source, release/instrumented identities, full LCOV and actual passing repaired model cases; remaining full-model battery still running.
+
+## [2026-10-04 01:58] update | sources/runs/2026/10/2026-10-04-mirror-local-validation
+Complete repaired model acceptance35/0 including quality15/0, API74/0 and vision25/0; full current-head static and compiled-source equivalence; retain all text/receipts and21 generated-artifact digests without payloads.
+
+## [2026-10-04 01:58] update | records/measurements/mirror-current-baseline-paired-2026-10-04
+Bind the actual f374/base57 paired executable to unchanged compiled inputs after main180 rebase; retain dated numbers and exact identities.
+
 ## [2026-10-04 02:26] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Record authenticated native affine reference/generation, independent draft state and cancellation, staged contexts, calibrated tasks and complete static acceptance. Preserve all failed attempts; continue production and qualification work.
 
@@ -476,4 +527,3 @@ Close the implementation and research effort with the full same-checkpoint speed
 
 ## [2026-10-07 19:35] update | records/measurements/release-0-2-28-published-2026-10-07.md
 Publish v0.2.28 from the accepted exact-source CI archive. Preserve complete native acceptance (35 gates, no failures or skips), public checksum and provenance verification, and isolated public-installer acceptance (31 checks, owned server reaped). Retain original four-bit as the only supported pack, experimental formats as research, and the broader speed target as unmet. Brain validation, projections, 358 claim checks and llms-full check pass.
-

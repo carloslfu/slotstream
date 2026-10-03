@@ -1,0 +1,32 @@
+{
+  "pairs": [
+    {
+      "round": 1,
+      "single_tok_s": 5.983489361458592,
+      "mirror_tok_s": 7.0590657176517535,
+      "tok_s_ratio": 1.1797573775464973,
+      "single_decode_io_s": 10.825926368000047,
+      "mirror_decode_io_s": 7.385706208999995
+    },
+    {
+      "round": 2,
+      "single_tok_s": 6.138429943553232,
+      "mirror_tok_s": 7.011681089742523,
+      "tok_s_ratio": 1.1422596908687384,
+      "single_decode_io_s": 10.781442592,
+      "mirror_decode_io_s": 7.432206661999998
+    },
+    {
+      "round": 3,
+      "single_tok_s": 6.131650592780963,
+      "mirror_tok_s": 7.089165952004893,
+      "tok_s_ratio": 1.156159478550727,
+      "single_decode_io_s": 10.775990109000007,
+      "mirror_decode_io_s": 7.317273036
+    }
+  ],
+  "all_output_ids_equal": true,
+  "single_tok_s_median": 6.131650592780963,
+  "mirror_tok_s_median": 7.0590657176517535,
+  "paired_tok_s_ratio_median": 1.156159478550727
+}

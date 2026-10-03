@@ -1,0 +1,23 @@
+slotstream memory plan (auto)
+  device: 34 GB RAM (29.4 GB reclaimable now), 30.1 GB Metal working set
+  target: 10.0 GB total process budget, not a RAM usage goal   (adaptive limit: --memory-limit-gb N; fixed cache: --memory-gb N)
+  limit:  10.0 GB; cache adapts to available memory
+  cache:  ~17 of 512 experts per layer  (833 global slots = 2.3 GB pool)
+  plan:   ~9.0 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 2.3 GB expert cache at load; 6.7 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 11967 tokens across 4 conversations (~0.7 GB), so a follow-up turn re-prefills only what is new
+  lookahead: on, expert prefetch in plain decode, router cache and a GPU barrier every 4 layers (373 MiB, charged above)
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 1.5s: expert cache ~17/512 per layer (833 global slots = 2.3 GB), eos [248044, 248046]
+elastic: on — cache auto-resizes with memory availability between requests (--no-elastic to pin)
+slotstream listening on http://127.0.0.1:61168
+try it:
+  curl localhost:61168/api/chat -d '{"model": "qwen3.8-flash-next:4bit", "messages": [{"role": "user", "content": "hello"}]}'
+or point any Ollama or OpenAI client at http://localhost:61168
+[01:56:01] request C80986A8 /v1/chat/completions: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[01:56:08] request C80986A8 /v1/chat/completions: ended after 6.6 s
+[01:56:08] stopping: asked to stop (SIGTERM)

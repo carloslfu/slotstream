@@ -1,0 +1,3 @@
+long-context answer still correct (sparse indexer active)
+python3 Tools/long_context_gate.py /tmp/ssv_longmem.json /tmp/ssv_longmem.txt --expected SEVENTEEN --minimum-prompt-tokens 7000 --maximum-output-tokens 16
+{"passed": true, "prompt_tokens": 7972, "output_tokens": 4, "completed": true}

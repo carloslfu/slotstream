@@ -1,0 +1,9 @@
+sweep within the prefill-rechunk control, identical cold and warm (sweep-check)
+run_binary sweep-check
+engine ready in 1.0s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+  sweep on a cold pool, run twice: identical
+  sweep vs pool path: 3.059% of logit spread (prefill-rechunk control 4.720%, bound 14.161%), top-1 same
+  sweep whole vs sweep in 256-token passes: 3.106% of spread
+  sweep on the warm pool (636 experts copied out of it): identical to the cold sweep
+  after a generate that admitted the prompt's hot experts (prefill 549 tokens): pool path identical, sweep identical
+SWEEP CHECK PASS: deterministic; 3.059% of spread vs the pool path inside the 14.161% prefill-rechunk bound; identical on a cold and a warm pool; admission leaves the pool consistent

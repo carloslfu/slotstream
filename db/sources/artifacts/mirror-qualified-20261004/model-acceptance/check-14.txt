@@ -1,0 +1,7 @@
+mtp head parity vs current Python reference (mtp-parity)
+run_binary mtp-parity --fixture "$CURRENT_MTP/comparison.safetensors"
+prefill sample: max abs 0.18750  rel 0.00484  OK
+prefill multi: max abs 0.03125  rel 0.00245  OK
+decode sample: max abs 0.00000  rel 0.00000  OK
+decode multi: max abs 0.00000  rel 0.00000  OK
+MTP PARITY PASS

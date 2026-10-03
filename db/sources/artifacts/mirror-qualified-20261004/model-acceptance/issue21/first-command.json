@@ -1,0 +1,18 @@
+[
+  "/Volumes/llm/slotstream-pr24-20261003-followup/frozen/slotstream",
+  "serve",
+  "--memory-gb",
+  "8.1",
+  "--max-context",
+  "32768",
+  "--vision",
+  "off",
+  "--mtp",
+  "off",
+  "--port",
+  "61494",
+  "--prefix-cache-dir",
+  "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix",
+  "--prefix-cache-min-tokens",
+  "512"
+]

@@ -1,0 +1,8 @@
+grow/shrink/regrow byte-identical (elastic-check)
+run_binary elastic-check --big-slots 960
+engine ready in 0.9s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+  baseline     (640 slots): 17.8s
+  after grow   (960 slots): 11.4s
+  after shrink (640 slots): 13.1s
+  after regrow (800 slots): 11.9s
+ELASTIC CHECK PASS: 4 generations byte-identical across 13→20→13→16 experts/layer

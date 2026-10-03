@@ -1,0 +1,7 @@
+{
+  "binary_sha256": "327c55366c3639fb789d02780e2e7b696207c496fcb94bd521cac1059b621427",
+  "gpu_keepalive": "off",
+  "suite": "unmodified Tools/verify.sh",
+  "suite_sha256": "cca70929c85234342d3cac25489be6a30db6886f39f0bb0375ebeb4d423dabd8",
+  "limits": "explicit public runtime override; does not qualify unmodified auto performance. Keepalive-specific gate still exercises both controls."
+}

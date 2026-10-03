@@ -1,0 +1,105 @@
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (29.7 GB reclaimable now), 30.1 GB Metal working set
+  target: 14.5 GB total process budget, not a RAM usage goal
+  cache:  ~20 of 512 experts per layer  (974 global slots = 2.7 GB pool)
+  plan:   ~13.5 GB full-workload envelope, ~4 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 2.7 GB expert cache at load; 10.8 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 3072 tokens per pass (~205 tok/s here; costs ~4.0 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~3.5 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 28243 tokens across 4 conversations (~1.1 GB), so a follow-up turn re-prefills only what is new
+  lookahead: on, expert prefetch in plain decode, router cache and a GPU barrier every 4 layers (373 MiB, charged above)
+  note:   prefill and prefix retention reservations match the explicit runtime controls
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 1.5s: expert cache ~20/512 per layer (974 global slots = 2.7 GB), eos [248044, 248046]
+elastic: off (--no-elastic); the cache stays at its startup size
+slotstream listening on http://127.0.0.1:11468
+try it:
+  curl localhost:11468/api/chat -d '{"model": "qwen3.8-flash-next:4bit", "messages": [{"role": "user", "content": "hello"}]}'
+or point any Ollama or OpenAI client at http://localhost:11468
+[03:41:23] request 58190DC4 /api/chat: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[03:41:38] request 58190DC4 /api/chat: 15 s elapsed, prefill pass
+[03:41:53] prefill: reading 725 prompt tokens, ~4 s to the first token at this plan (follow-up turns read only what is new)
+[03:41:53] prefill: done, 725 tokens in 28 s (26 tok/s)
+[03:41:53] request 58190DC4 /api/chat: 30 s elapsed, decode cache growth
+[03:41:55] request 58190DC4 /api/chat: ended after 32.0 s
+[03:41:55] request D6B64977 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:42:03] request D6B64977 /api/chat: ended after 7.4 s
+[03:42:03] request D33A4971 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:42:18] request D33A4971 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:42:33] request D33A4971 /v1/chat/completions: 30 s elapsed, prefill pass
+[03:42:43] prefill: reading 1885 prompt tokens, ~9 s to the first token at this plan (follow-up turns read only what is new)
+[03:42:43] prefill: done, 1885 tokens in 36 s (53 tok/s)
+[03:42:45] request D33A4971 /v1/chat/completions: ended after 42.3 s
+[03:42:45] request 10672AD7 /api/generate: accepted
+prefix cache: reusing 725/725 tokens from memory
+[03:42:47] request 10672AD7 /api/generate: ended after 2.4 s
+[03:42:47] request A1E48060 /v3/ai/language-model: accepted
+prefix cache: reusing 725/725 tokens from memory
+[03:42:50] request A1E48060 /v3/ai/language-model: ended after 2.4 s
+[03:42:50] request 3A25943A /v3/ai/language-model: accepted
+[03:42:50] request 3A25943A /v3/ai/language-model: ended after 0.0 s
+[03:42:50] request 557E3CF7 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:42:56] prefill: reading 2602 prompt tokens, ~13 s to the first token at this plan (follow-up turns read only what is new)
+[03:43:05] request 557E3CF7 /api/chat: 15 s elapsed, prefill pass
+[03:43:20] request 557E3CF7 /api/chat: 30 s elapsed, prefill pass
+[03:43:35] request 557E3CF7 /api/chat: 45 s elapsed, prefill pass
+[03:43:37] prefill: done, 2602 tokens in 41 s (64 tok/s)
+[03:43:39] request 557E3CF7 /api/chat: ended after 49.7 s
+[03:43:39] request 3C7BE390 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:43:41] prefill: reading 3526 prompt tokens, ~17 s to the first token at this plan (follow-up turns read only what is new)
+[03:43:54] request 3C7BE390 /api/chat: 15 s elapsed, prefill pass
+[03:44:09] request 3C7BE390 /api/chat: 30 s elapsed, prefill pass
+[03:44:21] prefill: 3072/3526 tokens (87%), 77 tok/s recently, ~6 s left at this rate
+[03:44:24] request 3C7BE390 /api/chat: 45 s elapsed, prefill pass
+[03:44:32] prefill: done, 3526 tokens in 51 s (70 tok/s)
+[03:44:32] request 3C7BE390 /api/chat: ended after 52.8 s
+[03:44:32] request BAA10547 /api/chat: accepted
+prefix cache: reusing 3072/3547 tokens from memory
+[03:44:43] prefill: reading 475 prompt tokens, ~2 s to the first token at this plan (follow-up turns read only what is new)
+[03:44:43] prefill: done, 475 tokens in 10 s (46 tok/s)
+[03:44:44] request BAA10547 /api/chat: ended after 11.5 s
+[03:44:44] request 2894D679 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:44:59] request 2894D679 /api/chat: 15 s elapsed, prefill pass
+[03:45:12] prefill: reading 724 prompt tokens, ~4 s to the first token at this plan (follow-up turns read only what is new)
+[03:45:12] prefill: done, 724 tokens in 27 s (27 tok/s)
+[03:45:14] request 2894D679 /api/chat: 30 s elapsed, decode cache growth
+[03:45:14] request 2894D679 /api/chat: ended after 30.6 s
+[03:45:14] request B7CECF2B /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:45:29] request B7CECF2B /api/chat: 15 s elapsed, prefill pass
+[03:45:44] request B7CECF2B /api/chat: 30 s elapsed, prefill pass
+[03:45:55] prefill: reading 1884 prompt tokens, ~9 s to the first token at this plan (follow-up turns read only what is new)
+[03:45:55] prefill: done, 1884 tokens in 36 s (53 tok/s)
+[03:45:57] request B7CECF2B /api/chat: ended after 42.5 s
+[03:45:57] request 63D8E87F /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:46:12] request 63D8E87F /api/chat: 15 s elapsed, prefill pass
+[03:46:27] request 63D8E87F /api/chat: 30 s elapsed, prefill pass
+[03:46:33] prefill: reading 1433 prompt tokens, ~7 s to the first token at this plan (follow-up turns read only what is new)
+[03:46:33] prefill: done, 1433 tokens in 33 s (43 tok/s)
+[03:46:34] request 63D8E87F /api/chat: ended after 37.5 s
+[03:46:34] request EE0425CF /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:46:46] prefill: reading 82 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:46:46] prefill: done, 82 tokens in 11 s (7 tok/s)
+[03:46:46] request EE0425CF /api/chat: ended after 12.1 s
+[03:46:46] request A15B4AE2 /api/chat: accepted
+prefix cache: miss: image content changed
+[03:47:00] prefill: reading 108 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:47:00] prefill: done, 108 tokens in 13 s (8 tok/s)
+[03:47:00] request A15B4AE2 /api/chat: ended after 14.1 s
+[03:47:00] request 2A3CD0CA /api/chat: accepted
+[03:47:00] request 2A3CD0CA /api/chat: ended after 0.0 s
+[03:47:00] request 90BA7CA6 /api/chat: accepted
+[03:47:00] request 90BA7CA6 /api/chat: ended after 0.0 s
+[03:47:00] request EF32A612 /api/chat: accepted
+[03:47:00] request EF32A612 /api/chat: ended after 0.0 s
+[03:47:00] stopping: asked to stop (SIGTERM)

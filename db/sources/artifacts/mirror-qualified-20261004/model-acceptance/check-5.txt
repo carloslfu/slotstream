@@ -1,0 +1,5 @@
+production layer parity against current backend
+run_binary parity --tokens 9707,11,1246,525,498,30 --layers 2 --compare "$CURRENT_LAYERS"
+layer  0: max abs 0.00000, rel 0.00000  OK
+layer  1: max abs 0.00049, rel 0.00114  OK
+PARITY PASS

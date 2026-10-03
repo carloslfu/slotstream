@@ -1,0 +1,30 @@
+{
+  "mlx": "0.32.2",
+  "kind": "layers",
+  "before": {
+    "page_bytes": 16384,
+    "reclaimable_bytes": 29659873280,
+    "swapins": 227004,
+    "swapouts": 1424237,
+    "raw": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                              514517.\nPages active:                            157315.\nPages inactive:                         1240018.\nPages speculative:                         1142.\nPages throttled:                              0.\nPages wired down:                         98816.\nPages purgeable:                            391.\n\"Translation faults\":                1251563047.\nPages copy-on-write:                  119900001.\nPages zero filled:                   1792855396.\nPages reactivated:                    166278529.\nPages purged:                           4319050.\nFile-backed pages:                      1295387.\nAnonymous pages:                         103088.\nPages stored in compressor:              217967.\nPages occupied by compressor:             50588.\nDecompressions:                        53283545.\nCompressions:                          70874831.\nPageins:                             2525625170.\nPageouts:                                330462.\nSwapins:                                 227004.\nSwapouts:                               1424237.\n"
+  },
+  "after": {
+    "page_bytes": 16384,
+    "reclaimable_bytes": 26188660736,
+    "swapins": 227004,
+    "swapouts": 1424237,
+    "raw": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                              127233.\nPages active:                            187693.\nPages inactive:                         1409979.\nPages speculative:                         5805.\nPages throttled:                              0.\nPages wired down:                        280871.\nPages purgeable:                            415.\n\"Translation faults\":                1251774532.\nPages copy-on-write:                  119900487.\nPages zero filled:                   1793063720.\nPages reactivated:                    166278529.\nPages purged:                           4319050.\nFile-backed pages:                      1470781.\nAnonymous pages:                         132696.\nPages stored in compressor:              217963.\nPages occupied by compressor:             50586.\nDecompressions:                        53283549.\nCompressions:                          70874831.\nPageins:                             2525793347.\nPageouts:                                330462.\nSwapins:                                 227004.\nSwapouts:                               1424237.\n"
+  },
+  "mlx_peak_bytes": 3320427446,
+  "process_memory": {
+    "current_bytes": 3469134800,
+    "lifetime_peak_bytes": 3469134800,
+    "rss_peak_bytes": 3423469568
+  },
+  "method": "Run the independent Python model implementation on MLX 0.32.2.\n\nWrite live comparison outputs to an explicitly new experiment directory.\nNever update the historical parity or MTP golden fixtures. These comparisons\ncheck the Swift port; the float64 component oracles check the shared kernels.\n",
+  "script_sha256": "42d0ae3c09f97514f0599c82c890aaf6c3214415584631af806b51bae2d70b95",
+  "reference_sources": {
+    "qwen4_exp.py": "6fae4ec0decbf77ca4a4571de683bc5580ec75e84325ecb432dfcd2fc81df75e",
+    "Tools/parity_ref.py": "cb938f6215f1433bbc6eef2b8cc04a8a9cf9d5953f487347649637fa911abab6"
+  }
+}

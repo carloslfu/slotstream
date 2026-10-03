@@ -1,0 +1,31 @@
+streamed draft experts and the plain-decode lookahead leave output exact (draft-stream-check)
+run_binary draft-stream-check
+engine ready in 1.0s: expert cache ~23/512 per layer (1091 global slots = 3.0 GB), mtp draft head on, eos [248044, 248046]
+engine ready in 0.8s: expert cache ~28/512 per layer (1365 global slots = 3.8 GB), mtp draft head on, eos [248044, 248046]
+engine ready in 0.7s: expert cache ~20/512 per layer (961 global slots = 2.7 GB), eos [248044, 248046]
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 0.7s: expert cache ~17/512 per layer (833 global slots = 2.3 GB), eos [248044, 248046]
+PASS  draft-stream-head: the resident plan keeps the experts resident
+PASS  draft-stream-head: resident run succeeds
+PASS  draft-stream-head: resident run verified drafts
+PASS  draft-stream-head: resident run reports no draft cache
+PASS  draft-stream-head: resident run generated every token
+PASS  draft-stream-head: the streamed plan streams the experts
+PASS  draft-stream-head: streamed run succeeds
+PASS  draft-stream-head: streamed experts leave the ids unchanged
+PASS  draft-stream-head: streamed run generated every token
+PASS  draft-stream-head: the streamed head read experts on demand
+PASS  draft-stream-head: the streamed head reused cached experts
+PASS  draft-stream-head: a failed draft read ends the request with an error
+PASS  draft-stream-head: the failure was consumed
+PASS  draft-stream-head: the next request succeeds
+PASS  draft-stream-head: the next request decodes the same ids
+PASS  draft-stream-plain-lookahead: the reference plan runs no lookahead
+PASS  draft-stream-plain-lookahead: plain run succeeds
+PASS  draft-stream-plain-lookahead: plain run generated every token
+PASS  draft-stream-plain-lookahead: the plan runs the lookahead without the head
+PASS  draft-stream-plain-lookahead: lookahead run succeeds
+PASS  draft-stream-plain-lookahead: the lookahead leaves plain decode's ids unchanged
+PASS  draft-stream-plain-lookahead: plain decode passes were forecast
+PASS  draft-stream-plain-lookahead: the lookahead issued reads
+DRAFT STREAM CHECK PASS

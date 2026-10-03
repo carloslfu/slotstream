@@ -1,0 +1,18 @@
+{
+  "attention_padding" : 0,
+  "attention_query_tile" : 256,
+  "depth" : 27,
+  "features_per_patch" : 1536,
+  "grid_h" : 54,
+  "grid_w" : 52,
+  "height" : 864,
+  "hidden_size" : 1152,
+  "image" : ".\/Tools\/assets\/vision_test\/secret1.jpg",
+  "merged_tokens" : 702,
+  "model_dir" : "\/Users\/qian\/.slotstream\/models\/qwen38-flash-next-mlx-4bit",
+  "num_heads" : 16,
+  "out_hidden_size" : 2560,
+  "patches" : 2808,
+  "resident_gb" : 0.89786211199999999,
+  "width" : 832
+}

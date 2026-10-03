@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Transfer-Encoding: chunked
+Connection: close
+
+ee
+data: {"object":"chat.completion.chunk","model":"qwen3.8-flash-next:4bit","choices":[{"delta":{"content":"1","role":"assistant"},"finish_reason":null,"index":0}],"created":1791076828,"id":"chatcmpl-C3D17044-0AD0-4A0E-A6E8-1DDCD5550BBE"}
+
+

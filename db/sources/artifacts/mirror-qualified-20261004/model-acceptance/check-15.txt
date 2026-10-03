@@ -1,0 +1,28 @@
+verify pass rows equal plain decode bit for bit (mtp-rowcheck)
+run_binary mtp-rowcheck --memory-gb 10
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (30.0 GB reclaimable now), 30.1 GB Metal working set
+  target: 10.0 GB total process budget, not a RAM usage goal
+  cache:  ~17 of 512 experts per layer  (834 global slots = 2.3 GB pool)
+  plan:   ~9.0 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 2.3 GB expert cache at load; 6.7 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  mtp:    draft head on — speculative decode; its experts stream through a 64-expert cache (0.4 GB resident, charged above)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 11975 tokens across 4 conversations (~0.7 GB), so a follow-up turn re-prefills only what is new
+engine ready in 1.6s: expert cache ~17/512 per layer (834 global slots = 2.3 GB), mtp draft head on, eos [248044, 248046]
+prompt: 973-token prompt, below the indexer budget, rows across 1024 keys (2048); positions from 1019 every 1 tokens; context window 32768
+PASS  973-token prompt, below the indexer budget, rows across 1024 keys: exact verify attention engaged (180 layer passes)
+PASS  973-token prompt, below the indexer budget, rows across 1024 keys: row-invariant projections engaged (11040 matmuls)
+PASS  973-token prompt, below the indexer budget, rows across 1024 keys: k=2, every row equals the one-row pass at its position over 4 positions (max deviation 0 of the logit spread, 0 top-1 flips; stock 0.0173, 0 flips)
+PASS  973-token prompt, below the indexer budget, rows across 1024 keys: k=3, every row equals the one-row pass at its position over 4 positions (max deviation 0 of the logit spread, 0 top-1 flips; stock 0.0158, 0 flips)
+PASS  973-token prompt, below the indexer budget, rows across 1024 keys: the state after a 3-row pass equals the state after 3 one-row passes, through the next token's logits (max deviation 0, 0 flips; stock 0.0209, 0 flips)
+prompt: 2826-token prompt, above the indexer budget (2048); positions from 2826 every 4 tokens; context window 32768
+PASS  2826-token prompt, above the indexer budget: exact verify attention engaged (180 layer passes)
+PASS  2826-token prompt, above the indexer budget: row-invariant projections engaged (11040 matmuls)
+PASS  2826-token prompt, above the indexer budget: k=2, every row equals the one-row pass at its position over 4 positions (max deviation 0 of the logit spread, 0 top-1 flips; stock 0.0254, 0 flips)
+PASS  2826-token prompt, above the indexer budget: k=3, every row equals the one-row pass at its position over 4 positions (max deviation 0 of the logit spread, 0 top-1 flips; stock 0.0235, 0 flips)
+PASS  2826-token prompt, above the indexer budget: the state after a 3-row pass equals the state after 3 one-row passes, through the next token's logits (max deviation 0, 0 flips; stock 0.0248, 0 flips)
+MTP ROWCHECK PASS

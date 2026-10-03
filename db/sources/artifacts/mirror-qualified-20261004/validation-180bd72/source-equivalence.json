@@ -1,0 +1,27 @@
+{
+  "measured_source": "f37412f65d2382cafd930172c9aec9da51cf3265",
+  "current_head": "6d972535475312196782a9494f2041fe4942b8b2",
+  "compiled_inputs": {
+    "Sources": {
+      "measured_git_object": "0e23ff2d3fa7e8fd239ff4e2e29a80865039bd64",
+      "current_git_object": "0e23ff2d3fa7e8fd239ff4e2e29a80865039bd64",
+      "equal": true
+    },
+    "Package.swift": {
+      "measured_git_object": "daaf8070dc526da438d3f6e769174e2c434d5f6d",
+      "current_git_object": "daaf8070dc526da438d3f6e769174e2c434d5f6d",
+      "equal": true
+    },
+    "Package.resolved": {
+      "measured_git_object": "7918d345cf130c5b5eec5dd08f4c5dabbb22f680",
+      "current_git_object": "7918d345cf130c5b5eec5dd08f4c5dabbb22f680",
+      "equal": true
+    }
+  },
+  "verify_script_equal": true,
+  "adaptive_acceptance_tool_equal": true,
+  "tools_diff": "A\tTools/affine_expert_control.py\nA\tTools/affine_expert_control_check.py\nA\tTools/affine_expert_control_test.py\nA\tTools/affine_expert_reference.py\nA\tTools/affine_expert_reference_test.py\nM\tTools/static_gates.sh\nM\tTools/static_gates_binary_test.py",
+  "binary_sha256": "327c55366c3639fb789d02780e2e7b696207c496fcb94bd521cac1059b621427",
+  "new_static_gate_uses_frozen_binary": true,
+  "previous_mac_gates": "all seven stages passed at f37412f; actual logs retained separately"
+}

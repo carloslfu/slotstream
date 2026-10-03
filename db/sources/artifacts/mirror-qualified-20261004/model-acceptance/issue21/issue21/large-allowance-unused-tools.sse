@@ -1,0 +1,8 @@
+: keepalive
+
+data: {"choices":[{"index":0,"delta":{"content":"4","role":"assistant"},"finish_reason":null}],"id":"chatcmpl-F27EFB24-8CD8-49FD-94B2-4C57B021A7FF","object":"chat.completion.chunk","model":"qwen3.8-flash-next:4bit","created":1791076147}
+
+data: {"choices":[{"finish_reason":"stop","index":0,"delta":{}}],"id":"chatcmpl-F27EFB24-8CD8-49FD-94B2-4C57B021A7FF","object":"chat.completion.chunk","model":"qwen3.8-flash-next:4bit","created":1791076147,"usage":{"total_tokens":270,"completion_tokens":1,"prompt_tokens_details":{"cached_tokens":0},"prompt_tokens":269}}
+
+data: [DONE]
+

@@ -1,0 +1,5 @@
+layer parity (historical reference, one-row projections)
+run_binary parity --tokens '9707,11,1246,525,498,30' --layers 2 --compare bench/parity31 --row-invariant
+layer  0: max abs 0.00098, rel 0.00225  OK
+layer  1: max abs 0.00293, rel 0.00679  OK
+PARITY PASS

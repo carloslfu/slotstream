@@ -1,0 +1,832 @@
+{
+  "name": "branch-alpha-seed",
+  "request": {
+    "model": "qwen3.8-flash-next:4bit",
+    "temperature": 0,
+    "seed": 42,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 256,
+    "messages": [
+      {
+        "role": "system",
+        "content": "Reference: Station 0 records tides and wind. Station 1 records tides and wind. Station 2 records tides and wind. Station 3 records tides and wind. Station 4 records tides and wind. Station 5 records tides and wind. Station 6 records tides and wind. Station 7 records tides and wind. Station 8 records tides and wind. Station 9 records tides and wind. Station 10 records tides and wind. Station 11 records tides and wind. Station 12 records tides and wind. Station 13 records tides and wind. Station 14 records tides and wind. Station 15 records tides and wind. Station 16 records tides and wind. Station 17 records tides and wind. Station 18 records tides and wind. Station 19 records tides and wind. Station 20 records tides and wind. Station 21 records tides and wind. Station 22 records tides and wind. Station 23 records tides and wind. Station 24 records tides and wind. Station 25 records tides and wind. Station 26 records tides and wind. Station 27 records tides and wind. Station 28 records tides and wind. Station 29 records tides and wind. Station 30 records tides and wind. Station 31 records tides and wind. Station 32 records tides and wind. Station 33 records tides and wind. Station 34 records tides and wind. Station 35 records tides and wind. Station 36 records tides and wind. Station 37 records tides and wind. Station 38 records tides and wind. Station 39 records tides and wind. Station 40 records tides and wind. Station 41 records tides and wind. Station 42 records tides and wind. Station 43 records tides and wind. Station 44 records tides and wind. Station 45 records tides and wind. Station 46 records tides and wind. Station 47 records tides and wind. Station 48 records tides and wind. Station 49 records tides and wind. Station 50 records tides and wind. Station 51 records tides and wind. Station 52 records tides and wind. Station 53 records tides and wind. Station 54 records tides and wind. Station 55 records tides and wind. Station 56 records tides and wind. Station 57 records tides and wind. Station 58 records tides and wind. Station 59 records tides and wind. Station 60 records tides and wind. Station 61 records tides and wind. Station 62 records tides and wind. Station 63 records tides and wind. Station 64 records tides and wind. Station 65 records tides and wind. Station 66 records tides and wind. Station 67 records tides and wind. Station 68 records tides and wind. Station 69 records tides and wind. Station 70 records tides and wind. Station 71 records tides and wind. Station 72 records tides and wind. Station 73 records tides and wind. Station 74 records tides and wind. Station 75 records tides and wind. Station 76 records tides and wind. Station 77 records tides and wind. Station 78 records tides and wind. Station 79 records tides and wind. Station 80 records tides and wind. Station 81 records tides and wind. Station 82 records tides and wind. Station 83 records tides and wind. Station 84 records tides and wind. Station 85 records tides and wind. Station 86 records tides and wind. Station 87 records tides and wind. Station 88 records tides and wind. Station 89 records tides and wind. Station 90 records tides and wind. Station 91 records tides and wind. Station 92 records tides and wind. Station 93 records tides and wind. Station 94 records tides and wind. Station 95 records tides and wind. Station 96 records tides and wind. Station 97 records tides and wind. Station 98 records tides and wind. Station 99 records tides and wind."
+      },
+      {
+        "role": "user",
+        "content": "Name a color."
+      },
+      {
+        "role": "assistant",
+        "content": "Blue.",
+        "reasoning_content": "I will select blue from the available colors."
+      },
+      {
+        "role": "user",
+        "content": "Additional reference: The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. The coastal station monitors tides and rainfall. What is 2+2? Answer briefly."
+      }
+    ],
+    "reasoning_effort": "low"
+  },
+  "status": 200,
+  "seconds": 97.38560416689143,
+  "arrivals": [
+    72.11755712493323,
+    72.64150408306159,
+    73.0427605418954,
+    73.5151927920524,
+    74.05928116687573,
+    74.55094249988906,
+    75.02372079202905,
+    75.3992273749318,
+    75.92418137495406,
+    76.37092812499031,
+    76.85368412500247,
+    77.41751108295284,
+    77.95842962502502,
+    78.48539258283563,
+    78.95985141699202,
+    79.46815608302131,
+    80.00310133304447,
+    80.5579137080349,
+    81.11069316696376,
+    81.66544208303094,
+    82.20307458285242,
+    82.61575816688128,
+    83.22120562498458,
+    83.80561462487094,
+    84.37066533300094,
+    84.98931912495755,
+    85.52345758304,
+    86.12188020790927,
+    86.63816974987276,
+    87.15578066697344,
+    87.701683124993,
+    88.27610233286396,
+    88.76549083297141,
+    89.27149579185061,
+    89.83773533301428,
+    90.40314170788042,
+    90.98552508302964,
+    91.5213155830279,
+    91.92037354200147,
+    92.3015904580243,
+    92.7711649169214,
+    93.2887321668677,
+    93.78547266684473,
+    94.32794900005683,
+    94.89210404199548,
+    95.46810879185796,
+    95.90994145791046,
+    96.80850875005126,
+    97.38557549985126,
+    97.38558812486008
+  ],
+  "events": [
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "role": "assistant",
+            "reasoning_content": "T"
+          }
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "he "
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "user is"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": " a"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076477
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "skin"
+          }
+        }
+      ]
+    },
+    {
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "g \""
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "W"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "created": 1791076477,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "h"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "a"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "t"
+          }
+        }
+      ],
+      "created": 1791076477,
+      "object": "chat.completion.chunk"
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": " i"
+          }
+        }
+      ],
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "s 2+"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "2?\" an"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "d "
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "wants "
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "a brief"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076477,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "answ"
+          }
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "er. The r"
+          }
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "epeated re"
+          }
+        }
+      ],
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "feren"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "ce tex"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "t about "
+          },
+          "index": 0
+        }
+      ],
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "coastal s"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "tations mon"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "it"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "orin"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "g ti"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "des and r"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076477,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "ain"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "fall is irr"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "created": 1791076477
+    },
+    {
+      "created": 1791076477,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "ele"
+          }
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "vant"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " to t"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "he math q"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076477
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "u"
+          }
+        }
+      ],
+      "created": 1791076477,
+      "object": "chat.completion.chunk"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076477,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "es"
+          }
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "tio"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "created": 1791076477
+    },
+    {
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "n. I'"
+          }
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "ll just"
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "created": 1791076477,
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": " ans"
+          }
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "wer the"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " simple ari"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "thmetic q"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "u"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "e"
+          }
+        }
+      ],
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "stion.\n"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791076477,
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "4"
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791076477,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "usage": {
+        "completion_tokens": 50,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_tokens": 1526,
+        "total_tokens": 1576
+      },
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-336C727D-59B1-4499-8B56-7135DE6AD9AA",
+      "created": 1791076477,
+      "choices": [
+        {
+          "delta": {},
+          "finish_reason": "stop",
+          "index": 0
+        }
+      ]
+    },
+    "[DONE]"
+  ]
+}

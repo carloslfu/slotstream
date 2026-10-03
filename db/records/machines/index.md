@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/machines
-updated: 2026-09-26T16:03:04.057476Z
+updated: 2026-10-03T23:51:11.480000977Z
 ---
 
 # records/machines
 
+- [[records/machines/mac-mini-m4-32gb]] — Mac mini M4 with 32 GB RAM, internal Apple SSD and external SN8100; paired mirror-read measurements.
 - [[records/machines/macbook-pro-m4-pro-24gb]] — MacBook Pro, Apple M4 Pro, 24 GB (community)
 - [[records/machines/macbook-pro-m4-max-36gb]] — MacBook Pro, Apple M4 Max, 36 GB (community)
 - [[records/machines/macbook-pro-m4-max-64gb]] — MacBook Pro 16-inch, Apple M4 Max, 64 GB (community)

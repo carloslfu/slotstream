@@ -1,0 +1,26 @@
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (29.9 GB reclaimable now), 30.1 GB Metal working set
+  target: 8.1 GB total process budget, not a RAM usage goal
+  cache:  ~13 of 512 experts per layer  (640 global slots = 1.8 GB pool)
+  plan:   ~7.9 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 1.8 GB expert cache at load; 6.2 GB allowed for runtime, context and workspace; 0.2 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 6510 tokens across 4 conversations (~0.5 GB), so a follow-up turn re-prefills only what is new
+engine ready in 1.5s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+prefix cache disk: /Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix holds 8 states (1.04 GB of 20.00 GB); writes states of 512 tokens or more; forgets states unused for 30 days
+elastic: off — an explicit size is pinned; omit the size flag for elastic auto
+slotstream listening on http://127.0.0.1:61638
+try it:
+  curl localhost:61638/api/chat -d '{"model": "qwen3.8-flash-next:4bit", "messages": [{"role": "user", "content": "hello"}]}'
+or point any Ollama or OpenAI client at http://localhost:61638
+[03:26:34] request 8D712503 /v1/chat/completions: accepted
+[03:26:34] prefix cache disk: restored 1536 tokens (158.1 MB) in 0.05 s
+prefix cache: reusing 1536/1654 tokens from disk
+[03:26:49] prefill: reading 118 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:26:49] prefill: done, 118 tokens in 14 s (8 tok/s)
+[03:26:49] request 8D712503 /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:27:04] request 8D712503 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:27:07] request 8D712503 /v1/chat/completions: ended after 32.5 s
+[03:27:07] stopping: asked to stop (SIGTERM)

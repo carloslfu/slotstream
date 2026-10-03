@@ -1,0 +1,10 @@
+Sat Oct  3 23:41:29 UTC 2026
+ProductName:		macOS
+ProductVersion:		15.7.4
+BuildVersion:		24G517
+arm64
+/usr/bin/cc
+Apple clang version 17.0.0 (clang-1700.6.4.2)
+Target: arm64-apple-darwin24.6.0
+Thread model: posix
+InstalledDir: /Library/Developer/CommandLineTools/usr/bin

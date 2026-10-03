@@ -1,0 +1,20 @@
+{
+  "record_bytes": 2764800,
+  "reads_per_point": 2400,
+  "rounds": 3,
+  "queue_depths": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "source_sha256": "af2c9fbd62a94a2a0a05d4891ca38f50a761eb7985b22c6254062a5b4bc3602e",
+  "binary_sha256": "f2eacfb8f2d6cd393e6d6be9faa7c9519c02ecfd3671cb3e16d1e04dc6d29ebc",
+  "cache": "checked descriptor F_NOCACHE=1/F_RDAHEAD=0; read-only MAP_SHARED MS_INVALIDATE before timed reads, fstat metadata unchanged",
+  "witness": "IOBlockStorageDriver cumulative Bytes (Read) for disk4 and disk0 before and after every point; no interval-monitor truncation",
+  "qualified_point": "0.98 <= physical/logical read bytes <= 1.05 and no additional read errors; no global swap; baseline unrelated device reads recorded",
+  "limits": "existing shard file-level seeded pread; SSD hardware cache not purged; macOS/system background I/O uncontrolled",
+  "sequence": "odd round QD ascending external/internal, even round QD descending internal/external"
+}

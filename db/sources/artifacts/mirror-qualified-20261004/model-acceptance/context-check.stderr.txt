@@ -1,0 +1,18 @@
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (31.0 GB reclaimable now), 30.1 GB Metal working set
+  target: 10.0 GB total process budget, not a RAM usage goal
+  cache:  ~22 of 512 experts per layer  (1075 global slots = 3.0 GB pool)
+  plan:   ~9.0 GB full-workload envelope, ~4 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 3.0 GB expert cache at load; 6.0 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 2064 tokens per request (prompt + reply); a full-length prompt takes ~24 s before its first token here, follow-up turns read only what is new
+  lookahead: on, expert prefetch in plain decode, router cache and a GPU barrier every 4 layers (373 MiB, charged above)
+  note:   prefill and prefix retention reservations match the explicit runtime controls
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 1.6s: expert cache ~22/512 per layer (1075 global slots = 3.0 GB), eos [248044, 248046]
+  prefill: reading 2048 prompt tokens, ~24 s to the first token at this plan (follow-up turns read only what is new)
+  prefill: 1792/2048 tokens (88%), 47 tok/s recently, ~6 s left at this rate
+  context-check progress: 1792/2048 missing tokens committed
+  prefill: done, 2048 tokens in 53 s (39 tok/s)

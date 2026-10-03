@@ -1,0 +1,2098 @@
+{
+  "name": "plain-cap",
+  "request": {
+    "model": "qwen3.8-flash-next:4bit",
+    "temperature": 0,
+    "seed": 42,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 128,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Count from 1 to 1000, writing every number separated by commas. Do not call any tools."
+      }
+    ]
+  },
+  "status": 200,
+  "seconds": 85.8632014580071,
+  "arrivals": [
+    7.289771458134055,
+    8.008423957973719,
+    8.454713582992554,
+    9.08893408300355,
+    9.749423125060275,
+    10.359863541088998,
+    10.91440899996087,
+    11.540996000170708,
+    12.126433791127056,
+    12.75054670800455,
+    13.424275000113994,
+    14.027740583056584,
+    14.602121083065867,
+    15.252739583142102,
+    15.820383625105023,
+    16.50124887516722,
+    17.19252183311619,
+    17.88127908296883,
+    18.41204945812933,
+    19.094676041044295,
+    19.727901541162282,
+    20.317108541028574,
+    20.963810957968235,
+    21.582542000105605,
+    22.258383458014578,
+    22.961205875035375,
+    23.47847287496552,
+    24.168627916136757,
+    24.857081749942154,
+    25.509817000012845,
+    26.064945582998917,
+    26.64983966597356,
+    27.220471458043903,
+    27.84878300013952,
+    28.43494095816277,
+    29.122687166091055,
+    29.73139016609639,
+    30.379090250004083,
+    30.97234437498264,
+    31.60682270815596,
+    32.200517416000366,
+    32.87219716608524,
+    33.44570208294317,
+    34.06818575016223,
+    34.576053665950894,
+    35.25754145812243,
+    35.90620304108597,
+    36.61600562511012,
+    37.12618591613136,
+    37.78790091606788,
+    38.321681125089526,
+    38.99974816595204,
+    39.53859616606496,
+    40.14387379097752,
+    40.76842620805837,
+    41.46426395815797,
+    41.99770800000988,
+    42.66142208315432,
+    43.29903241596185,
+    43.96930362517014,
+    44.56432024994865,
+    45.25260470807552,
+    45.85127745801583,
+    46.56796300015412,
+    47.19862183299847,
+    47.864128082990646,
+    48.41419625002891,
+    49.09196175006218,
+    49.73200650000945,
+    50.21635595802218,
+    50.77347029116936,
+    51.39427804108709,
+    52.00441295816563,
+    52.64955133316107,
+    53.18294308311306,
+    53.87687300005928,
+    54.46818766603246,
+    55.08232804108411,
+    55.6670161660295,
+    56.33892241609283,
+    56.91119883302599,
+    57.584564458113164,
+    58.12000612495467,
+    58.80602300004102,
+    59.363382083131,
+    60.0178146250546,
+    60.53992341598496,
+    61.165314625017345,
+    61.63616508315317,
+    62.31998525001109,
+    62.87164216605015,
+    63.52307583298534,
+    64.06677450006828,
+    64.70454724994488,
+    65.26505691604689,
+    66.00509750004858,
+    66.67381358309649,
+    67.36145295808092,
+    67.90077325003222,
+    68.5443562080618,
+    69.14096641610377,
+    69.79791050008498,
+    70.312407333171,
+    70.96247483300976,
+    71.47615383309312,
+    72.13307308312505,
+    72.6744008329697,
+    73.30160891613923,
+    73.9371655411087,
+    74.39768250007182,
+    74.96572729106992,
+    75.66522545809858,
+    76.31058970815502,
+    76.91398879117332,
+    77.4861080001574,
+    78.16813312494196,
+    78.8443536660634,
+    79.46947662509046,
+    80.07869470794685,
+    80.78967745811678,
+    81.4434967499692,
+    82.12573112500831,
+    82.69415466603823,
+    83.38957400014624,
+    83.98872825014405,
+    84.64861300005578,
+    85.20334429107606,
+    85.86012104107067,
+    85.86314812512137,
+    85.8631794161629
+  ],
+  "events": [
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "delta": {
+            "role": "assistant",
+            "content": "1"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "2"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          },
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "3"
+          },
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "4"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "5"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "content": "6"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "7"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": "8"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          },
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": " "
+          }
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "9"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": "1"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "object": "chat.completion.chunk"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "0"
+          }
+        }
+      ]
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "1"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "delta": {
+            "content": "1"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "1"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "2"
+          },
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "1"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "3"
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "1"
+          }
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "4"
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "1"
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": "5"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "1"
+          }
+        }
+      ],
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "6"
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": "1"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": "7"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": "1"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "8"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "1"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "9"
+          },
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "2"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "0"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "2"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791075959
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "1"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "2"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "2"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "2"
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "3"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          },
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "2"
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "4"
+          }
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": ","
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791075959
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "content": "2"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "5"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": "2"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "6"
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "2"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "7"
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          }
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "2"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "8"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": "2"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "content": "9"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959
+    },
+    {
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "3"
+          },
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "0"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959
+    },
+    {
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " "
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "3"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": "1"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "3"
+          }
+        }
+      ],
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "delta": {
+            "content": "2"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": " "
+          }
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "3"
+          },
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "content": "3"
+          }
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "content": ","
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A"
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": " "
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "3"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "4"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": ","
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "choices": [
+        {
+          "delta": {
+            "content": " "
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791075959,
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "3"
+          },
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "usage": {
+        "total_tokens": 164,
+        "completion_tokens": 128,
+        "prompt_tokens": 36,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "choices": [
+        {
+          "index": 0,
+          "delta": {},
+          "finish_reason": "length"
+        }
+      ],
+      "id": "chatcmpl-C90FCD05-2725-4512-9E95-F505F7219D0A",
+      "created": 1791075959,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    "[DONE]"
+  ]
+}

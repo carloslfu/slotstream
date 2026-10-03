@@ -1,0 +1,62 @@
+[
+  {
+    "trial": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 2,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 3,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 4,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 5,
+    "exit": 0,
+    "stdout": "",
+    "stderr": "...\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nOK\n"
+  },
+  {
+    "trial": 6,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 7,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 8,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 9,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "trial": 10,
+    "exit": 1,
+    "stdout": "",
+    "stderr": ".F.\n======================================================================\nFAIL: test_ple_metadata_and_changed_source (__main__.ReferenceTests.test_ple_metadata_and_changed_source)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/spikezz/Project/slotstream/Tools/affine_expert_reference_test.py\", line 46, in test_ple_metadata_and_changed_source\n    with self.assertRaises(ValueError):table.gather([0])\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\nAssertionError: ValueError not raised\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)\n"
+  }
+]

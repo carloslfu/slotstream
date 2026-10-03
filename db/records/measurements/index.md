@@ -2,13 +2,17 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-10-07T19:34:49.320599Z
+updated: 2026-10-10T07:23:14.094138847Z
 ---
 
 # records/measurements
 
+- [[records/measurements/mirror-reads-across-two-disks-2026-09-18]] — Paired two-disk mirror runs on Mac mini M4 (September 18 binary): decode 6.11 to 7.35 tok/s, prefill I/O 3.2 to 4.4 GB/s, identical output.
 - [[records/measurements/release-0-2-28-published-2026-10-07]] — v0.2.28 published and accepted
 - [[records/measurements/quantization-screen-2026-10-02]] — Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
+- [[records/measurements/mirror-current-baseline-paired-2026-10-04]] — Mirror reads on main 57aa493: decode 6.13 to 7.06 tok/s, median paired lift 15.6%, explicit keepalive off.
+- [[records/measurements/mirror-current-main-paired-2026-10-03]] — Current-source paired mirror reads: decode 6.13 to 7.07 tok/s with keepalive off, identical token IDs, no observed swap.
+- [[records/measurements/mirror-physical-read-witness-2026-10-04]] — Existing-file reads on M4: all 36 physical-byte witnesses pass; three rounds at each queue depth, no observed swap.
 - [[records/measurements/release-0-2-27-published-2026-09-30]] — v0.2.27 published, installed and accepted
 - [[records/measurements/release-0-2-26-published-2026-09-27]] — v0.2.26 published, installed and accepted
 - [[records/measurements/c5-macbook-pro-m4-max-64gb-community]] — C5: MacBook Pro M4 Max, 64 GB, internal and external SSD (community, 2026-09-19)

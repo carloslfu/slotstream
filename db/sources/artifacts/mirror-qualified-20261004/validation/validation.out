@@ -1,0 +1,76 @@
+Apple Swift version 6.3 (swift-6.3-RELEASE)
+Target: arm64-apple-macosx15.0
+tempfile: /Volumes/llm/slotstream-pr24-20261003-followup/tmp
+Sat Oct  3 23:15:50 UTC 2026
+START build
+[9/14] Write Objects.LinkFileList
+[10/14] Linking slotstream
+[12/14] Compiling SlotstreamTestKit AnthropicChecks.swift
+[12/14] Write Objects.LinkFileList
+[13/14] Linking slotstream-checks
+Build complete! (208.47s)
+cp Tools/lib/mlx-0.32.2.metallib .build/release/mlx.metallib
+python3 Tools/build_identity.py after "/Volumes/llm/slotstream-pr24-followup/.build/arm64-apple-macosx/release"
+END build exit=0
+WAITING_FOR_PRIOR_MODEL_ACCEPTANCE
+Sat Oct  3 23:19:20 UTC 2026
+START checks
+PASS  anthropic-events (40 assertions)
+PASS  think-split-stream (4 assertions)
+PASS  serving-edges (12 assertions)
+PASS  launch-plans (156 assertions)
+PASS  launch-server (107 assertions)
+PASS  weightstore-cancellable (9 assertions)
+
+97 passed, 0 failed, 0 skipped (33522 assertions)
+END checks exit=0
+Sat Oct  3 23:19:37 UTC 2026
+START static
+  "cases": 420,
+  "failures": []
+}
+##################################################################        92.6%######################################################################## 100.0%
+##############################################                            64.1%######################################################################## 100.0%
+######################################################################## 100.0%
+INSTALLER GATES PASS
+STATIC GATES PASS
+END static exit=0
+Sat Oct  3 23:28:23 UTC 2026
+START sampler
+PASS  sampler == numpy reference: top-p 0 (sanitizer)
+PASS  sampler == numpy reference: min-p 5 (sanitizer)
+PASS  sampler == numpy reference: seed 0 (remapped)
+PASS  sampler == numpy reference: exact zero RNG draw skips removed tokens
+PASS  sampler == numpy reference: high temp, large vocab
+PASS  seeded sampling is reproducible and seed-sensitive
+PASS  elastic governor policy (42 branches)
+sampler + governor: passed 17, failed 0
+END sampler exit=0
+Sat Oct  3 23:28:25 UTC 2026
+START consumer
+consumer ok: 50/layer, 48 s for 8k tokens, 25 pinned files, diagnostics 22 assertions
+END consumer exit=0
+Sat Oct  3 23:31:55 UTC 2026
+START coverage
+{"name": "raw-optional-inflight-writers", "pass_": true, "seconds": 0.299, "returncode": 0}
+{"name": "raw-cancel", "pass_": true, "seconds": 3.344, "returncode": 1}
+{"name": "raw-resume", "pass_": true, "seconds": 0.444, "returncode": 0}
+{"name": "raw-same-size-repair", "pass_": true, "seconds": 0.589, "returncode": 0}
+ALL RAW HTTP CHECKS PASS
+SUSTAINED MEMORY PASS 551698432 bytes peak RSS
+TRANSPORT LINE COVERAGE PASS: real manifest, HTTP, raw and sustained-memory fixtures
+lcov: /Volumes/llm/slotstream-pr24-20261003-followup/coverage.info (45734 line records)
+END coverage exit=0
+Sat Oct  3 23:37:36 UTC 2026
+START coverage-report
+  DOWN  Sources/SlotstreamDiagnostics/Diagnostics+DecodeLookahead.swift 87.90% -> 86.92%
+  DOWN  Sources/SlotstreamDiagnostics/Diagnostics+Governor.swift 81.31% -> 80.08%
+  DOWN  Sources/SlotstreamDiagnostics/Diagnostics+PressureBoundary.swift 15.77% -> 14.51%
+
+11 file(s) lost coverage.
+
+68 new file(s) have no comparison snapshot.
+Advisory: inspect uncovered behavior and add meaningful checks where needed. Historical percentages do not block CI.
+END coverage-report exit=0
+Sat Oct  3 23:37:36 UTC 2026
+VALIDATION_FINISHED

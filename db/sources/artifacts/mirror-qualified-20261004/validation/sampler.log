@@ -1,0 +1,18 @@
+PASS  sampler == numpy reference: defaults (t0.8 p0.95 k40)
+PASS  sampler == numpy reference: greedy (temperature 0)
+PASS  sampler == numpy reference: pure sampling, no filters
+PASS  sampler == numpy reference: top-k 1 (degenerate)
+PASS  sampler == numpy reference: tight nucleus (top-p 0.1)
+PASS  sampler == numpy reference: min-p 0.3
+PASS  sampler == numpy reference: presence penalty, accumulating
+PASS  sampler == numpy reference: greedy + penalty (API temp-0)
+PASS  sampler == numpy reference: vocab 4096
+PASS  sampler == numpy reference: real vocab (248,320)
+PASS  sampler == numpy reference: top-p 0 (sanitizer)
+PASS  sampler == numpy reference: min-p 5 (sanitizer)
+PASS  sampler == numpy reference: seed 0 (remapped)
+PASS  sampler == numpy reference: exact zero RNG draw skips removed tokens
+PASS  sampler == numpy reference: high temp, large vocab
+PASS  seeded sampling is reproducible and seed-sensitive
+PASS  elastic governor policy (42 branches)
+sampler + governor: passed 17, failed 0

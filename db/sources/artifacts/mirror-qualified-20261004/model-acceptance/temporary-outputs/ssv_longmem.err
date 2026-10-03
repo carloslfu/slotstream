@@ -1,0 +1,25 @@
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (30.1 GB reclaimable now), 30.1 GB Metal working set
+  target: 10.0 GB total process budget, not a RAM usage goal
+  cache:  ~17 of 512 experts per layer  (833 global slots = 2.3 GB pool)
+  plan:   ~9.0 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 2.3 GB expert cache at load; 6.7 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 11967 tokens across 4 conversations (~0.7 GB), so a follow-up turn re-prefills only what is new
+  lookahead: on, expert prefetch in plain decode, router cache and a GPU barrier every 4 layers (373 MiB, charged above)
+  window: automatic for this Mac, 32768 tokens: the largest of 32768, 65536, 131072, 262144 that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time without an unmeasured cache tradeoff; --max-context N chooses another window up to 262144
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 1.5s: expert cache ~17/512 per layer (833 global slots = 2.3 GB), eos [248044, 248046]
+prompt tokens: 7972 (~1.6 min to the first token at this plan)
+  prefill: reading 7972 prompt tokens, ~1.6 min to the first token at this plan (follow-up turns read only what is new)
+  prefill: 7936/7972 tokens (100%), 85 tok/s recently, ~0 s left at this rate
+  prefill: done, 7972 tokens in 1.7 min (78 tok/s)
+
+-- prefill 7972 tok in 101.72s (78.4 tok/s)
+-- prefill split: io 29.21s + scatter 2.03s | 24856 records (68.7 GB, 2.4 GB/s)
+-- decode 4 tok in 1.87s (2.14 tok/s)
+-- decode split: io 1.18s + scatter 0.00s | 755 records
+-- expert cache ~17/512 experts per layer, hit rate 0.341 | ngram rows 24h/40m | sampled footprint peak 7.839 GB | total 103.6s

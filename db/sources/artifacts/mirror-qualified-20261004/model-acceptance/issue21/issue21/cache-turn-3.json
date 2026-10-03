@@ -1,0 +1,503 @@
+{
+  "name": "cache-turn-3",
+  "request": {
+    "model": "qwen3.8-flash-next:4bit",
+    "temperature": 0,
+    "seed": 42,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 256,
+    "messages": [
+      {
+        "role": "system",
+        "content": "Retain this document for the conversation. Record 0: the coastal station measures tides and wind. Record 1: the coastal station measures tides and wind. Record 2: the coastal station measures tides and wind. Record 3: the coastal station measures tides and wind. Record 4: the coastal station measures tides and wind. Record 5: the coastal station measures tides and wind. Record 6: the coastal station measures tides and wind. Record 7: the coastal station measures tides and wind. Record 8: the coastal station measures tides and wind. Record 9: the coastal station measures tides and wind. Record 10: the coastal station measures tides and wind. Record 11: the coastal station measures tides and wind. Record 12: the coastal station measures tides and wind. Record 13: the coastal station measures tides and wind. Record 14: the coastal station measures tides and wind. Record 15: the coastal station measures tides and wind. Record 16: the coastal station measures tides and wind. Record 17: the coastal station measures tides and wind. Record 18: the coastal station measures tides and wind. Record 19: the coastal station measures tides and wind. Record 20: the coastal station measures tides and wind. Record 21: the coastal station measures tides and wind. Record 22: the coastal station measures tides and wind. Record 23: the coastal station measures tides and wind. Record 24: the coastal station measures tides and wind. Record 25: the coastal station measures tides and wind. Record 26: the coastal station measures tides and wind. Record 27: the coastal station measures tides and wind. Record 28: the coastal station measures tides and wind. Record 29: the coastal station measures tides and wind. Record 30: the coastal station measures tides and wind. Record 31: the coastal station measures tides and wind. Record 32: the coastal station measures tides and wind. Record 33: the coastal station measures tides and wind. Record 34: the coastal station measures tides and wind. Record 35: the coastal station measures tides and wind. Record 36: the coastal station measures tides and wind. Record 37: the coastal station measures tides and wind. Record 38: the coastal station measures tides and wind. Record 39: the coastal station measures tides and wind. Record 40: the coastal station measures tides and wind. Record 41: the coastal station measures tides and wind. Record 42: the coastal station measures tides and wind. Record 43: the coastal station measures tides and wind. Record 44: the coastal station measures tides and wind. Record 45: the coastal station measures tides and wind. Record 46: the coastal station measures tides and wind. Record 47: the coastal station measures tides and wind. Record 48: the coastal station measures tides and wind. Record 49: the coastal station measures tides and wind. Record 50: the coastal station measures tides and wind. Record 51: the coastal station measures tides and wind. Record 52: the coastal station measures tides and wind. Record 53: the coastal station measures tides and wind. Record 54: the coastal station measures tides and wind. Record 55: the coastal station measures tides and wind. Record 56: the coastal station measures tides and wind. Record 57: the coastal station measures tides and wind. Record 58: the coastal station measures tides and wind. Record 59: the coastal station measures tides and wind. Record 60: the coastal station measures tides and wind. Record 61: the coastal station measures tides and wind. Record 62: the coastal station measures tides and wind. Record 63: the coastal station measures tides and wind. Record 64: the coastal station measures tides and wind. Record 65: the coastal station measures tides and wind. Record 66: the coastal station measures tides and wind. Record 67: the coastal station measures tides and wind. Record 68: the coastal station measures tides and wind. Record 69: the coastal station measures tides and wind."
+      },
+      {
+        "role": "user",
+        "content": "What is 2+2? Answer briefly."
+      },
+      {
+        "role": "assistant",
+        "content": "4"
+      },
+      {
+        "role": "user",
+        "content": "Additional background: The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. The coastal station monitors tides, currents, wind and rainfall. What is 3+3? Answer briefly."
+      },
+      {
+        "role": "assistant",
+        "content": "6"
+      },
+      {
+        "role": "user",
+        "content": "What is 4+4? Answer briefly."
+      }
+    ],
+    "reasoning_effort": "low"
+  },
+  "status": 200,
+  "seconds": 27.813082000007853,
+  "arrivals": [
+    12.511166583979502,
+    12.96264420892112,
+    13.436338041909039,
+    13.925870292121544,
+    14.420010209083557,
+    14.949167834129184,
+    15.499343124916777,
+    16.015840834006667,
+    16.600875375093892,
+    17.215272208908573,
+    17.760831834049895,
+    18.30970545904711,
+    18.904635209124535,
+    19.471010625129566,
+    20.033332125050947,
+    20.575069708982483,
+    21.198078624904156,
+    21.80923716700636,
+    22.361216458957642,
+    22.9040787499398,
+    23.42299154191278,
+    24.018643459072337,
+    24.584714834112674,
+    25.126190959010273,
+    25.668256249977276,
+    26.181094666942954,
+    27.157530708936974,
+    27.813052334124222,
+    27.813068292103708
+  ],
+  "events": [
+    {
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "T",
+            "role": "assistant"
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "created": 1791076801
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "created": 1791076801,
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "he us"
+          },
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "er"
+          }
+        }
+      ],
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "created": 1791076801,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " asks a"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " simp"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076801,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "le math q"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "u"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076801
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "e"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791076801,
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "created": 1791076801,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "s"
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "t"
+          }
+        }
+      ],
+      "created": 1791076801,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "i"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "o"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "n: 4"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076801
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "+4. The"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076801
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": " an"
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076801
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "s"
+          },
+          "index": 0
+        }
+      ],
+      "created": 1791076801
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "w"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "e"
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791076801,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963"
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "r is "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963"
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "8. Th"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "ey"
+          },
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "created": 1791076801
+    },
+    {
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": " want "
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791076801
+    },
+    {
+      "created": 1791076801,
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "a brief"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "created": 1791076801,
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": " "
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "a"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "created": 1791076801
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "nswer.\n"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791076801,
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076801,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "content": "8"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076801,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {},
+          "finish_reason": "stop"
+        }
+      ],
+      "id": "chatcmpl-3E53760A-4B3D-49DA-BFCF-7132F0A30963",
+      "usage": {
+        "total_tokens": 1683,
+        "prompt_tokens": 1654,
+        "completion_tokens": 29,
+        "prompt_tokens_details": {
+          "cached_tokens": 1536
+        }
+      }
+    },
+    "[DONE]"
+  ]
+}

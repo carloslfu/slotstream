@@ -1,0 +1,3 @@
+--memory-gb 10 process footprint and RSS under target on the long prompt
+python3 Tools/memory_gate.py /tmp/ssv_longmem.json --limit-gb 10
+{"passed": true, "maximum_observed_bytes": 7838567832, "sampled_footprint_bytes": 7838567832, "image_preparation_peak_bytes": 0, "lifetime_rss_bytes": 3298000896, "physical_footprint_end_bytes": 6101390424, "lifetime_footprint_peak_bytes": 7838567832, "sampling_interval_ms": 20, "global_swap_deltas": {"generator": {"swapins": 0, "swapouts": 68}}}

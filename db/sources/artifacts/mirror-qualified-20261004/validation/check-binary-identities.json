@@ -1,0 +1,10 @@
+{
+  "release_checks": {
+    "file": "/Volumes/llm/slotstream-pr24-followup/.build/release/slotstream-checks",
+    "sha256": "321486d35aad11509dcb469c7b275745dd5021884af3aee7b3c3b0f264a30251"
+  },
+  "instrumented_checks": {
+    "file": "/Volumes/llm/slotstream-pr24-followup/.build/coverage/arm64-apple-macosx/debug/slotstream-checks",
+    "sha256": "cdae33b4c6bfd5bb362574388a33984a6e5b156b986d8f0ccde7df72b8d95bdc"
+  }
+}

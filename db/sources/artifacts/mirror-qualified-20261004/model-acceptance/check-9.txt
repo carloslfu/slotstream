@@ -1,0 +1,16 @@
+a continued conversation equals a cold one (prefix-exact-check)
+run_binary prefix-exact-check
+engine ready in 0.9s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+  pass size 256 tokens, aligned resume on
+  long turn 1: 1521 prompt tok, reused 0, logit delta 0.000000%
+  long turn 2: 1548 prompt tok, reused 1280, logit delta 0.000000%
+  long turn 3: 1576 prompt tok, reused 1536, logit delta 0.000000%
+  long turn 1 prefill: 46.08s cold, 43.43s continued (1521 of 1521 tokens read)
+  long turn 2 prefill: 34.16s cold, 18.46s continued (268 of 1548 tokens read)
+  long turn 3 prefill: 39.06s cold, 6.66s continued (40 of 1576 tokens read)
+  repeat turn 1: 1521 prompt tok, reused 1521, logit delta 0.000000%
+  short turn 1: 22 prompt tok, reused 0, logit delta 0.000000%
+  short turn 2: 49 prompt tok, reused 0, logit delta 0.000000%
+  short turn 3: 70 prompt tok, reused 0, logit delta 0.000000%
+  shared prefix turn 1: 1520 prompt tok, reused 1280, logit delta 0.000000%
+PREFIX EXACT CHECK PASS: every continued turn produced the same tokens and the same prompt logits as a cold read, 2 of 2 follow-up turns resumed a boundary state, an identical prompt reused its complete state, an edited history rebuilt, and a second conversation resumed the shared prefix

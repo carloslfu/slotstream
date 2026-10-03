@@ -17,7 +17,9 @@ determines which version the installer downloads.
   different checkpoint; it does not hash tensor payloads, so verify every
   copy with `slotstream pull --verify --dir <mirror>` first. The run's report
   ends with the split each copy served. Packed expert layouts cannot be
-  combined with mirrors. Measured results are in docs/CLI.md.
+  combined with mirrors. Authenticated affine packs also reject mirrors; the
+  original pack supports them with or without explicit `--quantization`.
+  Measured results are in docs/CLI.md.
 
 ## 0.2.28 - 2026-10-07
 

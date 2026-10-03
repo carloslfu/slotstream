@@ -1,0 +1,4 @@
+vision tower dumps its pixels and embeddings
+run_binary vision-parity --out "$VP"
+loading the vision tower (0.898 GB resident)
+wrote 2808 patches -> 702 tokens (832x864, grid 52x54) to /Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/vision-parity

@@ -1,0 +1,256 @@
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (30.4 GB reclaimable now), 30.1 GB Metal working set
+  target: 8.1 GB total process budget, not a RAM usage goal
+  cache:  ~13 of 512 experts per layer  (640 global slots = 1.8 GB pool)
+  plan:   ~7.9 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 1.8 GB expert cache at load; 6.2 GB allowed for runtime, context and workspace; 0.2 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 6510 tokens across 4 conversations (~0.5 GB), so a follow-up turn re-prefills only what is new
+engine ready in 1.5s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+prefix cache disk: /Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix holds 0 states (0.00 GB of 20.00 GB); writes states of 512 tokens or more; forgets states unused for 30 days
+elastic: off — an explicit size is pinned; omit the size flag for elastic auto
+slotstream listening on http://127.0.0.1:61494
+try it:
+  curl localhost:61494/api/chat -d '{"model": "qwen3.8-flash-next:4bit", "messages": [{"role": "user", "content": "hello"}]}'
+or point any Ollama or OpenAI client at http://localhost:61494
+[03:05:59] request D847D0D3 /v1/chat/completions: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[03:06:06] prefill: reading 36 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:06:06] prefill: done, 36 tokens in 7 s (5 tok/s)
+[03:06:14] request D847D0D3 /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:06:29] request D847D0D3 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:06:44] request D847D0D3 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:06:59] request D847D0D3 /v1/chat/completions: 60 s elapsed, decode cache growth
+[03:07:14] request D847D0D3 /v1/chat/completions: 75 s elapsed, decode cache growth
+[03:07:25] request D847D0D3 /v1/chat/completions: ended after 85.9 s
+[03:07:25] request E35933D1 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:07:40] request E35933D1 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:07:45] prefill: reading 275 prompt tokens, ~3 s to the first token at this plan (follow-up turns read only what is new)
+[03:07:45] prefill: 256/275 tokens (93%), 13 tok/s recently, ~1 s left at this rate
+[03:07:49] prefill: done, 275 tokens in 24 s (11 tok/s)
+[03:07:55] request E35933D1 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:08:10] request E35933D1 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:08:25] request E35933D1 /v1/chat/completions: 60 s elapsed, decode cache growth
+[03:08:40] request E35933D1 /v1/chat/completions: 75 s elapsed, decode cache growth
+[03:08:55] request E35933D1 /v1/chat/completions: 90 s elapsed, decode cache growth
+[03:09:07] request E35933D1 /v1/chat/completions: ended after 102.1 s
+[03:09:07] request 0A9BBFFE /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:09:22] request 0A9BBFFE /v1/chat/completions: 15 s elapsed, prefill pass
+[03:09:28] prefill: reading 269 prompt tokens, ~3 s to the first token at this plan (follow-up turns read only what is new)
+[03:09:28] prefill: 256/269 tokens (95%), 12 tok/s recently, ~1 s left at this rate
+[03:09:31] prefill: done, 269 tokens in 24 s (11 tok/s)
+[03:09:31] request 0A9BBFFE /v1/chat/completions: ended after 24.3 s
+[03:09:31] request DE117C90 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:09:46] request DE117C90 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:09:47] prefill: reading 289 prompt tokens, ~3 s to the first token at this plan (follow-up turns read only what is new)
+[03:09:47] prefill: 256/289 tokens (89%), 17 tok/s recently, ~2 s left at this rate
+[03:09:53] prefill: done, 289 tokens in 21 s (14 tok/s)
+[03:10:01] request DE117C90 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:10:16] request DE117C90 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:10:31] request DE117C90 /v1/chat/completions: 60 s elapsed, decode cache growth
+[03:10:46] request DE117C90 /v1/chat/completions: 75 s elapsed, decode cache growth
+[03:11:01] request DE117C90 /v1/chat/completions: 90 s elapsed, decode cache growth
+[03:11:16] request DE117C90 /v1/chat/completions: 105 s elapsed, decode cache growth
+[03:11:31] request DE117C90 /v1/chat/completions: 120 s elapsed, decode cache growth
+[03:11:46] request DE117C90 /v1/chat/completions: 135 s elapsed, decode cache growth
+[03:12:01] request DE117C90 /v1/chat/completions: 150 s elapsed, decode cache growth
+[03:12:02] request DE117C90 /v1/chat/completions: ended after 150.2 s
+[03:12:02] request DD950CA4 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:12:17] request DD950CA4 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:12:17] prefill: reading 292 prompt tokens, ~3 s to the first token at this plan (follow-up turns read only what is new)
+[03:12:17] prefill: 256/292 tokens (88%), 16 tok/s recently, ~2 s left at this rate
+[03:12:24] prefill: done, 292 tokens in 22 s (13 tok/s)
+[03:12:32] request DD950CA4 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:12:47] request DD950CA4 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:13:02] request DD950CA4 /v1/chat/completions: 60 s elapsed, decode cache growth
+[03:13:17] request DD950CA4 /v1/chat/completions: 75 s elapsed, decode cache growth
+[03:13:32] request DD950CA4 /v1/chat/completions: 90 s elapsed, decode cache growth
+[03:13:47] request DD950CA4 /v1/chat/completions: 105 s elapsed, decode cache growth
+[03:14:02] request DD950CA4 /v1/chat/completions: 120 s elapsed, decode cache growth
+[03:14:17] request DD950CA4 /v1/chat/completions: 135 s elapsed, decode cache growth
+[03:14:32] request DD950CA4 /v1/chat/completions: 150 s elapsed, decode cache growth
+[03:14:37] request DD950CA4 /v1/chat/completions: ended after 155.1 s
+[03:14:37] request 631767E2 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:14:51] prefill: reading 1526 prompt tokens, ~18 s to the first token at this plan (follow-up turns read only what is new)
+[03:14:51] prefill: 256/1526 tokens (17%), 18 tok/s recently, ~1.2 min left at this rate
+[03:14:52] request 631767E2 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:15:01] prefill: 512/1526 tokens (34%), 25 tok/s recently, ~40 s left at this rate
+[03:15:07] request 631767E2 /v1/chat/completions: 30 s elapsed, prefill pass
+[03:15:11] prefill: 768/1526 tokens (50%), 24 tok/s recently, ~31 s left at this rate
+[03:15:12] prefix cache disk: saved shared 768-token prefix (136.9 MB written) in 0.08 s
+[03:15:22] request 631767E2 /v1/chat/completions: 45 s elapsed, prefill pass
+[03:15:22] prefill: 1024/1526 tokens (67%), 23 tok/s recently, ~22 s left at this rate
+[03:15:35] prefix cache disk: saved 1280 tokens (129.8 MB written, 21.2 MB of rows reused) in 0.08 s
+[03:15:35] prefill: 1280/1526 tokens (84%), 21 tok/s recently, ~12 s left at this rate
+[03:15:37] request 631767E2 /v1/chat/completions: 60 s elapsed, prefill pass
+[03:15:48] prefill: done, 1526 tokens in 1.2 min (21 tok/s)
+[03:15:52] request 631767E2 /v1/chat/completions: 75 s elapsed, decode cache growth
+[03:16:07] request 631767E2 /v1/chat/completions: 90 s elapsed, decode cache growth
+[03:16:14] request 631767E2 /v1/chat/completions: ended after 97.4 s
+[03:16:14] request 27EFB0F7 /v1/chat/completions: accepted
+prefix cache: reusing 768/1976 tokens from memory
+[03:16:25] prefill: reading 1208 prompt tokens, ~14 s to the first token at this plan (follow-up turns read only what is new)
+[03:16:25] prefill: 256/1208 tokens (21%), 24 tok/s recently, ~40 s left at this rate
+[03:16:25] prefix cache disk: saved shared 1024-token prefix (122.8 MB written, 21.2 MB of rows reused) in 0.06 s
+[03:16:29] request 27EFB0F7 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:16:37] prefill: 512/1208 tokens (42%), 20 tok/s recently, ~34 s left at this rate
+[03:16:44] request 27EFB0F7 /v1/chat/completions: 30 s elapsed, prefill pass
+[03:16:47] prefill: 768/1208 tokens (64%), 28 tok/s recently, ~16 s left at this rate
+[03:16:55] prefix cache disk: saved 1792 tokens (136.9 MB written, 28.3 MB of rows reused) in 0.08 s
+[03:16:55] prefill: 1024/1208 tokens (85%), 31 tok/s recently, ~6 s left at this rate
+[03:16:59] request 27EFB0F7 /v1/chat/completions: 45 s elapsed, prefill pass
+[03:17:06] prefill: done, 1208 tokens in 52 s (23 tok/s)
+[03:17:14] request 27EFB0F7 /v1/chat/completions: 60 s elapsed, decode cache growth
+[03:17:29] request 27EFB0F7 /v1/chat/completions: 75 s elapsed, decode cache growth
+[03:17:34] request 27EFB0F7 /v1/chat/completions: ended after 79.6 s
+[03:17:34] request 61F931F8 /v1/chat/completions: accepted
+[03:17:34] prefix cache disk: restored 1280 tokens (151.0 MB) in 0.05 s
+prefix cache: reusing 1280/1598 tokens from disk
+[03:17:44] prefix cache disk: saved 1536 tokens (122.8 MB written, 35.4 MB of rows reused) in 0.07 s
+[03:17:44] prefill: reading 318 prompt tokens, ~4 s to the first token at this plan (follow-up turns read only what is new)
+[03:17:44] prefill: 256/318 tokens (81%), 25 tok/s recently, ~3 s left at this rate
+[03:17:49] request 61F931F8 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:17:54] prefill: done, 318 tokens in 20 s (16 tok/s)
+[03:18:04] request 61F931F8 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:18:07] request 61F931F8 /v1/chat/completions: ended after 32.9 s
+[03:18:07] request 051DA0C3 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:18:22] request 051DA0C3 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:18:22] prefill: reading 1029 prompt tokens, ~12 s to the first token at this plan (follow-up turns read only what is new)
+[03:18:22] prefill: 256/1029 tokens (25%), 17 tok/s recently, ~46 s left at this rate
+[03:18:33] prefill: 512/1029 tokens (50%), 22 tok/s recently, ~23 s left at this rate
+[03:18:37] request 051DA0C3 /v1/chat/completions: 30 s elapsed, prefill pass
+[03:18:44] prefill: 768/1029 tokens (75%), 23 tok/s recently, ~11 s left at this rate
+[03:18:45] prefix cache disk: saved shared 768-token prefix (136.9 MB written) in 0.07 s
+[03:18:52] request 051DA0C3 /v1/chat/completions: 45 s elapsed, prefill pass
+[03:18:56] prefix cache disk: saved 1024 tokens (122.8 MB written, 21.2 MB of rows reused) in 0.06 s
+[03:18:56] prefill: 1024/1029 tokens (100%), 22 tok/s recently, ~0 s left at this rate
+[03:18:58] prefill: done, 1029 tokens in 51 s (20 tok/s)
+[03:19:07] request 051DA0C3 /v1/chat/completions: 60 s elapsed, decode cache growth
+[03:19:13] request 051DA0C3 /v1/chat/completions: ended after 66.8 s
+[03:19:13] request 901721CA /v1/chat/completions: accepted
+[03:19:13] prefix cache disk: restored 1024 tokens (144.0 MB) in 0.04 s
+prefix cache: reusing 1024/1603 tokens from disk
+[03:19:28] prefill: reading 579 prompt tokens, ~7 s to the first token at this plan (follow-up turns read only what is new)
+[03:19:28] prefill: 256/579 tokens (44%), 18 tok/s recently, ~18 s left at this rate
+[03:19:28] request 901721CA /v1/chat/completions: 15 s elapsed, prefill pass
+[03:19:37] prefix cache disk: saved 1536 tokens (129.8 MB written, 28.3 MB of rows reused) in 0.07 s
+[03:19:37] prefill: 512/579 tokens (88%), 28 tok/s recently, ~2 s left at this rate
+[03:19:43] request 901721CA /v1/chat/completions: 30 s elapsed, prefill pass
+[03:19:45] prefill: done, 579 tokens in 32 s (18 tok/s)
+[03:19:58] request 901721CA /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:20:01] request 901721CA /v1/chat/completions: ended after 47.3 s
+[03:20:01] request 7AE12F0D /v1/chat/completions: accepted
+[03:20:01] prefix cache disk: restored 1536 tokens (158.1 MB) in 0.05 s
+prefix cache: reusing 1536/1654 tokens from disk
+[03:20:13] prefill: reading 118 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:20:13] prefill: done, 118 tokens in 12 s (10 tok/s)
+[03:20:16] request 7AE12F0D /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:20:28] request 7AE12F0D /v1/chat/completions: ended after 27.8 s
+[03:20:28] request C6B5B7D9 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:20:33] request 392E04B5 /v1/chat/completions: accepted
+[03:20:33] stream ended: socket write failed or timed out; 244/388 accepted bytes written
+[03:20:33] request C6B5B7D9 /v1/chat/completions: ended after 5.0 s, client_cancelled
+prefix cache: miss: no retained state (20 prior evictions)
+[03:20:38] request 392E04B5 /v1/chat/completions: ended after 4.7 s
+[03:20:38] request 2F425FD7 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:20:53] request 2F425FD7 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:20:56] prefill: reading 292 prompt tokens, ~3 s to the first token at this plan (follow-up turns read only what is new)
+[03:20:56] prefill: 256/292 tokens (88%), 14 tok/s recently, ~3 s left at this rate
+[03:21:02] prefill: done, 292 tokens in 25 s (12 tok/s)
+[03:21:08] request 2F425FD7 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:21:23] request 2F425FD7 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:21:23] request 2F425FD7 /v1/chat/completions: ended after 45.6 s
+[03:21:23] request 353A21FB /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:21:38] prefill: reading 365 prompt tokens, ~4 s to the first token at this plan (follow-up turns read only what is new)
+[03:21:38] prefill: 256/365 tokens (70%), 17 tok/s recently, ~6 s left at this rate
+[03:21:38] request 353A21FB /v1/chat/completions: 15 s elapsed, prefill pass
+[03:21:49] prefill: done, 365 tokens in 26 s (14 tok/s)
+[03:21:53] request 353A21FB /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:21:54] request 353A21FB /v1/chat/completions: ended after 30.7 s
+[03:21:54] request 140EB25F /v1/chat/completions: accepted
+prefix cache: reusing 256/292 tokens from memory
+[03:22:00] prefill: reading 36 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:22:00] prefill: done, 36 tokens in 6 s (6 tok/s)
+[03:22:09] request 140EB25F /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:22:20] request 140EB25F /v1/chat/completions: ended after 26.6 s
+[03:22:20] request 8725554D /v1/chat/completions: accepted
+prefix cache: reusing 256/365 tokens from memory
+[03:22:32] prefill: reading 109 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:22:32] prefill: done, 109 tokens in 12 s (9 tok/s)
+[03:22:35] request 8725554D /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:22:36] request 8725554D /v1/chat/completions: ended after 16.0 s
+[03:22:36] request 7D800167 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:22:51] request 7D800167 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:22:55] prefill: reading 303 prompt tokens, ~4 s to the first token at this plan (follow-up turns read only what is new)
+[03:22:55] prefill: 256/303 tokens (84%), 14 tok/s recently, ~3 s left at this rate
+[03:23:02] prefill: done, 303 tokens in 26 s (12 tok/s)
+[03:23:06] request 7D800167 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:23:21] request 7D800167 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:23:22] request 7D800167 /v1/chat/completions: ended after 46.1 s
+[03:23:22] request 58842ED8 /v1/chat/completions: accepted
+prefix cache: reusing 256/309 tokens from memory
+[03:23:31] prefill: reading 53 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:23:31] prefill: done, 53 tokens in 8 s (6 tok/s)
+[03:23:38] request 58842ED8 /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:23:53] request 58842ED8 /v1/chat/completions: 30 s elapsed, decode cache growth
+[03:24:08] request 58842ED8 /v1/chat/completions: 45 s elapsed, decode cache growth
+[03:24:17] request 58842ED8 /v1/chat/completions: ended after 54.4 s
+[03:24:17] request EFC390AA /v1/chat/completions: accepted
+prefix cache: reusing 256/452 tokens from memory
+[03:24:32] request EFC390AA /v1/chat/completions: 15 s elapsed, prefill pass
+[03:24:33] prefill: reading 196 prompt tokens, ~2 s to the first token at this plan (follow-up turns read only what is new)
+[03:24:33] prefill: done, 196 tokens in 17 s (12 tok/s)
+[03:24:44] request EFC390AA /v1/chat/completions: ended after 27.3 s
+[03:24:44] request DB245CDD /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:24:48] request DB245CDD /v1/chat/completions: ended after 4.3 s
+[03:24:48] request B9DE6248 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:24:56] prefill: reading 54 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:24:56] prefill: done, 54 tokens in 8 s (7 tok/s)
+[03:24:59] request B9DE6248 /v1/chat/completions: ended after 10.3 s
+[03:24:59] request EA34DE1E /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:25:07] prefill: reading 50 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:25:07] prefill: done, 50 tokens in 9 s (6 tok/s)
+[03:25:14] request EA34DE1E /v1/chat/completions: 15 s elapsed, decode cache growth
+[03:25:17] request EA34DE1E /v1/chat/completions: ended after 17.7 s
+[03:25:17] request DE690AAD /v1/chat/completions: accepted
+[03:25:17] request DE690AAD /v1/chat/completions: ended after 0.0 s
+[03:25:17] request CD8D7366 /v1/chat/completions: accepted
+[03:25:17] request CD8D7366 /v1/chat/completions: ended after 0.0 s
+[03:25:17] request 3AA7BF83 /v1/chat/completions: accepted
+[03:25:17] request 3AA7BF83 /v1/chat/completions: ended after 0.0 s
+[03:25:17] request 09EC6B10 /v1/chat/completions: accepted
+[03:25:17] request 09EC6B10 /v1/chat/completions: ended after 0.0 s
+[03:25:17] request C2873E88 /v1/chat/completions: accepted
+[03:25:17] request C2873E88 /v1/chat/completions: ended after 0.0 s
+[03:25:17] request A54C6507 /v1/chat/completions: accepted
+[03:25:17] request A54C6507 /v1/chat/completions: ended after 0.0 s
+[03:25:17] request 3D795273 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:25:32] request 3D795273 /v1/chat/completions: 15 s elapsed, prefill pass
+[03:25:32] prefill: reading 293 prompt tokens, ~3 s to the first token at this plan (follow-up turns read only what is new)
+[03:25:32] prefill: 256/293 tokens (87%), 17 tok/s recently, ~2 s left at this rate
+[03:25:38] prefill: done, 293 tokens in 22 s (13 tok/s)
+[03:25:38] request 3D795273 /v1/chat/completions: ended after 21.8 s
+[03:25:38] request C39E074E /v1/chat/completions: accepted
+prefix cache: reusing 256/293 tokens from memory
+[03:25:45] prefill: reading 37 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:25:45] prefill: done, 37 tokens in 7 s (6 tok/s)
+[03:25:45] request C39E074E /v1/chat/completions: ended after 6.6 s
+[03:25:45] request 7F4DFE5D /v1/chat/completions: accepted
+[03:25:45] request 7F4DFE5D /v1/chat/completions: ended after 0.0 s
+[03:25:45] stopping: asked to stop (SIGTERM)

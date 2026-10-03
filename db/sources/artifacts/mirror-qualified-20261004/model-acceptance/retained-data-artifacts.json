@@ -1,0 +1,177 @@
+{
+  "captured_at": "2026-10-04T01:47:05.503985+00:00",
+  "suite_exit": "0",
+  "source_commit": "f37412f65d2382cafd930172c9aec9da51cf3265",
+  "retained_on_mac": true,
+  "total_bytes": 1063877706,
+  "files": [
+    {
+      "path": "current-layers/layer_0.bin",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/current-layers/layer_0.bin",
+      "size_bytes": 245760,
+      "mtime_unix": 1791071223.7838101,
+      "sha256": "688eccff47d94a53121a6da57a1a4b161155fa28818c8a61746d95dd296bf3c0",
+      "payload_uploaded": false
+    },
+    {
+      "path": "current-layers/layer_1.bin",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/current-layers/layer_1.bin",
+      "size_bytes": 245760,
+      "mtime_unix": 1791071224.5422468,
+      "sha256": "d2e44ae5693fcd8943891eaea183497beeef19c2b2bea70ef6bdb54f1320eb8c",
+      "payload_uploaded": false
+    },
+    {
+      "path": "current-mtp/comparison.safetensors",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/current-mtp/comparison.safetensors",
+      "size_bytes": 256791,
+      "mtime_unix": 1791074493.9523141,
+      "sha256": "939d4157f36e0321157649e446e199a47a3622e2557678c8ba7889c3b2ceafff",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/0fe688b71fbcca1e2aaae58114ffbea51f46a18c.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/0fe688b71fbcca1e2aaae58114ffbea51f46a18c.slotprefix",
+      "size_bytes": 115673766,
+      "mtime_unix": 1791076753.947019,
+      "sha256": "9348fbcf3d20677d6450871ee67087894973c855e44b5910cfabb9fd5aabae0c",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/1d2cfcb346c49bd52558b607c92a4f54a8cd5c14.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/1d2cfcb346c49bd52558b607c92a4f54a8cd5c14.slotprefix",
+      "size_bytes": 115665227,
+      "mtime_unix": 1791076725.0173404,
+      "sha256": "7a8c081e3d97eaec860478808a80650130aee3255a2531b9d8ce93b9ee91e4bc",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/250a5e1292f34e9c9acc4d2a354b7db9.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/250a5e1292f34e9c9acc4d2a354b7db9.slotseg",
+      "size_bytes": 7083524,
+      "mtime_unix": 1791076736.293155,
+      "sha256": "b18c09e73fafaddbce216104cabaa4d2a82b1e378785d620ff40deaa2398432a",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/27abf9480f60c70c7253a4e4c2e0336fbbbe1492.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/27abf9480f60c70c7253a4e4c2e0336fbbbe1492.slotprefix",
+      "size_bytes": 115681522,
+      "mtime_unix": 1791077194.670649,
+      "sha256": "ac24dbb15589ede198df5490840bc5c312718fe6fa9be74a6edd11a5e677def0",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/2dee861be34531513795220d5dc366642547c901.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/2dee861be34531513795220d5dc366642547c901.slotprefix",
+      "size_bytes": 115684050,
+      "mtime_unix": 1791076654.2040339,
+      "sha256": "29f93a32e23ed68495be19de3af78f29ad1886f3e015832dccd60edd767b112e",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/5a31cf97d0e14ee1af3ce5110a4bdf43.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/5a31cf97d0e14ee1af3ce5110a4bdf43.slotseg",
+      "size_bytes": 21239231,
+      "mtime_unix": 1791076724.9818196,
+      "sha256": "2f4b2fdea7a072f3a1809def86d8fcaedd234f9bc8ac389b4561375cd47700d7",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/6bdad3962bc590d469b7cfaada248b751043d00d.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/6bdad3962bc590d469b7cfaada248b751043d00d.slotprefix",
+      "size_bytes": 115669125,
+      "mtime_unix": 1791076585.3699112,
+      "sha256": "b2f5f9e3e2158d6de1405ae0fa66b3af0d52e034944570f27db50f72f5c560c0",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/77d4f4591aba4bd1839dcc090ef50966.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/77d4f4591aba4bd1839dcc090ef50966.slotseg",
+      "size_bytes": 21239229,
+      "mtime_unix": 1791076512.0091598,
+      "sha256": "dbb289e12c86cb6c0121119c07294758bb37631d23124e97712613ea59a08d4c",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/91b273bec94fc5d716c74ff95b06b9600f45199a.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/91b273bec94fc5d716c74ff95b06b9600f45199a.slotprefix",
+      "size_bytes": 115665232,
+      "mtime_unix": 1791076512.0458598,
+      "sha256": "24400ee6317fcfe93848c5a77650c323274c997246f4be62274f6fce6e33515d",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/9f167e3a897e4e539efd51549210c1b3.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/9f167e3a897e4e539efd51549210c1b3.slotseg",
+      "size_bytes": 21239369,
+      "mtime_unix": 1791076615.328364,
+      "sha256": "2cc94f2897c2a2ae18422f8d88751a15acbcfed540d83a53e38a807c791bfb8d",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/a9cf95edc9a6fad2e10251d7a6adb13049f08230.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/a9cf95edc9a6fad2e10251d7a6adb13049f08230.slotprefix",
+      "size_bytes": 115681171,
+      "mtime_unix": 1791076687.1248748,
+      "sha256": "0859f1906d40960c4efe9bf9e46f3e64a5ff6bfc784560a2efacd1b10e962351",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/b7dd13f993f5432fb177066fbf4fe47c.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/b7dd13f993f5432fb177066fbf4fe47c.slotseg",
+      "size_bytes": 14161441,
+      "mtime_unix": 1791076535.3796632,
+      "sha256": "697f14c33cf447a4585da53688984f89c8a2eb1b9d42003a3bd88bacb559e461",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/cb1620ff9b763f75f8e3b411f1c0fd2d1502d780.slotprefix",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/cb1620ff9b763f75f8e3b411f1c0fd2d1502d780.slotprefix",
+      "size_bytes": 115677109,
+      "mtime_unix": 1791076654.280274,
+      "sha256": "55f149567f4ab640d6638ce39c91568b4f92a4b76f44056c9e1e3c698fbfa364",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/cf8560d7e03b4f7cb35cf66d85c11903.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/cf8560d7e03b4f7cb35cf66d85c11903.slotseg",
+      "size_bytes": 14161477,
+      "mtime_unix": 1791076777.4384358,
+      "sha256": "dfd1b6e111a2dd129136494ec72fa13f7194ee721a7de04e02e80a81e8daa383",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/d7830f1695e645cf801c12e2e565d7f6.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/d7830f1695e645cf801c12e2e565d7f6.slotseg",
+      "size_bytes": 7083526,
+      "mtime_unix": 1791076585.3336198,
+      "sha256": "3ab8a217fc88e8865833fdb250e766cfd62a17ead5bb080003b2f8a67b5307d8",
+      "payload_uploaded": false
+    },
+    {
+      "path": "issue21/prefix/e27958d1c2524266994ef45a3b67b614.slotseg",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/issue21/prefix/e27958d1c2524266994ef45a3b67b614.slotseg",
+      "size_bytes": 7083564,
+      "mtime_unix": 1791076664.583844,
+      "sha256": "b71b6d00dfe64dac35331b5d04dc6e065c0cf3f2ea0a38c4696f9dec5b38e2a6",
+      "payload_uploaded": false
+    },
+    {
+      "path": "vision-parity/embed.bin",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/vision-parity/embed.bin",
+      "size_bytes": 7188480,
+      "mtime_unix": 1791078010.4951313,
+      "sha256": "2df4cd07ca20f9711a3081f397fb0d392dec3d5b5da486d086aecbea237524df",
+      "payload_uploaded": false
+    },
+    {
+      "path": "vision-parity/pixels.bin",
+      "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/vision-parity/pixels.bin",
+      "size_bytes": 17252352,
+      "mtime_unix": 1791078010.4893508,
+      "sha256": "55a8cbc837f8ccbbe3e678acda0f521ec0a952f92d12218d3879e2e280908d53",
+      "payload_uploaded": false
+    }
+  ]
+}

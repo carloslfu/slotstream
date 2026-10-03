@@ -1,0 +1,23 @@
+[
+  "/Volumes/llm/slotstream-pr24-20261003-continuation/frozen/slotstream",
+  "run",
+  "--model",
+  "/Volumes/llm/models/qwen38-flash-next-mlx-4bit",
+  "--experts-per-layer",
+  "118",
+  "--max-context",
+  "8192",
+  "--mtp",
+  "on",
+  "--gpu-keepalive",
+  "off",
+  "--max-tokens",
+  "12",
+  "--greedy",
+  "--seed",
+  "1",
+  "--stats-json",
+  "/Volumes/llm/slotstream-pr24-20261003-continuation/keepalive-diagnostic/off-2/stats.json",
+  "--prompt",
+  "请用中文解释什么是混合专家模型（Mixture of Experts），以及它在推理时为什么需要从存储中反复读取专家权重。请展开讲解，不要只写提纲。"
+]

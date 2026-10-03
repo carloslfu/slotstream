@@ -1,0 +1,5 @@
+prefill sample: max abs 5.70312  rel 0.15842  FAIL
+prefill multi: max abs 1.23438  rel 0.09634  FAIL
+decode sample: max abs 2.48438  rel 0.06669  FAIL
+decode multi: max abs 0.33984  rel 0.05724  FAIL
+MTP PARITY FAIL

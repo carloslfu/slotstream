@@ -1,0 +1,145 @@
+[
+  {
+    "name": "plain-cap",
+    "finish": "length",
+    "usage": {
+      "total_tokens": 164,
+      "completion_tokens": 128,
+      "prompt_tokens": 36,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "data_events": 130
+  },
+  {
+    "name": "tools-unused-cap",
+    "finish": "length",
+    "usage": {
+      "prompt_tokens": 275,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens": 128,
+      "total_tokens": 403
+    },
+    "data_events": 130
+  },
+  {
+    "name": "large-allowance-unused-tools",
+    "finish": "stop",
+    "usage": {
+      "total_tokens": 270,
+      "completion_tokens": 1,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_tokens": 269
+    },
+    "data_events": 3
+  },
+  {
+    "name": "long-truncated-argument",
+    "finish": "length",
+    "usage": {
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_tokens": 289,
+      "total_tokens": 545,
+      "completion_tokens": 256
+    },
+    "data_events": 242
+  },
+  {
+    "name": "nullable-truncated-argument",
+    "finish": "length",
+    "usage": {
+      "total_tokens": 548,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens": 256,
+      "prompt_tokens": 292
+    },
+    "data_events": 242
+  },
+  {
+    "name": "branch-alpha-seed",
+    "finish": "stop",
+    "usage": {
+      "completion_tokens": 50,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_tokens": 1526,
+      "total_tokens": 1576
+    },
+    "data_events": 50
+  },
+  {
+    "name": "branch-beta-seed",
+    "finish": "stop",
+    "usage": {
+      "completion_tokens": 53,
+      "total_tokens": 2029,
+      "prompt_tokens_details": {
+        "cached_tokens": 768
+      },
+      "prompt_tokens": 1976
+    },
+    "data_events": 53
+  },
+  {
+    "name": "branch-alpha-followup",
+    "finish": "stop",
+    "usage": {
+      "total_tokens": 1622,
+      "prompt_tokens": 1598,
+      "completion_tokens": 24,
+      "prompt_tokens_details": {
+        "cached_tokens": 1280
+      }
+    },
+    "data_events": 24
+  },
+  {
+    "name": "cache-turn-1",
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens": 1029,
+      "total_tokens": 1058,
+      "completion_tokens": 29,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "data_events": 29
+  },
+  {
+    "name": "cache-turn-2",
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens_details": {
+        "cached_tokens": 1024
+      },
+      "completion_tokens": 29,
+      "prompt_tokens": 1603,
+      "total_tokens": 1632
+    },
+    "data_events": 29
+  },
+  {
+    "name": "cache-turn-3",
+    "finish": "stop",
+    "usage": {
+      "total_tokens": 1683,
+      "prompt_tokens": 1654,
+      "completion_tokens": 29,
+      "prompt_tokens_details": {
+        "cached_tokens": 1536
+      }
+    },
+    "data_events": 29
+  }
+]

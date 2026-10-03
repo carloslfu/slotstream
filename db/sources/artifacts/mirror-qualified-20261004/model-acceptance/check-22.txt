@@ -1,0 +1,23 @@
+run through a symlinked model dir
+run_binary run --model "$SYM" --memory-gb 8.1 --max-tokens 1 --greedy --prompt hi
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (30.0 GB reclaimable now), 30.1 GB Metal working set
+  target: 8.1 GB total process budget, not a RAM usage goal
+  cache:  ~13 of 512 experts per layer  (640 global slots = 1.8 GB pool)
+  plan:   ~7.9 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 1.8 GB expert cache at load; 6.2 GB allowed for runtime, context and workspace; 0.2 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 6510 tokens across 4 conversations (~0.5 GB), so a follow-up turn re-prefills only what is new
+  window: automatic for this Mac, 32768 tokens: the largest of 32768, 65536, 131072, 262144 that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time without an unmeasured cache tradeoff; --max-context N chooses another window up to 262144
+engine ready in 0.8s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+prompt tokens: 13 (~0 s to the first token at this plan)
+Hello
+-- prefill 13 tok in 3.39s (3.8 tok/s)
+-- prefill split: io 2.80s + scatter 0.00s | 2190 records (6.1 GB, 2.2 GB/s)
+-- decode 1 tok in 0.00s (1155.85 tok/s)
+-- decode split: io 0.00s + scatter 0.00s | 0 records
+-- expert cache ~13/512 experts per layer, hit rate 0.000 | ngram rows 0h/0m | lifetime footprint peak 4.694 GB, current footprint 4.694 GB | total 3.4s
+

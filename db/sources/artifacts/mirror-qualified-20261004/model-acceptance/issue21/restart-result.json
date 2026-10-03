@@ -1,0 +1,11 @@
+{
+  "same_message": true,
+  "usage": {
+    "completion_tokens": 29,
+    "total_tokens": 1683,
+    "prompt_tokens_details": {
+      "cached_tokens": 1536
+    },
+    "prompt_tokens": 1654
+  }
+}

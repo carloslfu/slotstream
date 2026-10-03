@@ -1,0 +1,2 @@
+--memory-gb 10 output is stable
+diff /tmp/ssv_mem.txt /tmp/ssv_big.txt

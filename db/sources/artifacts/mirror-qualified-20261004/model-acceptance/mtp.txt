@@ -1,0 +1,41 @@
+slotstream memory plan (--memory-gb)
+  device: 34 GB RAM (29.6 GB reclaimable now), 30.1 GB Metal working set
+  target: 12.0 GB total process budget, not a RAM usage goal
+  cache:  ~26 of 512 experts per layer  (1237 global slots = 3.4 GB pool)
+  plan:   ~11.0 GB full-workload envelope, ~5 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 3.4 GB expert cache at load; 7.6 GB allowed for runtime, context and workspace; 1.0 GB budget headroom. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 512 tokens per pass (~125 tok/s here; costs ~0.7 GB of the target)
+  mtp:    draft head on — speculative decode; its experts stream through a 64-expert cache (0.4 GB resident, charged above)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~4.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 17794 tokens across 4 conversations (~0.8 GB), so a follow-up turn re-prefills only what is new
+  lookahead: on, expert prefetch with the draft head, router cache and a GPU barrier every 4 layers (373 MiB, charged above)
+[expert-lookahead] boundary forecast: no correction at lookahead/tap-correction-attention-rank128-v1.safetensors; `slotstream pull` downloads it (37.5 MB) for the faster corrected forecast
+engine ready in 1.6s: expert cache ~26/512 per layer (1237 global slots = 3.4 GB), mtp draft head on, eos [248044, 248046]
+PASS  determinism p1 (48 tokens)
+PASS  speculation ran p1
+  info  p1: plain vs spec shared prefix 48/48 (identical)
+PASS  determinism p2 (48 tokens)
+PASS  speculation ran p2
+  info  p2: plain vs spec shared prefix 40/48
+PASS  determinism p3 (48 tokens)
+PASS  speculation ran p3
+  info  p3: plain vs spec shared prefix 48/48 (identical)
+  info  vision+mtp prompt: 721 tokens, 1 image(s), placeholder id 248056
+PASS  vision speculation deterministic (48 tokens)
+PASS  vision speculation ran
+  info  vision plain vs spec shared prefix 48/48 (identical)
+  info  overall accept rate 75.0%
+PASS  accept rate is not degenerate (>5%)
+  info  recording pass vs batched: 0.0000% of spread (top-1 same); rollback state vs plain: ssm 5.51e-02, conv 4.83e-02, ple 4.48e-03 relative (re-chunk control: ssm 8.32e-02, conv 6.06e-02, ple 1.79e-02); one more step: 2.059% vs control 1.841% (bound 5.523%, top-1 same)
+PASS  recording verify pass matches the batched pass (<= 0.1% of spread)
+PASS  rollback state stays inside 3x the re-chunk band (ssm, conv, ple)
+PASS  rollback then one step stays inside the prefill-rechunk band
+PASS  turn-2 reused the speculative turn-1 state
+  info  turn-2 logits from the reused speculative state: 2.342% of spread vs a cold rebuild (prefill-rechunk control 2.532%, bound 7.597%), top-1 same; reused 64 of 71 tokens after a 48-token turn 1 (22 verify passes)
+PASS  reused speculative state stays inside the prefill-rechunk band
+PASS  turn-1 speculation ran
+PASS  whole MTP check process memory fits the priced target
+MTP CHECK PASS
+MTP CHECK MEMORY {"lifetime_physical_footprint_peak_bytes":8988187392,"lifetime_rss_peak_bytes":6793609216,"memory_validated":true,"physical_footprint_end_bytes":8988187392,"sampled_peak_bytes":8988187392,"samples":28242,"swap_clean":true,"swapins_after":227027,"swapins_before":227027,"swapouts_after":1424237,"swapouts_before":1424237,"target_gb":12}

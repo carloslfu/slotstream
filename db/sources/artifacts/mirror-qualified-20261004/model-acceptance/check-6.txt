@@ -1,0 +1,2 @@
+8.1 GB cache output == 10 GB cache output
+diff /tmp/ssv_big.txt /tmp/ssv_small.txt

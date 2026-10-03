@@ -1,0 +1,274 @@
+slotstream memory plan (--experts-per-layer)
+  device: 34 GB RAM (29.7 GB reclaimable now), 30.1 GB Metal working set
+  cache:  ~13 of 512 experts per layer  (640 global slots = 1.8 GB pool)
+  plan:   ~7.9 GB full-workload envelope, ~3 tok/s warm decode (est. from M5 Pro anchors)
+  memory: 1.8 GB expert cache at load; 6.1 GB allowed for runtime, context and workspace. Short requests can use less.
+  disk:   that estimate assumes an SSD like the one it was measured on (17.3 GB/s). A base-storage Mac mini M2 reads 1.5 GB/s and decoded at 1.41 tok/s against a ~4 estimate, so on base storage expect well under the number above — see docs/HARDWARE.md
+  prefill: 256 tokens per pass (~85 tok/s here; costs ~0.3 GB of the target)
+  vision: images accepted — first image reserves +0.9 GB inside the target; refused if it cannot fit
+  context: up to 32768 tokens per request (prompt + reply); a full-length prompt takes ~6.4 min before its first token here, follow-up turns read only what is new
+  reuse:  up to 6240 tokens across 4 conversations (~0.5 GB), so a follow-up turn re-prefills only what is new
+  note:   raised to the floor of 640 slots (~13/layer): below it a prefill chunk can pin every slot
+  window: automatic for this Mac, 32768 tokens: the largest of 32768, 65536, 131072, 262144 that keeps speculative decoding, retains one complete conversation and adds at most 10% to the estimated request time without an unmeasured cache tradeoff; --max-context N chooses another window up to 262144
+engine ready in 1.5s: expert cache ~13/512 per layer (640 global slots = 1.8 GB), eos [248044, 248046]
+elastic: off — an explicit size is pinned; omit the size flag for elastic auto
+slotstream listening on http://127.0.0.1:11466
+try it:
+  curl localhost:11466/api/chat -d '{"model": "qwen3.8-flash-next:4bit", "messages": [{"role": "user", "content": "hello"}]}'
+or point any Ollama or OpenAI client at http://localhost:11466
+[03:31:01] request 8488B8BD /api/chat: accepted
+[03:31:01] request 8488B8BD /api/chat: ended after 0.0 s
+[03:31:01] request D3072D5C /api/chat: accepted
+[03:31:01] request D3072D5C /api/chat: ended after 0.0 s
+[03:31:01] request 6B8BFBF2 /v1/chat/completions: accepted
+[03:31:01] request 6B8BFBF2 /v1/chat/completions: ended after 0.0 s
+[03:31:01] request AD6653B5 /api/chat: accepted
+[03:31:01] request AD6653B5 /api/chat: ended after 0.0 s
+[03:31:01] request 34047ABD /api/chat: accepted
+[03:31:01] request 34047ABD /api/chat: ended after 0.0 s
+[03:31:01] request 449224B7 /api/chat: accepted
+[03:31:01] request 449224B7 /api/chat: ended after 0.0 s
+[03:31:01] request 01B29C69 /v1/chat/completions: accepted
+[03:31:01] request 01B29C69 /v1/chat/completions: ended after 0.0 s
+[03:31:01] request 177FD92A /v1/chat/completions: accepted
+[03:31:01] request 177FD92A /v1/chat/completions: ended after 0.0 s
+[03:31:01] request 2B652EC0 /api/chat: accepted
+prefix cache: miss: no retained state (0 prior evictions)
+[03:31:06] request 2B652EC0 /api/chat: ended after 4.6 s
+[03:31:06] request 1C16A48B /api/chat: accepted
+prefix cache: reusing 14/14 tokens from memory
+[03:31:06] request 1C16A48B /api/chat: ended after 0.1 s
+[03:31:06] request 0239E2F5 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:31:11] request 0239E2F5 /api/chat: ended after 4.9 s, client_cancelled
+[03:31:14] request 0A4B7183 /api/chat: accepted
+prefix cache: miss: no retained state (3 prior evictions)
+[03:31:20] request 0A4B7183 /api/chat: ended after 5.6 s
+[03:31:20] request B1993DDE /api/chat: accepted
+prefix cache: reusing 17/17 tokens from memory
+[03:31:21] request B1993DDE /api/chat: ended after 1.3 s
+[03:31:21] request 81DBF552 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:31:28] prefill: reading 31 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:31:28] prefill: done, 31 tokens in 7 s (5 tok/s)
+[03:31:33] request 81DBF552 /api/chat: ended after 12.4 s
+[03:31:33] request 057E4EC8 /api/chat: accepted
+prefix cache: reusing 31/31 tokens from memory
+[03:31:39] request 057E4EC8 /api/chat: ended after 5.7 s
+[03:31:39] request ADEB64B7 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:31:45] prefill: reading 24 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:31:45] prefill: done, 24 tokens in 6 s (4 tok/s)
+[03:31:51] request ADEB64B7 /api/chat: ended after 12.1 s
+[03:31:51] request 9AD1655F /api/chat: accepted
+prefix cache: reusing 24/24 tokens from memory
+[03:31:57] request 9AD1655F /api/chat: ended after 6.2 s
+[03:31:57] request 1FD7746B /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:32:04] prefill: reading 29 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:32:04] prefill: done, 29 tokens in 7 s (4 tok/s)
+[03:32:07] request 1FD7746B /api/chat: ended after 9.6 s
+[03:32:07] request 16E6B2C7 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:32:14] prefill: reading 29 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:32:14] prefill: done, 29 tokens in 7 s (4 tok/s)
+[03:32:17] request 16E6B2C7 /api/chat: ended after 9.6 s
+[03:32:17] request B5E66338 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:32:22] prefill: reading 22 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:32:22] prefill: done, 22 tokens in 5 s (4 tok/s)
+[03:32:26] request B5E66338 /api/chat: ended after 9.1 s
+[03:32:26] request 3B1A1F09 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:32:31] prefill: reading 22 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:32:31] prefill: done, 22 tokens in 5 s (4 tok/s)
+[03:32:35] request 3B1A1F09 /api/chat: ended after 9.1 s
+[03:32:35] request 260304EE /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:32:41] prefill: reading 27 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:32:41] prefill: done, 27 tokens in 6 s (5 tok/s)
+[03:32:46] request 260304EE /api/chat: ended after 11.1 s
+[03:32:46] request 7520B0F7 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:32:52] prefill: reading 27 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:32:52] prefill: done, 27 tokens in 6 s (5 tok/s)
+[03:32:57] request 7520B0F7 /api/chat: ended after 11.2 s
+[03:32:57] request B4F10BEC /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:33:03] prefill: reading 27 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:33:03] prefill: done, 27 tokens in 6 s (5 tok/s)
+[03:33:08] request B4F10BEC /api/chat: ended after 11.1 s
+[03:33:08] request 5BECD8E2 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:33:14] prefill: reading 27 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:33:14] prefill: done, 27 tokens in 6 s (5 tok/s)
+[03:33:19] request 5BECD8E2 /api/chat: ended after 11.1 s
+[03:33:19] request 27F86AC5 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:33:34] request 27F86AC5 /api/chat: 15 s elapsed, decode cache growth
+[03:33:37] request 27F86AC5 /api/chat: ended after 17.4 s
+[03:33:37] request EEF7B159 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:33:52] request EEF7B159 /api/chat: 15 s elapsed, decode cache growth
+[03:33:54] request EEF7B159 /api/chat: ended after 17.1 s
+[03:33:54] request 31FE02D9 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:34:00] request 31FE02D9 /api/chat: ended after 6.4 s
+[03:34:00] request 8F45EAC8 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:34:06] request 8F45EAC8 /api/chat: ended after 6.3 s
+[03:34:06] request DD2D9134 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:34:12] prefill: reading 24 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:34:12] prefill: done, 24 tokens in 6 s (4 tok/s)
+[03:34:21] request DD2D9134 /api/chat: 15 s elapsed, decode cache growth
+[03:34:36] request DD2D9134 /api/chat: 30 s elapsed, decode cache growth
+[03:34:39] request DD2D9134 /api/chat: ended after 32.2 s
+[03:34:39] request 730F2D0A /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:34:44] prefill: reading 24 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:34:44] prefill: done, 24 tokens in 6 s (4 tok/s)
+[03:34:54] request 730F2D0A /api/chat: 15 s elapsed, decode cache growth
+[03:35:09] request 730F2D0A /api/chat: 30 s elapsed, decode cache growth
+[03:35:11] request 730F2D0A /api/chat: ended after 32.1 s
+[03:35:11] request C7699F89 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:15] request C7699F89 /api/chat: ended after 4.4 s
+[03:35:15] request A8471184 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:20] request A8471184 /api/chat: ended after 4.4 s
+[03:35:20] request E6C3E9AD /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:24] request E6C3E9AD /api/chat: ended after 4.4 s
+[03:35:24] request DB51421A /api/generate: accepted
+[03:35:24] request DB51421A /api/generate: ended after 0.0 s
+[03:35:24] request 3F6AD03A /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:30] request 3F6AD03A /v1/chat/completions: ended after 6.0 s
+[03:35:30] request 7A613429 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:36] prefill: reading 27 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:35:36] prefill: done, 27 tokens in 6 s (5 tok/s)
+[03:35:40] request 7A613429 /api/chat: ended after 9.8 s
+[03:35:40] request 3C139DF9 /api/chat: accepted
+[03:35:40] request 3C139DF9 /api/chat: ended after 0.1 s
+[03:35:40] request 6B0202C9 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:46] request 6B0202C9 /api/chat: ended after 5.4 s
+[03:35:46] request B6D79395 /api/generate: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:51] request B6D79395 /api/generate: ended after 5.3 s
+[03:35:51] request 5523DB5B /api/generate: accepted
+[03:35:51] request 5523DB5B /api/generate: ended after 0.0 s
+[03:35:51] request 3EA70228 /api/generate: accepted
+[03:35:51] request 3EA70228 /api/generate: ended after 0.0 s
+[03:35:51] request F1A1446B /api/chat: accepted
+[03:35:51] request F1A1446B /api/chat: ended after 0.0 s
+[03:35:51] request 0E3307F9 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:35:57] prefill: reading 20 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:35:57] prefill: done, 20 tokens in 6 s (4 tok/s)
+[03:36:06] request 0E3307F9 /api/chat: 15 s elapsed, decode cache growth
+[03:36:21] request 0E3307F9 /api/chat: 30 s elapsed, decode cache growth
+[03:36:30] request 0E3307F9 /api/chat: ended after 38.8 s
+[03:36:30] request 6319AA61 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:36:35] request 6319AA61 /api/chat: ended after 5.2 s
+[03:36:35] request B135512D /api/chat: accepted
+[03:36:35] request B135512D /api/chat: ended after 0.0 s
+[03:36:35] request 881015D4 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:36:40] request 881015D4 /v1/chat/completions: ended after 5.5 s
+[03:36:40] request 52848E02 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:36:46] prefill: reading 14 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:36:46] prefill: done, 14 tokens in 5 s (3 tok/s)
+[03:36:47] request 52848E02 /v1/chat/completions: ended after 6.4 s
+[03:36:47] request CE87DC39 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:36:51] request CE87DC39 /v1/chat/completions: ended after 4.6 s
+[03:36:51] request 1FA19ED3 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:36:56] request 1FA19ED3 /v1/chat/completions: ended after 4.4 s
+[03:36:56] request B368668D /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:00] request B368668D /v1/chat/completions: ended after 4.4 s
+[03:37:00] request A5163132 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:05] request A5163132 /v1/chat/completions: ended after 4.4 s
+[03:37:05] request 6B05287B /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:09] request 6B05287B /v1/chat/completions: ended after 4.5 s
+[03:37:09] request 27EDE502 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:14] request 27EDE502 /v1/chat/completions: ended after 4.4 s
+[03:37:14] request D6530033 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:19] request D6530033 /v1/chat/completions: ended after 5.5 s
+[03:37:19] request A1209937 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:24] request A1209937 /v1/chat/completions: ended after 4.4 s
+[03:37:24] request BC9E752B /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:28] request BC9E752B /v1/chat/completions: ended after 4.4 s
+[03:37:28] request 5FFA6DE9 /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:32] request 5FFA6DE9 /v1/chat/completions: ended after 4.4 s
+[03:37:32] request 480390F4 /v1/chat/completions: accepted
+[03:37:32] request 480390F4 /v1/chat/completions: ended after 0.0 s
+[03:37:32] request 352968D3 /v1/chat/completions: accepted
+[03:37:32] request 352968D3 /v1/chat/completions: ended after 0.0 s
+[03:37:32] request 0D898099 /v1/chat/completions: accepted
+[03:37:32] request 0D898099 /v1/chat/completions: ended after 0.0 s
+[03:37:32] request 749D58FB /v1/chat/completions: accepted
+[03:37:32] request 749D58FB /v1/chat/completions: ended after 0.0 s
+[03:37:32] request 2753CDFE /v1/chat/completions: accepted
+[03:37:32] request 2753CDFE /v1/chat/completions: ended after 0.0 s
+[03:37:32] request AFAC0CA7 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:37:45] prefill: reading 59 prompt tokens, ~1 s to the first token at this plan (follow-up turns read only what is new)
+[03:37:45] prefill: done, 59 tokens in 13 s (5 tok/s)
+[03:37:47] request AFAC0CA7 /api/chat: 15 s elapsed, decode cache growth
+[03:37:57] request AFAC0CA7 /api/chat: ended after 24.7 s
+[03:37:57] request 4901FDC6 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:38:04] prefill: reading 26 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:38:04] prefill: done, 26 tokens in 7 s (4 tok/s)
+[03:38:12] request 4901FDC6 /api/chat: 15 s elapsed, decode cache growth
+[03:38:15] request 4901FDC6 /api/chat: ended after 17.8 s
+[03:38:15] request D25C8FAE /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:38:30] request D25C8FAE /api/chat: 15 s elapsed, decode cache growth
+[03:38:44] request D25C8FAE /api/chat: ended after 28.9 s
+[03:38:44] request 4019154A /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:38:50] prefill: reading 18 prompt tokens, ~0 s to the first token at this plan (follow-up turns read only what is new)
+[03:38:50] prefill: done, 18 tokens in 6 s (3 tok/s)
+[03:38:59] request 4019154A /api/chat: 15 s elapsed, decode cache growth
+[03:39:14] request 4019154A /api/chat: ended after 29.6 s
+[03:39:14] request 07D615D1 /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:39:29] request 07D615D1 /api/chat: 15 s elapsed, decode cache growth
+[03:39:39] request 07D615D1 /api/chat: ended after 25.8 s
+[03:39:39] request 7CB4B65A /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:39:50] request 7CB4B65A /api/chat: ended after 11.1 s
+[03:39:50] request 6A36B54D /api/chat: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:40:02] request 6A36B54D /api/chat: ended after 11.2 s
+[03:40:04] request 56CAA155 /api/chat: accepted
+[03:40:04] request 56CAA155 /api/chat: ended after 0.0 s
+[03:40:04] request 2D7364E7 /v1/chat/completions: accepted
+[03:40:04] request 2D7364E7 /v1/chat/completions: ended after 0.0 s
+[03:40:04] request 50AD66F7 /api/chat: accepted
+[03:40:04] request 50AD66F7 /api/chat: ended after 0.0 s
+[03:40:04] request 4E6E001E /api/chat: accepted
+[03:40:04] request 4E6E001E /api/chat: ended after 0.0 s
+[03:40:04] request 873EE270 /api/chat: accepted
+[03:40:04] request 873EE270 /api/chat: ended after 0.0 s
+[03:40:04] request 2ABC7542 /api/generate: accepted
+[03:40:04] request 2ABC7542 /api/generate: ended after 0.0 s
+[03:40:04] request 02E2757D /v1/chat/completions: accepted
+prefix cache: miss: retained states are not exact prefixes of this prompt
+[03:40:08] request 02E2757D /v1/chat/completions: ended after 4.4 s
+[03:40:08] stopping: asked to stop (SIGTERM)

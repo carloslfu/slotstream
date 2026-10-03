@@ -1,0 +1,16 @@
+[
+  {
+    "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/current-layers/layer_0.bin",
+    "size_bytes": 245760,
+    "sha256": "688eccff47d94a53121a6da57a1a4b161155fa28818c8a61746d95dd296bf3c0",
+    "retained_on_mac": true,
+    "uploaded": false
+  },
+  {
+    "mac_path": "/Volumes/llm/slotstream-pr24-20261003-followup/acceptance-keepalive-off/current-layers/layer_1.bin",
+    "size_bytes": 245760,
+    "sha256": "d2e44ae5693fcd8943891eaea183497beeef19c2b2bea70ef6bdb54f1320eb8c",
+    "retained_on_mac": true,
+    "uploaded": false
+  }
+]

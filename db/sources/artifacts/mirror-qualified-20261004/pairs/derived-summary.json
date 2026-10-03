@@ -1,0 +1,19 @@
+{
+  "single": {
+    "max_rss_bytes": 19988643840,
+    "max_footprint_bytes": 20923366376,
+    "decode_io_s_median": 10.781442592,
+    "prefill_read_GB_s_median": 3.203592113484111
+  },
+  "mirror": {
+    "max_rss_bytes": 19988856832,
+    "max_footprint_bytes": 20923251688,
+    "decode_io_s_median": 7.385706208999995,
+    "prefill_read_GB_s_median": 4.7870291469798,
+    "mirror_served_percent": [
+      35.711885462098664,
+      35.86538685580615,
+      35.22768512926448
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+independent current-backend layer reference
+"$REFERENCE_PYTHON" Tools/current_backend_reference.py --kind layers --out "$CURRENT_LAYERS"
+completed independent layer 0
+completed independent layer 1

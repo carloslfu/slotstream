@@ -1,0 +1,487 @@
+{
+  "name": "cache-turn-1",
+  "request": {
+    "model": "qwen3.8-flash-next:4bit",
+    "temperature": 0,
+    "seed": 42,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 256,
+    "messages": [
+      {
+        "role": "system",
+        "content": "Retain this document for the conversation. Record 0: the coastal station measures tides and wind. Record 1: the coastal station measures tides and wind. Record 2: the coastal station measures tides and wind. Record 3: the coastal station measures tides and wind. Record 4: the coastal station measures tides and wind. Record 5: the coastal station measures tides and wind. Record 6: the coastal station measures tides and wind. Record 7: the coastal station measures tides and wind. Record 8: the coastal station measures tides and wind. Record 9: the coastal station measures tides and wind. Record 10: the coastal station measures tides and wind. Record 11: the coastal station measures tides and wind. Record 12: the coastal station measures tides and wind. Record 13: the coastal station measures tides and wind. Record 14: the coastal station measures tides and wind. Record 15: the coastal station measures tides and wind. Record 16: the coastal station measures tides and wind. Record 17: the coastal station measures tides and wind. Record 18: the coastal station measures tides and wind. Record 19: the coastal station measures tides and wind. Record 20: the coastal station measures tides and wind. Record 21: the coastal station measures tides and wind. Record 22: the coastal station measures tides and wind. Record 23: the coastal station measures tides and wind. Record 24: the coastal station measures tides and wind. Record 25: the coastal station measures tides and wind. Record 26: the coastal station measures tides and wind. Record 27: the coastal station measures tides and wind. Record 28: the coastal station measures tides and wind. Record 29: the coastal station measures tides and wind. Record 30: the coastal station measures tides and wind. Record 31: the coastal station measures tides and wind. Record 32: the coastal station measures tides and wind. Record 33: the coastal station measures tides and wind. Record 34: the coastal station measures tides and wind. Record 35: the coastal station measures tides and wind. Record 36: the coastal station measures tides and wind. Record 37: the coastal station measures tides and wind. Record 38: the coastal station measures tides and wind. Record 39: the coastal station measures tides and wind. Record 40: the coastal station measures tides and wind. Record 41: the coastal station measures tides and wind. Record 42: the coastal station measures tides and wind. Record 43: the coastal station measures tides and wind. Record 44: the coastal station measures tides and wind. Record 45: the coastal station measures tides and wind. Record 46: the coastal station measures tides and wind. Record 47: the coastal station measures tides and wind. Record 48: the coastal station measures tides and wind. Record 49: the coastal station measures tides and wind. Record 50: the coastal station measures tides and wind. Record 51: the coastal station measures tides and wind. Record 52: the coastal station measures tides and wind. Record 53: the coastal station measures tides and wind. Record 54: the coastal station measures tides and wind. Record 55: the coastal station measures tides and wind. Record 56: the coastal station measures tides and wind. Record 57: the coastal station measures tides and wind. Record 58: the coastal station measures tides and wind. Record 59: the coastal station measures tides and wind. Record 60: the coastal station measures tides and wind. Record 61: the coastal station measures tides and wind. Record 62: the coastal station measures tides and wind. Record 63: the coastal station measures tides and wind. Record 64: the coastal station measures tides and wind. Record 65: the coastal station measures tides and wind. Record 66: the coastal station measures tides and wind. Record 67: the coastal station measures tides and wind. Record 68: the coastal station measures tides and wind. Record 69: the coastal station measures tides and wind."
+      },
+      {
+        "role": "user",
+        "content": "What is 2+2? Answer briefly."
+      }
+    ],
+    "reasoning_effort": "low"
+  },
+  "status": 200,
+  "seconds": 66.75562683283351,
+  "arrivals": [
+    51.54084949987009,
+    52.04203995782882,
+    52.508189332904294,
+    52.97965049999766,
+    53.45391383301467,
+    54.03544974979013,
+    54.59652762487531,
+    55.18933774996549,
+    55.749854082940146,
+    56.37969704181887,
+    56.880319291958585,
+    57.32086112489924,
+    57.93507433286868,
+    58.474783749785274,
+    59.03301804186776,
+    59.55497641698457,
+    60.17005595797673,
+    60.74050820781849,
+    61.311743582831696,
+    61.888012249954045,
+    62.406967042014,
+    62.93893366679549,
+    63.4306360417977,
+    63.99285179190338,
+    64.5724398328457,
+    65.10102037480101,
+    66.08912424999289,
+    66.75559979188256,
+    66.75561283295974
+  ],
+  "events": [
+    {
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "T",
+            "role": "assistant"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "he us"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076687
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "er"
+          }
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": " asks a"
+          }
+        }
+      ],
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB"
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076687,
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " simp"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "le math q"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "u"
+          }
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "e"
+          },
+          "finish_reason": null
+        }
+      ],
+      "created": 1791076687
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "s"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "t"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "i"
+          }
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "o"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "created": 1791076687,
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB"
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "n: 2"
+          },
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076687,
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "reasoning_content": "+2. The"
+          }
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076687,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": " an"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "s"
+          }
+        }
+      ],
+      "created": 1791076687,
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "w"
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "e"
+          },
+          "index": 0
+        }
+      ]
+    },
+    {
+      "created": 1791076687,
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "r is "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "4. Th"
+          },
+          "index": 0
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076687
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "created": 1791076687,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "ey"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " want "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791076687,
+      "model": "qwen3.8-flash-next:4bit",
+      "object": "chat.completion.chunk"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": null,
+          "delta": {
+            "reasoning_content": "a brief"
+          }
+        }
+      ],
+      "created": 1791076687
+    },
+    {
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": " "
+          },
+          "finish_reason": null,
+          "index": 0
+        }
+      ],
+      "created": 1791076687,
+      "object": "chat.completion.chunk",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "model": "qwen3.8-flash-next:4bit",
+      "created": 1791076687,
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "reasoning_content": "a"
+          },
+          "finish_reason": null
+        }
+      ],
+      "object": "chat.completion.chunk"
+    },
+    {
+      "created": 1791076687,
+      "object": "chat.completion.chunk",
+      "choices": [
+        {
+          "delta": {
+            "reasoning_content": "nswer.\n"
+          },
+          "index": 0,
+          "finish_reason": null
+        }
+      ],
+      "model": "qwen3.8-flash-next:4bit",
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB"
+    },
+    {
+      "created": 1791076687,
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "content": "4"
+          }
+        }
+      ],
+      "object": "chat.completion.chunk",
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    {
+      "object": "chat.completion.chunk",
+      "created": 1791076687,
+      "id": "chatcmpl-B21AFD17-8F26-47AF-8428-59165FE8F1CB",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "stop",
+          "delta": {}
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1029,
+        "total_tokens": 1058,
+        "completion_tokens": 29,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "model": "qwen3.8-flash-next:4bit"
+    },
+    "[DONE]"
+  ]
+}

@@ -1,0 +1,387 @@
+== frozen build: /Volumes/llm/slotstream-pr24-20261003-followup/frozen/slotstream ==
+== weights provenance (hashes all 105.3 GB vs the pinned revisions; the draft head is optional) ==
+PASS  pull --verify: every pinned file matches
+== goldens (need bench/parity31 from Tools/parity_ref.py under mlx==0.31.1) ==
+PASS  ngram row ids == python reference
+PASS  chat template == transformers
+PASS  layer parity (historical reference, one-row projections)
+PASS  independent current-backend layer reference
+PASS  production layer parity against current backend
+== planner: right thing across machine setups (simulated, no model needed) ==
+PASS  48GB pristine: 33.0 GB target and starts quiet
+PASS  48GB busy: clamped to 15.4 GB, sized-down note
+PASS  16GB pristine: 9.8 GB target, no notes
+PASS  16GB busy: refuses an unphysical minimum allocation
+PASS  8GB Mac: refuses an unphysical minimum allocation
+PASS  128GB auto stops at the knee, not at 70% of RAM
+PASS  128GB explains the measured basis for its default
+PASS  128GB: --memory-gb still reaches full residency
+PASS  --sim-ram alone plans instead of erroring
+PASS  --max-ram-percent lowers the auto target
+PASS  --max-ram-percent cannot exceed the knee
+PASS  --max-ram-percent 0 refused
+PASS  --max-ram-percent 150 refused
+PASS  --max-ram-percent noted when outranked
+PASS  more memory never plans slower (7-90 GB sweep)
+PASS  explicit total target cannot authorize unavailable memory
+PASS  --experts-per-layer 0 refused
+PASS  --pool-gb 0 refused
+PASS  --memory-gb below minimum refused
+PASS  --memory-gb inf is a clean error
+PASS  --pool-gb inf is a clean error
+PASS  --pool-gb 1e300 saturates safely instead of trapping
+PASS  --memory-gb 1e300 refuses physical overcommit without trapping
+PASS  huge finite memory plan remains valid JSON
+PASS  --sim-ram inf is a clean error
+PASS  --sim-working-set inf is a clean error
+PASS  --sim-available inf is a clean error
+PASS  tiny pool raised to the floor, consistently
+PASS  knob precedence noted, never silent
+PASS  --model with no safetensors: clean error
+PASS  --model with no safetensors: names the fix
+PASS  MTP auto on a big quiet machine: knee + head = 34.6
+PASS  a big cache keeps the head's experts resident
+PASS  MTP auto stays off on a 16GB machine
+PASS  MTP auto on at --memory-gb 30 (137/layer after the charge)
+PASS  MTP auto on at --memory-gb 22 (resident: 76/layer after the charge)
+PASS  decode lookahead rides the head at --memory-gb 22
+PASS  32 GB Mac: auto runs the head and the lookahead
+PASS  24 GB Mac: auto streams the head's experts and runs the lookahead
+PASS  32 GB Mac at 65,536 tokens keeps the head by streaming its experts
+PASS  36 GB Mac at 65,536 tokens keeps the head and the lookahead
+PASS  --memory-gb 16: below 76/layer the head streams its experts, with the lookahead
+PASS  streamed head charge visible in json
+PASS  --memory-gb 12: the streamed head reaches its 28/layer floor
+PASS  --memory-gb 11: below the head's floor, plain decode with the lookahead
+PASS  SLOTSTREAM_MTP_EXPERTS=resident keeps the resident head's floor
+PASS  SLOTSTREAM_MTP_EXPERTS gibberish refused
+PASS  SLOTSTREAM_OPT_EXPERT_PREFETCH=0 keeps the head without the lookahead
+PASS  decode lookahead charge visible in json
+PASS  --mtp on forces the head onto a small machine
+PASS  a head forced below the floor runs without the lookahead
+PASS  --mtp off suppresses it everywhere
+PASS  --mtp off runs the lookahead in plain decode
+PASS  --mtp on without mtp.safetensors is a clean error
+PASS  --mtp on cannot squeeze under the minimum target plus the streamed head
+PASS  --mtp gibberish refused
+PASS  MTP charge visible in json peak
+PASS  --model with unparseable config: clean error
+PASS  invalid config arithmetic is rejected before it traps
+PASS  --model with a corrupt safetensors header
+PASS  safetensors dtype/shape byte mismatch rejected
+PASS  safetensors header over 100MB rejected before allocation
+PASS  --model with a different model's tensors
+PASS  serve --max-context 0 refused before load
+PASS  plan announces the context cap and the wait
+PASS  doctor --json carries max_context_tokens + wait
+PASS  serve --max-context above the ceiling names the ceiling, not a knob
+PASS  doctor --max-context above the ceiling is the same clean error
+PASS  a lower --max-context caps the reuse ceiling too
+PASS  16 GB Mac: automatic window is 32,768
+PASS  24 GB Mac: automatic window is 32,768
+PASS  32 GB Mac: automatic window is 32,768 (65,536 would stream the head)
+PASS  36 GB Mac: automatic window is 65,536
+PASS  48 GB Mac: auto preserves cache with unmeasured benefit
+PASS  64 GB Mac: automatic window is 131,072
+PASS  96 GB Mac: automatic window is 262,144
+PASS  128 GB Mac: automatic window is 262,144
+PASS  --max-context auto is the default
+PASS  a fixed cache size keeps the default window
+PASS  an explicit window is reported as explicit
+PASS  128 GB: the window rides above the knee and doctor marks the choice
+PASS  a busy big Mac lowers the automatic window and keeps the head
+PASS  an explicit window too large to retain says how much follow-ups reuse
+PASS  automatic window JSON lists every candidate and retains the chosen window
+PASS  serve --max-context auto is accepted by the parser
+PASS  an unparseable --max-context is refused
+PASS  prefill-schedule: full model window obeys the product without exemptions
+PASS  prefill-schedule agrees with the doctor wait for the same pass
+PASS  prefill-schedule: a prefix hit reads only what is new
+PASS  prefill-schedule --chunk 0 refused
+PASS  context-check --tokens 4 refused before load
+PASS  parity rejects an invalid layer count before model load
+PASS  parity rejects malformed token ids without trapping
+PASS  n-gram golden rejects malformed token ids without trapping
+PASS  dequant golden rejects a negative row before model load
+PASS  sampler golden rejects an empty vocabulary without trapping
+PASS  sampler golden rejects a negative draw count without trapping
+planner: passed 97, failed 0
+PASS  planner gates
+== sampler vs numpy reference + elastic governor policy (no weights needed) ==
+PASS  sampler == numpy reference: defaults (t0.8 p0.95 k40)
+PASS  sampler == numpy reference: greedy (temperature 0)
+PASS  sampler == numpy reference: pure sampling, no filters
+PASS  sampler == numpy reference: top-k 1 (degenerate)
+PASS  sampler == numpy reference: tight nucleus (top-p 0.1)
+PASS  sampler == numpy reference: min-p 0.3
+PASS  sampler == numpy reference: presence penalty, accumulating
+PASS  sampler == numpy reference: greedy + penalty (API temp-0)
+PASS  sampler == numpy reference: vocab 4096
+PASS  sampler == numpy reference: real vocab (248,320)
+PASS  sampler == numpy reference: top-p 0 (sanitizer)
+PASS  sampler == numpy reference: min-p 5 (sanitizer)
+PASS  sampler == numpy reference: seed 0 (remapped)
+PASS  sampler == numpy reference: exact zero RNG draw skips removed tokens
+PASS  sampler == numpy reference: high temp, large vocab
+PASS  seeded sampling is reproducible and seed-sensitive
+PASS  elastic governor policy (42 branches)
+sampler + governor: passed 17, failed 0
+PASS  sampler + governor gates
+== golden equivalence: streaming must not change the math ==
+PASS  8.1 GB cache output == 10 GB cache output
+== elastic pool: live resizes must not change the math ==
+PASS  grow/shrink/regrow byte-identical (elastic-check)
+== elastic governor: shrinks, honors the cooldown, grows back ==
+PASS  ELASTIC DRILL PASS: governor shrank under simulated pressure, honored the grow cooldown, grew back when memory returned, and every generation was byte-identical
+== small adaptive cache: pressure recovery below the normal growth band ==
+PASS  small adaptive cache recovery
+== adaptive server: saved ceiling survives startup and the live timer ==
+{
+  "passed": true,
+  "binary_sha256": "327c55366c3639fb789d02780e2e7b696207c496fcb94bd521cac1059b621427",
+  "limit_gb": 10,
+  "no_elastic": false,
+  "preflight_available_gb": 29.657808896,
+  "command": [
+    "slotstream",
+    "serve",
+    "--memory-limit-gb",
+    "10",
+    "--max-context",
+    "32768",
+    "--max-prefill-wait",
+    "17",
+    "--mtp",
+    "off",
+    "--vision",
+    "off",
+    "--gpu-keepalive",
+    "off",
+    "--port",
+    "61168"
+  ],
+  "startup_seconds": 53.89860870898701,
+  "completion": {
+    "index": 0,
+    "finish_reason": "stop",
+    "message": {
+      "role": "assistant",
+      "content": "The Nile."
+    }
+  },
+  "server_reaped": true
+}
+PASS  adaptive server lifecycle
+== conversation prefix cache: live determinism and exact scheduled reuse ==
+PASS  prefix reuse, invalidation and live reply equality (prefix-check)
+PASS  a continued conversation equals a cold one (prefix-exact-check)
+== prefill sweep: matches the pool path, deterministic, blind to the pool ==
+PASS  sweep within the prefill-rechunk control, identical cold and warm (sweep-check)
+== decode overlap: direct demand reads and the GPU keepalive leave output exact ==
+PASS  direct reads and keepalive equal the staged path on a cold cache (decode-overlap-check)
+PASS  streamed draft experts and the plain-decode lookahead leave output exact (draft-stream-check)
+== MTP draft head: parity with the Python reference + speculative gates ==
+PASS  independent current-backend draft-head reference
+PASS  mtp head parity vs current Python reference (mtp-parity)
+DIAGNOSTIC  historical MLX 0.31 draft-head reference differs (retained in mtp-legacy-reference.txt)
+PASS  speculative decode gates (determinism, state integrity, accept sanity)
+PASS  verify pass rows equal plain decode bit for bit (mtp-rowcheck)
+== memory target keeps its promise ==
+PASS  --memory-gb 10 process footprint and RSS stay under target
+PASS  --memory-gb 10 output is stable
+PASS  --memory-gb 10 process footprint and RSS under target on the long prompt
+PASS  long-context answer still correct (sparse indexer active)
+PASS  context-check: 2k rung reads inside the plan and reports it
+PASS  context-check: process memory remains under target
+== serving robustness (inputs that used to crash or corrupt output) ==
+{"name": "plain-cap", "finish": "length", "usage": {"total_tokens": 164, "completion_tokens": 128, "prompt_tokens": 36, "prompt_tokens_details": {"cached_tokens": 0}}, "data_events": 130}
+{"name": "tools-unused-cap", "finish": "length", "usage": {"prompt_tokens": 275, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens": 128, "total_tokens": 403}, "data_events": 130}
+{"name": "large-allowance-unused-tools", "finish": "stop", "usage": {"total_tokens": 270, "completion_tokens": 1, "prompt_tokens_details": {"cached_tokens": 0}, "prompt_tokens": 269}, "data_events": 3}
+{"name": "long-truncated-argument", "finish": "length", "usage": {"prompt_tokens_details": {"cached_tokens": 0}, "prompt_tokens": 289, "total_tokens": 545, "completion_tokens": 256}, "data_events": 242}
+{"name": "nullable-truncated-argument", "finish": "length", "usage": {"total_tokens": 548, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens": 256, "prompt_tokens": 292}, "data_events": 242}
+{"name": "branch-alpha-seed", "finish": "stop", "usage": {"completion_tokens": 50, "prompt_tokens_details": {"cached_tokens": 0}, "prompt_tokens": 1526, "total_tokens": 1576}, "data_events": 50}
+{"name": "branch-beta-seed", "finish": "stop", "usage": {"completion_tokens": 53, "total_tokens": 2029, "prompt_tokens_details": {"cached_tokens": 768}, "prompt_tokens": 1976}, "data_events": 53}
+{"name": "branch-alpha-followup", "finish": "stop", "usage": {"total_tokens": 1622, "prompt_tokens": 1598, "completion_tokens": 24, "prompt_tokens_details": {"cached_tokens": 1280}}, "data_events": 24}
+{"name": "cache-turn-1", "finish": "stop", "usage": {"prompt_tokens": 1029, "total_tokens": 1058, "completion_tokens": 29, "prompt_tokens_details": {"cached_tokens": 0}}, "data_events": 29}
+{"name": "cache-turn-2", "finish": "stop", "usage": {"prompt_tokens_details": {"cached_tokens": 1024}, "completion_tokens": 29, "prompt_tokens": 1603, "total_tokens": 1632}, "data_events": 29}
+{"name": "cache-turn-3", "finish": "stop", "usage": {"total_tokens": 1683, "prompt_tokens": 1654, "completion_tokens": 29, "prompt_tokens_details": {"cached_tokens": 1536}}, "data_events": 29}
+PASS stream reset leaves the server able to complete another request
+PASS issue 21 streaming, length termination, three-turn reasoning reuse and server survival
+PASS runtime context discovery agrees
+PASS nonstream returns executable OpenAI function
+PASS nonstream preserves function and typed arguments
+PASS nonstream includes call identity and usage
+PASS nonstream completes tool-result round trip
+PASS stream returns executable OpenAI function
+PASS stream preserves function and typed arguments
+PASS stream includes call identity and usage
+PASS stream completes tool-result round trip
+PASS parallel false returns one complete call
+PASS parallel stream has distinct complete calls
+PASS parallel results match by call ID
+PASS tool choice none remains text-only
+PASS multiple initial instructions survive rendering
+PASS reasoning separated from answer
+PASS orphan-result rejected before inference
+PASS missing-result rejected before inference
+PASS context-inflation rejected before inference
+PASS reasoning-conflict rejected before inference
+PASS unknown-function rejected before inference
+PASS unsupported structured output has actionable rejection
+PASS budget exhaustion reports length False
+PASS budget exhaustion reports length True
+PASS request context limit is enforced before inference
+{"passed": 24, "context": 32768, "model": "qwen3.8-flash-next:4bit"}
+server reaped 5713 0
+PASS exact conversation replay after restart {'completion_tokens': 29, 'total_tokens': 1683, 'prompt_tokens_details': {'cached_tokens': 1536}, 'prompt_tokens': 1654}
+server reaped 6699 0
+PASS  issue 21 streaming, branched reuse and exact restart
+== behavioural sanity: has the conversion lost anything obvious? ==
+== factual recall ==
+PASS  capital of France
+PASS  author of Hamlet
+PASS  symbol for gold
+PASS  continent count
+== arithmetic and reasoning ==
+PASS  17x23
+PASS  elapsed time
+PASS  multi-step arithmetic
+PASS  sorting
+PASS  decimal comparison
+== instruction following ==
+PASS  exact-word obedience
+PASS  list format
+PASS  yes/no obedience
+== language and code ==
+PASS  translation
+PASS  python one-liner
+PASS  cloze completion
+
+quality probe: passed 15, failed 0
+PASS  behavioural quality probe (15 items)
+== weights behind a symlink (Foundation will not list a symlinked dir) ==
+PASS  run through a symlinked model dir
+PASS  non-loopback browser origin is refused
+PASS  loopback browser origin is allowed exactly
+PASS  wrong model is rejected instead of silently relabeled
+PASS  unsupported Ollama tools are rejected explicitly
+PASS  unsupported OpenAI response_format is rejected explicitly
+PASS  numeric stream is not mistaken for a JSON boolean
+PASS  wrongly typed sampling options are rejected
+PASS  numbers that overflow the sampler are rejected
+PASS  unsupported message semantics are not silently dropped
+PASS  OpenAI max_tokens 0 cannot become an unbounded generation
+PASS  seed -1 (Ollama's random default) does not kill the server
+PASS  num_predict -1 (until EOS) generates instead of trapping
+PASS  client disconnecting mid-stream does not kill the server (SIGPIPE)
+PASS  streamed deltas reassemble to the non-streamed text (10 cases)
+PASS  out-of-range "top_p":0 falls back sanely (got 'OK')
+PASS  out-of-range "top_p":-1 falls back sanely (got 'OK')
+PASS  out-of-range "min_p":1.5 falls back sanely (got 'OK')
+PASS  empty prompt is the load request: acknowledged, never answered from an uninitialized tensor
+PASS  OpenAI array-form content is read, not dropped
+PASS  stop sequence honored (got '1 2 3')
+PASS  over-length prompt is refused with a typed 400, not a silent stall
+PASS  /api/version (0.2.27) matches the binary
+PASS  /api/tags size matches the pinned manifest
+PASS  /api/show accepts the Ollama CLI request shape and advertises capabilities
+PASS  /api/show accepts the deprecated name alias
+PASS  /api/show refuses a non-empty system override instead of ignoring it
+PASS  /api/show still rejects unknown fields
+PASS  /api/chat accepts keep_alive and null options (the CLI's defaults)
+PASS  /api/generate accepts the Ollama CLI one-shot shape (empty suffix/system/template)
+PASS  /api/generate refuses a non-empty suffix instead of ignoring it
+PASS  /api/generate with an empty prompt is the Ollama load request, acknowledged
+PASS  /api/chat with no messages is the Ollama load request, acknowledged
+PASS  HEAD returns no body
+PASS  malformed JSON returns 400
+PASS  metadata endpoints answer during a generation, and the accept loop keeps accepting
+PASS  /api/show accepts an empty model with the name in the alias (ollama show)
+PASS  an untagged model name resolves to the only model
+PASS  a semantic Ollama knob (num_ctx) is still refused, never silently dropped
+PASS  /v1 treats "max_tokens":null as unset
+PASS  /v1 treats "stop":null as unset
+PASS  /v1 treats "temperature":null as unset
+PASS  /v1 treats "seed":null as unset
+PASS  /v1 treats "stream_options":null as unset
+PASS  /v1 accepts the no-op default "n":1
+PASS  /v1 accepts the no-op default "frequency_penalty":0
+PASS  /v1 accepts the no-op default "user":"u1"
+PASS  /v1 accepts the no-op default "logprobs":false
+PASS  /v1 accepts the no-op default "logit_bias":{}
+PASS  /v1 accepts the no-op default "tools":[]
+PASS  /v1 accepts the no-op default "response_format":{"type":"text"}
+PASS  /v1 still refuses the real feature "n":2
+PASS  /v1 still refuses the real feature "frequency_penalty":0.5
+PASS  /v1 still refuses the real feature "logprobs":true
+PASS  /v1 still refuses the real feature "tools":[{"type":"function"}]
+PASS  /v1 still refuses the real feature "response_format":{"type":"json_object"}
+PASS  think:true splits reasoning into message.thinking and leaves the answer clean
+16 content deltas for 16 tokens
+PASS  a short reply arrives as per-token deltas, not one batched chunk
+PASS  unseeded requests vary, as the API documents
+PASS  an explicit seed still reproduces exactly
+PASS  a query string does not 404 the route
+PASS  HEAD on a real path is 200
+PASS  HEAD on an unknown path is 404, not a blanket 200
+PASS  a chunked body is refused with 411, not read as empty
+PASS  an oversized body gets 413, not a bare connection reset
+PASS  a malformed Content-Length gets 400
+PASS  a file:// image is refused and says URLs are not fetched
+PASS  an https:// image is refused on the OpenAI route too
+PASS  a non-string images array is a 400, not a silently text-only answer
+PASS  an image part with no url is a 400
+PASS  bytes that are not an image are a 400 with the reason
+PASS  raw generate refuses images instead of dropping them
+PASS  /v1/models carries created
+PASS  the first SSE delta announces the role
+PASS  server still up after every probe
+
+robustness: passed 74, failed 0
+PASS  serving robustness suite
+== vision ==
+PASS  vision tower dumps its pixels and embeddings
+  swift        vs mlx  f32:  cosine 0.99851489  worst token 0.904248
+  swift        vs mlx  bf16:  cosine 0.99868828  worst token 0.926726
+  mlx bf16     vs numpy f32:  cosine 0.99839831  worst token 0.843944
+  mlx f32      vs numpy f32:  cosine 1.00000010  worst token 1.000000
+  float32 implementations agree      True
+  slotstream inside the dtype band   True
+  slotstream matches bf16 reference  True
+VISION PARITY PASS
+PASS  vision tower matches the float32 reference within the bf16 band
+PASS  ollama /api/chat answers an image request
+PASS  and it recognises the dog
+      -> 'Dog nose close-up.' in 32.0s, 725 prompt tokens
+PASS  the picture is worth its 702 placeholder tokens, plus the two sentinels
+PASS  /v1/chat/completions answers an image_url part
+PASS  and it sees the fruit on the tree
+      -> 'Green citrus fruits'
+PASS  /api/generate answers an image request
+PASS  and it recognises the dog there too
+PASS  the fx gateway accepts an image file part
+PASS  and answers about the dog
+PASS  and still refuses a file part that is not an image
+PASS  two pictures in one turn are accepted
+PASS  and they arrive in the order they were sent
+      -> 'dog, pomelo'
+PASS  a follow-up turn on the same picture succeeds
+PASS  and reuses the state instead of re-running the tower
+      -> first 52.8s, follow-up 11.5s
+PASS  the same words with a different picture get a different answer
+PASS  duplicate images preserve the visible subject
+PASS  duplicate image work is counted
+PASS  same-geometry seed acknowledges the image
+PASS  changed image would extend the cached token IDs
+PASS  same-geometry changed content misses and re-encodes
+PASS  same-geometry changed image is blue
+PASS  a file:// image is a 400
+PASS  that says URLs are not fetched
+PASS  bytes that are not an image are a 400
+PASS  a truncated image is a 400, not a blank description
+
+25 passed, 0 failed
+VISION SERVING PASS
+PASS  vision serving suite
+
+passed 35, failed 0

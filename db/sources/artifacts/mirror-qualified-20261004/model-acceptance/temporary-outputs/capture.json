@@ -1,0 +1,90 @@
+{
+  "suite_exit": "0",
+  "suite_started_unix": 1791071166.2843287,
+  "files": {
+    "ssv_ngram.txt": {
+      "state": "retained",
+      "mtime_unix": 1791071220.2818766,
+      "bytes": 929,
+      "sha256": "7aee6c252d1fc64ffc1d396b5e8d37d3be66e22a785afade923966b9d29a35f3"
+    },
+    "ssv_big.txt": {
+      "state": "retained",
+      "mtime_unix": 1791071332.31096,
+      "bytes": 116,
+      "sha256": "ba700ec9e65fd4d42c732f0b0d3c03d65d4199e977604fa4a74f90ad45e179e1"
+    },
+    "ssv_small.txt": {
+      "state": "retained",
+      "mtime_unix": 1791071403.9373004,
+      "bytes": 116,
+      "sha256": "ba700ec9e65fd4d42c732f0b0d3c03d65d4199e977604fa4a74f90ad45e179e1"
+    },
+    "ssv_mem.json": {
+      "state": "retained",
+      "mtime_unix": 1791075645.1054945,
+      "bytes": 9147,
+      "sha256": "f64f50786e263911d20a8155d616b688dba992c41fd32993e9d4e53e5a3c1a35"
+    },
+    "ssv_mem.err": {
+      "state": "retained",
+      "mtime_unix": 1791075645.1078434,
+      "bytes": 2297,
+      "sha256": "5682f740a3676f53ad4171134535130724cc66222288ea214d3c9cdc6fffc080"
+    },
+    "ssv_mem.txt": {
+      "state": "retained",
+      "mtime_unix": 1791075645.1612651,
+      "bytes": 116,
+      "sha256": "ba700ec9e65fd4d42c732f0b0d3c03d65d4199e977604fa4a74f90ad45e179e1"
+    },
+    "ssv_long.txt": {
+      "state": "retained",
+      "mtime_unix": 1791075645.2680075,
+      "bytes": 50993,
+      "sha256": "32e15bd0df7b057f31b74f94a24c179d4374c19ddc54b77d590e330710fc8f78"
+    },
+    "ssv_longmem.json": {
+      "state": "retained",
+      "mtime_unix": 1791075801.0538428,
+      "bytes": 49451,
+      "sha256": "322a33c7411f078182c0c26b6e62f388fcd4e290c7f24e22824de59fa921d656"
+    },
+    "ssv_longmem.err": {
+      "state": "retained",
+      "mtime_unix": 1791075801.0542943,
+      "bytes": 2558,
+      "sha256": "b26a93eef1700d31be0e722534492bf2f4b47ea7f26683fe9453b9ef31908c2f"
+    },
+    "ssv_longmem.txt": {
+      "state": "retained",
+      "mtime_unix": 1791075801.1266327,
+      "bytes": 10,
+      "sha256": "2e9fad2e271de488677d33bde2dd661601317f58b374941e44c1d077da46ebe3"
+    },
+    "ssv_ctx.json": {
+      "state": "retained",
+      "mtime_unix": 1791075909.3140619,
+      "bytes": 16341,
+      "sha256": "014f039d80ebffdc151fbab244256a7a8cb74ddd759039b612513bcebc962b13"
+    },
+    "ssv_q.log": {
+      "state": "retained",
+      "mtime_unix": 1791077401.1622941,
+      "bytes": 7581,
+      "sha256": "77e54c0869230ca978778e2a426e7c96c122e558c5b1bb6edc54ff5ec4a16df7"
+    },
+    "ssrob.log": {
+      "state": "retained",
+      "mtime_unix": 1791078008.6379669,
+      "bytes": 18474,
+      "sha256": "7fc4b6d6f3042994eaaf89f26de5c50d60cca313ea08b3d1c1cc52e6106587c9"
+    },
+    "ssv-vision-serve.log": {
+      "state": "retained",
+      "mtime_unix": 1791078420.9289267,
+      "bytes": 7745,
+      "sha256": "d81c4b0e8d821ca319de126988fc6e2407f4e8820270f508f2831606959ac65d"
+    }
+  }
+}

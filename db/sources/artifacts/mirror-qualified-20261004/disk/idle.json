@@ -1,0 +1,75 @@
+{
+  "seconds": 2,
+  "before": {
+    "disk4": {
+      "entry_id": 4295101197,
+      "statistics": {
+        "Bytes (Read)": 42243880144896,
+        "Bytes (Write)": 622179394048,
+        "Errors (Read)": 0,
+        "Errors (Write)": 0,
+        "Latency Time (Read)": 0,
+        "Latency Time (Write)": 0,
+        "Operations (Read)": 162210631,
+        "Operations (Write)": 9116707,
+        "Retries (Read)": 0,
+        "Retries (Write)": 0,
+        "Total Time (Read)": 218887115398637,
+        "Total Time (Write)": 1438218070633
+      }
+    },
+    "disk0": {
+      "entry_id": 4294969514,
+      "statistics": {
+        "Bytes (Read)": 27847268499456,
+        "Bytes (Write)": 889594040320,
+        "Errors (Read)": 0,
+        "Errors (Write)": 0,
+        "Latency Time (Read)": 0,
+        "Latency Time (Write)": 0,
+        "Operations (Read)": 141530720,
+        "Operations (Write)": 45728148,
+        "Retries (Read)": 0,
+        "Retries (Write)": 0,
+        "Total Time (Read)": 467996384329153,
+        "Total Time (Write)": 3868323743088
+      }
+    }
+  },
+  "after": {
+    "disk4": {
+      "entry_id": 4295101197,
+      "statistics": {
+        "Bytes (Read)": 42243880144896,
+        "Bytes (Write)": 622179394048,
+        "Errors (Read)": 0,
+        "Errors (Write)": 0,
+        "Latency Time (Read)": 0,
+        "Latency Time (Write)": 0,
+        "Operations (Read)": 162210631,
+        "Operations (Write)": 9116707,
+        "Retries (Read)": 0,
+        "Retries (Write)": 0,
+        "Total Time (Read)": 218887115398637,
+        "Total Time (Write)": 1438218070633
+      }
+    },
+    "disk0": {
+      "entry_id": 4294969514,
+      "statistics": {
+        "Bytes (Read)": 27847268552704,
+        "Bytes (Write)": 889595023360,
+        "Errors (Read)": 0,
+        "Errors (Write)": 0,
+        "Latency Time (Read)": 0,
+        "Latency Time (Write)": 0,
+        "Operations (Read)": 141530724,
+        "Operations (Write)": 45728188,
+        "Retries (Read)": 0,
+        "Retries (Write)": 0,
+        "Total Time (Read)": 467996385166235,
+        "Total Time (Write)": 3868331846284
+      }
+    }
+  }
+}

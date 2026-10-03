@@ -1,0 +1,277 @@
+{
+  "passed": true,
+  "binary_sha256": "327c55366c3639fb789d02780e2e7b696207c496fcb94bd521cac1059b621427",
+  "limit_gb": 10,
+  "no_elastic": false,
+  "observations": [
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    },
+    {
+      "memory_limit_gb": 10,
+      "target_gb": 10,
+      "pool_slots": 833,
+      "max_prefill_wait_minutes": 17
+    }
+  ],
+  "preflight_available_gb": 29.657808896,
+  "command": [
+    "slotstream",
+    "serve",
+    "--memory-limit-gb",
+    "10",
+    "--max-context",
+    "32768",
+    "--max-prefill-wait",
+    "17",
+    "--mtp",
+    "off",
+    "--vision",
+    "off",
+    "--gpu-keepalive",
+    "off",
+    "--port",
+    "61168"
+  ],
+  "startup_seconds": 53.89860870898701,
+  "completion": {
+    "index": 0,
+    "finish_reason": "stop",
+    "message": {
+      "role": "assistant",
+      "content": "The Nile."
+    }
+  },
+  "server_reaped": true
+}

@@ -11,6 +11,9 @@ updated: 2026-10-06T21:35:13.587702Z
 - [[records/claims/development-original-33gb-context]] — Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
 - [[records/claims/development-original-33gb-short]] — Original four-bit short-workload median is 20.91 tok/s at a 33 GB budget
 - [[records/claims/development-original-33gb-workload-range]] — Original four-bit generation spans 20.91–23.69 tok/s across three development-workload medians at 33 GB
+- [[records/claims/mirror-current-main-keepalive-off-lift]] — Current-baseline mirror pairs with keepalive off measured decode 6.13 to 7.06 tok/s and prefill reads 3.20 to 4.79 GB/s.
+- [[records/claims/mirror-disk-rates-3-18-and-1-81]] — Withdrawn historical fio rate claim: original run is missing; current physical-byte corroborated file-reader measurements use a different protocol.
+- [[records/claims/mirror-lifts-prefill-and-decode]] — A mirror over two disks raises prefill reads from 3.2 to 4.4 GB/s and decode from 6.11 to 7.35 tok/s
 - [[records/claims/warm-decode-m4-pro-24gb-0-2-25-rerun-community]] — M4 Pro 24 GB community re-run on 0.2.25: 5.41 tok/s
 - [[records/claims/persistent-prefix-default-minimum-tokens]] — The persistent prefix cache writes states of 1024 tokens or more by default
 - [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
@@ -50,6 +53,8 @@ updated: 2026-10-06T21:35:13.587702Z
 - [[records/claims/automatic-context-at-48-gb]] — Automatic context preserves unmeasured cache at the simulated 48 GB tier
 - [[records/claims/automatic-context-window-tolerance-10-percent]] — A larger automatic window may add at most 10% to a typical request
 - [[records/claims/recommended-context-65536-from-36-gb]] — Auto picks a 65,536-token window from 36 GB and 32,768 below
+- [[records/claims/mirror-internal-disk-serves-29-percent]] — On the mirrored two-disk Mac mini the slower internal disk ends up serving about 29% of the bytes
+- [[records/claims/mirror-split-report-line-example]] — The sample mirror-split report line in docs/CLI.md is transcribed from a recorded run, not invented
 - [[records/claims/malformed-tool-call-token-scores]] — The token a continued turn flipped: a fresh read scored > at 0.9576 and ] at 0.0421
 - [[records/claims/continued-turn-logit-movement]] — Before the resume rule a continued turn moved the prompt logits 3.7% to 5.9% of their spread
 - [[records/claims/continued-turn-prefill-cost]] — A continued turn pays one partial prefill pass: 2.47 s against 8.56 s of follow-up prefill, against 26.3 s cold

@@ -1,0 +1,35 @@
+Sun Oct  4 00:27:56 UTC 2026
+START affine-control
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.003s
+
+OK
+END affine-control exit=0
+Sun Oct  4 00:27:57 UTC 2026
+START affine-reference
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK
+END affine-reference exit=0
+Sun Oct  4 00:27:57 UTC 2026
+START static-entry
+.................................
+----------------------------------------------------------------------
+Ran 33 tests in 23.086s
+
+OK
+END static-entry exit=0
+WAITING_FOR_FULL_MODEL_NATIVE_LOCK
+Sun Oct  4 01:47:01 UTC 2026
+START static
+}
+######################################################################## 100.0%
+######################################################################## 100.0%
+######################################################################## 100.0%
+INSTALLER GATES PASS
+STATIC GATES PASS
+END static exit=0
+CURRENT_STATIC_COMPLETE
