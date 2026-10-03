@@ -485,7 +485,9 @@ public actor LocalInference: Inference {
             performanceTelemetry?.applied(nil)
             persistentCacheActive = false
             privateWorkingState = false
-            Engine.releaseUnusedMemory()
+            // A settings change before first use must stay weights-free and
+            // must not initialize Metal just to clear an unused allocator.
+            if wasLoaded { Engine.releaseUnusedMemory() }
         }
         if wasLoaded { releasedAt = ProcessInfo.processInfo.systemUptime }
         performanceTelemetry?.update(state: "Model not loaded", detail: "Loads when you send a message.")

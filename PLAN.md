@@ -114,6 +114,8 @@ The complete static and Mac runtime suites, native catalogue and Light/Dark/Syst
 
 Remaining work is still substantive: production VQ serving and speculation, candidate byte costs and dynamic allocation, multiple-pack download/activation/rollback, held-out quality, complete-configuration paired performance on this Mac and conservative estimated profiles for other Macs. Neither the baseline controls nor component parity establish the generation-speed target. No alternate pack, installed application, public release or default artifact is promoted by this checkpoint.
 
+The later CI result exposed an unloaded-settings regression despite the passing local suite: clearing an unused MLX allocator required a Metal library on a clean runner. [[sources/runs/2026/10/2026-10-03-unloaded-settings-without-metal]] preserves the failed CI and a local reproduction using a copied executable with no adjacent metallib. The release path now touches the allocator only if an engine was loaded. Both that isolated regression and the complete scripted Mac suite pass after the fix; the isolated case is now part of Mac CI. This correction does not change candidate qualification or waive CI acceptance.
+
 ### Three-class VQ 2.1 checkpoint, October 3
 
 [[sources/runs/2026/10/2026-10-03-vq-2.1-payload-and-normalization]] records full verification of every tensor file and exact normalization agreement with the installed baseline. [[sources/runs/2026/10/2026-10-03-native-vq-2.1-three-class-parity]] records research-only native support for its three allocation classes. The earlier preparation checkpoint below remains historical evidence, not the current admission state.

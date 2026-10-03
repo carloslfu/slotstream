@@ -151,3 +151,6 @@ Implemented baseline-only Auto and explicit quantization controls independently 
 ## [2026-10-03 19:15] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Applied the owner correction: the available 48 GB Mac is the sole required physical validation machine. Replaced mandatory other-Mac gates with safe lower-target measurements, planner-only fixtures and conservative labeled estimates; preserved local quality, memory, performance and implementation requirements.
 
+## [2026-10-03 19:25] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Reproduced the clean-runner Mac CI failure with a copied executable lacking a metallib; avoid initializing MLX when unloading an unused engine, add the isolated lifecycle case to CI, and pass it plus the full scripted Mac runtime suite.
+

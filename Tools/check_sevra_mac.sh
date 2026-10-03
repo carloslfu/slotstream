@@ -19,6 +19,14 @@ suite bash Tools/check_sevra_apps_ui.sh
 suite bash Tools/check_sevra_memory_ui.sh
 # The runtime finds the helper beside the check binary; name it explicitly.
 suite env SEVRA_EXTRACT="$OUT/sevra-extract" "$OUT/sevra-mac-checks"
+# Settings and unloading an unused engine must not initialize the GPU. Copy
+# only the check executable so a developer's adjacent metallib cannot hide a
+# regression that fails on a clean CI machine.
+EMPTY=$(mktemp -d "${TMPDIR:-/tmp}/sevra-settings-no-metal-XXXXXX")
+trap 'rm -rf "$EMPTY"' EXIT
+cp "$OUT/sevra-mac-checks" "$EMPTY/checks"
+settings_without_metal() { (cd "$EMPTY" && ./checks --performance); }
+suite settings_without_metal
 if [ ${#failed[@]} -gt 0 ]; then
   printf 'FAILED SUITE: %s\n' "${failed[@]}" >&2
   exit 1

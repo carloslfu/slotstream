@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-03T19:16:09.419377+00:00
+updated: 2026-10-03T19:25:49.022459+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -52,6 +52,8 @@ Applied configuration generations bind the registered manifest, actual engine ar
 The complete static and Mac runtime suites, native catalogue and Light/Dark/System settings renders pass. Real-model checks pass fixed-capacity cancellation and exact recovery both with and without draft decoding, and a complete app cold/warm/deferred-change/reload/idle-release workflow. The latter proves that a running response retains its prior generation while the next load receives the new ceiling and live mode. The successor native build also passes the previously pending draft reference, streamed/resident, vision and row regressions. A production-only environment flag initially caused the research head to refuse before loading; a clean-environment continuation passes the unchanged fixture. The failed attempt and a repaired compiler-observation attempt are preserved in the same evidence source.
 
 Remaining work is still substantive: production VQ serving and speculation, candidate byte costs and dynamic allocation, multiple-pack download/activation/rollback, held-out quality, complete-configuration paired performance on this Mac and conservative estimated profiles for other Macs. Neither the baseline controls nor component parity establish the generation-speed target. No alternate pack, installed application, public release or default artifact is promoted by this checkpoint.
+
+The later CI result exposed an unloaded-settings regression despite the passing local suite: clearing an unused MLX allocator required a Metal library on a clean runner. [[sources/runs/2026/10/2026-10-03-unloaded-settings-without-metal]] preserves the failed CI and a local reproduction using a copied executable with no adjacent metallib. The release path now touches the allocator only if an engine was loaded. Both that isolated regression and the complete scripted Mac suite pass after the fix; the isolated case is now part of Mac CI. This correction does not change candidate qualification or waive CI acceptance.
 
 ### Three-class VQ 2.1 checkpoint, October 3
 
