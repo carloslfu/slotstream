@@ -155,6 +155,7 @@ package final class VQModelProbe {
 
     package func diagnosticTensors() -> [String: MLXArray] { state.diagnosticTensors() }
     private var recordCache: VQRecordCache?
+    private var parallelPrefillReads = false
     private var residentText: VQResidentText?
     package var residentTextStats: [String: Int]? { residentText?.stats }
     package var processByteLimit: UInt64 { residentText == nil ? 4_000_000_000 : 10_000_000_000 }
@@ -165,11 +166,16 @@ package final class VQModelProbe {
     }
     package var recordCacheStats: [String: Int]? { recordCache?.stats }
 
-    package func enableResidentRecords(wide: Bool = false, parallelReads: Bool = false, reinvestDenseSavings: Bool = false) throws {
+    package func enableResidentRecords(wide: Bool = false, parallelReads: Bool = false,
+                                       reinvestDenseSavings: Bool = false, parallelPrefillReads: Bool = false) throws {
         guard state.committedBoundaryValid, state.tokenCount == 0, recordCache == nil else { throw ModelError("VQ cache must be configured before the first pass") }
         guard (!wide && !parallelReads) || residentText != nil else { throw ModelError("wide banks and parallel VQ reads require the resident-text process envelope") }
+        guard !parallelPrefillReads || (wide && parallelReads && residentText != nil) else {
+            throw ModelError("parallel VQ prefill requires explicit wide parallel residency")
+        }
         recordCache = try VQRecordCache(checkpoint, capacityPerClass: 96, wide: wide, parallelReads: parallelReads,
                                         reinvestDenseSavings: reinvestDenseSavings)
+        self.parallelPrefillReads = parallelPrefillReads
     }
     package private(set) var maximumRecordBatches = 0
     package private(set) var maximumLiveExperts = 0
@@ -242,7 +248,7 @@ package final class VQModelProbe {
                 throw ModelError("VQ full-stack probe lost its 3 GB headroom or exceeded its configured process bound")
             }
             hidden = try autoreleasepool {
-                try block(layer, hidden: hidden, history: history, trace: trace) { mask in
+                try block(layer, hidden: hidden, history: history, trace: trace, shouldContinue: shouldContinue) { mask in
                     if inspectState { try observe(layer, "sparse_mask", mask) }
                 }
             }
@@ -301,6 +307,7 @@ package final class VQModelProbe {
     }
 
     private func block(_ layer: Int, hidden: MLXArray, history: [Int64], trace: ((Int, String, MLXArray) -> Void)?,
+                       shouldContinue: () -> Bool,
                        sparse: (MLXArray) throws -> Void) throws -> MLXArray {
         let weights = try residentText?.weights(layer: layer) ?? checkpoint.dense(layer: layer), base = "model.layers.\(layer)."
         var h = hidden
@@ -356,7 +363,10 @@ package final class VQModelProbe {
         let streamed: VQRouteStream.Result
         if input.dim(1) > 409 {
             streamed = try VQPrefillStream.call(input.reshaped([-1, 2560]), routes: routes) { ids in
-                try checkpoint.records(layer: layer, experts: ids)
+                if parallelPrefillReads, let recordCache {
+                    return try recordCache.prefillRecords(layer: layer, experts: ids, shouldContinue: shouldContinue)
+                }
+                return try checkpoint.records(layer: layer, experts: ids)
             }
             segmentedPrefillLayers += 1
         } else if let recordCache {

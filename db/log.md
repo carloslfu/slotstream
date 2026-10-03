@@ -169,3 +169,6 @@ Record completed-task calibration, matching baseline/composite outcomes and the 
 ## [2026-10-03 21:56] update | db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Preserve the full-VQ task memory failure and record exact state-only intermediate prefill plus the bounded unchanged-input rerun.
 
+## [2026-10-03 23:02] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Record exact parallel-prefill staging, bounded full-task reproduction, CLI refusals and passing static checks; preserve the paired timing exclusions without a speed claim.
+

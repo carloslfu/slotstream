@@ -8,7 +8,8 @@ extension Diagnostics {
     /// fixtures exercise immutable staging and synchronous bank ownership.
     /// They do not run a complete model or admit candidates to Engine.load.
     public static func quantizationRecords(directory: URL, sourceDirectory: URL? = nil,
-                                           inventory: URL? = nil, prefill: Bool = false) throws -> CheckReport {
+                                           inventory: URL? = nil, prefill: Bool = false,
+                                           parallelPrefillReads: Bool = false) throws -> CheckReport {
         struct Projection: Decodable {
             let columns: Int, dimensions: Int, entries: Int, group_size: Int
             let packing: String
@@ -70,8 +71,10 @@ extension Diagnostics {
               manifest.runtime_sha256 == "1685ec90feb24e421c379ae4e3594f659478905d2c1393617990d84d3f514ee8" else {
             throw ModelError("VQ record fixtures need the pinned runtime and specified layer set")
         }
-        guard !prefill || (manifest.prefill_flags?.matches == true && sourceDirectory == nil && inventory == nil) else {
-            throw ModelError("VQ prefill fixtures require the pinned segmented arithmetic and no direct-source mode")
+        guard !parallelPrefillReads || (prefill && sourceDirectory != nil && inventory != nil),
+              !prefill || (manifest.prefill_flags?.matches == true &&
+                (parallelPrefillReads || (sourceDirectory == nil && inventory == nil))) else {
+            throw ModelError("VQ prefill fixtures require pinned segmented arithmetic; direct-source prefill needs explicit bounded parallel reads")
         }
         try VQReferenceExecution.validate(inventorySHA: manifest.artifact.inventory_sha256,
             runtimeSHA: manifest.runtime_sha256, profile: manifest.execution_profile)
@@ -138,6 +141,35 @@ extension Diagnostics {
                 let books = names.map { arrays[$0 + ".codebook"]! }
                 let scales = names.map { arrays[$0 + ".vq_scales"]! }
                 if prefill {
+                    let readPlan = try source?.recordReadPlan(layer: fixture.layer)
+                    let sourceBooks = try source?.recordBooks(layer: fixture.layer)
+                    if parallelPrefillReads, let source, let readPlan, let sourceBooks {
+                        c.equal("L\(fixture.layer) source prefill layout", try source.recordLayout(layer: fixture.layer), layout)
+                        let reservation = try VQPrefillRecords.reservation(experts: 32, layout: layout,
+                                                                         scratchReadBytes: readPlan.scratchReadBytes)
+                        c.expect("L\(fixture.layer) complete prefill staging is bounded",
+                                 reservation <= VQPrefillRecords.maximumReservationBytes && reservation > 2 * 32 * layout.recordBytes)
+                        let invalidSets: [[UInt32]] = [[], [0, 0], [512], Array(0...32)]
+                        for invalid in invalidSets {
+                            do {
+                                _ = try VQPrefillRecords.load(layer: fixture.layer, experts: invalid,
+                                    layout: layout, plan: readPlan, books: sourceBooks)
+                                c.expect("L\(fixture.layer) invalid prefill expert set refused", false)
+                            } catch { c.expect("L\(fixture.layer) invalid prefill expert set refused", true) }
+                        }
+                        for cancelAfter in [0, 1] {
+                            var checks = 0
+                            do {
+                                _ = try VQPrefillRecords.load(layer: fixture.layer, experts: [0, 511],
+                                    layout: layout, plan: readPlan, books: sourceBooks, shouldContinue: {
+                                        checks += 1; return checks <= cancelAfter
+                                    })
+                                c.expect("L\(fixture.layer) prefill cancellation \(cancelAfter) refused", false)
+                            } catch CheckpointReadError.cancelled {
+                                c.expect("L\(fixture.layer) prefill cancellation \(cancelAfter) refused", true)
+                            }
+                        }
+                    }
                     for count in counts {
                         let x = arrays["x\(count)"]!, routes = arrays["routes\(count)"]!, expected = arrays["expected\(count)"]!
                         guard x.shape == [count, 2560], x.dtype == .bfloat16,
@@ -146,6 +178,10 @@ extension Diagnostics {
                             throw ModelError("VQ segmented prefill fixture shape mismatch")
                         }
                         let streamed = try VQPrefillStream.call(x, routes: routes.asArray(UInt32.self)) { ids in
+                            if parallelPrefillReads, let readPlan, let sourceBooks {
+                                return try VQPrefillRecords.load(layer: fixture.layer, experts: ids,
+                                    layout: layout, plan: readPlan, books: sourceBooks)
+                            }
                             let rows = MLXArray(try ids.map { id -> Int32 in
                                 guard let position = fixture.expert_ids.firstIndex(of: id) else { throw ModelError("VQ prefill route is outside its fixture") }
                                 return Int32(position)

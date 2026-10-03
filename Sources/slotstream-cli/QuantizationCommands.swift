@@ -16,6 +16,7 @@ struct QuantizationTaskRun: ParsableCommand {
     @Option(name: .long) var draftDepth = 0
     @Option(name: .long) var output: String
     @Flag(name: .long, help: "Render and freeze exact input tokens without loading the model") var prepareOnly = false
+    @Flag(name: .long, help: "Research only: overlap bounded candidate prefill reads after independent parity gates") var parallelPrefillReads = false
     func run() throws {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Data?, failure: Error?
@@ -27,7 +28,7 @@ struct QuantizationTaskRun: ParsableCommand {
                     inventory: sourceInventory.map { URL(fileURLWithPath: $0) },
                     composite: denseOverlayManifest.map { URL(fileURLWithPath: $0) },
                     table: table.map { URL(fileURLWithPath: $0) }, draftDepth: draftDepth,
-                    output: URL(fileURLWithPath: output), prepareOnly: prepareOnly)
+                    output: URL(fileURLWithPath: output), prepareOnly: prepareOnly, parallelPrefillReads: parallelPrefillReads)
             } catch { failure = error }
             semaphore.signal()
         }
@@ -128,11 +129,21 @@ struct QuantizationCheck: ParsableCommand {
     var sourceDirectory: String?
     @Option(name: .long, help: "Exact inspected inventory.json for the research VQ download")
     var sourceInventory: String?
+    @Flag(name: .long, help: "Research only: compare bounded parallel prefill reads against independent real-record fixtures")
+    var parallelPrefillReads = false
     @Flag(name: .long, help: "Check synthetic native VQ and affine kernels")
     var kernels = false
     func validate() throws {
         guard (sourceDirectory == nil) == (sourceInventory == nil) else {
             throw ValidationError("--source-directory and --source-inventory must be provided together")
+        }
+        if parallelPrefillReads {
+            guard sourceDirectory != nil, prefillFixtureDirectory != nil,
+                  recordFixtureDirectory == nil, fixtureDirectory == nil,
+                  fusedFixtureDirectory == nil, trunkFixtureDirectory == nil, !kernels else {
+                throw ValidationError("--parallel-prefill-reads requires a source, inventory and only a prefill fixture")
+            }
+            return
         }
         if sourceDirectory != nil {
             guard recordFixtureDirectory != nil || fixtureDirectory != nil,
@@ -163,7 +174,9 @@ struct QuantizationCheck: ParsableCommand {
                                                               sourceDirectory: source, inventory: inventory))
         }
         if let prefillFixtureDirectory {
-            reports.append(try Diagnostics.quantizationRecords(directory: URL(fileURLWithPath: prefillFixtureDirectory), prefill: true))
+            reports.append(try Diagnostics.quantizationRecords(directory: URL(fileURLWithPath: prefillFixtureDirectory),
+                sourceDirectory: parallelPrefillReads ? source : nil, inventory: parallelPrefillReads ? inventory : nil,
+                prefill: true, parallelPrefillReads: parallelPrefillReads))
         }
         if let trunkFixtureDirectory {
             reports.append(try Diagnostics.quantizationTrunk(directory: URL(fileURLWithPath: trunkFixtureDirectory)))
@@ -187,6 +200,7 @@ struct QuantizationModelCheck: ParsableCommand {
     @Flag(name: .long, help: "Retain the authenticated text weights in the 10 GB research probe") var residentText = false
     @Flag(name: .long, help: "Research with 512 rows for the main expert class; requires both residency flags") var wideRecords = false
     @Flag(name: .long, help: "Overlap bounded demanded reads; requires resident records and text") var parallelRecords = false
+    @Flag(name: .long, help: "Research only: bounded parallel prefill staging; requires sparse wide parallel residency") var parallelPrefillReads = false
     @Flag(name: .long, help: "Research only: reinvest composite dense savings in 1536/288 expert banks inside the same process bound") var reinvestDenseSavings = false
     @Flag(name: .long, help: "Research only: uncached random reads on authenticated expert-containing shards; requires reinvested composite") var uncachedExpertReads = false
     @Option(name: .long, help: "Research only: pinned lossless aligned expert records; requires reinvested composite and buffered reads") var packedRecordDirectory: String?
@@ -197,6 +211,9 @@ struct QuantizationModelCheck: ParsableCommand {
     func validate() throws {
         guard (denseOverlayBaseline == nil) == (denseOverlayManifest == nil), denseOverlayBaseline == nil || prefill || sparse || greedy else {
             throw ValidationError("--dense-overlay-baseline and --dense-overlay-manifest require each other and --prefill, --sparse or --greedy")
+        }
+        guard !parallelPrefillReads || (sparse && residentRecords && residentText && wideRecords && parallelRecords) else {
+            throw ValidationError("--parallel-prefill-reads requires --sparse and wide parallel residency")
         }
         guard packedRecordDirectory == nil || (reinvestDenseSavings && !uncachedExpertReads) else {
             throw ValidationError("--packed-record-directory requires reinvested banks and buffered reads")
@@ -227,7 +244,7 @@ struct QuantizationModelCheck: ParsableCommand {
                 inventory: URL(fileURLWithPath: sourceInventory), fixtureDirectory: URL(fileURLWithPath: fixtureDirectory),
                 output: URL(fileURLWithPath: output), sparse: sparse, residentRecords: residentRecords, residentText: residentText, wideRecords: wideRecords, parallelRecords: parallelRecords,
                 denseOverlayBaseline: denseOverlayBaseline.map { URL(fileURLWithPath: $0) },
-                denseOverlayManifest: denseOverlayManifest.map { URL(fileURLWithPath: $0) }, reinvestDenseSavings: reinvestDenseSavings, uncachedExpertReads: uncachedExpertReads, packedRecordDirectory: packedRecordDirectory.map { URL(fileURLWithPath: $0) }), as: UTF8.self))
+                denseOverlayManifest: denseOverlayManifest.map { URL(fileURLWithPath: $0) }, reinvestDenseSavings: reinvestDenseSavings, uncachedExpertReads: uncachedExpertReads, packedRecordDirectory: packedRecordDirectory.map { URL(fileURLWithPath: $0) }, parallelPrefillReads: parallelPrefillReads), as: UTF8.self))
             return
         }
         print(String(decoding: try Diagnostics.quantizationModel(source: URL(fileURLWithPath: sourceDirectory),

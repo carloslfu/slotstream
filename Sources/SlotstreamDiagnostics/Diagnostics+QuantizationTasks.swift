@@ -10,8 +10,10 @@ extension Diagnostics {
     /// an external frozen grader, never its own quality qualification.
     public static func quantizationTasks(protocolFile: URL, protocolSHA256: String,
         baseline: URL, source: URL?, inventory: URL?, composite: URL?, table: URL?,
-        draftDepth: Int, output: URL, prepareOnly: Bool = false) async throws -> Data {
+        draftDepth: Int, output: URL, prepareOnly: Bool = false,
+        parallelPrefillReads: Bool = false) async throws -> Data {
         guard (source == nil) == (inventory == nil),
+              !parallelPrefillReads || (source != nil && !prepareOnly),
               source != nil || (composite == nil && table == nil && draftDepth == 0),
               source == nil || table != nil,
               (0...4).contains(draftDepth), draftDepth == 0 || composite != nil,
@@ -112,13 +114,21 @@ extension Diagnostics {
         MLX.Memory.cacheLimit = 128_000_000; MLX.Memory.memoryLimit = min(oldLimit, 9_000_000_000)
         defer { Stream.gpu.synchronize(); MLX.Memory.clearCache(); MLX.Memory.cacheLimit = oldCache; MLX.Memory.memoryLimit = oldLimit }
         var candidate: VQModelProbe?, baselineEngine: Engine?, empty: StateCheckpoint?
-        var identity: [String: Any] = ["baseline_revision": PinnedModel.revision]
+        var identity: [String: Any] = ["baseline_revision": PinnedModel.revision,
+                                     "parallel_prefill_reads": parallelPrefillReads]
         var rows: [[String: Any]] = []
+        let loadStart = ProcessInfo.processInfo.systemUptime
+        var loadSeconds = 0.0
+        let loadConditions = ProcessMemory.operatingConditions()
+        func json<T: Encodable>(_ value: T) throws -> Any {
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(value))
+        }
         func receipt(_ complete: Bool, _ failure: String? = nil) throws -> Data {
             var value: [String: Any] = ["schema": 1, "complete": complete, "qualification": "unproven",
                 "scope": split, "protocol_sha256": protocolSHA256, "context_limit": context, "output_limit": cap,
                 "draft_depth": draftDepth, "sampling": "greedy", "identity": identity, "cases": rows,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(), "process_bound_bytes": 10_000_000_000,
+                "load_seconds": loadSeconds, "load_conditions": try json(loadConditions),
                 "timing_scope": "functional task evidence only; paired timing eligibility is separate"]
             value["failure"] = failure
             let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
@@ -131,7 +141,7 @@ extension Diagnostics {
                     denseOverlayBaseline: composite == nil ? nil : baseline, denseOverlayManifest: composite)
                 let model = VQModelProbe(checkpoint, verificationArithmetic: true)
                 try model.enableResidentText()
-                try model.enableResidentRecords(wide: true, parallelReads: true)
+                try model.enableResidentRecords(wide: true, parallelReads: true, parallelPrefillReads: parallelPrefillReads)
                 try model.enableExtendedContext(VQRotaryCoefficients(url: table), limit: context)
                 if draftDepth > 0 { try model.enableOriginalDraft(baseline: baseline) }
                 candidate = model; empty = try model.snapshot()
@@ -150,12 +160,20 @@ extension Diagnostics {
                 identity["arithmetic"] = "native-deployed-defaults"
                 identity["plan"] = plan.json()
             }
+            loadSeconds = ProcessInfo.processInfo.systemUptime - loadStart
             _ = try receipt(false)
             for item in rendered {
                 let start = ProcessInfo.processInfo.systemUptime
                 var samples: [Double] = [], resourceFailure = false
+                let vmBefore = ProcessMemory.vmActivity()
+                let cacheBefore = candidate?.recordCacheStats
+                var operating = [ProcessMemory.operatingConditions()], nextObservation = start + 1
                 func keepGoing() -> Bool {
-                    guard ProcessInfo.processInfo.systemUptime - start < 1800,
+                    let now = ProcessInfo.processInfo.systemUptime
+                    if now >= nextObservation {
+                        operating.append(ProcessMemory.operatingConditions()); nextObservation = now + 1
+                    }
+                    guard now - start < 1800,
                           ProcessMemory.peakResidentBytes() <= 10_000_000_000,
                           let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= 3_000_000_000 else {
                         resourceFailure = true; return false
@@ -184,6 +202,8 @@ extension Diagnostics {
                     detail["stats"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result.stats))
                 } else { throw ModelError("task producer was not loaded") }
                 guard !resourceFailure, keepGoing() else { throw ModelError("task evaluation exceeded its time or physical-memory reservation") }
+                operating.append(ProcessMemory.operatingConditions())
+                let vmAfter = ProcessMemory.vmActivity()
                 let text = tokenizer.decode(tokens: ids, skipSpecialTokens: false)
                 let splitter = ToolCallSplitter(tools: item.tools.map(\.schema))
                 let events = splitter.push(text) + splitter.flush()
@@ -196,10 +216,16 @@ extension Diagnostics {
                     default: break
                     }
                 }
-                rows.append(["id": item.id, "family": item.family, "prompt_tokens": item.tokens,
+                var row: [String: Any] = ["id": item.id, "family": item.family, "prompt_tokens": item.tokens,
                     "output_tokens": ids, "text": text, "prose": prose, "tool_calls": calls, "malformed_tool_call": malformed,
                     "reason": reason, "emission_seconds": samples, "request_seconds": ProcessInfo.processInfo.systemUptime - start,
-                    "detail": detail, "peak_process_bytes": ProcessMemory.peakResidentBytes()])
+                    "detail": detail, "peak_process_bytes": ProcessMemory.peakResidentBytes(),
+                    "operating_conditions": try json(operating)]
+                if let vmBefore { row["request_vm_before"] = try json(vmBefore) }
+                if let vmAfter { row["request_vm_after"] = try json(vmAfter) }
+                if let cacheBefore { row["cache_before"] = cacheBefore }
+                if let stats = candidate?.recordCacheStats { row["cache_after"] = stats }
+                rows.append(row)
                 _ = try receipt(false)
             }
             return try receipt(true)

@@ -13,6 +13,8 @@ package final class VQRecordCache {
     private let parallelReads: Bool
     private let reinvestDenseSavings: Bool
     private var maximumStagingBytes = 0
+    private var maximumPrefillStagingBytes = 0
+    private var prefillReadBatches = 0, prefillReadRecords = 0
     package let reservedBankBytes: Int
     package let maximumBookBytes: Int
     package private(set) var residentBookBytes = 0
@@ -68,29 +70,57 @@ package final class VQRecordCache {
                 "resident_book_bytes": residentBookBytes, "maximum_book_bytes": maximumBookBytes,
                 "parallel_read_lanes": parallelReads ? VQRecordReadBatch.maximumLanes : 0,
                 "maximum_read_staging_bytes": maximumStagingBytes,
+                "maximum_prefill_staging_bytes": maximumPrefillStagingBytes,
+                "prefill_read_batches": prefillReadBatches, "prefill_read_records": prefillReadRecords,
                 "occupied_records": values.reduce(0) { $0 + $1.occupied },
                 "pinned_records": values.reduce(0) { $0 + $1.pinned },
                 "hits": values.reduce(0) { $0 + $1.hits }, "loads": values.reduce(0) { $0 + $1.loads },
                 "evictions": values.reduce(0) { $0 + $1.evictions }]
     }
 
+    private func sharedBooks(_ layer: Int) throws -> [MLXArray] {
+        guard (0..<48).contains(layer) else { throw ModelError("VQ cache layer is out of range") }
+        if let present = books[layer] { return present }
+        let loaded = try checkpoint.recordBooks(layer: layer)
+        let bytes = loaded.reduce(0) { $0 + $1.nbytes }
+        guard bytes == layouts[layer].codebookBytes, bytes <= maximumBookBytes - residentBookBytes else {
+            throw ModelError("VQ shared codebooks differ from the reserved ledger")
+        }
+        books[layer] = loaded; residentBookBytes += bytes
+        return loaded
+    }
+
+    private func readPlan(_ layer: Int) throws -> VQRecordReadPlan {
+        if let present = readPlans[layer] { return present }
+        let plan = try checkpoint.recordReadPlan(layer: layer)
+        readPlans[layer] = plan
+        return plan
+    }
+
+    /// A scan reads into private immutable staging and never changes expert
+    /// bank membership, pins or CLOCK history. Reuse the layer's one owned
+    /// codebook set and immutable descriptor plan after all workers join.
+    package func prefillRecords(layer: Int, experts: [UInt32],
+                                shouldContinue: () -> Bool = { true }) throws -> VQRecordBatch {
+        guard parallelReads, (0..<48).contains(layer) else {
+            throw ModelError("parallel VQ prefill requires explicitly enabled bounded reads")
+        }
+        let shared = try sharedBooks(layer), plan = try readPlan(layer)
+        let reservation = try VQPrefillRecords.reservation(experts: experts.count, layout: layouts[layer],
+                                                          scratchReadBytes: plan.scratchReadBytes)
+        let batch = try VQPrefillRecords.load(layer: layer, experts: experts, layout: layouts[layer],
+            plan: plan, books: shared, shouldContinue: shouldContinue)
+        maximumPrefillStagingBytes = max(maximumPrefillStagingBytes, reservation)
+        prefillReadBatches += 1; prefillReadRecords += experts.count
+        return batch
+    }
+
     package func call(_ x: MLXArray, layer: Int, routes: [UInt32]) throws -> VQRouteStream.Result {
         guard (0..<48).contains(layer), let bank = banks[layouts[layer]] else { throw ModelError("VQ cache has no compatible allocation class") }
-        let shared: [MLXArray]
-        if let present = books[layer] { shared = present }
-        else {
-            let loaded = try checkpoint.recordBooks(layer: layer)
-            let bytes = loaded.reduce(0) { $0 + $1.nbytes }
-            guard bytes == layouts[layer].codebookBytes, bytes <= maximumBookBytes - residentBookBytes else {
-                throw ModelError("VQ shared codebooks differ from the reserved ledger")
-            }
-            shared = loaded; books[layer] = loaded; residentBookBytes += bytes
-        }
+        let shared = try sharedBooks(layer)
         let batchReader: VQRecordBank.BatchReader?
         if parallelReads {
-            let plan: VQRecordReadPlan
-            if let present = readPlans[layer] { plan = present }
-            else { plan = try checkpoint.recordReadPlan(layer: layer); readPlans[layer] = plan }
+            let plan = try readPlan(layer)
             batchReader = { keys in
                 guard keys.allSatisfy({ $0.layer == layer }) else { throw ModelError("VQ parallel read crossed its layer plan") }
                 let reservation = try VQRecordReadBatch.reservation(jobs: keys.count, pieceBytes: plan.pieceBytes,

@@ -699,6 +699,15 @@ Both candidates now complete all sixteen unchanged pilot cases inside the origin
 
 Continue performance work on the composite, whose observed task outcomes match the baseline pilot. Large prompt passes still use serial expert staging; the next explicit hypothesis is bounded parallel prefill reads with unchanged record ordering, numerical kernels and complete-record ownership. Qualify that component and its end-to-end behavior before using it in a timing comparison. Candidate serving, resource planning and dynamic governance, transactional installation and the held-out/performance release gates remain open.
 
+
+### Parallel prefill validation and timing exclusions, October 3
+
+[[sources/runs/2026/10/2026-10-03-candidate-parallel-prefill-read-validation]] records an explicit parallel prefill path after exact component and whole-model gates. Complete records are privately assembled through the existing twelve joined read lanes, sharing authenticated codebooks with decode. The full temporary ledger includes read results, scratch, final MLX arrays and the largest join copy. Prefill does not change bank membership, pins or CLOCK history. All three packs and the original-dense composite preserve their independent sparse-context tensor hashes inside the unchanged ten-GB envelope. The generation control remains exact.
+
+The complete-task run preserves all sixteen prior composite outputs, parsed answers, terminal reasons and draft decisions. All six subsequent timing cells also complete identically, but four fail the predeclared competing-CPU condition. The final eligible pair cannot replace those excluded rounds or establish a clean paired gain. Preserve the full study as inconclusive and keep parallel prefill explicit. Eleven invalid-option refusals and the complete static suite pass; preceding source commits have successful remote CI. The first two functional drivers' fixture-path and JSON-reading mistakes are retained, with completed native checks reused rather than rerun.
+
+Continue the plan's separately identified affine-three-bit control before committing further product architecture to VQ. The initial control is an expert-only transcode from the original affine-four-bit parent, with dense, PLE, draft and vision values retained; it must never be described as a BF16-source conversion. Freeze its resource and quality protocols before producing outputs. Its local converter draft and storage tests are preparation only, with no converted artifact or inference result at this checkpoint. Production candidate ownership, pack-specific allocation and live governance, activation/recovery and final quality/performance qualification remain required.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

@@ -6,7 +6,10 @@ import Slotstream
 extension Diagnostics {
     /// Full logical tensor hashes at the fixed ordinary-prefill batch shape.
     /// Hashes cover every byte, not selected logits or a numerical tolerance.
-    public static func quantizationPrefillModel(source: URL, inventory: URL, fixtureDirectory: URL, output: URL, sparse: Bool = false, residentRecords: Bool = false, residentText: Bool = false, wideRecords: Bool = false, parallelRecords: Bool = false, denseOverlayBaseline: URL? = nil, denseOverlayManifest: URL? = nil, reinvestDenseSavings: Bool = false, uncachedExpertReads: Bool = false, packedRecordDirectory: URL? = nil) throws -> Data {
+    public static func quantizationPrefillModel(source: URL, inventory: URL, fixtureDirectory: URL, output: URL, sparse: Bool = false, residentRecords: Bool = false, residentText: Bool = false, wideRecords: Bool = false, parallelRecords: Bool = false, denseOverlayBaseline: URL? = nil, denseOverlayManifest: URL? = nil, reinvestDenseSavings: Bool = false, uncachedExpertReads: Bool = false, packedRecordDirectory: URL? = nil, parallelPrefillReads: Bool = false) throws -> Data {
+        guard !parallelPrefillReads || (sparse && wideRecords && parallelRecords && residentRecords && residentText) else {
+            throw ModelError("parallel VQ prefill requires sparse wide parallel residency")
+        }
         guard (!wideRecords && !parallelRecords) || (residentRecords && residentText) else { throw ModelError("wide banks and parallel VQ reads require resident text and records") }
         guard packedRecordDirectory == nil || (reinvestDenseSavings && !uncachedExpertReads) else {
             throw ModelError("packed VQ research requires reinvested banks and buffered reads")
@@ -129,7 +132,7 @@ extension Diagnostics {
         }
         let model = VQModelProbe(checkpoint)
         if residentText { try model.enableResidentText() }
-        if residentRecords { try model.enableResidentRecords(wide: wideRecords, parallelReads: parallelRecords, reinvestDenseSavings: reinvestDenseSavings) }
+        if residentRecords { try model.enableResidentRecords(wide: wideRecords, parallelReads: parallelRecords, reinvestDenseSavings: reinvestDenseSavings, parallelPrefillReads: parallelPrefillReads) }
         var c = CheckBuilder("quantization-prefill-model"), observed: [String: String] = [:]
         var traceLayer = -1, traceValues: [String: MLXArray] = [:]
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -143,6 +146,7 @@ extension Diagnostics {
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(), "peak_mlx_bytes": MLX.Memory.peakMemory,
                 "verified_files": checkpoint.verifiedFileCount, "verified_payload_bytes": checkpoint.verifiedPayloadBytes,
                 "before": try JSONSerialization.jsonObject(with: encoder.encode(before))]
+            object["parallel_prefill_reads"] = parallelPrefillReads
             object["resident_record_cache"] = model.recordCacheStats ?? [:]
             object["resident_text"] = model.residentTextStats ?? [:]
             object["process_bound_bytes"] = model.processByteLimit
@@ -163,6 +167,7 @@ extension Diagnostics {
         do {
             try withError {
                 for (step, tokens) in manifest.passes.enumerated() {
+                    let cacheBefore = model.recordCacheStats
                     try model.forward(tokens, observe: { layer, name, value in
                         let key = "\(step):\(layer):\(name)"
                         guard let entry = entries[key], observed[key] == nil else { throw ModelError("unexpected VQ prefill boundary") }
@@ -175,7 +180,12 @@ extension Diagnostics {
                         observed[key] = actual
                         c.expect(key + " geometry", geometry); c.expect(key + " finite", finite); c.equal(key + " complete byte hash", actual, entry.sha256)
                         guard geometry && finite && actual == entry.sha256 else {
-                            try save(arrays: [name: value], url: output.appendingPathComponent("mismatch.safetensors"))
+                            // This new read-path experiment reserves at most
+                            // 16 MB for a failure tensor. Preserve every full
+                            // hash even when a vocabulary readout exceeds it.
+                            if !parallelPrefillReads || value.nbytes <= 16_000_000 {
+                                try save(arrays: [name: value], url: output.appendingPathComponent("mismatch.safetensors"))
+                            }
                             throw ModelError("VQ prefill model mismatch at " + key)
                         }
                         if name == "hidden" { fputs("VQ prefill P\(step) L\(layer) exact\n", stderr) }
@@ -183,6 +193,11 @@ extension Diagnostics {
                         if traceLayer != layer { traceValues.removeAll(); traceLayer = layer }
                         traceValues[name] = value
                     })
+                    if parallelPrefillReads, tokens.count > 409 {
+                        for field in ["hits", "loads", "evictions", "occupied_records", "pinned_records", "total_capacity"] {
+                            c.equal("P\(step) prefill preserves expert-bank \(field)", model.recordCacheStats?[field], cacheBefore?[field])
+                        }
+                    }
                 }
             }
             c.equal("every full logical tensor compared", observed.count, expectedKeys.count)
@@ -203,6 +218,10 @@ extension Diagnostics {
                 c.equal("requested read mode applied", stats["parallel_read_lanes"], parallelRecords ? 12 : 0)
                 c.expect("parallel staging remains bounded", (stats["maximum_read_staging_bytes"] ?? Int.max) <= VQRecordReadBatch.maximumStagingBytes)
                 c.expect("parallel mode exercises demanded staging", !parallelRecords || (stats["maximum_read_staging_bytes"] ?? 0) > 0)
+                c.expect("parallel prefill staging remains bounded", (stats["maximum_prefill_staging_bytes"] ?? Int.max) <= VQPrefillRecords.maximumReservationBytes)
+                c.expect("requested parallel prefill actually reads full batches", parallelPrefillReads
+                    ? (stats["prefill_read_batches"] ?? 0) > model.segmentedPrefillLayers && (stats["prefill_read_records"] ?? 0) > 0
+                    : (stats["prefill_read_batches"] ?? -1) == 0)
                 c.expect("resident cache serves real hits", (stats["hits"] ?? 0) > 0)
                 c.expect("resident cache loads demanded records", (stats["loads"] ?? 0) > 0)
                 c.expect("ordinary cache exercises eviction", reinvestDenseSavings || (stats["evictions"] ?? 0) > 0)

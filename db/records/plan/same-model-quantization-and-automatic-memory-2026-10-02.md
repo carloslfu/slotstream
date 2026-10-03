@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-03T21:56:43.594409+00:00
+updated: 2026-10-03T23:02:00.383390+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -637,3 +637,12 @@ Next, remove the discarded full-vocabulary readouts from intermediate prefill pa
 Both candidates now complete all sixteen unchanged pilot cases inside the original ten-GB process bound. Every output and speculative detail from the previously completed fourteen full-VQ cases and sixteen composite cases is identical. Full VQ scores thirteen of sixteen; the composite retains fifteen of sixteen, matching the reused original baseline. The earlier failed full-VQ process remains evidence. These calibration scores do not qualify a pack or establish arbitrary-context memory capacity.
 
 Continue performance work on the composite, whose observed task outcomes match the baseline pilot. Large prompt passes still use serial expert staging; the next explicit hypothesis is bounded parallel prefill reads with unchanged record ordering, numerical kernels and complete-record ownership. Qualify that component and its end-to-end behavior before using it in a timing comparison. Candidate serving, resource planning and dynamic governance, transactional installation and the held-out/performance release gates remain open.
+
+
+### Parallel prefill validation and timing exclusions, October 3
+
+[[sources/runs/2026/10/2026-10-03-candidate-parallel-prefill-read-validation]] records an explicit parallel prefill path after exact component and whole-model gates. Complete records are privately assembled through the existing twelve joined read lanes, sharing authenticated codebooks with decode. The full temporary ledger includes read results, scratch, final MLX arrays and the largest join copy. Prefill does not change bank membership, pins or CLOCK history. All three packs and the original-dense composite preserve their independent sparse-context tensor hashes inside the unchanged ten-GB envelope. The generation control remains exact.
+
+The complete-task run preserves all sixteen prior composite outputs, parsed answers, terminal reasons and draft decisions. All six subsequent timing cells also complete identically, but four fail the predeclared competing-CPU condition. The final eligible pair cannot replace those excluded rounds or establish a clean paired gain. Preserve the full study as inconclusive and keep parallel prefill explicit. Eleven invalid-option refusals and the complete static suite pass; preceding source commits have successful remote CI. The first two functional drivers' fixture-path and JSON-reading mistakes are retained, with completed native checks reused rather than rerun.
+
+Continue the plan's separately identified affine-three-bit control before committing further product architecture to VQ. The initial control is an expert-only transcode from the original affine-four-bit parent, with dense, PLE, draft and vision values retained; it must never be described as a BF16-source conversion. Freeze its resource and quality protocols before producing outputs. Its local converter draft and storage tests are preparation only, with no converted artifact or inference result at this checkpoint. Production candidate ownership, pack-specific allocation and live governance, activation/recovery and final quality/performance qualification remain required.
