@@ -266,6 +266,12 @@ public struct GenStats: Codable {
     public var decodeIOSeconds = 0.0
     public var decodeScatterSeconds = 0.0
     public var decodeRecords = 0
+    /// Bytes served by each replica of a mirrored checkpoint over the whole
+    /// run, in replica order, or empty when there is no mirror. Unlike the
+    /// phase counters it is never reset, because the router measures disks
+    /// rather than a phase. A mirror that has stopped splitting reads looks
+    /// identical in every other number here.
+    public var mirrorBytes: [Int] = []
     /// "stop" (EOS or stop sequence), "length", "error", or a low-level
     /// caller's explicit "cancelled" checkpoint yield.
     public var finishReason = "stop"
@@ -1331,6 +1337,8 @@ public final class Generator {
         stats.decodeIOSeconds = model.pool.ioSeconds
         stats.decodeScatterSeconds = model.pool.scatterSeconds
         stats.decodeRecords = model.pool.recordsFetched
+        let served = model.pool.expertStore.index.mirror.servedBytes()
+        stats.mirrorBytes = served.count > 1 ? served : []
         stats.decodeLocalVictims = model.pool.floorLocalVictims
         stats.decodeSlotSliceBatches = model.pool.slotSliceBatches
         stats.decodeSlotSliceRuns = model.pool.slotSliceRuns

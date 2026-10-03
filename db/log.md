@@ -157,3 +157,18 @@ Reproduced the clean-runner Mac CI failure with a copied executable lacking a me
 ## [2026-10-03 19:54] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implemented bounded candidate recurrent recording and owned checkpoint recovery; preserved the initial shape-dependent failure, passed explicit exact-verification checks at short and sparse boundaries, and retained unchanged greedy/sparse reference parity for both candidate layouts. Full draft generation and product qualification remain active work.
 
+## [2026-10-03 20:09] create | records/machines/mac-mini-m4-32gb
+Two-disk Mac mini M4 (32 GB, macOS 15.7.4): internal Apple SSD and external WD_BLACK SN8100 on Thunderbolt 4, the machine behind the mirror measurement.
+
+## [2026-10-03 20:09] create | sources/runs/2026/09
+Four runs behind the mirror measurement: the three-round decode A/B on the September 18 binary, the iostat device witness, the router trace from a development build, and the byte-for-byte comparison of both checkpoint copies.
+
+## [2026-10-03 20:09] create | records/measurements/mirror-reads-across-two-disks-2026-09-18
+Paired single-disk and mirrored runs on the September 18 binary; not re-measured on the branch rebased onto current main.
+
+## [2026-10-03 20:09] create | records/claims
+Four mirror claims (disk rates, internal-disk share, prefill and decode lift, split report example), each surfaced in docs/CLI.md.
+
+## [2026-10-03 20:09] index-rebuild | .
+Indexes rebuilt for the mirror records.
+

@@ -133,6 +133,8 @@ updated: 2026-10-03T19:54:09.167932Z
 - [[sources/runs/2026/09/2026-09-20-adaptive-memory-limits]] — Adaptive memory ceilings: planner and CLI matrices, native controls and real model shrink/recovery pass; limits and earlier fixture failure retained.
 - [[sources/runs/2026/09/2026-09-20-sevra-response-details]] — Sevra records each response's engine numbers and shows its speed, thinking line and working notes on request; the real-model check matches the engine and finds thinking turns read twice
 - [[sources/runs/2026/09/2026-09-20-thinking-with-tools-and-refused-proposals]] — Think longer is available with a source attached, tool turns think, and a refused proposal is corrected instead of ending the job; measured on three real-model runs
+- [[sources/runs/2026/09/2026-09-18-mirror-router-trace-development-build]] — The router's own per-replica trace on a development build, including the queue depth at which reads are claimed
+- [[sources/runs/2026/09/2026-09-18-mirror-copies-compared-byte-for-byte]] — cmp over all twelve shards of both checkpoint copies, verdict IDENTICAL
 - [[sources/runs/2026/09/2026-09-19-sevra-names-attachments]] — Told only that files were attached, the model asked what "this" meant; with each attachment named, "what is this?" reads the attached PDF
 - [[sources/runs/2026/09/2026-09-19-complete-prompt-image-key-and-answer-narration]] — The complete-prompt check looked up image states with the wrong key and now passes 274 and 289; Sevra answers drop tool-round narration; the real-model PDF fixture is byte-stable
 - [[sources/runs/2026/09/2026-09-18-release-0-2-22-published-and-installed]] — v0.2.22 published, installed and accepted: exact CI candidate, verified provenance, byte-identical installation, full local battery and installed end to end 31/31.
@@ -142,7 +144,9 @@ updated: 2026-10-03T19:54:09.167932Z
 - [[sources/runs/2026/09/2026-09-18-memory-budget-native-verification]] — Memory budget fix: native verification and unchanged image reuse failure
 - [[sources/runs/2026/09/2026-09-18-memory-budget-software-verification]] — Memory budget fix: final software verification
 - [[sources/runs/2026/09/2026-09-18-memory-budget-regression]] — Memory budget context regression: before and after
+- [[sources/runs/2026/09/2026-09-18-mirror-decode-ab-three-rounds]] — Three paired rounds of single-disk against mirrored decode on the committed build, with a generated-text digest across all six runs
 - [[sources/runs/2026/09/2026-09-17-conversation-resume-exactness]] — A continued conversation computed different logits from a cold one, 3.7% to 5.9% of their spread, and after the resume rule computes them bit for bit
+- [[sources/runs/2026/09/2026-09-18-mirror-iostat-device-witness]] — One mirrored decode with two witnesses, the engine's own mirror-split readout and iostat on both devices
 - [[sources/runs/2026/09/2026-09-17-verify-pass-deployment-recheck]] — Decode comparisons re-run on a quiet machine after the commit: 16k and 32k
 - [[sources/runs/2026/09/2026-09-17-verify-pass-checks-and-battery]] — Check catalogue, static gates and verify battery on the final verify-pass build
 - [[sources/runs/2026/09/2026-09-17-verify-pass-decode-final-build]] — Decode comparisons at 16k and 32k on the final build: dense, split and exact
@@ -503,12 +507,8 @@ updated: 2026-10-03T19:54:09.167932Z
 - [[sources/runs/2026/09/2026-09-07-optimization-api-generation-completion-validation]] — API completion validation rejects matching errors and incomplete responses
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-context-pass-and-api-pressure-failure]] — Planner and context correctness with failed API pressure interval
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-metadata-and-context-boundary]] — Planner metadata and unchanged-context optimization boundary
-- [[sources/runs/2026/09/2026-09-07-configurable-context-openai-release-completion]] — Installed OpenAI successful-completion acceptance
-- [[sources/runs/2026/09/2026-09-07-optimization-full-cache-two-cells-and-refusal]] — Full-cache two-cell execution and resource refusal
-- [[sources/runs/2026/09/2026-09-07-optimization-serial-and-installed-gate-integration]] — Serial build and installed-release validation corrections
-- [[sources/runs/2026/09/2026-09-07-optimization-cached-planner-build-and-typed-parity]] — Cached planner build and441typed parity checks
 
 ## More
 
-This folder has 755 files. The 500 most recent are listed above.
+This folder has 759 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

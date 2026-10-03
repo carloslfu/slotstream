@@ -6,6 +6,19 @@ Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
 
+## Unreleased
+
+- Mirrored checkpoints. A second copy of the model on a second disk can be
+  given with `--mirror <dir>`, repeatable, and every weight read goes to
+  whichever copy is estimated to answer first. Nothing about the devices is
+  configured: each replica's throughput is learned from its own completed
+  reads, so the copies need not be equally fast. Startup compares each
+  mirror's shard sizes and safetensors headers with `--model` and refuses a
+  different checkpoint; it does not hash tensor payloads, so verify every
+  copy with `slotstream pull --verify --dir <mirror>` first. The run's report
+  ends with the split each copy served. Packed expert layouts cannot be
+  combined with mirrors. Measured results are in docs/CLI.md.
+
 ## 0.2.27 - 2026-09-30
 
 - Raw downloads stop their other requests as soon as a required file fails,
