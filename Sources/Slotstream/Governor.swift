@@ -41,6 +41,18 @@ import MLX
 public enum GovernorPolicy {
     public enum Pressure: String { case warning, critical }
 
+    /// Fixed capacity may not borrow the feasibility of a smaller proposed
+    /// cache. It must still fit the complete current allocation envelope.
+    public static func fixedCapacityFits(current: MemoryPlan?, availablePlan: MemoryPlan?) -> Bool {
+        guard let current, let availablePlan, let budget = availablePlan.targetGB,
+              budget.isFinite, budget > 0,
+              current.maxContextTokens == availablePlan.maxContextTokens,
+              current.mtpEnabled == availablePlan.mtpEnabled,
+              current.mtpStreamedExperts == availablePlan.mtpStreamedExperts,
+              current.visionEnabled == availablePlan.visionEnabled else { return false }
+        return Double(current.memoryLedger.expectedPeakBytes) <= budget * 1e9
+    }
+
     public struct Inputs {
         public var currentSlots: Int
         public var availableGB: Double
@@ -244,6 +256,7 @@ public enum GovernorPolicy {
 
 public final class MemoryGovernor: @unchecked Sendable {
     private let engine: Engine
+    private let management: LiveMemoryManagement
     private let queue = DispatchQueue(label: "slotstream.governor")
     private let queueKey = DispatchSpecificKey<UInt8>()
     private var pressure: DispatchSourceMemoryPressure?
@@ -259,8 +272,13 @@ public final class MemoryGovernor: @unchecked Sendable {
     static let shrinkDeadbandGB = 1.0  // shed when desired ≤ current − 1 GB
     static let growDeadbandGB = 2.0    // grow when desired ≥ current + 2 GB
 
-    public init(engine: Engine) {
+    public convenience init(engine: Engine) {
+        self.init(engine: engine, management: .automatic)
+    }
+
+    public init(engine: Engine, management: LiveMemoryManagement) {
         self.engine = engine
+        self.management = management
         queue.setSpecific(key: queueKey, value: 1)
     }
 
@@ -293,7 +311,9 @@ public final class MemoryGovernor: @unchecked Sendable {
         t.setEventHandler { [weak self] in self?.poll() }
         t.resume()
         timer = t
-        log("on — cache auto-resizes with memory availability between requests (--no-elastic to pin)")
+        log(management == .automatic
+            ? "on — cache auto-resizes with memory availability between requests (--no-elastic to pin)"
+            : "fixed cache capacity; pressure cancellation and admission checks remain active")
     }
 
     /// Enqueue cancellation without waiting behind a pressure event that is
@@ -389,9 +409,17 @@ public final class MemoryGovernor: @unchecked Sendable {
         // image can reserve resident memory while a governor tick is waiting;
         // a decision sampled before the lock would spend that reservation.
         let applyDecision = {
-            guard let i = self.inputs(pressure: pressure) else { return }
+            guard let i = self.inputs(pressure: pressure) else {
+                if self.management == .fixed {
+                    self.engine.setAllocationUnavailable(RequestFailure(.insufficientMemory,
+                        "available memory could not be read; retry after memory readings recover"))
+                }
+                return
+            }
             let desiredPlan = GovernorPolicy.desiredPlan(i)
-            self.engine.setAllocationUnavailable(desiredPlan == nil
+            let fits = self.management == .automatic ? desiredPlan != nil :
+                GovernorPolicy.fixedCapacityFits(current: self.engine.currentPlan, availablePlan: desiredPlan)
+            self.engine.setAllocationUnavailable(!fits
                 ? RequestFailure(.insufficientMemory, "the configured context no longer fits current availability; retry after memory recovers") : nil)
             if pressure != nil {
                 // Even at the arena floor there can be inexpensive memory to
@@ -399,7 +427,7 @@ public final class MemoryGovernor: @unchecked Sendable {
                 self.engine.prefixCache.drop()
                 MLX.Memory.clearCache()
             }
-            if case let .resize(slots, reason) = GovernorPolicy.decide(i) {
+            if self.management == .automatic, case let .resize(slots, reason) = GovernorPolicy.decide(i) {
                 let controls = GovernorPolicy.liveControls(for: slots, inputs: i)
                 self.apply(
                     slots, plan: desiredPlan ?? self.engine.currentPlan, reason: reason,

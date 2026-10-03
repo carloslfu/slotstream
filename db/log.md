@@ -145,3 +145,6 @@ Preserved the failed composite draft prefill and corrected harness; authenticate
 ## [2026-10-03 16:09] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Recorded final native build and unlaunched broader acceptance under insufficient memory and an external llama-server workload. Stopped only the task-owned waiter, strengthened quiet preflight and passed twelve safety plus thirty-two static-entrypoint tests. Whole-plan qualification remains incomplete.
 
+## [2026-10-03 18:23] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implemented baseline-only Auto and explicit quantization controls independently of ceilings and live adjustment, bound applied configurations to responses, verified fixed-capacity pressure recovery and real app reloads, and closed the earlier local draft regression gap. Candidate serving, multi-pack transactions and performance qualification remain open.
+

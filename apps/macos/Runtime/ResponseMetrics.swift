@@ -37,6 +37,9 @@ public struct ResponseMetrics: Codable, Sendable, Equatable {
     public var budgetGB: Double?
     public var customBudget: Bool?
     public var memoryLimitGB: Double?
+    /// Applied identities across the job's model requests. Usually one; never
+    /// label a mixed-generation job with only its final configuration.
+    public var configurations: [AppliedModelConfiguration]?
     public init() {}
 
     public var answerRate: Double? { Self.rate(answerTokens, answerSeconds) }
@@ -83,6 +86,11 @@ public struct ResponseMetrics: Codable, Sendable, Equatable {
         total.budgetGB = next.budgetGB ?? budgetGB
         total.customBudget = next.customBudget ?? customBudget
         total.memoryLimitGB = next.customBudget != nil ? next.memoryLimitGB : memoryLimitGB
+        if configurations != nil || next.configurations != nil {
+            var all = configurations ?? []
+            for value in next.configurations ?? [] where !all.contains(value) { all.append(value) }
+            total.configurations = all
+        }
         return total
     }
 }

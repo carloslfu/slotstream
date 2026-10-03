@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import SevraRuntime
 import SevraPresentation
+import Slotstream
 
 struct ContentView: View {
     @ObservedObject var model: AppModel
@@ -844,6 +845,21 @@ struct PerformanceSettings: View {
     }
     var body: some View {
         Section("Performance") {
+            Picker("Quantization", selection: Binding(get: { model.performancePreferences.quantization }, set: { choice in
+                var next = model.performancePreferences; next.quantization = choice; model.setPerformance(next)
+            })) {
+                Text("Automatic (Recommended)").tag(ModelPackSelection.automatic)
+                ForEach(ModelPackRegistry.supported, id: \.id) { pack in
+                    Text(pack.title).tag(ModelPackSelection.pack(pack.id))
+                }
+                if case .pack(let id) = model.performancePreferences.quantization,
+                   !ModelPackRegistry.supported.contains(where: { $0.id == id }) {
+                    Text("Unavailable saved pack").tag(ModelPackSelection.pack(id))
+                }
+            }.disabled(status == nil).help("Choose how the same model's weights are stored. This is separate from memory limits.")
+            if let reason = status?.selectionReason {
+                Text(reason).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             Picker("Memory budget", selection: Binding(get: { model.performancePreferences.budget }, set: { choice in
                 let next = model.performancePreferences.selectingBudget(choice,
                     currentGB: status?.budgetGB ?? status?.recommendationGB, maximumGB: maximum)
@@ -870,16 +886,28 @@ struct PerformanceSettings: View {
                         Text("GB").foregroundStyle(.secondary)
                     }
                     if let limitError { Text(limitError).foregroundStyle(.red).font(.callout) }
-                    Text("Use up to this amount. Sevra gives memory back when other apps need it and can use more again when it is available. Your limit stays saved.")
+                    Text(model.performancePreferences.liveMemory == .automatic
+                         ? "Use up to this amount. Sevra gives memory back when other apps need it and can use more again when it is available. Your limit stays saved."
+                         : "Use up to this amount when loading, then keep the cache capacity fixed. Your limit stays saved.")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Text("Supported on this Mac: up to \(gb(maximum)).")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 .disabled(status == nil || (status?.maximumGB ?? 0) < PerformancePolicy.minimumGB)
             } else {
-                Text("Adjusts to your Mac and other apps, keeping room for everyday work.")
+                Text("Chooses a budget when loading, based on your Mac and available memory.")
                     .font(.callout).foregroundStyle(.secondary)
             }
+            Picker("While running", selection: Binding(get: { model.performancePreferences.liveMemory }, set: { choice in
+                var next = model.performancePreferences; next.liveMemory = choice; model.setPerformance(next)
+            })) {
+                Text("Automatic adjustment").tag(LiveMemoryManagement.automatic)
+                Text("Fixed cache capacity").tag(LiveMemoryManagement.fixed)
+            }.disabled(status == nil)
+            Text(model.performancePreferences.liveMemory == .automatic
+                 ? "Adjusts the cache as memory availability changes. The selected quantization stays loaded."
+                 : "Keeps the cache capacity chosen at load time. Memory pressure can still stop a response or release an idle model.")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if let recommendation = status?.recommendationGB {
                 LabeledContent("Recommended now", value: "Up to " + gb(recommendation))
                     .accessibilityElement(children: .ignore)
@@ -913,6 +941,12 @@ struct PerformanceSettings: View {
                     .accessibilityLabel("Model").accessibilityValue(status.state)
                 Text(status.detail).font(.callout).foregroundStyle(.secondary)
                 DisclosureGroup("Memory details", isExpanded: $showMemoryDetails) {
+                    if let configuration = status.configuration {
+                        LabeledContent("Active quantization", value: ModelPackRegistry.supported.first(where: { $0.id == configuration.packID })?.title ?? configuration.packID)
+                        LabeledContent("Context window", value: configuration.contextTokens.formatted() + " tokens")
+                        LabeledContent("Speculative decoding", value: configuration.mtp ? "On" : "Off")
+                        LabeledContent("Live adjustment", value: configuration.liveMemory == .automatic ? "Automatic" : "Fixed capacity")
+                    }
                     if let physical = status.physicalGB {
                         LabeledContent("Physical memory", value: gb(physical)).monospacedDigit()
                     }

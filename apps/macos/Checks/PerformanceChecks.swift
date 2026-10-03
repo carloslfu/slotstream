@@ -106,6 +106,30 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
         PerformancePolicy.maximumGB(on: .simulated(ramGB: 16)), "automatic ceiling fits the stable hardware range")
     try verifyPerformance(PerformancePreferences.restore(try JSONEncoder().encode(custom)) == custom, "large limit survives restart")
     let legacy = PerformancePreferences.restore(Data("{\"budget\":\"automatic\",\"customGB\":10,\"readiness\":\"automatic\"}".utf8))
+    try verifyPerformance(legacy.quantization == .automatic && legacy.liveMemory == .automatic,
+        "old preferences gain independent automatic defaults")
+    let explicit = PerformancePreferences(budget: .custom, customGB: 10,
+        quantization: .pack(ModelPackRegistry.baseline.id), liveMemory: .fixed)
+    try verifyPerformance(PerformancePreferences.restore(try JSONEncoder().encode(explicit)) == explicit,
+        "all independent controls survive restart")
+    let changedBudget = explicit.selectingBudget(.automatic, currentGB: 10, maximumGB: 33)
+    try verifyPerformance(changedBudget.quantization == explicit.quantization && changedBudget.liveMemory == .fixed,
+        "budget changes do not overwrite quantization or runtime adjustment")
+    let removed = PerformancePreferences(quantization: .pack("removed-pack"))
+    let restoredRemoved = PerformancePreferences.restore(try JSONEncoder().encode(removed))
+    try verifyPerformance(restoredRemoved == removed, "an unavailable explicit pack stays saved")
+    try PerformancePolicy.validateSaved(restoredRemoved)
+    do {
+        try PerformancePolicy.validate(restoredRemoved, on: roomy)
+        throw SevraError.refused("CHECK FAILED: removed pack silently fell back")
+    } catch { try verifyPerformance(!error.localizedDescription.contains("CHECK FAILED"), "unavailable pack blocks activation") }
+    let recovering = LocalInference(preferences: removed)
+    try await recovering.configure(.init())
+    try verifyPerformance(recovering.performanceTelemetry?.isLoaded == false, "choosing Auto recovers an unavailable selection without loading")
+    let fixedPlan = try PerformancePolicy.plan(explicit, on: roomy, mtpAvailable: false)
+    let adaptivePlan = try PerformancePolicy.plan(.init(budget: .custom, customGB: 10), on: roomy, mtpAvailable: false)
+    try verifyPerformance(fixedPlan.slots == adaptivePlan.slots && fixedPlan.memoryLimitGB == adaptivePlan.memoryLimitGB,
+        "live adjustment choice does not change startup selection or ceiling")
     try verifyPerformance(legacy.selectingBudget(.custom, currentGB: 24, maximumGB: 33).customGB == 24, "old unused default adopts current budget")
     let savedLegacy = PerformancePreferences.restore(Data("{\"budget\":\"custom\",\"customGB\":10,\"readiness\":\"automatic\"}".utf8))
     try verifyPerformance(savedLegacy.selectingBudget(.custom, currentGB: 24, maximumGB: 33).customGB == 10, "old explicit custom budget retained")
@@ -260,6 +284,7 @@ func realPerformanceCheckIfRequested() async throws -> Bool {
     try verifyPerformance(await runtime.snapshot().performance?.loaded == false, "lazy startup")
     let vmBefore = ProcessMemory.vmActivity()
     var maximumFootprint = 0.0, maximumMetadataSeconds = 0.0
+    var generations: [UUID] = []
     func request(_ text: String, nonce: String, changeDuringResponse: Bool = false) async throws {
         _ = try await runtime.submit(threadID: "home", text: text, nonce: nonce)
         let start = ProcessInfo.processInfo.systemUptime
@@ -271,13 +296,23 @@ func realPerformanceCheckIfRequested() async throws -> Bool {
             maximumMetadataSeconds = max(maximumMetadataSeconds, ProcessInfo.processInfo.systemUptime - tick)
             maximumFootprint = max(maximumFootprint, Double(ProcessMemory.residentBytes()) / 1e9)
             if changeDuringResponse, !changed, snapshot.performance?.state == "In use" {
-                try await runtime.setPerformancePreferences(.init(budget: .custom, customGB: 9))
+                try await runtime.setPerformancePreferences(.init(budget: .custom, customGB: 9, liveMemory: .fixed))
                 try verifyPerformance(await runtime.snapshot().performance?.pending == true, "real change is pending during response")
                 changed = true
             }
             if let run = snapshot.home.threads[0].run, run.state.terminal {
                 try verifyPerformance(run.state == .completed, "real turn completed: " + run.status)
+                guard let configuration = run.metrics?.configurations?.first else {
+                    throw SevraError.refused("CHECK FAILED: response has no applied configuration")
+                }
+                try verifyPerformance(run.metrics?.configurations?.count == 1
+                    && configuration.packID == ModelPackRegistry.baseline.id
+                    && configuration.manifestDigest == ModelPackRegistry.baseline.manifestDigest
+                    && configuration.identity.count == 64, "real response binds one authenticated pack and engine generation")
+                generations.append(configuration.generation)
                 let expectedLimit = nonce == "reloaded" ? 9.0 : 10.0
+                try verifyPerformance(configuration.liveMemory == (nonce == "reloaded" ? .fixed : .automatic),
+                    "live management applies only after the response and reload")
                 try verifyPerformance(run.metrics?.memoryLimitGB == expectedLimit
                     && (run.metrics?.budgetGB ?? .infinity) <= expectedLimit,
                     "response records its active ceiling independently of a pending setting change")
@@ -298,6 +333,8 @@ func realPerformanceCheckIfRequested() async throws -> Bool {
         await runtime.maintainPerformance()
         try verifyPerformance(await runtime.snapshot().performance?.preferences.customGB == 9, "latest limit applied")
         try await request("Reply with only OK.", nonce: "reloaded")
+        try verifyPerformance(generations.count == 3 && generations[0] == generations[1] && generations[2] != generations[1],
+            "an in-flight response keeps its generation; reload creates a new generation")
         await runtime.maintainPerformance()
         try verifyPerformance((await runtime.snapshot().performance?.budgetGB ?? 100) <= 9.0001, "new live budget respects custom ceiling")
         do {

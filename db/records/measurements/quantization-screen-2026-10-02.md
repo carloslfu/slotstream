@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-03T16:09:12.842031+00:00
+updated: 2026-10-03T18:23:23.507510+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -447,3 +447,11 @@ Twelve actual CLI refusal checks pass for process-lock contention, ambient overr
 The quiet preflight now rejects known llama.cpp inference entrypoints before launch as well as Slotstream/build contention. Twelve context-qualification tests and thirty-two static-entrypoint tests pass; a read-only invocation reproduces the external-model refusal. Final local static/catalogue, baseline draft, streamed draft, image interaction and verification-row checks remain pending until exclusive model execution and their original real-memory bounds are available. Exact component parity is not substituted for those regressions. New independent reference campaigns must bind the changed safety-helper identity and satisfy their source-bound traversal requirements again.
 
 The full implementation remains in progress. No alternate pack has earned Auto integration or promotion, no new supported hardware profile reaches the target, and no release is implied by this checkpoint.
+
+### Baseline product controls and completed local regressions
+
+[[sources/runs/2026/10/2026-10-03-baseline-auto-selection-and-live-memory]] records the baseline-only product selector, immutable manifest identity, independent quantization/ceiling/live-memory controls, configuration generations, deferred ownership and fixed-capacity pressure behavior. The native catalogue, full static suite, complete Mac runtime suite and all native settings appearances pass. Eight bounded model cells pass across the two preserved campaigns: ordinary/draft fixed-capacity pressure recovery, actual app deferred reload, research/public draft references, streamed draft equivalence, draft/vision interaction and draft row equivalence. Exact process peaks, real headroom, paging and elapsed times remain in the raw receipts; these functional observations are not throughput qualification.
+
+Two instrument failures are preserved. The first compiler observer missed independently grouped descendants and was stopped; the replacement enumerates parent links and completes under an explicit compiler-only envelope. The research draft initially rejects an inherited production diagnostic flag before loading; a fresh clean-environment continuation passes without tolerance or fixture changes. Neither failure is presented as a model numerical regression.
+
+The original deployment remains the only selectable pack and the registry's new hardware qualification list stays empty. The native VQ research path still lacks production service/speculation and dynamic memory integration. No alternative-quality, multi-pack activation or twenty-token claim follows from these checks.

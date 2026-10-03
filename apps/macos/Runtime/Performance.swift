@@ -9,9 +9,23 @@ public struct PerformancePreferences: Codable, Equatable, Sendable {
     /// Optional for decoding preferences saved before first-use tracking existed.
     public var hasCustomLimit: Bool?
     public var readiness: Readiness
-    public init(budget: Budget = .automatic, customGB: Double = 10, readiness: Readiness = .automatic) {
+    public var quantization: ModelPackSelection
+    public var liveMemory: LiveMemoryManagement
+    public init(budget: Budget = .automatic, customGB: Double = 10, readiness: Readiness = .automatic,
+                quantization: ModelPackSelection = .automatic, liveMemory: LiveMemoryManagement = .automatic) {
         self.budget = budget; self.customGB = customGB; self.readiness = readiness
+        self.quantization = quantization; self.liveMemory = liveMemory
         self.hasCustomLimit = budget == .custom || customGB != 10
+    }
+    private enum CodingKeys: String, CodingKey { case budget, customGB, hasCustomLimit, readiness, quantization, liveMemory }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        budget = try c.decode(Budget.self, forKey: .budget)
+        customGB = try c.decode(Double.self, forKey: .customGB)
+        readiness = try c.decode(Readiness.self, forKey: .readiness)
+        hasCustomLimit = try c.decodeIfPresent(Bool.self, forKey: .hasCustomLimit)
+        quantization = try c.decodeIfPresent(ModelPackSelection.self, forKey: .quantization) ?? .automatic
+        liveMemory = try c.decodeIfPresent(LiveMemoryManagement.self, forKey: .liveMemory) ?? .automatic
     }
     public static func restore(_ data: Data?) -> Self {
         guard let data, var value = try? JSONDecoder().decode(Self.self, from: data),
@@ -66,6 +80,7 @@ public enum PerformancePolicy {
     }
     public static func validate(_ preferences: PerformancePreferences, on machine: Machine) throws {
         try validateSaved(preferences)
+        _ = try ModelPackRegistry.resolve(preferences.quantization)
         guard preferences.budget == .custom else { return }
         guard preferences.customGB >= minimumGB else {
             throw SevraError.refused("Choose a memory limit within the supported range.")
@@ -156,6 +171,9 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var ceilingGB: Double? = nil
     public var appliedCeilingGB: Double? = nil
     public var failure: String? = nil
+    public var activePack: String? = nil
+    public var selectionReason: String? = nil
+    public var configuration: AppliedModelConfiguration? = nil
 }
 
 /// Metadata has its own lock and never waits for the inference actor or the
@@ -168,6 +186,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var preparationSeconds: Double = 0
     private var pressure = false
     private var monitor: DispatchSourceMemoryPressure?
+    private var configuration: AppliedModelConfiguration?
     public init() {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical],
             queue: DispatchQueue(label: "sevra.memory-status", qos: .utility))
@@ -186,9 +205,13 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         self.state = state; self.detail = detail; self.engine = engine
     }
     func prepared(in seconds: Double) { lock.lock(); preparationSeconds = max(preparationSeconds, seconds); lock.unlock() }
+    func applied(_ configuration: AppliedModelConfiguration?) {
+        lock.lock(); self.configuration = configuration; lock.unlock()
+    }
     public func snapshot(preferences: PerformancePreferences, pending: Bool, busy: Bool) -> PerformanceSnapshot {
         lock.lock()
-        let current = engine, state = self.state, detail = self.detail, seconds = preparationSeconds, pressure = self.pressure
+        let current = engine, state = self.state, detail = self.detail, seconds = preparationSeconds, pressure = self.pressure,
+            configuration = self.configuration
         lock.unlock()
         let machine = Machine.current()
         // Credit only Sevra's physical footprint, never RSS plus GPU memory.
@@ -206,7 +229,10 @@ public final class PerformanceTelemetry: @unchecked Sendable {
             detail: pressure ? "Giving memory back to your Mac." : detail,
             idleMinutes: Int(ceil(PerformancePolicy.idleDelay(preparationSeconds: seconds, conservingPower: conserving) / 60)),
             physicalGB: machine.ramGB, ceilingGB: PerformancePolicy.ceilingGB(preferences, on: machine),
-            appliedCeilingGB: plan?.memoryLimitGB)
+            appliedCeilingGB: plan?.memoryLimitGB,
+            activePack: current == nil ? nil : configuration?.packID,
+            selectionReason: (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
+            configuration: current == nil ? nil : configuration)
     }
 }
 

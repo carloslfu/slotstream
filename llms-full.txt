@@ -1424,7 +1424,14 @@ records the exact observed scope and remaining gates.
 
 ## Memory and readiness
 
-Settings → Model → Memory budget defaults to **Automatic (Recommended)**. The app uses
+Settings → Model separates **Quantization**, **Memory budget**, and **While running**.
+Each defaults to automatic behavior. Quantization currently selects the original
+supported pack; alternative representations remain in qualification. You can
+pin the original pack independently of the memory controls. An unavailable
+saved pack stays visible and blocks activation until you select an available
+choice. Auto does not confer a speed qualification on the original pack.
+
+Memory budget defaults to **Automatic (Recommended)**. The app uses
 Slotstream’s memory planner and elastic cache governor, keeping the current
 text model and context fixed while adapting cache residency to the Mac and
 other applications. The recommendation inherits the engine’s measured
@@ -1447,6 +1454,12 @@ at the current budget; returning to it restores your last chosen limit. The
 saved limit stays stable when available memory changes. Settings distinguish
 the app’s physical memory use from the budget available now. Unified
 CPU/GPU memory is counted once.
+**While running → Fixed cache capacity** keeps the cache size chosen at load
+time. Startup still respects available memory and the saved ceiling. Pressure
+protection, request admission checks and idle release remain active, so a
+response can still stop if the Mac no longer has room. Returning to automatic
+adjustment allows the cache to shrink and recover within that ceiling. Neither
+mode changes the loaded quantization during a response.
 If a saved limit falls outside the current Mac's supported range, Settings
 retains the value and asks you to correct it or choose Automatic. Memory details
 separate physical RAM, the saved ceiling, the applied ceiling and the current
@@ -1455,6 +1468,18 @@ Changes apply after the active response. If applying a change fails, Settings
 shows the failure and queued work waits for a corrected choice. It does not
 quietly continue with the previous settings. A later choice supersedes an older
 pending selection.
+Memory details show the active pack, context and speculative-decoding state.
+Response records bind the applied configuration generation, including pack
+manifest, engine arithmetic and allocation policy. A failed load never
+publishes a partially configured engine as active.
+
+The independent engine CLI keeps its existing defaults. `slotstream model-packs
+--json` inspects maintained pack identities and qualification status without
+loading weights. `slotstream run --quantization auto --prompt "Hello"` opts into
+the product selector; an explicit supported pack ID overrides it. Omitting
+`--quantization` preserves the existing `--model` behavior. Selecting a pack
+with a custom model directory requires that directory to pass the complete
+pinned verification; it is not silently repaired into another representation.
 
 The model loads with the first request and verifies the pinned files. Within
 that app session, unchanged files on APFS can reuse the successful verification

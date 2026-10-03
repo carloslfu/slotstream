@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-03T16:09:11.983729Z
+updated: 2026-10-03T18:21:32.771547Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-03-baseline-auto-selection-and-live-memory]] — Baseline Auto controls and independent live memory management with native lifecycle acceptance
 - [[sources/runs/2026/10/2026-10-03-vq-draft-final-build-admission-pending]] — Final draft build succeeds but broader local acceptance remains unlaunched under external inference contention
 - [[sources/runs/2026/10/2026-10-03-native-vq-owned-draft-component]] — Authenticated original four-bit draft matches all frozen composite-input head outputs exactly
 - [[sources/runs/2026/10/2026-10-03-vq-composite-draft-initial-parity-failure]] — Composite draft reference passes input identity but original native prefill exceeds parity tolerance
@@ -506,9 +507,8 @@ updated: 2026-10-03T16:09:11.983729Z
 - [[sources/runs/2026/09/2026-09-07-optimization-cached-planner-build-and-typed-parity]] — Cached planner build and441typed parity checks
 - [[sources/runs/2026/09/2026-09-07-optimization-full-cache-first-cell-refusal]] — Original full-cache first-cell resource refusal
 - [[sources/runs/2026/09/2026-09-07-optimization-serial-compiler-guard-failures]] — Serial compiler guard failures and preserved primary errors
-- [[sources/runs/2026/09/2026-09-07-optimization-typed-planner-baseline-and-isolation]] — Typed planner baseline and isolated cost-family implementation
 
 ## More
 
-This folder has 752 files. The 500 most recent are listed above.
+This folder has 753 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -5,7 +5,7 @@ import Foundation
 /// app launches. APFS file identity and nanosecond change times invalidate it on
 /// writes, replacement, symlink retargeting, or optional-file arrival/removal.
 /// Other filesystems keep full verification on every load.
-package final class ModelVerificationCache {
+package final class ModelVerificationCache: @unchecked Sendable {
     private struct Version: Equatable {
         var path: String
         var device: Int32 = 0
@@ -18,6 +18,7 @@ package final class ModelVerificationCache {
         var changedNanos: Int = 0
     }
     private var verified: [Version]?
+    private let lock = NSLock()
     package init() {}
     private func versions(_ files: [URL]) -> [Version]? {
         var result: [Version] = []
@@ -42,9 +43,12 @@ package final class ModelVerificationCache {
         }
         return result
     }
-    /// Called serially by LocalInference. The first load always executes the
+    /// The background preparation worker and inference owner share this proof.
+    /// Serialize proof publication, including verification, across both callers.
+    /// The first load always executes the
     /// pinned SHA-256 verifier; only an unchanged successful proof can be reused.
     package func check(files: [URL], shouldContinue: () -> Bool, verify: () throws -> Bool) throws -> Bool {
+        lock.lock(); defer { lock.unlock() }
         guard shouldContinue() else { throw SevraError.cancelled }
         let before = versions(files)
         if let before, before == verified {

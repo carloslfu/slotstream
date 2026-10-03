@@ -12,7 +12,7 @@ struct Slotstream: ParsableCommand {
         abstract: "Qwen3.8-Flash-Next on Apple Silicon via SSD-streamed experts + cache slots.",
         version: SlotstreamBuild.version,
         subcommands: [
-            Run.self, Serve.self, Launch.self, Stop.self, Pull.self, Doctor.self, PrefixCacheCommand.self, Parity.self, ElasticCheck.self,
+            Run.self, Serve.self, Launch.self, Stop.self, Pull.self, Doctor.self, ModelPackCommand.self, PrefixCacheCommand.self, Parity.self, ElasticCheck.self,
             NgramGolden.self, DequantGolden.self, TemplateCheck.self, SamplerGolden.self, GovernorCheck.self,
             PrefixCheck.self, PrefixExactCheck.self, ElasticDrill.self, RuntimeCheck.self, PullCheck.self,
             MTPParity.self, MTPAccept.self, MTPCheck.self, MTPRowCheck.self, MTPFixtureInputs.self, MTPBench.self, MTPPassCost.self,
@@ -46,6 +46,9 @@ struct ModelOptions: ParsableArguments {
     @Option(name: .long,
             help: "Model name or directory (default \(PinnedModel.name); a name resolves to the dev checkout's models/ or ~/.slotstream/models)")
     var model: String = PinnedModel.name
+
+    @Option(name: .long, help: "Product pack selection: auto or a supported ID from model-packs; omitted preserves legacy --model behavior")
+    var quantization: String?
 
     @Option(
         name: .customLong("memory-gb"),
@@ -174,6 +177,9 @@ struct ModelOptions: ParsableArguments {
     var modelURL: URL { ModelLocator.resolve(model).resolvingSymlinksInPath() }
 
     func validate() throws {
+        if let quantization {
+            _ = try ModelPackRegistry.resolve(quantization == "auto" ? .automatic : .pack(quantization))
+        }
         if let limit = memoryLimitGB {
             guard limit.isFinite, limit >= Planner.minMemoryGB else {
                 throw ValidationError("--memory-limit-gb must be finite and at least \(Planner.minMemoryGB) GB")
@@ -285,7 +291,7 @@ struct ModelOptions: ParsableArguments {
     /// Whether the pinned model still has files to download. An explicit
     /// directory counts as present when it holds a config.
     func weightsMissing() -> Bool {
-        guard model == PinnedModel.name || model == PinnedModel.dirName else {
+        guard quantization != nil || model == PinnedModel.name || model == PinnedModel.dirName else {
             return !FileManager.default.fileExists(atPath: modelURL.appendingPathComponent("config.json").path)
         }
         return WeightStore.remainingBytes(at: modelURL) > 0
@@ -314,7 +320,13 @@ struct ModelOptions: ParsableArguments {
     func ensureWeights() throws {
         let url = modelURL
         let fm = FileManager.default
-        guard model == PinnedModel.name || model == PinnedModel.dirName else {
+        if quantization != nil, model != PinnedModel.name, model != PinnedModel.dirName {
+            guard WeightStore(modelDirectory: url).status().isReady else {
+                throw PlanError("this directory does not contain the selected verified pack; use slotstream pull with an explicit destination before selecting it")
+            }
+            return
+        }
+        guard quantization != nil || model == PinnedModel.name || model == PinnedModel.dirName else {
             // explicit path: all we can check cheaply is that a model is there
             guard fm.fileExists(atPath: url.appendingPathComponent("config.json").path) else {
                 throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")

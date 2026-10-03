@@ -16,6 +16,14 @@ extension Diagnostics {
         // A 48 GB Mac sitting at what auto picks when nothing else is running.
         let ram = 51.5
         let ws = 40.2
+        let held = try? Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, memoryLimitGB: 20,
+            ramGB: ram, workingSetGB: ws, availableGB: 40, mtp: .off, vision: .off)
+        let constrained = try? Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, memoryLimitGB: 10,
+            ramGB: ram, workingSetGB: ws, availableGB: 15, mtp: .off, vision: .off)
+        c.expect("fixed capacity accepts its complete allocation", P.fixedCapacityFits(current: held, availablePlan: held))
+        c.expect("a feasible smaller cache cannot admit the held larger cache", !P.fixedCapacityFits(current: held, availablePlan: constrained))
+        c.expect("fixed capacity can recover when memory returns", P.fixedCapacityFits(current: constrained, availablePlan: held))
+        c.expect("fixed capacity refuses missing feasibility", !P.fixedCapacityFits(current: held, availablePlan: nil))
         c.expect("warm growth fits both real availability and the process target",
             P.growthFits(footprintBytes: 8_000_000_000, transientBytes: 2_000_000_000,
                 availableGB: 8, targetGB: 10, ramGB: ram))

@@ -183,7 +183,12 @@ public actor LocalInference: Inference {
     private let ahead = VerificationAhead()
     private var releasedAt: TimeInterval?
     private var preferences: PerformancePreferences
+    private var appliedConfiguration: AppliedModelConfiguration?
     private var inTurn = false
+    /// Actor methods can interleave while draining the governor. Protect that
+    /// await as well as generation so direct API callers cannot admit a turn
+    /// into an engine whose release/configuration is already in progress.
+    private var maintaining = false
     private var cacheContext: InferenceCacheContext?
     private var privateWorkingState = false
     public private(set) var persistentCacheActive = false
@@ -198,7 +203,7 @@ public actor LocalInference: Inference {
         self.model = model; self.preferences = .init(budget: .custom, customGB: memoryGB)
     }
     public func prepareCache(_ context: InferenceCacheContext) async throws {
-        guard !inTurn else { throw SevraError.refused("Cache ownership changes after the current response.") }
+        guard !inTurn, !maintaining else { throw SevraError.refused("Cache ownership changes after the current response or model maintenance.") }
         guard cacheContext != context || (privateWorkingState && context.directory != nil) else { return }
         // On a privacy/Home transition, clear memory before encoding as well
         // as detaching disk. A promoted or copied history must not splice a
@@ -220,10 +225,16 @@ public actor LocalInference: Inference {
     }
     public func configure(_ preferences: PerformancePreferences) async throws {
         try PerformancePolicy.validate(preferences, on: .current())
-        guard !inTurn else { throw SevraError.refused("Memory settings apply after the current response.") }
+        guard !inTurn, !maintaining else { throw SevraError.refused("Memory settings apply after the current response or model maintenance.") }
+        maintaining = true
+        defer { maintaining = false }
+        let oldPack = try? ModelPackRegistry.resolve(self.preferences.quantization).pack.id
+        let newPack = try ModelPackRegistry.resolve(preferences.quantization).pack.id
         if self.preferences.budget != preferences.budget ||
-            (preferences.budget == .custom && self.preferences.customGB != preferences.customGB) {
-            await unload()
+            (preferences.budget == .custom && self.preferences.customGB != preferences.customGB) ||
+            self.preferences.liveMemory != preferences.liveMemory ||
+            oldPack != newPack {
+            await releaseEngine()
             performanceTelemetry?.update(state: "Model not loaded", detail: "Your new budget applies to the next message.")
         }
         self.preferences = preferences
@@ -232,7 +243,7 @@ public actor LocalInference: Inference {
         try await turn(history: history, tools: tools, thinking: nil, replyTokens: ReplyPolicy.answerTokens, control: ThinkingControl(), cancellation: cancellation, buffer: buffer)
     }
     public func turn(history: [ChatMessage], tools definitions: [ToolDefinition], thinking requested: ThinkingRequest?, replyTokens requestedReply: Int, control: ThinkingControl, cancellation: Cancellation, buffer: TurnBuffer) async throws -> EngineTurn {
-        guard !inTurn else { throw SevraError.refused("The local model is already in use.") }
+        guard !inTurn, !maintaining else { throw SevraError.refused("The local model is already in use or changing settings.") }
         inTurn = true
         let started = ProcessInfo.processInfo.systemUptime
         var prepared = false
@@ -246,6 +257,7 @@ public actor LocalInference: Inference {
         }
         try cancellation.check()
         if engine == nil {
+            let selection = try ModelPackRegistry.resolve(preferences.quantization)
             performanceTelemetry?.update(state: "Loading", detail: "Preparing the local model.")
             buffer.stage("Verifying the local model")
             // Join the check started ahead; Stop still ends the wait. The
@@ -257,7 +269,7 @@ public actor LocalInference: Inference {
             let store = WeightStore(modelDirectory: model)
             let verified: Bool
             do {
-                verified = try modelVerification.check(files: PinnedModel.files.map { model.appendingPathComponent($0.path) },
+                verified = try modelVerification.check(files: selection.pack.files.map { model.appendingPathComponent($0.path) },
                     shouldContinue: { !cancellation.isCancelled }) {
                         try store.status(shouldContinue: { !cancellation.isCancelled }).isReady
                     }
@@ -279,12 +291,23 @@ public actor LocalInference: Inference {
             let plan = try PerformancePolicy.plan(preferences, on: machine, mtpAvailable: MTPWeights.present(modelDir: model),
                 decodeLookahead: .environment(modelDirectory: model))
             buffer.stage("Loading the local model")
-            engine = try await Engine(modelDir: model, plan: plan)
-            try engine?.configureShortPromptPrefill(maxPromptTokens: PerformancePolicy.shortPromptTokens,
-                chunk: PerformancePolicy.shortPromptChunk)
+            do {
+                let candidate = try await Engine(modelDir: model, plan: plan)
+                try candidate.configureShortPromptPrefill(maxPromptTokens: PerformancePolicy.shortPromptTokens,
+                    chunk: PerformancePolicy.shortPromptChunk)
+                let identity = try candidate.appliedConfiguration(pack: selection.pack, liveMemory: preferences.liveMemory)
+                try cancellation.check()
+                // Publish only after all initialization and identity work
+                // succeeds. No partially configured engine becomes active.
+                engine = candidate; appliedConfiguration = identity
+                performanceTelemetry?.applied(identity)
+            } catch {
+                Engine.releaseUnusedMemory()
+                throw error
+            }
             configurePersistentCache()
             if let engine {
-                governor = MemoryGovernor(engine: engine)
+                governor = MemoryGovernor(engine: engine, management: preferences.liveMemory)
                 governor?.start()
             }
             metrics.loadSeconds = ProcessInfo.processInfo.systemUptime - started
@@ -405,6 +428,7 @@ public actor LocalInference: Inference {
         metrics.budgetGB = memoryPlan.map { $0.targetGB ?? $0.expectedPeakGB }
         metrics.memoryLimitGB = memoryPlan?.memoryLimitGB
         metrics.customBudget = preferences.budget == .custom
+        metrics.configurations = appliedConfiguration.map { [$0] }
         var turn = EngineTurn(text: text, calls: calls, finishReason: result.stats.finishReason, metrics: metrics)
         turn.thinking = receipt
         try turn.validateCompletion()
@@ -415,7 +439,7 @@ public actor LocalInference: Inference {
     /// in bounded chunks and loads nothing. Skipped in Low Power Mode, when
     /// the model is loaded, or when the files are not all present.
     public func prepareAhead() async {
-        guard engine == nil, !inTurn, !ProcessInfo.processInfo.isLowPowerModeEnabled,
+        guard engine == nil, !inTurn, !maintaining, !ProcessInfo.processInfo.isLowPowerModeEnabled,
               WeightStore.remainingBytes(at: model) == 0, ahead.begin() else { return }
         let cache = modelVerification, model = model, ahead = ahead
         let files = PinnedModel.files.map { model.appendingPathComponent($0.path) }
@@ -431,7 +455,7 @@ public actor LocalInference: Inference {
     /// allocator's reusable buffers go; the weights stay loaded, so the next
     /// reply does not reload the model. Nothing private was written to disk.
     public func releasePrivateState() async {
-        while inTurn { try? await Task.sleep(nanoseconds: 20_000_000) }
+        while inTurn || maintaining { try? await Task.sleep(nanoseconds: 20_000_000) }
         guard let engine else { return }
         engine.disablePersistentPrefixCache()
         engine.dropPrefixCache()
@@ -442,14 +466,23 @@ public actor LocalInference: Inference {
         cacheContext = nil
     }
     public func unload() async {
+        while inTurn || maintaining { try? await Task.sleep(nanoseconds: 20_000_000) }
+        maintaining = true
+        defer { maintaining = false }
+        await releaseEngine()
+    }
+    /// Requires lifecycle ownership and no active turn. The caller keeps it
+    /// across the asynchronous drain, including when there is no governor.
+    private func releaseEngine() async {
         // A check running ahead stops; model setup may be changing the files.
         ahead.cancel()
-        while inTurn { try? await Task.sleep(nanoseconds: 20_000_000) }
         let wasLoaded = engine != nil
         performanceTelemetry?.update(state: "Releasing memory", detail: "Returning model memory to your Mac.")
         await governor?.stopAndWait(); governor = nil
         autoreleasepool {
             engine?.dropPrefixCache(); engine = nil
+            appliedConfiguration = nil
+            performanceTelemetry?.applied(nil)
             persistentCacheActive = false
             privateWorkingState = false
             Engine.releaseUnusedMemory()

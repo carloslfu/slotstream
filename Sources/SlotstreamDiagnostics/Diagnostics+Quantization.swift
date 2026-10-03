@@ -4,6 +4,8 @@ import Slotstream
 
 extension Diagnostics {
     public static func quantizationMetadata() throws -> CheckReport {
+        let automatic = try ModelPackRegistry.resolve(.automatic)
+        let pinned = try ModelPackRegistry.resolve(.pack(PinnedModel.name))
         var c = CheckBuilder("quantization-metadata")
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("quantization-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -84,6 +86,16 @@ extension Diagnostics {
         ] {
             do { try operation(); c.expect("incomplete or foreign execution binding refused", false) }
             catch { c.expect("incomplete or foreign execution binding refused", true) }
+        }
+        c.equal("Auto retains the supported original pack", automatic.pack.id, PinnedModel.name)
+        c.equal("explicit selection binds the same bytes", pinned.pack.manifestDigest, automatic.pack.manifestDigest)
+        c.equal("registry preserves required download bytes", automatic.pack.requiredBytes, PinnedModel.requiredBytes)
+        c.expect("research packs cannot enter Auto", ModelPackRegistry.supported.count == 1)
+        c.expect("supported baseline is not a new speed qualification", automatic.pack.qualifiedAutomaticProfiles.isEmpty)
+        c.expect("selection modes have separate reasons", automatic.automatic && !pinned.automatic && automatic.reason != pinned.reason)
+        for unknown in ["vq-2.1", "vq-3.2", "../model", "", "auto"] {
+            do { _ = try ModelPackRegistry.resolve(.pack(unknown)); c.expect("unsupported explicit pack refused", false) }
+            catch { c.expect("unsupported explicit pack refused", true) }
         }
         return c.report()
     }

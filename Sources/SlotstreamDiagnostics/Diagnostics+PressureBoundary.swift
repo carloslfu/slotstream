@@ -102,7 +102,9 @@ extension Diagnostics {
         engine.pressureBoundary.acknowledge(queued)
 
         let checkpointTokens = engine.model.optimizations.prefixCheckpointTokens
-        for phase in ["scope", "prefill", "decode", "nonstream"] {
+        for phase in ["fixed", "scope", "prefill", "decode", "nonstream"] {
+            let governor = phase == "fixed" ? MemoryGovernor(engine: engine, management: .fixed) : governor
+            let expectedSlots = phase == "fixed" ? base.slots : Geometry.floorSlots
             engine.dropPrefixCache()
             let scoped = phase == "scope"
             engine.model.optimizations.layerExpertWorkspace = scoped
@@ -139,7 +141,7 @@ extension Diagnostics {
             } : nil
             var polls = 0
             let token: ((Int, String) -> Bool)? = phase == "nonstream" ? nil : { _, _ in
-                if phase == "decode" { trigger() }
+                if phase == "decode" || phase == "fixed" { trigger() }
                 return true
             }
             let result = engine.generate(promptIds: input, params: params, shouldContinue: {
@@ -172,7 +174,7 @@ extension Diagnostics {
             } else {
                 c.expect("decode emits a coherent prefix before cancellation", !result.ids.isEmpty && Array(baseline.ids.prefix(result.ids.count)) == result.ids)
             }
-            c.equal("\(phase): pressure cannot exceed the arena floor", engine.poolSnapshot().slots, Geometry.floorSlots)
+            c.equal("\(phase): pressure respects selected cache management", engine.poolSnapshot().slots, expectedSlots)
             c.equal("\(phase): prefix ownership is released even when already at floor", engine.prefixCache.heldTokens, 0)
             c.expect("\(phase): acknowledged pressure cannot stop the next request", engine.pressureBoundary.snapshot() == nil)
             let unavailable = engine.generate(promptIds: prompt, params: params)
@@ -196,12 +198,15 @@ extension Diagnostics {
                     runtimeAllocationPolicy: current.runtimeAllocationPolicy,
                     contextQualification: current.contextQualification)
                 inputs.mtpStreamedExperts = current.mtpStreamedExperts
+                if phase == "fixed" {
+                    return GovernorPolicy.fixedCapacityFits(current: current, availablePlan: GovernorPolicy.desiredPlan(inputs))
+                }
                 return GovernorPolicy.desiredPlan(inputs) != nil && GovernorPolicy.decide(inputs) == .hold
             }
             guard let recovery else { throw ModelError("no bounded feasible governor recovery is available") }
             Planner.availabilityOverride = recovery
             governor.pollNow()
-            c.equal("\(phase): recovery keeps the bounded arena", engine.poolSnapshot().slots, Geometry.floorSlots)
+            c.equal("\(phase): recovery keeps the bounded arena", engine.poolSnapshot().slots, expectedSlots)
             c.expect("\(phase): feasible recovery clears the admission latch",
                 engine.contextPolicyJSON["allocation_available"] as? Bool == true)
             let retry = engine.generate(promptIds: prompt, params: params)
