@@ -2,14 +2,15 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-03T10:14:02.121123Z
+updated: 2026-10-03T19:15:45.465154Z
 ---
 
 # records/decisions
 
+- [[records/decisions/same-model-automatic-quantization-with-overrides]] — Default to automatic same-model quantization selection while preserving independent user pack and memory-ceiling overrides.
+- [[records/decisions/single-mac-quantization-validation]] — Complete quantization and Auto work with the available 48 GB Mac; other-Mac physical validation is not a completion requirement.
 - [[records/decisions/vq-2.1-held-after-distribution-screen]] — Hold VQ 2.1 out of promotion after the matched quality screen; retain evidence and focus engineering on VQ 3.2.
 - [[records/decisions/vq-weights-behind-qualification-gates]] — Support the VQ builds of the same model as a second weight format, behind qualification gates
-- [[records/decisions/same-model-automatic-quantization-with-overrides]] — Default to automatic same-model quantization selection while preserving independent user pack and memory-ceiling overrides.
 - [[records/decisions/automatic-context-window-per-machine]] — Auto picks the largest of 32,768, 65,536, 131,072 and 262,144 tokens that keeps speculative decoding, retains one conversation and adds at most 10% to a typical request
 - [[records/decisions/decode-lookahead-default-with-the-draft-head]] — Router-reuse prefetch, FP32 router weights and a four-layer GPU barrier run wherever the draft head does, charged 373 MiB; held out at 1.114 with identical output
 - [[records/decisions/draft-head-auto-floor-76-per-layer]] — Auto enables the draft head when the cache keeps 76 experts per layer after its charge, a 21 GB target, so 32 GB Macs and up; the former floor was 120

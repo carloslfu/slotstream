@@ -148,3 +148,6 @@ Recorded final native build and unlaunched broader acceptance under insufficient
 ## [2026-10-03 18:23] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implemented baseline-only Auto and explicit quantization controls independently of ceilings and live adjustment, bound applied configurations to responses, verified fixed-capacity pressure recovery and real app reloads, and closed the earlier local draft regression gap. Candidate serving, multi-pack transactions and performance qualification remain open.
 
+## [2026-10-03 19:15] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Applied the owner correction: the available 48 GB Mac is the sole required physical validation machine. Replaced mandatory other-Mac gates with safe lower-target measurements, planner-only fixtures and conservative labeled estimates; preserved local quality, memory, performance and implementation requirements.
+
