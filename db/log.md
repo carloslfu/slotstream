@@ -172,3 +172,6 @@ Preserve the full-VQ task memory failure and record exact state-only intermediat
 ## [2026-10-03 23:02] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Record exact parallel-prefill staging, bounded full-task reproduction, CLI refusals and passing static checks; preserve the paired timing exclusions without a speed claim.
 
+## [2026-10-03 23:41] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Record complete bounded original4-to-affine3 expert conversion, strict independent reference and mixed six-context calibration; preserve setup/static failures and keep native qualification and product integration open.
+

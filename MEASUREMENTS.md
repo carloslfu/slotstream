@@ -7432,3 +7432,25 @@ Independent 410/512-row component fixtures pass for all allocation classes in VQ
 The complete sixteen-case composite calibration preserves all output tokens, parsed answers, finish reasons and speculative details, with an 8,510,592,976-byte process peak. The following three alternating serial/parallel pairs use identical prepared tokens, one fixed warm-up case, a short tool case and two retrieval cases, preserving all outputs and staying inside ten GB. Four timing cells fail the prospectively fixed competing-CPU condition. Only the final pair is eligible, so the complete study emits no clean median or promotion verdict. Raw timings remain available as excluded observations. This is not a sustained speed or twenty-token result.
 
 All eleven new actual CLI refusals and the complete static acceptance suite pass. All four remote workflows for both preceding source commits are successful. Parallel prefill remains an explicit research option; the installed model, public loading and Auto registry are unchanged.
+
+
+### Controlled three-bit experts and independent calibration, October 3
+
+[[sources/runs/2026/10/2026-10-03-affine-three-bit-expert-control]] captures a complete expert-only affine-three-bit transcode of the original four-bit checkpoint. Dense, PLE, draft and vision values remain original. The result contains 48 files and 52,848,290,992 bytes including headers, with 2,150,400 bytes per complete expert record. It still requires its original parent and is not an installable or reduced-download-size claim. The phase prospectively raises total research staging from 350 GB to 365 GB to price these additional outputs; historical protocols remain unchanged.
+
+The source-bound quantizer verifies every original source and complete output through owned descriptors. Numerical checks cover both expert shapes, all packed codes, byte-identical batch-eight versus individual conversion, tensor serialization and restored reconstruction. The component's internal physical lifetime peak is 577,864,664 bytes; conversion peaks at 257,082,112 bytes. The separate strict reference verifies every original PLE table against mapped gathers and preserves exact direct/streamed output over four layers and 513 tokens, peaking at 5,559,915,152 bytes. Each subsequent full-model pilot stays below ten GB; the largest observed peak is 2,291,976,352 bytes.
+
+All six contexts reuse the frozen original token sequences and corrected VQ4.4 reference. Candidate full-vocabulary logits are scored in memory and hashed, adding zero stored raw-logit bytes. The comparison uses the previously captured native original baseline and this explicitly identified Python control. It is not a causal proof that bit width alone explains every difference.
+
+| Context | Original baseline KL | Control KL | Original top-choice agreement | Control top-choice agreement |
+| --- | --- | --- | --- | --- |
+| Prose | 0.224397 | 0.284638 | 13/16 | 13/16 |
+| Coding | 0.366843 | 0.475493 | 12/16 | 14/16 |
+| Tool result | 0.764051 | 0.918598 | 12/16 | 10/16 |
+| Multilingual | 0.343711 | 0.379610 | 14/16 | 11/16 |
+| Continuation | 0.715288 | 0.192943 | 13/16 | 15/16 |
+| Retrieval | 0.249774 | 0.344421 | 12/16 | 14/16 |
+
+Macro KL is 0.444011 for the baseline and 0.432617 for the control; top-choice agreement is 76/96 and 77/96. Five contexts worsen KL, while the continuation improvement reverses the aggregate. This small calibration supports further native measurement but cannot qualify similar task quality, speed or product use. No output was discarded or sampled again to improve the outcome.
+
+The initial protocol setup used system Python without MLX metadata and stopped before model launch. The first static attempt then found that the new suites were absent from the static-entry-point fixture registry. Both failures are preserved. The corrected fixture registration and complete static suite pass; no model measurements were rerun for that repair. Public Engine loading, installed artifacts, the supported registry and Auto remain unchanged.

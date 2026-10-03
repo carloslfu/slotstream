@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-03T23:01:34.714271Z
+updated: 2026-10-03T23:41:34.424738Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-03-affine-three-bit-expert-control]] — Controlled affine-three-bit expert conversion and independent calibration screen
 - [[sources/runs/2026/10/2026-10-03-candidate-parallel-prefill-read-validation]] — Exact parallel prefill staging and completed-task validation; timing excluded by competing load
 - [[sources/runs/2026/10/2026-10-03-candidate-prefill-readout-memory-repair]] — Exact state-only intermediate prefill and bounded completed-task rerun
 - [[sources/runs/2026/10/2026-10-03-candidate-completed-task-calibration]] — Frozen completed-task calibration, hybrid result and full-pack memory failure
@@ -506,9 +507,8 @@ updated: 2026-10-03T23:01:34.714271Z
 - [[sources/runs/2026/09/2026-09-07-optimization-api-pressure-preflight-refusal]] — Corrected API qualification was not launched after headroom refusal
 - [[sources/runs/2026/09/2026-09-07-optimization-os-pressure-readiness]] — Prospective OS-pressure observation and guarded process receipts
 - [[sources/runs/2026/09/2026-09-07-optimization-api-generation-completion-validation]] — API completion validation rejects matching errors and incomplete responses
-- [[sources/runs/2026/09/2026-09-07-optimization-planner-context-pass-and-api-pressure-failure]] — Planner and context correctness with failed API pressure interval
 
 ## More
 
-This folder has 760 files. The 500 most recent are listed above.
+This folder has 761 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
