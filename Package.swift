@@ -54,6 +54,7 @@ let package = Package(
         .target(
             name: "SlotstreamTestKit",
             dependencies: ["SlotstreamDiagnostics"],
+            resources: [.process("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(

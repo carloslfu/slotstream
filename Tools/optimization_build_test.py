@@ -77,5 +77,45 @@ class BuildTests(unittest.TestCase):
                            run=lambda *a, **kw: SimpleNamespace(returncode=0), lock_path=Path(d)/'lock')
             self.assertFalse(result['passed']); self.assertFalse((Path(d)/'out/candidate').exists())
 
+    def test_successful_freeze_copies_checker_resource_bundle(self):
+        with TemporaryDirectory() as d, patch('optimization_build.verified_build', return_value={}):
+            root = Path(d)
+            fixture = b'{"schema":1}\n'
+
+            def run(*args, **kwargs):
+                release = root/'.build/release'
+                release.mkdir(parents=True)
+                for name in ['slotstream', 'slotstream-checks', 'mlx.metallib',
+                             'build-identity.json', 'build-source.tar.gz']:
+                    (release/name).write_bytes(b'inert test artifact')
+                bundle = release/'slotstream_SlotstreamTestKit.bundle'
+                bundle.mkdir()
+                (bundle/'vq-record-profile-v1.json').write_bytes(fixture)
+                return SimpleNamespace(returncode=0)
+
+            result = build(root, root/'out', snapshot=lambda: {'reclaimable_bytes': 13_000_000_000},
+                           run=run, lock_path=root/'lock')
+            self.assertTrue(result['passed'], result.get('error'))
+            frozen_fixture = root/'out/candidate/slotstream_SlotstreamTestKit.bundle/vq-record-profile-v1.json'
+            self.assertTrue(frozen_fixture.is_file(), 'candidate omitted the checker resource fixture')
+            self.assertEqual(frozen_fixture.read_bytes(), fixture)
+
+    def test_missing_checker_resource_refuses_freeze(self):
+        with TemporaryDirectory() as d, patch('optimization_build.verified_build', return_value={}):
+            root = Path(d)
+
+            def run(*args, **kwargs):
+                release = root/'.build/release'
+                release.mkdir(parents=True)
+                for name in ['slotstream', 'slotstream-checks', 'mlx.metallib',
+                             'build-identity.json', 'build-source.tar.gz']:
+                    (release/name).write_bytes(b'inert test artifact')
+                return SimpleNamespace(returncode=0)
+
+            result = build(root, root/'out', snapshot=lambda: {'reclaimable_bytes': 13_000_000_000},
+                           run=run, lock_path=root/'lock')
+            self.assertFalse(result['passed'])
+            self.assertFalse((root/'out/candidate').exists())
+
 
 if __name__ == '__main__': unittest.main()

@@ -1,5 +1,5 @@
-// T0: pure Swift. No MLX, no GPU, no files, no weights. Everything here runs
-// on any Mac in milliseconds, which is what makes it a gate on every push.
+// T0 checks use small fixtures and device/OS metadata without model weights.
+// Some read Metal device metadata; numerical/model gates use higher tiers.
 
 import Foundation
 import Slotstream
@@ -8,6 +8,7 @@ import SlotstreamDiagnostics
 extension Catalogue {
     static var t0Checks: [Check] {
         [
+            Check("vq-record-profile", tier: .t0) { try vqRecordProfile() },
             Check("quantization-geometry", tier: .t0) { try Diagnostics.quantizationGeometry() },
             Check("quantization-metadata", tier: .t0) { try Diagnostics.quantizationMetadata() },
             Check("quantization-read-batch", tier: .t0) { try Diagnostics.quantizationReadBatch() },
