@@ -77,6 +77,7 @@ public struct Rope {
     let invFreq: MLXArray  // (dim/2) f32
     let dim: Int
     private let pinnedVQReference: Bool
+    private let vqCoefficients: VQRotaryCoefficients?
     private let tables = RopeTables()
     public var sharedTables: Bool {
         get { tables.enabled }
@@ -103,9 +104,12 @@ public struct Rope {
         self.init(dim: dim, base: base, pinnedVQReference: false)
     }
 
-    package init(dim: Int, base: Float, pinnedVQReference: Bool) {
+    package init(dim: Int, base: Float, pinnedVQReference: Bool,
+                 vqCoefficients: VQRotaryCoefficients? = nil) {
         self.dim = dim
         self.pinnedVQReference = pinnedVQReference
+        self.vqCoefficients = vqCoefficients
+        precondition(vqCoefficients == nil || pinnedVQReference)
         let exps = MLXArray(stride(from: 0, to: Int32(dim), by: 2).map { Float($0) / Float(dim) })
         if pinnedVQReference {
             precondition(dim == 64 && base == 10_000_000, "VQ rotary coefficients require the pinned geometry")
@@ -115,6 +119,7 @@ public struct Rope {
 
     /// positions (B, T) -> cos/sin (B, T, dim)
     func callAsFunction(_ positions: MLXArray) -> (MLXArray, MLXArray) {
+        if let vqCoefficients { return vqCoefficients.angles(positions) }
         if pinnedVQReference { return VQRotaryTable.angles(positions) }
         let freqs = positions.asType(.float32).expandedDimensions(axis: -1) * invFreq
         let emb = concatenated([freqs, freqs], axis: -1)

@@ -3,6 +3,73 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct QuantizationTaskRun: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "quantization-task-run",
+        abstract: "Run a frozen bounded task evaluation without activating or qualifying a model pack")
+    @Option(name: .long) var protocolFile: String
+    @Option(name: .long) var protocolSha256: String
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var sourceDirectory: String?
+    @Option(name: .long) var sourceInventory: String?
+    @Option(name: .long) var denseOverlayManifest: String?
+    @Option(name: .long) var table: String?
+    @Option(name: .long) var draftDepth = 0
+    @Option(name: .long) var output: String
+    @Flag(name: .long, help: "Render and freeze exact input tokens without loading the model") var prepareOnly = false
+    func run() throws {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Data?, failure: Error?
+        Task {
+            do {
+                result = try await Diagnostics.quantizationTasks(protocolFile: URL(fileURLWithPath: protocolFile),
+                    protocolSHA256: protocolSha256, baseline: URL(fileURLWithPath: baseline),
+                    source: sourceDirectory.map { URL(fileURLWithPath: $0) },
+                    inventory: sourceInventory.map { URL(fileURLWithPath: $0) },
+                    composite: denseOverlayManifest.map { URL(fileURLWithPath: $0) },
+                    table: table.map { URL(fileURLWithPath: $0) }, draftDepth: draftDepth,
+                    output: URL(fileURLWithPath: output), prepareOnly: prepareOnly)
+            } catch { failure = error }
+            semaphore.signal()
+        }
+        semaphore.wait()
+        if let failure { throw failure }
+        guard let result else { throw ValidationError("task evaluation produced no receipt") }
+        print(String(decoding: result, as: UTF8.self))
+    }
+}
+
+struct QuantizationRotaryCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "quantization-rotary-check",
+        abstract: "Check authenticated extended candidate rotary coefficients")
+    @Option(name: .long) var table: String
+    func run() throws {
+        let report = try Diagnostics.quantizationRotary(table: URL(fileURLWithPath: table))
+        print(String(decoding: try JSONEncoder().encode(report), as: UTF8.self))
+        guard report.passed else { throw ValidationError("rotary coefficient checks failed") }
+    }
+}
+
+struct QuantizationContextCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "quantization-context-check",
+        abstract: "Check an explicitly bounded candidate context without activating a pack")
+    @Option(name: .long) var sourceDirectory: String
+    @Option(name: .long) var sourceInventory: String
+    @Option(name: .long) var denseOverlayBaseline: String
+    @Option(name: .long) var denseOverlayManifest: String
+    @Option(name: .long) var table: String
+    @Option(name: .long) var limit: Int
+    @Option(name: .long) var output: String
+    func validate() throws {
+        guard [4096, 8192, 32768].contains(limit) else { throw ValidationError("context stages are 4096, 8192 and 32768") }
+    }
+    func run() throws {
+        print(String(decoding: try Diagnostics.quantizationContext(source: URL(fileURLWithPath: sourceDirectory),
+            inventory: URL(fileURLWithPath: sourceInventory), baseline: URL(fileURLWithPath: denseOverlayBaseline),
+            composite: URL(fileURLWithPath: denseOverlayManifest), table: URL(fileURLWithPath: table), limit: limit,
+            output: URL(fileURLWithPath: output)), as: UTF8.self))
+    }
+}
+
 struct QuantizationGenerationCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "quantization-generation-check",
         abstract: "Check bounded candidate speculative generation without activating a pack")

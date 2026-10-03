@@ -15,10 +15,11 @@ package enum VQGenerationProbe {
 
     package static func generate(model: VQModelProbe, prompt: [Int], params: SampleParams,
         draftDepth: Int, eosIDs: Set<Int>, shouldContinue: () -> Bool = { true },
-        onToken: ((Int) -> Bool)? = nil) throws -> Result {
+        onToken: ((Int) -> Bool)? = nil, outputLimit: Int = 128) throws -> Result {
         let params = params.sanitized()
         guard model.consumedTokens == 0, !prompt.isEmpty, (0...4).contains(draftDepth),
-              params.maxTokens <= 128, prompt.count + params.maxTokens <= 2054,
+              [128, 512, 1024, 2048].contains(outputLimit),
+              params.maxTokens <= outputLimit, prompt.count + params.maxTokens <= model.contextLimit,
               draftDepth == 0 || model.hasDraft else {
             throw ModelError("candidate generation requires an empty bounded state and an explicitly loaded draft")
         }

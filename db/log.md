@@ -160,3 +160,9 @@ Implemented bounded candidate recurrent recording and owned checkpoint recovery;
 ## [2026-10-03 20:19] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implemented bounded target-verified composite generation with the original draft and shared embedding consumption; fixed a recorded head-fusion shape counterexample, passed exact greedy/sampled state and recovery checks plus original-model image/stream regressions. Context expansion and full production qualification remain active.
 
+## [2026-10-03 21:00] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Authenticated extended reference rotary coefficients and passed explicit composite-plus-draft 4K, 8K and 32K context recovery under the existing ten-GB envelope. Complete-task calibration is prepared; production integration and qualification remain active.
+
+## [2026-10-03 21:32] update | db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Record completed-task calibration, matching baseline/composite outcomes and the full VQ process-memory failure; keep all qualification gates open.
+

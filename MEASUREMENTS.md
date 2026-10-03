@@ -7379,3 +7379,35 @@ The final executable also passes the native catalogue and the unchanged full/com
 After candidate-only token-wise fusion, all 1,361 assertions pass, exercising 48 accepted drafts across the bounded cases. Greedy and sampled generation, EOS and callback stops preserve exact complete target/head logical state and RNG state. The sixteen-token greedy output equals the unchanged independent composite reference. Candidate process peak is 7,610,947,248 bytes within its ten-GB envelope. Sparse-boundary recovery without a draft passes all 4,952 checks on the same binary.
 
 The public overload now delegates embedding lookup into the same alignment/vision logic. Its existing full draft/image diagnostic passes with a 9,820,739,344-byte peak, and streamed-head checks pass with a 7,876,302,872-byte peak, within their unchanged twelve-GB target and fifteen-GB preflight. Every campaign cell preserves real headroom, pressure observation and the single-process rule. Runtime durations are functional observations only. No sustained speed, task-quality, arbitrary-context, candidate-image, production serving or Auto-promotion claim follows from these results.
+
+
+### Authenticated extended rotary and native contexts
+
+[[sources/runs/2026/10/2026-10-03-candidate-extended-rotary-and-context]] preserves the independent coefficient producer, exact build identity, bounded native campaign and all raw results. The 67,108,864-byte F32 component covers 262,144 positions and matches the complete embedded 2,054-position prefix. All 21 native component assertions pass, including complete duplicated sine/cosine hashes, noncontiguous batch indexing, wrong kinds/extents/digests and early/mid-read cancellation. The native coefficient diagnostic peaks at 405,865,432 bytes; the separately supervised Python producer stays within its two-GB bound. Coefficient coverage is not an admitted native context.
+
+| Explicit composite context with original draft | Assertions | Failures | Observed process peak, bytes |
+| --- | --- | --- | --- |
+| 4,096 | 493 | 0 | 8,437,568,408 |
+| 8,192 | 509 | 0 | 8,498,680,704 |
+| 32,768 | 605 | 0 | 9,389,527,888 |
+
+Every model case uses 512-token prefill passes, the same small mixed-class banks and exact-verification arithmetic. Tests compare long-context draft discard, reproduced proposals, target logits, recorded target/head rollback and subsequent continuation, then consume the complete configured window and refuse the next token without state mutation. No target prefix is recomputed to accept a speculative result. All expert pins are released, and every case leaves a committed target/head boundary. The native catalogue also passes.
+
+These runs retain the ten-GB process ceiling, thirteen-GB real reclaimable preflight, three-GB remaining headroom and one-process rule. Global paging is preserved as diagnostic data. Elapsed functional-run times are not clean throughput evidence. The embedded finite path remains the default, and this experiment does not qualify full model-range execution, image input, held-out tasks, a public candidate Engine, Auto promotion or twenty tokens/s. The same source records successful remote core, Mac, context and docs CI for the earlier state-recovery commit.
+
+
+### Frozen completed-task calibration
+
+[[sources/runs/2026/10/2026-10-03-candidate-completed-task-calibration]] binds a sixteen-case owned protocol covering instruction following, tool execution, tested coding fixes, multilingual structured answers and retrieval. The native producer authenticates the original tokenizer/template and freezes every input token once, avoiding tool-schema key-order differences across processes. Every arm uses that identical prepared protocol. Sampling is greedy, the admitted context is 8192 tokens, output is capped at 512 tokens and the process bound remains 10 GB with a 13 GB preflight and 3 GB actual headroom.
+
+| Arm | Completed tasks | Graded outcome | Observed process peak, bytes |
+| --- | --- | --- | --- |
+| Original affine four-bit, no draft | 16 of 16 | 15 of 16 pass | 7,994,971,224 |
+| Full VQ3.2, no draft | 14 of 16 | Ineligible incomplete arm; 11 observed cases pass | 10,020,674,016 at supervisor termination |
+| Original dense four-bit with VQ3.2 experts/PLE and two original-head drafts | 16 of 16 | 15 of 16 pass | 9,201,686,360 |
+
+The full VQ arm exceeds its process envelope during the first retrieval case and is terminated by its supervisor. Its last native receipt has only the earlier, lower peak; it does not contradict the external lifetime-peak observation. The composite runs once afterward as the originally frozen third arm. No preceding case, failed process or prompt is retried or replaced.
+
+Both complete arms return correctly sorted objects instead of the requested array of names in the same instruction case. All their tool calls execute successfully against deterministic local fixtures. Every coding fix passes its frozen pure-function tests without input mutation. The grader rejects incomplete answers, malformed or mismatched tool calls and unsupported coding authority; coding workers have bounded source, operations, memory observations and CPU/wall deadlines. The source includes the exact grader and eight passing instrument tests, twenty-one native refusal cases, the unchanged 1361-assertion generation control, the native catalogue and the full static pass.
+
+These are disjoint calibration examples, not held-out task estimates. The full VQ partial successes cannot be treated as a passing overall result. Functional request times are preserved but have no clean paired timing eligibility or confidence interval. No alternative pack, hardware speed profile, image support or production serving is qualified. The recorded next hypothesis is to omit unused vocabulary readouts on intermediate prompt passes, with exact state and continuation checks before any newly versioned measurement.

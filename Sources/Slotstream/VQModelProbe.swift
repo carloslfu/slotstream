@@ -8,13 +8,26 @@ import MLXNN
 /// bounded path is not yet a production service or automatic memory policy.
 package final class VQModelProbe {
     private let checkpoint: VQCheckpoint
-    private let rope: Rope
+    private var rope: Rope
+    package private(set) var contextLimit = 2054
     private let verificationArithmetic: Bool
     private let state = Qwen4ExpModel.State()
     private var recordingMulti: MLXArray?
     private var draftHead: MTPHead?
     private var provisionalDraft = false
     package var hasDraft: Bool { draftHead != nil }
+    /// Research-only staged windows. Coefficient coverage alone never selects
+    /// one: callers must explicitly reserve and test their requested window.
+    package func enableExtendedContext(_ coefficients: VQRotaryCoefficients, limit: Int) throws {
+        guard [4096, 8192, 32768].contains(limit), state.tokenCount == 0,
+              state.committedBoundaryValid, !state.recordingEnabled, !provisionalDraft,
+              contextLimit == 2054 else {
+            throw ModelError("extended candidate context requires an empty state and an explicit staged window")
+        }
+        rope = Rope(dim: checkpoint.config.rotaryDim, base: checkpoint.config.ropeTheta,
+                    pinnedVQReference: true, vqCoefficients: coefficients)
+        contextLimit = limit
+    }
     package var consumedTokens: Int { state.tokenCount }
     package var hasCommittedBoundary: Bool {
         state.committedBoundaryValid && !state.recordingEnabled && !provisionalDraft && recordingMulti == nil
@@ -104,7 +117,7 @@ package final class VQModelProbe {
         guard let head = draftHead, let mtp = state.mtp, state.hasValidMTP,
               state.committedBoundaryValid, !state.recordingEnabled, !provisionalDraft,
               (1...4).contains(count), (0..<checkpoint.config.vocabSize).contains(pending),
-              state.tokenCount + count + 1 <= 2054 else {
+              state.tokenCount + count + 1 <= contextLimit else {
             throw ModelError("candidate draft requires an aligned committed target and a bounded proposal")
         }
         provisionalDraft = true
@@ -177,10 +190,10 @@ package final class VQModelProbe {
                          shouldContinue: () -> Bool = { true }) throws -> Output {
         guard state.committedBoundaryValid, recordingMulti == nil, (!provisionalDraft || state.recordingEnabled),
               (1...512).contains(tokens.count),
-              state.tokenCount + tokens.count <= 2054,
+              state.tokenCount + tokens.count <= contextLimit,
               tokens.allSatisfy({ (0..<checkpoint.config.vocabSize).contains($0) }),
               !state.recordingEnabled || tokens.count <= 5 else {
-            throw ModelError("VQ full-stack probe requires a committed state, valid tokens and at most 2054 tokens in passes of 512, or five recorded tokens")
+            throw ModelError("VQ full-stack probe requires a committed state and valid tokens within its explicit context window, in passes of 512 or five recorded tokens")
         }
         guard shouldContinue() else { throw CheckpointReadError.cancelled }
         let priorProjectionMode = RowInvariantMatmul.enabled

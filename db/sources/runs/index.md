@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-03T20:18:42.533217Z
+updated: 2026-10-03T21:32:16.666150Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-03-candidate-completed-task-calibration]] — Frozen completed-task calibration, hybrid result and full-pack memory failure
+- [[sources/runs/2026/10/2026-10-03-candidate-extended-rotary-and-context]] — Authenticated candidate rotary coefficients and bounded native context recovery
 - [[sources/runs/2026/10/2026-10-03-candidate-target-verified-speculation]] — Candidate target-verified draft generation and original-model regression checks
 - [[sources/runs/2026/10/2026-10-03-candidate-state-recording-and-recovery]] — Candidate recurrent recording, exact verification rollback and interrupted-state recovery
 - [[sources/runs/2026/10/2026-10-03-unloaded-settings-without-metal]] — Keep unloaded model settings independent of the Metal allocator
@@ -505,10 +507,8 @@ updated: 2026-10-03T20:18:42.533217Z
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-context-pass-and-api-pressure-failure]] — Planner and context correctness with failed API pressure interval
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-metadata-and-context-boundary]] — Planner metadata and unchanged-context optimization boundary
 - [[sources/runs/2026/09/2026-09-07-configurable-context-openai-release-completion]] — Installed OpenAI successful-completion acceptance
-- [[sources/runs/2026/09/2026-09-07-optimization-full-cache-two-cells-and-refusal]] — Full-cache two-cell execution and resource refusal
-- [[sources/runs/2026/09/2026-09-07-optimization-serial-and-installed-gate-integration]] — Serial build and installed-release validation corrections
 
 ## More
 
-This folder has 756 files. The 500 most recent are listed above.
+This folder has 758 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
