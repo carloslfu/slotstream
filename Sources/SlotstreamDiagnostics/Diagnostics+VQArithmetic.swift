@@ -52,6 +52,36 @@ extension Diagnostics {
             c.expect("rotary table negative position refused", !VQRotaryTable.supports([-1]))
             c.expect("rotary table next position refused", !VQRotaryTable.supports([2054]))
             c.expect("rotary table empty request refused", !VQRotaryTable.supports([]))
+            // The existing ordinary candidate recurrence is independently
+            // pinned by whole-model reference fixtures. Recording must add
+            // checkpoints without changing that arithmetic at any position.
+            func values(_ shape: [Int], salt: Int, dtype: DType = .bfloat16) -> MLXArray {
+                let count = shape.reduce(1, *)
+                return MLXArray((0..<count).map { Float(($0 * 17 + salt) % 193 - 96) / 512 }, shape).asType(dtype)
+            }
+            for rows in [1, 2, 3, 5] {
+                for nonzero in [false, true] {
+                    let q = values([1, rows, 16, 128], salt: 7), k = values([1, rows, 16, 128], salt: 19)
+                    let v = values([1, rows, 48, 128], salt: 31)
+                    let a = values([1, rows, 48], salt: 43), b = values([1, rows, 48], salt: 53)
+                    let aLog = values([48], salt: 61), bias = values([48], salt: 71)
+                    let initial = nonzero ? values([1, 48, 128, 128], salt: 83, dtype: .float32) : nil
+                    let recorded = candidateGatedDeltaUpdateRecording(q: q, k: k, v: v, a: a, b: b,
+                        aLog: aLog, dtBias: bias, state: initial)
+                    eval([recorded.output] + recorded.states)
+                    c.equal("candidate records every position \(rows)/\(nonzero)", recorded.states.count, rows)
+                    for keep in 1...rows {
+                        let plain = candidateGatedDeltaUpdate(q: q[0..., 0..<keep], k: k[0..., 0..<keep],
+                            v: v[0..., 0..<keep], a: a[0..., 0..<keep], b: b[0..., 0..<keep],
+                            aLog: aLog, dtBias: bias, state: initial)
+                        eval(plain.0, plain.1)
+                        c.equal("candidate recorded output \(rows)/\(nonzero)/\(keep)",
+                            recorded.output[0..., 0..<keep].asData(access: .copy).data, plain.0.asData(access: .copy).data)
+                        c.equal("candidate recorded state \(rows)/\(nonzero)/\(keep)",
+                            recorded.states[keep - 1].asData(access: .copy).data, plain.1.asData(access: .copy).data)
+                    }
+                }
+            }
             return c.report()
         }
     }

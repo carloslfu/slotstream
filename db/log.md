@@ -154,3 +154,6 @@ Applied the owner correction: the available 48 GB Mac is the sole required physi
 ## [2026-10-03 19:25] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Reproduced the clean-runner Mac CI failure with a copied executable lacking a metallib; avoid initializing MLX when unloading an unused engine, add the isolated lifecycle case to CI, and pass it plus the full scripted Mac runtime suite.
 
+## [2026-10-03 19:54] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implemented bounded candidate recurrent recording and owned checkpoint recovery; preserved the initial shape-dependent failure, passed explicit exact-verification checks at short and sparse boundaries, and retained unchanged greedy/sparse reference parity for both candidate layouts. Full draft generation and product qualification remain active work.
+

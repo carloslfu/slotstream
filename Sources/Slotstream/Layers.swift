@@ -1249,12 +1249,15 @@ final class GDNLayer {
 
         let y: MLXArray
         if arithmetic == .vqPR1788 {
-            // This experimental profile does not yet support speculative state
-            // recording. Its separate draft/rollback parity gate remains open.
-            precondition(cache?.record != true, "candidate recurrence recording is unqualified")
-            let (output, state) = candidateGatedDeltaUpdate(q: q, k: k, v: v, a: aProj, b: bProj,
-                aLog: aLog, dtBias: dtBias, state: cache?.ssmState)
-            y = output; cache?.ssmState = state
+            if let c = cache, c.record {
+                let recorded = candidateGatedDeltaUpdateRecording(q: q, k: k, v: v, a: aProj, b: bProj,
+                    aLog: aLog, dtBias: dtBias, state: c.ssmState)
+                y = recorded.output; c.ssmStates = recorded.states; c.ssmState = recorded.states.last
+            } else {
+                let (output, state) = candidateGatedDeltaUpdate(q: q, k: k, v: v, a: aProj, b: bProj,
+                    aLog: aLog, dtBias: dtBias, state: cache?.ssmState)
+                y = output; cache?.ssmState = state
+            }
         } else if let c = cache, c.record, S > 1, fusedRecording {
             let recorded = gatedDeltaUpdateRecording(q: q, k: k, v: v, a: aProj, b: bProj,
                 aLog: aLog, dtBias: dtBias, state: c.ssmState)

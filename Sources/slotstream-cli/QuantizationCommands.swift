@@ -3,6 +3,30 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct QuantizationStateCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "quantization-state-check",
+        abstract: "Check bounded candidate state recording and recovery without activating a pack")
+    @Option(name: .long) var sourceDirectory: String
+    @Option(name: .long) var sourceInventory: String
+    @Option(name: .long) var output: String
+    @Option(name: .long) var denseOverlayBaseline: String?
+    @Option(name: .long) var denseOverlayManifest: String?
+    @Flag(name: .long, help: "Cross the sparse-attention threshold within the recorded pass")
+    var sparseBoundary = false
+    func validate() throws {
+        guard (denseOverlayBaseline == nil) == (denseOverlayManifest == nil) else {
+            throw ValidationError("dense composite requires both baseline and manifest")
+        }
+    }
+    func run() throws {
+        print(String(decoding: try Diagnostics.quantizationState(source: URL(fileURLWithPath: sourceDirectory),
+            inventory: URL(fileURLWithPath: sourceInventory), output: URL(fileURLWithPath: output),
+            denseOverlayBaseline: denseOverlayBaseline.map { URL(fileURLWithPath: $0) },
+            denseOverlayManifest: denseOverlayManifest.map { URL(fileURLWithPath: $0) },
+            sparseBoundary: sparseBoundary), as: UTF8.self))
+    }
+}
+
 struct QuantizationCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "quantization-check",
         abstract: "Check candidate layout and native decoding; does not enable or qualify a new model pack")

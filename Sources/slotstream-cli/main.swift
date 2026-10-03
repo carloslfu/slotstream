@@ -21,7 +21,7 @@ struct Slotstream: ParsableCommand {
             ExpertLookaheadCapture.self, ExpertLookaheadBench.self, ExpertLookaheadCheck.self, ExpertLookaheadPredict.self,
             QuantizationCheck.self,
             QuantizationModelCheck.self,
-            QuantizationDraftCheck.self,
+            QuantizationDraftCheck.self, QuantizationStateCheck.self,
             QuantizationPerformancePilot.self,
             QuantizationBench.self,
             QuantizationLogits.self,

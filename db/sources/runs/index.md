@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-03T19:25:48.673905Z
+updated: 2026-10-03T19:54:09.167932Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-03-candidate-state-recording-and-recovery]] — Candidate recurrent recording, exact verification rollback and interrupted-state recovery
 - [[sources/runs/2026/10/2026-10-03-unloaded-settings-without-metal]] — Keep unloaded model settings independent of the Metal allocator
 - [[sources/runs/2026/10/2026-10-03-baseline-auto-selection-and-live-memory]] — Baseline Auto controls and independent live memory management with native lifecycle acceptance
 - [[sources/runs/2026/10/2026-10-03-vq-draft-final-build-admission-pending]] — Final draft build succeeds but broader local acceptance remains unlaunched under external inference contention
@@ -506,9 +507,8 @@ updated: 2026-10-03T19:25:48.673905Z
 - [[sources/runs/2026/09/2026-09-07-optimization-full-cache-two-cells-and-refusal]] — Full-cache two-cell execution and resource refusal
 - [[sources/runs/2026/09/2026-09-07-optimization-serial-and-installed-gate-integration]] — Serial build and installed-release validation corrections
 - [[sources/runs/2026/09/2026-09-07-optimization-cached-planner-build-and-typed-parity]] — Cached planner build and441typed parity checks
-- [[sources/runs/2026/09/2026-09-07-optimization-full-cache-first-cell-refusal]] — Original full-cache first-cell resource refusal
 
 ## More
 
-This folder has 754 files. The 500 most recent are listed above.
+This folder has 755 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-03T19:25:49.022459+00:00
+updated: 2026-10-03T19:54:43.927701+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -593,3 +593,11 @@ This closes fixed-input head component parity, not draft integration. Next imple
 The quiet preflight now rejects known llama.cpp inference entrypoints before launch as well as Slotstream/build contention. Twelve context-qualification tests and thirty-two static-entrypoint tests pass; a read-only invocation reproduces the external-model refusal. Final local static/catalogue, baseline draft, streamed draft, image interaction and verification-row checks remain pending until exclusive model execution and their original real-memory bounds are available. Exact component parity is not substituted for those regressions. New independent reference campaigns must bind the changed safety-helper identity and satisfy their source-bound traversal requirements again.
 
 The full implementation remains in progress. No alternate pack has earned Auto integration or promotion, no new supported hardware profile reaches the target, and no release is implied by this checkpoint.
+
+### Candidate state recording and recovery, October 3
+
+[[sources/runs/2026/10/2026-10-03-candidate-state-recording-and-recovery]] closes the bounded target-state foundation for speculation. The candidate reuses the production checkpoint ownership and lifetime machinery, records every recurrent position without replaying accepted tokens, refuses foreign or discarded snapshots, and requires explicit restoration after partial failure. Full VQ 3.2 and the original-dense composite pass short and sparse-boundary recovery, every accepted prefix, continued generation, observer failures and actual cancellation at several layer/commit boundaries.
+
+The first full-model recording attempt failed exact prefix comparisons because one- and two-row projection dispatch differed from the five-row pass. The preserved correction introduces an explicit verification arithmetic mode using existing row-invariant projections and exact per-query attention. Ordinary reference arithmetic remains the default and its frozen greedy and sparse fixtures still pass. No tolerance or golden was changed. The native catalogue includes exact recording-kernel comparisons against the ordinary candidate recurrence for zero and nonzero initial states.
+
+The new `quantization-state-check` command is a bounded qualification instrument, including `--sparse-boundary`; it cannot activate a candidate. This checkpoint does not claim completed draft generation, a new public Engine, arbitrary context, dynamic allocation, quality qualification or a speed result. Those remain required by the active plan. The separately authenticated original draft can now be attached to this recovery foundation without inventing a second checkpoint mechanism.

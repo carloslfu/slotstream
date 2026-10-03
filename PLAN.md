@@ -655,6 +655,14 @@ The quiet preflight now rejects known llama.cpp inference entrypoints before lau
 
 The full implementation remains in progress. No alternate pack has earned Auto integration or promotion, no new supported hardware profile reaches the target, and no release is implied by this checkpoint.
 
+### Candidate state recording and recovery, October 3
+
+[[sources/runs/2026/10/2026-10-03-candidate-state-recording-and-recovery]] closes the bounded target-state foundation for speculation. The candidate reuses the production checkpoint ownership and lifetime machinery, records every recurrent position without replaying accepted tokens, refuses foreign or discarded snapshots, and requires explicit restoration after partial failure. Full VQ 3.2 and the original-dense composite pass short and sparse-boundary recovery, every accepted prefix, continued generation, observer failures and actual cancellation at several layer/commit boundaries.
+
+The first full-model recording attempt failed exact prefix comparisons because one- and two-row projection dispatch differed from the five-row pass. The preserved correction introduces an explicit verification arithmetic mode using existing row-invariant projections and exact per-query attention. Ordinary reference arithmetic remains the default and its frozen greedy and sparse fixtures still pass. No tolerance or golden was changed. The native catalogue includes exact recording-kernel comparisons against the ordinary candidate recurrence for zero and nonzero initial states.
+
+The new `quantization-state-check` command is a bounded qualification instrument, including `--sparse-boundary`; it cannot activate a candidate. This checkpoint does not claim completed draft generation, a new public Engine, arbitrary context, dynamic allocation, quality qualification or a speed result. Those remain required by the active plan. The separately authenticated original draft can now be attached to this recovery foundation without inventing a second checkpoint mechanism.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

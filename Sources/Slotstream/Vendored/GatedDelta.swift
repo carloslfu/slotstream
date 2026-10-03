@@ -172,12 +172,40 @@ private final class CandidateGatedDeltaManager: Sendable {
     }
 }
 
-func candidateGatedDeltaUpdate(q: MLXArray, k: MLXArray, v: MLXArray, a: MLXArray,
+private final class CandidateGatedDeltaRecordingManager: Sendable {
+    static let shared = CandidateGatedDeltaRecordingManager()
+    // A target pass plus at most four draft proposals. Keeping this separate
+    // leaves ordinary candidate and deployed kernels unchanged.
+    let kernels = (1...5).map {
+        makeGatedDeltaKernel(hasMask: false, recordCount: $0, referenceReduction: true)
+    }
+}
+
+package func candidateGatedDeltaUpdate(q: MLXArray, k: MLXArray, v: MLXArray, a: MLXArray,
                               b: MLXArray, aLog: MLXArray, dtBias: MLXArray,
                               state: MLXArray?) -> (MLXArray, MLXArray) {
     let g = CandidateGatedDeltaManager.decay([aLog, a, dtBias])[0]
     let state = state ?? MLXArray.zeros([q.dim(0), v.dim(2), v.dim(3), q.dim(3)], dtype: .float32)
     return gatedDeltaKernel(q: q, k: k, v: v, g: g, beta: VQArithmetic.sigmoid(b), state: state, candidate: true)
+}
+
+/// Record the candidate recurrence at every position without recomputing a
+/// rejected prefix. The reduction, decay and BF16 beta match the ordinary
+/// candidate kernel; only additional FP32 state outputs are written.
+package func candidateGatedDeltaUpdateRecording(q: MLXArray, k: MLXArray, v: MLXArray,
+    a: MLXArray, b: MLXArray, aLog: MLXArray, dtBias: MLXArray,
+    state: MLXArray?) -> (output: MLXArray, states: [MLXArray]) {
+    let (B, T, Hk, Dk, Hv, Dv) = (q.dim(0), q.dim(1), k.dim(2), k.dim(3), v.dim(2), v.dim(3))
+    precondition((1...5).contains(T) && Dk > 0 && Dk % 32 == 0 && Dv % 4 == 0 && Hk > 0 && Hv % Hk == 0)
+    let initial = (state ?? MLXArray.zeros([B, Hv, Dv, Dk], dtype: .float32)).asType(.float32)
+    let kernel = CandidateGatedDeltaRecordingManager.shared.kernels[T - 1]!
+    let outputs = kernel([q, k, v, CandidateGatedDeltaManager.decay([aLog, a, dtBias])[0],
+                          VQArithmetic.sigmoid(b), initial, MLXArray(T)],
+        template: [("InT", q.dtype), ("StT", DType.float32), ("Dk", Dk), ("Dv", Dv), ("Hk", Hk), ("Hv", Hv)],
+        grid: (32, Dv, B * Hv), threadGroup: (32, 4, 1),
+        outputShapes: [[B, T, Hv, Dv]] + Array(repeating: initial.shape, count: T),
+        outputDTypes: [q.dtype] + Array(repeating: .float32, count: T))
+    return (outputs[0], Array(outputs.dropFirst()))
 }
 
 // MARK: - Kernel Dispatch

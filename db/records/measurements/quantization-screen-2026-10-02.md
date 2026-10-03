@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-03T18:23:23.507510+00:00
+updated: 2026-10-03T19:54:44.061554+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -455,3 +455,11 @@ The full implementation remains in progress. No alternate pack has earned Auto i
 Two instrument failures are preserved. The first compiler observer missed independently grouped descendants and was stopped; the replacement enumerates parent links and completes under an explicit compiler-only envelope. The research draft initially rejects an inherited production diagnostic flag before loading; a fresh clean-environment continuation passes without tolerance or fixture changes. Neither failure is presented as a model numerical regression.
 
 The original deployment remains the only selectable pack and the registry's new hardware qualification list stays empty. The native VQ research path still lacks production service/speculation and dynamic memory integration. No alternative-quality, multi-pack activation or twenty-token claim follows from these checks.
+
+### Candidate recording, exact verification and interrupted-state recovery
+
+[[sources/runs/2026/10/2026-10-03-candidate-state-recording-and-recovery]] preserves three source-bound builds and their bounded sequential campaigns. The first whole-model test fails 422 of 3,580 assertions, isolated to kept prefixes of one or two tokens and their continuations. Full-pass recording, the separate recurrence kernel and checkpoint restoration pass. The corrected explicit row-invariant verification mode passes all 3,580 short-context assertions on full VQ 3.2 and the original-dense composite.
+
+The expanded sparse-boundary campaign passes 4,952 assertions on each layout, including actual cancellation and recovery at layers 0, 17, 47 and the final output. Verification starts after 2,048 prompt tokens and stays within the existing finite rotary bound. Sampled process peaks are 9,170,212,240 and 6,384,979,400 bytes respectively. Every run retains the ten-GB process envelope, thirteen-GB real-memory preflight and three-GB headroom checks. Global paging is retained separately; elapsed times are functional diagnostics, not qualified throughput.
+
+The final executable also passes the native catalogue and the unchanged full/composite greedy and sparse references. These run in ordinary reference arithmetic, separate from the explicit verification profile. Each greedy check passes 7,717 assertions and each sparse check 2,974. Frozen tensors, tolerances and output IDs remain unchanged. The raw source preserves producer manifests, binary/Metal hashes, failed and successful reports and an archived final compiler input set. No target tokens are re-evaluated to repair a recorded speculative rejection. Draft acceptance, sustained speed, larger contexts, vision, production memory integration and pack qualification remain open.
