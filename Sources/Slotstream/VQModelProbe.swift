@@ -12,15 +12,22 @@ package final class VQModelProbe {
     private let verificationArithmetic: Bool
     private let state = Qwen4ExpModel.State()
     private var recordingMulti: MLXArray?
+    private var draftHead: MTPHead?
+    private var provisionalDraft = false
+    package var hasDraft: Bool { draftHead != nil }
     package var consumedTokens: Int { state.tokenCount }
-    package var hasCommittedBoundary: Bool { state.committedBoundaryValid }
+    package var hasCommittedBoundary: Bool {
+        state.committedBoundaryValid && !state.recordingEnabled && !provisionalDraft && recordingMulti == nil
+            && (state.mtp == nil || state.hasValidMTP || state.tokenCount == 0)
+    }
     package struct Output {
         package let logits: MLXArray
         package let multi: MLXArray
     }
 
     package func snapshot() throws -> StateCheckpoint {
-        guard state.committedBoundaryValid, !state.recordingEnabled else {
+        guard state.committedBoundaryValid, !state.recordingEnabled, !provisionalDraft,
+              state.mtp == nil || state.hasValidMTP || state.tokenCount == 0 else {
             throw ModelError("VQ checkpoint requires a committed non-recording boundary")
         }
         return state.checkpoint()
@@ -29,6 +36,7 @@ package final class VQModelProbe {
     package func restore(_ checkpoint: StateCheckpoint) throws {
         try state.restoreChecked(checkpoint)
         recordingMulti = nil
+        provisionalDraft = false
     }
 
     package func beginRecording() throws {
@@ -43,9 +51,89 @@ package final class VQModelProbe {
             throw ModelError("VQ rollback requires its completed recorded multi stream")
         }
         try state.rollbackChecked(keeping: n, of: tokens, from: checkpoint, ngramWindow: 2)
-        state.lastMulti = contiguous(multi[0..., (n - 1)..<n, 0...])
-        eval(state.lastMulti!)
-        recordingMulti = nil
+        state.committedBoundaryValid = false
+        do {
+            if let head = draftHead, let mtp = state.mtp {
+                // Proposals after the first used provisional hidden values.
+                // Rebuild only draft entries, never accepted target tokens.
+                mtp.trim(to: checkpoint.mtpOffset)
+                state.lastMulti = try withVerificationArithmetic {
+                    try head.consumeChecked(chunk: Array(tokens.prefix(n)),
+                        chunkMulti: multi[0..., 0..<n, 0...], prevMulti: checkpoint.lastMulti,
+                        embed: embedding, rope: rope, state: mtp, compactRetainedRow: true)
+                }
+            } else {
+                state.lastMulti = contiguous(multi[0..., (n - 1)..<n, 0...])
+                eval(state.lastMulti!)
+            }
+            guard state.mtp == nil || state.hasValidMTP else { throw ModelError("candidate draft reconciliation lost alignment") }
+            recordingMulti = nil; provisionalDraft = false
+            state.committedBoundaryValid = true
+        } catch { throw error }
+    }
+
+    /// Attach the independently authenticated four-bit head before any main
+    /// state exists. This research path retains its ten-GB process envelope.
+    package func enableOriginalDraft(baseline: URL) throws {
+        guard verificationArithmetic, residentText != nil, state.tokenCount == 0,
+              state.committedBoundaryValid, !state.recordingEnabled, draftHead == nil else {
+            throw ModelError("candidate draft requires resident text and an empty exact-verification state")
+        }
+        let weights = try VQDraftWeights.load(baseline: baseline)
+        let head = MTPHead(weights, referenceArithmetic: true)
+        head.attn.multiRowMode = .exact; head.attn.multiRowMinContext = 0
+        head.rowInvariantFusion = true
+        draftHead = head; state.mtp = MTPState()
+    }
+
+    private func embedding(_ tokens: [Int]) throws -> MLXArray {
+        try residentText?.embed(tokens) ?? checkpoint.embedding(tokens)
+    }
+
+    private func withVerificationArithmetic<T>(_ body: () throws -> T) rethrows -> T {
+        let prior = RowInvariantMatmul.enabled
+        RowInvariantMatmul.enabled = verificationArithmetic
+        defer { RowInvariantMatmul.enabled = prior }
+        return try body()
+    }
+
+    /// Provisional head state is owned by the caller's preceding checkpoint.
+    /// It cannot become a reusable main-model boundary before reconciliation.
+    package func proposeDraft(pending: Int, count: Int,
+                              shouldContinue: () -> Bool = { true }) throws -> [Int] {
+        guard let head = draftHead, let mtp = state.mtp, state.hasValidMTP,
+              state.committedBoundaryValid, !state.recordingEnabled, !provisionalDraft,
+              (1...4).contains(count), (0..<checkpoint.config.vocabSize).contains(pending),
+              state.tokenCount + count + 1 <= 2054 else {
+            throw ModelError("candidate draft requires an aligned committed target and a bounded proposal")
+        }
+        provisionalDraft = true
+        do {
+            return try withVerificationArithmetic {
+                var token = pending, multi = state.lastMulti!, proposed: [Int] = []
+                for _ in 0..<count {
+                    guard shouldContinue() else { throw CheckpointReadError.cancelled }
+                    let value = try head.callAsFunctionChecked(embedded: embedding([token]),
+                        hiddenMulti: multi, rope: rope, state: mtp)
+                    let weights = try residentText!.weights(layer: nil)
+                    let logits = weights.linear("lm_head")(value.sample).asType(.float32)
+                    eval(logits, value.multi)
+                    guard all(isFinite(logits)).item(Bool.self),
+                          ProcessMemory.peakResidentBytes() <= processByteLimit,
+                          let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= 3_000_000_000 else {
+                        throw ModelError("candidate draft exceeded its finite-logit or resource bound")
+                    }
+                    token = argMax(logits.reshaped([-1])).item(Int.self)
+                    proposed.append(token); multi = value.multi
+                }
+                mtp.materialize()
+                guard shouldContinue() else { throw CheckpointReadError.cancelled }
+                return proposed
+            }
+        } catch {
+            state.committedBoundaryValid = false
+            throw error
+        }
     }
 
     package func diagnosticTensors() -> [String: MLXArray] { state.diagnosticTensors() }
@@ -87,7 +175,8 @@ package final class VQModelProbe {
     package func forward(_ tokens: [Int], observe: (Int, String, MLXArray) throws -> Void,
                          trace: ((Int, String, MLXArray) -> Void)? = nil, inspectState: Bool = true,
                          shouldContinue: () -> Bool = { true }) throws -> Output {
-        guard state.committedBoundaryValid, recordingMulti == nil, (1...512).contains(tokens.count),
+        guard state.committedBoundaryValid, recordingMulti == nil, (!provisionalDraft || state.recordingEnabled),
+              (1...512).contains(tokens.count),
               state.tokenCount + tokens.count <= 2054,
               tokens.allSatisfy({ (0..<checkpoint.config.vocabSize).contains($0) }),
               !state.recordingEnabled || tokens.count <= 5 else {
@@ -101,6 +190,7 @@ package final class VQModelProbe {
         // Reuse the production lifetime checks, never infer recovery from offsets.
         state.recordedTokenIds = state.recordingEnabled ? tokens : nil
         state.recordingBaseTokenCount = state.recordingEnabled ? state.tokenCount : nil
+        let previousMulti = state.lastMulti
         state.committedBoundaryValid = false
         recordingMulti = nil
         var hidden = tiled(try residentText?.embed(tokens) ?? checkpoint.embedding(tokens), repetitions: [1, 1, 4])
@@ -154,10 +244,19 @@ package final class VQModelProbe {
             return Output(logits: logits, multi: hidden)
         }
         guard shouldContinue() else { throw CheckpointReadError.cancelled }
-        state.lastMulti = contiguous(hidden[0..., (tokens.count - 1)..<tokens.count, 0...])
-        eval(state.lastMulti!)
+        if let head = draftHead, let mtp = state.mtp, !state.recordingEnabled {
+            state.lastMulti = try head.consumeChecked(chunk: tokens, chunkMulti: hidden, prevMulti: previousMulti,
+                embed: embedding, rope: rope, state: mtp, compactRetainedRow: true)
+        } else {
+            state.lastMulti = contiguous(hidden[0..., (tokens.count - 1)..<tokens.count, 0...])
+            eval(state.lastMulti!)
+        }
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
         recordingMulti = state.recordingEnabled ? hidden : nil
         state.ngramCtx = Array(history.suffix(2)); state.tokenCount += tokens.count
+        guard draftHead == nil || state.recordingEnabled || state.hasValidMTP else {
+            throw ModelError("candidate draft consumption lost alignment")
+        }
         state.committedBoundaryValid = true
         return output
     }

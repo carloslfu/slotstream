@@ -3,6 +3,23 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct QuantizationGenerationCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "quantization-generation-check",
+        abstract: "Check bounded candidate speculative generation without activating a pack")
+    @Option(name: .long) var sourceDirectory: String
+    @Option(name: .long) var sourceInventory: String
+    @Option(name: .long) var denseOverlayBaseline: String
+    @Option(name: .long) var denseOverlayManifest: String
+    @Option(name: .long) var generationProfile: String
+    @Option(name: .long) var output: String
+    func run() throws {
+        print(String(decoding: try Diagnostics.quantizationSpeculation(
+            source: URL(fileURLWithPath: sourceDirectory), inventory: URL(fileURLWithPath: sourceInventory),
+            baseline: URL(fileURLWithPath: denseOverlayBaseline), composite: URL(fileURLWithPath: denseOverlayManifest),
+            profile: URL(fileURLWithPath: generationProfile), output: URL(fileURLWithPath: output)), as: UTF8.self))
+    }
+}
+
 struct QuantizationStateCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "quantization-state-check",
         abstract: "Check bounded candidate state recording and recovery without activating a pack")

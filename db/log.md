@@ -157,3 +157,6 @@ Reproduced the clean-runner Mac CI failure with a copied executable lacking a me
 ## [2026-10-03 19:54] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implemented bounded candidate recurrent recording and owned checkpoint recovery; preserved the initial shape-dependent failure, passed explicit exact-verification checks at short and sparse boundaries, and retained unchanged greedy/sparse reference parity for both candidate layouts. Full draft generation and product qualification remain active work.
 
+## [2026-10-03 20:19] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implemented bounded target-verified composite generation with the original draft and shared embedding consumption; fixed a recorded head-fusion shape counterexample, passed exact greedy/sampled state and recovery checks plus original-model image/stream regressions. Context expansion and full production qualification remain active.
+

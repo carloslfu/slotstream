@@ -203,6 +203,11 @@ public final class MTPState {
 }
 
 public final class MTPHead {
+    /// The candidate verifier reconciles up to five token rows. Fusion has
+    /// four hidden branches per token, so flattening a three-token pass would
+    /// exceed RowInvariantMatmul's eight-row bound and change its reduction.
+    /// Split only this projection by token in the explicit candidate profile.
+    package var rowInvariantFusion = false
     let cfg: ModelConfig
     let fcEmbedding: QLinear
     let fcHidden: QLinear
@@ -306,7 +311,11 @@ public final class MTPHead {
         let e = fcEmbedding(preFcNormEmbedding(embedded))
         var h = preFcNormHidden(hiddenMulti)
             .reshaped([B, S, cfg.hcCount, cfg.hiddenSize])
-        h = fcHidden(h)
+        if rowInvariantFusion, RowInvariantMatmul.enabled, (2...5).contains(S) {
+            h = concatenated((0..<S).map { row in fcHidden(h[0..., row..<(row + 1), 0..., 0...]) }, axis: 1)
+        } else {
+            h = fcHidden(h)
+        }
         h = e.expandedDimensions(axis: -2) + h
         h = h.reshaped([B, S, cfg.hcCount * cfg.hiddenSize])
         debugSink?("fuse", h)
@@ -361,6 +370,19 @@ public final class MTPHead {
         resident: ResidentWeights, rope: Rope, state: MTPState,
         vision: [VisionRun] = [], compactRetainedRow: Bool = false
     ) throws -> MLXArray {
+        try consumeChecked(chunk: chunk, chunkMulti: chunkMulti, prevMulti: prevMulti,
+            embed: { try resident.embedChecked($0, shape: [1, $0.count]) },
+            rope: rope, state: state, vision: vision, compactRetainedRow: compactRetainedRow)
+    }
+
+    /// Quantized packs provide their own authenticated embedding lookup while
+    /// sharing the same previous-position fusion, vision rebasing and cache
+    /// alignment. The public affine overload retains its original behavior.
+    package func consumeChecked(
+        chunk: [Int], chunkMulti: MLXArray, prevMulti: MLXArray?,
+        embed: ([Int]) throws -> MLXArray, rope: Rope, state: MTPState,
+        vision: [VisionRun] = [], compactRetainedRow: Bool = false
+    ) throws -> MLXArray {
         let S = chunk.count
         guard S > 0, chunk.allSatisfy({ $0 >= 0 && $0 < cfg.vocabSize }),
               chunkMulti.shape == [1, S, cfg.hcCount * cfg.hiddenSize],
@@ -374,7 +396,10 @@ public final class MTPHead {
         eval(last)
         let startIdx = prevMulti == nil ? 1 : 0
         if S - startIdx > 0 {
-            var e = try resident.embedChecked(Array(chunk[startIdx...]), shape: [1, S - startIdx]).asType(.bfloat16)
+            var e = try embed(Array(chunk[startIdx...])).asType(.bfloat16)
+            guard e.shape == [1, S - startIdx, cfg.hiddenSize] else {
+                throw ModelError("draft embedding lookup returned an incompatible shape")
+            }
             if !vision.isEmpty {
                 // The head skips chunk[0] at sequence start (it has no
                 // preceding hidden), so every run is re-based by the same
