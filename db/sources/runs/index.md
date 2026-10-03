@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-03T21:32:16.666150Z
+updated: 2026-10-03T21:55:43.718280Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-03-candidate-prefill-readout-memory-repair]] — Exact state-only intermediate prefill and bounded completed-task rerun
 - [[sources/runs/2026/10/2026-10-03-candidate-completed-task-calibration]] — Frozen completed-task calibration, hybrid result and full-pack memory failure
 - [[sources/runs/2026/10/2026-10-03-candidate-extended-rotary-and-context]] — Authenticated candidate rotary coefficients and bounded native context recovery
 - [[sources/runs/2026/10/2026-10-03-candidate-target-verified-speculation]] — Candidate target-verified draft generation and original-model regression checks
@@ -506,9 +507,8 @@ updated: 2026-10-03T21:32:16.666150Z
 - [[sources/runs/2026/09/2026-09-07-optimization-api-generation-completion-validation]] — API completion validation rejects matching errors and incomplete responses
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-context-pass-and-api-pressure-failure]] — Planner and context correctness with failed API pressure interval
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-metadata-and-context-boundary]] — Planner metadata and unchanged-context optimization boundary
-- [[sources/runs/2026/09/2026-09-07-configurable-context-openai-release-completion]] — Installed OpenAI successful-completion acceptance
 
 ## More
 
-This folder has 758 files. The 500 most recent are listed above.
+This folder has 759 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

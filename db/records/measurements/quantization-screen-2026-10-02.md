@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-03T21:32:16.847481+00:00
+updated: 2026-10-03T21:56:43.621959+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -503,3 +503,13 @@ The full VQ arm exceeds its process envelope during the first retrieval case and
 Both complete arms return correctly sorted objects instead of the requested array of names in the same instruction case. All their tool calls execute successfully against deterministic local fixtures. Every coding fix passes its frozen pure-function tests without input mutation. The grader rejects incomplete answers, malformed or mismatched tool calls and unsupported coding authority; coding workers have bounded source, operations, memory observations and CPU/wall deadlines. The source includes the exact grader and eight passing instrument tests, twenty-one native refusal cases, the unchanged 1361-assertion generation control, the native catalogue and the full static pass.
 
 These are disjoint calibration examples, not held-out task estimates. The full VQ partial successes cannot be treated as a passing overall result. Functional request times are preserved but have no clean paired timing eligibility or confidence interval. No alternative pack, hardware speed profile, image support or production serving is qualified. The recorded next hypothesis is to omit unused vocabulary readouts on intermediate prompt passes, with exact state and continuation checks before any newly versioned measurement.
+
+### Intermediate prefill readouts and task-memory repair
+
+[[sources/runs/2026/10/2026-10-03-candidate-prefill-readout-memory-repair]] preserves the next source-bound binary and prospective resource budget. The candidate's intermediate 512-token prompt chunks no longer compute full-vocabulary readouts that generation discards. They still consume every target and original-draft position. The final prompt chunk and recorded verification keep the existing full readout; ordinary forward observers and frozen numerical fixtures remain available unchanged.
+
+The native control passes all 2071 assertions, including every preceding speculative-generation check and new exact target/head state and continuation-logit comparisons after 17 and 512 tokens. Its observed physical-process peak is 8,488,327,024 bytes. Early cancellation and attempted readout omission during a recorded pass are refused without losing the preceding checkpoint.
+
+Both candidate arms are then repeated once under the unchanged sixteen-case protocol and ten-GB limit. Full VQ3.2 completes with a 9,365,920,248-byte peak and thirteen passing tasks. The original-dense composite with two drafts completes with an 8,492,242,872-byte peak and fifteen passing tasks. All fourteen previously completed full-VQ cases and all sixteen prior composite cases retain identical output tokens, finish reasons, parsed answers and speculative details. The original baseline is reused and remains fifteen of sixteen; it is not presented as rerun on this binary.
+
+The full VQ arm's prior 10,020,674,016-byte failure is retained. The change resolves that observed workload's memory failure without enlarging its envelope or changing its inputs. It does not qualify every possible 8192-token prompt, larger full-VQ contexts, held-out task quality or the twenty-token target. These sequential functional durations are not paired performance evidence. The native catalogue passes; the preceding complete static pass is scoped to its earlier binary, and the attached previous-commit CI snapshot still has engine and Mac jobs running.

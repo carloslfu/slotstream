@@ -150,6 +150,50 @@ extension Diagnostics {
                 } catch is Injected {}
                 try model.restore(base)
                 exact("failed verification restores target and provisional head", before, hashes())
+                // The head projection has no recurrent consumers. Prove the
+                // omitted intermediate readout leaves every target/draft tensor
+                // and the subsequent full-vocabulary result exactly unchanged.
+                for count in [17, 512] {
+                    let chunk = (0..<count).map { prompt[$0 % prompt.count] }
+                    try model.restore(empty)
+                    let expected = try autoreleasepool { () throws -> [String: String] in
+                        try model.forward(chunk, observe: { _, _, _ in }, inspectState: false)
+                        return hashes()
+                    }
+                    func continuation() throws -> (String, [String: String]) {
+                        let result = try model.forward([prompt[0]], observe: { _, _, _ in }, inspectState: false)
+                        eval(result.logits)
+                        let digest = SHA256.hash(data: result.logits.asData(access: .copy).data)
+                            .map { String(format: "%02x", $0) }.joined()
+                        return (digest, hashes())
+                    }
+                    let expectedNext = try continuation()
+                    try model.restore(empty)
+                    try model.prefillWithoutReadout(chunk)
+                    c.equal("omitted readout \(count) consumes complete prompt", model.consumedTokens, count)
+                    c.expect("omitted readout \(count) retains committed head alignment", model.hasCommittedBoundary)
+                    exact("omitted readout \(count) target and head", expected, hashes())
+                    let actualNext = try continuation()
+                    c.equal("omitted readout \(count) exact next logits", expectedNext.0, actualNext.0)
+                    exact("omitted readout \(count) continuation state", expectedNext.1, actualNext.1)
+                    observations.append(["name": "omitted-readout-\(count)", "prefix_state": expected,
+                        "next_logit_sha256": actualNext.0, "next_state": actualNext.1])
+                }
+                let beforeRefusal = try model.snapshot(), refusalState = hashes()
+                do {
+                    try model.prefillWithoutReadout([prompt[0]], shouldContinue: { false })
+                    c.expect("state-only early cancellation refused", false)
+                } catch CheckpointReadError.cancelled {
+                    c.expect("state-only early cancellation refused", true)
+                }
+                exact("state-only early cancellation does not mutate", refusalState, hashes())
+                try model.beginRecording()
+                do {
+                    try model.prefillWithoutReadout([prompt[0]])
+                    c.expect("state-only recorded pass refused", false)
+                } catch { c.expect("state-only recorded pass refused", true) }
+                try model.restore(beforeRefusal)
+                exact("state-only refusal preserves checkpoint recovery", refusalState, hashes())
                 c.equal("all expert pins released", model.recordCacheStats?["pinned_records"], 0)
                 c.expect("complete campaign fits process envelope", ProcessMemory.peakResidentBytes() <= model.processByteLimit)
             }

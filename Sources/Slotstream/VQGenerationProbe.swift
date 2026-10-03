@@ -29,8 +29,13 @@ package enum VQGenerationProbe {
         for lo in stride(from: 0, to: prompt.count, by: 512) {
             let checkpoint = try model.snapshot()
             do {
-                logits = try autoreleasepool {
-                    let output = try model.forward(Array(prompt[lo..<min(lo + 512, prompt.count)]),
+                logits = try autoreleasepool { () throws -> MLXArray? in
+                    let end = min(lo + 512, prompt.count), chunk = Array(prompt[lo..<end])
+                    if end < prompt.count {
+                        try model.prefillWithoutReadout(chunk, shouldContinue: shouldContinue)
+                        return nil
+                    }
+                    let output = try model.forward(chunk,
                         observe: { _, _, _ in }, inspectState: false, shouldContinue: shouldContinue)
                     let last = contiguous(output.logits[0..., (output.logits.dim(1) - 1)..., 0...])
                     eval(last)

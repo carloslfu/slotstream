@@ -37,6 +37,10 @@ package final class VQModelProbe {
         package let logits: MLXArray
         package let multi: MLXArray
     }
+    private struct PassOutput {
+        let logits: MLXArray?
+        let multi: MLXArray
+    }
 
     package func snapshot() throws -> StateCheckpoint {
         guard state.committedBoundaryValid, !state.recordingEnabled, !provisionalDraft,
@@ -188,6 +192,27 @@ package final class VQModelProbe {
     package func forward(_ tokens: [Int], observe: (Int, String, MLXArray) throws -> Void,
                          trace: ((Int, String, MLXArray) -> Void)? = nil, inspectState: Bool = true,
                          shouldContinue: () -> Bool = { true }) throws -> Output {
+        let output = try execute(tokens, observe: observe, trace: trace, inspectState: inspectState,
+                                 readout: true, shouldContinue: shouldContinue)
+        guard let logits = output.logits else { throw ModelError("candidate forward omitted its requested readout") }
+        return Output(logits: logits, multi: output.multi)
+    }
+
+    /// Intermediate prompt passes consume every target and draft position but
+    /// need no vocabulary projection. Preserve the ordinary full-readout path
+    /// for final prompt passes, verification and independent numerical gates.
+    /// No placeholder logits can escape this state-only operation.
+    package func prefillWithoutReadout(_ tokens: [Int], shouldContinue: () -> Bool = { true }) throws {
+        guard !state.recordingEnabled, !provisionalDraft else {
+            throw ModelError("a recorded or provisional pass requires its target readout")
+        }
+        _ = try execute(tokens, observe: { _, _, _ in }, trace: nil, inspectState: false,
+                        readout: false, shouldContinue: shouldContinue)
+    }
+
+    private func execute(_ tokens: [Int], observe: (Int, String, MLXArray) throws -> Void,
+                         trace: ((Int, String, MLXArray) -> Void)?, inspectState: Bool,
+                         readout: Bool, shouldContinue: () -> Bool) throws -> PassOutput {
         guard state.committedBoundaryValid, recordingMulti == nil, (!provisionalDraft || state.recordingEnabled),
               (1...512).contains(tokens.count),
               state.tokenCount + tokens.count <= contextLimit,
@@ -243,7 +268,8 @@ package final class VQModelProbe {
                 MLX.Memory.clearCache()
             }
         }
-        let output = try autoreleasepool {
+        let output = try autoreleasepool { () throws -> PassOutput in
+            guard readout else { return PassOutput(logits: nil, multi: hidden) }
             let weights = try residentText?.weights(layer: nil) ?? checkpoint.dense(layer: nil)
             let mixer = GatedResidual(weights, base: "model.hyper_connection_mixer", useCombine: false, arithmetic: .vqPR1788)
             let mixed = mixer(hidden).0
@@ -254,7 +280,7 @@ package final class VQModelProbe {
             }
             if inspectState { try observe(48, "mixed", mixed) }
             try observe(48, "logits", logits)
-            return Output(logits: logits, multi: hidden)
+            return PassOutput(logits: logits, multi: hidden)
         }
         guard shouldContinue() else { throw CheckpointReadError.cancelled }
         if let head = draftHead, let mtp = state.mtp, !state.recordingEnabled {

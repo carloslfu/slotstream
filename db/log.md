@@ -166,3 +166,6 @@ Authenticated extended reference rotary coefficients and passed explicit composi
 ## [2026-10-03 21:32] update | db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Record completed-task calibration, matching baseline/composite outcomes and the full VQ process-memory failure; keep all qualification gates open.
 
+## [2026-10-03 21:56] update | db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserve the full-VQ task memory failure and record exact state-only intermediate prefill plus the bounded unchanged-input rerun.
+
