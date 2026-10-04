@@ -271,3 +271,6 @@ Preserved the held-out campaign startup refusal and complete evidence inventory 
 ## [2026-10-04 20:09] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Froze an explicit unanswered-only continuation before new answers, preserving the interrupted study, every completed cell and all prior resource costs. Transcript/counter/memory checks and full-answer regrading refuse partial analysis or retries. Continuation, process-owner and product suites pass on both Python runtimes; static registration passes. Captured the new bounded native build/catalogue and complete activation/export-driver CI. Quality, product outcomes, performance and release remain open.
 
+## [2026-10-04 20:35] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Captured prospective image and long-conversation protocols, preserved preparation failures and exact reproducible-payload retirement metadata, and verified official pinned license bytes. Recorded first completed unanswered-only job without partial quality analysis. Product execution, payload retirement, standalone export and qualification remain open.
+

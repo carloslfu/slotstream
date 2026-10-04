@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T20:08:48.094836+00:00
+updated: 2026-10-04T20:35:16.506770+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -25,11 +25,11 @@ This table supersedes the progress summary below without changing its historical
 | Work | Current result | Remaining exit gate |
 | --- | --- | --- |
 | Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
-| Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows, image outcomes/capacity and long-conversation task outcomes |
-| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | A separately frozen unanswered-only continuation is prepared after the unloaded startup refusal; no noninferiority verdict is available |
+| Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows and the prospectively frozen image and long-conversation outcome campaigns |
+| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The separately frozen unanswered-only continuation is running after the unloaded startup refusal; its first incomplete job is now complete, with no noninferiority verdict yet |
 | Complete performance | Actual-plan pilots and preserved timing exclusions identify useful candidate improvements | Complete an eligible paired campaign and safe lower-budget matrix; qualify local profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
-| Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Standalone artifact production, its native identity/parity, independent public pull and integrated multiple-pack transactions |
+| Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Authenticate and retire only the planned reproducible copies, produce the standalone artifact, prove native identity/parity, complete independent public pull and integrated multiple-pack transactions |
 | Promotion and release | Original pack is the only supported registry entry; no alternate Auto profile is enabled | Candidate qualification, deterministic measured/estimated selection, final local integrated acceptance, documentation and release |
 
 Other physical Macs are not required. Safe lower budgets test this Mac, and other hardware receives conservative labeled estimates. The current evidence does not establish the twenty-token target. The campaign uses frozen binaries and helpers, independent of subsequent source-only repairs.
@@ -955,3 +955,14 @@ A continuation requires a separately frozen causal instrument correction under [
 The continuation authenticates completed native transcripts, independent resets, answers, counters, artifact/plan identities and physical bounds. It refuses changed or incomplete evidence. Final analysis first requires the entire study, then replays the original graders against the recorded requests and answers before applying the preselected method. The new orchestration and existing native-owner/product-driver suites pass on both Python runtimes; static entry-point registration passes. The source is captured before any continued answer. This preparation is not a quality verdict or candidate promotion.
 
 The new native startup-observation build preserves exact before/after source inputs and passes the full weights-free catalogue. It remains separate from the original study executable. Pack-bound activation now passes complete engine and Mac CI, and the standalone export driver passes complete engine CI. Actual whole export, public pull, product answers, complete performance, alternate-pack integration and release remain open.
+
+
+### Product protocols and standalone storage preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-product-protocols-and-standalone-space]] records the prospective complete-conversation protocols, storage preparation and first successful unanswered-only continuation. The interrupted job completed only its five previously unanswered candidate cells. All ninety-five prior answers, native session counters and the original unloaded startup failure remain preserved. The original campaign is still incomplete; only completion metadata has been inspected, with no partial quality analysis. The continuation has advanced to subsequent jobs.
+
+Before any product answers, separate image and long-conversation protocols bind original and candidate packs, frozen native and helper bytes, every input and expected answer, alternating arm order, complete reply reservations and fixed acceptance. They retain the bounded physical ceilings and preflights of the already checked instruments. The image suite has eight conversations; the long-conversation suite has nine at short, medium and near-window occupancy. Each family reserves six hours and 128 MB of receipts, and requires every candidate turn to pass. These focused outcomes cannot establish general image noninferiority or speed. Both protocols pass read-only validation from a clean process. The first copied-runtime import failure is preserved; the second freeze preserves package paths without changing cases, grades or resource limits. Neither family has run.
+
+The metadata-only retirement plan names ninety-six regular generated payloads, comprising the losing affine refit and redundant VQ 3.2 contiguous repack. It preserves original checkpoints, the selected minmax candidate, all manifests and source/build evidence, and exact producer bytes. The earlier producer-hash refusal is preserved, with the original transport writer recovered by digest from Git into the archive alone. Planned retirement makes room under the unchanged staging ceiling for the complete standalone export and remaining study receipts. No payload has been deleted, fully rescanned or exported alongside the active model study. Execution still requires exclusive ownership, full hashes and unchanged identities of precisely the listed files.
+
+The source also preserves the official checkpoint license and its byte identity with the pinned license. Commercial product-use clearance under its stated business restrictions remains a release input; this review establishes neither applicability nor permission. Engineering and local evaluation continue. No public weights or application release has been published.
