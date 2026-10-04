@@ -238,3 +238,6 @@ Prepare deterministic long-conversation retrieval and correction outcomes, prese
 ## [2026-10-04 17:06] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Captured selected-pack store full engine, transport and Mac CI; bound app verification proofs to the selected manifest and added cross-manifest regression cases, pending Mac acceptance.
 
+## [2026-10-04 17:18] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared standalone mixed-affine config and complete tensor index from actual bounded headers; both Python fixture suites and static registration pass, with payload export and native admission still pending.
+

@@ -951,6 +951,12 @@ Both local Python test runs and the static-entry harness pass. First-turn prompt
 
 The app's in-session verification proof now includes the selected compiled manifest digest as well as APFS file identity. A different pack cannot reuse the proof merely because the same filenames, sizes and timestamps are unchanged. Failed verification clears prior proof; returning to either selection must establish that selection's proof. Foreground load and background preparation use the same selected store and manifest. Unsupported saved choices do not trigger baseline preparation. New cross-manifest checks await Mac CI; no local build is run alongside the ongoing final model campaign.
 
+### Standalone config and index preparation
+
+[[sources/runs/2026/10/2026-10-04-standalone-affine-metadata-preparation]] records coherent configuration and complete tensor-index construction, seven passing unit groups on both local Python runtimes, and static entry-point acceptance. The actual-header preparation changes only the routed expert recipes, preserves both config aliases and covers every parent tensor exactly once across retained and converted files. The old index byte total is recomputed from the output payload geometry. Parent config, index and model-card copies remain separately identified as provenance.
+
+No tensor payload is copied or authenticated by this metadata pass. Whole-output resource pricing, explanatory standalone metadata, verified export, completion identity and native parity remain open. Full CI for the new helper also remains pending. This prepares independent deployment without adding a supported pack or modifying the frozen quality campaign.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
