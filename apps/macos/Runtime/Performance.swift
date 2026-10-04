@@ -36,14 +36,18 @@ public struct PerformancePreferences: Codable, Equatable, Sendable {
     }
 
     public func selectingBudget(_ choice: Budget, currentGB: Double?, maximumGB: Double) -> Self {
+        selectingBudget(choice, currentGB: currentGB, minimumGB: PerformancePolicy.minimumGB, maximumGB: maximumGB)
+    }
+    public func selectingBudget(_ choice: Budget, currentGB: Double?, minimumGB: Double, maximumGB: Double) -> Self {
         var next = self
         next.budget = choice
         if choice == .custom {
             // A saved choice survives a different hardware/pack range. Load
             // validation explains an invalid choice instead of changing it.
-            if hasCustomLimit != true {
-                let initial = currentGB ?? Planner.usefulCeilingGB
-                next.customGB = min(maximumGB, max(PerformancePolicy.minimumGB, initial))
+            if hasCustomLimit != true, minimumGB.isFinite, minimumGB > 0,
+               maximumGB.isFinite, maximumGB >= minimumGB {
+                let initial = currentGB.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? Planner.usefulCeilingGB
+                next.customGB = min(maximumGB, max(minimumGB, initial))
             }
             next.hasCustomLimit = true
         }
@@ -71,21 +75,39 @@ public enum PerformancePolicy {
     /// host-statistics cache lasts one second; a small margin avoids its edge.
     /// Only immediate reloads wait, and always use a new real reading afterward.
     public static let memoryObservationDelay: TimeInterval = 1.05
-    // Round the engine floor UP to a half GB for an accessible native control.
-    public static let minimumGB = ceil(Planner.minMemoryGB * 2) / 2
+    // Derive the displayed floor from the same complete text/context ledger
+    // as admission, at the native control's half-GB resolution. The simulated
+    // hardware only removes transient availability from this range inquiry.
+    public static let minimumGB: Double = {
+        let request = PlanRequest(mtp: .auto, vision: .off, maxContextTokens: contextTokens)
+        return (try? ModelPackRegistry.baseline.memoryRange(for: request,
+            on: .simulated(ramGB: 64)))?.minimumGB ?? ceil(Planner.minMemoryGB * 2) / 2
+    }()
     public static func maximumGB(on machine: Machine) -> Double {
         guard machine.ramGB.isFinite, machine.workingSetGB.isFinite else { return 0 }
         return floor(Planner.maximumMemoryLimitGB(ramGB: machine.ramGB,
             workingSetGB: machine.workingSetGB) * 2) / 2
     }
     public static func validate(_ preferences: PerformancePreferences, on machine: Machine) throws {
+        try validate(preferences, on: machine, pack: ModelPackRegistry.resolve(preferences.quantization).pack)
+    }
+    private static func validate(_ preferences: PerformancePreferences, on machine: Machine, pack: ModelPack) throws {
         try validateSaved(preferences)
-        _ = try ModelPackRegistry.resolve(preferences.quantization)
+        if case .pack(let requested) = preferences.quantization, requested != pack.id {
+            throw SevraError.refused("The planned model does not match your saved quantization choice.")
+        }
         guard preferences.budget == .custom else { return }
-        guard preferences.customGB >= minimumGB else {
+        let range: ModelPackMemoryRange
+        do {
+            range = try pack.memoryRange(for: PlanRequest(mtp: .auto, vision: .off,
+                maxContextTokens: contextTokens), on: machine)
+        } catch {
+            throw SevraError.refused("This Mac cannot fit the selected model and context within its supported memory range. Your saved limit is preserved.")
+        }
+        guard preferences.customGB >= range.minimumGB else {
             throw SevraError.refused("Choose a memory limit within the supported range.")
         }
-        if preferences.budget == .custom, preferences.customGB > maximumGB(on: machine) {
+        if preferences.customGB > range.maximumGB {
             throw SevraError.refused("This memory limit exceeds the supported budget on this Mac. Choose Automatic or a lower limit.")
         }
     }
@@ -104,7 +126,14 @@ public enum PerformancePolicy {
     }
     public static func plan(_ preferences: PerformancePreferences, on machine: Machine, mtpAvailable: Bool,
                             decodeLookahead: DecodeLookaheadPlanning = .automatic) throws -> MemoryPlan {
-        try validate(preferences, on: machine)
+        try plan(preferences, pack: ModelPackRegistry.resolve(preferences.quantization).pack, on: machine,
+            mtpAvailable: mtpAvailable, decodeLookahead: decodeLookahead)
+    }
+    /// Activation has already frozen its exact supported pack. Do not rerun
+    /// Auto here or price an alternate selection with the original geometry.
+    package static func plan(_ preferences: PerformancePreferences, pack: ModelPack, on machine: Machine,
+                             mtpAvailable: Bool, decodeLookahead: DecodeLookaheadPlanning = .automatic) throws -> MemoryPlan {
+        try validate(preferences, on: machine, pack: pack)
         guard let available = machine.availableGB, available.isFinite, available > 0,
               machine.ramGB.isFinite, machine.ramGB > 0, machine.workingSetGB.isFinite else {
             throw SevraError.unavailable("Sevra cannot read available memory right now. Try again in a moment.")
@@ -119,10 +148,9 @@ public enum PerformancePolicy {
         do {
             // Use the engine's qualified automatic MTP and lookahead policy.
             // The head is optional and its full cost must fit before enabling it.
-            plan = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, memoryLimitGB: ceiling,
-                ramGB: machine.ramGB, workingSetGB: machine.workingSetGB, availableGB: available,
-                mtp: .auto, mtpAvailable: mtpAvailable, vision: .off, maxContextTokens: contextTokens,
-                simulated: machine.isSimulated, qualification: false, decodeLookahead: decodeLookahead)
+            plan = try pack.plan(PlanRequest(memoryLimitGB: ceiling, mtp: .auto, vision: .off,
+                maxContextTokens: contextTokens), on: machine, mtpAvailable: mtpAvailable,
+                decodeLookahead: decodeLookahead)
         } catch {
             throw SevraError.refused("There isn’t enough memory available for this model. Close a large app and try again. Your conversation is preserved.")
         }
@@ -176,6 +204,8 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var activePack: String? = nil
     public var selectionReason: String? = nil
     public var configuration: AppliedModelConfiguration? = nil
+    public var minimumGB: Double = PerformancePolicy.minimumGB
+    public var memoryRangeAvailable = true
 }
 
 /// Metadata has its own lock and never waits for the inference actor or the
@@ -191,6 +221,12 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var configuration: AppliedModelConfiguration?
     private var activationFailure: String?
     private var activationRecoveryAvailable = false
+    private struct RangeKey: Equatable {
+        let manifest: String
+        let ramGB: Double
+        let workingSetGB: Double
+    }
+    private var cachedRange: (key: RangeKey, value: ModelPackMemoryRange?)?
     public init() {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical],
             queue: DispatchQueue(label: "sevra.memory-status", qos: .utility))
@@ -233,10 +269,28 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         let plan = current?.currentPlan
         let conditions = ProcessMemory.operatingConditions()
         let conserving = conditions.lowPowerModeEnabled || ["serious", "critical"].contains(conditions.thermalState)
+        // Ranges depend on hardware and selected context/components, never
+        // live availability. Price only when this key changes, outside the
+        // telemetry lock; polling and governor updates reuse that result.
+        let rangeChoice: ModelPackSelection
+        if preferences.quantization == .automatic, let packID = configuration?.packID {
+            rangeChoice = .pack(packID)
+        } else { rangeChoice = preferences.quantization }
+        let rangePack = try? ModelPackRegistry.resolve(rangeChoice).pack
+        let rangeKey = RangeKey(manifest: rangePack?.manifestDigest ?? "unavailable",
+            ramGB: machine.ramGB, workingSetGB: machine.workingSetGB)
+        lock.lock(); let cached = cachedRange; lock.unlock()
+        let range: ModelPackMemoryRange?
+        if let cached, cached.key == rangeKey { range = cached.value }
+        else {
+            range = try? rangePack?.memoryRange(for: .init(mtp: .auto, vision: .off,
+                maxContextTokens: PerformancePolicy.contextTokens), on: machine)
+            lock.lock(); cachedRange = (rangeKey, range); lock.unlock()
+        }
         return PerformanceSnapshot(preferences: preferences, pending: pending, state: state,
             loaded: current != nil, busy: busy, usedGB: bytes == 0 ? nil : Double(bytes) / 1e9,
             budgetGB: plan?.targetGB, recommendationGB: recommendation?.targetGB,
-            maximumGB: PerformancePolicy.maximumGB(on: machine),
+            maximumGB: range?.maximumGB ?? PerformancePolicy.maximumGB(on: machine),
             detail: pressure ? "Giving memory back to your Mac." : detail,
             idleMinutes: Int(ceil(PerformancePolicy.idleDelay(preparationSeconds: seconds, conservingPower: conserving) / 60)),
             physicalGB: machine.ramGB, ceilingGB: PerformancePolicy.ceilingGB(preferences, on: machine),
@@ -245,7 +299,9 @@ public final class PerformanceTelemetry: @unchecked Sendable {
             activationRecoveryAvailable: activationRecoveryAvailable,
             activePack: current == nil ? nil : configuration?.packID,
             selectionReason: (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
-            configuration: current == nil ? nil : configuration)
+            configuration: current == nil ? nil : configuration,
+            minimumGB: range?.minimumGB ?? PerformancePolicy.minimumGB,
+            memoryRangeAvailable: range != nil)
     }
 }
 

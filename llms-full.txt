@@ -1448,8 +1448,9 @@ The [operating-policy record](../db/records/decisions/sevra-app-speed-defaults-2
 contains the comparisons, costs and conditions for revising these choices.
 
 **Custom limit** means “use up to” the selected budget within the displayed
-supported range, which comes from this Mac's hardware rather than the automatic
-default. It retains automatic pressure protection. Switching to Custom starts
+supported range. Its minimum prices the selected pack and requested context;
+its maximum comes from this Mac's hardware. Current headroom is checked again
+when loading. It retains automatic pressure protection. Switching to Custom starts
 at the current budget; returning to it restores your last chosen limit. The
 saved limit stays stable when available memory changes. Settings distinguish
 the app’s physical memory use from the budget available now. Unified

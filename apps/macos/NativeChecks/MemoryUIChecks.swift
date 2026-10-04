@@ -16,11 +16,13 @@ import Vision
         window.setFrameOrigin(NSPoint(x: -30000, y: -30000))
         defer { window.orderOut(nil) }
         for appearance in ["light", "dark", "system"] {
-            for mode in ["automatic", "custom", "saved-above-range", "failed-settings", "failed-activation", "corrupt-activation", "fixed", "unavailable-pack"] {
+            for mode in ["automatic", "custom", "saved-above-range", "saved-below-range", "unavailable-range", "failed-settings", "failed-activation", "corrupt-activation", "fixed", "unavailable-pack"] {
                 let custom = mode != "automatic"
                 let overRange = mode == "saved-above-range"
+                let belowRange = mode == "saved-below-range"
+                let rangeAvailable = mode != "unavailable-range"
                 let activationFailed = ["failed-activation", "corrupt-activation"].contains(mode)
-                var preferences = custom ? PerformancePreferences(budget: .custom, customGB: 48) : .init()
+                var preferences = custom ? PerformancePreferences(budget: .custom, customGB: belowRange ? 10 : 48) : .init()
                 if mode == "fixed" { preferences.liveMemory = .fixed }
                 if mode == "unavailable-pack" { preferences.quantization = .pack("removed-pack") }
                 model.performancePreferences = preferences
@@ -35,7 +37,9 @@ import Vision
                     failure: mode == "failed-settings" ? "Choose a supported memory limit." : nil,
                     activationFailure: activationFailed ? "Your requested settings are preserved." : nil,
                     activationRecoveryAvailable: mode == "corrupt-activation",
-                    selectionReason: "Uses the original pack while alternative quantizations are being qualified.")
+                    selectionReason: "Uses the original pack while alternative quantizations are being qualified.",
+                    minimumGB: belowRange ? 12 : PerformancePolicy.minimumGB,
+                    memoryRangeAvailable: rangeAvailable)
                 window.appearance = appearance == "system" ? nil : NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
                 let host = NSHostingView(rootView: Form { PerformanceSettings(model: model, performance: model.performanceState) }
                     .formStyle(.grouped).frame(width: 620, height: 1050))
@@ -57,14 +61,20 @@ import Vision
                 let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
                 let labels = ["Quantization", "While running", "Memory budget", "Keep model ready"]
                     + (mode == "corrupt-activation" ? [] : ["Budget available now", "14.5 GB"])
-                    + (custom ? ["Custom limit", "48", overRange ? "37 GB" : "49.5 GB", "Your limit stays saved"] : ["Automatic", "Recommended now"])
+                    + (custom ? ["Custom limit", belowRange ? "10" : "48", "Your limit stays saved"]
+                        + (rangeAvailable ? [overRange ? "37 GB" : "49.5 GB"] : []) : ["Automatic", "Recommended now"])
                     + (["failed-settings", "failed-activation", "corrupt-activation"].contains(mode) ? ["Settings could not be applied", "Queued work waits", "Retry settings"] : custom ? ["Applies after"] : [])
                     + (mode == "corrupt-activation" ? ["Repair model setup"] : [])
-                    + (overRange ? ["Choose between"] : [])
+                    + (overRange || belowRange ? ["Choose between"] : [])
+                    + (belowRange ? ["12 GB"] : [])
+                    + (rangeAvailable ? [] : ["A supported memory range is unavailable"])
                     + (mode == "fixed" ? ["Fixed cache capacity", "Memory pressure can still stop"] : ["Automatic adjustment"])
                     + (mode == "unavailable-pack" ? ["Unavailable saved pack"] : [])
                 for label in labels where !text.localizedCaseInsensitiveContains(label) {
                     throw NSError(domain: "MemoryUI", code: 2, userInfo: [NSLocalizedDescriptionKey: "\(name) missing rendered label: \(label)\n\(text)"])
+                }
+                if !rangeAvailable && text.localizedCaseInsensitiveContains("Supported on this Mac: up to") {
+                    throw NSError(domain: "MemoryUI", code: 4, userInfo: [NSLocalizedDescriptionKey: "unavailable range must not display a supported maximum"])
                 }
                 print("PASS: \(name), rendered controls, current budget, supported range and pending state")
             }

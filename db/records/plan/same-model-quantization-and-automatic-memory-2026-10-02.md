@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T22:17:19.378570+00:00
+updated: 2026-10-04T22:42:57.990394+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1015,3 +1015,13 @@ A measured result additionally requires the exact chip, model, physical RAM, OS,
 The proposed plan fingerprint includes the registered pack's own resource contract, complete allocation geometry, context/features, lookahead and runtime allocation choices. A different pack's resource arithmetic is refused. CLI inspection exposes the evidence category and optional exact profile/configuration without certifying a speed target. Pure catalogue fixtures cover hardware and evidence mismatches, memory boundaries, quality/speed ordering, deterministic ties, retained overrides, invalid estimates and public compatibility. Compilation and execution of these new fixtures remain pending CI. The production profile list remains empty, and candidate-aware app selection/activation remains open until a real artifact qualifies.
 
 [[sources/runs/2026/10/2026-10-04-complete-performance-native-ci]] preserves complete successful engine and Mac CI for the native complete-performance instrument. This verifies compilation and integration only. Physical lookahead and complete-performance campaigns still wait behind the unchanged held-out quality continuation; no pack or speed promise is promoted.
+
+### Pack-owned memory range and activation planning, October 4
+
+The public supported-pack planner now dispatches through its own immutable resource profile, preserving the original public planner's behavior. A control-range inquiry accepts context and component choices, prices the full ledger at discrete control values on explicitly simulated hardware, and keeps real availability out of the displayed range. Required images include tower residency. The upper endpoint retains the existing stable hardware policy; every actual load separately enforces current headroom and the saved ceiling. Exact integer byte comparisons bound the returned control endpoints.
+
+Desktop custom validation uses this pack/context range. Its first-use control takes the current pack's minimum, while an existing saved value stays visible even below a newly required floor. Telemetry caches ranges by pack and physical hardware so memory polling does not repeat the search or rerun Auto. The controls consume the displayed minimum and explicitly disable unavailable ranges. A new light/dark/system fixture preserves and renders a saved value below a higher component floor. Activation planning receives the already frozen pack rather than resolving Auto again, so a future selected pack cannot inherit original resource arithmetic.
+
+Pure catalogue checks cover stable ranges under busy snapshots, exact endpoints and the preceding grid value, required draft/image and long-context costs, invalid hardware/controls, actual-headroom refusal and unchanged original-plan JSON. App fixtures bind the visible endpoints to the ledger and preserve both old budget-selector function behavior and saved values. Compilation, fixture execution and physical UI rendering of this range change are still pending; no alternative artifact is registered or loaded.
+
+[[sources/runs/2026/10/2026-10-04-auto-policy-ci-access-correction]] preserves the failed first Auto-policy CI. Swift synthesized the fixture profile initializer as module-private, so the separate diagnostics module could not construct its synthetic profiles. The explicit package-scoped initializer corrects that source error and remains unavailable to external applications or downloaded metadata. The earlier production Mac Xcode build passed; full corrected engine and app acceptance remains pending. The held-out quality continuation has completed another job and remains frozen and unanalyzed.

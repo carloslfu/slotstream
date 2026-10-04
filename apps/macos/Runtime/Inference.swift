@@ -582,7 +582,7 @@ public actor LocalInference: Inference {
             if remaining > 0 { try await Task.sleep(nanoseconds: UInt64(remaining * 1e9)) }
             try cancellation.check()
         }
-        let plan = try PerformancePolicy.plan(preference, on: .current(), mtpAvailable: MTPWeights.present(modelDir: model),
+        let plan = try PerformancePolicy.plan(preference, pack: pack, on: .current(), mtpAvailable: MTPWeights.present(modelDir: model),
             decodeLookahead: .environment(modelDirectory: model))
         if let journal, let attempt { try journal.advance(attempt, to: .loading) }
         buffer.stage("Loading the local model")

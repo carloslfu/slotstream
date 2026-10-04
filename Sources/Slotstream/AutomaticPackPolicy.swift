@@ -63,6 +63,7 @@ public struct ModelPackCandidate: Sendable {
 
     public init(pack: ModelPack, plan: MemoryPlan, executionPolicyID: String,
                 tools: Bool, prefixReuse: Bool) throws {
+        try Planner.validateAdaptiveMemoryPolicy(plan)
         guard !executionPolicyID.isEmpty, plan.resources == pack.memoryProfile, let target = plan.targetGB,
               let bytes = AutomaticPackPolicy.bytes(target), bytes > 0,
               plan.memoryLedger.expectedPeakBytes > 0 else {
@@ -149,6 +150,15 @@ package struct AutomaticPackProfile: Sendable {
     package let qualityRank: Int
     package let qualityReference: String
     package let evidence: Evidence
+
+    package init(id: String, packID: String, manifestDigest: String, executionPolicyID: String,
+                 contextTokens: Int, features: Set<ModelPackFeature>, qualityRank: Int,
+                 qualityReference: String, evidence: Evidence) {
+        self.id = id; self.packID = packID; self.manifestDigest = manifestDigest
+        self.executionPolicyID = executionPolicyID; self.contextTokens = contextTokens
+        self.features = features; self.qualityRank = qualityRank
+        self.qualityReference = qualityReference; self.evidence = evidence
+    }
 }
 
 package enum AutomaticPackPolicy {

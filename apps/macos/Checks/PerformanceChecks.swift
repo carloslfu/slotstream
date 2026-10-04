@@ -72,6 +72,18 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
     }
     try verifyPerformance(plans > 0 && refused > 0, "sweep includes accepted and refused plans")
     let roomy = Machine.simulated(ramGB: 48, availableGB: 40)
+    let admittedRange = try ModelPackRegistry.baseline.memoryRange(for: .init(mtp: .auto, vision: .off,
+        maxContextTokens: PerformancePolicy.contextTokens), on: roomy)
+    try verifyPerformance(PerformancePolicy.minimumGB == admittedRange.minimumGB &&
+        PerformancePolicy.maximumGB(on: roomy) == admittedRange.maximumGB,
+        "native control endpoints derive from the current pack and context ledger")
+    let minimum = try PerformancePolicy.plan(.init(budget: .custom, customGB: admittedRange.minimumGB),
+        on: roomy, mtpAvailable: false)
+    try verifyPerformance(minimum.expectedPeakGB <= admittedRange.minimumGB, "displayed minimum admits the complete requested context")
+    let frozenPackPlan = try PerformancePolicy.plan(.init(budget: .custom, customGB: 10),
+        pack: ModelPackRegistry.baseline, on: roomy, mtpAvailable: false)
+    try verifyPerformance(frozenPackPlan.targetGB == 10 && frozenPackPlan.memoryLimitGB == 10,
+        "activation plans its frozen pack without selecting again")
     let fast = try PerformancePolicy.plan(.init(), on: roomy, mtpAvailable: true)
     try verifyPerformance(fast.mtpEnabled && fast.decodeLookahead, "Desktop enables qualified automatic MTP and lookahead when they fit")
     try verifyPerformance(fast.targetGB == Planner.usefulCeilingGB && fast.memoryLimitGB == Planner.usefulCeilingGB,
@@ -90,6 +102,11 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
     try verifyPerformance(larger.slots > PerformancePolicy.plan(.init(), on: big).slots, "larger custom limit buys more cache")
     let first = PerformancePreferences().selectingBudget(.custom, currentGB: 33, maximumGB: PerformancePolicy.maximumGB(on: big))
     try verifyPerformance(first.customGB == 33, "first Custom keeps the current budget")
+    let firstWithComponents = PerformancePreferences().selectingBudget(.custom, currentGB: 10, minimumGB: 12, maximumGB: 33)
+    try verifyPerformance(firstWithComponents.customGB == 12, "first Custom respects the selected pack/component floor")
+    let savedWithComponents = PerformancePreferences(budget: .custom, customGB: 10)
+        .selectingBudget(.custom, currentGB: 14, minimumGB: 12, maximumGB: 33)
+    try verifyPerformance(savedWithComponents.customGB == 10, "a saved value below a changed floor stays visible and unchanged")
     let returned = custom.selectingBudget(.automatic, currentGB: 20, maximumGB: 49.5)
         .selectingBudget(.custom, currentGB: 20, maximumGB: 49.5)
     try verifyPerformance(returned.customGB == 48, "returning to Custom preserves user's last limit")

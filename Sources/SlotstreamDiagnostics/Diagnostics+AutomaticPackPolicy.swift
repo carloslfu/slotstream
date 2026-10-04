@@ -83,8 +83,12 @@ extension Diagnostics {
             c.expect("infeasible or mismatched complete configuration is excluded", choose([original], input) == nil)
         }
         let minimumAvailability = 14 + Planner.availabilitySlackGB(ramGB: 48)
+        // Decimal GB cannot represent every byte boundary exactly. The next
+        // representable value floors to the intended exact available bytes;
+        // the production conversion remains conservative rather than adding
+        // a floating-point tolerance to the allocation allowance.
         c.expect("exact custom ceiling and headroom are admitted", choose([original],
-            context(ceiling: 14_000_000_000, available: minimumAvailability, working: 16)) != nil)
+            context(ceiling: 14_000_000_000, available: minimumAvailability.nextUp, working: 16)) != nil)
         c.expect("one byte below the headroom requirement is excluded", choose([original],
             context(available: minimumAvailability - 1e-9)) == nil)
         for changed in [
