@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-03T19:15:45.465154Z
+updated: 2026-10-04T13:38:26.945195Z
 ---
 
 # records/decisions
 
+- [[records/decisions/hold-unconstrained-affine-refit]] — Hold the unconstrained affine-three-bit refit
 - [[records/decisions/same-model-automatic-quantization-with-overrides]] — Default to automatic same-model quantization selection while preserving independent user pack and memory-ceiling overrides.
 - [[records/decisions/single-mac-quantization-validation]] — Complete quantization and Auto work with the available 48 GB Mac; other-Mac physical validation is not a completion requirement.
 - [[records/decisions/vq-2.1-held-after-distribution-screen]] — Hold VQ 2.1 out of promotion after the matched quality screen; retain evidence and focus engineering on VQ 3.2.

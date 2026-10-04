@@ -124,6 +124,7 @@ extension Diagnostics {
             try data.write(to: output.appendingPathComponent("prepared.json"), options: .withoutOverwriting)
             return data
         }
+        let affineArtifact = try affineControl.map { try AffineExpertControl.identify(control: $0) }
         try ModelProcessGuard.acquire()
         guard let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= UInt64(memoryBytes + 3_000_000_000) else {
             throw ModelError("task evaluation requires its complete physical budget plus three GB real reclaimable memory")
@@ -176,11 +177,12 @@ extension Diagnostics {
                     throw ModelError("planned evaluation changed a frozen configuration")
                 }
                 let engine: Engine
-                if let affineControl, let table {
+                if let affineControl, let table, let affineArtifact {
                     engine = try await Engine(modelDir: baseline,
-                        affineSource: AffineEngineSource(control: affineControl, coefficients: table,
+                        affineSource: AffineEngineSource(control: affineControl, artifact: affineArtifact, coefficients: table,
                             piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts), plan: plan)
-                    identity["control_manifest_sha256"] = AffineExpertControl.manifestSHA256
+                    identity["control_manifest_sha256"] = affineArtifact.manifestSHA256
+                    identity["control_policy"] = affineArtifact.policy
                     identity["rotary_sha256"] = VQRotaryCoefficients.sha256
                     identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"
                 } else {
@@ -200,8 +202,8 @@ extension Diagnostics {
                 baselineEngine = engine
                 identity["plan"] = plan.json()
                 identity["allocation_scope"] = "Actual fixed-ceiling Engine plan, disabled prefix retention and decode lookahead, explicit draft placement; no Auto or speed qualification."
-            } else if let affineControl, let table {
-                let index = try AffineExpertControl.open(baseline: baseline, control: affineControl,
+            } else if let affineControl, let table, let affineArtifact {
+                let index = try AffineExpertControl.open(baseline: baseline, control: affineControl, artifact: affineArtifact,
                     shouldContinue: {
                         ProcessMemory.peakResidentBytes() <= 10_000_000_000
                             && (ProcessMemory.vmActivity()?.reclaimableBytes ?? 0) >= 3_000_000_000
@@ -217,7 +219,8 @@ extension Diagnostics {
                 generator.speculationEnabled = draftDepth > 0; generator.draftDepth = max(1, draftDepth)
                 generator.footprintSampling = true
                 affineGenerator = generator; affineIndex = index
-                identity["control_manifest_sha256"] = AffineExpertControl.manifestSHA256
+                identity["control_manifest_sha256"] = affineArtifact.manifestSHA256
+                identity["control_policy"] = affineArtifact.policy
                 identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"
                 identity["rotary_sha256"] = VQRotaryCoefficients.sha256
                 identity["slots"] = 640; identity["record_bytes"] = model.pool.recordBytes

@@ -6,6 +6,7 @@ import Tokenizers
 /// add an eligible artifact to Auto or bypass product qualification.
 package struct AffineEngineSource {
     package let control: URL
+    package let artifact: AffineExpertControl.Artifact
     package let coefficients: URL
     package let piecewiseAllocation: Bool
     package let groupedExperts: Bool
@@ -14,9 +15,11 @@ package struct AffineEngineSource {
         vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
             : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control))
     }
-    package init(control: URL, coefficients: URL, piecewiseAllocation: Bool = false,
+    package init(control: URL, artifact: AffineExpertControl.Artifact = .minmax,
+                 coefficients: URL, piecewiseAllocation: Bool = false,
                  groupedExperts: Bool = false, vision: Bool = false) {
         self.control = control
+        self.artifact = artifact
         self.coefficients = coefficients
         self.piecewiseAllocation = piecewiseAllocation
         self.groupedExperts = groupedExperts

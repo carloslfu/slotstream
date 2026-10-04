@@ -30,6 +30,15 @@ class LiteralTests(unittest.TestCase):
         result=q._bounded_process([sys.executable,'-I','-c','import sys;print(len(sys.stdin.buffer.read()))'],b'x'*q.MAX_PAYLOAD)
         self.assertEqual(result['stdout'].strip(),str(q.MAX_PAYLOAD).encode())
 
+    def test_explicit_string_input_bound_does_not_widen_the_coding_default(self):
+        command=[str(q.runtime_executable()),'-I','-S','-c','import sys;print(len(sys.stdin.buffer.read()))']
+        payload=b'x'*131072
+        with self.assertRaises(ValueError):q._bounded_process(command,payload)
+        result=q._bounded_process(command,payload,maximum_payload=len(payload))
+        self.assertEqual(result['stdout'].strip(),str(len(payload)).encode())
+        for bound in [True,0,-1,2.0,(2<<20)+1]:
+            with self.assertRaises(ValueError):q._bounded_process([],b'',maximum_payload=bound)
+
 
 @unittest.skipUnless(sys.platform=='darwin','native Mac sandbox is the only supported coding environment')
 class NativeTests(unittest.TestCase):

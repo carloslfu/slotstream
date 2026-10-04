@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T11:56:30.855256+00:00
+updated: 2026-10-04T13:38:37.949492+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -728,3 +728,13 @@ All responses come from actual fourteen-GB, 32K native plans with streamed origi
 [[sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component]] records a prospectively bounded component screen of least-squares scale/bias fitting against the original four-bit parent. It uses the same three-bit/group-64 representation and actual BF16 dequantization error, with the unchanged control retained per group unless a trial improves it. The implementation is distinct from HQQ's robust proximal objective and uses no held-out activations or task answers.
 
 Twenty component cases pass, including two synthetic shape/batching cases and eighteen real expert projections containing 29,491,200 values. Independent packed-code decoding, stored serialization and group-error reductions agree. The real component squared-error reductions range from 49.1930% to 49.4405%, with zero group-level regressions; maximum individual absolute error grows in twelve of the eighteen. The process peaks at 434,455,344 physical bytes and finishes in 14.261859 seconds inside its frozen four-GB/13-GB-preflight/three-GB-headroom and twenty-minute envelope. No complete model runs or new model weights are produced. This supports pricing a separate full conversion, without establishing quality, performance, original BF16 equivalence or promotion eligibility.
+
+### Complete affine refit and outcome-instrument acceptance
+
+[[sources/runs/2026/10/2026-10-04-affine-refit-full-screen]] records forty-eight refitted expert files totaling 52,848,290,992 bytes, produced in 3,355.410512125003 seconds with 966,214,376 peak physical bytes. Conversion stays within its separately frozen four-GB process and 430-GB staging reservations. Stored group squared error decreases by 49.28334082871262 percent.
+
+The unchanged six-context model screen reverses that local weight-error result. Refit's macro KL is 0.5175330957912493 and top-one agreement is 0.7708333333333334. Minmax remains at 0.4326172687996428 and 0.8020833333333334; the original is 0.44401073962586735 and 0.7916666666666666. Matching reference/baseline hashes and unchanged baseline scores are checked explicitly. [[records/decisions/hold-unconstrained-affine-refit]] therefore holds this recipe. The screen adds no raw logits and supports no held-out quality, speed or BF16-equivalence claim.
+
+[[sources/runs/2026/10/2026-10-04-complete-outcome-and-session-acceptance]] preserves the two hundred offline BFCL reference conversations through the completed outcome wrapper, full long-answer grader fixtures and seven prospective MOVER numerical diagnostics. These are zero-model instrument checks. The paired analysis remains asymptotic and uses independent task units, not tokens; the final method and sample must be selected before final answers.
+
+The same source then compiles and passes native V2 sessions for the original and admitted minmax artifact. Each refuses the explicit oversized reservation, performs actual calculator use and consumes its result, reuses a prefix and reproduces the same answer cold. Physical peaks are 7,540,446,440 and 5,952,065,976 bytes, inside the ten-GB envelope. All negative protocols, the complete native catalogue and full static suite pass with before/after build identity equality. These checks qualify instrumentation and identity ownership only. Held-out task outcomes, image quality, complete performance, standalone delivery and promotion remain open.

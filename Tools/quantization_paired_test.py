@@ -83,4 +83,38 @@ class PairedTests(unittest.TestCase):
         for kw in [dict(family_weights={'a':.3,'b':.8}),dict(family_weights={'a':1.}),dict(family_weights={'a':float('nan'),'b':.5}),dict(overall_margin=0),dict(family_margins={'a':.05,'b':True})]:
             with self.assertRaises(ValueError):self.summarize(**kw)
 
+    def test_mover_one_stratum_reduces_to_paired_score_with_two_comparisons(self):
+        rows=[r for r in self.rows() if r['family']=='a']
+        for row in rows[:7]:row['candidate_pass']=False
+        for row in rows[7:10]:row['baseline_pass']=False
+        result=p.stratified_mover_summary(rows,family_weights={'a':1.},family_margins={'a':.05},overall_margin=.05,alpha=.05)
+        self.assertEqual(result['comparisons'],2)
+        self.assertEqual(result['per_comparison_alpha'],.025)
+        self.assertAlmostEqual(result['overall']['upper_loss'],p.upper_loss(7,3,400,.025),places=14)
+        self.assertFalse(result['qualification'])
+
+    def test_mover_independent_equal_strata_recover_root_sum_variance(self):
+        rows=[dict(id=f'{f}-{i}',family=f,baseline_pass=True,candidate_pass=True)
+              for f in ['a','b','c','d'] for i in range(200)]
+        result=p.stratified_mover_summary(rows,family_weights={f:.25 for f in 'abcd'},
+            family_margins={f:.05 for f in 'abcd'},overall_margin=.02,alpha=.05)
+        # The zero-discordance score has the independent closed form z²/(n+z²).
+        # Four equal independent strata halve the width, not the effect.
+        z=NormalDist().inv_cdf(.99);width=z*z/(200+z*z)
+        self.assertAlmostEqual(result['overall']['upper_loss'],width/2,places=14)
+        self.assertEqual(result['per_family_alpha'],.01)
+        self.assertTrue(result['all_statistical_margins_met'])
+        self.assertGreater(result['overall']['upper_loss'],0)
+
+    def test_mover_retains_family_harm_gate_and_input_rejection(self):
+        rows=self.rows()
+        for row in rows[:40]:row['candidate_pass']=False
+        args=dict(family_weights={'a':.01,'b':.99},family_margins={'a':.05,'b':.05},overall_margin=.05,alpha=.05)
+        result=p.stratified_mover_summary(rows,**args)
+        self.assertTrue(result['overall']['inside_margin']);self.assertFalse(result['all_statistical_margins_met'])
+        for invalid in [[],rows+rows[:1],rows[:400]]:
+            with self.assertRaises(ValueError):p.stratified_mover_summary(invalid,**args)
+        for weights in [None,{}, {'a':.5}]:
+            with self.assertRaises(ValueError):p.stratified_mover_summary(rows,**dict(args,family_weights=weights))
+
 if __name__=='__main__':unittest.main()

@@ -32,10 +32,14 @@ def main():
     for name in ('baseline', 'control', 'architecture', 'order-proof', 'protocol', 'out'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--protocol-sha256', required=True)
+    parser.add_argument('--control-sha256', default=CONTROL)
     args = parser.parse_args()
     protocol = read_json(args.protocol, args.protocol_sha256)
+    control_sha = args.control_sha256
+    if len(control_sha) != 64 or any(c not in '0123456789abcdef' for c in control_sha):
+        raise ValueError('exact lowercase control manifest SHA-256 required')
     instrument = identity(); own_sha = digest(__file__)
-    if (protocol['control_manifest_sha256'] != CONTROL or protocol['reference_instrument_sha256'] != instrument['sha256']
+    if (protocol['control_manifest_sha256'] != control_sha or protocol['reference_instrument_sha256'] != instrument['sha256']
             or protocol['producer_sha256'] != own_sha or protocol['maximum_new_raw_f32_bytes'] != RAW_BYTES
             or protocol['relative_maximum_bound'] != 0.02 or protocol['maximum_model_process_bytes'] != 10_000_000_000
             or protocol['tokens'] != TOKENS or protocol['paid_compute_usd'] != 0):
@@ -43,14 +47,14 @@ def main():
     proof_raw = args.order_proof.read_bytes()
     if hashlib.sha256(proof_raw).hexdigest() != protocol['order_proof_sha256']:
         raise ValueError('reference order proof changed')
-    check_proof(json.loads(proof_raw), instrument, CONTROL)
+    check_proof(json.loads(proof_raw), instrument, control_sha)
     if args.out.exists() or args.out.is_symlink() or not args.out.parent.is_dir():
         raise ValueError('reference output must be new with an existing parent')
     before = quiet_preflight(13)
     with verification_lock():
         args.out.mkdir(mode=0o700)
         record = {'schema': 1, 'complete': False, 'qualification': False, 'points': [],
-                  'control_manifest_sha256': CONTROL, 'normalization': NORMALIZATION, 'tokens': TOKENS,
+                  'control_manifest_sha256': control_sha, 'normalization': NORMALIZATION, 'tokens': TOKENS,
                   'relative_maximum_bound': 0.02, 'protocol_sha256': args.protocol_sha256,
                   'instrument_sha256': instrument['sha256'], 'producer_sha256': own_sha,
                   'architecture_sha256': ARCH_SHA256, 'raw_f32_bytes': 0, 'before': before}
@@ -78,7 +82,7 @@ def main():
             import mlx.core as mx
             import numpy as np
             mx.set_memory_limit(8_000_000_000); mx.set_cache_limit(128_000_000)
-            archive = Archive(args.baseline, args.control, CONTROL); archive.verify(guard)
+            archive = Archive(args.baseline, args.control, control_sha); archive.verify(guard)
             arch = architecture(args.architecture); model = load_model(archive, arch, prove_ple=False)
             core = model.model; caches = model.make_cache(); ids = mx.array([TOKENS], dtype=mx.int64)
             h = mx.tile(core.embed_tokens(ids), (1, 1, core.hc)); mx.eval(h)

@@ -98,10 +98,15 @@ def sandbox_profile(executable, prefix, sources):
     ])+'\n'
 
 
-def _bounded_process(command, payload, *, timeout=MAX_SECONDS):
+def _bounded_process(command, payload, *, timeout=MAX_SECONDS, maximum_payload=MAX_PAYLOAD):
     """Drain bounded output without communicate's unbounded accumulation."""
-    if len(payload) > MAX_PAYLOAD:
-        raise ValueError('coding payload exceeds its bound')
+    # Coding retains its 64 KB default. The trusted instruction-string grader
+    # separately prices complete app-sized answers up to the session frame
+    # bound; this argument never changes execution, output or sandbox limits.
+    if type(maximum_payload) is not int or not 1 <= maximum_payload <= 2 << 20:
+        raise ValueError('invalid bounded worker input limit')
+    if len(payload) > maximum_payload:
+        raise ValueError('worker payload exceeds its bound')
     started = time.monotonic()
     with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE, cwd='/', env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C.UTF-8'},

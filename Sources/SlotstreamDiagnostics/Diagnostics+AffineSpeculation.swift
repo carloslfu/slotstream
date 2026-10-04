@@ -9,6 +9,7 @@ extension Diagnostics {
     public static func affineSpeculation(baseline: URL, control: URL, profile: URL,
         output: URL, streamedDraft: Bool = false, piecewiseAllocation: Bool = false,
         groupedExperts: Bool = false) throws -> Data {
+        let artifact = try AffineExpertControl.identify(control: control)
         guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
         let data = try AffineExpertControl.bounded(profile, maximum: 2023,
             sha256: "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c")
@@ -39,7 +40,7 @@ extension Diagnostics {
         var complete = false
         func save(_ failure: String? = nil) throws -> Data {
             var result: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
-                "control_manifest_sha256": AffineExpertControl.manifestSHA256,
+                "control_manifest_sha256": artifact.manifestSHA256,
                 "arithmetic": "pr1788-affine3-row-invariant-verification-v1",
                 "draft_sha256": VQDraftWeights.fileSHA256, "slots": 640, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation,
@@ -54,7 +55,7 @@ extension Diagnostics {
             return encoded
         }
         do {
-            let index = try AffineExpertControl.open(baseline: baseline, control: control,
+            let index = try AffineExpertControl.open(baseline: baseline, control: control, artifact: artifact,
                 shouldContinue: { (try? guardResources()) != nil })
             let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true, affinePiecewiseAllocation: piecewiseAllocation,

@@ -97,6 +97,32 @@ extension Diagnostics {
             do { _ = try ModelPackRegistry.resolve(.pack(unknown)); c.expect("unsupported explicit pack refused", false) }
             catch { c.expect("unsupported explicit pack refused", true) }
         }
+        let historicalIdentity = ["pinned-affine4-to-affine3-group64-experts-only-v1",
+            "af31bd191fbd82dc998fe29cae230c7f3e6977bd355c827bf42e643b7680f182",
+            "embedded-reference-coefficients-v1", PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
+        c.equal("historical affine cache identity remains byte-identical",
+            AffineExpertControl.Artifact.minmax.arithmeticIdentity(rotarySHA256: nil, piecewise: false, grouped: false), historicalIdentity)
+        var identities = Set<String>()
+        for artifact in AffineExpertControl.Artifact.admitted + [.refit] {
+            for coefficients in [nil, "coefficient-table-A", "coefficient-table-B"] as [String?] {
+                for (piecewise, grouped) in [(false, false), (true, false), (true, true)] {
+                    c.expect("artifact and arithmetic changes cannot share cached state", identities.insert(
+                        artifact.arithmeticIdentity(rotarySHA256: coefficients, piecewise: piecewise, grouped: grouped)).inserted)
+                }
+            }
+        }
+        let untrustedManifest: [String: Any] = ["schema": 1, "complete": true, "qualification": false,
+            "policy": AffineExpertControl.policy, "parent_revision": PinnedModel.revision]
+        try JSONSerialization.data(withJSONObject: untrustedManifest).write(to: directory.appendingPathComponent("manifest.json"))
+        do { _ = try AffineExpertControl.identify(control: directory); c.expect("recipe labels cannot grant artifact admission", false) }
+        catch { c.expect("recipe labels cannot grant artifact admission", String(describing: error).contains("allowlist")) }
+        do {
+            _ = try AffineExpertControl.open(baseline: directory, control: directory, artifact: .refit)
+            c.expect("screened-out refit is refused before any tensor or model allocation", false)
+        } catch {
+            c.expect("screened-out refit is refused before any tensor or model allocation",
+                String(describing: error).contains("allowlist"))
+        }
         return c.report()
     }
 

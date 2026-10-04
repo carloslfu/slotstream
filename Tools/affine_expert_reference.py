@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 
-from affine_expert_control import Source, POLICY, FAMILIES, metadata, digest
+from affine_expert_control import Source, POLICY, REFIT_POLICY, REFIT_COMPONENT_SHA256, FAMILIES, metadata, digest
 from context_qualification import quiet_preflight, verification_lock
 from prefill_bench import vm_snapshot
 from quantization_inventory import unique_json
@@ -55,6 +55,33 @@ def architecture(path):
     return module
 
 
+def validate_control_manifest(manifest):
+    """Only the two explicit same-parent affine research recipes are admitted.
+
+    The caller separately pins the complete manifest digest, authenticates
+    every payload and verifies all tensor geometry. Admitting a recipe here
+    does not register it for inference or attest task-quality equivalence.
+    """
+    if (not isinstance(manifest, dict) or type(manifest.get('schema')) is not int
+            or manifest['schema'] != 1 or manifest.get('complete') is not True
+            or manifest.get('qualification') is not False
+            or manifest.get('policy') not in (POLICY, REFIT_POLICY)
+            or manifest.get('parent_revision') != BASE_REVISION
+            or manifest.get('baseline_config_sha256') != BASE_CONFIG
+            or manifest.get('baseline_index_sha256') != BASE_INDEX
+            or manifest.get('layers') != list(range(48))
+            or type(manifest.get('expected_output_bytes')) is not int
+            or manifest['expected_output_bytes'] != 52_848_290_992
+            or not isinstance(manifest.get('files'), list) or len(manifest['files']) != 48):
+        raise ValueError('requires a complete explicit same-parent expert control')
+    if manifest['policy'] == REFIT_POLICY:
+        if (manifest.get('refitted') is not True
+                or manifest.get('refit_component_receipt_sha256') != REFIT_COMPONENT_SHA256):
+            raise ValueError('refitted control lacks its checked recipe identity')
+    elif manifest.get('refitted', False) is not False:
+        raise ValueError('original control cannot claim the refitted recipe')
+
+
 class Archive:
     """Complete pinned files, checked tensor geometry and stable lazy mapping."""
     def __init__(self, baseline, control, control_sha):
@@ -80,13 +107,7 @@ class Archive:
             self.control_manifest = None
             if control is not None:
                 manifest = read_json(control / 'manifest.json', control_sha)
-                if (manifest.get('schema') != 1 or manifest.get('complete') is not True
-                        or manifest.get('qualification') is not False or manifest.get('policy') != POLICY
-                        or manifest.get('parent_revision') != BASE_REVISION
-                        or manifest.get('baseline_config_sha256') != BASE_CONFIG
-                        or manifest.get('baseline_index_sha256') != BASE_INDEX
-                        or manifest.get('layers') != list(range(48)) or len(manifest.get('files', [])) != 48):
-                    raise ValueError('requires the complete explicit same-parent expert control')
+                validate_control_manifest(manifest)
                 files = {f['path']: f for f in manifest['files']}
                 if set(files) != {f'experts-{n:02d}.safetensors' for n in range(48)}:
                     raise ValueError('duplicate or missing controlled layers')

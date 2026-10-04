@@ -18,6 +18,13 @@ private struct QuantizationSessionProtocol: Decodable {
     let maximumRequests: Int
     let maximumSeconds: Int
     let seed: Int
+    var reservesCompleteReply: Bool { kind == "quantization-tool-session-v2" }
+
+    func checkReplyRoom(promptTokens: Int) throws {
+        guard promptTokens >= 0, promptTokens <= contextLimit - outputLimit else {
+            throw ModelError("session prompt does not leave the complete frozen reply allowance inside its context")
+        }
+    }
 
     static func load(_ file: URL, sha256: String) throws -> Self {
         let data = try AffineExpertControl.bounded(file, maximum: 64_000, sha256: sha256)
@@ -27,11 +34,13 @@ private struct QuantizationSessionProtocol: Decodable {
               Set(object.keys) == keys else { throw ModelError("session protocol has unknown or missing fields") }
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
-        guard value.schema == 1, value.kind == "quantization-tool-session-v1",
+        let outputLimits = value.reservesCompleteReply ? [128, 512, 1024, 2048, 4096, 12288] : [128, 512, 1024, 2048]
+        guard value.schema == 1, ["quantization-tool-session-v1", "quantization-tool-session-v2"].contains(value.kind),
               ["instrument-check", "held-out"].contains(value.scope),
               (10_000_000_000...14_000_000_000).contains(value.memoryBytes),
               value.memoryBytes.isMultiple(of: 100_000_000),
-              [8192, 32768].contains(value.contextLimit), [128, 512, 1024, 2048].contains(value.outputLimit),
+              [8192, 32768].contains(value.contextLimit), outputLimits.contains(value.outputLimit),
+              value.outputLimit < value.contextLimit,
               [0, 2].contains(value.draftDepth), (1...256).contains(value.maximumRequests),
               (1...1800).contains(value.maximumSeconds), value.seed == 7 else {
             throw ModelError("conversation protocol exceeds its declared resource or arithmetic scope")
@@ -88,6 +97,7 @@ extension Diagnostics {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
               }) else { throw ModelError("session requires explicit clean inputs, paired candidate paths and new output") }
         let specification = try QuantizationSessionProtocol.load(protocolFile, sha256: protocolSHA256)
+        let artifact = try control.map { try AffineExpertControl.identify(control: $0) }
         let resources: PackMemoryProfile = control == nil ? .original : .affine3GroupedControl
         let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
             memoryGB: Double(specification.memoryBytes) / 1e9,
@@ -105,14 +115,16 @@ extension Diagnostics {
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false,
             attributes: [.posixPermissions: 0o700])
         var identity: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
-            "scope": specification.scope, "protocol_sha256": protocolSHA256,
+            "scope": specification.scope, "protocol_sha256": protocolSHA256, "protocol_kind": specification.kind,
             "resource_identity": resources.identity, "plan": plan.json(),
             "draft_depth": specification.draftDepth, "seed": specification.seed,
             "prefix_cache": specification.prefixCache, "output_limit": specification.outputLimit,
             "maximum_requests": specification.maximumRequests, "maximum_seconds": specification.maximumSeconds,
-            "baseline_revision": PinnedModel.revision, "loaded": false, "requests": 0, "resets": 0]
-        if control != nil {
-            identity["control_manifest_sha256"] = AffineExpertControl.manifestSHA256
+            "baseline_revision": PinnedModel.revision, "loaded": false, "requests": 0, "resets": 0,
+            "admission_refusals": 0]
+        if let artifact {
+            identity["control_manifest_sha256"] = artifact.manifestSHA256
+            identity["control_policy"] = artifact.policy
             identity["rotary_sha256"] = VQRotaryCoefficients.sha256
         } else { identity["manifest_sha256"] = ModelPackRegistry.baseline.manifestDigest }
         func serialize(_ value: [String: Any]) throws -> Data {
@@ -159,9 +171,9 @@ extension Diagnostics {
         }
         do {
             let engine: Engine
-            if let control, let table {
+            if let control, let table, let artifact {
                 engine = try await Engine(modelDir: baseline,
-                    affineSource: AffineEngineSource(control: control, coefficients: table,
+                    affineSource: AffineEngineSource(control: control, artifact: artifact, coefficients: table,
                         piecewiseAllocation: true, groupedExperts: true), plan: plan)
             } else {
                 try WeightStore.verify(at: baseline)
@@ -183,7 +195,7 @@ extension Diagnostics {
             let server = Server(engine: engine, port: 0)
             try emit(["event": "ready", "identity": identity])
             let input = QuantizationSessionInput()
-            var seen = Set<String>(), requests = 0, resets = 0, finished = false
+            var seen = Set<String>(), requests = 0, resets = 0, refusals = 0, finished = false
             while let row = try input.next(check: checkResources) {
                 guard let operation = row["op"] as? String else { throw ModelError("session frame has no operation") }
                 if operation == "finish" {
@@ -208,6 +220,50 @@ extension Diagnostics {
                 }
                 body["model"] = engine.modelName; body["stream"] = false; body["think"] = false
                 body["temperature"] = 0; body["seed"] = specification.seed; body["max_tokens"] = specification.outputLimit
+                // V1 remains the frozen sizing-pilot behavior. V2 separately
+                // admits the app's ordinary/proposal reply limits and reserves
+                // every requested output token before entering generation.
+                // These are the same two text-rendering paths as the OpenAI
+                // handler. The observed HTTP usage below must agree exactly;
+                // a future handler change cannot silently invalidate the gate.
+                var reservedPromptTokens: Int?
+                if specification.reservesCompleteReply {
+                    let request = try OpenAIDialect.conversation(body, contextLimit: specification.contextLimit)
+                    guard request.messages.allSatisfy({ $0.images.isEmpty }) else {
+                        throw ModelError("text outcome sessions do not admit image requests")
+                    }
+                    let raw = body["messages"] as? [[String: Any]] ?? []
+                    let extended = !request.tools.isEmpty
+                        || request.messages.contains { $0.role == "tool" || !$0.toolCalls.isEmpty || $0.reasoning != nil }
+                        || raw.contains { $0["role"] as? String == "developer" }
+                        || raw.filter { $0["role"] as? String == "system" }.count > 1
+                    let ids: [Int]
+                    if extended {
+                        ids = try engine.encodeChatSpliced(request.messages, tools: request.tools, thinking: false, effort: nil)
+                    } else {
+                        ids = try engine.encodeChatOpenAI(messages: Server.templateMessages(body), tools: nil, thinking: false)
+                    }
+                    if ids.count > specification.contextLimit - specification.outputLimit {
+                        // A complete tool workflow may exhaust its declared
+                        // context. Record that task outcome without silently
+                        // shortening the reply or killing unrelated cases.
+                        // This is an instrument admission event, never a fake
+                        // HTTP response and never a model/tool execution.
+                        try checkResources()
+                        requests += 1; refusals += 1
+                        try emit(["event": "admission_refusal", "id": id,
+                            "code": "reply_reservation_exceeded", "request": body,
+                            "prompt_tokens": ids.count, "output_limit": specification.outputLimit,
+                            "context_limit": specification.contextLimit])
+                        identity["requests"] = requests; identity["resets"] = resets
+                        identity["admission_refusals"] = refusals
+                        identity["peak_process_bytes"] = ProcessMemory.peakResidentBytes()
+                        _ = try save(); continue
+                    }
+                    try specification.checkReplyRoom(promptTokens: ids.count)
+                    reservedPromptTokens = ids.count
+                    try checkResources()
+                }
                 let began = ProcessInfo.processInfo.systemUptime
                 let response = try OutputHTTPConnection(server: server, path: "/v1/chat/completions", object: body,
                     timeoutSeconds: specification.maximumSeconds).readResponse()
@@ -215,9 +271,17 @@ extension Diagnostics {
                 try checkResources()
                 guard engine.model.pool.pinnedSlotCount == 0 else { throw ModelError("session response retained expert pins") }
                 requests += 1
-                try emit(["event": "response", "id": id, "request": body, "http_head": response.head,
+                var event: [String: Any] = ["event": "response", "id": id, "request": body, "http_head": response.head,
                     "response": parsed, "request_seconds": ProcessInfo.processInfo.systemUptime - began,
-                    "peak_process_bytes": ProcessMemory.peakResidentBytes()])
+                    "peak_process_bytes": ProcessMemory.peakResidentBytes()]
+                if let reservedPromptTokens { event["reserved_prompt_tokens"] = reservedPromptTokens }
+                try emit(event)
+                if let reservedPromptTokens, response.head.hasPrefix("HTTP/1.1 200") {
+                    guard let object = parsed as? [String: Any], let usage = object["usage"] as? [String: Any],
+                          usage["prompt_tokens"] as? Int == reservedPromptTokens else {
+                        throw ModelError("actual HTTP prompt differs from the frozen reply reservation")
+                    }
+                }
                 identity["requests"] = requests; identity["resets"] = resets
                 identity["peak_process_bytes"] = ProcessMemory.peakResidentBytes(); _ = try save()
             }
@@ -272,6 +336,39 @@ extension Diagnostics {
             }
         } catch { cancelled = true }
         c.expect("idle input returns control to the resource deadline", cancelled && polls == 2)
+        var protocolObject: [String: Any] = ["schema": 1, "kind": "quantization-tool-session-v2",
+            "scope": "instrument-check", "memory_bytes": 10_000_000_000, "context_limit": 32768,
+            "output_limit": 4096, "draft_depth": 2, "prefix_cache": true, "maximum_requests": 8,
+            "maximum_seconds": 1800, "seed": 7]
+        func loadProtocol(_ object: [String: Any]) throws -> QuantizationSessionProtocol {
+            let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+            let file = directory.appendingPathComponent(UUID().uuidString)
+            try data.write(to: file)
+            return try QuantizationSessionProtocol.load(file, sha256: AffineExpertControl.digest(data))
+        }
+        for output in [4096, 12288] {
+            protocolObject["output_limit"] = output
+            let protocolValue = try loadProtocol(protocolObject)
+            c.expect("V2 admits the explicit app reply limit \(output)", protocolValue.reservesCompleteReply)
+            try protocolValue.checkReplyRoom(promptTokens: protocolValue.contextLimit - output)
+            for tokens in [-1, protocolValue.contextLimit - output + 1, Int.max] {
+                var refused = false
+                do { try protocolValue.checkReplyRoom(promptTokens: tokens) } catch { refused = true }
+                c.expect("V2 refuses incomplete reply reservation \(output)/\(tokens)", refused)
+            }
+        }
+        for (name, change) in [
+            ("V1 retains its smaller output scope", ["kind": "quantization-tool-session-v1"] as [String: Any]),
+            ("proposal does not fit an eight-K context", ["context_limit": 8192]),
+            ("unpriced output limit", ["output_limit": 8192]),
+            ("unknown protocol version", ["kind": "quantization-tool-session-v3"])
+        ] {
+            var changed = protocolObject
+            for (key, value) in change { changed[key] = value }
+            var refused = false
+            do { _ = try loadProtocol(changed) } catch { refused = true }
+            c.expect(name, refused)
+        }
         return c.report()
     }
 }

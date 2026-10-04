@@ -18,13 +18,11 @@ public final class Qwen4ExpModel {
     package let inferenceContextLimit: Int
     package var maximumForwardTokens: Int? { affineControlReferenceArithmetic ? 512 : nil }
     private let authenticatedRotaryIdentity: String?
+    package let affineExpertArtifact: AffineExpertControl.Artifact?
     package var authenticatedArtifactIdentity: String? {
-        guard affineControlReferenceArithmetic else { return nil }
-        let identity = [AffineExpertControl.policy, AffineExpertControl.manifestSHA256,
-                authenticatedRotaryIdentity ?? "embedded-reference-coefficients-v1",
-                PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
-        let allocation = affinePiecewiseAllocation ? identity + ":piecewise-allocation-v1" : identity
-        return affineGroupedExperts ? allocation + ":grouped-experts-v1" : allocation
+        guard affineControlReferenceArithmetic, let artifact = affineExpertArtifact else { return nil }
+        return artifact.arithmeticIdentity(rotarySHA256: authenticatedRotaryIdentity,
+            piecewise: affinePiecewiseAllocation, grouped: affineGroupedExperts)
     }
 
     /// Charge the selected expert allocation independently of the optional
@@ -260,7 +258,8 @@ public final class Qwen4ExpModel {
         guard !affinePiecewiseAllocation || affineControlReferenceArithmetic else {
             throw ModelError("piecewise affine allocation requires the authenticated reference profile")
         }
-        guard !affineControlReferenceArithmetic || (index.hasAuthenticatedFiles && index.config.admittedExpertRecordBytes == 2_150_400) else {
+        guard !affineControlReferenceArithmetic || (index.hasAuthenticatedFiles
+            && index.affineExpertArtifact != nil && index.config.admittedExpertRecordBytes == 2_150_400) else {
             throw ModelError("the affine reference profile requires the authenticated expert control")
         }
         guard affineControlCoefficients == nil || affineControlReferenceArithmetic,
@@ -270,6 +269,7 @@ public final class Qwen4ExpModel {
             throw ModelError("affine reference context requires explicit bounded coefficient coverage")
         }
         self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
+        self.affineExpertArtifact = index.affineExpertArtifact
         self.affinePiecewiseAllocation = affinePiecewiseAllocation
         self.affineGroupedExperts = affineGroupedExperts
         self.authenticatedRotaryIdentity = affineControlCoefficients == nil ? nil : VQRotaryCoefficients.sha256

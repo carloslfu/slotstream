@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T11:57:45.839354+00:00
+updated: 2026-10-04T13:38:37.929345+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -800,3 +800,13 @@ This small pilot does not qualify quality or comparative speed. Its response and
 Before committing to another full artifact, [[sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component]] tests a new same-format recipe. Two deterministic starts and bounded alternating least-squares fitting optimize stored BF16 scales/biases against the already quantized parent, with the unchanged three-bit group as a fallback. Both synthetic projection shapes pass batching, packed-code and serialization checks. Eighteen prospectively selected real projections reduce average squared reconstruction error by about half without any group-level regression. Twelve increase their largest individual error, so this is not task-quality evidence or BF16 recovery.
 
 The next full conversion needs its own total staging reservation and artifact identity. It must retain the original control and all prior failures, then pass complete reference, task, memory and performance gates. No new representation is added to Auto, downloads or the supported registry on the basis of this component result.
+
+### Full refit screen and outcome acceptance, October 4
+
+[[sources/runs/2026/10/2026-10-04-affine-refit-full-screen]] completes the separately budgeted refit conversion and seven-run source-bound reference campaign. Lower stored weight error does not carry through to the full model: refit loses both aggregate proxy metrics. [[records/decisions/hold-unconstrained-affine-refit]] holds that recipe and preserves all evidence. Continue minmax, which remains the only admitted affine research artifact. No new raw logits or product artifact are introduced.
+
+[[sources/runs/2026/10/2026-10-04-complete-outcome-and-session-acceptance]] verifies complete-answer grading, every offline BFCL base reference conversation, the prospective paired MOVER analysis option and the native V2 reply reservation. Both actual model sessions refuse an overlong request before generation, then complete actual tool use, prefix reuse and exact cold recovery. A task-budget refusal remains an outcome with its executed history retained; a crash, memory failure, timeout or corrupted journal invalidates execution instead of becoming a model score.
+
+Authenticated recipe identity now travels through owned checkpoint tensors, Engine configuration and derived-state keys. The losing refit is rejected before load, and the original minmax identity remains compatible. The native build, complete model-free catalogue and full static suite pass against the same frozen inputs. The supported registry, installed model and release remain unchanged.
+
+Next freeze the final disjoint task selection, app-relevant reply and tool limits, fixed family weights, paired uncertainty method and total cost before collecting held-out answers. Ordinary app jobs, long-context outcomes and image-answer quality remain separate checks. Complete-configuration speed and standalone/transport qualification still precede promotion; unavailable other Macs do not.

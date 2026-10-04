@@ -7,6 +7,7 @@ extension Diagnostics {
     /// research control. No raw native F32 is saved and no pack is activated.
     public static func affineExpertControl(baseline: URL, control: URL, reference: URL,
                                           referenceSHA256: String, output: URL, referenceArithmetic: Bool = false) throws -> Data {
+        let artifact = try AffineExpertControl.identify(control: control)
         struct Point: Decodable { let path: String, shape: [Int], bytes: Int, sha256: String }
         struct Fixture: Decodable {
             let schema: Int, complete: Bool, qualification: Bool, control_manifest_sha256: String
@@ -17,7 +18,7 @@ extension Diagnostics {
             maximum: 4_000_000, sha256: referenceSHA256)
         let fixture = try JSONDecoder().decode(Fixture.self, from: raw)
         guard fixture.schema == 1, fixture.complete, !fixture.qualification,
-              fixture.control_manifest_sha256 == AffineExpertControl.manifestSHA256,
+              fixture.control_manifest_sha256 == artifact.manifestSHA256,
               fixture.normalization == "original-already-folded-bf16-unchanged-v1",
               fixture.tokens == [9707, 11, 1246, 525, 498, 30], fixture.points.count == 49,
               fixture.raw_f32_bytes == 12_789_760, fixture.relative_maximum_bound == 0.02 else {
@@ -60,7 +61,7 @@ extension Diagnostics {
             }
         }
         var guardFailure: Error?
-        let index = try AffineExpertControl.open(baseline: baseline, control: control, shouldContinue: {
+        let index = try AffineExpertControl.open(baseline: baseline, control: control, artifact: artifact, shouldContinue: {
             do { try guardResources(); return true } catch { guardFailure = error; return false }
         })
         if let guardFailure { throw guardFailure }
@@ -72,7 +73,7 @@ extension Diagnostics {
         guard model.pool.recordBytes == 2_150_400 else { throw ModelError("native control record size differs") }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         var result: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
-            "control_manifest_sha256": AffineExpertControl.manifestSHA256, "reference_manifest_sha256": referenceSHA256,
+            "control_manifest_sha256": artifact.manifestSHA256, "reference_manifest_sha256": referenceSHA256,
             "relative_maximum_bound": fixture.relative_maximum_bound, "record_bytes": model.pool.recordBytes,
             "arithmetic": referenceArithmetic ? "pr1788-affine3-explicit-v1" : "native-deployed-defaults",
             "slots": [640, 640, 800, 640], "saved_raw_f32_bytes": 0,

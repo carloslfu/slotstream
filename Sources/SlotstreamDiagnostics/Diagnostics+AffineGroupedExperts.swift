@@ -7,6 +7,7 @@ extension Diagnostics {
     /// until this operator also passes the independent full-model references.
     public static func affineGroupedExperts(baseline: URL, control: URL, output: URL,
                                            admissionChecks: Bool = false) throws -> Data {
+        let artifact = try AffineExpertControl.identify(control: control)
         guard !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
@@ -28,7 +29,7 @@ extension Diagnostics {
             }
         }
         var guardFailure: Error?
-        let index = try AffineExpertControl.open(baseline: baseline, control: control, shouldContinue: {
+        let index = try AffineExpertControl.open(baseline: baseline, control: control, artifact: artifact, shouldContinue: {
             do { try guardResources(); return true } catch { guardFailure = error; return false }
         })
         if let guardFailure { throw guardFailure }
@@ -42,7 +43,7 @@ extension Diagnostics {
         func save(_ failure: String? = nil) throws -> Data {
             var value: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
                 "scope": "Exact component arithmetic across dispatch boundaries, residency and resize; no model integration or speed qualification",
-                "control_manifest_sha256": AffineExpertControl.manifestSHA256,
+                "control_manifest_sha256": artifact.manifestSHA256,
                 "shapes": shapes, "layers": layers, "patterns": patterns, "slots": [640, 640, 800, 640],
                 "observations": observations, "saved_raw_f32_bytes": 0,
                 "admission_checks": admissionChecks, "admission_observations": admissionObservations,

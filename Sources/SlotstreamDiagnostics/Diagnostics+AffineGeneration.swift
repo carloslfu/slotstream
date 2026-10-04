@@ -8,6 +8,7 @@ extension Diagnostics {
     /// must preserve exact native bytes. Nothing is installed or activated.
     public static func affineGeneration(baseline: URL, control: URL, reference: URL,
         referenceSHA256: String, output: URL) throws -> Data {
+        let artifact = try AffineExpertControl.identify(control: control)
         struct Point: Decodable { let path: String, shape: [Int], bytes: Int, sha256: String }
         struct Hidden: Decodable { let layer: Int, shape: [Int], sha256: String }
         struct Step: Decodable { let step: Int, input_ids: [Int], sampled: Int, points: [Hidden], logits: Point }
@@ -21,7 +22,7 @@ extension Diagnostics {
             maximum: 4_000_000, sha256: referenceSHA256)
         let fixture = try JSONDecoder().decode(Fixture.self, from: raw)
         guard fixture.schema == 1, fixture.complete, !fixture.qualification,
-              fixture.control_manifest_sha256 == AffineExpertControl.manifestSHA256,
+              fixture.control_manifest_sha256 == artifact.manifestSHA256,
               fixture.normalization == "original-already-folded-bf16-unchanged-v1",
               fixture.profile_sha256 == "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c",
               fixture.profile.prompt.count == 44, fixture.profile.max_new_tokens == 16,
@@ -76,7 +77,7 @@ extension Diagnostics {
             }
         }
         var result: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
-            "control_manifest_sha256": AffineExpertControl.manifestSHA256, "reference_sha256": referenceSHA256,
+            "control_manifest_sha256": artifact.manifestSHA256, "reference_sha256": referenceSHA256,
             "arithmetic": "pr1788-affine3-explicit-v1", "relative_maximum_bound": 0.02,
             "slots": [640, 640, 800, 640], "saved_raw_f32_bytes": 0]
         var passes: [[String: Any]] = []
@@ -87,7 +88,7 @@ extension Diagnostics {
             return data
         }
         do {
-            let index = try AffineExpertControl.open(baseline: baseline, control: control,
+            let index = try AffineExpertControl.open(baseline: baseline, control: control, artifact: artifact,
                 shouldContinue: { (try? guardResources()) != nil })
             let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true)

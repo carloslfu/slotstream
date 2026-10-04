@@ -99,6 +99,16 @@ Bonferroni family bounds are combined using the declared family weights.
 The coverage is asymptotic, not an exact finite-sample guarantee. The method
 does not pool different task families as identically distributed trials.
 
+`stratified_mover_summary` is a separate prospective option. It combines
+paired family score widths through squared fixed weights, using the additive
+variance construction in [Tang's stratified MOVER framework](https://arxiv.org/html/2110.12636v1).
+It allocates the error budget across the family comparisons and the overall
+comparison. Each family keeps its own margin; a favorable overall result
+cannot excuse a failing family. The paired score handles correlation between
+the two models inside each task. This application does not inherit the
+paper's independent-arm binary simulations. Freeze which method is used
+before final answers, and preserve historical analyses under their old method.
+
 A task pair, including its whole tool trajectory or translated problem, is
 one observation. Repeated tokens, repeated generations and translations of
 the same problem cannot enlarge the independent sample. Corpus selection,
@@ -142,6 +152,21 @@ continuation. Its transcript and terminal receipt remain incomplete after an
 unexpected EOF. The caller must retain a physical-memory and wall-time
 watchdog. It neither executes tools nor qualifies another supported pack.
 
+The original `quantization-tool-session-v1` retains the pilot's output scope.
+The explicit `quantization-tool-session-v2` also admits the app's ordinary and
+proposal reply allowances. It renders each text request before generation and
+requires room for the entire declared reply inside the context. Successful
+HTTP usage must report that exact prompt length. A reservation mismatch stops
+the run with its response preserved. Image qualification has a separate owner
+and protocol.
+
+If a growing tool history cannot reserve the reply, V2 records an explicit
+`admission_refusal` without generating or executing a tool. It consumes one
+request from the frozen session allowance and permits the caller to reset for
+the next independent case. A trusted caller may count this declared context
+limit as a task failure. Crashes, corrupt events and resource-watchdog failures
+remain infrastructure failures, with no automatic retry or replay.
+
 `Tools/quantization_bfcl.py` provides an offline fixture owner for the pinned
 BFCL base population. Its `Bundle` copies and authenticates fixture sources and
 its separate math runtime, runs only under the native Mac sandbox, and denies
@@ -157,6 +182,54 @@ real original/candidate tool continuation and cold recovery are recorded in
 [the executed-tool acceptance record](../../db/sources/runs/2026/10/2026-10-04-executed-tool-conversation-instruments.md).
 These checks validate the instruments before model evaluation. They do not
 establish held-out quality or comparative speed.
+
+`Tools/quantization_outcomes.py` requires completed plain answers, exact factual
+options and unambiguous final numbers, delegates coding to the native sandbox,
+and runs the pinned instruction grader in a separate bounded process. Its tool
+driver feeds actual isolated results into subsequent model requests and grades
+the complete trace. Undeclared functions, invalid calls and exhausted task
+limits remain failures. Bootstrap and execution infrastructure failures stop
+evaluation. Each caller freezes its task populations, exclusions, artifact
+identities, bounds and statistical policy separately.
+
+The instruction worker admits the complete answer plus its fixture up to the
+native journal's two-MiB boundary. It receives no inference metrics and never
+truncates the answer. Its physical-memory, CPU and wall bounds remain fixed.
+This explicit string-grading allowance does not widen the coding sandbox's
+default input limit.
+
+[The disjoint pilot](../../db/sources/runs/2026/10/2026-10-04-disjoint-completed-task-quality-pilot.md)
+preserves every task, failure and sizing limit. Those underlying task IDs,
+including alternate translations, are excluded from final evaluation.
+
+## Affine parameter refit
+
+`Tools/affine_refit.py` tests a separate recipe using the same stored affine
+representation. It fits scales and biases against the already quantized
+parent and retains an unchanged control group when no trial reduces its
+stored reconstruction error. Independent packing, batching and stored-error
+checks are in [the component evidence](../../db/sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component.md).
+Some individual errors increase despite lower group error, so model-quality
+testing remains essential.
+
+The [complete model screen](../../db/sources/runs/2026/10/2026-10-04-affine-refit-full-screen.md)
+loses both aggregate proxy metrics. The [recorded decision](../../db/records/decisions/hold-unconstrained-affine-refit.md)
+holds this recipe; only the earlier minmax control remains admitted to native
+research inference. Its own final quality and performance gates are still open.
+
+`Tools/affine_expert_control.py --refit` requires the separately priced refit
+budget and checked component identity. It writes a new inert research
+directory and verifies every complete tensor file before publishing its
+manifest. The existing control recipe keeps its original resource bounds.
+Neither recipe is a supported model pack or an Auto selection entry.
+
+The native research adapter admits each complete manifest through a compiled
+allowlist. The selected recipe travels with the owned tensor index and into
+model names, diagnostics and persistent-cache identities. Loading rechecks
+the same selected digest, so a path replacement cannot switch recipes after
+selection. The original control's identity remains unchanged. Shape or recipe
+labels alone cannot authorize another payload, and research admission never
+adds a model to product Auto.
 
 ## Fused expert pilot
 
@@ -1041,9 +1114,11 @@ solving, context/feature refusals and unknown throughput estimates.
 
 The adapter keeps tokenizer and prefix identities bound to the authenticated
 artifact. It checks actual memory/disk reuse, cancellation, live donation and
-recovery, resizing, HTTP generation and wrong-artifact refusal. Candidate
-images and streamed draft experts remain unsupported. This package-only path
-does not add a pack to the supported registry or alter installed weights.
+recovery, resizing, HTTP generation and wrong-artifact refusal. Separate
+explicit checks exercise streamed draft experts and owned vision components
+under their own reservations. The historical Engine fixture retains its
+original control and golden sequence. These package-only paths do not add a
+pack to the supported registry or alter installed weights.
 
 `quantization-task-run --draft-depth` can also select the original baseline's
 draft configuration. Its receipt records the resolved plan and expert

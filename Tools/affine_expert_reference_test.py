@@ -6,6 +6,23 @@ import affine_expert_reference as m
 from affine_expert_control import Source
 
 class ReferenceTests(unittest.TestCase):
+ def test_recipe_identity_never_promotes_or_substitutes_parent(self):
+  original={'schema':1,'complete':True,'qualification':False,'policy':m.POLICY,
+            'parent_revision':m.BASE_REVISION,'baseline_config_sha256':m.BASE_CONFIG,
+            'baseline_index_sha256':m.BASE_INDEX,'layers':list(range(48)),
+            'expected_output_bytes':52_848_290_992,'files':[{} for _ in range(48)]}
+  m.validate_control_manifest(original)
+  refitted={**original,'policy':m.REFIT_POLICY,'refitted':True,
+            'refit_component_receipt_sha256':m.REFIT_COMPONENT_SHA256}
+  m.validate_control_manifest(refitted)
+  for manifest in (original,refitted):
+   for key,value in [('schema',True),('complete',False),('qualification',True),('policy','unreviewed-recipe'),
+                     ('parent_revision','changed'),('baseline_config_sha256','0'*64),('baseline_index_sha256','0'*64),
+                     ('layers',list(range(47))),('expected_output_bytes',52_848_290_991),('files',[]),('files',{})]:
+    with self.subTest(key=key),self.assertRaises(ValueError):m.validate_control_manifest({**manifest,key:value})
+  for bad in [{**original,'refitted':True},{**refitted,'refitted':False},
+              {**refitted,'refit_component_receipt_sha256':'0'*64}]:
+   with self.assertRaises(ValueError):m.validate_control_manifest(bad)
  def make_table(self,root,*,dtype='U32',columns=20):
   module='language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shard_0'
   header={};body=b''

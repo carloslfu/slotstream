@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T11:57:21.554238Z
+updated: 2026-10-04T13:36:17.334503Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-complete-outcome-and-session-acceptance]] — Complete outcome grading and reply-reservation acceptance
+- [[sources/runs/2026/10/2026-10-04-affine-refit-full-screen]] — Complete affine refit loses the unchanged model screen
 - [[sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component]] — Bounded BF16 affine refit component with independent stored-error, packing and batch checks
 - [[sources/runs/2026/10/2026-10-04-disjoint-completed-task-quality-pilot]] — Completed disjoint pilot of paired factual, multilingual, repair, instruction and executed-tool outcomes
 - [[sources/runs/2026/10/2026-10-04-executed-tool-static-acceptance]] — Executed tool instruments static acceptance
@@ -505,10 +507,8 @@ updated: 2026-10-04T11:57:21.554238Z
 - [[sources/runs/2026/09/2026-09-07-optimization-full-verification-counterexample]] — Exact candidate full verification: 22 pass and three preserved failures
 - [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-complete-static]] — Current candidate passes complete static, CLI and bounded component gates
 - [[sources/runs/2026/09/2026-09-07-optimization-final-candidate-native-and-build]] — Expanded-diagnostic candidate builds and passes all three exact-build native prerequisites
-- [[sources/runs/2026/09/2026-09-07-optimization-committed-checkpoint-read-failure-recovery]] — Committed prompt checkpoints survive decode errors exactly across every serving dialect
-- [[sources/runs/2026/09/2026-09-07-optimization-native-pass-and-read-failure-checkpoint-counterexample]] — Combined native passes expose stale failed-state checkpoint assertion
 
 ## More
 
-This folder has 782 files. The 500 most recent are listed above.
+This folder has 784 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

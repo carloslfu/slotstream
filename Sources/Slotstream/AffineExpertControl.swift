@@ -8,16 +8,59 @@ import Foundation
 package enum AffineExpertControl {
     package static let manifestSHA256 = "af31bd191fbd82dc998fe29cae230c7f3e6977bd355c827bf42e643b7680f182"
     package static let policy = "pinned-affine4-to-affine3-group64-experts-only-v1"
+    /// Compiled research identities. A format-compatible file is not enough:
+    /// the recipe and complete payload manifest must also be admitted. These
+    /// entries are deliberately separate from the supported product registry.
+    package struct Artifact: Equatable, Sendable {
+        package let manifestSHA256: String
+        package let policy: String
+        package let modelName: String
+        package let refitComponentSHA256: String?
+        private init(manifestSHA256: String, policy: String, modelName: String,
+                     refitComponentSHA256: String? = nil) {
+            self.manifestSHA256 = manifestSHA256; self.policy = policy
+            self.modelName = modelName; self.refitComponentSHA256 = refitComponentSHA256
+        }
+        package static let minmax = Artifact(manifestSHA256: AffineExpertControl.manifestSHA256,
+            policy: AffineExpertControl.policy, modelName: "qwen3.8-flash-next:affine3-control")
+        package static let refit = Artifact(
+            manifestSHA256: "c4fa1640caa4f35dc2258a90abb08d7a3e542cc4fcbe56c234b5da55cca5fd0a",
+            policy: "pinned-affine4-to-affine3-group64-refit-experts-only-v1",
+            modelName: "qwen3.8-flash-next:affine3-refit",
+            refitComponentSHA256: "a7e650d81a0dc384157bd9729dbf3541054817cd315027764e6737dde8994f70")
+        // The full refit screen lost to minmax on both proxy metrics. Retain
+        // its identity for explicit rejection and provenance, not loading.
+        package static let admitted: [Artifact] = [.minmax]
+
+        package func arithmeticIdentity(rotarySHA256: String?, piecewise: Bool, grouped: Bool) -> String {
+            let base = [policy, manifestSHA256, rotarySHA256 ?? "embedded-reference-coefficients-v1",
+                PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
+            let allocated = piecewise ? base + ":piecewise-allocation-v1" : base
+            return grouped ? allocated + ":grouped-experts-v1" : allocated
+        }
+    }
     private struct File: Decodable { let path: String, size: Int, sha256: String }
     private struct Manifest: Decodable {
         let schema: Int, complete: Bool, qualification: Bool, policy: String
         let parent_revision: String, baseline_config_sha256: String, baseline_index_sha256: String
         let layers: [Int], files: [File], expected_output_bytes: Int
+        let refitted: Bool?, refit_component_receipt_sha256: String?
     }
     private struct Index: Decodable { let weight_map: [String: String] }
 
     package static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Metadata-only selection. Loading rechecks this exact identity through
+    /// its own read, so replacing the path between selection and loading fails.
+    package static func identify(control: URL) throws -> Artifact {
+        let raw = try bounded(control.appendingPathComponent("manifest.json"), maximum: 4_000_000)
+        let sha = digest(raw)
+        guard let artifact = Artifact.admitted.first(where: { $0.manifestSHA256 == sha }) else {
+            throw ModelError("affine expert artifact is not in the compiled research allowlist")
+        }
+        return artifact
     }
 
     package static func bounded(_ path: URL, maximum: Int, sha256: String? = nil) throws -> Data {
@@ -60,8 +103,11 @@ package enum AffineExpertControl {
             shouldContinue: shouldContinue)
     }
 
-    package static func open(baseline: URL, control: URL,
+    package static func open(baseline: URL, control: URL, artifact: Artifact = .minmax,
                              shouldContinue: () -> Bool = { true }) throws -> CheckpointIndex {
+        guard Artifact.admitted.contains(artifact) else {
+            throw ModelError("affine expert artifact is not in the compiled research allowlist")
+        }
         let baseline = baseline.resolvingSymlinksInPath(), control = control.resolvingSymlinksInPath()
         func pinned(_ name: String) throws -> Data {
             guard let pin = PinnedModel.files.first(where: { $0.path == name }),
@@ -72,10 +118,14 @@ package enum AffineExpertControl {
             guard raw.count == Int(pin.size) else { throw ModelError("original affine metadata size changed") }
             return raw
         }
-        let manifestData = try bounded(control.appendingPathComponent("manifest.json"), maximum: 4_000_000, sha256: manifestSHA256)
+        let manifestData = try bounded(control.appendingPathComponent("manifest.json"), maximum: 4_000_000, sha256: artifact.manifestSHA256)
         let manifest = try JSONDecoder().decode(Manifest.self, from: manifestData)
         let configData = try pinned("config.json"), indexData = try pinned("model.safetensors.index.json")
-        guard manifest.schema == 1, manifest.complete, !manifest.qualification, manifest.policy == policy,
+        guard manifest.schema == 1, manifest.complete, !manifest.qualification, manifest.policy == artifact.policy,
+              (manifest.refitted ?? false) == (artifact.refitComponentSHA256 != nil) else {
+            throw ModelError("affine expert recipe differs from its admitted identity")
+        }
+        guard manifest.refit_component_receipt_sha256 == artifact.refitComponentSHA256,
               manifest.parent_revision == PinnedModel.revision,
               manifest.baseline_config_sha256 == digest(configData), manifest.baseline_index_sha256 == digest(indexData),
               manifest.layers == Array(0..<48), manifest.files.count == 48,
@@ -133,6 +183,7 @@ package enum AffineExpertControl {
         }
         guard total == manifest.expected_output_bytes, shouldContinue() else { throw ModelError("incomplete affine control") }
         for owner in owners.values { try owner.verifyUnchanged() }
-        return try CheckpointIndex(authenticatedDirectory: baseline, config: config.withAffineExpertControl(), files: owners, tensors: tensors)
+        return try CheckpointIndex(authenticatedDirectory: baseline, config: config.withAffineExpertControl(),
+            files: owners, tensors: tensors, affineExpertArtifact: artifact)
     }
 }

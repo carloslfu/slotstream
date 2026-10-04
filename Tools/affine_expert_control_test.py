@@ -5,6 +5,26 @@ sys.path.insert(0,'Tools')
 import affine_expert_control as m
 
 class ControlTests(unittest.TestCase):
+ def test_recipe_budgets_do_not_relax_the_original(self):
+  required=52_848_290_992
+  old={'policy':m.POLICY,'paid_compute_usd':0,'maximum_process_bytes':4_000_000_000,
+       'maximum_seconds':1800,'minimum_headroom_bytes':3_000_000_000,'minimum_preflight_bytes':13_000_000_000,
+       'maximum_output_bytes':required,'maximum_research_staging_bytes':365_000_000_000}
+  self.assertEqual(m.conversion_budget(old,required,refitted=False),(m.POLICY,1800))
+  new={**old,'policy':m.REFIT_POLICY,'maximum_seconds':7200,'maximum_research_staging_bytes':430_000_000_000,
+       'refit_component_receipt_sha256':m.REFIT_COMPONENT_SHA256,
+       'refit_implementation_sha256':m.REFIT_IMPLEMENTATION_SHA256,'maximum_concurrent_producers':1}
+  self.assertEqual(m.conversion_budget(new,required,refitted=True),(m.REFIT_POLICY,7200))
+  for original,mode,faults in [(old,False,[('maximum_research_staging_bytes',430_000_000_000),('maximum_seconds',3600),('policy',m.REFIT_POLICY)]),
+                              (new,True,[('maximum_seconds',1800),('refit_component_receipt_sha256','0'*64),
+                                         ('refit_implementation_sha256','0'*64),('maximum_concurrent_producers',2),('maximum_concurrent_producers',True)])]:
+   for key,value in faults+[('maximum_output_bytes',required-1),('maximum_process_bytes',4_000_000_001),
+                            ('minimum_headroom_bytes',2_999_999_999),('minimum_preflight_bytes',12_999_999_999),
+                            ('maximum_seconds',True),('maximum_research_staging_bytes',430_000_000_001),('paid_compute_usd',1)]:
+    with self.subTest(mode=mode,key=key),self.assertRaises(ValueError):
+     m.conversion_budget({**original,key:value},required,refitted=mode)
+  for required_value,mode in [(0,False),(True,False),(required,1),(required,'refit')]:
+   with self.assertRaises(ValueError):m.conversion_budget(old,required_value,refitted=mode)
  def fixture(self,root,header=None):
   header=header or {'value':{'dtype':'U32','shape':[512,1,1],'data_offsets':[0,2048]}}
   raw=json.dumps(header).encode();body=struct.pack('<512I',*range(512));p=Path(root)/'source.safetensors'

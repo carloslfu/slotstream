@@ -27,6 +27,9 @@ from vq_ple_stream import stamp
 from vq_model_reference import physical
 
 POLICY = 'pinned-affine4-to-affine3-group64-experts-only-v1'
+REFIT_POLICY = 'pinned-affine4-to-affine3-group64-refit-experts-only-v1'
+REFIT_COMPONENT_SHA256 = 'a7e650d81a0dc384157bd9729dbf3541054817cd315027764e6737dde8994f70'
+REFIT_IMPLEMENTATION_SHA256 = '747303b670c7ce0ebe04893758b8a5bb95f7a881451b16bbc02f69b842823332'
 LAYERS, EXPERTS, BATCH = 48, 512, 8
 GROUP = 64
 PIECES = ('weight', 'scales', 'biases')
@@ -152,26 +155,56 @@ def hash_owned(fd, size, guard):
     return h.hexdigest()
 
 
+def conversion_budget(budget, required, *, refitted):
+    """Keep the original recipe's bounds separate from the measured refit.
+
+    The refit's extra staging retains every existing pack plus its complete
+    new output. Its two-hour ceiling prices the bounded iterative conversion;
+    it does not enlarge the four-GB process or thirteen-GB real preflight.
+    Both are research-only producers, with no product registration side effect.
+    """
+    if type(refitted) is not bool or type(required) is not int or required <= 0:
+        raise ValueError('invalid conversion recipe or complete extent')
+    policy = REFIT_POLICY if refitted else POLICY
+    seconds = 7200 if refitted else 1800
+    staging = 430_000_000_000 if refitted else 365_000_000_000
+    if budget.get('policy') != policy or budget.get('paid_compute_usd') != 0:
+        raise ValueError('conversion needs its prospectively frozen resource budget')
+    exact = {'maximum_process_bytes':4_000_000_000,'maximum_seconds':seconds,
+             'minimum_headroom_bytes':3_000_000_000,'minimum_preflight_bytes':13_000_000_000}
+    if (any(type(budget.get(key)) is not int or budget[key] != value for key,value in exact.items())
+            or type(budget.get('maximum_output_bytes')) is not int or budget['maximum_output_bytes'] < required
+            or type(budget.get('maximum_research_staging_bytes')) is not int
+            or not required <= budget['maximum_research_staging_bytes'] <= staging):
+        raise ValueError('conversion resource budget does not cover the bounded producer')
+    if refitted and (budget.get('refit_component_receipt_sha256') != REFIT_COMPONENT_SHA256
+            or budget.get('refit_implementation_sha256') != REFIT_IMPLEMENTATION_SHA256
+            or type(budget.get('maximum_concurrent_producers')) is not int
+            or budget['maximum_concurrent_producers'] != 1):
+        raise ValueError('refit requires its checked component identity and one producer')
+    return policy, seconds
+
+
 def run(options):
     baseline, out = options.baseline.absolute(), options.out.absolute()
     budget_raw = Path(options.budget).read_bytes()
     if hashlib.sha256(budget_raw).hexdigest() != options.budget_sha256:
         raise ValueError('conversion resource budget changed')
     budget = unique_json(budget_raw)
-    if budget.get('policy') != POLICY or budget.get('paid_compute_usd') != 0:
-        raise ValueError('conversion needs its prospectively frozen resource budget')
     required = sum(len(sized_header(layer)[1]) + sized_header(layer)[2] for layer in range(LAYERS))
-    if (budget.get('maximum_output_bytes', 0) < required or budget.get('maximum_process_bytes') != 4_000_000_000
-            or budget.get('maximum_seconds') != 1800 or budget.get('minimum_headroom_bytes') != 3_000_000_000
-            or budget.get('minimum_preflight_bytes') != 13_000_000_000):
-        raise ValueError('conversion resource budget does not cover the bounded producer')
+    refitted = getattr(options, 'refit', False)
+    policy, maximum_seconds = conversion_budget(budget, required, refitted=refitted)
+    if refitted:
+        import affine_refit
+        if (digest(affine_refit.__file__) != REFIT_IMPLEMENTATION_SHA256
+                or budget.get('producer_sha256') != digest(__file__)):
+            raise ValueError('refit implementation differs from the measured component')
     if out.exists() or out.is_symlink() or not out.parent.is_dir():
         raise ValueError('conversion needs a new output directory in an existing research parent')
     if shutil.disk_usage(out.parent).free < required + 3_000_000_000:
         raise ValueError('conversion cannot reserve complete output and disk headroom')
     used = int(subprocess.check_output(['du','-sk',str(out.parent)],text=True,timeout=60).split()[0]) * 1024
-    if (type(budget.get('maximum_research_staging_bytes')) is not int or budget['maximum_research_staging_bytes'] > 365_000_000_000
-            or used + required > budget['maximum_research_staging_bytes']):
+    if used + required > budget['maximum_research_staging_bytes']:
         raise ValueError('conversion exceeds the frozen total research-staging reservation')
     before = quiet_preflight(13)
     cfg = read_json(baseline/'config.json', BASE_CONFIG)
@@ -179,14 +212,19 @@ def run(options):
     known = {p['path']:p for p in pins()}
     sources, mapping = {}, {}
     started = time.monotonic()
-    record = {'schema':1, 'policy':POLICY, 'complete':False, 'qualification':False,
+    record = {'schema':1, 'policy':policy, 'complete':False, 'qualification':False,
         'parent_revision':BASE_REVISION, 'baseline_config_sha256':BASE_CONFIG, 'baseline_index_sha256':BASE_INDEX,
         'origin':'Transcoded from the pinned affine four-bit values. No claim of original BF16 conversion.',
         'budget_sha256':options.budget_sha256, 'producer_sha256':digest(__file__),
-        'before':before, 'expected_output_bytes':required, 'files':[], 'layers':[], 'source_files':[]}
+        'before':before, 'expected_output_bytes':required, 'files':[], 'layers':[], 'source_files':[],
+        'allocated_research_staging_before':used, 'refitted':refitted}
     producer_paths=[Path(__file__).absolute(),Path('Tools/quantization_inventory.py'),Path('Tools/vq_dense_overlay.py'),
         Path('Tools/vq_ple_stream.py'),Path('Tools/vq_model_reference.py'),Path('Tools/slotpack/pack.py'),
         Path('Tools/context_qualification.py'),Path('Tools/prefill_bench.py'),Path('Sources/Slotstream/PinnedModel.swift')]
+    if refitted:
+        producer_paths.append(Path(affine_refit.__file__))
+        record['refit_component_receipt_sha256'] = REFIT_COMPONENT_SHA256
+        record['refit_group_error'] = {'groups':0,'improved':0,'baseline_mse_sum':0.,'refit_mse_sum':0.}
     record['producer_inputs']={str(p):digest(p) for p in producer_paths}
     def save():
         raw = json.dumps(record, indent=2)+'\n'
@@ -197,7 +235,7 @@ def run(options):
     last_vm_check = -1.0
     def guard():
         nonlocal last_vm_check
-        if time.monotonic()-started > 1800 or max(physical().values()) > 4_000_000_000:
+        if time.monotonic()-started > maximum_seconds or max(physical().values()) > 4_000_000_000:
             raise RuntimeError('conversion time or physical-process envelope exceeded')
         now = time.monotonic()
         if now-last_vm_check >= 1:
@@ -256,6 +294,14 @@ def run(options):
                             dense=mx.dequantize(*old,group_size=GROUP,bits=4)
                             converted=mx.quantize(dense,group_size=GROUP,bits=3)
                             mx.eval(converted)
+                            if refitted:
+                                converted,errors=affine_refit.refit(dense,old[1],old[2],converted,checkpoint=guard)
+                                stats=record['refit_group_error']
+                                stats['groups']+=int(errors['baseline_group_mse'].size)
+                                stats['improved']+=int(mx.sum(errors['refit_group_mse']<errors['baseline_group_mse']).item())
+                                stats['baseline_mse_sum']+=float(mx.sum(errors['baseline_group_mse']).item())
+                                stats['refit_mse_sum']+=float(mx.sum(errors['refit_group_mse']).item())
+                                del errors
                             if not bool(mx.all(mx.isfinite(dense)).item()) or not all(bool(mx.all(mx.isfinite(v)).item()) for v in converted[1:]):
                                 raise ValueError('nonfinite controlled conversion')
                             for suffix,value in zip(PIECES,converted):
@@ -313,4 +359,5 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     for name in ('baseline','out','budget'):parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--budget-sha256',required=True)
+    parser.add_argument('--refit',action='store_true',help='Use the separately budgeted, component-checked scale/bias refit recipe; never changes the default control')
     run(parser.parse_args())

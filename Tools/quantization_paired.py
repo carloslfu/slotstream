@@ -117,3 +117,47 @@ def stratified_summary(rows, *, family_weights, family_margins, overall_margin, 
             'families': families, 'overall': {'observed_loss': math.fsum(family_weights[f]*cell['observed_loss'] for f, cell in families.items()),
                 'upper_loss': upper, 'margin': overall_margin, 'inside_margin': upper < overall_margin},
             'all_statistical_margins_met': upper < overall_margin and all(cell['inside_margin'] for cell in families.values())}
+
+
+def stratified_mover_summary(rows, *, family_weights, family_margins, overall_margin, alpha):
+    """Prospective fixed-weight paired strata, with a separate overall bound.
+
+    Each independent task stratum supplies a Tango paired difference estimate
+    and interval. Recover its upper variance from that interval, then add the
+    squared fixed weights times those variances (MOVER additive variance).
+    Pairing is handled *within* each stratum; baseline and candidate arms are
+    never treated as independent. Unlike a common-effect estimator, fixed
+    weights permit different true losses across task families.
+
+    Tang, MOVER confidence intervals under stratified sampling, section 2.2:
+    https://arxiv.org/html/2110.12636v1
+    This is an application of its fixed-weight variance combination to the
+    paired stratum estimators, not a claim that its independent-arm binary
+    simulations validate this exact paired benchmark design.
+
+    Bonferroni allocates alpha across every family AND the overall comparison.
+    Coverage remains asymptotic. The existing conservative sum-of-bounds
+    method remains unchanged for historical protocols. Select this method,
+    all weights, sample sizes and margins before observing final outcomes.
+    """
+    _alpha(alpha)
+    if not isinstance(family_weights, dict) or not 1 <= len(family_weights) <= 32:
+        raise ValueError('bounded family weight mapping required')
+    families = len(family_weights)
+    # Reuse the exact outcome, identity and contract validation. This allocates
+    # the desired alpha/(families+1) tail to each returned family interval.
+    result = stratified_summary(rows, family_weights=family_weights,
+        family_margins=family_margins, overall_margin=overall_margin,
+        alpha=alpha*families/(families+1))
+    observed = result['overall']['observed_loss']
+    squared = math.fsum((family_weights[name]*(cell['upper_loss']-cell['observed_loss']))**2
+                       for name, cell in result['families'].items())
+    upper = observed+math.sqrt(squared)
+    result.update(method='paired-tango-mover-av-bonferroni-v1', alpha=alpha,
+        comparisons=families+1, per_comparison_alpha=alpha/(families+1),
+        coverage='asymptotic paired stratum scores and fixed-weight MOVER; not exact finite-sample coverage')
+    result['overall'].update(upper_loss=upper, inside_margin=upper < overall_margin,
+        combination='observed weighted loss plus root sum of squared weighted upper score widths')
+    result['all_statistical_margins_met'] = (upper < overall_margin
+        and all(cell['inside_margin'] for cell in result['families'].values()))
+    return result

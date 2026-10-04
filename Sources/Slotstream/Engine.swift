@@ -438,12 +438,13 @@ public final class Engine {
         // per-token reallocation churn away while making real process memory
         // track the announced plan.
         MLX.Memory.cacheLimit = affineSource == nil ? 2 << 30 : 128_000_000
-        self.modelName = affineSource == nil ? "qwen3.8-flash-next:4bit" : "qwen3.8-flash-next:affine3-control"
+        self.modelName = affineSource?.artifact.modelName ?? "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index: CheckpointIndex
         if let affineSource {
             try ModelProcessGuard.acquire()
             index = try AffineExpertControl.open(baseline: modelDir, control: affineSource.control,
+                artifact: affineSource.artifact,
                 shouldContinue: { (try? initial.check(phase: "authenticated model loading")) != nil })
         } else { index = try CheckpointIndex(dir: modelDir) }
         // Expert Lookahead: an explicitly requested pack is validated against
