@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T19:41:38.889575+00:00
+updated: 2026-10-04T20:08:48.094836+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -26,7 +26,7 @@ This table supersedes the progress summary below without changing its historical
 | --- | --- | --- |
 | Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows, image outcomes/capacity and long-conversation task outcomes |
-| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The frozen final paired held-out campaign stopped at a native startup preflight; completed answers are preserved, and no noninferiority verdict is available |
+| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | A separately frozen unanswered-only continuation is prepared after the unloaded startup refusal; no noninferiority verdict is available |
 | Complete performance | Actual-plan pilots and preserved timing exclusions identify useful candidate improvements | Complete an eligible paired campaign and safe lower-budget matrix; qualify local profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Standalone artifact production, its native identity/parity, independent public pull and integrated multiple-pack transactions |
@@ -947,3 +947,11 @@ New identity, persistence and pending-readiness checks await CI and later real-m
 The parent recorded sufficient reclaimable memory, but the earlier native refusal omitted its own observation and could also represent an unavailable host-statistics read. A cached observation following release is plausible, not established. The session owner now waits past the existing one-second host-statistics boundary after its child exits, before sampling memory for another launch. It does not enlarge a ceiling, retry a process or accept an unsafe allocation. Repeated cleanup does not repeat the wait, and a live child cannot count as released. Both Python runtimes pass the actual-process cleanup and deadline checks. Native startup now records its preflight observation, including an unavailable value, into an incomplete receipt before refusing.
 
 A continuation requires a separately frozen causal instrument correction under [[records/decisions/final-paired-task-quality-protocol]]. It must bind all completed evidence, preserve the failed attempt, execute only unanswered cells, retain the original sample, graders, margins and native arithmetic, and count prior time, sessions and receipts against the original total resource limits. No continuation or quality verdict is established by this correction. Candidate promotion remains closed.
+
+### Unanswered-only continuation and complete foundation checks, October 4
+
+[[records/decisions/heldout-unanswered-startup-continuation]] authorizes the explicit prospective instrument correction recorded in [[sources/runs/2026/10/2026-10-04-prospective-unanswered-continuation]]. It preserves the original incomplete study and every answer, imports completed jobs without model launches, and runs only unanswered cells. The original executable, model artifacts, settings, task selection/order, graders and analysis rules remain unchanged. All prior active time, attempted sessions and receipt storage remain charged to the original totals. The exact preflight discrepancy is unresolved; post-exit settling does not relax a guard or permit a retry.
+
+The continuation authenticates completed native transcripts, independent resets, answers, counters, artifact/plan identities and physical bounds. It refuses changed or incomplete evidence. Final analysis first requires the entire study, then replays the original graders against the recorded requests and answers before applying the preselected method. The new orchestration and existing native-owner/product-driver suites pass on both Python runtimes; static entry-point registration passes. The source is captured before any continued answer. This preparation is not a quality verdict or candidate promotion.
+
+The new native startup-observation build preserves exact before/after source inputs and passes the full weights-free catalogue. It remains separate from the original study executable. Pack-bound activation now passes complete engine and Mac CI, and the standalone export driver passes complete engine CI. Actual whole export, public pull, product answers, complete performance, alternate-pack integration and release remain open.

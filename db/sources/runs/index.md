@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T19:34:10.435520Z
+updated: 2026-10-04T20:07:53.009640Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-prospective-unanswered-continuation]] — Prospective continuation preserves all completed held-out evidence and runs only unanswered cells after explicit post-exit settling
 - [[sources/runs/2026/10/2026-10-04-heldout-native-startup-refusal]] — Frozen held-out campaign stops before a reload allocates or receives a task; preserve completed evidence and prepare explicit startup observations
 - [[sources/runs/2026/10/2026-10-04-frozen-activation-pack-selection]] — Activation freezes the supported pack through loading and rollback; optional forecast setup uses selected capabilities; prior standalone Mac CI passes
 - [[sources/runs/2026/10/2026-10-04-bounded-standalone-export-driver]] — Bounded complete export driver passes tiny real-copy and lock-ownership checks; full prior product-driver engine CI passes
@@ -506,9 +507,8 @@ updated: 2026-10-04T19:34:10.435520Z
 - [[sources/runs/2026/09/2026-09-07-optimization-thermal-static-suite-integration]] — Thermal readiness becomes a mandatory static regression suite
 - [[sources/runs/2026/09/2026-09-07-optimization-foundation-thermal-preflight]] — Additional direct Foundation thermal/power pre-launch observation
 - [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-installed-and-full-tail]] — Installed upgrade/rollback and complete original verification tail pass
-- [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-prose-qualification-exclusions]] — Current prose correctness passes; fixed timing sample is insufficient
 
 ## More
 
-This folder has 802 files. The 500 most recent are listed above.
+This folder has 803 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

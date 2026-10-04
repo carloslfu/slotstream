@@ -8,6 +8,7 @@ under the existing native model lock. Incomplete jobs remain inspectable and
 prevent final analysis. No real external tool actions are available.
 """
 import argparse
+import copy
 import ctypes
 import ctypes.util
 import fcntl
@@ -384,31 +385,49 @@ def run_job(protocol_path, protocol_sha, root, output, job_index):
     if digest(protocol_path) != protocol_sha: raise ValueError('prospective protocol digest changed')
     protocol = read(protocol_path); tasks = read(root / protocol['paths']['tasks'])
     native = validate_inputs(protocol, tasks, root)
+    return execute_job(protocol, protocol_sha, tasks, native, root, output, job_index)
+
+
+def execute_job(protocol, protocol_sha, tasks, native, root, output, job_index, *, inherited=None):
+    """Execute a validated job; only the separately frozen continuation supplies inherited evidence.
+
+    Imported cells must be an exact leading prefix, never a selection of good
+    answers. Their original time and every attempted session remain charged.
+    The continuation owner authenticates the old transcripts before calling.
+    """
+    root, output = Path(root), Path(output)
     if not 0 <= job_index < len(protocol['jobs']): raise ValueError('job outside frozen selection')
     output.mkdir(parents=True, exist_ok=True)
     with (output / 'campaign.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        previous = []
+        spent = 0; prior_sessions = 0
         for index in range(job_index):
             value = read(output / f'job-{index:04d}' / 'receipt.json')
             if value.get('complete') is not True or value.get('protocol_sha256') != protocol_sha:
                 raise ValueError('prior job incomplete or uses another protocol')
-            previous.append(value)
-        spent = sum(x['seconds'] for x in previous)
-        prior_sessions = sum(len(x['sessions']) for x in previous)
+            spent += value['seconds']
+            prior_sessions += len(value['sessions'])
         job = protocol['jobs'][job_index]
         destination = output / f'job-{job_index:04d}'; destination.mkdir(exist_ok=False)
         started = time.monotonic(); session = None
         result = {'schema':1, 'complete':False, 'qualification':False, 'protocol_sha256':protocol_sha,
             'driver_sha256':digest(__file__), 'job':job, 'sessions':[], 'outcomes':[]}
+        inherited_seconds = 0
+        if inherited is not None:
+            expected = [(arm, case_id) for arm in job['arms'] for case_id in job['ids']]
+            observed = [(row['arm'], row['id']) for row in inherited['outcomes']]
+            if inherited['job'] != job or observed != expected[:len(observed)] or len(observed) > len(expected):
+                raise ValueError('inherited evidence is not the complete leading task prefix')
+            result.update(sessions=copy.deepcopy(inherited['sessions']), outcomes=copy.deepcopy(inherited['outcomes']),
+                          continuation_source=copy.deepcopy(inherited['continuation_source']))
+            inherited_seconds = inherited['seconds']
+        inherited_cells = {(row['arm'], row['id']) for row in result['outcomes']}
         def save():
-            result['seconds'] = time.monotonic() - started
+            result['seconds'] = inherited_seconds + time.monotonic() - started
             write(destination / 'receipt.json', result)
         def budget():
-            if spent + time.monotonic() - started > protocol['resource']['maximum_campaign_seconds']:
+            if spent + inherited_seconds + time.monotonic() - started > protocol['resource']['maximum_campaign_seconds']:
                 raise TimeoutError('prospective campaign deadline')
-            if prior_sessions + len(result['sessions']) >= protocol['resource']['maximum_model_sessions']:
-                raise RuntimeError('prospective model-session count exhausted')
             if allocated(output) > protocol['resource']['maximum_output_bytes']:
                 raise RuntimeError('campaign output reservation exhausted')
             if allocated(root) > protocol['resource']['maximum_research_staging_bytes']:
@@ -421,10 +440,13 @@ def run_job(protocol_path, protocol_sha, root, output, job_index):
                     root / paths['bfcl_manifest'], protocol['files'][paths['bfcl_manifest']]) as bundle:
                 for arm in job['arms']:
                     for case_id in job['ids']:
+                        if (arm, case_id) in inherited_cells: continue
                         budget()
                         if session is not None and time.monotonic() - session.started > protocol['resource']['new_task_session_cutoff_seconds']:
                             session.finish(); session.close(); session = None; save()
                         if session is None:
+                            if prior_sessions + len(result['sessions']) >= protocol['resource']['maximum_model_sessions']:
+                                raise RuntimeError('prospective model-session count exhausted')
                             number = len(result['sessions']); row = {'arm':arm, 'complete':False}
                             result['sessions'].append(row); save()
                             local = destination / f'session-{number:03d}-{arm}'
@@ -432,7 +454,7 @@ def run_job(protocol_path, protocol_sha, root, output, job_index):
                                 '--protocol-file', str(root / paths['native_protocol']), '--protocol-sha256', protocol['native_protocol_sha256'], '--output', str(local)]
                             if arm == 'candidate': command += ['--control', str(root / paths['control']), '--table', str(root / paths['rotary'])]
                             session = Session(command, local, native, protocol, arm, row,
-                                campaign_deadline=started + protocol['resource']['maximum_campaign_seconds'] - spent,
+                                campaign_deadline=started + protocol['resource']['maximum_campaign_seconds'] - spent - inherited_seconds,
                                 output_root=output); save()
                         session.reset(); case = lookup[case_id]; began = time.monotonic()
                         if job['family'] == 'tools':
@@ -449,7 +471,9 @@ def run_job(protocol_path, protocol_sha, root, output, job_index):
                         if type(outcome.get('passed')) is not bool: raise ValueError('nonbinary outcome')
                         result['outcomes'].append({'arm':arm, 'id':case_id, 'seconds':time.monotonic()-began, **outcome}); save()
                         print(json.dumps({'job':job_index, 'family':job['family'], 'arm':arm, 'id':case_id, 'complete_task':True}), flush=True)
-                    session.finish(); session.close(); session = None; save()
+                    if session is not None:
+                        session.finish(); session.close(); session = None; save()
+            budget()
             validate_inputs(protocol, tasks, root)
             result['complete'] = True; save()
         except BaseException as error:
