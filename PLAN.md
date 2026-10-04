@@ -833,6 +833,14 @@ The repaired frozen binary passes the native catalogue, all forty-nine image int
 
 The full static suite subsequently passes against that same frozen owned-vision binary with unchanged before/after native source inputs. [[sources/runs/2026/10/2026-10-04-owned-vision-static-acceptance]] retains the raw suite, planner/override/transport/installer checks and resource observations. This is implementation acceptance with no model loaded; it does not close the remaining held-out quality, image-capacity, standalone delivery, measured profile or promotion gates.
 
+### Held-out grader and source preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-heldout-grader-and-source-preparation]] records a Mac sandbox wrapper for the existing bounded coding executor. It preserves tuple/set fixtures, verifies copied source bytes, denies unrelated filesystem access, writes, network and forks, and treats failed worker startup as evaluation failure rather than model failure. The initial dyld/framework-launcher and test-registration failures are retained. Corrected helper tests pass on both local Python runtimes; the static-suite registration checks pass. These are changed-path checks after the separately recorded complete vision/static suite.
+
+The pinned MBPP test population yields 249 verified restricted repair fixtures after prospective grammar, literal, reference-success and input-preservation checks. Every original passes and a deterministic broken variant fails; every excluded source case remains recorded. The draft and corrected actual-source graders agree on all 320 syntax-eligible cases. This defines a restricted coding population before model answers; it does not establish arbitrary-program quality or a final sample.
+
+Exact public IFEval, MBPP, MGSM, BFCL and MMLU source versions and licenses are recorded. An isolated grader runtime is verified after a transient installer-observer failure, preserving the original failure. Correctly discovered, unchanged upstream IFEval tests all pass with fixed seeds and pinned tokenizer data. No final model answer, quality score or statistical qualification is produced. Multi-step executed tool evaluation, final independent task units and samples, margins/weights, runtime budgets and the held-out comparison remain open. Model, pack, public support and installed artifacts are unchanged by this instrumentation.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

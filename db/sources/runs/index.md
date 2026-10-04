@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T09:56:22.691314Z
+updated: 2026-10-04T10:09:41.006248Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-heldout-grader-and-source-preparation]] — Held-out grader and source preparation
 - [[sources/runs/2026/10/2026-10-04-owned-vision-static-acceptance]] — Owned vision and paired score static acceptance
 - [[sources/runs/2026/10/2026-10-04-paired-outcome-score-instrument]] — Paired binary outcome score instrument
 - [[sources/runs/2026/10/2026-10-04-owned-affine-vision-integration]] — Owned affine vision integration and original regression
@@ -506,9 +507,8 @@ updated: 2026-10-04T09:56:22.691314Z
 - [[sources/runs/2026/09/2026-09-07-optimization-native-comparison-pressure-stop]] — First current-candidate native comparison stops at non-normal OS pressure
 - [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-metadata-and-api]] — Current candidate passes complete metadata, runtime and actual API correctness
 - [[sources/runs/2026/09/2026-09-07-optimization-current-source-candidate-build]] — Current combined source builds with exact shared-state restoration
-- [[sources/runs/2026/09/2026-09-07-optimization-current-source-build-resource-stop]] — Current-source release build stops at its memory floor and restores the checkout
 
 ## More
 
-This folder has 777 files. The 500 most recent are listed above.
+This folder has 778 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

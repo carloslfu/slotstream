@@ -199,3 +199,6 @@ Implement bounded grouped affine experts with exact routing, admission and phase
 ## [2026-10-04 09:56] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implement authenticated candidate vision metadata and tower ownership, cancellation, real Engine/HTTP image behavior and original MTP/image regression. Preserve compiler and timing exclusions, verify full static acceptance, and add independently checked prospective paired-outcome analysis. Held-out quality, image capacity, standalone delivery, measured profiles and promotion remain open.
 
+## [2026-10-04 10:10] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Add and verify fail-closed native sandbox coding grading with bounded typed literals, exact copied source and interpreter ownership. Preserve startup/registration/bootstrap failures and verify restricted repair references, pinned upstream instruction tests and isolated grader dependencies. Final model quality, tool execution, sample protocol and promotion remain open.
+

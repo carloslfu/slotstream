@@ -109,6 +109,29 @@ always returns `qualification: false`; statistical results alone cannot admit
 a pack. The tests include published interval witnesses and an independent
 constrained-likelihood optimization.
 
+## Coding-grader isolation
+
+`Tools/quantization_code_sandbox.py` runs the existing bounded pure-function
+grader inside the native Mac sandbox. Its input contains code, a declared
+function and bounded literal arguments/expected values. Tuples and sets retain
+their types. Generated code must satisfy the declared pure-function grammar;
+this instrument does not evaluate arbitrary Python programs.
+
+The worker can read its verified grader copies and Python runtime. File
+writes, unrelated file reads, network access and process creation are denied.
+The parent bounds input, output and wall time; the original worker retains
+its CPU, allocation-operation and execution limits. The launcher uses the
+actual running interpreter image, including for Apple's framework Python,
+so no process-fork permission is needed. Missing sandbox support or an
+incomplete worker startup stops evaluation instead of becoming a model failure.
+
+The test suite verifies these OS boundaries with test-owned files and checks
+correct, wrong, mutating and nonterminating functions. Prospective corpus
+eligibility requires the upstream reference to pass this exact grammar and
+grader. A deterministic broken version must fail before it can become a
+coding-repair fixture. These checks establish the instrument and task fixtures;
+they do not measure model quality or enlarge the held-out sample.
+
 ## Fused expert pilot
 
 `fused-v1.json` freezes the first fused projection pilot. `fused-v2.json`
