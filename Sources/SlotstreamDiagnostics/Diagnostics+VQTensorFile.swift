@@ -155,6 +155,124 @@ extension Diagnostics {
         rejected("draft current tensor needs a separate load copy") {
             _ = try VQDraftWeights.load(baseline: directory, maximumLoadCopyBytes: VQDraftWeights.largestLoadCopyBytes - 1)
         }
+
+        // Authentication parallelism never changes the file owners, their
+        // ordering, or the calling thread's resource/admission authority.
+        var batchInputs: [AuthenticatedTensorBatch.Input] = [], batchPayloads: [Data] = []
+        for index in 0..<7 {
+            let data = Data((0..<32_777).map { UInt8(($0 + index) % 251) })
+            let (url, identity) = try fixture("batch-\(index).safetensors",
+                header: ["tensor": ["dtype": "U8", "shape": [data.count], "data_offsets": [0, data.count]]], payload: data)
+            batchInputs.append(.init(url: url, bytes: identity.fileBytes, sha256: identity.fileSHA256))
+            batchPayloads.append(data)
+        }
+        let callingThread = pthread_self()
+        var admissionOnOwner = true, admissionCalls = 0
+        var batchOwners: [VQTensorFile]? = try AuthenticatedTensorBatch.open(batchInputs) {
+            admissionOnOwner = admissionOnOwner && pthread_equal(pthread_self(), callingThread) != 0
+            admissionCalls += 1
+            return true
+        }
+        c.expect("parallel file admission stays on caller thread", admissionOnOwner && admissionCalls >= 2)
+        c.equal("parallel file count", batchOwners!.count, batchInputs.count)
+        var descriptors: [(Int32, dev_t, ino_t)] = []
+        for (index, owner) in batchOwners!.enumerated() {
+            c.equal("parallel authentication preserves input order \(index)", owner.fileSHA256, batchInputs[index].sha256)
+            c.equal("parallel owned payload \(index)", try owner.read("tensor", offset: 0, count: batchPayloads[index].count), batchPayloads[index])
+            c.expect("parallel file owner retains uncached policy", owner.uncachedRandomReads)
+            let fd = try owner.checkedDescriptor()
+            var value = stat()
+            guard fstat(fd, &value) == 0 else { throw ModelError("cannot inspect batch fixture descriptor") }
+            descriptors.append((fd, value.st_dev, value.st_ino))
+        }
+        batchOwners = nil
+        c.expect("parallel owners release every descriptor after use", descriptors.allSatisfy { entry in
+            var value = stat()
+            return fstat(entry.0, &value) == -1 || value.st_dev != entry.1 || value.st_ino != entry.2
+        })
+        let serialOwners = try AuthenticatedTensorBatch.open(batchInputs, lanes: 1)
+        for (index, owner) in serialOwners.enumerated() {
+            c.equal("serial and parallel authentication agree \(index)", try owner.read("tensor", offset: 0, count: batchPayloads[index].count), batchPayloads[index])
+        }
+        // Watch only these private fixture inodes. The scan extends above
+        // every current fixture descriptor by the batch's maximum simultaneous
+        // original/preliminary owners; unrelated descriptors do not count.
+        let descriptorLimit = (try serialOwners.map { try $0.checkedDescriptor() }.max()!)
+            + Int32(AuthenticatedTensorBatch.maximumFiles * 2 + 8)
+        func fixtureDescriptorCount() -> Int {
+            (0...descriptorLimit).reduce(0) { count, fd in
+                var value = stat()
+                let matches = fstat(fd, &value) == 0
+                    && descriptors.contains { $0.1 == value.st_dev && $0.2 == value.st_ino }
+                return count + (matches ? 1 : 0)
+            }
+        }
+        let retainedDescriptors = fixtureDescriptorCount()
+        c.equal("serial fixture owns one descriptor per file", retainedDescriptors, batchInputs.count)
+        for lanes in [-1, 0, AuthenticatedTensorBatch.maximumLanes + 1, Int.max] {
+            rejected("invalid authentication lane count refused") { _ = try AuthenticatedTensorBatch.open(batchInputs, lanes: lanes) }
+        }
+        rejected("empty authentication batch refused") { _ = try AuthenticatedTensorBatch.open([]) }
+        rejected("duplicate authentication URL refused") { _ = try AuthenticatedTensorBatch.open([batchInputs[0], batchInputs[0]]) }
+        rejected("oversized authentication batch refused before file I/O") {
+            let inputs = (0...AuthenticatedTensorBatch.maximumFiles).map {
+                AuthenticatedTensorBatch.Input(url: directory.appendingPathComponent("absent-\($0)"),
+                    bytes: 10, sha256: String(repeating: "0", count: 64))
+            }
+            _ = try AuthenticatedTensorBatch.open(inputs)
+        }
+        for size in [-1, 0, 8, Int.max] {
+            rejected("invalid authentication extent refused") {
+                _ = try AuthenticatedTensorBatch.open([.init(url: path, bytes: size, sha256: identity.fileSHA256)])
+            }
+        }
+        rejected("aggregate authentication bytes refused before file I/O") {
+            _ = try AuthenticatedTensorBatch.open([
+                .init(url: path, bytes: AuthenticatedTensorBatch.maximumTotalBytes, sha256: identity.fileSHA256),
+                .init(url: foreign, bytes: 9, sha256: identity.fileSHA256)])
+        }
+        rejected("invalid authentication digest refused") {
+            _ = try AuthenticatedTensorBatch.open([.init(url: path, bytes: identity.fileBytes, sha256: "invalid")])
+        }
+        rejected("authentication batch cancellation before workers") {
+            _ = try AuthenticatedTensorBatch.open(batchInputs, shouldContinue: { false })
+        }
+        var cancellationCalls = 0
+        rejected("authentication cancellation before publication drains all workers") {
+            _ = try AuthenticatedTensorBatch.open(batchInputs) {
+                cancellationCalls += 1
+                return cancellationCalls == 1
+            }
+        }
+        c.equal("cancelled caller is not invoked again while draining", cancellationCalls, 2)
+        c.equal("cancelled batch drains private file owners", fixtureDescriptorCount(), retainedDescriptors)
+        var corruptInputs = batchInputs
+        corruptInputs[3] = .init(url: batchInputs[3].url, bytes: batchInputs[3].bytes, sha256: String(repeating: "0", count: 64))
+        rejected("one failed digest refuses the entire parallel batch") { _ = try AuthenticatedTensorBatch.open(corruptInputs) }
+        c.equal("failed sibling batch drains private file owners", fixtureDescriptorCount(), retainedDescriptors)
+        for url in [link, fifo, directory] {
+            rejected("parallel authentication refuses nonregular or symlink file") {
+                _ = try AuthenticatedTensorBatch.open([.init(url: url, bytes: identity.fileBytes, sha256: identity.fileSHA256)])
+            }
+        }
+        // Mutating after the initial admission must fail whether it races
+        // hashing or occurs at the final, caller-thread publication check.
+        var mutationCalls = 0, mutationError: Error?
+        rejected("mutation during parallel authentication cannot publish owners") {
+            _ = try AuthenticatedTensorBatch.open(batchInputs) {
+                mutationCalls += 1
+                if mutationCalls == 2 {
+                    do {
+                        let writer = try FileHandle(forWritingTo: batchInputs[0].url)
+                        try writer.seek(toOffset: UInt64(batchInputs[0].bytes - 1))
+                        try writer.write(contentsOf: Data([255])); try writer.close()
+                        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: 1)], ofItemAtPath: batchInputs[0].url.path)
+                    } catch { mutationError = error }
+                }
+                return true
+            }
+        }
+        c.expect("parallel mutation fixture completed", mutationCalls >= 2 && mutationError == nil)
         return c.report()
     }
 }

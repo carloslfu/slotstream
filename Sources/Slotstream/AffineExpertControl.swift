@@ -79,31 +79,8 @@ package enum AffineExpertControl {
         return data
     }
 
-    private static func file(_ url: URL, bytes: Int, sha256: String,
-                             shouldContinue: () -> Bool) throws -> VQTensorFile {
-        // The preliminary bounded header describes the final owner's exact
-        // identity. That owner rechecks header and complete payload through
-        // its own descriptor, so a path replacement cannot pass admission.
-        let fd = Darwin.open(url.path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
-        guard fd >= 0 else { throw ModelError("cannot inspect affine tensor file") }
-        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
-        defer { try? handle.close() }
-        var value = stat()
-        guard fstat(fd, &value) == 0, value.st_mode & S_IFMT == S_IFREG, value.st_size == Int64(bytes),
-              let prefix = try handle.read(upToCount: 8), prefix.count == 8 else {
-            throw ModelError("affine tensor file size or kind differs")
-        }
-        let size = prefix.withUnsafeBytes { UInt64(littleEndian: $0.loadUnaligned(as: UInt64.self)) }
-        guard (1...4_000_000).contains(size), size < UInt64(bytes - 8),
-              let header = try handle.read(upToCount: Int(size)), header.count == Int(size) else {
-            throw ModelError("affine tensor header exceeds its bound")
-        }
-        return try VQTensorFile(url: url, identity: .init(fileBytes: bytes, headerBytes: Int(size),
-            headerSHA256: digest(header), fileSHA256: sha256), uncachedRandomReads: true,
-            shouldContinue: shouldContinue)
-    }
-
     package static func open(baseline: URL, control: URL, artifact: Artifact = .minmax,
+                             authenticationLanes: Int = AuthenticatedTensorBatch.maximumLanes,
                              shouldContinue: () -> Bool = { true }) throws -> CheckpointIndex {
         guard Artifact.admitted.contains(artifact) else {
             throw ModelError("affine expert artifact is not in the compiled research allowlist")
@@ -140,10 +117,16 @@ package enum AffineExpertControl {
         guard original.count == 3215, names.count == 11, originalFiles.count == names.count else {
             throw ModelError("original affine tensor coverage changed")
         }
-        for pin in originalFiles.sorted(by: { $0.path < $1.path }) {
-            guard shouldContinue(), let sha = pin.sha256 else { throw CheckpointReadError.cancelled }
+        let orderedOriginal = originalFiles.sorted(by: { $0.path < $1.path })
+        let originalInputs = try orderedOriginal.map { pin -> AuthenticatedTensorBatch.Input in
+            guard let sha = pin.sha256 else { throw ModelError("original tensor file lacks its pinned hash") }
+            return .init(url: baseline.appendingPathComponent(pin.path), bytes: Int(pin.size), sha256: sha)
+        }
+        let originalOwners = try AuthenticatedTensorBatch.open(originalInputs, lanes: authenticationLanes,
+            shouldContinue: shouldContinue)
+        for (pin, owner) in zip(orderedOriginal, originalOwners) {
+            guard shouldContinue() else { throw CheckpointReadError.cancelled }
             let path = baseline.appendingPathComponent(pin.path)
-            let owner = try file(path, bytes: Int(pin.size), sha256: sha, shouldContinue: shouldContinue)
             guard Set(owner.tensors.keys) == Set(original.filter { $0.value == pin.path }.keys) else {
                 throw ModelError("original tensor file differs from the pinned index")
             }
@@ -156,12 +139,18 @@ package enum AffineExpertControl {
         }
         let expectedFiles = Set((0..<48).map { String(format: "experts-%02d.safetensors", $0) })
         guard Set(manifest.files.map(\.path)) == expectedFiles else { throw ModelError("controlled expert files differ") }
+        let orderedControl = manifest.files.sorted { $0.path < $1.path }
+        let controlInputs = orderedControl.map { pin in
+            AuthenticatedTensorBatch.Input(url: control.appendingPathComponent(pin.path), bytes: pin.size, sha256: pin.sha256)
+        }
+        let controlOwners = try AuthenticatedTensorBatch.open(controlInputs, lanes: authenticationLanes,
+            shouldContinue: shouldContinue)
         var total = 0
         for layer in 0..<48 {
             let name = String(format: "experts-%02d.safetensors", layer)
-            guard let pin = manifest.files.first(where: { $0.path == name }) else { throw ModelError("missing controlled layer") }
+            let pin = orderedControl[layer], owner = controlOwners[layer]
+            guard pin.path == name, shouldContinue() else { throw CheckpointReadError.cancelled }
             let path = control.appendingPathComponent(name)
-            let owner = try file(path, bytes: pin.size, sha256: pin.sha256, shouldContinue: shouldContinue)
             var expected: Set<String> = []
             for (projection, rows, columns) in [("gate_proj", 640, 2560), ("up_proj", 640, 2560), ("down_proj", 2560, 640)] {
                 let module = "model.layers.\(layer).mlp.switch_mlp.\(projection)"
