@@ -739,6 +739,13 @@ Both candidate modes pass actual Engine generation, complete-prompt reuse, align
 
 Next compare each complete draft configuration, freeze a defensible held-out protocol, then finish the qualifying candidate's vision and standalone artifact ownership, distribution/activation/recovery and product integration. The supported registry remains original-only. Other physical Macs are not required, and no performance result is inferred from these functional checks.
 
+
+### Complete draft pilot and context CI correction, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-pair-exclusions-and-context-ci]] preserves the frozen paired pilot with drafting enabled in both complete configurations. Four runs completed before the next thermal/power preflight refused launch. Both artifacts repeated their own frozen token sequences and task outcomes. Competing CPU activity excludes both candidate timing runs; the second original run also has a thermal/power exclusion. The prescribed campaign was not completed or replaced, so it supplies no valid comparative speed result and cannot promote a profile.
+
+The separate context-proxies CI exposed a missing source dependency after pack-specific planning landed. Its isolated compiler did not include PackMemoryProfile. The proxy now compiles and fingerprints that production file, and the bounded local source-contract check passes. Numerical fixtures and timing criteria are unchanged. Activation/recovery implementation continues independently; candidate vision, standalone distribution, held-out quality and local performance qualification remain open.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

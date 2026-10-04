@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T04:17:03.574517+00:00
+updated: 2026-10-04T05:03:54.417125+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -587,3 +587,14 @@ The final candidate Engine fixtures use fixed small arenas and a ten-GB physical
 These checks execute the actual Engine and loopback HTTP handler. They verify owned Unicode tokenizer parsing after removal of the fixture's source copies, exact greedy output, full-prompt and aligned prefix reuse, disk identity/restoration, cancellation with no silent replay, pressure floor refusal, recovery, warm resize, and HTTP artifact identity. The original-loader/candidate-plan mismatch, oversized forward, unsupported image toggle, legacy draft loader and explicit different-quantization request all refuse before the incompatible operation. The final catalogue, historical/current original layer checks, sweep equality and static suite pass on the preserved source-bound binaries. Prior committed-checkpoint CI is also captured as completed successfully.
 
 This adapter is experimental and package-only. It still depends on the original parent plus controlled expert overlay and finite rotary artifact. It does not enable candidate images or streamed drafts, publish a standalone pack, qualify task noninferiority or establish a speed profile. The task evaluator's original-baseline branch now admits explicit drafting so the next comparison need not disable an existing baseline optimization. Those new comparative results are not part of this source.
+
+
+### Complete draft pilot stopped by frozen timing conditions, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-pair-exclusions-and-context-ci]] contains all raw task outputs, hashes, timing exclusions and host observations, plus the failed context CI and its local repair. Four completed runs used the original Engine with streamed original draft experts or the authenticated affine-three-bit control with a resident independent original head. Both requested two drafts. The equal physical watchdog did not make their allocation recipes or saved planning ceilings equivalent; this is a calibration comparison, not integrated Auto qualification.
+
+Each completed run passed 15 of the 16 frozen calibration tasks and retained the same sorting-format failure. Repeated runs of each artifact have identical prompt/output token IDs and terminal outcomes. This is repeatability on known tasks, not held-out noninferiority.
+
+The first original run met its timing conditions. Both candidate runs exceeded the frozen competing-CPU criterion. The second original run has a thermal/power exclusion, and the next preflight refused launch. No replacement rounds were run. Preserve the measurements as excluded timing evidence; there is no paired speed aggregate or evidence for the twenty-token target. All completed cases remained under the existing physical-process watchdog.
+
+Separately, context-proxies CI failed to compile because its standalone Swift source set omitted PackMemoryProfile. Adding the actual file to compilation and provenance fixes the observed error, and the isolated source proxy passes locally without an Engine or model. This correction does not widen a memory bound, edit a numeric golden or relax an experimental protocol.

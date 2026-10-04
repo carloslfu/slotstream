@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCES = [f'Sources/Slotstream/{name}.swift' for name in (
     'Plan', 'Machine', 'Context', 'ContextMemory', 'ContextFeasibility', 'ContextWindowPolicy',
     'RequestControl', 'ToolCallSplitter', 'PinnedModel', 'Version', 'DecodeLookahead',
-    'QuantizationLayout')]
+    'QuantizationLayout', 'PackMemoryProfile')]
 SECTIONS = [
     ('Checkpoint.swift', 'public struct ModelError:', '// MARK: - Safetensors header parsing'),
     ('Governor.swift', 'public enum GovernorPolicy {', 'public final class MemoryGovernor:'),

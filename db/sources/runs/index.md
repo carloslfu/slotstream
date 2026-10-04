@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T04:16:42.077802Z
+updated: 2026-10-04T05:00:13.530643Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-complete-pair-exclusions-and-context-ci]] — Complete draft pilot exclusions and isolated context dependency repair
 - [[sources/runs/2026/10/2026-10-04-affine-engine-memory-and-governor]] — Authenticated affine Engine integration and pack-specific live memory accounting
 - [[sources/runs/2026/10/2026-10-04-native-affine-reference-generation-and-context]] — Native affine-three-bit reference, generation, draft, contexts and calibration
 - [[sources/runs/2026/10/2026-10-03-affine-three-bit-expert-control]] — Controlled affine-three-bit expert conversion and independent calibration screen
@@ -506,9 +507,8 @@ updated: 2026-10-04T04:16:42.077802Z
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-default-metadata-and-runtime]] — Combined candidate passes native metadata, exact planner and runtime defaults
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-default-candidate-build]] — Separate combined-default candidate builds and restores the shared checkout
 - [[sources/runs/2026/09/2026-09-07-optimization-api-concurrency-validation]] — Metadata concurrency acceptance requires actual completed generation
-- [[sources/runs/2026/09/2026-09-07-optimization-api-pressure-preflight-refusal]] — Corrected API qualification was not launched after headroom refusal
 
 ## More
 
-This folder has 763 files. The 500 most recent are listed above.
+This folder has 764 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

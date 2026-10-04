@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T04:17:03.553150+00:00
+updated: 2026-10-04T05:03:54.394761+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -677,3 +677,10 @@ The live governor bounds restart credit by observed process ownership and keeps 
 Both candidate modes pass actual Engine generation, complete-prompt reuse, aligned memory/disk continuation, cancellation and retry, pressure donation/floor refusal/recovery, warm resize and real HTTP requests. HTTP metadata identifies the loaded quantization and rejects an explicit name for a different artifact. Existing original numerical gates and final static acceptance pass. The source preserves every failed build and fixture, including the under-reserved complete-prompt test rather than relaxing retention accounting.
 
 Next compare each complete draft configuration, freeze a defensible held-out protocol, then finish the qualifying candidate's vision and standalone artifact ownership, distribution/activation/recovery and product integration. The supported registry remains original-only. Other physical Macs are not required, and no performance result is inferred from these functional checks.
+
+
+### Complete draft pilot and context CI correction, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-pair-exclusions-and-context-ci]] preserves the frozen paired pilot with drafting enabled in both complete configurations. Four runs completed before the next thermal/power preflight refused launch. Both artifacts repeated their own frozen token sequences and task outcomes. Competing CPU activity excludes both candidate timing runs; the second original run also has a thermal/power exclusion. The prescribed campaign was not completed or replaced, so it supplies no valid comparative speed result and cannot promote a profile.
+
+The separate context-proxies CI exposed a missing source dependency after pack-specific planning landed. Its isolated compiler did not include PackMemoryProfile. The proxy now compiles and fingerprints that production file, and the bounded local source-contract check passes. Numerical fixtures and timing criteria are unchanged. Activation/recovery implementation continues independently; candidate vision, standalone distribution, held-out quality and local performance qualification remain open.
