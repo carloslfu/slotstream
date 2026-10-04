@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-04T13:38:26.945195Z
+updated: 2026-10-04T14:29:31.217431Z
 ---
 
 # records/decisions
 
+- [[records/decisions/final-paired-task-quality-protocol]] — Freeze the final paired task-quality gate before answers
 - [[records/decisions/hold-unconstrained-affine-refit]] — Hold the unconstrained affine-three-bit refit
 - [[records/decisions/same-model-automatic-quantization-with-overrides]] — Default to automatic same-model quantization selection while preserving independent user pack and memory-ceiling overrides.
 - [[records/decisions/single-mac-quantization-validation]] — Complete quantization and Auto work with the available 48 GB Mac; other-Mac physical validation is not a completion requirement.

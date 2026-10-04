@@ -121,6 +121,21 @@ def tool_case(session, case, bundle, source, classes, limits):
     class TaskFailure(Exception):
         pass
 
+    from quantization_code_sandbox import MAX_PAYLOAD
+    def payload_bytes(value):
+        return len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode())
+    # An unpriceable source fixture is an infrastructure problem. Once the
+    # fixed fixture fits, growth caused by generated calls is a declared task
+    # limit. Refuse it before executing the proposed next step.
+    if any(payload_bytes(value) > MAX_PAYLOAD for value in [
+            {'mode':'replay','entry':entry,'steps':[]},
+            {'mode':'grade','entry':entry,'turns':[],'gold':case['gold']}]):
+        raise ValueError('offline source fixture exceeds its input envelope')
+    def bounded_run(value):
+        if payload_bytes(value) > MAX_PAYLOAD:
+            raise TaskFailure('generated tool trace exceeds its declared input envelope')
+        return bundle.run(value)
+
     try:
         for question in entry['question']:
             history += question; turn = []; turns.append(turn)
@@ -153,16 +168,17 @@ def tool_case(session, case, bundle, source, classes, limits):
                 calls += len(decoded)
                 if calls > limits.calls_per_case: raise TaskFailure('tool calls exceed the case bound')
                 seen_ids.update(ids)
-                turn.append(decoded); steps.append(decoded)
-                result = bundle.run({'mode':'replay','entry':entry,'steps':steps})
+                proposed_steps = steps + [decoded]
+                result = bounded_run({'mode':'replay','entry':entry,'steps':proposed_steps})
                 returned = result['result']['results'][-1]
                 if len(returned) != len(raw) or any(not isinstance(x, str) for x in returned):
                     raise ValueError('offline tool executor returned incomplete results')
+                turn.append(decoded); steps = proposed_steps
                 history.append(message)
                 history += [{'role':'tool','tool_call_id':call['id'],'content':value} for call,value in zip(raw,returned)]
             else:
                 raise TaskFailure('tool steps exceeded their per-turn bound')
-        graded = bundle.run({'mode':'grade','entry':entry,'turns':turns,'gold':case['gold']})
+        graded = bounded_run({'mode':'grade','entry':entry,'turns':turns,'gold':case['gold']})
         passed = graded['result']['valid']
         if type(passed) is not bool: raise ValueError('offline tool grader returned a nonbinary result')
         return {'passed':passed,'grade':graded,'responses':responses,'turns':turns,'history':history,'calls':calls}
@@ -176,7 +192,13 @@ def grade(family, case, response, *, instruction_source=None, runtime=None):
     if family == 'facts': return {'passed':text.strip()==case['answer'],'method':'exact-option'}
     if family == 'multilingual': return {'passed':exact_number(text,case['answer']),'method':'exact-final-number'}
     if family == 'coding':
-        from quantization_code_sandbox import grade as code_grade
+        from quantization_code_sandbox import MAX_PAYLOAD, grade as code_grade
+        fixture = {'text':'','function':case['function'],'literal_tests':case['tests']}
+        if len(json.dumps(fixture,ensure_ascii=False).encode()) > MAX_PAYLOAD:
+            raise ValueError('coding source fixture exceeds its input envelope')
+        fixture['text'] = text
+        if len(json.dumps(fixture,ensure_ascii=False).encode()) > MAX_PAYLOAD:
+            return {'passed':False,'reason':'coding answer exceeds its declared input envelope'}
         return code_grade(text, case['function'], case['tests'])
     if family == 'instruction':
         if instruction_source is None or runtime is None: raise ValueError('pinned instruction grader required')

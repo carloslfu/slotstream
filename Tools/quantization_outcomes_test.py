@@ -82,6 +82,39 @@ class OutcomeTests(unittest.TestCase):
             self.assertFalse(q.isolated_instruction({},self.response('unfinished','length'),'/fixture','/packages')['passed'])
             worker.assert_not_called()
 
+    def test_oversized_code_answer_is_a_task_failure_but_oversized_fixture_is_not(self):
+        case={'function':'repair','tests':[]}
+        with patch('quantization_code_sandbox.grade',side_effect=AssertionError('oversized work must not execute')):
+            result=q.grade('coding',case,self.response('x'*64_001))
+            self.assertFalse(result['passed']);self.assertIn('answer',result['reason'])
+            with self.assertRaisesRegex(ValueError,'source fixture'):
+                q.grade('coding',{'function':'repair','tests':['x'*64_001]},self.response('def repair(): return 1'))
+
+    def test_tool_trace_size_refusal_keeps_only_executed_steps_and_actual_results(self):
+        with tempfile.TemporaryDirectory() as root:
+            source,case,classes=self.tool_fixture(root);case['entry']['question']=case['entry']['question'][:1]
+            # This tiny offline fixture admits string arguments; its long
+            # generated trace tests input transport rather than argument type.
+            path=source/'data/multi_turn_func_doc/math.json';schema=json.loads(path.read_text())
+            for value in schema['parameters']['properties'].values():value['type']='string'
+            path.write_text(json.dumps(schema)+'\n')
+            calls=[];executed=[]
+            def chat(history,tools):
+                calls.append(copy.deepcopy(history))
+                return self.tool_response(str(len(calls)),'x'*8000,'y')
+            def run(value):
+                self.assertEqual(value['mode'],'replay');executed.append(copy.deepcopy(value))
+                return {'result':{'results':[['actual-result']]}}
+            result=q.tool_case(SimpleNamespace(chat=chat),case,SimpleNamespace(run=run),source,classes,q.ToolLimits(12,8,96))
+            self.assertFalse(result['passed']);self.assertIn('input envelope',result['reason'])
+            self.assertGreater(len(executed),0);self.assertLess(len(executed),12)
+            self.assertEqual(len(result['turns'][0]),len(executed))
+            self.assertEqual(len(calls),len(executed)+1)
+            self.assertEqual(sum(x['role']=='tool' for x in result['history']),len(executed))
+            with self.assertRaisesRegex(ValueError,'source fixture'):
+                case['entry']['oversized_source']='x'*64_001
+                q.tool_case(SimpleNamespace(chat=chat),case,SimpleNamespace(run=run),source,classes,q.ToolLimits(12,8,96))
+
     def tool_fixture(self, root):
         source=Path(root);path=source/'data/multi_turn_func_doc';path.mkdir(parents=True)
         (path/'math.json').write_text(json.dumps({'name':'add','description':'Return the actual sum',

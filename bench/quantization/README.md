@@ -202,6 +202,28 @@ default input limit.
 preserves every task, failure and sizing limit. Those underlying task IDs,
 including alternate translations, are excluded from final evaluation.
 
+`Tools/quantization_outcome_campaign.py` runs serial paired jobs from a
+hash-bound prospective protocol. It verifies complete source and grader
+identities, native reply reservations, actual tool results and final session
+counters. Each independent case resets retained conversation state. A later
+job requires every earlier job to be complete; an existing job is never
+overwritten or replayed. Failed model answers remain outcomes. A model crash,
+resource failure or malformed journal leaves the job incomplete and prevents
+final analysis. Frozen helper copies allow completed jobs to survive an agent
+restart without changing the evaluated implementation.
+
+```sh
+python3 "$FROZEN_HELPERS/quantization_outcome_campaign.py" \
+  --protocol "$PROTOCOL" --sha256 "$PROTOCOL_SHA256" \
+  --root "$RESEARCH_ROOT" --output "$NEW_CAMPAIGN" --job 0
+```
+
+Run subsequent predeclared jobs in order. Only after every pair completes,
+replace `--job 0` with `--analyze` to obtain the frozen paired analysis. The
+runner never selects tasks, changes margins, qualifies an instrument pilot
+as model evidence or promotes a pack. Complete app jobs, image answers,
+long-context behavior and performance remain independent checks.
+
 ## Affine parameter refit
 
 `Tools/affine_refit.py` tests a separate recipe using the same stored affine

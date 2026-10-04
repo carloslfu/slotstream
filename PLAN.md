@@ -872,6 +872,16 @@ Authenticated recipe identity now travels through owned checkpoint tensors, Engi
 
 Next freeze the final disjoint task selection, app-relevant reply and tool limits, fixed family weights, paired uncertainty method and total cost before collecting held-out answers. Ordinary app jobs, long-context outcomes and image-answer quality remain separate checks. Complete-configuration speed and standalone/transport qualification still precede promotion; unavailable other Macs do not.
 
+### Frozen final task campaign, October 4
+
+[[sources/runs/2026/10/2026-10-04-serial-outcome-campaign-acceptance]] closes the serial runner and grader acceptance. A previously excluded pilot tool case completes for both actual artifacts. The input-budget correction then preserves every recorded response, request history, executed step and final outcome in a zero-model replay. Full static acceptance passes after the correction. Crashes, EOF, worker failures, memory or pressure failures remain execution failures; a verified task-budget refusal remains a retained task outcome. No launched job can be overwritten or automatically retried.
+
+[[records/decisions/final-paired-task-quality-protocol]] adopts the existing proposed engineering margins prospectively for this comparison. [[sources/runs/2026/10/2026-10-04-prospective-heldout-outcome-protocol]] freezes 536 instruction tasks, 243 restricted coding repairs, 1,000 factual tasks, 245 underlying multilingual problems and 195 complete tool conversations. Pilot groups and exact duplicates are excluded before any final answer. The source audit preserves the limits of exact deduplication and public-benchmark novelty. Each family has one fifth of the overall weight, with simultaneous paired score-based bounds and fixed overall/family limits of two/five percentage points.
+
+Both artifacts use the same fourteen-GB ceiling, 32K context, full 4,096-token reply reservation and two streamed drafts. Tool conversations retain twelve model steps per turn, eight calls per step and ninety-six per case. The 138 ordered paired jobs alternate arm order and may reload only between completed independent tasks under the fixed session cutoff. The prospective total allows seventy-two active job hours and six GB of receipts within the existing 430 GB staging bound, with no new weights, raw logits or paid services. The complete protocol hash is ee91815afe069b316bf095abc7bdcaadb46eabcd3a2f3fff898fda712789af5a.
+
+The final campaign has not produced an answer at this checkpoint. Its finite task populations and uncertain pilot discordance may yield inconclusive evidence; that does not qualify a pack or permit sampling until it passes. Ordinary app jobs, long-context and image outcomes, complete speed, standalone delivery and integrated release acceptance remain separate required work.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

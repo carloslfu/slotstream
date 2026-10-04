@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T13:36:17.334503Z
+updated: 2026-10-04T14:28:17.999092Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-prospective-heldout-outcome-protocol]] — Prospective final paired task-quality protocol
+- [[sources/runs/2026/10/2026-10-04-serial-outcome-campaign-acceptance]] — Serial completed-task campaign runner acceptance
 - [[sources/runs/2026/10/2026-10-04-complete-outcome-and-session-acceptance]] — Complete outcome grading and reply-reservation acceptance
 - [[sources/runs/2026/10/2026-10-04-affine-refit-full-screen]] — Complete affine refit loses the unchanged model screen
 - [[sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component]] — Bounded BF16 affine refit component with independent stored-error, packing and batch checks
@@ -505,10 +507,8 @@ updated: 2026-10-04T13:36:17.334503Z
 - [[sources/runs/2026/09/2026-09-07-optimization-first-combined-pair-and-throughput-reporting]] — First combined paired workload and one-token throughput reporting correction
 - [[sources/runs/2026/09/2026-09-07-optimization-governor-and-mtp-recovery]] — Portable governor acceptance and complete MTP memory/vision recovery
 - [[sources/runs/2026/09/2026-09-07-optimization-full-verification-counterexample]] — Exact candidate full verification: 22 pass and three preserved failures
-- [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-complete-static]] — Current candidate passes complete static, CLI and bounded component gates
-- [[sources/runs/2026/09/2026-09-07-optimization-final-candidate-native-and-build]] — Expanded-diagnostic candidate builds and passes all three exact-build native prerequisites
 
 ## More
 
-This folder has 784 files. The 500 most recent are listed above.
+This folder has 786 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
