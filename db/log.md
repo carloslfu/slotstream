@@ -250,3 +250,6 @@ Implemented bounded standalone bundle assembly and complete affine artifact prep
 ## [2026-10-04 18:06] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Captured complete Mac CI for selected-manifest verification and full engine CI for long-conversation and standalone metadata preparation. Image sessions now bind the deployed tiled vision arithmetic; twelve Python groups pass, while new native complete-plan image geometry checks await CI and physical outcomes remain pending.
 
+## [2026-10-04 18:08] update | sources/runs/2026/10/2026-10-04-prepared-instruments-ci-and-image-workspace.md
+Added the missing required machine references to the CI/source receipt without changing its captured evidence or verdicts. Full validation now reports zero errors and warnings; claims and projections pass.
+

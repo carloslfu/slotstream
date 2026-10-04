@@ -1,12 +1,13 @@
 ---
 type: run
 created: 2026-10-04T18:05:39.915072+00:00
-updated: 2026-10-04T18:05:39.915072+00:00
+updated: 2026-10-04T18:07:56.405879+00:00
 summary: Completed app verification and preparation CI, plus pending native image workspace checks
 binary: Exact remote CI commits and later source-only native checks
 captured_at: 2026-10-04
 command: Capture completed GitHub Actions runs 37219249802, 37217132776 and 37220007613, then run quantization_outcome_campaign_test.py on both Python runtimes.
 discarded: false
+machines: '[[records/machines/github-actions-macos-26]]; [[records/machines/macbook-pro-m5-pro-48gb]]'
 title: Preparation CI and explicit image workspace arithmetic
 tool: GitHub Actions, Python protocol checks and native source review
 ---
