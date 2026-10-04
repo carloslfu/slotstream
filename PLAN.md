@@ -920,6 +920,12 @@ The final task campaign continues with its exact frozen helpers. The correction 
 
 Header-only planning identifies every retained tensor and excludes the original expert ranges. This prepares a standalone same-checkpoint artifact without changing inference values or source inodes. It does not create that artifact. Complete standalone config/index/provenance, a separate whole-output resource budget, actual export and native parity are still required, followed by quality, performance and distribution acceptance before product admission.
 
+### Pack-owned download progress preparation, October 4
+
+The compressed downloader now has an explicit manifest-bound progress reader. The legacy original-pack entry point delegates with its unchanged compiled transport identity. New fixture cases distinguish two manifests whose filenames and sizes agree, refuse foreign resume bits and malformed coverage, and retain the distinction between progress estimates and final file verification. These fixtures await native/full transport CI; no acceptance result is claimed yet.
+
+This prepares independent resumption for multiple maintained packs without adding a registry entry or accepting downloaded metadata as product authority. Standalone export, candidate qualification, independent public pull and complete integration remain required before an alternative can be offered.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

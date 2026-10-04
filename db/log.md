@@ -226,3 +226,6 @@ Capture complete lossless transport CI and native authentication optimized-fixtu
 ## [2026-10-04 15:52] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Implement and check bounded lossless retained-tensor copying, including independent reconstruction and publication failures; capture complete header-only standalone geometry. No real weights exported or alternate pack admitted.
 
+## [2026-10-04 15:58] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepare manifest-bound compressed resume accounting and cross-pack identity fixtures. Preserve the original entry point and keep alternate admission closed; native CI acceptance remains pending.
+

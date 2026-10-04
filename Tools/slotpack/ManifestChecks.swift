@@ -125,6 +125,42 @@ import CSlotpack
         try FileManager.default.moveItem(at: progressFinal, to: progressPart)
         done[progressIndex] = 2; try writeProgressMap()
         try expect("invalid resume bits do not report downloaded bytes", SlotpackDownload.resumeModelBytes(at: progressRoot).isEmpty)
+
+        // Two tiny complete transports share a filename and byte count. Their
+        // full manifest identities, not the path or nominal quantization name,
+        // decide which durable progress belongs to the selected representation.
+        let alternateRoot = temp.appendingPathComponent("alternate-resume")
+        try FileManager.default.createDirectory(at: alternateRoot, withIntermediateDirectories: true)
+        let alternatePart = alternateRoot.appendingPathComponent("weights.bin.slotpack.part")
+        try raw.write(to: alternatePart)
+        let otherFiles = [PinnedModel.File(path: "weights.bin", size: Int64(raw.count), sha256: String(repeating: "1", count: 64))]
+        let other = SlotpackManifest(format: "slotpack-v1", files: otherFiles, objects: [object])
+        let otherData = try JSONEncoder().encode(other), otherHash = SlotpackManifest.digest(otherData)
+        _ = try SlotpackManifest.load(otherData, digest: otherHash, files: otherFiles)
+        func alternateState(_ digest: String, _ bits: [Int] = [1]) throws {
+            try JSONSerialization.data(withJSONObject: ["manifest": digest, "done": bits])
+                .write(to: alternateRoot.appendingPathComponent(".slotpack-state.json"))
+        }
+        try alternateState(hash)
+        try expect("selected alternate reports its own complete original ranges",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: manifest, digest: hash) == ["weights.bin": Int64(raw.count)])
+        try expect("same-size other pack cannot inherit resume progress",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: other, digest: otherHash).isEmpty)
+        try expect("legacy original cannot inherit alternate resume progress",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot).isEmpty)
+        try alternateState(otherHash)
+        try expect("switching the selected identity changes the matching progress",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: other, digest: otherHash) == ["weights.bin": Int64(raw.count)]
+                && SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: manifest, digest: hash).isEmpty)
+        try alternateState(otherHash, [1, 1])
+        try expect("alternate resume bit count remains exact",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: other, digest: otherHash).isEmpty)
+        let malformed = SlotpackManifest(format: "slotpack-v1", files: otherFiles, objects: [object, object])
+        try expect("unvalidated overlapping alternate ranges cannot report progress",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: malformed, digest: otherHash).isEmpty)
+        try alternateState("invalid")
+        try expect("invalid alternate identity cannot report progress",
+            SlotpackDownload.resumeModelBytes(at: alternateRoot, manifest: other, digest: "invalid").isEmpty)
         let impossibleSize = WeightStore.freeDiskBytes(near: temp) + 4_000_000_000
         let largeFile = PinnedModel.File(path: "impossible.bin", size: impossibleSize, sha256: digest)
         var objects = [SlotpackManifest.Object]()

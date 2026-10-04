@@ -66,10 +66,19 @@ final class SlotpackDownload: @unchecked Sendable {
     /// Logical model bytes already represented by durable compressed resume
     /// entries. This is a progress estimate; final readiness still hashes files.
     static func resumeModelBytes(at dest: URL) -> [String: Int64] {
+        guard case let .success(manifest) = PinnedTransport.manifest else { return [:] }
+        return resumeModelBytes(at: dest, manifest: manifest, digest: PinnedTransport.manifestSHA256)
+    }
+
+    /// Each maintained pack owns its transport identity and original ranges.
+    /// Resume state from another representation grants no progress, even when
+    /// filenames and sizes happen to agree. This does not authorize a manifest
+    /// for download: callers must first authenticate their compiled pack pins.
+    static func resumeModelBytes(at dest: URL, manifest: SlotpackManifest, digest: String) -> [String: Int64] {
+        guard SlotpackManifest.validDigest(digest), (try? manifest.validate(files: manifest.files)) != nil else { return [:] }
         guard let data = DownloadFiles.readSmall(dest.appendingPathComponent(".slotpack-state.json"), limit: 1 << 20),
             let state = try? JSONDecoder().decode(Resume.self, from: data),
-            state.manifest == PinnedTransport.manifestSHA256,
-            case let .success(manifest) = PinnedTransport.manifest,
+            state.manifest == digest,
             state.done.count == manifest.objects.count, state.done.allSatisfy({ $0 <= 1 })
         else { return [:] }
         var partial = Set<Int>(), whole = Set<Int>()
