@@ -132,6 +132,32 @@ grader. A deterministic broken version must fail before it can become a
 coding-repair fixture. These checks establish the instrument and task fixtures;
 they do not measure model quality or enlarge the held-out sample.
 
+## Executed conversation instrument
+
+`slotstream quantization-session` reads a hash-pinned resource protocol and
+bounded JSONL chat/reset/finish frames. It uses the actual Engine planner and
+production HTTP handler for the original or explicit grouped affine research
+source, preserving tool-call IDs, returned tool messages and real prefix
+continuation. Its transcript and terminal receipt remain incomplete after an
+unexpected EOF. The caller must retain a physical-memory and wall-time
+watchdog. It neither executes tools nor qualifies another supported pack.
+
+`Tools/quantization_bfcl.py` provides an offline fixture owner for the pinned
+BFCL base population. Its `Bundle` copies and authenticates fixture sources and
+its separate math runtime, runs only under the native Mac sandbox, and denies
+unrelated file contents, writes, network and process creation. Structured
+calls reach documented methods with bounded literal arguments. Generated
+Python is never evaluated. The upstream state and response grader uses that
+same safe executor; a final answer claiming success cannot substitute for the
+required actions and resulting state. Infrastructure failures abort grading.
+Other BFCL categories require their own reviewed semantics and gates.
+
+The source and protocol evidence, complete reference replay, wrong traces,
+real original/candidate tool continuation and cold recovery are recorded in
+[the executed-tool acceptance record](../../db/sources/runs/2026/10/2026-10-04-executed-tool-conversation-instruments.md).
+These checks validate the instruments before model evaluation. They do not
+establish held-out quality or comparative speed.
+
 ## Fused expert pilot
 
 `fused-v1.json` freezes the first fused projection pilot. `fused-v2.json`

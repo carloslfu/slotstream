@@ -15,7 +15,7 @@ OPTIMIZATION_SUITES = [
     'thermal_readiness', 'prefill_bench', 'expert_layout_probe',
     'ngram_cache_probe', 'indexer_score_probe', 'vision_capacity_gate', 'vision_qualification',
     'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results',
-    'quantization_inventory', 'quantization_baseline', 'quantization_quality', 'quantization_paired', 'quantization_code_sandbox', 'quantization_tasks', 'quantization_logit_pilot',
+    'quantization_inventory', 'quantization_baseline', 'quantization_quality', 'quantization_paired', 'quantization_code_sandbox', 'quantization_bfcl', 'quantization_tasks', 'quantization_logit_pilot',
     'affine_expert_control', 'affine_expert_reference', 'vq_kernel_sources',
     'vq_ple_stream', 'vq_model_reference', 'vq_execution_profile', 'vq_draft_inventory', 'vq_dense_overlay', 'vq_dense_reinvestment', 'vq_uncached_expert', 'vq_contiguous_expert', 'vq_record_repack', 'vq_pilot_admission', 'vq_model_fetch', 'vq_rotary_table_source',
 ]

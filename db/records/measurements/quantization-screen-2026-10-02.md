@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T10:10:36.690095+00:00
+updated: 2026-10-04T11:01:52.258032+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -709,3 +709,10 @@ The full static suite subsequently passes against that same frozen owned-vision 
 The pinned MBPP test population yields 249 verified restricted repair fixtures after prospective grammar, literal, reference-success and input-preservation checks. Every original passes and a deterministic broken variant fails; every excluded source case remains recorded. The draft and corrected actual-source graders agree on all 320 syntax-eligible cases. This defines a restricted coding population before model answers; it does not establish arbitrary-program quality or a final sample.
 
 Exact public IFEval, MBPP, MGSM, BFCL and MMLU source versions and licenses are recorded. An isolated grader runtime is verified after a transient installer-observer failure, preserving the original failure. Correctly discovered, unchanged upstream IFEval tests all pass with fixed seeds and pinned tokenizer data. No final model answer, quality score or statistical qualification is produced. Multi-step executed tool evaluation, final independent task units and samples, margins/weights, runtime budgets and the held-out comparison remain open. Model, pack, public support and installed artifacts are unchanged by this instrumentation.
+
+### Native conversation and offline tool-grader acceptance
+
+[[sources/runs/2026/10/2026-10-04-executed-tool-conversation-instruments]] binds final native binary `e08f824fb793477dce1ed60263950efb3dec791844601ce04c04a00b216c3d88` to its build sources and unchanged resource protocol. The model-free framing catalogue and protocol negatives pass. Both original and grouped candidate execute three real HTTP requests and two resets, including cached tool-result continuation and exact cold recovery. Original peak physical footprint is 7,587,501,360 bytes; candidate is 6,011,752,888 bytes, inside the prospective ten-GB watchdog. These tiny instrument fixtures do not establish comparative timing or task quality. Original/candidate actual plans retain their distinct byte ledgers and slot counts.
+
+The pinned BFCL base population has two hundred cases. Every unchanged gold trace passes the retained upstream state/response checker through the safe direct-call adapter, every empty trace fails, and a deliberately wrong filesystem fixture state fails. No reference call returns an execution or fixture error. The final adapter's largest observed worker footprint is 40,255,992 bytes under its prospective 256,000,000-byte ceiling. Six helper test groups pass on both Python runtimes, including real native denials and source-copy isolation; thirty-two static registration checks pass. These contain no candidate outputs and do not increase the number of independently evaluated model tasks. The original prototype and final guard/observation revision are both preserved.
+The same frozen native binary subsequently passes the complete model-free catalogue and static suite, with matching before/after build inputs. Physical tree peaks are 223,249,296 bytes for the catalogue and 1,115,949,264 bytes for static acceptance, inside the six-GB watchdog. [[sources/runs/2026/10/2026-10-04-executed-tool-static-acceptance]] preserves the full outputs and resource receipt. No model quality or timing inference follows.

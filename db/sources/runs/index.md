@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T10:09:41.006248Z
+updated: 2026-10-04T11:01:07.188302Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-executed-tool-static-acceptance]] — Executed tool instruments static acceptance
+- [[sources/runs/2026/10/2026-10-04-executed-tool-conversation-instruments]] — Native tool conversation and isolated offline outcome-grader acceptance
 - [[sources/runs/2026/10/2026-10-04-heldout-grader-and-source-preparation]] — Held-out grader and source preparation
 - [[sources/runs/2026/10/2026-10-04-owned-vision-static-acceptance]] — Owned vision and paired score static acceptance
 - [[sources/runs/2026/10/2026-10-04-paired-outcome-score-instrument]] — Paired binary outcome score instrument
@@ -505,10 +507,8 @@ updated: 2026-10-04T10:09:41.006248Z
 - [[sources/runs/2026/09/2026-09-07-optimization-native-pass-and-read-failure-checkpoint-counterexample]] — Combined native passes expose stale failed-state checkpoint assertion
 - [[sources/runs/2026/09/2026-09-07-optimization-pressure-failure-cause-reporting]] — Pressure failures retain the observed kernel level without changing eligibility
 - [[sources/runs/2026/09/2026-09-07-optimization-native-comparison-pressure-stop]] — First current-candidate native comparison stops at non-normal OS pressure
-- [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-metadata-and-api]] — Current candidate passes complete metadata, runtime and actual API correctness
-- [[sources/runs/2026/09/2026-09-07-optimization-current-source-candidate-build]] — Current combined source builds with exact shared-state restoration
 
 ## More
 
-This folder has 778 files. The 500 most recent are listed above.
+This folder has 780 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

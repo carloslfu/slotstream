@@ -11,7 +11,9 @@ final class OutputHTTPConnection {
     let done = DispatchGroup()
     private var closed = false
 
-    init(server: Server, path: String, object: [String: Any]?, narrowWindow: Bool = false) throws {
+    init(server: Server, path: String, object: [String: Any]?, narrowWindow: Bool = false,
+         timeoutSeconds: Int = 30) throws {
+        guard (1...1800).contains(timeoutSeconds) else { throw ModelError("diagnostic timeout is outside its bounded range") }
         let listener = try Server.bindPort(0)
         defer { close(listener) }
         guard listen(listener, 1) == 0 else { throw ModelError("diagnostic listen failed") }
@@ -35,7 +37,7 @@ final class OutputHTTPConnection {
         guard connected == 0 else { close(client); throw ModelError("diagnostic connect failed") }
         serverFD = accept(listener, nil, nil)
         guard serverFD >= 0 else { close(client); throw ModelError("diagnostic accept failed") }
-        var timeout = timeval(tv_sec: 30, tv_usec: 0), one: Int32 = 1
+        var timeout = timeval(tv_sec: timeoutSeconds, tv_usec: 0), one: Int32 = 1
         for fd in [client, serverFD] {
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
             setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))

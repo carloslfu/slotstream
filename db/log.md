@@ -202,3 +202,6 @@ Implement authenticated candidate vision metadata and tower ownership, cancellat
 ## [2026-10-04 10:10] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Add and verify fail-closed native sandbox coding grading with bounded typed literals, exact copied source and interpreter ownership. Preserve startup/registration/bootstrap failures and verify restricted repair references, pinned upstream instruction tests and isolated grader dependencies. Final model quality, tool execution, sample protocol and promotion remain open.
 
+## [2026-10-04 11:01] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implement and verify bounded native tool conversations with real prefix reuse and cold recovery for original and grouped affine artifacts. Validate pinned BFCL base references and wrong traces through documented direct calls under native sandbox boundaries, preserve preparation failures, and pass full native/static acceptance. Final held-out quality, image capacity, measured profiles, standalone delivery and promotion remain open.
+
