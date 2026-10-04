@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T15:14:23.585708+00:00
+updated: 2026-10-04T15:34:40.339784+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -18,7 +18,23 @@ The engineering target is at least 20 committed generation tokens per second in 
 
 Status on October 4, 2026: implementation in progress. Baseline Auto and the independent saved memory/live-allocation controls are implemented. Experimental candidates have bounded native generation, independent original drafts and staged context/recovery. The same-parent affine control runs through Engine and HTTP with owned metadata, pack-specific planning, live governance and compatible memory/disk reuse. The Mac original-pack owner now has durable activation, bounded health checks, sequential rollback, explicit retry and failed-selection queue gates, tested with real weights. This does not confer candidate quality, speed or Auto qualification. Owned candidate vision and native multi-step tool instruments now pass their bounded functional gates. Image-answer quality and capacity, complete-configuration performance, held-out noninferiority, standalone multi-pack distribution and integrated product release remain required. No twenty-token promise is established. Evidence and failed attempts remain in [[records/measurements/quantization-screen-2026-10-02]].
 
-### Implementation checkpoint, October 3
+### Current implementation checkpoint, October 4
+
+This table supersedes the progress summary below without changing its historical evidence or the exit gates.
+
+| Work | Current result | Remaining exit gate |
+| --- | --- | --- |
+| Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
+| Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows, image outcomes/capacity and long-conversation task outcomes |
+| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The frozen final paired held-out campaign is running; no result or noninferiority verdict is available |
+| Complete performance | Actual-plan pilots and preserved timing exclusions identify useful candidate improvements | Complete an eligible paired campaign and safe lower-budget matrix; qualify local profiles against the stated speed and latency gates |
+| Resource loading | Bounded parallel file authentication is implemented; coverage, external-library and Mac runtime/Xcode checks pass | Corrected optimized native catalogue, actual startup/resource measurements and cancellation during a long read |
+| Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Standalone artifact production, its native identity/parity, independent public pull and integrated multiple-pack transactions |
+| Promotion and release | Original pack is the only supported registry entry; no alternate Auto profile is enabled | Candidate qualification, deterministic measured/estimated selection, final local integrated acceptance, documentation and release |
+
+Other physical Macs are not required. Safe lower budgets test this Mac, and other hardware receives conservative labeled estimates. The current evidence does not establish the twenty-token target. The campaign uses frozen binaries and helpers, independent of subsequent source-only repairs.
+
+### Historical implementation checkpoint, October 3
 
 | Work | Implemented and checked | Still required |
 | --- | --- | --- |
@@ -832,3 +848,7 @@ This preparatory change does not enable an alternate download or model. Complete
 [[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] preserves a later CI failure that the earlier local static suites did not expose. The watchdog and caller could both terminate the same child group. A controlled old-runner fixture reproduces that duplicate ownership. The corrected runner serializes termination, retains cleanup errors, independently closes its files and saves an incomplete receipt if draining fails. All ten local unit groups pass on both Python runtimes; full CI acceptance remains pending.
 
 The final task campaign continues with its exact frozen helpers. The correction does not change its sample, outputs, grades, margins or completed jobs, and no failed execution can be converted into a quality result. The separately prepared bounded parallel native authentication path still requires its own complete acceptance and actual-load evidence; it does not change the running binary.
+
+### Transport CI and authentication fixture lifetime, October 4
+
+[[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] records full CI acceptance of the lossless three-bit transport fallback. The later bounded parallel authentication change passes coverage and Mac runtime/Xcode checks, but its optimized native catalogue exposes a fixture-lifetime defect. ARC may release the serial owners after their last direct access and before the borrowed-descriptor scans. A deferred explicit lifetime now covers every such scan; the production helper is unchanged. Corrected optimized acceptance and actual-load qualification remain pending. Neither transport acceptance nor the loading helper registers or promotes an alternative pack.

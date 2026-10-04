@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T15:14:22.102131Z
+updated: 2026-10-04T15:33:51.855063Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] — Lossless transport CI acceptance and optimized authentication fixture correction
 - [[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] — Outcome watchdog cleanup ownership correction
 - [[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] — Lossless three-bit transport planning with unchanged original layout
 - [[sources/runs/2026/10/2026-10-04-prospective-heldout-outcome-protocol]] — Prospective final paired task-quality protocol
@@ -506,9 +507,8 @@ updated: 2026-10-04T15:14:22.102131Z
 - [[sources/runs/2026/09/2026-09-07-optimization-current-clients-and-portable-pass]] — Current actual-client compatibility and complete portable-path native acceptance
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-prose-serving-pass]] — Combined nonrepeating prose serving qualification on current V280
 - [[sources/runs/2026/09/2026-09-07-optimization-external-consumer-and-long-preflight]] — Exact-source external Swift consumer pass and preserved long-memory preflight refusals
-- [[sources/runs/2026/09/2026-09-07-optimization-first-combined-pair-and-throughput-reporting]] — First combined paired workload and one-token throughput reporting correction
 
 ## More
 
-This folder has 788 files. The 500 most recent are listed above.
+This folder has 789 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

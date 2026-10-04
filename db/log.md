@@ -220,3 +220,6 @@ Add a lossless transport fallback for expert layouts outside the existing combin
 ## [2026-10-04 15:15] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Preserve the later campaign-runner CI failure and deterministically reproduce its duplicate child-termination ownership. Serialize cleanup, retain errors and close all streams independently; ten local test groups pass under both Python runtimes. Keep the running final campaign frozen and full corrected CI, native startup measurements and product qualification open.
 
+## [2026-10-04 15:34] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture complete lossless transport CI and native authentication optimized-fixture failure; retain serial owners through descriptor scans and refresh the current implementation checkpoint. Corrected native CI and actual-load evidence remain pending.
+

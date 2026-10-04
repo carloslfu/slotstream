@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T15:14:23.744580+00:00
+updated: 2026-10-04T15:34:40.363369+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -754,3 +754,9 @@ After the input-envelope correction, a zero-model replay verifies all request hi
 ### Outcome cleanup failure and correction, October 4
 
 Main CI for e1777ff10373d86d4fc49f2ed6c2f6c1cf899b07 fails in the campaign's deadline test with a process-group PermissionError and unclosed stream warnings, despite the earlier completed local static suites. [[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] retains that log. A deterministic barrier fixture using the frozen runner observes two termination owners, then drains its own tiny child once. The corrected runner's ten unit groups pass under both local Python runtimes with ResourceWarning elevated to an error. This is child-process cleanup evidence with no model loaded, not a repeated task evaluation, final quality result or speed qualification. Full corrected CI and all remaining product gates stay open.
+
+### Complete transport CI and optimized authentication fixture lifetime
+
+[[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] preserves exact-commit CI logs and statuses. The lossless fallback commit passes the complete main pipeline. The authentication follow-up passes the instrumented native checks, public-library import and Mac runtime/Xcode checks, while the optimized catalogue passes ninety-seven groups and fails the serial-fixture descriptor count. The instrument was observing borrowed descriptors after its last direct access to the owning array. The correction explicitly extends those owners through the cancellation, failure and mutation scans; no production reader change follows from this fixture repair. Corrected optimized CI and actual-weight loading measurements remain required.
+
+The four-lane authentication helper bounds concurrent CPU readers, verifies complete pinned files, retains original order and joins workers before publication or failure. Its component evidence does not determine an optimal lane count or a startup speedup. The running final quality campaign retains its previously frozen binary and helper identities. No alternate artifact, memory credit, Auto qualification or release is inferred from these CI checks.

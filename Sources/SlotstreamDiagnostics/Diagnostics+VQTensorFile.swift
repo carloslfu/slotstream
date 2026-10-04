@@ -191,6 +191,10 @@ extension Diagnostics {
             return fstat(entry.0, &value) == -1 || value.st_dev != entry.1 || value.st_ino != entry.2
         })
         let serialOwners = try AuthenticatedTensorBatch.open(batchInputs, lanes: 1)
+        // The descriptor scans below borrow these owners. In optimized builds
+        // ARC can release them after the last direct use, before lexical scope
+        // ends; keep them alive through every cancellation/failure check.
+        defer { withExtendedLifetime(serialOwners) {} }
         for (index, owner) in serialOwners.enumerated() {
             c.equal("serial and parallel authentication agree \(index)", try owner.read("tensor", offset: 0, count: batchPayloads[index].count), batchPayloads[index])
         }
