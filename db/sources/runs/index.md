@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T19:10:44.391714Z
+updated: 2026-10-04T19:18:23.284772Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-frozen-activation-pack-selection]] — Activation freezes the supported pack through loading and rollback; optional forecast setup uses selected capabilities; prior standalone Mac CI passes
 - [[sources/runs/2026/10/2026-10-04-bounded-standalone-export-driver]] — Bounded complete export driver passes tiny real-copy and lock-ownership checks; full prior product-driver engine CI passes
 - [[sources/runs/2026/10/2026-10-04-native-standalone-loader-preparation]] — Complete native standalone loading path prepared behind a closed artifact allowlist, with earlier storage and image-workspace CI receipts
 - [[sources/runs/2026/10/2026-10-04-complete-product-campaign-driver]] — Bounded paired image and long-conversation product runner fixtures and completed native image-instrument CI
@@ -506,9 +507,8 @@ updated: 2026-10-04T19:10:44.391714Z
 - [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-installed-and-full-tail]] — Installed upgrade/rollback and complete original verification tail pass
 - [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-prose-qualification-exclusions]] — Current prose correctness passes; fixed timing sample is insufficient
 - [[sources/runs/2026/09/2026-09-07-optimization-full-verification-context-exit]] — Preserved full-verification resource failures and context exit handling repair
-- [[sources/runs/2026/09/2026-09-07-optimization-public-consumer-lifetime-preflight]] — Actual public consumer and corrected lifetime planner preflight
 
 ## More
 
-This folder has 800 files. The 500 most recent are listed above.
+This folder has 801 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

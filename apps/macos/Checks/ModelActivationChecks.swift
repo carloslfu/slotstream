@@ -25,6 +25,41 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
         return good
     }
 
+    // Durable selection retains the resolved pack independently of Auto.
+    // Reopening or rollback validates that exact supported manifest instead
+    // of asking a potentially newer hardware policy to select again.
+    let selected = try Journal.Selection(.init(), pack: ModelPackRegistry.baseline)
+    let encodedSelection = try JSONEncoder().encode(selected)
+    let reopenedSelection = try JSONDecoder().decode(Journal.Selection.self, from: encodedSelection)
+    try check(try reopenedSelection.validatedPack().manifestDigest == ModelPackRegistry.baseline.manifestDigest &&
+        reopenedSelection.preferences.quantization == .automatic, "durable Auto retains its exact pack and the saved Auto choice")
+    try expectFailure("resolved pack cannot override an explicit unsupported choice") {
+        _ = try Journal.Selection(.init(quantization: .pack("unavailable-pack")), pack: ModelPackRegistry.baseline)
+    }
+    let frozenDirectory = root.appendingPathComponent("activation-frozen-selection")
+    let frozenJournal = try Journal(directory: frozenDirectory)
+    for (key, value) in [("manifest", String(repeating: "f", count: 64)), ("packID", "unavailable-pack"), ("packID", "")] {
+        var object = try JSONSerialization.jsonObject(with: encodedSelection) as! [String: Any]
+        object[key] = value
+        let altered = try JSONDecoder().decode(Journal.Selection.self, from: JSONSerialization.data(withJSONObject: object))
+        try expectFailure("changed durable pack identity cannot load or begin activation") {
+            _ = try frozenJournal.begin(altered)
+        }
+        try check(frozenJournal.state.attempt == nil && frozenJournal.state.lastGood == nil,
+            "rejected selection creates no pending or healthy activation")
+    }
+    var readiness = selected.preferences; readiness.readiness = .keepReady
+    readiness.customGB = 11; readiness.hasCustomLimit = true
+    try check(selected.matchesRequestedConfiguration(readiness),
+        "readiness and an inactive custom slider do not replace a pending Auto load")
+    for changed in [PerformancePreferences(budget: .custom, customGB: 10),
+                    PerformancePreferences(quantization: .pack(ModelPackRegistry.baseline.id)),
+                    PerformancePreferences(liveMemory: .fixed)] {
+        try check(!selected.matchesRequestedConfiguration(changed), "changed applied settings require a new selection")
+    }
+    try check(!original.matchesRequestedConfiguration(.init(budget: .custom, customGB: 9)),
+        "a changed custom ceiling requires a new selection")
+
     // Reopen after each durable phase, as a different inference owner would
     // after termination. None of these fixtures allocates an Engine or GPU.
     for phase in [Journal.Phase.requested, .verified, .loading, .checking] {
@@ -183,6 +218,7 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
         } catch { try check(error.localizedDescription.contains(expected), "missing pack and blocked retry remain distinct") }
     }
     try await inference.configure(.init())
+    try await inference.configure(.init(readiness: .keepReady))
     do {
         _ = try await inference.turn(history: [.init(role: "user", content: "Hello")], tools: [],
             cancellation: Cancellation(), buffer: TurnBuffer())

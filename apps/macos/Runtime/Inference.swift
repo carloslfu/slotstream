@@ -253,8 +253,9 @@ public actor LocalInference: Inference {
         guard !inTurn, !maintaining else { throw SevraError.refused("Memory settings apply after the current response or model maintenance.") }
         maintaining = true
         defer { maintaining = false }
-        let oldPack = try? ModelPackRegistry.resolve(self.preferences.quantization).pack.id
-        let newPack = try ModelPackRegistry.resolve(preferences.quantization).pack.id
+        let oldPack = appliedConfiguration?.packID ?? (try? ModelPackRegistry.resolve(self.preferences.quantization).pack.id)
+        let requested = try ModelActivationJournal.Selection(preferences)
+        let newPack = requested.packID
         if self.preferences.budget != preferences.budget ||
             (preferences.budget == .custom && self.preferences.customGB != preferences.customGB) ||
             self.preferences.liveMemory != preferences.liveMemory ||
@@ -265,7 +266,7 @@ public actor LocalInference: Inference {
                 if let attempt = activationAttempt ?? (activationFailure == nil ? nil : journal.state.attempt?.id) {
                     try journal.fail(attempt, cancelled: true)
                 }
-                activationAttempt = try journal.begin(.init(preferences))
+                activationAttempt = try journal.begin(requested)
             }
             await releaseEngine()
             performanceTelemetry?.update(state: "Model not loaded", detail: "Your new budget applies to the next message.")
@@ -455,7 +456,17 @@ public actor LocalInference: Inference {
     private static let activationRecoveryMessage = "The requested model configuration did not activate. Your settings are preserved. Retry settings or choose the previous configuration."
 
     private func loadForTurn(cancellation: Cancellation, buffer: TurnBuffer) async throws {
-        let selection = try ModelActivationJournal.Selection(preferences)
+        let selection: ModelActivationJournal.Selection
+        if let id = activationAttempt {
+            guard let pending = activationJournal?.state.attempt, pending.id == id,
+                  pending.phase == .requested, pending.selection.matchesRequestedConfiguration(preferences) else {
+                throw SevraError.refused("Model settings changed before activation. Retry settings to select the model again.")
+            }
+            try pending.selection.validate()
+            selection = pending.selection
+        } else {
+            selection = try ModelActivationJournal.Selection(preferences)
+        }
         if activationJournal == nil, let activationDirectory {
             activationRecoveryAvailable = false
             let journal: ModelActivationJournal
@@ -480,7 +491,7 @@ public actor LocalInference: Inference {
         let previous = journal?.state.lastGood
         var loaded: (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int)?
         do {
-            loaded = try await loadCandidate(preferences, cancellation: cancellation, buffer: buffer,
+            loaded = try await loadCandidate(selection, cancellation: cancellation, buffer: buffer,
                 journal: journal, attempt: attempt, healthCheck: journal != nil)
             try cancellation.check()
             if let journal, let attempt {
@@ -512,7 +523,7 @@ public actor LocalInference: Inference {
                (try? previous.selection.validate()) != nil {
                 do {
                     buffer.stage("Restoring the previous model configuration")
-                    loaded = try await loadCandidate(previous.selection.preferences,
+                    loaded = try await loadCandidate(previous.selection,
                         cancellation: cancellation, buffer: buffer, healthCheck: true)
                     if let journal, let attempt {
                         try journal.restored(attempt, receipt: .init(selection: previous.selection,
@@ -535,14 +546,15 @@ public actor LocalInference: Inference {
         }
     }
 
-    private func loadCandidate(_ preference: PerformancePreferences, cancellation: Cancellation,
+    private func loadCandidate(_ selection: ModelActivationJournal.Selection, cancellation: Cancellation,
                                buffer: TurnBuffer, journal: ModelActivationJournal? = nil,
                                attempt: UUID? = nil, healthCheck: Bool) async throws
         -> (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int) {
-        let selection = try ModelPackRegistry.resolve(preference.quantization)
+        let pack = try selection.validatedPack()
+        let preference = selection.preferences
         // A future registry entry must supply its own verified loader before
         // it can use this boundary. Never reinterpret it as the original pack.
-        guard selection.pack.id == ModelPackRegistry.baseline.id else {
+        guard pack.id == ModelPackRegistry.baseline.id else {
             throw SevraError.unavailable("This build cannot load the requested model pack.")
         }
         performanceTelemetry?.update(state: "Loading", detail: "Preparing the local model.")
@@ -551,11 +563,11 @@ public actor LocalInference: Inference {
             try cancellation.check()
             try await Task.sleep(nanoseconds: 50_000_000)
         }
-        let store = WeightStore(modelDirectory: model, pack: selection.pack)
+        let store = WeightStore(modelDirectory: model, pack: pack)
         let verified: Bool
         do {
-            verified = try modelVerification.check(manifestDigest: selection.pack.manifestDigest,
-                files: selection.pack.files.map { model.appendingPathComponent($0.path) },
+            verified = try modelVerification.check(manifestDigest: pack.manifestDigest,
+                files: pack.files.map { model.appendingPathComponent($0.path) },
                 shouldContinue: { !cancellation.isCancelled }) {
                     try store.status(shouldContinue: { !cancellation.isCancelled }).isReady
                 }
@@ -578,7 +590,7 @@ public actor LocalInference: Inference {
             let candidate = try await Engine(modelDir: model, plan: plan)
             try candidate.configureShortPromptPrefill(maxPromptTokens: PerformancePolicy.shortPromptTokens,
                 chunk: PerformancePolicy.shortPromptChunk)
-            let identity = try candidate.appliedConfiguration(pack: selection.pack, liveMemory: preference.liveMemory)
+            let identity = try candidate.appliedConfiguration(pack: pack, liveMemory: preference.liveMemory)
             try cancellation.check()
             if let journal, let attempt { try journal.advance(attempt, to: .checking) }
             let healthTokens: Int

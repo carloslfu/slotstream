@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T19:11:06.493458+00:00
+updated: 2026-10-04T19:19:06.752296+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -933,3 +933,9 @@ The earlier standalone assembly commit passes full engine CI. The image-workspac
 [[sources/runs/2026/10/2026-10-04-bounded-standalone-export-driver]] records the bounded execution owner around the complete export primitive. A frozen source/component plan and whole-output staging reservation precede the copy. The driver holds the existing model lock through copying and independent audit, enforces process/headroom/pressure/time/disk bounds, and preserves incomplete attempts without retry or installation. Review corrected the preflight/lifetime-lock handoff; a real private-file-lock fixture now covers that boundary. Eight groups pass on both local Python runtimes and thirty-two static entry checks pass. Actual cleanup, protocol freeze, complete export, native proof and product admission remain open.
 
 The same source preserves successful complete engine CI for the earlier paired product driver at `afa6ae5c0858394ffbe3833c5070ccc9d89f5c52`. Its ancestry includes the corrected image-workspace and brain attribution checks. The new standalone loader and export owner still await their own CI. No new model process, payload export or partial held-out analysis accompanies this preparation.
+
+### Frozen activation selection and optional components, October 4
+
+[[sources/runs/2026/10/2026-10-04-frozen-activation-pack-selection]] records loading and rollback bound to the exact resolved pack and manifest. Persisted selections validate the explicit supported entry without rerunning Auto. Pending activation retains that selection across independent readiness changes while rejecting changed effective settings. Optional forecast downloads and missing-component notices now use the selected compiled pack's explicit capability list. The original weight manifest and supported registry stay unchanged.
+
+New identity, persistence and pending-readiness checks await CI and later real-model acceptance. The earlier standalone loader passes complete Mac runtime/Xcode CI; its complete engine workflow is still pending at this checkpoint. These preparations do not qualify a candidate or enable alternative automatic profiles. The final paired campaign retains its frozen code and protocol.

@@ -89,6 +89,8 @@ extension Diagnostics {
         }
         c.equal("Auto retains the supported original pack", automatic.pack.id, PinnedModel.name)
         c.equal("explicit selection binds the same bytes", pinned.pack.manifestDigest, automatic.pack.manifestDigest)
+        c.equal("optional forecast declaration preserves the historical weight identity", automatic.pack.manifestDigest,
+            "8e10fef2cfa5c6d8590494f5dbed440a7617a404fa17ce169cf55fb99b71e082")
         c.equal("registry preserves required download bytes", automatic.pack.requiredBytes, PinnedModel.requiredBytes)
         c.expect("research packs cannot enter Auto", ModelPackRegistry.supported.count == 1)
         c.expect("supported baseline is not a new speed qualification", automatic.pack.qualifiedAutomaticProfiles.isEmpty)

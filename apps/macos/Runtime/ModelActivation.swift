@@ -16,14 +16,32 @@ package final class ModelActivationJournal {
         package let packID: String
         package let manifest: String
         package init(_ preferences: PerformancePreferences) throws {
-            try PerformancePolicy.validateSaved(preferences)
-            let pack = try ModelPackRegistry.resolve(preferences.quantization).pack
-            self.preferences = preferences; packID = pack.id; manifest = pack.manifestDigest
+            try self.init(preferences, pack: ModelPackRegistry.resolve(preferences.quantization).pack)
         }
-        package func validate() throws {
-            guard try Self(preferences) == self else {
+        /// Freeze a completed selection at the activation boundary. A later
+        /// Auto recommendation must not change a pending load or rollback.
+        package init(_ preferences: PerformancePreferences, pack: ModelPack) throws {
+            self.preferences = preferences; packID = pack.id; manifest = pack.manifestDigest
+            try validate()
+        }
+        package func validatedPack() throws -> ModelPack {
+            try PerformancePolicy.validateSaved(preferences)
+            let pack = try ModelPackRegistry.resolve(.pack(packID)).pack
+            let matchesOverride: Bool
+            switch preferences.quantization {
+            case .automatic: matchesOverride = true
+            case .pack(let id): matchesOverride = id == packID
+            }
+            guard matchesOverride, pack.manifestDigest == manifest else {
                 throw SevraError.refused("This model activation belongs to a different supported pack. Choose model settings again.")
             }
+            return pack
+        }
+        package func validate() throws { _ = try validatedPack() }
+        package func matchesRequestedConfiguration(_ requested: PerformancePreferences) -> Bool {
+            preferences.quantization == requested.quantization &&
+                preferences.liveMemory == requested.liveMemory && preferences.budget == requested.budget &&
+                (preferences.budget != .custom || preferences.customGB == requested.customGB)
         }
     }
     package struct Receipt: Codable, Equatable {

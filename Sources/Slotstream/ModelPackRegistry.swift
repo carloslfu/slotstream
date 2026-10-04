@@ -29,6 +29,10 @@ public struct ModelPack: Sendable {
     public let supportEvidence: [String]
     /// Empty until complete profiles pass the new hardware/quality protocol.
     public let qualifiedAutomaticProfiles: [String]
+    /// Separately qualified optional forecasting bytes for this deployment.
+    /// New packs must opt in explicitly; sharing a checkpoint does not confer
+    /// compatibility with the original correction or its performance evidence.
+    public let decodeForecastFiles: [TapCorrectionSidecar.File]
 
     public var requiredBytes: Int64 { deployment.requiredBytes }
     public var totalBytes: Int64 { deployment.totalBytes }
@@ -58,7 +62,7 @@ public enum ModelPackRegistry {
         directoryName: PinnedModel.dirName, layout: "affine-4-group64-ple-group32",
         compatibility: "slotstream-affine-v1",
         supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md"],
-        qualifiedAutomaticProfiles: [])
+        qualifiedAutomaticProfiles: [], decodeForecastFiles: TapCorrectionSidecar.files)
 
     /// Research VQ exports intentionally do not appear here. A smaller bit
     /// label or component parity cannot grant service or download eligibility.

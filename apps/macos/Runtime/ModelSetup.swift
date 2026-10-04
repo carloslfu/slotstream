@@ -14,6 +14,7 @@ public struct ModelSetupStatus: Sendable, Equatable {
 /// blocking library download drains its workers. It never downloads on init.
 public final class ModelSetup: @unchecked Sendable {
     private let store: WeightStore
+    private let decodeForecastFiles: [TapCorrectionSidecar.File]
     private let lock = NSLock()
     private var cancellation: PullCancellation?
     private var value: ModelSetupStatus
@@ -22,6 +23,7 @@ public final class ModelSetup: @unchecked Sendable {
     }
     public init(model: URL, pack: ModelPack) {
         store = WeightStore(modelDirectory: model, pack: pack)
+        decodeForecastFiles = pack.decodeForecastFiles
         value = ModelSetupStatus(phase: "Not checked", detail: "Check the installed local model, or download its pinned files.",
             requiredBytes: store.requiredBytes, freeBytes: 0, ready: false, busy: false)
     }
@@ -46,10 +48,10 @@ public final class ModelSetup: @unchecked Sendable {
                 // diagnostics. Surface a bounded phase only.
                 self?.set { $0.detail = line.localizedCaseInsensitiveContains("verif") ? "Verifying downloaded files" : "Downloading verified model files. Progress is saved so you can resume." }
             })
-            // The optional decode-forecast file `slotstream pull` also fetches;
-            // without it decode uses the earlier, slower forecast. A failure
-            // never fails setup; `finish` reports the file if it is missing.
-            for file in TapCorrectionSidecar.files where !token.isCancelled {
+            // Only this deployment's explicitly qualified optional forecasts.
+            // A failure does not fail setup; finish reports a missing forecast
+            // only when the selected pack actually declares that capability.
+            for file in decodeForecastFiles where !token.isCancelled {
                 set { $0.detail = "Downloading the decode forecast file" }
                 TapCorrectionSidecar.ensure(modelDir: store.modelDirectory, file: file, cancellation: token, log: { _ in })
             }
@@ -69,7 +71,7 @@ public final class ModelSetup: @unchecked Sendable {
         token?.cancel()
     }
     private func finish(_ result: WeightStatus) {
-        let forecastMissing = result.isReady && TapCorrectionSidecar.files.contains {
+        let forecastMissing = result.isReady && decodeForecastFiles.contains {
             TapCorrectionSidecar.status(modelDir: store.modelDirectory, file: $0) != .present
         }
         set {

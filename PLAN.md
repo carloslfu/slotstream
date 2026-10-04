@@ -995,6 +995,12 @@ The earlier standalone assembly commit passes full engine CI. The image-workspac
 
 The same source preserves successful complete engine CI for the earlier paired product driver at `afa6ae5c0858394ffbe3833c5070ccc9d89f5c52`. Its ancestry includes the corrected image-workspace and brain attribution checks. The new standalone loader and export owner still await their own CI. No new model process, payload export or partial held-out analysis accompanies this preparation.
 
+### Frozen activation selection and optional components, October 4
+
+[[sources/runs/2026/10/2026-10-04-frozen-activation-pack-selection]] records loading and rollback bound to the exact resolved pack and manifest. Persisted selections validate the explicit supported entry without rerunning Auto. Pending activation retains that selection across independent readiness changes while rejecting changed effective settings. Optional forecast downloads and missing-component notices now use the selected compiled pack's explicit capability list. The original weight manifest and supported registry stay unchanged.
+
+New identity, persistence and pending-readiness checks await CI and later real-model acceptance. The earlier standalone loader passes complete Mac runtime/Xcode CI; its complete engine workflow is still pending at this checkpoint. These preparations do not qualify a candidate or enable alternative automatic profiles. The final paired campaign retains its frozen code and protocol.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

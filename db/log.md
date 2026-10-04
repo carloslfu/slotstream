@@ -262,3 +262,6 @@ Prepared complete standalone native loading, independent parent component paths,
 ## [2026-10-04 19:12] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Added complete standalone export execution with frozen sources and component plan, whole-staging reservation, real lock handoff, bounded resources, retained failures and no silent retries. Eight tiny execution groups pass on both Python runtimes and thirty-two static registration checks pass. Captured full paired-product engine CI. Actual whole export and native proof remain open.
 
+## [2026-10-04 19:19] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Bound pending activation, load and rollback to the resolved supported pack and manifest without reselecting Auto. Preserved independent readiness changes and added identity/mismatch checks. Mac setup now uses each compiled pack own optional forecast capabilities. New native checks await CI; captured prior standalone Mac CI. Full export and candidate qualification remain open.
+
