@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T15:34:40.363369+00:00
+updated: 2026-10-04T15:52:17.683886+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -760,3 +760,11 @@ Main CI for e1777ff10373d86d4fc49f2ed6c2f6c1cf899b07 fails in the campaign's dea
 [[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] preserves exact-commit CI logs and statuses. The lossless fallback commit passes the complete main pipeline. The authentication follow-up passes the instrumented native checks, public-library import and Mac runtime/Xcode checks, while the optimized catalogue passes ninety-seven groups and fails the serial-fixture descriptor count. The instrument was observing borrowed descriptors after its last direct access to the owning array. The correction explicitly extends those owners through the cancellation, failure and mutation scans; no production reader change follows from this fixture repair. Corrected optimized CI and actual-weight loading measurements remain required.
 
 The four-lane authentication helper bounds concurrent CPU readers, verifies complete pinned files, retains original order and joins workers before publication or failure. Its component evidence does not determine an optimal lane count or a startup speedup. The running final quality campaign retains its previously frozen binary and helper identities. No alternate artifact, memory credit, Auto qualification or release is inferred from these CI checks.
+
+### Retained tensor export and complete header geometry
+
+[[sources/runs/2026/10/2026-10-04-retained-tensor-subset-primitive]] records eleven synthetic copy/failure groups on each local Python runtime and thirty-two static entry-point checks. Real bounded chunk tails and independently re-read tensor digests agree; corruption, mutation, cancellation, disk-full failures and conflicting output paths are refused. These checks load no model and copy no real weights.
+
+The complete header plan retains 2,783 tensors with 35,822,021,112 payload bytes, excludes the 432 original expert tensors with 67,947,724,800 bytes, and prices canonical retained-file headers at a total of 35,822,408,896 bytes. Its digest is b6db15ccdc084438771ec9af99567d3020f8e50fb5647c518d54eff8d1d62ae6. The known-file subtotal of 90,231,754,946 bytes includes converted experts, original companions and the finite rotary artifact, but is deliberately not a complete deployment size or staging authorization. Final configuration/index/provenance and completion metadata remain to be fixed. Source payloads were not authenticated during this header-only run; eventual export must authenticate them through the copier and complete pack owner.
+
+The final publication review in the same source adds file-sync, directory-sync, link and competing-destination fault injection. All twelve groups pass on both Python runtimes. A late sync failure may retain a verified individual tensor file, but returns no successful receipt and cannot authorize a complete pack manifest. Existing competing output is preserved. The earlier complete header plan is unchanged and retains its original instrument identity.

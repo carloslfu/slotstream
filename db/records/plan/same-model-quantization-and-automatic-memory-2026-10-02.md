@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T15:34:40.339784+00:00
+updated: 2026-10-04T15:49:09.696211+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -852,3 +852,9 @@ The final task campaign continues with its exact frozen helpers. The correction 
 ### Transport CI and authentication fixture lifetime, October 4
 
 [[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] records full CI acceptance of the lossless three-bit transport fallback. The later bounded parallel authentication change passes coverage and Mac runtime/Xcode checks, but its optimized native catalogue exposes a fixture-lifetime defect. ARC may release the serial owners after their last direct access and before the borrowed-descriptor scans. A deferred explicit lifetime now covers every such scan; the production helper is unchanged. Corrected optimized acceptance and actual-load qualification remain pending. Neither transport acceptance nor the loading helper registers or promotes an alternative pack.
+
+### Retained tensor export primitive, October 4
+
+[[sources/runs/2026/10/2026-10-04-retained-tensor-subset-primitive]] records a bounded, lossless retained-tensor copier and its independent reconstruction checks. It keeps dtype, shapes, names, empty tensors and metadata intact, refuses corrupt or changed sources, and leaves interrupted copies inert without replacing prior output. Tiny-fixture acceptance passes on both Python runtimes; the full local suite waits for the single model campaign to finish.
+
+Header-only planning identifies every retained tensor and excludes the original expert ranges. This prepares a standalone same-checkpoint artifact without changing inference values or source inodes. It does not create that artifact. Complete standalone config/index/provenance, a separate whole-output resource budget, actual export and native parity are still required, followed by quality, performance and distribution acceptance before product admission.

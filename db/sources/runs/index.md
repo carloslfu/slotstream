@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T15:33:51.855063Z
+updated: 2026-10-04T15:49:08.501933Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-retained-tensor-subset-primitive]] — Bounded retained tensor copying and standalone geometry
 - [[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] — Lossless transport CI acceptance and optimized authentication fixture correction
 - [[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] — Outcome watchdog cleanup ownership correction
 - [[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] — Lossless three-bit transport planning with unchanged original layout
@@ -506,9 +507,8 @@ updated: 2026-10-04T15:33:51.855063Z
 - [[sources/runs/2026/09/2026-09-07-optimization-retained-window-sync-component]] — Retained-window synchronization component probe and explicit serving qualification boundary
 - [[sources/runs/2026/09/2026-09-07-optimization-current-clients-and-portable-pass]] — Current actual-client compatibility and complete portable-path native acceptance
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-prose-serving-pass]] — Combined nonrepeating prose serving qualification on current V280
-- [[sources/runs/2026/09/2026-09-07-optimization-external-consumer-and-long-preflight]] — Exact-source external Swift consumer pass and preserved long-memory preflight refusals
 
 ## More
 
-This folder has 789 files. The 500 most recent are listed above.
+This folder has 790 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
