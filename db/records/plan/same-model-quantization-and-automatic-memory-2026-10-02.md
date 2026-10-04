@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T17:55:57.526565+00:00
+updated: 2026-10-04T18:06:05.362892+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -907,3 +907,9 @@ Driver and grader fixtures pass on both Python runtimes, as does static entry-po
 [[sources/runs/2026/10/2026-10-04-standalone-bundle-assembly]] records the bounded assembly primitive and the complete model-specific file plan. The actual header and metadata preparation accounts for every retained shard, converted expert file, generated config/index, original parent metadata/card, tokenizer/template/vision/draft/license companion, rotary table and final manifest. The output reservation is 90,236,537,746 bytes for 78 files plus the bounded completion manifest. It is separate from the still-unfrozen whole-workspace reservation and does not enlarge the current staging cap.
 
 The exporter preserves original inodes, authenticates copied inputs, independently reconstructs retained tensors, and rehashes every finished output before publishing a completion manifest. Cancellation, disk exhaustion, corruption, source/directory mutation, manifest overflow and final sync failure leave no accepted completion. Eleven storage groups and five preparation groups pass on both Python runtimes; thirty-two static entry checks pass. Full CI and the actual export remain pending. Completion is always unqualified: standalone native identity/parity, outcomes, performance, redistribution review and independent public transfer remain separate gates.
+
+### Preparation CI and image workspace identity
+
+[[sources/runs/2026/10/2026-10-04-prepared-instruments-ci-and-image-workspace]] closes the selected-manifest app proof checks and Xcode build at ab30587acb0f0eecc2dc872aff57ba1cf04814fc. Full engine CI, coverage and external-library jobs also pass the long-conversation preparation at ad16c67974571b4b4cec51d6b3c8e139777c2540 and standalone config/index at c908c961134ac2e26092f9d5bdd80db7640faa8e. These are remote checks without model weights, not outcome qualification.
+
+The actual deployed image attention uses bounded query tiles, so its workspace is independent of the smaller candidate language-prefill cap. Image sessions now require and report that arithmetic. Later source adds deterministic complete-plan geometry checks for both packs across the photographs and maximum grid; native compilation/execution is pending. The twelve Python driver groups pass on both runtimes, including image arithmetic identity refusals. Actual image memory and answer outcomes remain required, and the ongoing final text/tool campaign keeps its frozen implementation.

@@ -247,3 +247,6 @@ Prepared complete bounded image-answer sessions with exact native image-token re
 ## [2026-10-04 17:57] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Implemented bounded standalone bundle assembly and complete affine artifact preparation. Eleven storage and five geometry/ownership groups pass on both Python runtimes, plus thirty-two registration checks. Actual metadata preparation reserves all seventy-eight files and the final manifest; full export, native standalone admission, outcomes, publication and whole-workspace budget remain pending.
 
+## [2026-10-04 18:06] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Captured complete Mac CI for selected-manifest verification and full engine CI for long-conversation and standalone metadata preparation. Image sessions now bind the deployed tiled vision arithmetic; twelve Python groups pass, while new native complete-plan image geometry checks await CI and physical outcomes remain pending.
+

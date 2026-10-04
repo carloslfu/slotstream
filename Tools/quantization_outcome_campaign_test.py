@@ -100,12 +100,15 @@ class CampaignTests(unittest.TestCase):
             protocol, _, native = self.fixture(directory)
             native.update(kind='quantization-image-session-v1', memory_bytes=14_500_000_000, maximum_requests=32)
             identity = self.native_identity(protocol, native)
-            identity.update(vision=True, required_preflight_bytes=20_500_000_000)
+            identity.update(vision=True, required_preflight_bytes=20_500_000_000,
+                            vision_query_tile=256, vision_attention_padding=0)
             identity['plan'].update(target_gb=14.5, vision=True,
                                     memory_ledger={'expected_peak_bytes':14_400_000_000})
             check = lambda value:q.validate_native(value,native,protocol['native_pins'],'original',protocol['native_protocol_sha256'])
             check(identity)
             for edit in [lambda x:x.pop('vision'), lambda x:x.update(required_preflight_bytes=17_500_000_000),
+                         lambda x:x.pop('vision_query_tile'), lambda x:x.update(vision_query_tile=0),
+                         lambda x:x.update(vision_attention_padding=128), lambda x:x.update(vision_attention_padding=False),
                          lambda x:x['plan'].update(vision=False), lambda x:x['plan'].pop('memory_ledger'),
                          lambda x:x['plan']['memory_ledger'].update(expected_peak_bytes=14_500_000_001)]:
                 changed=copy.deepcopy(identity);edit(changed)

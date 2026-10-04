@@ -118,6 +118,9 @@ def validate_native(identity, native, pins, arm, protocol_sha):
         raise ValueError('native image capability differs from the protocol')
     if vision and identity.get('required_preflight_bytes') != native['memory_bytes'] + 6_000_000_000:
         raise ValueError('native image preflight reserve differs')
+    if vision and (type(identity.get('vision_query_tile')) is not int or identity['vision_query_tile'] != 256
+                   or type(identity.get('vision_attention_padding')) is not int or identity['vision_attention_padding'] != 0):
+        raise ValueError('native image workspace arithmetic differs')
     validate_plan(identity['plan'], native)
 
 

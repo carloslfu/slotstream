@@ -969,6 +969,12 @@ Driver and grader fixtures pass on both Python runtimes, as does static entry-po
 
 The exporter preserves original inodes, authenticates copied inputs, independently reconstructs retained tensors, and rehashes every finished output before publishing a completion manifest. Cancellation, disk exhaustion, corruption, source/directory mutation, manifest overflow and final sync failure leave no accepted completion. Eleven storage groups and five preparation groups pass on both Python runtimes; thirty-two static entry checks pass. Full CI and the actual export remain pending. Completion is always unqualified: standalone native identity/parity, outcomes, performance, redistribution review and independent public transfer remain separate gates.
 
+### Preparation CI and image workspace identity
+
+[[sources/runs/2026/10/2026-10-04-prepared-instruments-ci-and-image-workspace]] closes the selected-manifest app proof checks and Xcode build at ab30587acb0f0eecc2dc872aff57ba1cf04814fc. Full engine CI, coverage and external-library jobs also pass the long-conversation preparation at ad16c67974571b4b4cec51d6b3c8e139777c2540 and standalone config/index at c908c961134ac2e26092f9d5bdd80db7640faa8e. These are remote checks without model weights, not outcome qualification.
+
+The actual deployed image attention uses bounded query tiles, so its workspace is independent of the smaller candidate language-prefill cap. Image sessions now require and report that arithmetic. Later source adds deterministic complete-plan geometry checks for both packs across the photographs and maximum grid; native compilation/execution is pending. The twelve Python driver groups pass on both runtimes, including image arithmetic identity refusals. Actual image memory and answer outcomes remain required, and the ongoing final text/tool campaign keeps its frozen implementation.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

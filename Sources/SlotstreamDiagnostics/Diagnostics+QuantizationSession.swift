@@ -197,6 +197,14 @@ extension Diagnostics {
                   (engine.model.mtpHead?.expertStream != nil) == (specification.draftDepth > 0) else {
                 throw ModelError("session loaded another draft configuration")
             }
+            if specification.vision {
+                let options = engine.model.optimizations
+                guard options.visionQueryTile == 256, options.visionAttentionPadding == 0 else {
+                    throw ModelError("image sessions require the separately bounded query-tiled vision mode")
+                }
+                identity["vision_query_tile"] = options.visionQueryTile
+                identity["vision_attention_padding"] = options.visionAttentionPadding
+            }
             try checkResources()
             identity["loaded"] = true; identity["model"] = engine.modelName
             identity["load_seconds"] = ProcessInfo.processInfo.systemUptime - started
@@ -407,6 +415,38 @@ extension Diagnostics {
             var refused = false
             do { _ = try loadProtocol(changed) } catch { refused = true }
             c.expect(name, refused)
+        }
+        // Metadata and planner checks only. The deployed query tile bounds
+        // vision workspace independently of the candidate's 512-row language
+        // prefill cap. These checks do not execute a tower or certify a peak.
+        let options = try InferenceOptimizations.environment([:])
+        c.equal("image session retains deployed vision query tiling", options.visionQueryTile, 256)
+        c.equal("image session retains unpadded tiled vision arithmetic", options.visionAttentionPadding, 0)
+        let configuration = VisionConfig()
+        let bounds = VisionPreprocess.effectiveBounds(cfgMin: 65_536, cfgMax: 16_777_216)
+        for resources in [PackMemoryProfile.original, .affine3GroupedVisionControl] {
+            let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil, memoryGB: 14.5,
+                ramGB: 48, workingSetGB: 36, availableGB: 28,
+                mtp: .on, mtpAvailable: true, vision: .on, visionAvailable: true,
+                maxContextTokens: 32_768, simulated: true, qualification: false,
+                runtimePolicy: RuntimeAllocationPolicy(prefixCacheEnabled: true),
+                decodeLookahead: .off, mtpExperts: .streamed)
+            let loaded = try Planner.loadingVision(plan, availableGB: 28)
+            c.expect("\(resources.identity): image plan retains context and complete draft", loaded.maxContextTokens == 32_768
+                && loaded.mtpEnabled && loaded.mtpStreamedExperts && loaded.visionResidentReserved)
+            c.expect("\(resources.identity): tower reservation never grows the arena", loaded.slots <= plan.slots)
+            for (width, height) in [(846, 859), (1206, 1570), (512, 512), (256, 256), (1536, 1536)] {
+                let image = try VisionTower.plan(height: height, width: width, cfg: configuration, bounds: bounds)
+                let workspace = ContextBytes.sum(ContextWorkspace.visionBytes(patches: image.patches,
+                    hidden: configuration.hiddenSize, heads: configuration.numHeads,
+                    queryTile: options.visionQueryTile, padding: options.visionAttentionPadding),
+                    try VisionPreprocess.decodedImageCharge(width: width, height: height))
+                let ledger = loaded.memoryLedger
+                let peak = ContextBytes.sum(ledger.expectedPeakBytes - ledger.prefillBytes,
+                                            max(ledger.prefillBytes, workspace))
+                c.expect("\(resources.identity): \(width)x\(height) has complete workspace inside target", peak <= 14_500_000_000)
+                c.measure("\(resources.identity).\(width)x\(height).workspace_bytes", Double(workspace))
+            }
         }
         return c.report()
     }
