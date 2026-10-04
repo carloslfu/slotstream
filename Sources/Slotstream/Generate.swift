@@ -607,8 +607,13 @@ public final class Generator {
         // Preserve the idle-pool guarantee even when a nonempty request is
         // rejected before state reservation or model preparation.
         defer { Stream.gpu.synchronize(); model.pool.unpinAll() }
-        guard promptIds.count <= ContextPolicy.modelLimit,
-              params.maxTokens <= ContextPolicy.modelLimit - promptIds.count else {
+        // An authenticated candidate may admit a smaller coefficient/context
+        // window. Apply that bound before reserving state and while drafting;
+        // the deployed model retains its original full model limit.
+        let admittedContext = min(model.inferenceContextLimit,
+            request?.configuration.maxContextTokens ?? model.inferenceContextLimit)
+        guard promptIds.count <= admittedContext,
+              params.maxTokens <= admittedContext - promptIds.count else {
             let failure = RequestFailure(.contextLengthExceeded, "prompt plus output exceeds the model context limit")
             request?.fail(failure)
             stats.requestFailure = failure; stats.runtimeError = failure.message; stats.finishReason = "error"
@@ -1264,7 +1269,7 @@ public final class Generator {
             try speculativeDecode(
                 head: head, mtpState: mtpState, state: state, logits: logits,
                 params: params, eosIds: eosIds, shouldContinue: canContinue,
-                contextLimit: request?.configuration.maxContextTokens ?? ContextPolicy.modelLimit,
+                contextLimit: admittedContext,
                 checkAllocation: { main, draft, workspace, phase in
                     try checkAllocation(end: main, draftEnd: draft, workspaceBytes: workspace, phase: phase)
                 },

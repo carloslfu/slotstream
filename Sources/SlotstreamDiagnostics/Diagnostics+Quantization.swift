@@ -105,6 +105,17 @@ extension Diagnostics {
         let four = try AffineQuantization(bits: 4, groupSize: 64)
         c.equal("legacy expert bytes", try four.rowBytes(columns: 2560) * 640 * 2 + four.rowBytes(columns: 640) * 2560, 2_764_800)
         let three = try AffineQuantization(bits: 3, groupSize: 64)
+        let baselineConfig = try ModelConfig.parse(Data("{\"text_config\": {}}".utf8), label: "quantization geometry fixture")
+        let control = try baselineConfig.withAffineExpertControl()
+        c.equal("research control sets only routed expert recipes", control.quantizationOverrides.count, 144)
+        c.equal("research control preserves dense quantization", try control.affineQuantization(for: "lm_head"), four)
+        c.equal("research control preserves PLE quantization", try control.affineQuantization(for: "ngram_embedding.shard_0").groupSize, 32)
+        c.equal("controlled expert record geometry", control.admittedExpertRecordBytes, 2_150_400)
+        try Geometry.check(against: control, recordBytes: 2_150_400)
+        for (config, bytes) in [(baselineConfig, 2_150_400), (control, 2_764_800)] {
+            do { try Geometry.check(against: config, recordBytes: bytes); c.expect("artifact-specific geometry mismatch refused", false) }
+            catch { c.expect("artifact-specific geometry mismatch refused", true) }
+        }
         c.equal("3-bit rows do not truncate fractional packing", try three.packedWords(columns: 2560), 240)
         let wide = try VQLayout(columns: 2560, dimensions: 8, codebookEntries: 16384, groupSize: 64, packing: .words32)
         let down = try VQLayout(columns: 640, dimensions: 4, codebookEntries: 256, groupSize: 64, packing: .words32)

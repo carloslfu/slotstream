@@ -37,13 +37,13 @@ public enum Geometry {
     /// the user is shown is wrong, so fail loudly instead of drifting.
     public static func check(against cfg: ModelConfig, recordBytes actual: Int) throws {
         guard cfg.numLayers == layers, cfg.numExperts == expertsPerLayer,
-            Double(actual) == recordBytes
+            actual == cfg.admittedExpertRecordBytes
         else {
             throw ModelError(
                 "model geometry does not match the supported checkpoint: config has "
                     + "\(cfg.numLayers) layers x \(cfg.numExperts) experts x \(actual) "
                     + "B/record, expected \(layers) x \(expertsPerLayer) x "
-                    + "\(Int(recordBytes)) B — check --model")
+                    + "\(cfg.admittedExpertRecordBytes) B — check --model")
         }
     }
 }

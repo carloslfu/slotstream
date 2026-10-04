@@ -130,22 +130,27 @@ public final class ResidentWeights: TensorSource {
         let useRows = embeddingRowCache ?? (setting == "1")
         self.embeddingRows = useRows ? try EmbeddingRows(index: index) : nil
         var kept: [String: MLXArray] = [:]
-        let files = Set(index.tensors.values.map { $0.file })
-        for f in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            let all = try loadArrays(url: f)
-            for (rawKey, arr) in all {
-                var key = rawKey
-                if key.hasPrefix("language_model.") { key.removeFirst("language_model.".count) }
-                if key.hasPrefix("mtp.") || key.hasPrefix("vision_tower.") || key.hasPrefix("model.visual.") {
-                    continue
+        func wanted(_ key: String) -> Bool {
+            if key.hasPrefix("mtp.") || key.hasPrefix("vision_tower.") || key.hasPrefix("model.visual.")
+                || key.contains("ngram_embedding.shard_") { return false }
+            if key.contains(".switch_mlp.") {
+                return includeLayerExperts.contains { key.contains("model.layers.\($0).mlp.switch_mlp.") }
+            }
+            return true
+        }
+        if index.hasAuthenticatedFiles {
+            for key in index.tensors.keys.sorted() where wanted(key) {
+                kept[key] = try index.authenticatedArray(key)
+            }
+        } else {
+            let files = Set(index.tensors.values.map { $0.file })
+            for f in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                let all = try loadArrays(url: f)
+                for (rawKey, arr) in all {
+                    var key = rawKey
+                    if key.hasPrefix("language_model.") { key.removeFirst("language_model.".count) }
+                    if wanted(key) { kept[key] = arr }
                 }
-                if key.contains("ngram_embedding.shard_") { continue }
-                if key.contains(".switch_mlp.") {
-                    // routed experts stay on SSD unless explicitly requested (parity rig)
-                    let isWanted = includeLayerExperts.contains { key.contains("model.layers.\($0).mlp.switch_mlp.") }
-                    if !isWanted { continue }
-                }
-                kept[key] = arr
             }
         }
         var packed: [Int: PackedProjectionPair] = [:]

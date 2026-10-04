@@ -72,6 +72,9 @@ public struct ModelConfig {
     /// Validated module overrides. The deployed adapter still admits only its
     /// qualified affine layout; descriptors do not grant pack eligibility.
     public private(set) var quantizationOverrides: [String: AffineQuantization] = [:]
+    /// Set only by an authenticated internal adapter. Public checkpoint
+    /// loading retains the original geometry and artifact admission rules.
+    package private(set) var admittedExpertRecordBytes = 2_764_800
 
     public func affineQuantization(for module: String) throws -> AffineQuantization {
         if let descriptor = quantizationOverrides[module] { return descriptor }
@@ -84,6 +87,18 @@ public struct ModelConfig {
     package func withAffineOverrides(_ overrides: [String: AffineQuantization]) -> ModelConfig {
         var copy = self
         copy.quantizationOverrides.merge(overrides) { _, replacement in replacement }
+        return copy
+    }
+
+    package func withAffineExpertControl() throws -> ModelConfig {
+        var copy = self
+        let descriptor = try AffineQuantization(bits: 3, groupSize: 64)
+        for layer in 0..<numLayers {
+            for projection in ["gate_proj", "up_proj", "down_proj"] {
+                copy.quantizationOverrides["model.layers.\(layer).mlp.switch_mlp.\(projection)"] = descriptor
+            }
+        }
+        copy.admittedExpertRecordBytes = 2_150_400
         return copy
     }
 
@@ -326,11 +341,22 @@ package struct TensorReadHandle {
     private let descriptor: Int32
     private let base: Int
     private let length: Int
+    private let verifiedFile: VQTensorFile?
+    private let ref: TensorRef
     init(owner: CheckpointIndex, descriptor: Int32, ref: TensorRef) {
         self.owner = owner; self.descriptor = descriptor; self.base = ref.byteOffset; self.length = ref.byteCount
+        self.verifiedFile = nil; self.ref = ref
+    }
+    init(owner: CheckpointIndex, verifiedFile: VQTensorFile, ref: TensorRef) {
+        self.owner = owner; self.descriptor = -1; self.base = ref.byteOffset; self.length = ref.byteCount
+        self.verifiedFile = verifiedFile; self.ref = ref
     }
     package func readChecked(into dst: UnsafeMutableRawPointer, offset: Int, count: Int,
         shouldContinue: () -> Bool = { true }) throws {
+        if let verifiedFile {
+            try verifiedFile.readDirect(into: dst, ref: ref, offset: offset, count: count, shouldContinue: shouldContinue)
+            return
+        }
         let absolute = try ExactRead.tensorOffset(base: base, length: length, offset: offset, count: count)
         try withExtendedLifetime(owner) {
             try ExactRead.transfer(into: dst, offset: absolute, count: count, shouldContinue: shouldContinue) { pointer, remaining, position in
@@ -351,6 +377,7 @@ public final class CheckpointIndex {
     public let config: ModelConfig
     public private(set) var tensors: [String: TensorRef] = [:]
     private var fds: [URL: Int32] = [:]
+    private let authenticatedFiles: [URL: VQTensorFile]
     private let fdLock = NSLock()
 
     deinit {
@@ -372,6 +399,7 @@ public final class CheckpointIndex {
     }
 
     public init(dir: URL) throws {
+        self.authenticatedFiles = [:]
         let resolved = dir.resolvingSymlinksInPath()
         self.dir = resolved
         self.config = try ModelConfig.load(from: resolved)
@@ -383,6 +411,54 @@ public final class CheckpointIndex {
             try parseHeader(f)
         }
         try requireExpectedTensors()
+    }
+
+    /// Internal immutable index assembled from complete authenticated files.
+    /// Every worker retains their owners; no later path open can replace the
+    /// bytes that passed admission. The public initializer is unchanged.
+    package init(authenticatedDirectory: URL, config: ModelConfig,
+                 files: [URL: VQTensorFile], tensors: [String: TensorRef]) throws {
+        guard !files.isEmpty, tensors.values.allSatisfy({ files[$0.file] != nil }) else {
+            throw ModelError("authenticated checkpoint has an unowned tensor")
+        }
+        self.dir = authenticatedDirectory; self.config = config
+        self.authenticatedFiles = files; self.tensors = tensors
+        try requireExpectedTensors()
+    }
+
+    package func verifyAuthenticatedFilesUnchanged() throws {
+        for file in authenticatedFiles.values { try file.verifyUnchanged() }
+    }
+
+    package var hasAuthenticatedFiles: Bool { !authenticatedFiles.isEmpty }
+
+    /// Resident tensors use the same verified owner as streamed rows. A
+    /// path-based MLX lazy mapping would reopen a file after authentication.
+    /// One inspected dense tensor and its load copy fit the research loader's
+    /// existing envelope; PLE tables are never admitted through this method.
+    package func authenticatedArray(_ name: String) throws -> MLXArray {
+        guard let ref = tensors[name], let file = authenticatedFiles[ref.file],
+              (1...800_000_000).contains(ref.byteCount), !name.contains("ngram_embedding.shard_") else {
+            throw ModelError("authenticated resident tensor is absent or exceeds its load-copy bound")
+        }
+        let dtype: DType
+        switch ref.dtype {
+        case "U32": dtype = .uint32
+        case "BF16": dtype = .bfloat16
+        case "F16": dtype = .float16
+        case "F32": dtype = .float32
+        case "I64": dtype = .int64
+        case "I32": dtype = .int32
+        default: throw ModelError("unsupported authenticated resident tensor dtype")
+        }
+        var bytes = Data(count: ref.byteCount)
+        try bytes.withUnsafeMutableBytes { destination in
+            try file.readDirect(into: destination.baseAddress!, ref: ref, offset: 0, count: ref.byteCount)
+        }
+        let array = MLXArray(bytes, ref.shape, dtype: dtype)
+        eval(array)
+        try file.verifyUnchanged()
+        return array
     }
 
     private func parseHeader(_ file: URL) throws {
@@ -569,10 +645,15 @@ public final class CheckpointIndex {
     }
 
     package func readHandle(for ref: TensorRef) -> TensorReadHandle {
-        TensorReadHandle(owner: self, descriptor: fd(for: ref.file), ref: ref)
+        if let file = authenticatedFiles[ref.file] {
+            return TensorReadHandle(owner: self, verifiedFile: file, ref: ref)
+        }
+        return TensorReadHandle(owner: self, descriptor: fd(for: ref.file), ref: ref)
     }
 
     private func checkedFD(for file: URL) throws -> Int32 {
+        if let owner = authenticatedFiles[file] { return try owner.checkedDescriptor() }
+        guard authenticatedFiles.isEmpty else { throw ModelError("unbound authenticated checkpoint file") }
         fdLock.lock()
         defer { fdLock.unlock() }
         if let f = fds[file] { return f }
@@ -597,6 +678,10 @@ public final class CheckpointIndex {
     /// EOF, syscall errors and cancellation never publish a partial record.
     public func preadChecked(into dst: UnsafeMutableRawPointer, _ r: TensorRef,
         offset: Int, count: Int, shouldContinue: () -> Bool = { true }) throws {
+        if let file = authenticatedFiles[r.file] {
+            try file.readDirect(into: dst, ref: r, offset: offset, count: count, shouldContinue: shouldContinue)
+            return
+        }
         let absolute = try ExactRead.tensorOffset(base: r.byteOffset, length: r.byteCount, offset: offset, count: count)
         if count == 0 { return }
         let f = try checkedFD(for: r.file)

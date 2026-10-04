@@ -11,12 +11,13 @@ extension Diagnostics {
     public static func quantizationTasks(protocolFile: URL, protocolSHA256: String,
         baseline: URL, source: URL?, inventory: URL?, composite: URL?, table: URL?,
         draftDepth: Int, output: URL, prepareOnly: Bool = false,
-        parallelPrefillReads: Bool = false) async throws -> Data {
+        parallelPrefillReads: Bool = false, affineControl: URL? = nil) async throws -> Data {
         guard (source == nil) == (inventory == nil),
               !parallelPrefillReads || (source != nil && !prepareOnly),
-              source != nil || (composite == nil && table == nil && draftDepth == 0),
+              affineControl == nil || (source == nil && composite == nil && table != nil && !prepareOnly && !parallelPrefillReads),
+              source != nil || affineControl != nil || (composite == nil && table == nil && draftDepth == 0),
               source == nil || table != nil,
-              (0...4).contains(draftDepth), draftDepth == 0 || composite != nil,
+              (0...4).contains(draftDepth), draftDepth == 0 || composite != nil || affineControl != nil,
               !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
@@ -114,6 +115,7 @@ extension Diagnostics {
         MLX.Memory.cacheLimit = 128_000_000; MLX.Memory.memoryLimit = min(oldLimit, 9_000_000_000)
         defer { Stream.gpu.synchronize(); MLX.Memory.clearCache(); MLX.Memory.cacheLimit = oldCache; MLX.Memory.memoryLimit = oldLimit }
         var candidate: VQModelProbe?, baselineEngine: Engine?, empty: StateCheckpoint?
+        var affineGenerator: Generator?, affineIndex: CheckpointIndex?
         var identity: [String: Any] = ["baseline_revision": PinnedModel.revision,
                                      "parallel_prefill_reads": parallelPrefillReads]
         var rows: [[String: Any]] = []
@@ -136,7 +138,29 @@ extension Diagnostics {
             return data
         }
         do {
-            if let source, let inventory, let table {
+            if let affineControl, let table {
+                let index = try AffineExpertControl.open(baseline: baseline, control: affineControl,
+                    shouldContinue: {
+                        ProcessMemory.peakResidentBytes() <= 10_000_000_000
+                            && (ProcessMemory.vmActivity()?.reclaimableBytes ?? 0) >= 3_000_000_000
+                            && ProcessInfo.processInfo.systemUptime - loadStart < 1800
+                    })
+                let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
+                    affineControlReferenceArithmetic: true,
+                    affineControlCoefficients: VQRotaryCoefficients(url: table), affineControlContextLimit: context)
+                try model.validate()
+                if draftDepth > 0 { try model.enableAffineControlDraft(baseline: baseline) }
+                let generator = Generator(model: model)
+                generator.prefillChunk = 512; generator.prefillCacheLimit = 128_000_000
+                generator.speculationEnabled = draftDepth > 0; generator.draftDepth = max(1, draftDepth)
+                generator.footprintSampling = true
+                affineGenerator = generator; affineIndex = index
+                identity["control_manifest_sha256"] = AffineExpertControl.manifestSHA256
+                identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"
+                identity["rotary_sha256"] = VQRotaryCoefficients.sha256
+                identity["slots"] = 640; identity["record_bytes"] = model.pool.recordBytes
+                identity["allocation_scope"] = "Fixed small research pool with the original dense and PLE values; not a qualified automatic profile."
+            } else if let source, let inventory, let table {
                 let checkpoint = try VQCheckpoint(directory: source, inventory: inventory,
                     denseOverlayBaseline: composite == nil ? nil : baseline, denseOverlayManifest: composite)
                 let model = VQModelProbe(checkpoint, verificationArithmetic: true)
@@ -182,7 +206,16 @@ extension Diagnostics {
                 }
                 var params = SampleParams.greedy; params.maxTokens = cap; params.seed = 42
                 var ids: [Int], reason: String, detail: [String: Any] = [:]
-                if let model = candidate, let empty {
+                if let generator = affineGenerator {
+                    let result = generator.generate(promptIds: item.tokens, params: params,
+                        eosIds: [248044, 248046], shouldContinue: keepGoing,
+                        onToken: { _ in samples.append(ProcessInfo.processInfo.systemUptime - start); return true })
+                    if let error = result.1.runtimeError { throw ModelError(error) }
+                    if let error = result.1.requestFailure { throw error }
+                    guard generator.model.pool.pinnedSlotCount == 0 else { throw ModelError("affine task retained expert pins") }
+                    ids = result.0; reason = result.1.finishReason
+                    detail["stats"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result.1))
+                } else if let model = candidate, let empty {
                     let result = try withError {
                         try model.restore(empty)
                         return try VQGenerationProbe.generate(model: model, prompt: item.tokens, params: params,
@@ -228,6 +261,7 @@ extension Diagnostics {
                 rows.append(row)
                 _ = try receipt(false)
             }
+            try affineIndex?.verifyAuthenticatedFilesUnchanged()
             return try receipt(true)
         } catch { _ = try receipt(false, String(describing: error)); throw error }
     }

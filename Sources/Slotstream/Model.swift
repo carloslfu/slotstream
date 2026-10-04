@@ -9,6 +9,10 @@ public final class Qwen4ExpModel {
     /// All recurrent state and complete-prompt logits belong to this loaded model, even
     /// when another model has the same vocabulary and cache geometry.
     package let promptCheckpointIdentity = UUID()
+    private let affineControlReferenceArithmetic: Bool
+    /// The finite research coefficients do not widen the public context
+    /// contract. Refuse an out-of-range forward before touching any state.
+    package let inferenceContextLimit: Int
     public let cfg: ModelConfig
     public let resident: ResidentWeights
     /// The reduced prefill reserve is qualified only for the maintained BF16
@@ -215,8 +219,29 @@ public final class Qwen4ExpModel {
     }
 
     package init(index: CheckpointIndex, poolSlots: Int, runLayers: Int? = nil, embeddingRowCache: Bool?,
-                 packGDNProjections: Bool? = nil) throws {
+                 packGDNProjections: Bool? = nil, affineControlReferenceArithmetic: Bool = false,
+                 affineControlCoefficients: VQRotaryCoefficients? = nil,
+                 affineControlContextLimit: Int = 2054) throws {
+        guard !affineControlReferenceArithmetic || (index.hasAuthenticatedFiles && index.config.admittedExpertRecordBytes == 2_150_400) else {
+            throw ModelError("the affine reference profile requires the authenticated expert control")
+        }
+        guard affineControlCoefficients == nil || affineControlReferenceArithmetic,
+              !affineControlReferenceArithmetic || (affineControlCoefficients == nil
+                ? affineControlContextLimit == 2054
+                : [4096, 8192, 32768].contains(affineControlContextLimit)) else {
+            throw ModelError("affine reference context requires explicit bounded coefficient coverage")
+        }
+        self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
+        self.inferenceContextLimit = affineControlReferenceArithmetic ? affineControlContextLimit : ContextPolicy.modelLimit
+        let arithmetic: BlockArithmeticProfile = affineControlReferenceArithmetic ? .vqPR1788 : .deployed
         self.optimizations = try InferenceOptimizations.environment()
+        if affineControlReferenceArithmetic {
+            // The independent PR1788 reference lets MLX select attention.
+            // Forcing the newer fused kernel is a separate arithmetic profile;
+            // it cannot inherit this reference's numerical qualification.
+            self.optimizations.fusedPrefillAttention = nil
+            self.optimizations.fusedPrefillWorkspace = false
+        }
         try ModelProcessGuard.acquire()
         self.cfg = index.config
         let selectedLayers = runLayers ?? index.config.numLayers
@@ -245,24 +270,25 @@ public final class Qwen4ExpModel {
             packGDNProjections: packGDNProjections ?? optimizations.fusedGDNProjection)
         self.pool = SlotPool(slots: poolSlots, store: store)
         self.ngram = NgramStore(index: index, resident: resident)
-        self.rope = Rope(dim: cfg.rotaryDim, base: cfg.ropeTheta)
+        self.rope = Rope(dim: cfg.rotaryDim, base: cfg.ropeTheta,
+            pinnedVQReference: affineControlReferenceArithmetic, vqCoefficients: affineControlCoefficients)
 
         for l in 0 ..< self.runLayers {
             let base = "model.layers.\(l)"
             if cfg.layerTypes[l] == "linear_attention" {
-                gdn[l] = GDNLayer(resident, layer: l)
+                gdn[l] = GDNLayer(resident, layer: l, arithmetic: arithmetic)
             } else {
-                qsa[l] = QSAAttention(resident, layer: l)
+                qsa[l] = QSAAttention(resident, layer: l, arithmetic: arithmetic)
             }
-            moe[l] = MoELayer(resident, layer: l, pool: pool)
-            attnHC.append(GatedResidual(resident, base: base + ".attn_hyper_connection", useCombine: true))
-            mlpHC.append(GatedResidual(resident, base: base + ".mlp_hyper_connection", useCombine: true))
+            moe[l] = MoELayer(resident, layer: l, pool: pool, arithmetic: arithmetic)
+            attnHC.append(GatedResidual(resident, base: base + ".attn_hyper_connection", useCombine: true, arithmetic: arithmetic))
+            mlpHC.append(GatedResidual(resident, base: base + ".mlp_hyper_connection", useCombine: true, arithmetic: arithmetic))
             if cfg.pleLayerIndices.contains(l) {
-                ple[l] = PLELayer(resident, layer: l, store: ngram)
+                ple[l] = PLELayer(resident, layer: l, store: ngram, arithmetic: arithmetic)
             }
         }
         if Self.debugDir != nil { attnHC[0].debugName = "hc0" }
-        mixer = GatedResidual(resident, base: "model.hyper_connection_mixer", useCombine: false)
+        mixer = GatedResidual(resident, base: "model.hyper_connection_mixer", useCombine: false, arithmetic: arithmetic)
         lmHead = resident.linear("lm_head")
     }
 
@@ -286,6 +312,22 @@ public final class Qwen4ExpModel {
         let stream = try streamedExperts ? MTPExpertStream(url: weights.url, base: "mtp.layers.0.mlp",
             expertCount: cfg.numExperts, topK: cfg.topK, slots: PlannerCostModel.mtpStreamSlots) : nil
         mtpHead = MTPHead(weights, stream: stream)
+    }
+
+    /// The draft keeps the original independent four-bit recipe. Research
+    /// speculation explicitly selects the existing row-invariant target mode;
+    /// public loading and its deployed arithmetic stay unchanged.
+    package func enableAffineControlDraft(baseline: URL) throws {
+        guard affineControlReferenceArithmetic, mtpHead == nil else {
+            throw ModelError("the affine research draft requires its authenticated target and no existing head")
+        }
+        let weights = try VQDraftWeights.load(baseline: baseline)
+        let head = MTPHead(weights, referenceArithmetic: true)
+        head.rowInvariantFusion = true
+        optimizations.rowInvariantProjection = true
+        optimizations.verifySplitAttention = true
+        optimizations.verifySplitMinContext = 0
+        mtpHead = head
     }
 
     /// Conservative capacity needed before a request grows its sequence
@@ -444,6 +486,10 @@ public final class Qwen4ExpModel {
     private func validateForward(_ ids: [Int], state: State) throws {
         guard !ids.isEmpty, ids.allSatisfy({ $0 >= 0 && $0 < cfg.vocabSize }) else {
             throw ModelError("model forward requires a nonempty sequence of valid token IDs")
+        }
+        guard !affineControlReferenceArithmetic || (state.tokenCount >= 0 && state.tokenCount <= inferenceContextLimit
+              && ids.count <= inferenceContextLimit - state.tokenCount) else {
+            throw ModelError("model forward exceeds its admitted context or coefficient coverage")
         }
         guard state.committedBoundaryValid else {
             throw ModelError("model state has an incomplete forward; restore a committed checkpoint or create a new state")

@@ -3,6 +3,69 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct AffineExpertCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-expert-check",
+        abstract: "Check the pinned research affine-three-bit expert control without activating a pack")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var reference: String
+    @Option(name: .long) var referenceSha256: String
+    @Option(name: .long) var output: String
+    @Flag(name: .long) var referenceArithmetic = false
+    func run() throws {
+        print(String(decoding: try Diagnostics.affineExpertControl(baseline: URL(fileURLWithPath: baseline),
+            control: URL(fileURLWithPath: control), reference: URL(fileURLWithPath: reference),
+            referenceSHA256: referenceSha256, output: URL(fileURLWithPath: output), referenceArithmetic: referenceArithmetic), as: UTF8.self))
+    }
+}
+
+struct AffineGenerationCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-generation-check",
+        abstract: "Check self-fed native affine-three-bit research generation without activating a pack")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var reference: String
+    @Option(name: .long) var referenceSha256: String
+    @Option(name: .long) var output: String
+    func run() throws {
+        print(String(decoding: try Diagnostics.affineGeneration(baseline: URL(fileURLWithPath: baseline),
+            control: URL(fileURLWithPath: control), reference: URL(fileURLWithPath: reference),
+            referenceSHA256: referenceSha256, output: URL(fileURLWithPath: output)), as: UTF8.self))
+    }
+}
+
+struct AffineContextCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-context-check",
+        abstract: "Check a staged affine-three-bit context and exact target/draft recovery")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var table: String
+    @Option(name: .long) var limit: Int
+    @Option(name: .long) var output: String
+    func validate() throws {
+        guard [4096, 8192, 32768].contains(limit) else { throw ValidationError("context stages are 4096, 8192 and 32768") }
+    }
+    func run() throws {
+        print(String(decoding: try Diagnostics.affineContext(baseline: URL(fileURLWithPath: baseline),
+            control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table), limit: limit,
+            output: URL(fileURLWithPath: output)), as: UTF8.self))
+    }
+}
+
+struct AffineSpeculationCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-speculation-check",
+        abstract: "Check affine-three-bit target verification and committed state with the original draft")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var generationProfile: String
+    @Option(name: .long) var output: String
+    func run() throws {
+        print(String(decoding: try Diagnostics.affineSpeculation(baseline: URL(fileURLWithPath: baseline),
+            control: URL(fileURLWithPath: control), profile: URL(fileURLWithPath: generationProfile),
+            output: URL(fileURLWithPath: output)), as: UTF8.self))
+    }
+}
+
 struct QuantizationTaskRun: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "quantization-task-run",
         abstract: "Run a frozen bounded task evaluation without activating or qualifying a model pack")
@@ -13,6 +76,7 @@ struct QuantizationTaskRun: ParsableCommand {
     @Option(name: .long) var sourceInventory: String?
     @Option(name: .long) var denseOverlayManifest: String?
     @Option(name: .long) var table: String?
+    @Option(name: .long, help: "Explicit research affine-three-bit expert control; requires the authenticated rotary table") var affineControl: String?
     @Option(name: .long) var draftDepth = 0
     @Option(name: .long) var output: String
     @Flag(name: .long, help: "Render and freeze exact input tokens without loading the model") var prepareOnly = false
@@ -28,7 +92,8 @@ struct QuantizationTaskRun: ParsableCommand {
                     inventory: sourceInventory.map { URL(fileURLWithPath: $0) },
                     composite: denseOverlayManifest.map { URL(fileURLWithPath: $0) },
                     table: table.map { URL(fileURLWithPath: $0) }, draftDepth: draftDepth,
-                    output: URL(fileURLWithPath: output), prepareOnly: prepareOnly, parallelPrefillReads: parallelPrefillReads)
+                    output: URL(fileURLWithPath: output), prepareOnly: prepareOnly, parallelPrefillReads: parallelPrefillReads,
+                    affineControl: affineControl.map { URL(fileURLWithPath: $0) })
             } catch { failure = error }
             semaphore.signal()
         }

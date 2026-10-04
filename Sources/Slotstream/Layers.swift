@@ -1347,6 +1347,7 @@ final class GDNLayer {
 // MARK: - MoE
 
 final class MoELayer {
+    let arithmetic: BlockArithmeticProfile
     var minimumProjectionRows = 0
     // Context qualification successor: preserve the established grouped QMM
     // arithmetic for bounded 64/128-token prefill. Decode is unchanged.
@@ -1378,7 +1379,8 @@ final class MoELayer {
     let sharedDownProj: QLinear
     let pool: SlotPool
 
-    init(_ w: ResidentWeights, layer: Int, pool: SlotPool) {
+    init(_ w: ResidentWeights, layer: Int, pool: SlotPool, arithmetic: BlockArithmeticProfile = .deployed) {
+        self.arithmetic = arithmetic
         cfg = w.config
         self.layer = layer
         self.pool = pool
@@ -1447,7 +1449,7 @@ final class MoELayer {
         }
         func shared(_ input: MLXArray) -> MLXArray {
             let (value, gate) = sharedParts(input)
-            return sigmoid(gate) * value
+            return arithmetic.sigmoid(gate) * value
         }
         // Router materialization above has already completed the input and
         // every prior pool reader. These resident projections do not read or
@@ -1467,7 +1469,12 @@ final class MoELayer {
         }
         pool.advancePinGeneration()
         let routed: MLXArray
-        if useLayerWorkspace, B * S >= SweepTuning.minTokens {
+        if arithmetic == .vqPR1788, expertIds.count >= 64 {
+            // PR1788's SwitchGLU sorts once there are 64 routes. Use a
+            // fixed original-expert domain, not physical pool slots: MLX's
+            // sorted kernel selection depends on that domain's size.
+            routed = try referenceRouted(x, expertIds: expertIds, weights: weights)
+        } else if useLayerWorkspace, B * S >= SweepTuning.minTokens {
             routed = try workspaceRouted(x, expertIds: expertIds, weights: weights)
         } else {
             let smallSweep = smallPrefillSweep && B * S >= 64 && B * S < 256
@@ -1487,8 +1494,45 @@ final class MoELayer {
             }
             return routed + concatenated(outputs, axis: 1)
         }
-        if let (value, gate) = earlyShared { return routed + sigmoid(gate) * value }
+        if let (value, gate) = earlyShared { return routed + arithmetic.sigmoid(gate) * value }
         return routed + shared(x)
+    }
+
+    /// The affine research profile retains upstream route order and kernel
+    /// geometry. One owned layer workspace fixes the RHS domain at 512 even
+    /// when the slot pool grows or shrinks. Only demanded records are read.
+    /// The bounded research generator currently admits 512-row passes.
+    private func referenceRouted(_ x: MLXArray, expertIds: [Int32], weights: MLXArray) throws -> MLXArray {
+        let (B, S, K, H) = (x.dim(0), x.dim(1), cfg.topK, cfg.hiddenSize)
+        guard B == 1, S <= 512 else { throw ModelError("affine reference prefill requires passes of at most 512 tokens") }
+        let ids = MLXArray(expertIds)
+        let order = argSort(ids), inverse = argSort(order)
+        let sorted = ids[order]
+        let input = x.reshaped([B * S, 1, H])[floorDivide(order, Int32(K))]
+        let active = Array(Set(expertIds.map(Int.init))).sorted()
+        let w = try pool.layerWorkspaceChecked(layer: layer, experts: active)
+        let descriptor = pool.expertStore.quantization
+        let up = gatherQuantizedMM(input, w[3], scales: w[4], biases: w[5], rhsIndices: sorted,
+            transpose: true, groupSize: descriptor.groupSize, bits: descriptor.bits, sortedIndices: true)
+        let gate = gatherQuantizedMM(input, w[0], scales: w[1], biases: w[2], rhsIndices: sorted,
+            transpose: true, groupSize: descriptor.groupSize, bits: descriptor.bits, sortedIndices: true)
+        let down = gatherQuantizedMM(MLXNN.silu(gate) * up, w[6], scales: w[7], biases: w[8], rhsIndices: sorted,
+            transpose: true, groupSize: descriptor.groupSize, bits: descriptor.bits, sortedIndices: true)
+        let canonical = down[inverse].reshaped([B, S, K, H])
+        let result = (canonical * weights.expandedDimensions(axis: -1)).sum(axis: -2).asType(x.dtype)
+        // Complete all workspace readers before optional admission changes
+        // any pool mapping; no intermediate record can be observed.
+        eval(result)
+        if pool.admitOnSweep, SlotPool.sweepAdmitEnabled {
+            let quota = max(1, pool.slots / cfg.numLayers)
+            var count = [Int](repeating: 0, count: cfg.numExperts)
+            for id in expertIds { count[Int(id)] += 1 }
+            let hot = active.sorted { count[$0] != count[$1] ? count[$0] > count[$1] : $0 < $1 }
+            let selected = Array(hot.prefix(quota))
+            pool.admit(layer: layer, experts: selected, rows: selected, from: w)
+            pool.commitAdmissions()
+        }
+        return result
     }
 
     /// Workspace C: keep one layer's expert weights, reduce one token tile
@@ -1556,11 +1600,11 @@ final class MoELayer {
             }
             let indices = MLXArray(ridx)
             let g = gatherQuantizedMM(gathered, w[0], scales: w[1], biases: w[2], rhsIndices: indices,
-                transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
             let u = gatherQuantizedMM(gathered, w[3], scales: w[4], biases: w[5], rhsIndices: indices,
-                transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
             let d = gatherQuantizedMM(MLXNN.silu(g) * u, w[6], scales: w[7], biases: w[8], rhsIndices: indices,
-                transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
             let canonical = d[0 ..< rows].squeezed(axis: 1)[MLXArray(inverse)].reshaped([n, K, H])
             let reduced = (canonical * routeWeights[lo ..< hi].expandedDimensions(axis: -1))
                 .sum(axis: -2).asType(x.dtype)
@@ -1594,14 +1638,14 @@ final class MoELayer {
             let xe = x.expandedDimensions(axes: [-2, -3])
             let g = gatherQuantizedMM(
                 xe, pool.pools[0], scales: pool.pools[1], biases: pool.pools[2],
-                rhsIndices: slotIdx, transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits)
+                rhsIndices: slotIdx, transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits)
             let u = gatherQuantizedMM(
                 xe, pool.pools[3], scales: pool.pools[4], biases: pool.pools[5],
-                rhsIndices: slotIdx, transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits)
+                rhsIndices: slotIdx, transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits)
             let hidden = MLXNN.silu(g) * u
             return gatherQuantizedMM(
                 hidden, pool.pools[6], scales: pool.pools[7], biases: pool.pools[8],
-                rhsIndices: slotIdx, transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits)
+                rhsIndices: slotIdx, transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits)
                 .squeezed(axis: -2)
         }
         var readyRanks: [Int] = []
@@ -1743,13 +1787,13 @@ final class MoELayer {
                     let ridx = MLXArray(local)
                     let g = gatherQuantizedMM(
                         xg, w[0], scales: w[1], biases: w[2], rhsIndices: ridx, transpose: true,
-                        groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                        groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
                     let u = gatherQuantizedMM(
                         xg, w[3], scales: w[4], biases: w[5], rhsIndices: ridx, transpose: true,
-                        groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                        groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
                     let dAll = gatherQuantizedMM(
                         MLXNN.silu(g) * u, w[6], scales: w[7], biases: w[8], rhsIndices: ridx,
-                        transpose: true, groupSize: cfg.qGroup, bits: cfg.qBits, sortedIndices: true)
+                        transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
                     let d = pad > 0 ? dAll[0 ..< n] : dAll
                     let completed: MLXArray
                     if let output = orderedOutput {
@@ -1880,8 +1924,8 @@ final class PLELayer {
     let dilation: Int
     let stateLen: Int
 
-    convenience init(_ w: ResidentWeights, layer: Int, store: NgramStore) {
-        self.init(w, layer: layer, embedding: { try store.embeddingChecked(history: $0, nNew: $1) })
+    convenience init(_ w: ResidentWeights, layer: Int, store: NgramStore, arithmetic: BlockArithmeticProfile = .deployed) {
+        self.init(w, layer: layer, arithmetic: arithmetic, embedding: { try store.embeddingChecked(history: $0, nNew: $1) })
     }
 
     init(_ w: TensorSource, layer: Int, arithmetic: BlockArithmeticProfile = .deployed,

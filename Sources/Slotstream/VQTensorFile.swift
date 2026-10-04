@@ -30,7 +30,9 @@ package final class VQTensorFile {
         }
     }
     private let descriptor: Int32
+    private let url: URL
     private let stamp: Stamp
+    private let byteRanges: [Int: Set<Int>]
     package let tensors: [String: TensorRef]
     package let uncachedRandomReads: Bool
 
@@ -132,7 +134,8 @@ package final class VQTensorFile {
                 }
             }
             self.uncachedRandomReads = uncachedRandomReads
-            descriptor = fd; stamp = Stamp(initial); tensors = parsed
+            descriptor = fd; self.url = url; stamp = Stamp(initial); tensors = parsed
+            byteRanges = Dictionary(grouping: parsed.values, by: \.byteOffset).mapValues { Set($0.map(\.byteCount)) }
         } catch {
             close(fd)
             throw error
@@ -143,6 +146,33 @@ package final class VQTensorFile {
 
     package func verifyUnchanged() throws {
         guard Stamp(try Self.status(descriptor)) == stamp else { throw ModelError("owned VQ tensor file changed") }
+    }
+
+    /// Borrowed only while the owning index remains alive. Ordinary tensor
+    /// reads use readDirect so mutations are checked around every transfer.
+    package func checkedDescriptor() throws -> Int32 {
+        try verifyUnchanged()
+        return descriptor
+    }
+
+    /// Allocation-free affine checkpoint access into an already reserved
+    /// destination. The complete range must belong to one authenticated
+    /// tensor; individual syscalls stay bounded. This does not enlarge the
+    /// allocation-returning read API or packed-record admission above.
+    package func readDirect(into destination: UnsafeMutableRawPointer, ref: TensorRef,
+                            offset: Int, count: Int, shouldContinue: () -> Bool = { true }) throws {
+        guard ref.file == url, byteRanges[ref.byteOffset]?.contains(ref.byteCount) == true else {
+            throw CheckpointReadError.invalidRange
+        }
+        let absolute = try ExactRead.tensorOffset(base: ref.byteOffset, length: ref.byteCount, offset: offset, count: count)
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
+        try verifyUnchanged()
+        try ExactRead.transfer(into: destination, offset: absolute, count: count, shouldContinue: shouldContinue) { pointer, remaining, position in
+            let got = pread(descriptor, pointer, min(remaining, Self.maximumRead), off_t(position))
+            return .init(count: got, error: got < 0 ? errno : 0)
+        }
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
+        try verifyUnchanged()
     }
 
     /// Retaining this object retains the verified descriptor. Partial reads,

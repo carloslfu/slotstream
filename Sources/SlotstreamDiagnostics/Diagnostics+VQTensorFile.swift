@@ -34,6 +34,27 @@ extension Diagnostics {
         rejected("uncached range guard retained") { _ = try uncached.read("tensor", offset: payload.count - 1, count: 2) }
         rejected("uncached cancellation retained") { _ = try uncached.read("tensor", offset: 0, count: 1, shouldContinue: { false }) }
         c.equal("verified tensor geometry", file!.tensors["tensor"]!.shape, [2, 500_003])
+        let destination = UnsafeMutableRawPointer.allocate(byteCount: payload.count, alignment: 16)
+        defer { destination.deallocate() }
+        let directRef = file!.tensors["tensor"]!
+        try file!.readDirect(into: destination, ref: directRef, offset: 0, count: payload.count)
+        c.equal("allocation-free reads span bounded syscalls exactly", Data(bytes: destination, count: payload.count), payload)
+        for (offset, count) in [(-1, 1), (payload.count, 1), (payload.count - 1, 2), (0, -1), (Int.max, 1)] {
+            rejected("direct tensor bounds retained") { try file!.readDirect(into: destination, ref: directRef, offset: offset, count: count) }
+        }
+        rejected("direct cancellation retained") {
+            try file!.readDirect(into: destination, ref: directRef, offset: 0, count: 1, shouldContinue: { false })
+        }
+        var directChecks = 0
+        rejected("direct cancellation between syscall chunks never completes") {
+            try file!.readDirect(into: destination, ref: directRef, offset: 0, count: payload.count,
+                shouldContinue: { directChecks += 1; return directChecks < 3 })
+        }
+        let (foreign, foreignIdentity) = try fixture("foreign.safetensors", header: header, payload: payload)
+        let foreignOwner = try VQTensorFile(url: foreign, identity: foreignIdentity)
+        rejected("foreign tensor reference cannot enter owned reads") {
+            try file!.readDirect(into: destination, ref: foreignOwner.tensors["tensor"]!, offset: 0, count: 1)
+        }
         c.equal("bounded tail read", try file!.read("tensor", offset: 999_998, count: 8), Data(payload.suffix(8)))
         c.equal("maximum read", try file!.read("tensor", offset: 0, count: VQTensorFile.maximumRead), Data(payload.prefix(VQTensorFile.maximumRead)))
         for (offset, count) in [(-1, 1), (0, 0), (0, 1_000_001), (payload.count, 1), (payload.count - 1, 2), (Int.max, 1)] {
@@ -71,6 +92,10 @@ extension Diagnostics {
         try writer.seek(toOffset: UInt64(changedIdentity.fileBytes - 1)); try writer.write(contentsOf: Data([255])); try writer.close()
         try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: 1)], ofItemAtPath: changed.path)
         rejected("in-place mutation refused") { _ = try immutable.read("tensor", offset: 0, count: 1) }
+        rejected("direct in-place mutation refused") {
+            try immutable.readDirect(into: destination, ref: immutable.tensors["tensor"]!, offset: 0, count: 1)
+        }
+        rejected("borrowed descriptor refuses mutation") { _ = try immutable.checkedDescriptor() }
         rejected("uncached in-place mutation refused") { _ = try uncachedImmutable.read("tensor", offset: 0, count: 1) }
         rejected("uncached corrupt payload refused before policy publication") { _ = try VQTensorFile(url: changed, identity: changedIdentity, uncachedRandomReads: true) }
         rejected("same-size corrupt payload fails complete hash") { _ = try VQTensorFile(url: changed, identity: changedIdentity) }

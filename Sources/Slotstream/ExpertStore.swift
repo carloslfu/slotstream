@@ -34,6 +34,7 @@ public enum SlotPoolError: Error, CustomStringConvertible {
 
 public final class ExpertStore {
     public let index: CheckpointIndex
+    package let quantization: AffineQuantization
     private let cfg: ModelConfig
     // per (layer, piece) tensor refs; pieces ordered gw,gs,gb,uw,us,ub,dw,ds,db
     static let pieces = [
@@ -190,8 +191,9 @@ public final class ExpertStore {
         self.cfg = index.config
         let h = cfg.hiddenSize
         let ff = cfg.moeIntermediate
-        let g = cfg.qGroup
         let affine = try cfg.affineQuantization(for: "model.layers.0.mlp.switch_mlp.gate_proj")
+        self.quantization = affine
+        let g = affine.groupSize
         let hiddenWords = try affine.packedWords(columns: h)
         let intermediateWords = try affine.packedWords(columns: ff)
         let expected: [(shape: [Int], dtype: String)] = [
@@ -207,6 +209,11 @@ public final class ExpertStore {
         ]
         for l in 0 ..< cfg.numLayers {
             let base = "model.layers.\(l).mlp.switch_mlp."
+            for projection in ["gate_proj", "up_proj", "down_proj"] {
+                guard try cfg.affineQuantization(for: base + projection) == affine else {
+                    throw ModelError("the affine expert pool requires one uniform validated descriptor")
+                }
+            }
             let layer = Self.pieces.map { index.ref(base + $0) }
             for p in layer.indices {
                 guard layer[p].shape == expected[p].shape,
@@ -613,21 +620,14 @@ public final class SlotPool {
     /// Piecewise workspace writes evaluate before advancing to another
     /// buffer, so only the largest piece needs replacement storage.
     package var largestWorkspacePieceBytes: Int {
-        Self.poolShapes(cfg.numExperts, cfg).map {
+        Self.poolShapes(cfg.numExperts, store).map {
             ContextBytes.product($0.shape.reduce(1) { ContextBytes.product($0, $1) }, $0.dtype.size)
         }.max() ?? Int.max
     }
 
     /// Per-piece shapes for a pool of `n` slots (order = ExpertStore.pieces).
-    private static func poolShapes(_ n: Int, _ cfg: ModelConfig) -> [(shape: [Int], dtype: DType)] {
-        let h = cfg.hiddenSize
-        let ff = cfg.moeIntermediate
-        let g = cfg.qGroup
-        return [
-            ([n, ff, h / 8], .uint32), ([n, ff, h / g], .bfloat16), ([n, ff, h / g], .bfloat16),
-            ([n, ff, h / 8], .uint32), ([n, ff, h / g], .bfloat16), ([n, ff, h / g], .bfloat16),
-            ([n, h, ff / 8], .uint32), ([n, h, ff / g], .bfloat16), ([n, h, ff / g], .bfloat16),
-        ]
+    private static func poolShapes(_ n: Int, _ store: ExpertStore) -> [(shape: [Int], dtype: DType)] {
+        store.stagingPieceSpecs.map { ([n] + $0.shape, $0.dtype) }
     }
 
     public init(slots: Int, store: ExpertStore) {
@@ -639,7 +639,7 @@ public final class SlotPool {
         self.refBit = Array(repeating: false, count: slots)
         self.pinned = SlotPins(count: slots)
         self.inFlight = Array(repeating: false, count: slots)
-        pools = Self.poolShapes(slots, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
+        pools = Self.poolShapes(slots, store).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
         eval(pools)
     }
 
@@ -651,8 +651,8 @@ public final class SlotPool {
     /// must admit this transient separately from the final pool size.
     package func growthTransientBytes(to newSlots: Int) -> Int {
         guard newSlots > slots else { return 0 }
-        let old = Self.poolShapes(slots, cfg)
-        let next = Self.poolShapes(newSlots, cfg)
+        let old = Self.poolShapes(slots, store)
+        let next = Self.poolShapes(newSlots, store)
         var added = 0, peak = 0
         for (before, after) in zip(old, next) {
             let oldBytes = before.shape.reduce(before.dtype.size, *)
@@ -689,7 +689,7 @@ public final class SlotPool {
             // Keep holes and mappings in place. Only the new tail is zeroed;
             // no full-pool gather or indexed-update temporary is necessary.
             eval(pools)
-            for (p, spec) in Self.poolShapes(n - slots, cfg).enumerated() {
+            for (p, spec) in Self.poolShapes(n - slots, store).enumerated() {
                 let np = concatenated([pools[p], MLXArray.zeros(spec.shape, dtype: spec.dtype)], axis: 0)
                 eval(np)
                 pools[p] = np  // old piece freed here, bounding the transient
@@ -709,7 +709,7 @@ public final class SlotPool {
             pinned = SlotPins(count: n, sparse: sparsePinClearing)
             pinned.configure(depth: pinGenerations)
             hand = 0
-            pools = Self.poolShapes(n, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
+            pools = Self.poolShapes(n, store).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
             eval(pools)
         }
         slots = n
@@ -1330,7 +1330,7 @@ public final class SlotPool {
     }
 
     func layerWorkspaceChecked(layer: Int, experts: [Int]) throws -> [MLXArray] {
-        let output = Self.poolShapes(cfg.numExperts, cfg).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
+        let output = Self.poolShapes(cfg.numExperts, store).map { MLXArray.zeros($0.shape, dtype: $0.dtype) }
         eval(output)
         let resident = experts.filter { isResident(ExpertKey(layer, $0)) }
         let missing = experts.filter { !isResident(ExpertKey(layer, $0)) }
