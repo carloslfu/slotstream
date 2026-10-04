@@ -75,6 +75,17 @@ class PerformanceMetricsChecks(unittest.TestCase):
             self.assertEqual(Fraction(failures, 2 ** n), Fraction(bound['achieved_failure_probability']))
             self.assertLessEqual(Fraction(failures, 2 ** n), Fraction(1, 20))
 
+    def test_upper_median_rank_has_independent_enumerated_tail(self):
+        self.assertIsNone(m.median_upper_bound([1] * 4)['upper_bound'])
+        result = m.median_upper_bound(list(range(1, 9)))
+        self.assertEqual(result['one_based_rank'], 7)
+        self.assertEqual(result['upper_bound'], 7)
+        self.assertNotIn('lower_bound', result)
+        for n in range(5, 11):
+            bound = m.median_upper_bound([1] * n); rank = bound['one_based_rank']
+            failures = sum(sorted(values)[rank - 1] < 2 for values in itertools.product((1, 3), repeat=n))
+            self.assertEqual(Fraction(failures, 2 ** n), Fraction(bound['achieved_failure_probability']))
+
     def test_every_scenario_and_full_repetition_count_matters(self):
         self.assertTrue(m.speed_gate({'a': [21] * 8, 'b': [22] * 8})['speed_gate_passed'])
         self.assertFalse(m.speed_gate({'a': [21] * 8, 'b': [19.9] * 8})['speed_gate_passed'])

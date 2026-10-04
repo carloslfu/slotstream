@@ -1,0 +1,176 @@
+---
+type: run
+created: 2026-10-04T21:52:36.546040+00:00
+updated: 2026-10-04T21:52:36.546040+00:00
+summary: Require complete natural answers and prospective response/startup latency margins alongside simultaneous decode speed acceptance
+binary: Python statistical and campaign fixtures on both local Python runtimes; no native process or model weights
+captured_at: 2026-10-04
+command: Run quantization_performance_metrics_test.py and quantization_performance_campaign_test.py on system Python and .venv Python; preserve exact source delta
+discarded: false
+machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
+title: Complete performance latency and natural-completion acceptance
+tool: Exact rank confidence checks and tiny paired campaign fixtures
+---
+
+The performance owner now keeps final decode and latency acceptance separate and requires both for its performance result. Final protocols explicitly freeze maximum paired median ratios for complete natural-request latency, first decoded text and native load time. No tolerance is inferred from a pilot. The research instrument accepts only ratios from one through one and one-quarter; the actual margins remain a prospective pilot-informed decision. This bound is an instrument policy, not a measured acceptable regression or a product claim.
+
+Every final profile includes at least one natural task. A truncated or undelivered natural answer retains its complete raw execution evidence but cannot yield a successful complete-performance result. A length termination must contain the entire declared output ceiling. Final sampling also requires the pilot's complete natural delivery; fast synthetic decode alone cannot confer that status.
+
+The one-sided median upper bound uses the symmetric binomial order statistic. Decode lower bounds and all paired natural-request, first-text and startup upper bounds share the complete Bonferroni comparison family. This retains the stated independent run-level sampling assumption. Faster decode cannot compensate for a failed latency margin. Startup remains compared within each profile, and the output never qualifies or activates a model.
+
+Nine metric groups and eleven campaign groups pass on both Python runtimes. Added checks independently enumerate upper-bound rank errors, count the combined comparison family, retain incomplete natural outputs, refuse missing/wide latency margins, and make a faster-decoding candidate fail separately for slower complete response, first text or startup. These are small fixtures with no native model launch or timing observation. The held-out quality campaign and its frozen inputs remain unchanged.
+
+### .build/quantization-research/complete-performance-latency-acceptance-v1.diff
+
+Original bytes: 19377. SHA-256: `48fb5f2aee074255f579453bd276dacb84b110a381a634d5c1e2f2e32b7720c6`.
+
+Normalized bytes: 19377. SHA-256: `48fb5f2aee074255f579453bd276dacb84b110a381a634d5c1e2f2e32b7720c6`.
+
+````zlib-base64
+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
+jiA+uvVuD5P/PzRnlnI=
+````
+
+### .build/quantization-research/complete-performance-latency-metrics-v1.log
+
+Original bytes: 107. SHA-256: `d9d734ee1c2de67b748aeef1c4126433aa438ad8375ca953916f12b1df11414d`.
+
+Normalized bytes: 107. SHA-256: `d9d734ee1c2de67b748aeef1c4126433aa438ad8375ca953916f12b1df11414d`.
+
+````zlib-base64
+eNrT04MCLl2qAK6gxDwFS4WS1OKSYoXMPAUDPQMDw2IuLn9vLgAW4hT/
+````
+
+### .build/quantization-research/complete-performance-latency-metrics-venv-v1.log
+
+Original bytes: 107. SHA-256: `d9d734ee1c2de67b748aeef1c4126433aa438ad8375ca953916f12b1df11414d`.
+
+Normalized bytes: 107. SHA-256: `d9d734ee1c2de67b748aeef1c4126433aa438ad8375ca953916f12b1df11414d`.
+
+````zlib-base64
+eNrT04MCLl2qAK6gxDwFS4WS1OKSYoXMPAUDPQMDw2IuLn9vLgAW4hT/
+````
+
+### .build/quantization-research/complete-performance-latency-campaign-v1.log
+
+Original bytes: 7891. SHA-256: `2717a6ea132b72c122010e39810e36291bdcf5ff3d773536e2ef600e4bbb3f49`.
+
+Normalized bytes: 7891. SHA-256: `2717a6ea132b72c122010e39810e36291bdcf5ff3d773536e2ef600e4bbb3f49`.
+
+````zlib-base64
+eNrt2M9Kw0AQx/H7PkXIWYMzY7atr+BB8AVKrduysE3FrKfiuxs9iAcR8/XPaXIKhR+FH5/JJHtq
+t8fDQ0k13a+3qZSxvWrkrGmPu9cbne5qPuRhv04l7/NdSdPP9fEpPYfTJ0nFScPJS5zscTLi5AIn
+lzi5wkm54FGuSDij9z81TNcwXcN0DdM1TNcwXcN0DdM1Ttc4XeN050e5I+GQhEsSTkm4JeGYhGtS
+rkl/8EzimpRrUq5JuSblmpRrUq5JuSbjmoxrsu9p6r7cq5Gu1Ui3aqRLNdKdGulKjfRtxVuFrf4r
+1t2mjK7Va/VavVZ/uAouVvDWEtys4GoFdzs7ucDJJU6ucPLD4VDkh0ORHw5F/IU9P8ohCZcknJKP
+qY+pj6mPqY+pj6mP6Zwx7d4uP675ky+KLpz/yhVuN8PkvqlprGOTh6bvpNcxhJvr8AK+GAUs
+````
+
+### .build/quantization-research/complete-performance-latency-campaign-venv-v1.log
+
+Original bytes: 7891. SHA-256: `9f889b05fdd97a54d0bc95d6fd8d9c420b64562a8a2afca3a4b06a591900286c`.
+
+Normalized bytes: 7891. SHA-256: `9f889b05fdd97a54d0bc95d6fd8d9c420b64562a8a2afca3a4b06a591900286c`.
+
+````zlib-base64
+eNrt2M9Kw0AQx/H7PkXIWYMzYzetr+BB8AVKrduysE3FrKfiuxs9iAcR8/XPaXIKhR+FH5/JJHtq
+t8fDQ0k13a+3qZSxvWrkrGmPu9cbne5qPuRhv04l7/NdSdPP9fEpPYfTJ0nFScPJS5xc4GTEyR4n
+lzi5wkm54FGuSDij9z81TNcwXcN0DdM1TNcwXcN0DdM1Ttc4XeN050e5I+GQhEsSTkm4JeGYhGtS
+rkl/8EzimpRrUq5JuSblmpRrUq5JuSbjmoxrsu9p6r7cq5Gu1Ui3aqRLNdKdGulKjfRtxVuFrf4r
+1t2mjK7Va/VavVZ/uAouVvDWEtys4GoFdzs72ePkEidXOPnhcCjyw6HID4ci/sKeH+WQhEsSTsnH
+1MfUx9TH1MfUx9THdM6Ydm+XH9f8yRdFF85/5Qq3m2Fy39Q01rHJQ7PotNcxhJvr8AK+MQUv
+````

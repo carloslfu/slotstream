@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T21:42:24.431756Z
+updated: 2026-10-04T21:52:36.546040Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-complete-performance-latency-acceptance]] — Require complete natural answers and prospective response/startup latency margins alongside simultaneous decode speed acceptance
 - [[sources/runs/2026/10/2026-10-04-complete-performance-campaign-preparation]] — Prepare frozen complete-configuration paired execution and preserve successful lookahead engine and Mac CI
 - [[sources/runs/2026/10/2026-10-04-complete-configuration-performance-preparation]] — Prepare full Engine performance configurations and conservative run-level timing analysis; preserve complete startup and continuation CI acceptance
 - [[sources/runs/2026/10/2026-10-04-affine-lookahead-preparation]] — Prepare an explicit text-only candidate lookahead experiment with complete reservation and native parity/ownership checks; compilation and physical execution remain pending
@@ -506,9 +507,8 @@ updated: 2026-10-04T21:42:24.431756Z
 - [[sources/runs/2026/09/2026-09-07-optimization-original-mtp-image-gates-preparation]] — Current MTP and image prerequisites prepared for original serving gates
 - [[sources/runs/2026/09/2026-09-07-optimization-compact-cache-component-and-serving-qualification]] — Compact BF16 cache qualifies; ring variants fail original benefit threshold
 - [[sources/runs/2026/09/2026-09-07-optimization-current-full-cache-component-preparation]] — Current full-cache component keeps the original fixed study
-- [[sources/runs/2026/09/2026-09-07-optimization-current-prose-confirmation-and-startup-reporting-parity]] — Current prose confirmation qualifies; cache prerequisites and startup reporting parity pass
 
 ## More
 
-This folder has 808 files. The 500 most recent are listed above.
+This folder has 809 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

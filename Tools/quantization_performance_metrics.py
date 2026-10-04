@@ -103,6 +103,17 @@ def median_lower_bound(values, *, comparisons=1):
             'qualification': False}
 
 
+def median_upper_bound(values, *, comparisons=1):
+    """Symmetric one-sided upper rank bound under the same run assumptions."""
+    result = median_lower_bound(values, comparisons=comparisons)
+    rank = result.pop('one_based_rank')
+    result.pop('lower_bound')
+    upper_rank = len(values) + 1 - rank if rank is not None else None
+    result.update(one_based_rank=upper_rank,
+                  upper_bound=sorted(values)[upper_rank - 1] if upper_rank is not None else None)
+    return result
+
+
 def speed_gate(scenarios):
     """Every predeclared scenario must pass; never drop missing/short runs.
 

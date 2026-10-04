@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T21:42:55.932547+00:00
+updated: 2026-10-04T21:52:38.000540+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -998,3 +998,10 @@ The same source closes complete engine CI for the unanswered-only continuation a
 Native child supervision enforces physical and parent ceilings, real headroom, OS pressure, deadlines and complete storage reservation. Timing exclusions preserve functional evidence without selecting replacement runs or a favorable subset. Startup remains separated by profile; individual timing observations, single-token latency and worst observed stalls remain available. Nine fixture groups pass on both Python runtimes, including real tiny child cleanup after an injected physical violation and a post-exit observation failure. Thirty-two static entry checks pass. The initial broad test stub broke process-table enumeration and is preserved with its narrow fixture correction. No model or performance campaign ran during this work.
 
 The same source closes full engine and Mac CI for the explicit lookahead preparation at 0435d4871743c1d9a215fd8e3c500c2272eb7c0d. Physical lookahead parity, complete-configuration pilot/final execution, lower-budget performance profiles and promotion remain open. The held-out quality continuation keeps its existing frozen executable and protocol.
+
+
+### Complete-performance latency acceptance, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-performance-latency-acceptance]] adds explicit final margins for paired natural-request latency, first decoded text and native load time. Every final profile requires natural tasks; truncated or undelivered answers preserve execution evidence but cannot pass complete performance. The final sample-count decision must also come from a pilot with complete natural delivery. No latency tolerance or sample count has yet been chosen from measured results.
+
+The exact upper median rank bound shares one simultaneous comparison family with all decode lower bounds. A successful decode gate cannot compensate for failing response or startup latency. Nine statistical groups and eleven campaign groups pass on both Python runtimes, including independently enumerated upper-tail errors and separate slow-response, slow-first-text, slow-startup and truncated-answer regressions. No model or benchmark ran. Actual final margins, physical instrument acceptance and pilot/final performance collection remain open.

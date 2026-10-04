@@ -286,3 +286,6 @@ Prepared complete Engine performance profiles with separate fixed-work and natur
 ## [2026-10-04 21:42] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Implemented source-bound paired performance ownership with complete-work and physical checks, preserved attempts, independent timing exclusions and prospective final sampling requirements. Nine groups pass on both Python runtimes and thirty-two static registration checks pass. Captured full lookahead engine and Mac CI; no physical optimization, performance campaign or model promotion occurred.
 
+## [2026-10-04 21:52] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Added prospective complete-answer and paired latency acceptance to final performance studies, sharing the full confidence-bound family with decode speed. Nine metric groups and eleven campaign groups pass on both Python runtimes, including fast-decode/slow-latency and truncated-answer failures. Actual pilot/final observations and margins remain pending; no model launch or promotion.
+

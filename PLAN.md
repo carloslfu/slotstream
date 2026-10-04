@@ -1060,6 +1060,13 @@ Native child supervision enforces physical and parent ceilings, real headroom, O
 
 The same source closes full engine and Mac CI for the explicit lookahead preparation at 0435d4871743c1d9a215fd8e3c500c2272eb7c0d. Physical lookahead parity, complete-configuration pilot/final execution, lower-budget performance profiles and promotion remain open. The held-out quality continuation keeps its existing frozen executable and protocol.
 
+
+### Complete-performance latency acceptance, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-performance-latency-acceptance]] adds explicit final margins for paired natural-request latency, first decoded text and native load time. Every final profile requires natural tasks; truncated or undelivered answers preserve execution evidence but cannot pass complete performance. The final sample-count decision must also come from a pilot with complete natural delivery. No latency tolerance or sample count has yet been chosen from measured results.
+
+The exact upper median rank bound shares one simultaneous comparison family with all decode lower bounds. A successful decode gate cannot compensate for failing response or startup latency. Nine statistical groups and eleven campaign groups pass on both Python runtimes, including independently enumerated upper-tail errors and separate slow-response, slow-first-text, slow-startup and truncated-answer regressions. No model or benchmark ran. Actual final margins, physical instrument acceptance and pilot/final performance collection remain open.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

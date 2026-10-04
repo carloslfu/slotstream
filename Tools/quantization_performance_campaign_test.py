@@ -53,12 +53,13 @@ class PerformanceCampaignChecks(unittest.TestCase):
         basis = None
         if scope == 'held-out':
             m.write(root / 'pilot-analysis.json', {'kind': m.KIND, 'scope': 'pilot', 'complete': True,
-                    'all_timings_eligible': True, 'qualification': False})
+                    'all_timings_eligible': True, 'natural_completion_complete': True, 'qualification': False})
             basis = {'analysis': 'pilot-analysis.json', 'rationale': 'Prospective run-level rank precision from the complete pilot.'}
         files = {str(path.relative_to(root)): m.digest(path) for path in root.rglob('*') if path.is_file()}
         protocol = {'schema': 1, 'kind': m.KIND, 'scope': scope, 'driver_sha256': m.digest(m.__file__),
                     'helper_sha256': m.helper_pins(), 'files': files, 'paths': paths, 'profiles': declared,
                     'repetitions': repetitions, 'eligibility': m.ELIGIBILITY, 'sampling_basis': basis,
+                    'latency_max_ratio': {'request': 1.1, 'first_text': 1.1, 'load': 1.1} if scope == 'held-out' else None,
                     'resource': {'maximum_parent_bytes': 256_000_000, 'maximum_campaign_seconds': 3600,
                         'maximum_output_bytes': 100_000_000, 'maximum_research_staging_bytes': 430_000_000_000,
                         'headroom_bytes': 3_000_000_000, 'new_weight_bytes': 0, 'new_raw_logit_bytes': 0, 'paid_compute_usd': 0}}
@@ -126,6 +127,9 @@ class PerformanceCampaignChecks(unittest.TestCase):
                 analysis = m.analyze(path, sha, root, root / 'run')
                 self.assertTrue(analysis['all_timings_eligible']); self.assertFalse(analysis['qualification'])
                 self.assertEqual(analysis['speed_gate_passed'], scope == 'held-out')
+                self.assertEqual(analysis['performance_gate_passed'], scope == 'held-out')
+                self.assertEqual(analysis['latency_gate_passed'], scope == 'held-out')
+                self.assertEqual(analysis['comparison_count'], 8)
                 short = analysis['scenarios']['profile-0/short']['medians']['candidate']
                 self.assertIsNone(short['conservative_generation_tps']); self.assertEqual(short['request_seconds'], 1.1)
                 self.assertEqual(analysis['scenarios']['profile-0/fixed']['median_paired_throughput_ratio'], 25 / 12)
@@ -147,6 +151,37 @@ class PerformanceCampaignChecks(unittest.TestCase):
                 self.assertFalse(analysis['all_timings_eligible']); self.assertFalse(analysis['speed_gate_passed'])
                 self.assertEqual(len(analysis['excluded_cells']), 1); self.assertNotIn('scenarios', analysis)
 
+    def test_fast_decode_cannot_hide_slow_complete_response_first_text_or_startup(self):
+        for metric in ('request', 'first_text', 'load'):
+            with self.subTest(metric=metric), tempfile.TemporaryDirectory() as directory:
+                root, protocol = self.fixture(directory, scope='held-out', repetitions=8)
+                def slow(r, o, i):
+                    if r['artifact'] != 'affine3': return
+                    if metric == 'load': r['load_seconds'] *= 2
+                    elif metric == 'request': r['cases'][1]['request_wall_seconds'] *= 2
+                    else:
+                        r['cases'][1]['text_emissions'][0]['seconds'] = 1.0
+                        r['cases'][1]['stats']['firstTextSeconds'] = .99
+                path, sha, _, _ = self.execute(root, protocol, mutation=slow)
+                result = m.analyze(path, sha, root, root / 'run')
+                self.assertTrue(result['speed_gate_passed']); self.assertFalse(result['latency_gate_passed'])
+                self.assertFalse(result['performance_gate_passed']); self.assertFalse(result['qualification'])
+
+    def test_truncated_natural_response_keeps_evidence_but_cannot_complete_performance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory)
+            def truncate(r, o, i):
+                if i != 2: return
+                old = r['cases'][1]; fixed = copy.deepcopy(r['cases'][0])
+                fixed.update(id=old['id'], work='natural', prefix=old['prefix'], prompt_tokens=old['prompt_tokens'], natural_task_completed=False)
+                fixed['stats'].update(promptTokens=3, reusedPrefixTokens=2)
+                r['cases'][1] = fixed
+            path, sha, _, _ = self.execute(root, protocol, mutation=truncate)
+            result = m.analyze(path, sha, root, root / 'run')
+            self.assertTrue(result['complete']); self.assertTrue(result['all_timings_eligible'])
+            self.assertFalse(result['natural_completion_complete']); self.assertFalse(result['performance_gate_passed'])
+            self.assertEqual(len(result['incomplete_natural_answers']), 1); self.assertNotIn('scenarios', result)
+
     def test_freeze_rejects_identity_envelope_sample_and_work_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol = self.fixture(directory)
@@ -167,6 +202,9 @@ class PerformanceCampaignChecks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'shared work'): m.validate(changed, root)
         with tempfile.TemporaryDirectory() as directory:
             root, protocol = self.fixture(directory, scope='held-out', repetitions=8)
+            for limits in (None, {'request': 1.1}, {'request': 1.26, 'first_text': 1.1, 'load': 1.1}):
+                changed = copy.deepcopy(protocol); changed['latency_max_ratio'] = limits
+                with self.assertRaisesRegex(ValueError, 'latency margins'): m.validate(changed, root)
             protocol['repetitions'] = 3
             with self.assertRaisesRegex(ValueError, 'enough independent'): m.validate(protocol, root)
 

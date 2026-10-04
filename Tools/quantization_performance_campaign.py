@@ -26,7 +26,7 @@ import time
 from context_qualification import quiet_preflight
 from prefill_bench import digest, terminate_child_tree, vm_snapshot
 from quantization_inventory import relative_path, unique_json
-from quantization_performance_metrics import metrics, median_lower_bound, number, speed_gate
+from quantization_performance_metrics import metrics, median_lower_bound, median_upper_bound, number
 from serve_bench import competing_jobs, verified_build
 from thermal_readiness import observe
 
@@ -76,7 +76,7 @@ def integer(value, minimum, maximum):
 def validate(protocol, root):
     root = Path(root).resolve()
     keys = {'schema', 'kind', 'scope', 'driver_sha256', 'helper_sha256', 'files', 'paths', 'profiles',
-            'repetitions', 'eligibility', 'sampling_basis', 'resource'}
+            'repetitions', 'eligibility', 'sampling_basis', 'latency_max_ratio', 'resource'}
     if (set(protocol) != keys or type(protocol['schema']) is not int or protocol['schema'] != 1
             or protocol['kind'] != KIND or protocol['scope'] not in ('pilot', 'held-out')
             or protocol['driver_sha256'] != digest(__file__) or protocol['helper_sha256'] != helper_pins()
@@ -138,19 +138,29 @@ def validate(protocol, root):
                 or any(row['work'] != 'fixed' for row in cases if row['id'] in gates)):
             raise ValueError('speed gates require complete predeclared fixed-work cases')
         natives[profile['id']] = pair
-    comparisons = sum(len(profile['gate_cases']) for profile in profiles)
+    comparisons = comparison_count(protocol, natives)
     if comparisons > 256 or 2 * len(profiles) * protocol['repetitions'] > 256:
         raise ValueError('scenario family or session count exceeds its bounded scope')
     basis = protocol['sampling_basis']
     if protocol['scope'] == 'pilot':
-        if basis is not None: raise ValueError('pilot must not borrow a final sampling verdict')
+        if basis is not None or protocol['latency_max_ratio'] is not None:
+            raise ValueError('pilot must not borrow a final sampling or latency verdict')
     else:
+        limits = protocol['latency_max_ratio']
+        # No default tolerance is inferred from the pilot. The prospective
+        # owner chooses each margin explicitly; this instrument refuses more
+        # than 25% median regression, even if a faster decode might hide it.
+        if (type(limits) is not dict or set(limits) != {'request', 'first_text', 'load'}
+                or any(not number(v) or not 1 <= v <= 1.25 for v in limits.values())
+                or any(not any(case['work'] == 'natural' for case in pair['original']['cases']) for pair in natives.values())):
+            raise ValueError('final performance needs natural answers and explicit bounded latency margins')
         if (type(basis) is not dict or set(basis) != {'analysis', 'rationale'} or basis['analysis'] not in files
                 or type(basis['rationale']) is not str or not 20 <= len(basis['rationale']) <= 4000):
             raise ValueError('freeze the pilot-based sampling rationale before final observations')
         pilot = read(root / basis['analysis'], files[basis['analysis']])
         if (pilot.get('kind') != KIND or pilot.get('scope') != 'pilot' or pilot.get('complete') is not True
                 or pilot.get('all_timings_eligible') is not True or pilot.get('qualification') is not False
+                or pilot.get('natural_completion_complete') is not True
                 or median_lower_bound([1] * protocol['repetitions'], comparisons=comparisons)['lower_bound'] is None):
             raise ValueError('final sampling needs a complete eligible pilot and enough independent runs')
     resource = protocol['resource']
@@ -163,6 +173,13 @@ def validate(protocol, root):
                    for k in ('new_weight_bytes', 'new_raw_logit_bytes', 'paid_compute_usd'))):
         raise ValueError('unpriced performance campaign resources')
     return natives
+
+
+def comparison_count(protocol, natives):
+    # One startup comparison per profile, two latency comparisons per natural
+    # task, plus each declared decode scenario. Freeze the whole family.
+    return sum(len(p['gate_cases']) + 1 + 2 * sum(c['work'] == 'natural' for c in natives[p['id']]['original']['cases'])
+               for p in protocol['profiles'])
 
 
 def cells(protocol):
@@ -222,6 +239,7 @@ def validate_native(receipt, native, protocol_sha, arm):
                 or stats.get('promptTokens') != len(case['prompt_tokens'])
                 or row['request_wall_seconds'] > native['request_seconds']
                 or not integer(len(row['output_tokens']), 1, case['output_tokens'])
+                or stats.get('finishReason') == 'length' and len(row['output_tokens']) != case['output_tokens']
                 or case['work'] == 'fixed' and (len(row['output_tokens']) != case['output_tokens'] or stats.get('finishReason') != 'length')
                 or case['work'] == 'natural' and row.get('natural_task_completed') is not (stats.get('finishReason') == 'stop')):
             raise ValueError('performance work, completion or cache reuse changed')
@@ -428,7 +446,7 @@ def analyze(protocol_path, protocol_sha, root, output):
             or not number(coordinator.get('seconds')) or coordinator['seconds'] > protocol['resource']['maximum_campaign_seconds']
             or len(coordinator['cells']) != len(expected)):
         raise ValueError('complete frozen performance execution required before analysis')
-    measurements = {}; excluded = []; startup = {}
+    measurements = {}; excluded = []; startup = {}; incomplete_answers = []
     for expected_cell, row in zip(expected, coordinator['cells']):
         if any(row[key] != value for key, value in expected_cell.items()): raise ValueError('performance execution order or coverage changed')
         destination = output / f"cell-{row['index']:04d}"
@@ -441,6 +459,10 @@ def analyze(protocol_path, protocol_sha, root, output):
         if not integer(observation.get('peak_model_bytes'), 1, native['memory_bytes']): raise ValueError('supervisor physical ceiling changed')
         profile = next(p for p in protocol['profiles'] if p['id'] == row['profile'])
         measured = validate_native(receipt, native, protocol['files'][profile['arms'][row['arm']]], row['arm'])
+        for answer in receipt['cases']:
+            if answer['work'] == 'natural' and (answer.get('natural_task_completed') is not True
+                    or not number(measured[answer['id']]['first_text_seconds'])):
+                incomplete_answers.append({**expected_cell, 'case': answer['id']})
         reasons = exclusions(receipt, observation)
         if reasons != row['timing_exclusions']: raise ValueError('stored timing eligibility differs from raw observations')
         if reasons: excluded.append({**expected_cell, 'reasons': reasons})
@@ -450,12 +472,13 @@ def analyze(protocol_path, protocol_sha, root, output):
             measurements.setdefault(key, {arm: [] for arm in ARMS})[row['arm']].append(value)
     result = {'schema': 1, 'kind': KIND, 'scope': protocol['scope'], 'complete': True, 'qualification': False,
               'protocol_sha256': protocol_sha, 'all_timings_eligible': not excluded, 'excluded_cells': excluded,
-              'comparison_count': sum(len(p['gate_cases']) for p in protocol['profiles']),
-              'speed_gate_passed': False,
+              'comparison_count': comparison_count(protocol, natives),
+              'natural_completion_complete': not incomplete_answers, 'incomplete_natural_answers': incomplete_answers,
+              'speed_gate_passed': False, 'latency_gate_passed': False, 'performance_gate_passed': False,
               'scope_limit': 'Frozen local configurations only; no other-Mac speed, task quality or model-promotion verdict.'}
     # Keep exclusions and individual raw receipts; do not manufacture a clean
     # median or final verdict from a selected subset of successful timings.
-    if excluded: return result
+    if excluded or incomplete_answers: return result
     result['scenarios'] = {}
     for key, values in measurements.items():
         summaries = {}
@@ -471,10 +494,29 @@ def analyze(protocol_path, protocol_sha, root, output):
             'paired_throughput_ratios': ratios, 'median_paired_throughput_ratio': statistics.median(ratios) if ratios else None}
     gates = {p['id'] + '/' + name: [r['conservative_generation_tps'] for r in measurements[p['id'] + '/' + name]['candidate']]
              for p in protocol['profiles'] for name in p['gate_cases']}
-    result['candidate_speed'] = speed_gate(gates)
-    result['speed_gate_passed'] = protocol['scope'] == 'held-out' and result['candidate_speed']['speed_gate_passed']
+    comparisons = result['comparison_count']
+    result['candidate_speed'] = {name: median_lower_bound(values, comparisons=comparisons) for name, values in gates.items()}
+    result['speed_gate_passed'] = protocol['scope'] == 'held-out' and all(
+        bound['lower_bound'] is not None and bound['lower_bound'] >= 20 for bound in result['candidate_speed'].values())
     result['load_seconds_by_profile'] = {name: {arm: {'runs': values, 'median': statistics.median(values)}
         for arm, values in arms.items()} for name, arms in startup.items()}
+    latency = {}
+    for profile in protocol['profiles']:
+        name = profile['id']; loads = startup[name]
+        latency[name + '/load'] = ('load', [b / a for a, b in zip(loads['original'], loads['candidate'])])
+        for case in natives[name]['original']['cases']:
+            if case['work'] != 'natural': continue
+            values = measurements[name + '/' + case['id']]
+            for label, metric in [('request', 'request_seconds'), ('first_text', 'first_text_seconds')]:
+                ratios = [b[metric] / a[metric] for a, b in zip(values['original'], values['candidate'])]
+                latency[name + '/' + case['id'] + '/' + label] = (label, ratios)
+    result['paired_latency'] = {name: {'metric': label, 'ratios': ratios,
+        **median_upper_bound(ratios, comparisons=comparisons)} for name, (label, ratios) in latency.items()}
+    limits = protocol['latency_max_ratio']; result['latency_max_ratio'] = limits
+    result['latency_gate_passed'] = protocol['scope'] == 'held-out' and all(
+        bound['upper_bound'] is not None and bound['upper_bound'] <= limits[bound['metric']]
+        for bound in result['paired_latency'].values())
+    result['performance_gate_passed'] = result['speed_gate_passed'] and result['latency_gate_passed']
     return result
 
 
