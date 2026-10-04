@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T14:38:19.380561+00:00
+updated: 2026-10-04T15:14:23.585708+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -826,3 +826,9 @@ The final campaign has not produced an answer at this checkpoint. Its finite tas
 [[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] closes the transport planner's unsupported byte-ratio assertion. Three-bit expert tensors use existing independent raw-weight and BF16 metadata objects instead of the combined four-bit transform. Byte-exact synthetic mixed main/draft reconstruction, chunk tails and coverage refusals pass on both Python runtimes. The original full object plan remains byte-identical. Header-only planning covers every byte of the control artifact without scanning payloads or loading a second model during the ongoing held-out campaign.
 
 This preparatory change does not enable an alternate download or model. Complete transport acceptance, standalone conversion, independent public pull and candidate qualification remain required before integration and promotion.
+
+### Watchdog cleanup correction, October 4
+
+[[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] preserves a later CI failure that the earlier local static suites did not expose. The watchdog and caller could both terminate the same child group. A controlled old-runner fixture reproduces that duplicate ownership. The corrected runner serializes termination, retains cleanup errors, independently closes its files and saves an incomplete receipt if draining fails. All ten local unit groups pass on both Python runtimes; full CI acceptance remains pending.
+
+The final task campaign continues with its exact frozen helpers. The correction does not change its sample, outputs, grades, margins or completed jobs, and no failed execution can be converted into a quality result. The separately prepared bounded parallel native authentication path still requires its own complete acceptance and actual-load evidence; it does not change the running binary.

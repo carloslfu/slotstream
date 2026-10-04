@@ -140,6 +140,8 @@ class Session:
         self.row, self.native, self.protocol, self.arm = row, native, protocol, arm
         self.started = time.monotonic(); self.error = None
         self.stop = threading.Event(); self.buffer = bytearray()
+        self.termination_lock = threading.Lock()
+        self.termination_attempted = False; self.termination_error = None
         self.count = self.resets = self.refusals = 0
         self.child = self.thread = self.selector = self.stderr = self.stdout = None
         self.output = Path(output)
@@ -160,7 +162,8 @@ class Session:
             self.thread = threading.Thread(target=self.monitor, daemon=True); self.thread.start()
             row['identity'] = self.receive({'ready'})['identity']
             validate_native(row['identity'], native, protocol['native_pins'], arm, protocol['native_protocol_sha256'])
-        except BaseException:
+        except BaseException as error:
+            self.row['startup_failure'] = type(error).__name__ + ': ' + str(error)
             self.close(); raise
 
     def monitor(self):
@@ -193,7 +196,28 @@ class Session:
                     raise MemoryError('OS memory pressure')
         except BaseException as error:
             self.error = error
-            if self.child.poll() is None: terminate_child_tree(self.child)
+            try: self.terminate()
+            except BaseException:
+                # The caller still observes the original watchdog failure;
+                # close also reports the recorded failure to drain the child.
+                pass
+
+    def terminate(self):
+        # The monitor publishes its failure before draining. A caller woken by
+        # that failure can enter close immediately, so a poll check alone does
+        # not serialize process-group signals or reaping. Exactly one owner
+        # performs the entire termination, including on an error.
+        with self.termination_lock:
+            if self.termination_attempted:
+                if self.termination_error is not None: raise self.termination_error
+                return
+            if self.child is None or self.child.poll() is not None: return
+            self.termination_attempted = True
+            try: terminate_child_tree(self.child)
+            except BaseException as error:
+                self.termination_error = error
+                self.row['cleanup_failure'] = type(error).__name__ + ': ' + str(error)
+                raise
 
     def receive(self, events):
         while True:
@@ -246,16 +270,29 @@ class Session:
         self.row['receipt'] = receipt; self.row['complete'] = True
 
     def close(self):
-        if self.child is not None and self.child.poll() is None: terminate_child_tree(self.child)
         self.stop.set()
-        if self.thread is not None: self.thread.join(timeout=10)
-        if self.selector is not None: self.selector.close()
+        failure = None
+        def cleanup(action):
+            nonlocal failure
+            try: action()
+            except BaseException as error:
+                if failure is None: failure = error
+        cleanup(self.terminate)
+        if self.thread is not None:
+            cleanup(lambda: self.thread.join(timeout=10))
+            if self.thread.is_alive() and failure is None:
+                failure = RuntimeError('native monitor did not drain during cleanup')
+        if self.selector is not None: cleanup(self.selector.close)
         if self.child is not None:
             for stream in (self.child.stdin, self.child.stdout):
-                if stream is not None: stream.close()
+                if stream is not None: cleanup(stream.close)
         for stream in (self.stderr, self.stdout):
-            if stream is not None: stream.close()
-        self.row['after'] = vm_snapshot(); self.row['seconds'] = time.monotonic() - self.started
+            if stream is not None: cleanup(stream.close)
+        cleanup(lambda: self.row.update(after=vm_snapshot()))
+        self.row['seconds'] = time.monotonic() - self.started
+        if failure is not None:
+            self.row.setdefault('cleanup_failure', type(failure).__name__ + ': ' + str(failure))
+            raise failure
 
 
 def validate_inputs(protocol, tasks, root):
@@ -375,8 +412,10 @@ def run_job(protocol_path, protocol_sha, root, output, job_index):
             result['complete'] = True; save()
         except BaseException as error:
             result['failure'] = type(error).__name__ + ': ' + str(error)
-            if session is not None: session.close()
-            save(); raise
+            try:
+                if session is not None: session.close()
+            finally: save()
+            raise
         return result
 
 

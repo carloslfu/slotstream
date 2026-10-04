@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -183,15 +184,71 @@ for line in sys.stdin:
             fixture=root/'child.py'
             fixture.write_text('import time\nprint('+repr(json.dumps({'event':'ready','identity':identity}))+',flush=True)\ntime.sleep(30)\n')
             for mode in ('pressure','deadline'):
-                row={}
-                with patch.object(q,'quiet_preflight',return_value={}),patch.object(q,'vm_snapshot',return_value={'reclaimable_bytes':0 if mode=='pressure' else 50_000_000_000}):
-                    session=q.Session([sys.executable,str(fixture)],root/mode,native,protocol,'original',row,
-                        campaign_deadline=q.time.monotonic()+.1 if mode=='deadline' else None)
+                row={}; available={'reclaimable_bytes':50_000_000_000}
+                with patch.object(q,'quiet_preflight',return_value={}),patch.object(q,'vm_snapshot',side_effect=lambda:dict(available)):
+                    session=q.Session([sys.executable,str(fixture)],root/mode,native,protocol,'original',row)
                     try:
+                        # Trigger after ready, independently of interpreter or
+                        # CI startup speed. Neither event becomes a task score.
+                        if mode=='pressure':available['reclaimable_bytes']=0
+                        else:session.campaign_deadline=q.time.monotonic()-1
                         with self.assertRaises(MemoryError if mode=='pressure' else TimeoutError):session.receive({'never'})
                     finally:session.close()
                 self.assertNotIn('complete',row)
                 with self.assertRaises(ProcessLookupError):os.kill(row['pid'],0)
+
+    def test_monitor_and_caller_share_one_termination_owner(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);protocol,_,native=self.fixture(root)
+            identity=self.native_identity(protocol,native);fixture=root/'child.py'
+            fixture.write_text('import time\nprint('+repr(json.dumps({'event':'ready','identity':identity}))+',flush=True)\ntime.sleep(30)\n')
+            entered=threading.Event();release=threading.Event();caller_entered=threading.Event()
+            available={'reclaimable_bytes':50_000_000_000};calls=[];errors=[]
+            real_terminate=q.terminate_child_tree
+            def held_terminate(child):
+                calls.append(child.pid);entered.set()
+                if not release.wait(5):raise TimeoutError('cleanup fixture did not release')
+                real_terminate(child)
+            def caller():
+                caller_entered.set()
+                try:session.close()
+                except BaseException as error:errors.append(error)
+            with patch.object(q,'quiet_preflight',return_value={}),patch.object(q,'vm_snapshot',side_effect=lambda:dict(available)),patch.object(q,'terminate_child_tree',side_effect=held_terminate):
+                session=q.Session([sys.executable,str(fixture)],root/'native',native,protocol,'original',{})
+                closer=None
+                try:
+                    available['reclaimable_bytes']=0
+                    self.assertTrue(entered.wait(3),'monitor did not enter owned termination')
+                    closer=threading.Thread(target=caller);closer.start()
+                    self.assertTrue(caller_entered.wait(3))
+                    release.set();closer.join(5)
+                    self.assertFalse(closer.is_alive());self.assertEqual(errors,[])
+                    self.assertEqual(calls,[session.child.pid])
+                    self.assertIsInstance(session.error,MemoryError)
+                    self.assertTrue(session.child.stdin.closed);self.assertTrue(session.child.stdout.closed)
+                finally:
+                    release.set()
+                    if closer is not None:closer.join(5)
+                    if session.child.poll() is None:real_terminate(session.child)
+
+    def test_failed_termination_is_retained_without_leaking_pipes_or_retrying_signals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);protocol,_,native=self.fixture(root)
+            identity=self.native_identity(protocol,native);fixture=root/'child.py'
+            fixture.write_text('import time\nprint('+repr(json.dumps({'event':'ready','identity':identity}))+',flush=True)\ntime.sleep(30)\n')
+            with patch.object(q,'quiet_preflight',return_value={}),patch.object(q.Session,'monitor',return_value=None):
+                session=q.Session([sys.executable,str(fixture)],root/'native',native,protocol,'original',{})
+            try:
+                with patch.object(q,'terminate_child_tree',side_effect=PermissionError('fixture refusal')) as terminate:
+                    for _ in range(2):
+                        with self.assertRaises(PermissionError):session.close()
+                    self.assertEqual(terminate.call_count,1)
+                self.assertIn('PermissionError',session.row['cleanup_failure'])
+                self.assertIn('after',session.row)
+                for stream in (session.child.stdin,session.child.stdout,session.stderr,session.stdout):
+                    self.assertTrue(stream.closed)
+            finally:
+                if session.child.poll() is None:q.terminate_child_tree(session.child)
 
 
 if __name__=='__main__':unittest.main()

@@ -888,6 +888,12 @@ The final campaign has not produced an answer at this checkpoint. Its finite tas
 
 This preparatory change does not enable an alternate download or model. Complete transport acceptance, standalone conversion, independent public pull and candidate qualification remain required before integration and promotion.
 
+### Watchdog cleanup correction, October 4
+
+[[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] preserves a later CI failure that the earlier local static suites did not expose. The watchdog and caller could both terminate the same child group. A controlled old-runner fixture reproduces that duplicate ownership. The corrected runner serializes termination, retains cleanup errors, independently closes its files and saves an incomplete receipt if draining fails. All ten local unit groups pass on both Python runtimes; full CI acceptance remains pending.
+
+The final task campaign continues with its exact frozen helpers. The correction does not change its sample, outputs, grades, margins or completed jobs, and no failed execution can be converted into a quality result. The separately prepared bounded parallel native authentication path still requires its own complete acceptance and actual-load evidence; it does not change the running binary.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

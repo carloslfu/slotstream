@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T14:38:17.759729Z
+updated: 2026-10-04T15:14:22.102131Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] — Outcome watchdog cleanup ownership correction
 - [[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] — Lossless three-bit transport planning with unchanged original layout
 - [[sources/runs/2026/10/2026-10-04-prospective-heldout-outcome-protocol]] — Prospective final paired task-quality protocol
 - [[sources/runs/2026/10/2026-10-04-serial-outcome-campaign-acceptance]] — Serial completed-task campaign runner acceptance
@@ -506,9 +507,8 @@ updated: 2026-10-04T14:38:17.759729Z
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-prose-serving-pass]] — Combined nonrepeating prose serving qualification on current V280
 - [[sources/runs/2026/09/2026-09-07-optimization-external-consumer-and-long-preflight]] — Exact-source external Swift consumer pass and preserved long-memory preflight refusals
 - [[sources/runs/2026/09/2026-09-07-optimization-first-combined-pair-and-throughput-reporting]] — First combined paired workload and one-token throughput reporting correction
-- [[sources/runs/2026/09/2026-09-07-optimization-governor-and-mtp-recovery]] — Portable governor acceptance and complete MTP memory/vision recovery
 
 ## More
 
-This folder has 787 files. The 500 most recent are listed above.
+This folder has 788 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
