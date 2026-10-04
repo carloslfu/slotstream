@@ -289,3 +289,6 @@ Implemented source-bound paired performance ownership with complete-work and phy
 ## [2026-10-04 21:52] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Added prospective complete-answer and paired latency acceptance to final performance studies, sharing the full confidence-bound family with decode speed. Nine metric groups and eleven campaign groups pass on both Python runtimes, including fast-decode/slow-latency and truncated-answer failures. Actual pilot/final observations and margins remain pending; no model launch or promotion.
 
+## [2026-10-04 22:17] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared deterministic context-aware Auto matching with exact measured identities, bounded anchored estimates, accepted installed manifests, byte feasibility, preserved overrides and complete-plan fingerprints. Added pure policy fixtures; their compilation and execution remain pending CI. Captured complete native-performance engine and Mac CI. No production profile or candidate is enabled.
+

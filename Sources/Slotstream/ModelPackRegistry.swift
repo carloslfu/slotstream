@@ -21,6 +21,7 @@ public struct ModelPack: Sendable {
     public let checkpointRevision: String
     public let conversionRevision: String
     let deployment: WeightDeployment
+    package let memoryProfile: PackMemoryProfile
     public var files: [PinnedModel.File] { deployment.files }
     public let directoryName: String
     public let layout: String
@@ -53,12 +54,27 @@ public struct ModelPackDecision: Sendable {
     public let pack: ModelPack
     public let reason: String
     public let automatic: Bool
+    public let automaticProfileID: String?
+    public let configurationDigest: String?
+    public let evidence: ModelPackSelectionEvidence
+    public let measuredDecodeLowerBound: Double?
+    public let meetsMeasuredSpeedTarget: Bool
+
+    init(pack: ModelPack, reason: String, automatic: Bool, automaticProfileID: String? = nil,
+         configurationDigest: String? = nil, evidence: ModelPackSelectionEvidence = .unknown, measuredDecodeLowerBound: Double? = nil,
+         meetsMeasuredSpeedTarget: Bool = false) {
+        self.pack = pack; self.reason = reason; self.automatic = automatic
+        self.automaticProfileID = automaticProfileID; self.evidence = evidence
+        self.configurationDigest = configurationDigest
+        self.measuredDecodeLowerBound = measuredDecodeLowerBound
+        self.meetsMeasuredSpeedTarget = meetsMeasuredSpeedTarget
+    }
 }
 
 public enum ModelPackRegistry {
     public static let baseline = ModelPack(id: PinnedModel.name, title: "Original 4-bit",
         checkpointRevision: "de4b8e4d43b917e7706784d8bb445c9af86a3540",
-        conversionRevision: PinnedModel.revision, deployment: .original,
+        conversionRevision: PinnedModel.revision, deployment: .original, memoryProfile: .original,
         directoryName: PinnedModel.dirName, layout: "affine-4-group64-ple-group32",
         compatibility: "slotstream-affine-v1",
         supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md"],
@@ -68,11 +84,56 @@ public enum ModelPackRegistry {
     /// label or component parity cannot grant service or download eligibility.
     public static let supported: [ModelPack] = [baseline]
 
+    /// Populated only after complete outcome, memory, latency and throughput
+    /// review. The matching implementation cannot qualify a research export.
+    package static let automaticProfiles: [AutomaticPackProfile] = []
+
     public static func resolve(_ selection: ModelPackSelection) throws -> ModelPackDecision {
+        try resolve(selection, selectionContext: nil)
+    }
+
+    /// Planning only. The product must still authenticate the selected pack,
+    /// enforce current admission and freeze its decision before activation.
+    public static func resolve(_ selection: ModelPackSelection,
+                               context: ModelPackSelectionContext) throws -> ModelPackDecision {
+        try resolve(selection, selectionContext: context)
+    }
+
+    private static func resolve(_ selection: ModelPackSelection,
+                                selectionContext: ModelPackSelectionContext?) throws -> ModelPackDecision {
         switch selection {
         case .automatic:
-            return ModelPackDecision(pack: baseline,
-                reason: "Uses the original pack while alternative quantizations are being qualified.", automatic: true)
+            if let context = selectionContext,
+               let match = AutomaticPackPolicy.choose(context, profiles: automaticProfiles.filter { profile in
+                    supported.contains { $0.id == profile.packID && $0.qualifiedAutomaticProfiles.contains(profile.id) }
+               },
+                    registeredManifests: Dictionary(uniqueKeysWithValues: supported.map { ($0.id, $0.manifestDigest) })),
+               let pack = supported.first(where: { $0.id == match.profile.packID &&
+                    $0.qualifiedAutomaticProfiles.contains(match.profile.id) }) {
+                let reason: String
+                if match.evidence == .estimated {
+                    reason = "Uses a conservative estimate for this Mac and your memory limit. Speed is not measured on this configuration."
+                } else if match.targetMet {
+                    reason = "Matches a measured configuration within your memory limit and the generation-speed target."
+                } else {
+                    reason = "Matches a measured configuration within your memory limit. The generation-speed target is still unmet."
+                }
+                return ModelPackDecision(pack: pack, reason: reason, automatic: true,
+                    automaticProfileID: match.profile.id, configurationDigest: match.candidate.configurationDigest,
+                    evidence: match.evidence,
+                    measuredDecodeLowerBound: match.decodeLowerBound, meetsMeasuredSpeedTarget: match.targetMet)
+            }
+            let retained = selectionContext.flatMap { context in
+                supported.first { $0.id == context.incumbentPackID &&
+                    context.acceptedInstalledManifests[$0.id] == $0.manifestDigest }
+            }
+            return ModelPackDecision(pack: retained ?? baseline,
+                reason: selectionContext == nil
+                    ? "Uses the original pack while alternative quantizations are being qualified."
+                    : retained == nil
+                        ? "Uses the supported original pack; no qualified installed profile matches this configuration."
+                        : "Keeps your installed pack; no qualified profile matches this configuration.",
+                automatic: true)
         case .pack(let id):
             guard let pack = supported.first(where: { $0.id == id }) else {
                 throw SelectionError()

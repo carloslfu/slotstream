@@ -1067,6 +1067,16 @@ The same source closes full engine and Mac CI for the explicit lookahead prepara
 
 The exact upper median rank bound shares one simultaneous comparison family with all decode lower bounds. A successful decode gate cannot compensate for failing response or startup latency. Nine statistical groups and eleven campaign groups pass on both Python runtimes, including independently enumerated upper-tail errors and separate slow-response, slow-first-text, slow-startup and truncated-answer regressions. No model or benchmark ran. Actual final margins, physical instrument acceptance and pilot/final performance collection remain open.
 
+### Deterministic Auto profile matching preparation, October 4
+
+The engine now has a context-aware, pure profile matcher. Compiled profiles bind a supported manifest, completed-task quality reference, exact execution policy, requested context/features and a feasible proposed resource plan. Installed eligibility is an explicit accepted-manifest set; selection cannot download, authenticate or allocate a model. Explicit overrides retain their independent behavior, and unmatched Auto preserves an accepted supported incumbent before falling back to the original pack. The live governor never calls this policy.
+
+A measured result additionally requires the exact chip, model, physical RAM, OS, local storage volume and configuration fingerprint. Simulated machines or plans cannot acquire measured evidence. Estimates require explicit hardware, RAM and target ranges, a rationale and matching measured anchors; they carry no measured speed bound. The selector first prefers profiles meeting the target, then measured evidence, quality rank, measured conservative speed, an equivalent incumbent and a stable identity tie-break. Missing, malformed or mismatched evidence cannot qualify itself. All byte feasibility checks retain the saved ceiling and current availability separately.
+
+The proposed plan fingerprint includes the registered pack's own resource contract, complete allocation geometry, context/features, lookahead and runtime allocation choices. A different pack's resource arithmetic is refused. CLI inspection exposes the evidence category and optional exact profile/configuration without certifying a speed target. Pure catalogue fixtures cover hardware and evidence mismatches, memory boundaries, quality/speed ordering, deterministic ties, retained overrides, invalid estimates and public compatibility. Compilation and execution of these new fixtures remain pending CI. The production profile list remains empty, and candidate-aware app selection/activation remains open until a real artifact qualifies.
+
+[[sources/runs/2026/10/2026-10-04-complete-performance-native-ci]] preserves complete successful engine and Mac CI for the native complete-performance instrument. This verifies compilation and integration only. Physical lookahead and complete-performance campaigns still wait behind the unchanged held-out quality continuation; no pack or speed promise is promoted.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

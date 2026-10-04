@@ -514,6 +514,14 @@ the product selector; an explicit supported pack ID overrides it. Omitting
 with a custom model directory requires that directory to pass the complete
 pinned verification; it is not silently repaired into another representation.
 
+Selection metadata separates an exact measured configuration, a conservative
+estimate and unknown performance. A matching plan must preserve the requested
+context and features, fit current headroom and the saved ceiling, and refer to
+an accepted installed pack. This matching policy does not download weights or
+replace load-time verification. The reviewed profile registry remains empty;
+the original pack is still the supported fallback and no speed target is
+certified. Manual choices remain independent of the recommendation.
+
 The model loads with the first request and verifies the pinned files. Within
 that app session, unchanged files on APFS can reuse the successful verification
 after unloading. File identity, size and modification/change timestamps are

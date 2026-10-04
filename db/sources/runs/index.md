@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T21:52:36.546040Z
+updated: 2026-10-04T22:17:03.658275Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-complete-performance-native-ci]] — Complete successful engine and Mac CI for the frozen complete-configuration native performance instrument
 - [[sources/runs/2026/10/2026-10-04-complete-performance-latency-acceptance]] — Require complete natural answers and prospective response/startup latency margins alongside simultaneous decode speed acceptance
 - [[sources/runs/2026/10/2026-10-04-complete-performance-campaign-preparation]] — Prepare frozen complete-configuration paired execution and preserve successful lookahead engine and Mac CI
 - [[sources/runs/2026/10/2026-10-04-complete-configuration-performance-preparation]] — Prepare full Engine performance configurations and conservative run-level timing analysis; preserve complete startup and continuation CI acceptance
@@ -506,9 +507,8 @@ updated: 2026-10-04T21:52:36.546040Z
 - [[sources/runs/2026/09/2026-09-07-optimization-current-read-scope-gates-preparation]] — Current bounded read-scope prerequisites and original long-prefill study prepared
 - [[sources/runs/2026/09/2026-09-07-optimization-original-mtp-image-gates-preparation]] — Current MTP and image prerequisites prepared for original serving gates
 - [[sources/runs/2026/09/2026-09-07-optimization-compact-cache-component-and-serving-qualification]] — Compact BF16 cache qualifies; ring variants fail original benefit threshold
-- [[sources/runs/2026/09/2026-09-07-optimization-current-full-cache-component-preparation]] — Current full-cache component keeps the original fixed study
 
 ## More
 
-This folder has 809 files. The 500 most recent are listed above.
+This folder has 810 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

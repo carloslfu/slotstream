@@ -19,7 +19,12 @@ struct ModelPackCommand: ParsableCommand {
                  "support_evidence": pack.supportEvidence]
             }
             let data = try JSONSerialization.data(withJSONObject: ["schema": 1, "packs": rows,
-                "selected": decision.pack.id, "automatic": decision.automatic, "reason": decision.reason],
+                "selected": decision.pack.id, "automatic": decision.automatic, "reason": decision.reason,
+                "automatic_profile": decision.automaticProfileID as Any? ?? NSNull(),
+                "configuration_sha256": decision.configurationDigest as Any? ?? NSNull(),
+                "selection_evidence": decision.evidence.rawValue,
+                "measured_decode_lower_bound": decision.measuredDecodeLowerBound as Any? ?? NSNull(),
+                "meets_measured_speed_target": decision.meetsMeasuredSpeedTarget],
                 options: [.prettyPrinted, .sortedKeys])
             print(String(decoding: data, as: UTF8.self))
         } else {
