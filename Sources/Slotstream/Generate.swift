@@ -90,6 +90,9 @@ public struct GenStats: Codable {
     public var requestSeconds = 0.0
     public var queueSeconds = 0.0
     public var imageEncodeSeconds = 0.0
+    /// Applied maximum on Generator entry; individual passes can be smaller
+    /// under the context-dependent schedule. Nil in older saved statistics.
+    public var prefillChunkLimit: Int?
     /// Configured vision query bound for this image request, not a kernel count.
     public var visionQueryTile = 0
     /// Counted after each query tile has actually evaluated, across tower blocks.
@@ -548,6 +551,7 @@ public final class Generator {
         sampler.deviceDraw = model.optimizations.deviceSamplerDraw
         if let s = params.seed { rngState = s == 0 ? 0xDEAD_BEEF : s }
         var stats = GenStats()
+        stats.prefillChunkLimit = prefillChunk
         // The speculative loop borrows stats as inout. Its continuation
         // callback must record cancellation outside that exclusive borrow.
         var callerCancellation: RequestFailure?

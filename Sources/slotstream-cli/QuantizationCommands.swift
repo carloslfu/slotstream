@@ -9,8 +9,10 @@ struct QuantizationPerformanceRun: ParsableCommand {
     @Option(name: .long) var protocolFile: String
     @Option(name: .long) var protocolSha256: String
     @Option(name: .long) var baseline: String
-    @Option(name: .long) var control: String?
-    @Option(name: .long) var table: String?
+    @Option(name: .long, help: "Candidate control directory, or the standalone directory selected by a frozen V2 protocol")
+    var control: String?
+    @Option(name: .long, help: "Rotary table for a composite candidate; omit for a standalone pack")
+    var table: String?
     @Option(name: .long) var output: String
     @Flag(name: .long) var planOnly = false
     func run() throws {

@@ -34,22 +34,32 @@ private struct QuantizationPerformanceProtocol: Decodable {
     let seed: Int
     let tokenizerSha256: String
     let cases: [Case]
+    /// V2 explicitly identifies physical deployment and the Desktop prefill
+    /// policy. Missing fields retain the original V1 composite/engine contract.
+    let deployment: String?
+    let standaloneManifestSha256: String?
+    let shortPromptTokens: Int?
+    let shortPromptChunk: Int?
 
     static func decode(_ data: Data) throws -> Self {
-        let keys: Set<String> = ["schema", "kind", "scope", "artifact", "memory_bytes", "memory_mode",
+        var keys: Set<String> = ["schema", "kind", "scope", "artifact", "memory_bytes", "memory_mode",
             "context_limit", "draft_mode", "draft_depth", "draft_placement", "lookahead",
             "original_correction_sha256", "prefix_cache", "live_memory", "gpu_keep_alive",
             "maximum_seconds", "request_seconds", "seed", "tokenizer_sha256", "cases"]
         let caseKeys: Set<String> = ["id", "work", "prompt_tokens", "output_tokens", "prefix", "minimum_reused_tokens"]
         guard !data.isEmpty, data.count <= 4_000_000,
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              Set(object.keys) == keys, let rows = object["cases"] as? [[String: Any]],
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ModelError("performance protocol has invalid or oversized input")
+        }
+        let extended = object["kind"] as? String == "same-model-engine-performance-v2"
+        if extended { keys.formUnion(["deployment", "standalone_manifest_sha256", "short_prompt_tokens", "short_prompt_chunk"]) }
+        guard Set(object.keys) == keys, let rows = object["cases"] as? [[String: Any]],
               rows.allSatisfy({ Set($0.keys) == caseKeys }) else {
             throw ModelError("performance protocol has unknown, missing or oversized input fields")
         }
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
-        guard value.schema == 1, value.kind == "same-model-engine-performance-v1",
+        guard value.schema == (extended ? 2 : 1), value.kind == (extended ? "same-model-engine-performance-v2" : "same-model-engine-performance-v1"),
               ["pilot", "held-out"].contains(value.scope), ["original", "affine3"].contains(value.artifact),
               (8_100_000_000...24_000_000_000).contains(value.memoryBytes), value.memoryBytes.isMultiple(of: 100_000_000),
               ["ceiling", "target"].contains(value.memoryMode), [8192, 32768].contains(value.contextLimit),
@@ -66,6 +76,18 @@ private struct QuantizationPerformanceProtocol: Decodable {
               value.tokenizerSha256 == PinnedModel.files.first(where: { $0.path == "tokenizer.json" })?.sha256,
               (1...16).contains(value.cases.count), Set(value.cases.map(\.id)).count == value.cases.count else {
             throw ModelError("performance configuration exceeds its explicit artifact, feature or resource scope")
+        }
+        if extended {
+            guard let deployment = value.deployment,
+                  (value.artifact == "original" ? ["original"] : ["composite", "standalone"]).contains(deployment),
+                  let shortTokens = value.shortPromptTokens, let shortChunk = value.shortPromptChunk,
+                  (shortTokens == 0 && shortChunk == 0) || (shortTokens == 1536 && shortChunk == 512),
+                  (deployment == "standalone") == (value.standaloneManifestSha256 != nil),
+                  value.standaloneManifestSha256.map({ hash in
+                      hash.utf8.count == 64 && hash.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+                  }) ?? true else {
+                throw ModelError("performance deployment or short-prompt policy is outside its explicit scope")
+            }
         }
         for (index, item) in value.cases.enumerated() {
             guard (1...64).contains(item.id.utf8.count), item.id.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }),
@@ -88,6 +110,19 @@ private struct QuantizationPerformanceProtocol: Decodable {
     }
     var placement: Planner.MTPExpertPlacement {
         draftPlacement == "automatic" ? .automatic : (draftPlacement == "streamed" ? .streamed : .resident)
+    }
+    var standalone: Bool { deployment == "standalone" }
+    var desktopPrefill: Bool { shortPromptTokens == 1536 && shortPromptChunk == 512 }
+
+    func validateLoader(hasControl: Bool, hasTable: Bool) throws {
+        guard artifact == "original" ? (!hasControl && !hasTable)
+            : (hasControl && (standalone ? !hasTable : hasTable)) else {
+            throw ModelError("performance artifact and physical loader differ")
+        }
+    }
+
+    func prefillChunk(planMaximum: Int, promptTokens: Int) -> Int {
+        desktopPrefill && promptTokens < 1536 ? min(512, planMaximum) : planMaximum
     }
 }
 
@@ -148,6 +183,56 @@ extension Diagnostics {
         candidate["lookahead"] = "automatic"
         do { _ = try parse(candidate); c.expect("candidate cannot borrow original automatic lookahead", false) }
         catch { c.expect("candidate cannot borrow original automatic lookahead", true) }
+        var desktop = original
+        desktop["schema"] = 2; desktop["kind"] = "same-model-engine-performance-v2"
+        desktop["deployment"] = "original"; desktop["standalone_manifest_sha256"] = NSNull()
+        desktop["short_prompt_tokens"] = 1536; desktop["short_prompt_chunk"] = 512
+        let desktopOriginal = try parse(desktop)
+        try desktopOriginal.validateLoader(hasControl: false, hasTable: false)
+        c.equal("Desktop short requests use their explicit prefill policy",
+            desktopOriginal.prefillChunk(planMaximum: 3072, promptTokens: 1535), 512)
+        c.equal("the Desktop boundary returns to the priced full-context policy",
+            desktopOriginal.prefillChunk(planMaximum: 3072, promptTokens: 1536), 3072)
+        c.equal("Desktop never increases a smaller admitted chunk",
+            desktopOriginal.prefillChunk(planMaximum: 256, promptTokens: 20), 256)
+        c.equal("legacy protocols preserve the Engine policy",
+            try parse(original).prefillChunk(planMaximum: 3072, promptTokens: 20), 3072)
+        var standalone = desktop
+        standalone["artifact"] = "affine3"; standalone["deployment"] = "standalone"
+        standalone["standalone_manifest_sha256"] = String(repeating: "1", count: 64)
+        standalone["lookahead"] = "uncorrected"
+        let standaloneCandidate = try parse(standalone)
+        try standaloneCandidate.validateLoader(hasControl: true, hasTable: false)
+        c.expect("standalone protocol parsing cannot admit an artifact for model loading",
+            standaloneCandidate.standalone && standaloneCandidate.resources == .affine3GroupedLookaheadControl)
+        for (profile, controls): (QuantizationPerformanceProtocol, [(Bool, Bool)]) in [
+            (desktopOriginal, [(true, true), (true, false), (false, true)]),
+            (standaloneCandidate, [(false, false), (true, true), (false, true)]),
+            (try parse(original.merging(["artifact": "affine3", "lookahead": "off"]) { _, new in new }),
+                [(false, false), (true, false), (false, true)])] {
+            for (hasControl, hasTable) in controls {
+                do { try profile.validateLoader(hasControl: hasControl, hasTable: hasTable)
+                    c.expect("physical deployment cannot substitute another loader", false)
+                } catch { c.expect("physical deployment cannot substitute another loader", true) }
+            }
+        }
+        for (key, value): (String, Any) in [("deployment", "composite"), ("standalone_manifest_sha256", "unfrozen"),
+            ("standalone_manifest_sha256", NSNull()), ("short_prompt_tokens", 1535), ("short_prompt_chunk", 256),
+            ("short_prompt_tokens", true), ("schema", 1)] {
+            var changed = standalone; changed[key] = value
+            do { _ = try parse(changed); c.expect("V2 deployment and prefill contract is exact/\(key)", false) }
+            catch { c.expect("V2 deployment and prefill contract is exact/\(key)", true) }
+        }
+        desktop["short_prompt_tokens"] = 0; desktop["short_prompt_chunk"] = 0
+        c.equal("V2 may explicitly retain the stock Engine policy",
+            try parse(desktop).prefillChunk(planMaximum: 3072, promptTokens: 20), 3072)
+        var stats = GenStats(); stats.prefillChunkLimit = 512
+        c.equal("applied request prefill survives stats serialization",
+            try JSONDecoder().decode(GenStats.self, from: JSONEncoder().encode(stats)).prefillChunkLimit, 512)
+        var olderStats = try JSONSerialization.jsonObject(with: JSONEncoder().encode(stats)) as! [String: Any]
+        olderStats.removeValue(forKey: "prefillChunkLimit")
+        c.expect("older statistics remain decodable without the new observation",
+            try JSONDecoder().decode(GenStats.self, from: JSONSerialization.data(withJSONObject: olderStats)).prefillChunkLimit == nil)
         return c.report()
     }
 
@@ -155,14 +240,21 @@ extension Diagnostics {
     /// controls eligibility, repetitions, aggregation and qualification.
     public static func quantizationPerformance(protocolFile: URL, protocolSHA256: String,
         baseline: URL, control: URL?, table: URL?, output: URL, planOnly: Bool = false) async throws -> Data {
-        guard (control == nil) == (table == nil), !FileManager.default.fileExists(atPath: output.path),
+        guard !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
               }) else { throw ModelError("performance evaluation requires explicit artifacts, new output and no ambient overrides") }
         let raw = try AffineExpertControl.bounded(protocolFile, maximum: 4_000_000, sha256: protocolSHA256)
         let specification = try QuantizationPerformanceProtocol.decode(raw)
-        guard (specification.artifact == "affine3") == (control != nil) else { throw ModelError("performance artifact and loader differ") }
-        let artifact = try control.map { try AffineExpertControl.identify(control: $0) }
+        try specification.validateLoader(hasControl: control != nil, hasTable: table != nil)
+        let standalone: AffineStandalonePack?
+        let artifact: AffineExpertControl.Artifact?
+        if specification.standalone {
+            standalone = try AffineStandalonePack(directory: control!, manifestSHA256: specification.standaloneManifestSha256!)
+            artifact = .minmax
+        } else {
+            standalone = nil; artifact = try control.map { try AffineExpertControl.identify(control: $0) }
+        }
         guard artifact == nil || artifact == AffineExpertControl.Artifact.minmax else { throw ModelError("performance candidate is not the admitted minmax artifact") }
         let located = specification.lookahead == "automatic"
             ? RouterTapCorrection.shipped(modelDirectory: baseline, env: [:]).located : nil
@@ -193,13 +285,20 @@ extension Diagnostics {
             attributes: [.posixPermissions: 0o700])
         try raw.write(to: output.appendingPathComponent("protocol.json"), options: .withoutOverwriting)
         let started = ProcessInfo.processInfo.systemUptime
-        var record: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
+        var record: [String: Any] = ["schema": specification.schema, "complete": false, "qualification": false,
             "protocol_sha256": protocolSHA256, "scope": specification.scope, "artifact": specification.artifact,
             "plan_only": planOnly, "loaded": false, "plan": plan.json(), "resource_identity": specification.resources.identity,
             "memory_ceiling_bytes": specification.memoryBytes, "required_preflight_bytes": specification.memoryBytes + 3_000_000_000,
             "baseline_revision": PinnedModel.revision, "cases": []]
         record["original_correction_sha256"] = located?.sha256
-        record["artifact_manifest_sha256"] = artifact?.manifestSHA256 ?? ModelPackRegistry.baseline.manifestDigest
+        record["artifact_manifest_sha256"] = standalone?.manifestSHA256 ?? artifact?.manifestSHA256 ?? ModelPackRegistry.baseline.manifestDigest
+        if specification.schema == 2 {
+            record["deployment"] = specification.deployment
+            record["standalone_manifest_sha256"] = specification.standaloneManifestSha256.map { $0 as Any } ?? NSNull()
+            record["numerical_manifest_sha256"] = artifact?.manifestSHA256 ?? ModelPackRegistry.baseline.manifestDigest
+            record["short_prompt_tokens"] = specification.shortPromptTokens
+            record["short_prompt_chunk"] = specification.shortPromptChunk
+        }
         func json<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) }
         func save() throws -> Data {
             record["seconds"] = ProcessInfo.processInfo.systemUptime - started
@@ -249,7 +348,11 @@ extension Diagnostics {
             record["load_conditions"] = try json(ProcessMemory.operatingConditions())
             let loadStarted = ProcessInfo.processInfo.systemUptime
             let loaded: Engine
-            if let control, let table {
+            if let standalone {
+                loaded = try await Engine(modelDir: standalone.directory,
+                    affineSource: AffineEngineSource(standalone: standalone,
+                        decodeLookahead: specification.lookahead == "uncorrected"), plan: plan)
+            } else if let control, let table {
                 loaded = try await Engine(modelDir: baseline,
                     affineSource: AffineEngineSource(control: control, coefficients: table,
                         piecewiseAllocation: true, groupedExperts: true, decodeLookahead: specification.lookahead == "uncorrected"), plan: plan)
@@ -261,6 +364,9 @@ extension Diagnostics {
             loaded.generator.draftDepth = max(1, specification.draftDepth)
             loaded.generator.footprintSampling = true
             loaded.prefixCache.enabled = specification.prefixCache
+            if specification.desktopPrefill {
+                try loaded.configureShortPromptPrefill(maxPromptTokens: 1536, chunk: 512)
+            }
             guard (loaded.model.mtpHead != nil) == plan.mtpEnabled,
                   (loaded.model.mtpHead?.expertStream != nil) == plan.mtpStreamedExperts,
                   (loaded.model.lookahead?.prefetch != nil) == plan.decodeLookahead,
@@ -310,6 +416,13 @@ extension Diagnostics {
                 if let failure { throw failure }
                 if let error = result.stats.requestFailure { throw error }
                 if let error = result.stats.runtimeError { throw ModelError(error) }
+                if specification.schema == 2 {
+                    guard let maximum = planBefore["prefill_chunk"] as? Int,
+                          result.stats.prefillChunkLimit == specification.prefillChunk(planMaximum: maximum,
+                            promptTokens: item.promptTokens.count) else {
+                        throw ModelError("performance request prefill differs from its frozen policy and observed starting plan")
+                    }
+                }
                 guard !result.ids.isEmpty, result.stats.decodeTokens == result.ids.count,
                       result.stats.interTokenSeconds.count == max(0, result.ids.count - 1),
                       item.work != "fixed" || (result.ids.count == item.outputTokens && result.stats.finishReason == "length"),

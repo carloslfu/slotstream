@@ -17,26 +17,36 @@ VM = {'reclaimable_bytes': 20_000_000_000, 'reclaimableBytes': 20_000_000_000, '
 
 
 class PerformanceCampaignChecks(unittest.TestCase):
-    def fixture(self, root, *, scope='pilot', repetitions=3, profiles=1):
+    def fixture(self, root, *, scope='pilot', repetitions=3, profiles=1, version=1, deployment='composite'):
         root = Path(root).resolve()
+        standalone = version == 2 and deployment == 'standalone'
         paths = {'binary': 'native/slotstream', 'metallib': 'native/mlx.metallib',
                  'build_identity': 'native/build-identity.json', 'source_archive': 'native/build-source.tar.gz',
-                 'control': 'control', 'rotary': 'angles.bin', 'baseline': str(root / 'original')}
+                 'control': 'control', 'rotary': 'control/angles-f32le.bin' if standalone else 'angles.bin',
+                 'baseline': str(root / 'original')}
+        numerical_manifest = 'control/expert-control-manifest.json' if standalone else 'control/manifest.json'
         blobs = {'native/slotstream': b'unexecuted binary fixture', 'native/mlx.metallib': b'Metal fixture',
-                 'native/build-source.tar.gz': b'source fixture', 'control/manifest.json': b'{}', 'angles.bin': b'angles'}
+                 'native/build-source.tar.gz': b'source fixture', numerical_manifest: b'{}', paths['rotary']: b'angles'}
         for name, raw in blobs.items():
             path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
         identity = {key: m.digest(root / name) for key, name in
                     [('binary_sha256', paths['binary']), ('metallib_sha256', paths['metallib']), ('source_archive_sha256', paths['source_archive'])]}
         m.write(root / paths['build_identity'], identity)
-        pins = {**m.MANIFESTS, 'candidate': m.digest(root / 'control/manifest.json')}
+        pins = {**m.MANIFESTS, 'candidate': m.digest(root / numerical_manifest)}
         mocks = [patch.object(m, 'MANIFESTS', pins), patch.object(m, 'ROTARY', m.digest(root / paths['rotary']))]
         for mock in mocks: mock.start(); self.addCleanup(mock.stop)
+        standalone_sha = None
+        if standalone:
+            manifest = root / 'control/standalone-manifest.json'
+            m.write(manifest, {'schema': 1, 'kind': 'standalone-research-bundle-v1', 'complete': True,
+                              'qualification': False, 'identity': {'expert_control_manifest_sha256': m.MANIFESTS['candidate'],
+                              'rotary_sha256': m.ROTARY, 'parent_revision': m.REVISION}})
+            standalone_sha = m.digest(manifest)
         cases = [{'id': 'fixed', 'work': 'fixed', 'prompt_tokens': [12, 13], 'output_tokens': 128,
                   'prefix': 'reset', 'minimum_reused_tokens': 0},
                  {'id': 'short', 'work': 'natural', 'prompt_tokens': [12, 13, 14], 'output_tokens': 128,
                   'prefix': 'retain', 'minimum_reused_tokens': 2}]
-        native = {'schema': 1, 'kind': 'same-model-engine-performance-v1', 'scope': scope, 'artifact': 'original',
+        native = {'schema': version, 'kind': 'same-model-engine-performance-v' + str(version), 'scope': scope, 'artifact': 'original',
                   'memory_bytes': 14_000_000_000, 'memory_mode': 'ceiling', 'context_limit': 32768,
                   'draft_mode': 'on', 'draft_depth': 2, 'draft_placement': 'streamed', 'lookahead': 'off',
                   'original_correction_sha256': None, 'prefix_cache': True, 'live_memory': 'automatic',
@@ -48,21 +58,28 @@ class PerformanceCampaignChecks(unittest.TestCase):
             for arm in m.ARMS:
                 path = name + '-' + arm + '.json'; arms[arm] = path
                 n = {**native, 'artifact': 'original' if arm == 'original' else 'affine3'}
+                if version == 2:
+                    n.update(deployment='original' if arm == 'original' else deployment,
+                             standalone_manifest_sha256=standalone_sha if arm == 'candidate' else None,
+                             short_prompt_tokens=1536, short_prompt_chunk=512)
                 m.write(root / path, n)
             declared.append({'id': name, 'arms': arms, 'gate_cases': ['fixed']})
         basis = None
         if scope == 'held-out':
-            m.write(root / 'pilot-analysis.json', {'kind': m.KIND, 'scope': 'pilot', 'complete': True,
-                    'all_timings_eligible': True, 'natural_completion_complete': True, 'qualification': False})
+            pilot = {'schema': version, 'kind': m.KIND_V2 if version == 2 else m.KIND, 'scope': 'pilot', 'complete': True,
+                    'all_timings_eligible': True, 'natural_completion_complete': True, 'qualification': False}
+            if version == 2: pilot['candidate_deployment'] = deployment
+            m.write(root / 'pilot-analysis.json', pilot)
             basis = {'analysis': 'pilot-analysis.json', 'rationale': 'Prospective run-level rank precision from the complete pilot.'}
         files = {str(path.relative_to(root)): m.digest(path) for path in root.rglob('*') if path.is_file()}
-        protocol = {'schema': 1, 'kind': m.KIND, 'scope': scope, 'driver_sha256': m.digest(m.__file__),
+        protocol = {'schema': version, 'kind': m.KIND_V2 if version == 2 else m.KIND, 'scope': scope, 'driver_sha256': m.digest(m.__file__),
                     'helper_sha256': m.helper_pins(), 'files': files, 'paths': paths, 'profiles': declared,
                     'repetitions': repetitions, 'eligibility': m.ELIGIBILITY, 'sampling_basis': basis,
                     'latency_max_ratio': {'request': 1.1, 'first_text': 1.1, 'load': 1.1} if scope == 'held-out' else None,
                     'resource': {'maximum_parent_bytes': 256_000_000, 'maximum_campaign_seconds': 3600,
                         'maximum_output_bytes': 100_000_000, 'maximum_research_staging_bytes': 430_000_000_000,
                         'headroom_bytes': 3_000_000_000, 'new_weight_bytes': 0, 'new_raw_logit_bytes': 0, 'paid_compute_usd': 0}}
+        if version == 2: protocol['candidate_deployment'] = deployment
         m.validate(protocol, root)
         return root, protocol
 
@@ -72,6 +89,7 @@ class PerformanceCampaignChecks(unittest.TestCase):
                 'max_context_tokens': 32768, 'vision': False, 'runtime_prefix_cache_enabled': True,
                 'memory_ledger': {'expected_peak_bytes': 13_999_999_999}, 'mtp': True, 'mtp_streamed_experts': True,
                 'decode_lookahead': False, 'pool_slots': 1000, 'prefill_chunk': 512, 'prefix_cache_max_tokens': 8192}
+        if native['schema'] == 2 and arm == 'original': plan['prefill_chunk'] = 3072
         rows = []
         for case in native['cases']:
             count = case['output_tokens'] if case['work'] == 'fixed' else 1
@@ -83,18 +101,27 @@ class PerformanceCampaignChecks(unittest.TestCase):
                      'sampledFootprint': {'samples': 2, 'peakBytes': 9_000_000_000}, 'lifetimePhysicalFootprintPeakBytes': 9_000_000_000,
                      'peakMemoryGB': 9, 'generatorSystemBefore': m.NORMAL, 'generatorSystemAfter': m.NORMAL,
                      'generatorVMBefore': dict(VM), 'generatorVMAfter': dict(VM)}
+            if native['schema'] == 2:
+                stats['prefillChunkLimit'] = (min(512, plan['prefill_chunk'])
+                    if native['short_prompt_tokens'] == 1536 and len(case['prompt_tokens']) < 1536 else plan['prefill_chunk'])
             rows.append({'id': case['id'], 'work': case['work'], 'prefix': case['prefix'], 'prompt_tokens': case['prompt_tokens'],
                          'output_tokens': [15] * count, 'stats': stats, 'request_wall_seconds': decode + 1,
                          'visible_text_retokenized_tokens': count, 'text_emissions': [{'seconds': .56, 'utf8_bytes': count}],
                          'natural_task_completed': case['work'] == 'natural', 'operating_conditions': [m.NORMAL],
                          'vm_before': dict(VM), 'vm_after': dict(VM), 'plan_before': copy.deepcopy(plan), 'plan_after': copy.deepcopy(plan)})
-        return {'schema': 1, 'complete': True, 'loaded': True, 'plan_only': False, 'qualification': False,
+        receipt = {'schema': native['schema'], 'complete': True, 'loaded': True, 'plan_only': False, 'qualification': False,
                 'protocol_sha256': sha, 'scope': native['scope'], 'artifact': native['artifact'], 'baseline_revision': m.REVISION,
                 'resource_identity': resource, 'artifact_manifest_sha256': m.MANIFESTS[arm],
                 'memory_ceiling_bytes': native['memory_bytes'], 'required_preflight_bytes': native['memory_bytes'] + 3_000_000_000,
                 'preflight': dict(VM),
                 'peak_process_bytes': 9_000_000_000, 'load_seconds': 3, 'seconds': 30, 'original_correction_sha256': None,
                 'plan': plan, 'cases': rows, 'load_conditions': m.NORMAL}
+        if native['schema'] == 2:
+            receipt.update({key: native[key] for key in
+                            ('deployment', 'standalone_manifest_sha256', 'short_prompt_tokens', 'short_prompt_chunk')})
+            receipt['numerical_manifest_sha256'] = m.MANIFESTS[arm]
+            if native['deployment'] == 'standalone': receipt['artifact_manifest_sha256'] = native['standalone_manifest_sha256']
+        return receipt
 
     def observation(self):
         return {'complete': True, 'exit_code': 0, 'samples': 10, 'peak_model_bytes': 9_000_000_000,
@@ -105,6 +132,8 @@ class PerformanceCampaignChecks(unittest.TestCase):
         def cell(command, destination, native, protocol, *args):
             destination.mkdir(); (destination / 'native').mkdir()
             arm = 'candidate' if '--control' in command else 'original'
+            self.assertEqual('--table' in command, arm == 'candidate' and native.get('deployment') != 'standalone')
+            if arm == 'candidate': self.assertEqual(command[command.index('--control') + 1], str(root / protocol['paths']['control']))
             trace.append(arm)
             native_sha = command[command.index('--protocol-sha256') + 1]
             receipt, observation = self.receipt(native, native_sha, arm), self.observation()
@@ -116,6 +145,72 @@ class PerformanceCampaignChecks(unittest.TestCase):
         with patch.object(m, 'run_cell', side_effect=cell), patch.object(m, 'resource_check'), patch.object(m, 'allocated', return_value=0):
             result = m.run(path, sha, root, root / 'run')
         return path, sha, result, trace
+
+    def test_v2_keeps_physical_deployment_numerical_provenance_and_desktop_policy(self):
+        for deployment in ('composite', 'standalone'):
+            for scope in ('pilot', 'held-out'):
+                with self.subTest(deployment=deployment, scope=scope), tempfile.TemporaryDirectory() as directory:
+                    root, protocol = self.fixture(directory, version=2, deployment=deployment,
+                                                  scope=scope, repetitions=8 if scope == 'held-out' else 3)
+                    path, sha, record, trace = self.execute(root, protocol)
+                    analysis = m.analyze(path, sha, root, root / 'run')
+                    self.assertEqual(record['kind'], m.KIND_V2); self.assertEqual(analysis['candidate_deployment'], deployment)
+                    self.assertTrue(analysis['all_timings_eligible']); self.assertFalse(analysis['qualification'])
+                    self.assertEqual(analysis['performance_gate_passed'], scope == 'held-out')
+                    self.assertEqual(trace[:4], ['original', 'candidate', 'candidate', 'original'])
+                    native = m.read(root / 'run/cell-0001/native/receipt.json')
+                    self.assertEqual(native['numerical_manifest_sha256'], m.MANIFESTS['candidate'])
+                    self.assertEqual(native['artifact_manifest_sha256'], protocol['files']['control/standalone-manifest.json']
+                                     if deployment == 'standalone' else m.MANIFESTS['candidate'])
+
+    def test_v2_requires_actual_per_request_prefill_including_boundary_and_stock_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2, deployment='standalone')
+            original = m.validate(protocol, root)['profile-0']['original']
+            for count, configured, expected in [(1535, True, 512), (1536, True, 3072), (20, False, 3072)]:
+                native = copy.deepcopy(original)
+                native['cases'][0]['prompt_tokens'] = [12] * count
+                if not configured: native.update(short_prompt_tokens=0, short_prompt_chunk=0)
+                receipt = self.receipt(native, '1' * 64, 'original')
+                self.assertEqual(receipt['cases'][0]['stats']['prefillChunkLimit'], expected)
+                m.validate_native(receipt, native, '1' * 64, 'original')
+                if not configured:
+                    changed = copy.deepcopy(receipt); changed['short_prompt_tokens'] = False
+                    with self.assertRaisesRegex(ValueError, 'V2 deployment'):
+                        m.validate_native(changed, native, '1' * 64, 'original')
+                for invalid in (None, True, expected + 1, 512.0):
+                    changed = copy.deepcopy(receipt); changed['cases'][0]['stats']['prefillChunkLimit'] = invalid
+                    with self.assertRaisesRegex(ValueError, 'request prefill'):
+                        m.validate_native(changed, native, '1' * 64, 'original')
+
+    def test_v2_refuses_substituted_deployment_manifest_prefill_and_prior_pilot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2, deployment='standalone')
+            native_path = protocol['profiles'][0]['arms']['candidate']; frozen = m.read(root / native_path)
+            for field, invalid in [('deployment', 'composite'), ('standalone_manifest_sha256', m.MANIFESTS['candidate']),
+                                   ('standalone_manifest_sha256', None), ('short_prompt_tokens', True),
+                                   ('short_prompt_chunk', 256), ('schema', 1), ('kind', 'same-model-engine-performance-v1')]:
+                changed = {**frozen, field: invalid}; m.write(root / native_path, changed)
+                changed_protocol = copy.deepcopy(protocol); changed_protocol['files'][native_path] = m.digest(root / native_path)
+                with self.assertRaises(ValueError): m.validate(changed_protocol, root)
+            changed = {**frozen, 'short_prompt_tokens': 0, 'short_prompt_chunk': 0}; m.write(root / native_path, changed)
+            changed_protocol = copy.deepcopy(protocol); changed_protocol['files'][native_path] = m.digest(root / native_path)
+            with self.assertRaisesRegex(ValueError, 'shared Desktop'): m.validate(changed_protocol, root)
+            m.write(root / native_path, frozen)
+            for field, invalid in [('deployment', 'composite'), ('standalone_manifest_sha256', None),
+                                   ('numerical_manifest_sha256', '0' * 64), ('artifact_manifest_sha256', m.MANIFESTS['candidate']),
+                                   ('short_prompt_tokens', 0)]:
+                receipt = self.receipt(frozen, '1' * 64, 'candidate'); receipt[field] = invalid
+                with self.assertRaises(ValueError): m.validate_native(receipt, frozen, '1' * 64, 'candidate')
+            manifest_path = 'control/standalone-manifest.json'; manifest = m.read(root / manifest_path)
+            manifest['complete'] = False; m.write(root / manifest_path, manifest)
+            changed_protocol = copy.deepcopy(protocol); changed_protocol['files'][manifest_path] = m.digest(root / manifest_path)
+            with self.assertRaisesRegex(ValueError, 'same-parent identity'): m.validate(changed_protocol, root)
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2, deployment='standalone', scope='held-out', repetitions=8)
+            pilot = m.read(root / 'pilot-analysis.json'); pilot['candidate_deployment'] = 'composite'
+            m.write(root / 'pilot-analysis.json', pilot); protocol['files']['pilot-analysis.json'] = m.digest(root / 'pilot-analysis.json')
+            with self.assertRaisesRegex(ValueError, 'eligible pilot'): m.validate(protocol, root)
 
     def test_complete_adjacent_pairs_preserve_single_token_latency_and_final_bound(self):
         for scope, repetitions in [('pilot', 3), ('held-out', 8)]:

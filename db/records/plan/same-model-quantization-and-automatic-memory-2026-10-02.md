@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T23:01:14.876811+00:00
+updated: 2026-10-04T23:29:00.753660+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -27,7 +27,7 @@ This table supersedes the progress summary below without changing its historical
 | Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows and the prospectively frozen image and long-conversation outcome campaigns |
 | Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The separately frozen unanswered-only continuation is running after the unloaded startup refusal; its first incomplete job is now complete, with no noninferiority verdict yet |
-| Complete performance | Actual-plan pilots and preserved timing exclusions identify useful candidate improvements | Complete an eligible paired campaign and safe lower-budget matrix; qualify local profiles against the stated speed and latency gates |
+| Complete performance | Actual-plan pilots preserve timing exclusions; standalone and Desktop-aware V2 performance instruments are prepared | Native V2 acceptance, actual standalone startup, an eligible paired pilot/final and safe lower-budget matrix; qualify profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Authenticate and retire only the planned reproducible copies, produce the standalone artifact, prove native identity/parity, complete independent public pull and integrated multiple-pack transactions |
 | Promotion and release | Original pack is the only supported registry entry; no alternate Auto profile is enabled | Candidate qualification, deterministic measured/estimated selection, final local integrated acceptance, documentation and release |
@@ -1035,3 +1035,12 @@ The complete-performance producer still needs two concrete integrations before f
 The pure selector currently matches caller-provided proposed plans. Full candidate Auto integration still needs the qualified recipe's own initial plan and automatic ceiling, supported custom-ceiling behavior, accepted installed-content ownership and frozen activation/recovery. Do not treat the prepared matcher or an empty compiled profile list as that completed product behavior. Candidate qualification, artifact production and complete local integrated acceptance remain open.
 
 The first corrected engine run exposed a second fixture compilation error, preserved in [[sources/runs/2026/10/2026-10-04-pack-range-stride-correction]]. The interior-control sweep passed an Int64 byte increment to Swift's Int stride parameter. An explicit conversion of that bounded increment fixes the fixture without changing its boundaries or planner expectations. No policy/range execution is claimed from that failed run; full corrected acceptance remains pending.
+
+
+### Standalone and Desktop complete-performance V2, October 4
+
+[[sources/runs/2026/10/2026-10-04-standalone-desktop-performance-v2]] records the prospective native and paired V2 instruments. Physical deployment and the complete standalone manifest are distinct from the unchanged minmax numerical provenance. The standalone loader owns its table and still requires compiled research admission. V1 keeps its composite/stock-Engine behavior. V2 freezes a shared Desktop or stock prefill policy and checks the actual per-request maximum captured inside generation, including the short-prompt boundary. Older saved statistics remain decodable.
+
+Fourteen campaign fixture groups pass on both Python runtimes and all thirty-two static entry checks pass. The V2 owner preserves paired coverage, resource supervision, statistical and latency gates, and refuses a final sampling basis from another deployment. No actual complete-performance campaign or native V2 run has occurred; compiled standalone admission remains closed pending the complete export and byte audit. The existing held-out quality campaign remains unchanged.
+
+The same source preserves the latest range-fixture failure: its strict claim that a required streamed draft must raise the rounded control minimum was false. The correction checks the required head, its exact byte charge and full allocation within the returned minimum; full resident placement has a separate higher-floor check. The planner and resource policy are unchanged. Auto matching passed the instrumented catalogue, but corrected full range and V2 acceptance remain pending. The older Mac build at 1ba2dc02ef1db40068f2c12e5dee2336eca2b6b2 now has complete successful runtime and Xcode results.

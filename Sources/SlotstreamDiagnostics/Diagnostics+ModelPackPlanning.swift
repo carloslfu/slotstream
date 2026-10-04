@@ -59,9 +59,22 @@ extension Diagnostics {
         let base = try pack.memoryRange(for: .init(mtp: .off, vision: .off, maxContextTokens: 8192), on: roomy)
         let long = try pack.memoryRange(for: .init(mtp: .off, vision: .off, maxContextTokens: 131072), on: roomy)
         let draft = try pack.memoryRange(for: .init(mtp: .on, vision: .off, maxContextTokens: 8192), on: roomy, mtpAvailable: true)
+        var residentRequest = PlanRequest(mtp: .on, vision: .off, maxContextTokens: 8192)
+        residentRequest.mtpExperts = .resident
+        let residentDraft = try pack.memoryRange(for: residentRequest, on: roomy, mtpAvailable: true)
         let vision = try pack.memoryRange(for: .init(mtp: .off, vision: .on, maxContextTokens: 8192), on: roomy, visionAvailable: true)
         c.expect("long context pays for its retained state before raising the floor", long.minimumBytes > base.minimumBytes)
-        c.expect("required draft pays for its own weights before raising the floor", draft.minimumBytes > base.minimumBytes)
+        // A streamed draft can fit within the same rounded control step as
+        // plain decode. Require its real charge, not an invented higher floor.
+        c.expect("required draft cannot lower the admitted control minimum", draft.minimumBytes >= base.minimumBytes)
+        let draftPlan = try pack.plan(.init(memoryLimitGB: draft.minimumGB, mtp: .on,
+            vision: .off, maxContextTokens: 8192), on: roomy, mtpAvailable: true)
+        try Planner.validateMemoryBudget(draftPlan, availableGB: roomy.availableGB)
+        c.expect("the draft floor admits its required head and complete byte charge",
+            draftPlan.mtpEnabled && draftPlan.memoryLedger.mtpResidentBytes == (draftPlan.mtpStreamedExperts
+                ? PlannerCostModel.mtpStreamedBytes : PlannerCostModel.mtpResidentBytes)
+                && Int64(draftPlan.memoryLedger.expectedPeakBytes) <= draft.minimumBytes)
+        c.expect("requiring full draft residency raises this control floor", residentDraft.minimumBytes > base.minimumBytes)
         c.expect("required images price tower residency before raising the floor", vision.minimumBytes > base.minimumBytes)
         for proposed in [PlanRequest(mtp: .on, vision: .off), PlanRequest(mtp: .off, vision: .on),
                          PlanRequest(maxContextTokens: 0), PlanRequest(memoryGB: 10), PlanRequest(memoryLimitGB: 10),

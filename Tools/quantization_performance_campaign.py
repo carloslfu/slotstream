@@ -31,6 +31,7 @@ from serve_bench import competing_jobs, verified_build
 from thermal_readiness import observe
 
 KIND = 'quantization-complete-performance-v1'
+KIND_V2 = 'quantization-complete-performance-v2'
 ELIGIBILITY = 'complete-normal-no-paging-no-competing-v1'
 NORMAL = {'thermalState': 'nominal', 'lowPowerModeEnabled': False}
 ARMS = ('original', 'candidate')
@@ -75,12 +76,15 @@ def integer(value, minimum, maximum):
 
 def validate(protocol, root):
     root = Path(root).resolve()
+    extended = protocol.get('kind') == KIND_V2
     keys = {'schema', 'kind', 'scope', 'driver_sha256', 'helper_sha256', 'files', 'paths', 'profiles',
             'repetitions', 'eligibility', 'sampling_basis', 'latency_max_ratio', 'resource'}
-    if (set(protocol) != keys or type(protocol['schema']) is not int or protocol['schema'] != 1
-            or protocol['kind'] != KIND or protocol['scope'] not in ('pilot', 'held-out')
+    if extended: keys.add('candidate_deployment')
+    if (set(protocol) != keys or type(protocol['schema']) is not int or protocol['schema'] != (2 if extended else 1)
+            or protocol['kind'] != (KIND_V2 if extended else KIND) or protocol['scope'] not in ('pilot', 'held-out')
             or protocol['driver_sha256'] != digest(__file__) or protocol['helper_sha256'] != helper_pins()
-            or protocol['eligibility'] != ELIGIBILITY or not integer(protocol['repetitions'], 3, 64)):
+            or protocol['eligibility'] != ELIGIBILITY or not integer(protocol['repetitions'], 3, 64)
+            or extended and protocol['candidate_deployment'] not in ('composite', 'standalone')):
         raise ValueError('unknown, unbounded or changed complete performance protocol')
     files, paths = protocol['files'], protocol['paths']
     if (type(files) is not dict or not 6 <= len(files) <= 256
@@ -101,9 +105,27 @@ def validate(protocol, root):
         if root / paths[key] != binary.parent / name: raise ValueError('native build companions must be colocated')
     verified_build(binary)
     relative_path(paths['control'])
-    if (files.get(paths['control'] + '/manifest.json') != MANIFESTS['candidate']
+    standalone = extended and protocol['candidate_deployment'] == 'standalone'
+    numerical_manifest = paths['control'] + ('/expert-control-manifest.json' if standalone else '/manifest.json')
+    if (files.get(numerical_manifest) != MANIFESTS['candidate']
             or files[paths['rotary']] != ROTARY or not Path(paths['baseline']).expanduser().is_absolute()):
         raise ValueError('performance study requires the exact original and minmax artifacts')
+    standalone_sha = None
+    if standalone:
+        manifest = paths['control'] + '/standalone-manifest.json'
+        if manifest not in files or paths['rotary'] != paths['control'] + '/angles-f32le.bin':
+            raise ValueError('standalone deployment must pin its complete manifest and owned rotary table')
+        standalone_sha = files[manifest]
+        complete = read(root / manifest, standalone_sha, maximum=4_000_000)
+        if (type(complete.get('schema')) is not int or complete['schema'] != 1
+                or complete.get('kind') != 'standalone-research-bundle-v1' or complete.get('complete') is not True
+                or complete.get('qualification') is not False
+                or complete.get('identity', {}).get('expert_control_manifest_sha256') != MANIFESTS['candidate']
+                or complete.get('identity', {}).get('rotary_sha256') != ROTARY
+                or complete.get('identity', {}).get('parent_revision') != REVISION):
+            raise ValueError('standalone performance source changed its complete same-parent identity')
+        # This only checks the frozen research inputs. Native execution still
+        # requires the independently audited, compiled standalone admission.
     profiles = protocol['profiles']; natives = {}
     if type(profiles) is not list or not 1 <= len(profiles) <= 8: raise ValueError('bounded profiles required')
     for profile in profiles:
@@ -116,7 +138,9 @@ def validate(protocol, root):
             path = profile['arms'][arm]
             if path not in files: raise ValueError('native performance protocol is unpinned')
             native = read(root / path, files[path], maximum=4_000_000)
-            if (native['scope'] != protocol['scope'] or native['kind'] != 'same-model-engine-performance-v1'
+            if (type(native.get('schema')) is not int or native['schema'] != protocol['schema']
+                    or native['scope'] != protocol['scope']
+                    or native['kind'] != ('same-model-engine-performance-v2' if extended else 'same-model-engine-performance-v1')
                     or native['artifact'] != ('original' if arm == 'original' else 'affine3')
                     or not integer(native['memory_bytes'], 8_100_000_000, 24_000_000_000)
                     or not integer(native['maximum_seconds'], 1, 7200)
@@ -124,6 +148,14 @@ def validate(protocol, root):
                     or native['request_seconds'] > native['maximum_seconds']
                     or native['context_limit'] not in (8192, 32768)):
                 raise ValueError('native performance configuration is outside the priced scope')
+            if extended:
+                expected_deployment = 'original' if arm == 'original' else protocol['candidate_deployment']
+                if (native.get('deployment') != expected_deployment
+                        or 'standalone_manifest_sha256' not in native
+                        or native['standalone_manifest_sha256'] != (standalone_sha if arm == 'candidate' else None)
+                        or type(native.get('short_prompt_tokens')) is not int or type(native.get('short_prompt_chunk')) is not int
+                        or (native['short_prompt_tokens'], native['short_prompt_chunk']) not in ((0, 0), (1536, 512))):
+                    raise ValueError('native deployment, complete manifest or short-prompt policy differs from V2')
             pair[arm] = native
         # Different pack internals may be optimized independently. Complete
         # work, context, physical ceiling and user control semantics may not.
@@ -131,6 +163,8 @@ def validate(protocol, root):
                     'live_memory', 'maximum_seconds', 'request_seconds', 'seed', 'tokenizer_sha256', 'cases'):
             if pair['original'][key] != pair['candidate'][key]:
                 raise ValueError('paired configurations changed the shared work or user envelope')
+        if extended and any(pair['original'][key] != pair['candidate'][key] for key in ('short_prompt_tokens', 'short_prompt_chunk')):
+            raise ValueError('paired configurations changed the shared Desktop prefill policy')
         cases = pair['original']['cases']; ids = [row['id'] for row in cases]
         gates = profile['gate_cases']
         if (not 1 <= len(cases) <= 16 or len(set(ids)) != len(ids) or type(gates) is not list or not gates
@@ -158,9 +192,10 @@ def validate(protocol, root):
                 or type(basis['rationale']) is not str or not 20 <= len(basis['rationale']) <= 4000):
             raise ValueError('freeze the pilot-based sampling rationale before final observations')
         pilot = read(root / basis['analysis'], files[basis['analysis']])
-        if (pilot.get('kind') != KIND or pilot.get('scope') != 'pilot' or pilot.get('complete') is not True
+        if (pilot.get('kind') != protocol['kind'] or pilot.get('scope') != 'pilot' or pilot.get('complete') is not True
                 or pilot.get('all_timings_eligible') is not True or pilot.get('qualification') is not False
                 or pilot.get('natural_completion_complete') is not True
+                or extended and (pilot.get('schema') != 2 or pilot.get('candidate_deployment') != protocol['candidate_deployment'])
                 or median_lower_bound([1] * protocol['repetitions'], comparisons=comparisons)['lower_bound'] is None):
             raise ValueError('final sampling needs a complete eligible pilot and enough independent runs')
     resource = protocol['resource']
@@ -212,13 +247,16 @@ def validate_plan(plan, native, resource_identity):
 
 
 def validate_native(receipt, native, protocol_sha, arm):
+    extended = native['kind'] == 'same-model-engine-performance-v2'
+    physical_manifest = native['standalone_manifest_sha256'] if extended and native['deployment'] == 'standalone' else MANIFESTS[arm]
     resource = ('original-affine4-memory-v1' if arm == 'original' else
                 'affine3-grouped-lookahead-memory-v1' if native['lookahead'] == 'uncorrected' else 'affine3-grouped-memory-v1')
-    if (receipt.get('schema') != 1 or receipt.get('complete') is not True or receipt.get('loaded') is not True
+    if (type(receipt.get('schema')) is not int or receipt['schema'] != (2 if extended else 1)
+            or receipt.get('complete') is not True or receipt.get('loaded') is not True
             or receipt.get('plan_only') is not False or receipt.get('qualification') is not False or 'failure' in receipt
             or receipt.get('protocol_sha256') != protocol_sha or receipt.get('scope') != native['scope']
             or receipt.get('artifact') != native['artifact'] or receipt.get('baseline_revision') != REVISION
-            or receipt.get('resource_identity') != resource or receipt.get('artifact_manifest_sha256') != MANIFESTS[arm]
+            or receipt.get('resource_identity') != resource or receipt.get('artifact_manifest_sha256') != physical_manifest
             or receipt.get('memory_ceiling_bytes') != native['memory_bytes']
             or receipt.get('required_preflight_bytes') != native['memory_bytes'] + 3_000_000_000
             or not integer(receipt.get('preflight', {}).get('reclaimableBytes'), native['memory_bytes'] + 3_000_000_000, 2**64-1)
@@ -227,6 +265,11 @@ def validate_native(receipt, native, protocol_sha, arm):
             or receipt['seconds'] > native['maximum_seconds'] or receipt['load_seconds'] > receipt['seconds']
             or receipt.get('original_correction_sha256') != native['original_correction_sha256']):
         raise ValueError('native performance receipt has incomplete execution, identity or resources')
+    if extended and (any(key not in receipt or receipt[key] != native[key]
+                         for key in ('deployment', 'standalone_manifest_sha256', 'short_prompt_tokens', 'short_prompt_chunk'))
+            or any(type(receipt.get(key)) is not int for key in ('short_prompt_tokens', 'short_prompt_chunk'))
+            or receipt.get('numerical_manifest_sha256') != MANIFESTS[arm]):
+        raise ValueError('native V2 deployment, numerical identity or prefill policy differs from the protocol')
     validate_plan(receipt['plan'], native, resource)
     rows = receipt['cases']
     if type(rows) is not list or [row['id'] for row in rows] != [row['id'] for row in native['cases']]:
@@ -250,6 +293,12 @@ def validate_native(receipt, native, protocol_sha, arm):
                 or not number(stats.get('peakMemoryGB')) or stats['peakMemoryGB'] * 1e9 > native['memory_bytes'] + 1):
             raise ValueError('request lacks bounded positive physical memory evidence')
         validate_plan(row['plan_before'], native, resource); validate_plan(row['plan_after'], native, resource)
+        if extended:
+            maximum = row['plan_before'].get('prefill_chunk')
+            if not integer(maximum, 256, 4096): raise ValueError('request has no bounded starting prefill plan')
+            applied = min(512, maximum) if native['short_prompt_tokens'] == 1536 and len(case['prompt_tokens']) < 1536 else maximum
+            if type(stats.get('prefillChunkLimit')) is not int or stats['prefillChunkLimit'] != applied:
+                raise ValueError('request prefill differs from its frozen policy and observed starting plan')
         result[row['id']] = metrics(row)
     return result
 
@@ -395,9 +444,10 @@ def run(protocol_path, protocol_sha, root, output):
     protocol = read(protocol_path, protocol_sha, maximum=4_000_000); natives = validate(protocol, root)
     if output.parent != root: raise ValueError('performance output must be a new direct child of the research root')
     output.mkdir(exist_ok=False); started = time.monotonic()
-    record = {'schema': 1, 'kind': KIND, 'scope': protocol['scope'], 'complete': False, 'qualification': False,
+    record = {'schema': protocol['schema'], 'kind': protocol['kind'], 'scope': protocol['scope'], 'complete': False, 'qualification': False,
               'protocol_sha256': protocol_sha, 'driver_sha256': protocol['driver_sha256'], 'cells': [],
               'filesystem_cache': 'Uncontrolled OS file cache; fresh process means empty application caches only.'}
+    if protocol['schema'] == 2: record['candidate_deployment'] = protocol['candidate_deployment']
     def save():
         record['seconds'] = time.monotonic() - started; write(output / 'coordinator.json', record)
     previous_handlers = {}
@@ -419,7 +469,8 @@ def run(protocol_path, protocol_sha, root, output):
                            '--protocol-file', str(root / path), '--protocol-sha256', protocol['files'][path],
                            '--output', str(native_output)]
                 if cell['arm'] == 'candidate':
-                    command += ['--control', str(root / protocol['paths']['control']), '--table', str(root / protocol['paths']['rotary'])]
+                    command += ['--control', str(root / protocol['paths']['control'])]
+                    if native.get('deployment') != 'standalone': command += ['--table', str(root / protocol['paths']['rotary'])]
                 record['active_cell'] = cell; save(); validate(protocol, root)
                 observation = run_cell(command, destination, native, protocol, root, output, started)
                 receipt = read(native_output / 'receipt.json'); validate_native(receipt, native, protocol['files'][path], cell['arm'])
@@ -442,6 +493,8 @@ def analyze(protocol_path, protocol_sha, root, output):
     protocol = read(protocol_path, protocol_sha, maximum=4_000_000); natives = validate(protocol, root)
     coordinator = read(output / 'coordinator.json'); expected = cells(protocol)
     if (coordinator.get('complete') is not True or coordinator.get('protocol_sha256') != protocol_sha
+            or coordinator.get('schema') != protocol['schema'] or coordinator.get('kind') != protocol['kind']
+            or protocol['schema'] == 2 and coordinator.get('candidate_deployment') != protocol['candidate_deployment']
             or coordinator.get('driver_sha256') != protocol['driver_sha256'] or 'failure' in coordinator
             or not number(coordinator.get('seconds')) or coordinator['seconds'] > protocol['resource']['maximum_campaign_seconds']
             or len(coordinator['cells']) != len(expected)):
@@ -470,12 +523,13 @@ def analyze(protocol_path, protocol_sha, root, output):
         for case_id, value in measured.items():
             key = row['profile'] + '/' + case_id
             measurements.setdefault(key, {arm: [] for arm in ARMS})[row['arm']].append(value)
-    result = {'schema': 1, 'kind': KIND, 'scope': protocol['scope'], 'complete': True, 'qualification': False,
+    result = {'schema': protocol['schema'], 'kind': protocol['kind'], 'scope': protocol['scope'], 'complete': True, 'qualification': False,
               'protocol_sha256': protocol_sha, 'all_timings_eligible': not excluded, 'excluded_cells': excluded,
               'comparison_count': comparison_count(protocol, natives),
               'natural_completion_complete': not incomplete_answers, 'incomplete_natural_answers': incomplete_answers,
               'speed_gate_passed': False, 'latency_gate_passed': False, 'performance_gate_passed': False,
               'scope_limit': 'Frozen local configurations only; no other-Mac speed, task quality or model-promotion verdict.'}
+    if protocol['schema'] == 2: result['candidate_deployment'] = protocol['candidate_deployment']
     # Keep exclusions and individual raw receipts; do not manufacture a clean
     # median or final verdict from a selected subset of successful timings.
     if excluded or incomplete_answers: return result

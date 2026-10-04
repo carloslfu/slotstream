@@ -301,3 +301,6 @@ Bound measured Auto profiles and estimate anchors to the complete-performance pr
 ## [2026-10-04 23:01] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Preserved the first range-fixture compilation failure and corrected its Int64-to-Int stride conversion. Numeric expectations, planner choices and allocation safety remain unchanged. Full corrected engine catalogue, app and native rendering acceptance remain pending.
 
+## [2026-10-04 23:29] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared native and paired complete-performance V2 with standalone physical identity and shared Desktop prefill policy, actual per-request observation and preserved V1 behavior. Fourteen campaign groups pass on both Python runtimes and thirty-two registration checks pass. Preserved the range fixture failure and corrected its rounded-floor assumption without changing planner policy; native V2 and corrected range acceptance remain pending CI. No model launch, payload export or qualification.
+
