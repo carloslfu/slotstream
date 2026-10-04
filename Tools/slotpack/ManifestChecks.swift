@@ -96,6 +96,72 @@ import CSlotpack
         try rejects("public synchronous log lifetime closes on cancellation") {
             try WeightStore.download(to: temp, transport: .automatic, cancellation: cancelled, log: { _ in })
         }
+        // Exercise the public store operations with two compiled fixture
+        // deployments. Equal names/sizes never confer the other digest's ready
+        // status, and optionality belongs to the selected deployment too.
+        func deployment(_ pins: [PinnedModel.File], _ transport: WeightDeployment.Compressed? = nil) throws -> WeightDeployment {
+            try WeightDeployment(repository: "fixture/model", revision: "fixture-v1", files: pins,
+                rawBases: ["http://127.0.0.1/fixture"], compressed: transport)
+        }
+        let transport = WeightDeployment.Compressed(data: json, digest: hash, files: files, bases: [])
+        let storeDir = temp.appendingPathComponent("selected-store")
+        try FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
+        let selectedStore = WeightStore(modelDirectory: storeDir, deployment: try deployment(files, transport))
+        try expect("selected store prices only its compiled files",
+            selectedStore.requiredBytes == Int64(raw.count) && selectedStore.totalBytes == Int64(raw.count)
+                && selectedStore.remainingBytes() == Int64(raw.count))
+        if case let .missing(bytes, _) = selectedStore.status() {
+            try expect("missing selected store reports its own size", bytes == Int64(raw.count))
+        } else { try expect("missing selected store is missing", false) }
+        try raw.write(to: storeDir.appendingPathComponent(files[0].path))
+        try expect("selected store recognizes its complete authenticated files", selectedStore.status().isReady)
+        try selectedStore.verify()
+        try expect("cancellable selected store recognizes the same ready files", try selectedStore.status(shouldContinue: { true }).isReady)
+        var otherRaw = raw; otherRaw[0] ^= 1
+        let sameNamePins = [PinnedModel.File(path: files[0].path, size: files[0].size, sha256: SlotpackManifest.digest(otherRaw))]
+        let sameNameStore = WeightStore(modelDirectory: storeDir, deployment: try deployment(sameNamePins))
+        if case let .corrupt(paths, repair, _) = sameNameStore.status() {
+            try expect("same-name same-size deployment must verify its own digest", paths == [files[0].path] && repair == Int64(raw.count))
+        } else { try expect("other deployment cannot inherit readiness", false) }
+        try rejects("explicit verification cannot inherit another deployment's digest") { try sameNameStore.verify() }
+        try expect("cancellable verification also refuses a different deployment", try !sameNameStore.status(shouldContinue: { true }).isReady)
+        try otherRaw.write(to: storeDir.appendingPathComponent(files[0].path))
+        try expect("replacing selected bytes changes which store is ready", sameNameStore.status().isReady && !selectedStore.status().isReady)
+        try rejects("selected store verification remains cancellable") { _ = try sameNameStore.status(shouldContinue: { false }) }
+        let optionalPin = PinnedModel.File(path: "optional.bin", size: Int64(raw.count), sha256: digest, optional: true)
+        let optionalStore = WeightStore(modelDirectory: storeDir, deployment: try deployment(sameNamePins + [optionalPin]))
+        try expect("absent optional selected file needs no repair", optionalStore.status().isReady
+            && optionalStore.requiredBytes == Int64(raw.count) && optionalStore.totalBytes == 2 * Int64(raw.count))
+        try otherRaw.write(to: storeDir.appendingPathComponent(optionalPin.path))
+        if case let .corrupt(paths, repair, _) = optionalStore.status() {
+            try expect("present optional file is checked against its own pin", paths == [optionalPin.path] && repair == Int64(raw.count))
+        } else { try expect("optional selected corruption is visible", false) }
+        try expect("legacy store APIs retain original required bytes",
+            WeightStore(modelDirectory: storeDir).requiredBytes == PinnedModel.requiredBytes
+                && WeightStore.remainingBytes(at: storeDir) == PinnedModel.requiredBytes)
+        try rejects("selected transport must match the selected file pins") { _ = try deployment(sameNamePins, transport) }
+        try rejects("selected transport must match selected optionality") {
+            _ = try deployment([.init(path: files[0].path, size: files[0].size, sha256: digest, optional: true),
+                .init(path: "required.bin", size: 1, sha256: digest)], transport)
+        }
+        try rejects("selected transport digest is authenticated") {
+            _ = try deployment(files, .init(data: json, digest: String(repeating: "0", count: 64), files: files, bases: []))
+        }
+        for path in ["../escape", "sub/file", "sub\\file", "bad\0name", ".", "..", ".pull.lock", ".SLOTPACK-state.json"] {
+            try rejects("deployment refuses unsafe name \(path.debugDescription)") { _ = try deployment([.init(path: path, size: 1, sha256: digest)]) }
+        }
+        for path in ["weights.bin", "WEIGHTS.BIN", "weights.bin.part", "weights.bin.partmap", "weights.bin.slotpack.part"] {
+            try rejects("deployment refuses duplicate or auxiliary alias \(path)") { _ = try deployment(files + [.init(path: path, size: 1, sha256: digest)]) }
+        }
+        try rejects("deployment refuses canonical Unicode name aliases") {
+            _ = try deployment([.init(path: "\u{00c9}.bin", size: 1, sha256: digest), .init(path: "E\u{0301}.bin", size: 1, sha256: digest)])
+        }
+        try rejects("deployment requires every complete file digest") { _ = try deployment([.init(path: "missing", size: 1, sha256: nil)]) }
+        try rejects("deployment byte sum cannot overflow") {
+            _ = try deployment([.init(path: "one", size: Int64.max - 2_000_000_000, sha256: digest), .init(path: "two", size: 1, sha256: digest)])
+        }
+        try rejects("empty deployment cannot become ready") { _ = try deployment([]) }
+        try rejects("optional-only deployment cannot become ready") { _ = try deployment([optionalPin]) }
         // Progress reports original bytes represented by a complete object,
         // including its separate weight/scale/bias ranges. Sparse fixtures
         // exercise the real embedded pin without allocating model data.

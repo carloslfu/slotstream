@@ -16,8 +16,15 @@ public final class ModelSetup: @unchecked Sendable {
     private let store: WeightStore
     private let lock = NSLock()
     private var cancellation: PullCancellation?
-    private var value = ModelSetupStatus(phase: "Not checked", detail: "Check the installed local model, or download its pinned files.", requiredBytes: PinnedModel.requiredBytes, freeBytes: 0, ready: false, busy: false)
-    public init(model: URL = WeightStore.default.modelDirectory) { store = WeightStore(modelDirectory: model) }
+    private var value: ModelSetupStatus
+    public convenience init(model: URL = WeightStore.default.modelDirectory) {
+        self.init(model: model, pack: ModelPackRegistry.baseline)
+    }
+    public init(model: URL, pack: ModelPack) {
+        store = WeightStore(modelDirectory: model, pack: pack)
+        value = ModelSetupStatus(phase: "Not checked", detail: "Check the installed local model, or download its pinned files.",
+            requiredBytes: store.requiredBytes, freeBytes: 0, ready: false, busy: false)
+    }
     public func snapshot() -> ModelSetupStatus { lock.lock(); defer { lock.unlock() }; return value }
     private func set(_ mutate: (inout ModelSetupStatus) -> Void) { lock.lock(); defer { lock.unlock() }; mutate(&value) }
     private func begin(_ phase: String) throws -> PullCancellation {

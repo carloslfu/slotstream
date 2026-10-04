@@ -16,10 +16,12 @@ import Darwin
             let pins = try JSONDecoder().decode(SlotpackManifest.self, from: data).files
             let digest = SlotpackManifest.digest(data)
             let rawTest = ProcessInfo.processInfo.environment["SLOTSTREAM_TEST_RAW"] == "1"
+            let storeTest = ProcessInfo.processInfo.environment["SLOTSTREAM_TEST_STORE"] == "1"
             let manifest = try rawTest ? JSONDecoder().decode(SlotpackManifest.self, from: data) : SlotpackManifest.load(data, digest: digest, files: pins)
             let dest = URL(fileURLWithPath: args[2])
             try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
-            let lease = try DownloadDirectoryLock(dest)
+            // WeightStore acquires the same production lease internally.
+            let lease = try storeTest ? nil : DownloadDirectoryLock(dest)
             let cancellation = PullCancellation()
             let controlQueue = DispatchQueue(label: "fixture.cancellation")
             var control: DispatchSourceTimer?
@@ -52,7 +54,19 @@ import Darwin
                 Thread.sleep(forTimeInterval: min(delay, 5))
             }
             let raw = args.count > 4 && args[4] != "-" ? args[4].components(separatedBy: ",") : []
-            if rawTest {
+            if storeTest {
+                let compressed = rawTest ? nil : WeightDeployment.Compressed(data: data, digest: digest, files: pins,
+                    bases: args[3] == "-" ? [] : args[3].components(separatedBy: ","))
+                let deployment = try WeightDeployment(repository: "fixture/model", revision: "fixture-v1", files: pins,
+                    rawBases: raw, compressed: compressed)
+                let store = WeightStore(modelDirectory: dest, deployment: deployment)
+                try store.download(PullOptions(connections: 4, transport: rawTest ? .raw : .compressed, cancellation: cancellation),
+                    log: { print($0); fflush(stdout) })
+                try store.verify()
+                guard try store.status(shouldContinue: { !cancellation.isCancelled }).isReady else {
+                    throw SlotstreamError.pull("selected deployment is not ready after download")
+                }
+            } else if rawTest {
                 let job = PullJob(dest: dest, bases: raw, connections: 4, files: pins, cancellation: cancellation, log: { print($0); fflush(stdout) })
                 defer { job.shutdown() }
                 _ = try job.plan()

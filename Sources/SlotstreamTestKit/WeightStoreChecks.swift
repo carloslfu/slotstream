@@ -63,6 +63,7 @@ extension Catalogue {
         let modelDir = dir.appendingPathComponent("model")
         try FileManager.default.createDirectory(at: modelDir, withIntermediateDirectories: true)
         let store = WeightStore(modelDirectory: modelDir)
+        let selectedStore = WeightStore(modelDirectory: modelDir, pack: ModelPackRegistry.baseline)
         let plain = store.status()
         let cancellable = try store.status(shouldContinue: { true })
         if case let .missing(want, _) = plain, case let .missing(got, free) = cancellable {
@@ -71,6 +72,9 @@ extension Catalogue {
         } else {
             c.expect("an empty copy reads as missing in both statuses", false, "plain \(plain), cancellable \(cancellable)")
         }
+        c.equal("the public selected-pack store retains original byte requirements", selectedStore.requiredBytes, PinnedModel.requiredBytes)
+        c.equal("the public selected-pack store retains original optional bytes", selectedStore.totalBytes, PinnedModel.totalBytes)
+        c.equal("legacy and selected original stores report the same missing bytes", selectedStore.remainingBytes(), store.remainingBytes())
         var statusStopped = false
         do { _ = try store.status(shouldContinue: { false }) } catch { statusStopped = true }
         c.expect("a stop before verification ends status with an error", statusStopped)

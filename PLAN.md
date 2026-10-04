@@ -89,7 +89,7 @@ This table supersedes the progress summary below without changing its historical
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows, image outcomes/capacity and long-conversation task outcomes |
 | Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The frozen final paired held-out campaign is running; no result or noninferiority verdict is available |
 | Complete performance | Actual-plan pilots and preserved timing exclusions identify useful candidate improvements | Complete an eligible paired campaign and safe lower-budget matrix; qualify local profiles against the stated speed and latency gates |
-| Resource loading | Bounded parallel file authentication is implemented; coverage, external-library and Mac runtime/Xcode checks pass | Corrected optimized native catalogue, actual startup/resource measurements and cancellation during a long read |
+| Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Standalone artifact production, its native identity/parity, independent public pull and integrated multiple-pack transactions |
 | Promotion and release | Original pack is the only supported registry entry; no alternate Auto profile is enabled | Candidate qualification, deterministic measured/estimated selection, final local integrated acceptance, documentation and release |
 
@@ -925,6 +925,19 @@ Header-only planning identifies every retained tensor and excludes the original 
 The compressed downloader now has an explicit manifest-bound progress reader. The legacy original-pack entry point delegates with its unchanged compiled transport identity. New fixture cases distinguish two manifests whose filenames and sizes agree, refuse foreign resume bits and malformed coverage, and retain the distinction between progress estimates and final file verification. These fixtures await native/full transport CI; no acceptance result is claimed yet.
 
 This prepares independent resumption for multiple maintained packs without adding a registry entry or accepting downloaded metadata as product authority. Standalone export, candidate qualification, independent public pull and complete integration remain required before an alternative can be offered.
+
+### Selected-pack store preparation
+
+The store now carries an immutable compiled deployment through byte requirements, resumable progress, complete and cancellable verification, compressed transfer, raw transfer, mirror fallback and repair. A supported `ModelPack` supplies that deployment to the new additive `WeightStore(modelDirectory:pack:)` initializer. Legacy initializers, static entry points and function-reference signatures retain the original deployment. Mac setup accepts the same compiled selection and reports its required bytes. Downloaded metadata cannot construct a product pack or register itself.
+
+The internal deployment constructor validates complete digests, positive extents, required files, total-byte overflow and collisions between final filenames and downloader-owned state, including case and canonical Unicode aliases. Compressed transport is authenticated against both its exact manifest hash and the selected complete file list. Environment source overrides continue to change transport locations without changing file pins. The supported registry still contains only the original pack.
+
+New native fixtures exercise independent readiness for equal-name/equal-size files with different hashes, optional-file corruption, cancellation, selected sizes, incompatible transport metadata and unsafe deployment geometry. The real HTTP fixture now includes public-store compressed download, raw download, raw fallback, repair and cancellation, while the independent consumer fixture preserves legacy function types. These source changes await native, transport and Mac CI; no local compilation or model-weight scan is run alongside the frozen held-out campaign. This is distribution preparation, not candidate admission, standalone publication or a completed multi-pack activation gate.
+
+
+### Corrected authentication acceptance
+
+[[sources/runs/2026/10/2026-10-04-corrected-authentication-fixture-ci]] preserves complete successful CI for commit `7c5d8f0b8b49ac466022fee0998904b7b891597e`. The optimized and instrumented catalogues both pass all checks, including the authentication descriptor-lifetime fixture; complete transport, static, external-consumer and Mac runtime/Xcode gates pass. The watchdog cleanup fix is included in this tested ancestry. Actual model startup and long-read cancellation still require serial local execution after the held-out campaign. Later distribution preparations require their own CI and do not inherit this pass.
 
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the

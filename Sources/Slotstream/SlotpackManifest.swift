@@ -6,13 +6,13 @@ import Crypto
 #endif
 import CSlotpack
 
-struct SlotpackManifest: Codable {
-    struct Range: Codable {
+struct SlotpackManifest: Codable, Sendable {
+    struct Range: Codable, Sendable {
         let file: Int
         let offset: Int64
         let length: Int
     }
-    struct Object: Codable {
+    struct Object: Codable, Sendable {
         let sha256: String
         let size: Int
         let rawSize: Int

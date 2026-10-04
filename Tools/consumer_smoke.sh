@@ -46,6 +46,13 @@ func forwardStatic(_ directory: URL, log: WeightStore.Log) throws {
 }
 let oldDownload: (URL, Int?, [String]?, WeightStore.Log) throws -> Void = WeightStore.download
 let oldOptions: ([String]?, Int?) -> PullOptions = PullOptions.init
+let oldStore: (URL) -> WeightStore = WeightStore.init
+let oldVerify: (URL, WeightStore.Log) throws -> Void = WeightStore.verify
+let oldRemaining: (URL) -> Int64 = WeightStore.remainingBytes
+let selectedStore = WeightStore(modelDirectory: URL(fileURLWithPath: "/unused-model-fixture"), pack: ModelPackRegistry.baseline)
+precondition(selectedStore.requiredBytes == PinnedModel.requiredBytes)
+precondition(selectedStore.totalBytes == PinnedModel.totalBytes)
+_ = (oldStore, oldVerify, oldRemaining)
 let cancelled = PullCancellation()
 cancelled.cancel()
 let cancelledOptions = PullOptions(cancellation: cancelled)

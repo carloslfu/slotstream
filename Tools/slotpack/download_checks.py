@@ -129,11 +129,13 @@ def run():
     results=[]
     with tempfile.TemporaryDirectory(prefix='slotpack-check-') as tmp:
         root=Path(tmp);mf=root/'manifest.json';mf.write_text(json.dumps(manifest))
-        def check(name,compressed='good',raw=None,success=True,dest=None,cancel=None):
+        def check(name,compressed='good',raw=None,success=True,dest=None,cancel=None,store=False,raw_store=False):
             dest=dest or root/name
             cmd=[str(binary),str(mf),str(dest),','.join(base+'/'+m for m in compressed.split(',')) if compressed else '-',base+'/'+raw if raw else '-']
             if cancel is not None:cmd.append(str(cancel))
             env=os.environ.copy()
+            if store:env['SLOTSTREAM_TEST_STORE']='1'
+            if raw_store:env['SLOTSTREAM_TEST_RAW']='1'
             if cancel == 'after-progress':env['SLOTPACK_FIXTURE_START_DELAY']='1.2'
             start=time.monotonic()
             try:r=subprocess.run(cmd,env=env,capture_output=True,text=True,timeout=60)
@@ -146,6 +148,15 @@ def run():
             return dest
         check('normal')
         assert f"CDN responses: HIT={len(manifest['objects'])}" in results[-1]['stdout']
+        selected=check('selected-store-compressed','good','good',store=True)
+        check('selected-store-already-installed','good','good',dest=selected,store=True)
+        check('selected-store-raw-fallback','missing','good',store=True)
+        check('selected-store-explicit-raw',None,'good',store=True,raw_store=True)
+        selected_bad=root/'selected-store-corrupt';shutil.copytree(selected,selected_bad)
+        p=selected_bad/'config.json';p.write_bytes(b'x'*p.stat().st_size)
+        check('selected-store-repairs-same-size-final','good','good',dest=selected_bad,store=True)
+        check('selected-store-cancellation','hf-throttle-long','good',success=False,cancel=.3,store=True)
+        assert results[-1]['seconds'] < 3
         check('cache-miss-reporting','cache-miss')
         assert f"CDN responses: MISS={len(manifest['objects'])}" in results[-1]['stdout']
         check('redirect','redirect')

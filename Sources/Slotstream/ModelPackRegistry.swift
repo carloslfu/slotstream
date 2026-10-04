@@ -20,7 +20,8 @@ public struct ModelPack: Sendable {
     public let title: String
     public let checkpointRevision: String
     public let conversionRevision: String
-    public let files: [PinnedModel.File]
+    let deployment: WeightDeployment
+    public var files: [PinnedModel.File] { deployment.files }
     public let directoryName: String
     public let layout: String
     public let compatibility: String
@@ -29,8 +30,8 @@ public struct ModelPack: Sendable {
     /// Empty until complete profiles pass the new hardware/quality protocol.
     public let qualifiedAutomaticProfiles: [String]
 
-    public var requiredBytes: Int64 { files.filter { !$0.optional }.reduce(0) { $0 + $1.size } }
-    public var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }
+    public var requiredBytes: Int64 { deployment.requiredBytes }
+    public var totalBytes: Int64 { deployment.totalBytes }
     public var manifestDigest: String {
         // Fixed field names plus sorted file entries bind optional components,
         // tokenizer, template and licenses as well as weight shards.
@@ -53,7 +54,7 @@ public struct ModelPackDecision: Sendable {
 public enum ModelPackRegistry {
     public static let baseline = ModelPack(id: PinnedModel.name, title: "Original 4-bit",
         checkpointRevision: "de4b8e4d43b917e7706784d8bb445c9af86a3540",
-        conversionRevision: PinnedModel.revision, files: PinnedModel.files,
+        conversionRevision: PinnedModel.revision, deployment: .original,
         directoryName: PinnedModel.dirName, layout: "affine-4-group64-ple-group32",
         compatibility: "slotstream-affine-v1",
         supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md"],
@@ -80,6 +81,14 @@ public enum ModelPackRegistry {
         public var errorDescription: String? {
             "The selected model pack is unavailable in this build. Choose Automatic or a supported pack. Your saved choice has been preserved."
         }
+    }
+}
+
+public extension WeightStore {
+    /// Use only a compiled supported pack. An arbitrary downloaded manifest
+    /// cannot construct ModelPack or authorize model selection.
+    init(modelDirectory: URL, pack: ModelPack) {
+        self.init(modelDirectory: modelDirectory, deployment: pack.deployment)
     }
 }
 

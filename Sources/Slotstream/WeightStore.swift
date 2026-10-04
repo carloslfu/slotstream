@@ -52,6 +52,95 @@ public enum WeightStatus: Sendable, Equatable {
 
 public enum WeightTransport: String, Sendable { case automatic, compressed, raw }
 
+/// Compiled, reviewed download inputs. This type is intentionally internal:
+/// reading a manifest from disk cannot add a supported product model.
+struct WeightDeployment: Sendable {
+    struct Compressed: Sendable {
+        let manifest: Result<SlotpackManifest, Error>
+        let digest: String
+        let bases: [String]
+
+        init(data: Data, digest: String, files: [PinnedModel.File], bases: [String]) {
+            self.manifest = Result { try SlotpackManifest.load(data, digest: digest, files: files) }
+            self.digest = digest
+            self.bases = bases
+        }
+
+        fileprivate init(original: Void) {
+            manifest = PinnedTransport.manifest
+            digest = PinnedTransport.manifestSHA256
+            bases = PinnedTransport.defaults
+        }
+    }
+
+    let repository: String
+    let revision: String
+    let files: [PinnedModel.File]
+    let requiredBytes: Int64
+    let totalBytes: Int64
+    let rawBases: [String]
+    let compressed: Compressed?
+
+    init(repository: String, revision: String, files: [PinnedModel.File], rawBases: [String], compressed: Compressed? = nil) throws {
+        // Flat file names match Slotpack v1. Reserve all downloader-owned
+        // names, including case/Unicode aliases on common Mac filesystems.
+        var names = Set([".pull.lock", ".slotpack-state.json"])
+        var required: Int64 = 0, total: Int64 = 0
+        guard !repository.isEmpty, !revision.isEmpty, !files.isEmpty,
+            files.count <= 20_000, files.contains(where: { !$0.optional }) else {
+            throw SlotstreamError.pull("invalid compiled weight deployment")
+        }
+        for file in files {
+            guard !file.path.isEmpty, !file.path.contains("/"), !file.path.contains("\\"),
+                !file.path.utf8.contains(0), file.path != ".", file.path != "..",
+                file.size > 0, file.sha256.map(SlotpackManifest.validDigest) == true else {
+                throw SlotstreamError.pull("invalid compiled weight file")
+            }
+            for suffix in ["", ".part", ".partmap", ".slotpack.part"] {
+                let name = (file.path + suffix).precomposedStringWithCanonicalMapping
+                    .folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+                guard names.insert(name).inserted else {
+                    throw SlotstreamError.pull("weight file names overlap downloader state")
+                }
+            }
+            let (next, overflow) = total.addingReportingOverflow(file.size)
+            // The raw path adds its existing two-GB disk reservation. Keeping
+            // it representable also makes per-file chunk rounding safe.
+            guard !overflow, next <= Int64.max - 2_000_000_000 else {
+                throw SlotstreamError.pull("weight deployment byte total overflows")
+            }
+            total = next
+            if !file.optional { required += file.size }
+        }
+        if let compressed {
+            // Both construction and use bind the transport to this exact
+            // file list, including optionality, sizes and complete digests.
+            try compressed.manifest.get().validate(files: files)
+        }
+        self.repository = repository; self.revision = revision; self.files = files
+        self.requiredBytes = required; self.totalBytes = total
+        self.rawBases = rawBases; self.compressed = compressed
+    }
+
+    // Preserve the original nonthrowing WeightStore initializer and deferred
+    // compressed-manifest errors. Its file constants are independently gated.
+    private init(original: Void) {
+        repository = PinnedModel.repo; revision = PinnedModel.revision
+        files = PinnedModel.files; requiredBytes = PinnedModel.requiredBytes; totalBytes = PinnedModel.totalBytes
+        rawBases = WeightSources.defaults
+        compressed = PinnedTransport.manifestJSON.isEmpty ? nil : Compressed(original: ())
+    }
+    static let original = Self(original: ())
+
+    static func sourceBases(_ defaults: [String], environmentKey: String) -> [String] {
+        if let value = ProcessInfo.processInfo.environment[environmentKey] {
+            let sources = value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            if !sources.isEmpty { return sources }
+        }
+        return defaults
+    }
+}
+
 /// How to fetch. Defaults match the flags and the environment the CLI reads.
 public struct PullOptions: Sendable {
     /// Raw-file bases. Setting these selects the raw path in automatic mode;
@@ -84,9 +173,18 @@ public struct WeightStore: Sendable {
 
     /// The directory the weights live in.
     public let modelDirectory: URL
+    let deployment: WeightDeployment
+
+    /// Required and total installed bytes for this store's compiled pack.
+    public var requiredBytes: Int64 { deployment.requiredBytes }
+    public var totalBytes: Int64 { deployment.totalBytes }
 
     public init(modelDirectory: URL) {
-        self.modelDirectory = modelDirectory
+        self.init(modelDirectory: modelDirectory, deployment: .original)
+    }
+
+    init(modelDirectory: URL, deployment: WeightDeployment) {
+        self.modelDirectory = modelDirectory; self.deployment = deployment
     }
 
     /// `~/.slotstream/models/<pinned dir>`, or the dev checkout's copy when
@@ -107,14 +205,14 @@ public struct WeightStore: Sendable {
     /// seconds and is the reason a damaged tokenizer never reaches the engine.
     public func status() -> WeightStatus {
         let free = Self.freeDiskBytes(near: modelDirectory)
-        let remaining = Self.remainingBytes(at: modelDirectory)
+        let remaining = remainingBytes()
         if remaining > 0 {
-            let have = PinnedModel.requiredBytes - remaining
+            let have = requiredBytes - remaining
             return have > 0
                 ? .incomplete(remainingBytes: remaining, freeDiskBytes: free)
                 : .missing(needBytes: remaining, freeDiskBytes: free)
         }
-        let bad = Self.invalidFiles(at: modelDirectory)
+        let bad = Self.invalidFiles(at: modelDirectory, files: deployment.files)
         if bad.isEmpty { return .ready }
         return .corrupt(
             paths: bad.map(\.path), repairBytes: bad.reduce(0) { $0 + $1.size },
@@ -126,17 +224,17 @@ public struct WeightStore: Sendable {
     public func status(shouldContinue: @escaping @Sendable () -> Bool) throws -> WeightStatus {
         guard shouldContinue() else { throw DownloadCancelled() }
         let free = Self.freeDiskBytes(near: modelDirectory)
-        let remaining = Self.remainingBytes(at: modelDirectory)
+        let remaining = remainingBytes()
         if remaining > 0 {
-            return PinnedModel.requiredBytes > remaining
+            return requiredBytes > remaining
                 ? .incomplete(remainingBytes: remaining, freeDiskBytes: free)
                 : .missing(needBytes: remaining, freeDiskBytes: free)
         }
         let lock = NSLock()
         var bad: [PinnedModel.File] = []
-        DispatchQueue.concurrentPerform(iterations: PinnedModel.files.count) { index in
+        DispatchQueue.concurrentPerform(iterations: deployment.files.count) { index in
             guard shouldContinue() else { return }
-            let file = PinnedModel.files[index]
+            let file = deployment.files[index]
             let url = modelDirectory.appendingPathComponent(file.path).resolvingSymlinksInPath()
             let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? Int64
             if size == nil && file.optional { return }
@@ -161,30 +259,34 @@ public struct WeightStore: Sendable {
 
     /// Re-hash this copy against the pinned digests.
     public func verify(log: Log = { _ in }) throws {
-        try Self.verify(at: modelDirectory, log: log)
+        try Self.verify(at: modelDirectory, deployment: deployment, log: log)
     }
 
     /// Fetch what is missing. Resumable: rerunning continues an interrupted
     /// pull from its chunk map.
     public func download(_ options: PullOptions = .init(), log: Log = { _ in }) throws {
         try Self.download(
-            to: modelDirectory, connections: options.connections, sources: options.sources,
+            to: modelDirectory, deployment: deployment, connections: options.connections, sources: options.sources,
             transport: options.transport, cancellation: options.cancellation, log: log)
     }
 
     // MARK: verify
 
     public static func verify(at dest: URL, log: Log = { _ in }) throws {
+        try verify(at: dest, deployment: .original, log: log)
+    }
+
+    private static func verify(at dest: URL, deployment: WeightDeployment, log: Log) throws {
         let fm = FileManager.default
         guard fm.fileExists(atPath: dest.path) else {
             throw SlotstreamError.pull("nothing at \(dest.path) — run `slotstream pull` first")
         }
-        log("verifying \(PinnedModel.files.count) files at \(dest.path) against "
-            + "\(PinnedModel.repo) @ \(String(PinnedModel.revision.prefix(12)))")
+        log("verifying \(deployment.files.count) files at \(dest.path) against "
+            + "\(deployment.repository) @ \(String(deployment.revision.prefix(12)))")
         var failures: [String] = []
         var absent: [String] = []  // optional files not downloaded
         let lock = NSLock()
-        let files = PinnedModel.files
+        let files = deployment.files
         guard files.allSatisfy({ $0.sha256 != nil }) else {
             throw SlotstreamError.pull("internal manifest error: every pinned file must have a sha256")
         }
@@ -237,11 +339,15 @@ public struct WeightStore: Sendable {
     /// Quiet manifest check for run/serve startup. Returning the actual files
     /// lets the caller quote an honest repair size before asking permission.
     public static func invalidFiles(at dest: URL) -> [PinnedModel.File] {
+        invalidFiles(at: dest, files: PinnedModel.files)
+    }
+
+    private static func invalidFiles(at dest: URL, files: [PinnedModel.File]) -> [PinnedModel.File] {
         let fm = FileManager.default
         let lock = NSLock()
         var invalid: [PinnedModel.File] = []
-        DispatchQueue.concurrentPerform(iterations: PinnedModel.files.count) { i in
-            let f = PinnedModel.files[i]
+        DispatchQueue.concurrentPerform(iterations: files.count) { i in
+            let f = files[i]
             let url = dest.appendingPathComponent(f.path).resolvingSymlinksInPath()
             let size = (try? fm.attributesOfItem(atPath: url.path))?[.size] as? Int64
             if size == nil && f.optional { return }  // absent optional file: nothing to repair
@@ -328,10 +434,21 @@ public struct WeightStore: Sendable {
     /// Bytes still to download at `dest` (counting chunk-map progress), by size
     /// only — hashes are verify's job. 0 means every file is present whole.
     public static func remainingBytes(at dest: URL) -> Int64 {
+        remainingBytes(at: dest, deployment: .original)
+    }
+
+    public func remainingBytes() -> Int64 {
+        Self.remainingBytes(at: modelDirectory, deployment: deployment)
+    }
+
+    private static func remainingBytes(at dest: URL, deployment: WeightDeployment) -> Int64 {
         let fm = FileManager.default
         var remaining: Int64 = 0
-        let compressedHave = SlotpackDownload.resumeModelBytes(at: dest)
-        for f in PinnedModel.files {
+        let compressedHave: [String: Int64]
+        if let transport = deployment.compressed, case let .success(manifest) = transport.manifest {
+            compressedHave = SlotpackDownload.resumeModelBytes(at: dest, manifest: manifest, digest: transport.digest)
+        } else { compressedHave = [:] }
+        for f in deployment.files {
             let final = dest.appendingPathComponent(f.path)
             if f.optional && !fm.fileExists(atPath: final.path) { continue }
             let resolved = final.resolvingSymlinksInPath()
@@ -370,19 +487,27 @@ public struct WeightStore: Sendable {
         transport: WeightTransport, cancellation: PullCancellation? = nil,
         log: Log = { _ in }
     ) throws {
+        try download(to: dest, deployment: .original, connections: connections, sources: sources,
+            transport: transport, cancellation: cancellation, log: log)
+    }
+
+    private static func download(
+        to dest: URL, deployment: WeightDeployment, connections: Int?, sources: [String]?,
+        transport: WeightTransport, cancellation: PullCancellation?, log: Log
+    ) throws {
         // The public operation is synchronous. Session invalidation may release
         // its delegate later, so detach the caller's nonescaping sink before
         // returning even if a drained worker is temporarily retained by Foundation.
         try withoutActuallyEscaping(log) { sink in
             let forwarding = DownloadLog(sink)
             defer { forwarding.close() }
-            try downloadImpl(to: dest, connections: connections, sources: sources,
+            try downloadImpl(to: dest, deployment: deployment, connections: connections, sources: sources,
                 transport: transport, cancellation: cancellation, log: { forwarding.write($0) })
         }
     }
 
     private static func downloadImpl(
-        to dest: URL, connections: Int?, sources: [String]?,
+        to dest: URL, deployment: WeightDeployment, connections: Int?, sources: [String]?,
         transport: WeightTransport, cancellation: PullCancellation?,
         log: @escaping Log
     ) throws {
@@ -394,20 +519,21 @@ public struct WeightStore: Sendable {
         try cancellation.check()
 
         let conns = max(1, min(connections ?? PullTuning.connections, 32))
-        let bases = sources ?? WeightSources.bases
+        let bases = sources ?? WeightDeployment.sourceBases(deployment.rawBases, environmentKey: "SLOTSTREAM_WEIGHTS_SOURCES")
         guard !bases.isEmpty else { throw SlotstreamError.pull("no download sources configured") }
         let env = ProcessInfo.processInfo.environment
         let selected = transport == .automatic ? WeightTransport(rawValue: env["SLOTSTREAM_PULL_TRANSPORT"] ?? "automatic") ?? .automatic : transport
-        let legacyResume = PinnedModel.files.contains { file in
+        let legacyResume = deployment.files.contains { file in
             fm.fileExists(atPath: dest.appendingPathComponent(file.path).appendingPathExtension("part").path)
         }
         let rawOverride = sources != nil || env["SLOTSTREAM_WEIGHTS_SOURCES"]?.isEmpty == false
         let compressed = selected == .compressed || (selected == .automatic && !rawOverride && !legacyResume)
-        if compressed, !PinnedTransport.manifestJSON.isEmpty {
-            let manifest = try PinnedTransport.manifest.get()
+        if compressed, let package = deployment.compressed {
+            let manifest = try package.manifest.get()
+            try manifest.validate(files: deployment.files)
             for repair in 0...1 {
-                let job = SlotpackDownload(manifest: manifest, digest: PinnedTransport.manifestSHA256,
-                    dest: dest, bases: PinnedTransport.bases, rawBases: bases, connections: conns,
+                let job = SlotpackDownload(manifest: manifest, digest: package.digest,
+                    dest: dest, bases: WeightDeployment.sourceBases(package.bases, environmentKey: "SLOTSTREAM_COMPRESSED_SOURCES"), rawBases: bases, connections: conns,
                     cancellation: cancellation, adaptive: connections == nil && env["SLOTSTREAM_PULL_CONNECTIONS"] == nil, log: log)
                 do { try job.run(); return }
                 catch is PullIntegrityError where repair == 0 {
@@ -421,12 +547,12 @@ public struct WeightStore: Sendable {
         var lastIntegrityError: Error?
         for start in bases.indices {
             let selected = Array(bases[start...])
-            let job = PullJob(dest: dest, bases: selected, connections: conns, cancellation: cancellation, log: log)
+            let job = PullJob(dest: dest, bases: selected, connections: conns, files: deployment.files, cancellation: cancellation, log: log)
             defer { job.shutdown() }
             let remaining = try job.plan()
             if remaining == 0 {
                 try job.run()  // may still have files to hash and rename
-                log("all \(PinnedModel.files.count) files already present and hash-verified")
+                log("all \(deployment.files.count) files already present and hash-verified")
                 return
             }
 
@@ -442,7 +568,7 @@ public struct WeightStore: Sendable {
             log("reference estimate: \(WeightStore.etaHint(remaining)) at 100 MB/s; actual progress is measured")
             log(String(
                 format: "pulling %@ @ %@: %.1f GB to go over %d connections (resumable — rerun to continue)",
-                PinnedModel.repo, String(PinnedModel.revision.prefix(12)),
+                deployment.repository, String(deployment.revision.prefix(12)),
                 Double(remaining) / 1e9, conns))
             log("source: \(WeightSources.display(selected[0]))")
             for b in selected.dropFirst() { log("fallback: \(WeightSources.display(b))") }

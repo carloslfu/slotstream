@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T15:49:08.501933Z
+updated: 2026-10-04T16:17:01.558009Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-corrected-authentication-fixture-ci]] — Complete optimized CI after retaining authentication fixture owners
 - [[sources/runs/2026/10/2026-10-04-retained-tensor-subset-primitive]] — Bounded retained tensor copying and standalone geometry
 - [[sources/runs/2026/10/2026-10-04-transport-ci-and-authentication-fixture-lifetime]] — Lossless transport CI acceptance and optimized authentication fixture correction
 - [[sources/runs/2026/10/2026-10-04-outcome-watchdog-cleanup-ownership]] — Outcome watchdog cleanup ownership correction
@@ -506,9 +507,8 @@ updated: 2026-10-04T15:49:08.501933Z
 - [[sources/runs/2026/09/2026-09-07-optimization-sync-probe-memory-label-correction]] — Correction to the component probe allocator-peak label
 - [[sources/runs/2026/09/2026-09-07-optimization-retained-window-sync-component]] — Retained-window synchronization component probe and explicit serving qualification boundary
 - [[sources/runs/2026/09/2026-09-07-optimization-current-clients-and-portable-pass]] — Current actual-client compatibility and complete portable-path native acceptance
-- [[sources/runs/2026/09/2026-09-07-optimization-combined-prose-serving-pass]] — Combined nonrepeating prose serving qualification on current V280
 
 ## More
 
-This folder has 790 files. The 500 most recent are listed above.
+This folder has 791 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

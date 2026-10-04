@@ -229,3 +229,6 @@ Implement and check bounded lossless retained-tensor copying, including independ
 ## [2026-10-04 15:58] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepare manifest-bound compressed resume accounting and cross-pack identity fixtures. Preserve the original entry point and keep alternate admission closed; native CI acceptance remains pending.
 
+## [2026-10-04 16:18] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Bind WeightStore operations and Mac setup sizes to a compiled supported deployment while preserving original APIs. Add two-deployment native fixtures and real HTTP store-path checks; their native CI remains pending. Capture complete corrected authentication CI with zero failed catalogue checks.
+
