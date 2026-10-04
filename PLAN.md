@@ -939,6 +939,12 @@ New native fixtures exercise independent readiness for equal-name/equal-size fil
 
 [[sources/runs/2026/10/2026-10-04-corrected-authentication-fixture-ci]] preserves complete successful CI for commit `7c5d8f0b8b49ac466022fee0998904b7b891597e`. The optimized and instrumented catalogues both pass all checks, including the authentication descriptor-lifetime fixture; complete transport, static, external-consumer and Mac runtime/Xcode gates pass. The watchdog cleanup fix is included in this tested ancestry. Actual model startup and long-read cancellation still require serial local execution after the held-out campaign. Later distribution preparations require their own CI and do not inherit this pass.
 
+### Long-conversation outcome preparation
+
+[[sources/runs/2026/10/2026-10-04-long-conversation-outcome-preparation]] preserves a deterministic synthetic conversation instrument and native tokenizer-only sizing. The cases test initial retrieval, explicit corrections, retained fields and unrelated updates at early, middle and late positions in the supplied records. Actual assistant messages remain in history and every turn contributes to the outcome. Wrong answers, duplicate keys, incomplete generation and trusted admission refusals cannot pass; execution failures remain distinct.
+
+Both local Python test runs and the static-entry harness pass. First-turn prompts span approximately two thousand, eight thousand and twenty-nine thousand tokens, with exact token IDs preserved from the pinned native template. The last group targets conversations inside the existing 32K window with separately reserved continuation and reply space. Only tokenizer metadata was loaded, under a bounded small process; no additional model ran alongside the ongoing final campaign. No model outcomes are available. Freeze the complete execution/resource and acceptance protocol before inference, then preserve every paired conversation and actual native token admission. These focused product fixtures cannot establish statistical long-context noninferiority or replace the general-task, application, vision or performance gates.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

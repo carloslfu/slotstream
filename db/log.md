@@ -232,3 +232,6 @@ Prepare manifest-bound compressed resume accounting and cross-pack identity fixt
 ## [2026-10-04 16:18] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Bind WeightStore operations and Mac setup sizes to a compiled supported deployment while preserving original APIs. Add two-deployment native fixtures and real HTTP store-path checks; their native CI remains pending. Capture complete corrected authentication CI with zero failed catalogue checks.
 
+## [2026-10-04 16:32] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepare deterministic long-conversation retrieval and correction outcomes, preserve actual assistant history and distinguish native execution failures. Six test groups pass on both Python runtimes and thirty-two entry checks pass. Pinned native tokenizer-only preparation records exact first-turn sizes without loading another model; outcome execution and final protocol remain pending.
+
