@@ -274,3 +274,6 @@ Froze an explicit unanswered-only continuation before new answers, preserving th
 ## [2026-10-04 20:35] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Captured prospective image and long-conversation protocols, preserved preparation failures and exact reproducible-payload retirement metadata, and verified official pinned license bytes. Recorded first completed unanswered-only job without partial quality analysis. Product execution, payload retirement, standalone export and qualification remain open.
 
+## [2026-10-04 20:46] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Implemented exact authenticated research-payload retirement with exclusive ownership, full pre-deletion hashes, preserved reconstruction custody, durable per-file intent and no retries. Seven tiny filesystem groups pass on both runtimes and thirty-two static registration checks pass. Metadata-only actual-plan validation passes; actual payload retirement remains pending behind the active study.
+

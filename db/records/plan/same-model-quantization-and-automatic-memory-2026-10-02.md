@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T20:35:16.506770+00:00
+updated: 2026-10-04T20:46:20.462478+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -966,3 +966,10 @@ Before any product answers, separate image and long-conversation protocols bind 
 The metadata-only retirement plan names ninety-six regular generated payloads, comprising the losing affine refit and redundant VQ 3.2 contiguous repack. It preserves original checkpoints, the selected minmax candidate, all manifests and source/build evidence, and exact producer bytes. The earlier producer-hash refusal is preserved, with the original transport writer recovered by digest from Git into the archive alone. Planned retirement makes room under the unchanged staging ceiling for the complete standalone export and remaining study receipts. No payload has been deleted, fully rescanned or exported alongside the active model study. Execution still requires exclusive ownership, full hashes and unchanged identities of precisely the listed files.
 
 The source also preserves the official checkpoint license and its byte identity with the pinned license. Commercial product-use clearance under its stated business restrictions remains a release input; this review establishes neither applicability nor permission. Engineering and local evaluation continue. No public weights or application release has been published.
+
+
+### Authenticated research-payload retirement driver, October 4
+
+[[sources/runs/2026/10/2026-10-04-authenticated-research-retirement-driver]] records the restricted execution owner for the already prepared two-artifact retirement plan. It verifies complete payload hashes before any deletion, preserves exact reconstruction custody, binds immutable file identities, holds the native exclusion lock and records durable per-file intent and outcome. Headroom, pressure, process, time and staging checks remain active; partial deletion is preserved and cannot be retried silently. Only the explicit generated files can be retired.
+
+Seven real-filesystem fixture groups pass on both Python runtimes, including late authentication failure, replacement/symlink refusal, mutation after hashing, interruption, live resource loss and scope/custody rejection. The initial canonical-path test failure is retained and corrected. All thirty-two static entry-point checks pass, and the real prospective plan passes metadata-only validation. Actual retirement and full standalone production still await exclusive ownership after the active study; no model payload was scanned or deleted for these instrument checks.

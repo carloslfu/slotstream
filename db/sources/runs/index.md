@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T20:30:57.930487Z
+updated: 2026-10-04T20:46:19.186425Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-authenticated-research-retirement-driver]] — Bounded exact-file retirement driver passes tiny real-filesystem checks and validates preserved artifact custody without reading or deleting model payloads
 - [[sources/runs/2026/10/2026-10-04-product-protocols-and-standalone-space]] — Freeze complete product conversations and prepare bounded standalone storage without changing the active quality campaign
 - [[sources/runs/2026/10/2026-10-04-prospective-unanswered-continuation]] — Prospective continuation preserves all completed held-out evidence and runs only unanswered cells after explicit post-exit settling
 - [[sources/runs/2026/10/2026-10-04-heldout-native-startup-refusal]] — Frozen held-out campaign stops before a reload allocates or receives a task; preserve completed evidence and prepare explicit startup observations
@@ -506,9 +507,8 @@ updated: 2026-10-04T20:30:57.930487Z
 - [[sources/runs/2026/09/2026-09-07-optimization-resource-subset-and-exact-activation-preparation]] — Original resource gates and exact seven-file activation patch prepared
 - [[sources/runs/2026/09/2026-09-07-optimization-fixed-confirmation-and-lifetime-preparation]] — Fixed confirmation, explicit lifetime provenance and all controls reconciled
 - [[sources/runs/2026/09/2026-09-07-optimization-thermal-static-suite-integration]] — Thermal readiness becomes a mandatory static regression suite
-- [[sources/runs/2026/09/2026-09-07-optimization-foundation-thermal-preflight]] — Additional direct Foundation thermal/power pre-launch observation
 
 ## More
 
-This folder has 804 files. The 500 most recent are listed above.
+This folder has 805 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
