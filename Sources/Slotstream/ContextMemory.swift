@@ -297,7 +297,7 @@ public enum ContextWorkspace {
     package static func expertWorkspaceBytes(tokens: Int, tile: Int, experts: Int,
         topK: Int, hidden: Int, intermediate: Int, recordBytes: Int, loadBatch: Int,
         admissionPoolBytes: Int = 0, admissionRecords: Int = 0,
-        largestWriteBytes: Int? = nil) -> Int {
+        largestWriteBytes: Int? = nil, largestAdmissionWriteBytes: Int? = nil) -> Int {
         guard tokens > 0, tokens <= ContextPolicy.modelLimit,
               [256, 512, 1024, 2048, 4096].contains(tile),
               experts > 0, topK > 0, topK <= experts, hidden > 0, intermediate > 0,
@@ -306,6 +306,8 @@ public enum ContextWorkspace {
               admissionRecords == 0 || admissionPoolBytes > 0 else { return Int.max }
         let weights = ContextBytes.product(experts, recordBytes)
         if let largestWriteBytes, largestWriteBytes <= 0 || largestWriteBytes > weights { return Int.max }
+        if let largestAdmissionWriteBytes,
+           largestAdmissionWriteBytes <= 0 || largestAdmissionWriteBytes > admissionPoolBytes { return Int.max }
         // Nine aligned managed buffers; reserve a second staging copy so
         // admission never depends on a particular no-copy upload decision.
         let staging = ContextBytes.sum(ContextBytes.product(loadBatch, recordBytes, 2), 9 * 16_384)
@@ -316,7 +318,10 @@ public enum ContextWorkspace {
         let assembly = ContextBytes.sum(largestWriteBytes ?? weights, staging)
         // Sweep admission can replace the decode pool while full workspace
         // weights and gathered hot records remain live.
-        let admission = ContextBytes.sum(admissionPoolBytes,
+        // A caller may price a single destination piece only when every
+        // admission scatter is evaluated before issuing the next piece.
+        // Gathered source records and the full layer bank still coexist.
+        let admission = ContextBytes.sum(largestAdmissionWriteBytes ?? admissionPoolBytes,
             ContextBytes.product(admissionRecords, recordBytes))
         // workspaceRouted merges a residual tail only below 256 rows. Its
         // grouped matmul pads to at least four rows per expert (and 16).

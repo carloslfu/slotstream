@@ -41,6 +41,33 @@ extension Diagnostics {
         c.equal("eager embedding and rotary component reserved independently", candidate.memoryLedger.packResidentReserveBytes, 424_689_664)
         c.equal("floor layer, admission replacement and retained routes reserved", profile.workspaceBytes(slots: 640), 2_517_897_216)
         c.expect("larger arena includes a replacement alongside the layer", candidate.memoryLedger.expertWorkspaceBytes >= candidate.memoryLedger.poolBytes + 1_101_004_800)
+        let piecewise = PackMemoryProfile.affine3PiecewiseControl
+        c.equal("sequential pieces retain full source and bounded replacement", piecewise.workspaceBytes(slots: 640), 1_566_031_872)
+        c.equal("sequential floor matches independently priced allowance", piecewise.workspaceBytes(slots: 640), piecewise.expertWorkspaceBytes)
+        for slots in [640, 1000, 7000, Geometry.totalRecords] {
+            c.expect("sequential admission still owns its largest replacement/\(slots)",
+                piecewise.workspaceBytes(slots: slots) >= 512 * 2_150_400 + slots * 614_400
+                    + min(512, slots / 48) * 2_150_400)
+            c.expect("sequential copies do not grow the conservative allowance/\(slots)",
+                piecewise.workspaceBytes(slots: slots) <= profile.workspaceBytes(slots: slots))
+        }
+        for budget in stride(from: 2.0, through: 20.0, by: 0.125) {
+            let slots = piecewise.slotsForCapacityBudgetGB(budget)
+            c.expect("sequential capacity pays for live replacement storage", piecewise.capacityBudgetGB(slots) <= budget)
+            c.expect("sequential next record cannot fit", slots == Geometry.totalRecords || piecewise.capacityBudgetGB(slots + 1) > budget)
+        }
+        let piecewisePlan = try plan(piecewise)
+        c.expect("sequential allocation admits more records at an equal ceiling", piecewisePlan.slots > candidate.slots)
+        c.expect("sequential allocation keeps unknown speed and conservative features",
+            piecewisePlan.json()["est_warm_tok_s"] is NSNull && !piecewisePlan.mtpEnabled && !piecewisePlan.decodeLookahead)
+        c.expect("sequential allocation ledger respects its saved ceiling", piecewisePlan.expectedPeakGB <= 14)
+        for replacement in [-1, 0, 640 * 2_150_400 + 1, Int.max] {
+            c.equal("invalid replacement bound refuses before allocation/\(replacement)",
+                ContextWorkspace.expertWorkspaceBytes(tokens: 512, tile: 512, experts: 512,
+                    topK: 10, hidden: 2560, intermediate: 640, recordBytes: 2_150_400, loadBatch: 32,
+                    admissionPoolBytes: 640 * 2_150_400, admissionRecords: 13,
+                    largestAdmissionWriteBytes: replacement), Int.max)
+        }
         for budget in stride(from: 2.0, through: 20.0, by: 0.125) {
             let slots = profile.slotsForCapacityBudgetGB(budget)
             c.expect("capacity solve includes its own scratch", profile.capacityBudgetGB(slots) <= budget)

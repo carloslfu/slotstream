@@ -766,6 +766,24 @@ All prior resident-head token and committed-state observations match exactly. Ca
 
 Explicit streamed placement is available to the research Engine. Candidate Auto still cannot inherit the baseline's measured placement threshold. Next compare complete configurations through the actual planner at equal saved ceilings, then qualify quality and the remaining production features before publishing or selecting another pack. Vision, standalone distribution, held-out noninferiority and integrated release remain open.
 
+
+### Actual planner calibration, October 4
+
+[[sources/runs/2026/10/2026-10-04-actual-planner-calibration-with-timing-exclusions]] records the complete-task evaluator using the actual Engine planner at an equal saved ceiling. Each pack independently prices its expert pool, prefill chunk and original streamed draft. Protocol and grader checks bind the requested budget and feature set to the loaded plan. The earlier fixed-pool instrument keeps its existing behavior.
+
+All six frozen calibration runs complete and preserve their own prior outcomes. The first pair is timing-ineligible because of external CPU activity and, for the original, paging. Later runs meet the recorded conditions, but the frozen all-runs rule prevents an aggregate or speed qualification. No replacement rounds are substituted.
+
+The candidate's conservative workspace reservation prices a full decode-pool replacement during prefill admission. Reducing that charge requires a different owned-copy lifetime and physical verification; observed unused headroom alone does not justify changing it. The supported registry remains original-only. The next allocation experiment is separately identified and cannot repair the excluded timing campaign retroactively.
+
+
+### Explicit sequential expert copies, October 4
+
+[[sources/runs/2026/10/2026-10-04-sequential-affine-cache-allocation]] records the distinct `affine3-piecewise-memory-v1` research profile. Each workspace or admission destination is evaluated before the next tensor piece is constructed. The ledger still retains full source storage, staged hot records and the largest destination replacement. Existing original and conservative candidate profiles keep their prior accounting.
+
+Exact frozen speculative tokens and complete committed states, real Engine byte/CLOCK/resize checks, reuse/governor/HTTP behavior and the entire staged 32K window pass within the existing physical guards. Actual-plan evaluation rejects a copy mode that does not match its frozen protocol and resource identity. Static acceptance and prior-commit CI pass.
+
+This completes the owned-copy and physical-memory checks for the explicit mode. It does not establish faster complete configurations or lower the original profile's allowance. The changed allocation receives a separately frozen equal-ceiling performance comparison. Candidate vision, held-out quality, standalone distribution, transactional multiple-pack integration and final product acceptance remain open; the whole-plan goal is active.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

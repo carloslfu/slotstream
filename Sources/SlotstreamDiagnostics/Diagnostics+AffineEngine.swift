@@ -9,7 +9,8 @@ extension Diagnostics {
     /// is distinct from this test's ten-GB physical watchdog and fixed small
     /// arena. Nothing enters the supported registry or becomes active on disk.
     public static func affineEngine(baseline: URL, control: URL, table: URL,
-                                    profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false) async throws -> Data {
+                                    profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false,
+                                    piecewiseAllocation: Bool = false) async throws -> Data {
         guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
         let profileSHA = "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c"
         let bytes = try AffineExpertControl.bounded(profile, maximum: 100_000, sha256: profileSHA)
@@ -35,7 +36,8 @@ extension Diagnostics {
                 throw ModelError("affine Engine check exceeded its physical resource envelope")
             }
         }
-        let resource = PackMemoryProfile.affine3Control
+        let source = AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation)
+        let resource = source.resources
         let target = mtp ? 14.0 : 12.0
         func plan(_ slots: Int, source: MemoryPlan.Source = .memoryGB) -> MemoryPlan {
             MemoryPlan(source: source, slots: slots, targetGB: target,
@@ -53,7 +55,8 @@ extension Diagnostics {
             var result: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
                 "control_manifest_sha256": AffineExpertControl.manifestSHA256,
                 "rotary_sha256": VQRotaryCoefficients.sha256, "profile_sha256": profileSHA,
-                "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft, "initial_plan": plan(800).json(),
+                "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft,
+                "piecewise_allocation": piecewiseAllocation, "initial_plan": plan(800).json(),
                 "maximum_physical_process_bytes": 10_000_000_000, "observations": observations,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -87,7 +90,7 @@ extension Diagnostics {
                     String(describing: error).contains("same pack"))
             }
             let engine = try await Engine(modelDir: baseline,
-                affineSource: AffineEngineSource(control: control, coefficients: table), plan: plan(800))
+                affineSource: source, plan: plan(800))
             engine.gpuKeepAlive = .off
             engine.generator.footprintSampling = true
             engine.generator.draftDepth = 2
@@ -249,6 +252,50 @@ extension Diagnostics {
             c.equal("HTTP generation matches the direct Engine", parsed?["response"] as? String, native.text)
             c.equal("HTTP generation identifies the loaded pack", parsed?["model"] as? String, engine.modelName)
             observations.append(["case": "http", "status": response.head, "body": parsed ?? [:]])
+            if piecewiseAllocation {
+                c.expect("real Engine completes sequential workspace copies", engine.model.pool.workspacePieceWriteCompletions > 0)
+                c.expect("real Engine completes sequential admission copies", engine.model.pool.admissionPieceWriteCompletions > 0)
+                c.equal("authenticated workspace largest piece matches the ledger", engine.model.pool.largestWorkspacePieceBytes, 512 * 614_400)
+                c.equal("resized pool largest piece matches the ledger", engine.model.pool.largestPoolPieceBytes, engine.model.pool.slots * 614_400)
+                // A small real-record arena isolates copy semantics from the
+                // model. Both arms exercise CLOCK eviction, materialized
+                // bytes, repeated resident admissions and post-resize writes.
+                func copyArm(_ pieces: Bool) throws -> ([String], ExpertLookaheadResidency) {
+                    let pool = SlotPool(slots: 32, store: engine.model.pool.expertStore)
+                    pool.admissionPiecewiseWrites = pieces
+                    _ = try pool.ensureChecked((0..<32).map { ExpertKey(0, $0) })
+                    pool.unpinAll()
+                    let ids = [100, 200, 300, 400]
+                    let staged = try pool.readStagedChecked(layer: 1, experts: ids)
+                    pool.admit(layer: 1, experts: ids, rows: Array(0..<4), from: staged)
+                    pool.commitAdmissions()
+                    c.equal("first admission completes exactly nine pieces/\(pieces)", pool.admissionPieceWriteCompletions, pieces ? 9 : 0)
+                    let before = pool.lookaheadResidencySnapshot()
+                    pool.admit(layer: 1, experts: ids, rows: Array(0..<4), from: staged)
+                    pool.commitAdmissions()
+                    c.equal("resident admission creates no replacement/\(pieces)", pool.admissionPieceWriteCompletions, pieces ? 9 : 0)
+                    c.equal("resident admission preserves CLOCK hand/\(pieces)", pool.lookaheadResidencySnapshot().hand, before.hand)
+                    pool.resize(to: 40)
+                    pool.admit(layer: 2, experts: ids, rows: Array(0..<4), from: staged)
+                    pool.commitAdmissions()
+                    let values = pool.gatherResident(ids.map { ExpertKey(2, $0) })
+                    let hashes = values.map { AffineExpertControl.digest($0.asData(access: .copy).data) }
+                    c.equal("post-resize copy preserves every tensor byte/\(pieces)", hashes,
+                        staged.map { AffineExpertControl.digest($0.asData(access: .copy).data) })
+                    c.equal("post-resize admission completes each piece/\(pieces)", pool.admissionPieceWriteCompletions, pieces ? 18 : 0)
+                    c.equal("copy fixture retains no pins/\(pieces)", pool.pinnedSlotCount, 0)
+                    return (hashes, pool.lookaheadResidencySnapshot())
+                }
+                let batched = try copyArm(false), sequential = try copyArm(true)
+                c.equal("copy order preserves all admitted bytes", sequential.0, batched.0)
+                c.equal("copy order preserves every CLOCK key", sequential.1.slotKeys, batched.1.slotKeys)
+                c.equal("copy order preserves every CLOCK reference bit", sequential.1.referenceBits, batched.1.referenceBits)
+                c.equal("copy order preserves CLOCK hand", sequential.1.hand, batched.1.hand)
+                observations.append(["case": "piecewise-allocation",
+                    "workspace_piece_completions": engine.model.pool.workspacePieceWriteCompletions,
+                    "admission_piece_completions": engine.model.pool.admissionPieceWriteCompletions,
+                    "actual_workspace_bytes": engine.model.intrinsicExpertWorkspaceBytes(tokens: 512, admits: true)])
+            }
             try guardResources()
             complete = c.report().passed
             return try save()

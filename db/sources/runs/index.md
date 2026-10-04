@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T06:16:41.020215Z
+updated: 2026-10-04T07:26:48.753075Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-sequential-affine-cache-allocation]] — Explicit sequential affine cache allocation and exact recovery
+- [[sources/runs/2026/10/2026-10-04-actual-planner-calibration-with-timing-exclusions]] — Actual planner calibration with frozen timing exclusions
 - [[sources/runs/2026/10/2026-10-04-authenticated-streamed-original-draft]] — Authenticated original draft streaming and exact candidate recovery
 - [[sources/runs/2026/10/2026-10-04-durable-model-activation-and-recovery]] — Durable original-pack model activation, cancellation and recovery
 - [[sources/runs/2026/10/2026-10-04-complete-pair-exclusions-and-context-ci]] — Complete draft pilot exclusions and isolated context dependency repair
@@ -505,10 +507,8 @@ updated: 2026-10-04T06:16:41.020215Z
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-candidate-handoff]] — Combined candidate clean handback and complete37item disposition
 - [[sources/runs/2026/09/2026-09-07-optimization-consumer-build-contract]] — Standalone consumer rejects failed builds; native compilation remains unrun
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-default-sampler-installer]] — Combined candidate passes sampler oracle and real local installer transitions
-- [[sources/runs/2026/09/2026-09-07-optimization-correctness-memory-policy]] — Preserved swap guard stop and explicit correctness-only VM observations
-- [[sources/runs/2026/09/2026-09-07-optimization-combined-default-metadata-and-runtime]] — Combined candidate passes native metadata, exact planner and runtime defaults
 
 ## More
 
-This folder has 766 files. The 500 most recent are listed above.
+This folder has 768 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

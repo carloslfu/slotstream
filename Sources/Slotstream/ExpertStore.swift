@@ -625,6 +625,8 @@ public final class SlotPool {
         }.max() ?? Int.max
     }
 
+    package var largestPoolPieceBytes: Int { pools.map(\.nbytes).max() ?? Int.max }
+
     /// Per-piece shapes for a pool of `n` slots (order = ExpertStore.pieces).
     private static func poolShapes(_ n: Int, _ store: ExpertStore) -> [(shape: [Int], dtype: DType)] {
         store.stagingPieceSpecs.map { ([n] + $0.shape, $0.dtype) }
@@ -1278,6 +1280,12 @@ public final class SlotPool {
     /// MLX buffer donation. Does not change any bytes or reader lifetimes.
     public var workspacePiecewiseWrites = false
     public private(set) var workspacePieceWriteCompletions = 0
+    /// Explicit allocation contract for the affine research profile. Unlike
+    /// workspace assembly, admission writes the retained decode arena. Finish
+    /// each replacement before constructing the next one, without changing
+    /// CLOCK selection, record bytes or the lifetime of any workspace reader.
+    package var admissionPiecewiseWrites = false
+    package private(set) var admissionPieceWriteCompletions = 0
     /// Sweep admission can be switched off for an A/B (`SLOTSTREAM_SWEEP_ADMIT=0`).
     static let sweepAdmitEnabled: Bool =
         ProcessInfo.processInfo.environment["SLOTSTREAM_SWEEP_ADMIT"] != "0"
@@ -1361,8 +1369,10 @@ public final class SlotPool {
     /// Admit staged experts (experts[i] is row rows[i] of `staged`) into the
     /// pool, evicting by CLOCK; a resident one is marked referenced instead.
     /// The copy out of `staged` is issued now, so the staging arrays can go;
-    /// the pool writes stay lazy until `commitAdmissions`.
+    /// the pool writes stay lazy until `commitAdmissions` unless the explicit
+    /// piecewise allocation contract completes each destination immediately.
     public func admit(layer: Int, experts: [Int], rows: [Int], from staged: [MLXArray]) {
+        if admissionPiecewiseWrites { commitAdmissions() }
         var victims: [Int32] = []
         var src: [Int32] = []
         for (e, row) in zip(experts, rows) {
@@ -1388,7 +1398,15 @@ public final class SlotPool {
         let picked = staged.map { $0[from] }
         asyncEval(picked)
         let dst = MLXArray(victims)
-        for p in 0 ..< 9 { pools[p][dst] = picked[p] }
+        let start = RuntimeClock.now()
+        for p in 0 ..< 9 {
+            pools[p][dst] = picked[p]
+            if admissionPiecewiseWrites {
+                eval(pools[p])
+                admissionPieceWriteCompletions += 1
+            }
+        }
+        if admissionPiecewiseWrites { scatterSeconds += RuntimeClock.seconds(since: start) }
         poolWriteEpoch &+= 1
         pendingAdmissions += victims.count
     }

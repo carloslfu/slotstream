@@ -11,8 +11,13 @@ extension Diagnostics {
     public static func quantizationTasks(protocolFile: URL, protocolSHA256: String,
         baseline: URL, source: URL?, inventory: URL?, composite: URL?, table: URL?,
         draftDepth: Int, output: URL, prepareOnly: Bool = false,
-        parallelPrefillReads: Bool = false, affineControl: URL? = nil) async throws -> Data {
+        parallelPrefillReads: Bool = false, affineControl: URL? = nil,
+        enginePlan: Bool = false, streamedDraft: Bool = false,
+        piecewiseAllocation: Bool = false) async throws -> Data {
         guard (source == nil) == (inventory == nil),
+              !enginePlan || source == nil,
+              !streamedDraft || (enginePlan && draftDepth > 0),
+              !piecewiseAllocation || (enginePlan && affineControl != nil),
               !parallelPrefillReads || (source != nil && !prepareOnly),
               affineControl == nil || (source == nil && composite == nil && table != nil && !prepareOnly && !parallelPrefillReads),
               source != nil || affineControl != nil || (composite == nil && table == nil),
@@ -45,8 +50,20 @@ extension Diagnostics {
               let context = protocolObject["context_limit"] as? Int, [4096, 8192, 32768].contains(context),
               let cap = protocolObject["output_limit"] as? Int, [128, 512, 1024, 2048].contains(cap),
               protocolObject["sampling"] as? String == "greedy",
-              protocolObject["memory_bytes"] as? Int == 10_000_000_000 else {
+              let memoryBytes = protocolObject["memory_bytes"] as? Int,
+              enginePlan ? ((10_000_000_000...24_000_000_000).contains(memoryBytes)
+                && memoryBytes.isMultiple(of: 100_000_000)) : memoryBytes == 10_000_000_000,
+              (protocolObject["engine_plan"] as? Bool ?? false) == enginePlan else {
             throw ModelError("evaluation protocol differs from its frozen bounded identity")
+        }
+        if enginePlan {
+            let allocation = protocolObject["affine_allocation"] as? String ?? "batched"
+            guard protocolObject["draft_depth"] as? Int == draftDepth,
+                  protocolObject["draft_experts"] as? String == (streamedDraft ? "streamed" : "resident"),
+                  ["batched", "piecewise"].contains(allocation),
+                  piecewiseAllocation == (affineControl != nil && allocation == "piecewise") else {
+                throw ModelError("planned evaluation must freeze its explicit draft depth and placement")
+            }
         }
         // Authenticate every tokenizer input before any template is rendered.
         let tokenizerNames: Set<String> = ["tokenizer.json", "tokenizer_config.json", "chat_template.jinja", "config.json", "generation_config.json", "merges.txt", "vocab.json"]
@@ -106,18 +123,20 @@ extension Diagnostics {
             return data
         }
         try ModelProcessGuard.acquire()
-        guard let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= 13_000_000_000 else {
-            throw ModelError("task evaluation requires 13 GB real reclaimable memory")
+        guard let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= UInt64(memoryBytes + 3_000_000_000) else {
+            throw ModelError("task evaluation requires its complete physical budget plus three GB real reclaimable memory")
         }
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
         try raw.write(to: output.appendingPathComponent("protocol.json"), options: .withoutOverwriting)
         let oldCache = MLX.Memory.cacheLimit, oldLimit = MLX.Memory.memoryLimit
-        MLX.Memory.cacheLimit = 128_000_000; MLX.Memory.memoryLimit = min(oldLimit, 9_000_000_000)
+        MLX.Memory.cacheLimit = 128_000_000; MLX.Memory.memoryLimit = min(oldLimit, memoryBytes - 1_000_000_000)
         defer { Stream.gpu.synchronize(); MLX.Memory.clearCache(); MLX.Memory.cacheLimit = oldCache; MLX.Memory.memoryLimit = oldLimit }
         var candidate: VQModelProbe?, baselineEngine: Engine?, empty: StateCheckpoint?
         var affineGenerator: Generator?, affineIndex: CheckpointIndex?
         var identity: [String: Any] = ["baseline_revision": PinnedModel.revision,
-                                     "parallel_prefill_reads": parallelPrefillReads]
+                                     "parallel_prefill_reads": parallelPrefillReads,
+                                     "engine_plan": enginePlan, "streamed_draft": streamedDraft,
+                                     "piecewise_allocation": piecewiseAllocation]
         var rows: [[String: Any]] = []
         let loadStart = ProcessInfo.processInfo.systemUptime
         var loadSeconds = 0.0
@@ -129,7 +148,7 @@ extension Diagnostics {
             var value: [String: Any] = ["schema": 1, "complete": complete, "qualification": "unproven",
                 "scope": split, "protocol_sha256": protocolSHA256, "context_limit": context, "output_limit": cap,
                 "draft_depth": draftDepth, "sampling": "greedy", "identity": identity, "cases": rows,
-                "peak_process_bytes": ProcessMemory.peakResidentBytes(), "process_bound_bytes": 10_000_000_000,
+                "peak_process_bytes": ProcessMemory.peakResidentBytes(), "process_bound_bytes": memoryBytes,
                 "load_seconds": loadSeconds, "load_conditions": try json(loadConditions),
                 "timing_scope": "functional task evidence only; paired timing eligibility is separate"]
             value["failure"] = failure
@@ -138,7 +157,47 @@ extension Diagnostics {
             return data
         }
         do {
-            if let affineControl, let table {
+            if enginePlan {
+                let resources: PackMemoryProfile = affineControl == nil ? .original
+                    : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)
+                let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
+                    memoryGB: Double(memoryBytes) / 1e9,
+                    mtp: draftDepth > 0 ? .on : .off, mtpAvailable: draftDepth > 0,
+                    vision: .off, maxContextTokens: context, qualification: false,
+                    runtimePolicy: RuntimeAllocationPolicy(prefixCacheEnabled: false),
+                    decodeLookahead: .off, mtpExperts: streamedDraft ? .streamed : .resident)
+                guard plan.targetGB == Double(memoryBytes) / 1e9, plan.source == .memoryGB,
+                      plan.mtpEnabled == (draftDepth > 0),
+                      plan.mtpStreamedExperts == (draftDepth > 0 && streamedDraft),
+                      plan.maxContextTokens == context, !plan.decodeLookahead else {
+                    throw ModelError("planned evaluation changed a frozen configuration")
+                }
+                let engine: Engine
+                if let affineControl, let table {
+                    engine = try await Engine(modelDir: baseline,
+                        affineSource: AffineEngineSource(control: affineControl, coefficients: table,
+                            piecewiseAllocation: piecewiseAllocation), plan: plan)
+                    identity["control_manifest_sha256"] = AffineExpertControl.manifestSHA256
+                    identity["rotary_sha256"] = VQRotaryCoefficients.sha256
+                    identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"
+                } else {
+                    try WeightStore.verify(at: baseline)
+                    engine = try await Engine(modelDir: baseline, plan: plan)
+                    identity["manifest_sha256"] = ModelPackRegistry.baseline.manifestDigest
+                    identity["arithmetic"] = "native-deployed-defaults"
+                }
+                guard (engine.model.mtpHead != nil) == (draftDepth > 0),
+                      (engine.model.mtpHead?.expertStream != nil) == (draftDepth > 0 && streamedDraft) else {
+                    throw ModelError("planned evaluation did not load its declared draft configuration")
+                }
+                engine.generator.draftDepth = max(1, draftDepth)
+                engine.generator.footprintSampling = true
+                engine.gpuKeepAlive = .off
+                engine.prefixCache.enabled = false
+                baselineEngine = engine
+                identity["plan"] = plan.json()
+                identity["allocation_scope"] = "Actual fixed-ceiling Engine plan, disabled prefix retention and decode lookahead, explicit draft placement; no Auto or speed qualification."
+            } else if let affineControl, let table {
                 let index = try AffineExpertControl.open(baseline: baseline, control: affineControl,
                     shouldContinue: {
                         ProcessMemory.peakResidentBytes() <= 10_000_000_000
@@ -203,7 +262,7 @@ extension Diagnostics {
                         operating.append(ProcessMemory.operatingConditions()); nextObservation = now + 1
                     }
                     guard now - start < 1800,
-                          ProcessMemory.peakResidentBytes() <= 10_000_000_000,
+                          ProcessMemory.peakResidentBytes() <= UInt64(memoryBytes),
                           let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= 3_000_000_000 else {
                         resourceFailure = true; return false
                     }
@@ -236,6 +295,7 @@ extension Diagnostics {
                         onToken: { _, _ in samples.append(ProcessInfo.processInfo.systemUptime - start); return true })
                     if let error = result.stats.runtimeError { throw ModelError(error) }
                     if let error = result.stats.requestFailure { throw error }
+                    guard engine.model.pool.pinnedSlotCount == 0 else { throw ModelError("task retained expert pins") }
                     ids = result.ids; reason = result.stats.finishReason
                     detail["stats"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result.stats))
                 } else { throw ModelError("task producer was not loaded") }
@@ -267,6 +327,7 @@ extension Diagnostics {
                 _ = try receipt(false)
             }
             try affineIndex?.verifyAuthenticatedFilesUnchanged()
+            try baselineEngine?.model.pool.expertStore.index.verifyAuthenticatedFilesUnchanged()
             return try receipt(true)
         } catch { _ = try receipt(false, String(describing: error)); throw error }
     }

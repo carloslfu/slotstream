@@ -10,6 +10,7 @@ public final class Qwen4ExpModel {
     /// when another model has the same vocabulary and cache geometry.
     package let promptCheckpointIdentity = UUID()
     private let affineControlReferenceArithmetic: Bool
+    package let affinePiecewiseAllocation: Bool
     /// The finite research coefficients do not widen the public context
     /// contract. Refuse an out-of-range forward before touching any state.
     package let inferenceContextLimit: Int
@@ -17,9 +18,10 @@ public final class Qwen4ExpModel {
     private let authenticatedRotaryIdentity: String?
     package var authenticatedArtifactIdentity: String? {
         guard affineControlReferenceArithmetic else { return nil }
-        return [AffineExpertControl.policy, AffineExpertControl.manifestSHA256,
+        let identity = [AffineExpertControl.policy, AffineExpertControl.manifestSHA256,
                 authenticatedRotaryIdentity ?? "embedded-reference-coefficients-v1",
                 PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
+        return affinePiecewiseAllocation ? identity + ":piecewise-allocation-v1" : identity
     }
 
     /// This arithmetic owns a complete 512-expert RHS even for a seven-row
@@ -32,7 +34,9 @@ public final class Qwen4ExpModel {
             intermediate: cfg.moeIntermediate, recordBytes: pool.recordBytes,
             loadBatch: ExpertStore.defaultLoadBatch,
             admissionPoolBytes: admits ? pool.poolBytes : 0,
-            admissionRecords: admits ? min(cfg.numExperts, max(1, pool.slots / cfg.numLayers)) : 0)
+            admissionRecords: admits ? min(cfg.numExperts, max(1, pool.slots / cfg.numLayers)) : 0,
+            largestWriteBytes: affinePiecewiseAllocation ? pool.largestWorkspacePieceBytes : nil,
+            largestAdmissionWriteBytes: affinePiecewiseAllocation && admits ? pool.largestPoolPieceBytes : nil)
     }
     public let cfg: ModelConfig
     public let resident: ResidentWeights
@@ -242,7 +246,10 @@ public final class Qwen4ExpModel {
     package init(index: CheckpointIndex, poolSlots: Int, runLayers: Int? = nil, embeddingRowCache: Bool?,
                  packGDNProjections: Bool? = nil, affineControlReferenceArithmetic: Bool = false,
                  affineControlCoefficients: VQRotaryCoefficients? = nil,
-                 affineControlContextLimit: Int = 2054) throws {
+                 affineControlContextLimit: Int = 2054, affinePiecewiseAllocation: Bool = false) throws {
+        guard !affinePiecewiseAllocation || affineControlReferenceArithmetic else {
+            throw ModelError("piecewise affine allocation requires the authenticated reference profile")
+        }
         guard !affineControlReferenceArithmetic || (index.hasAuthenticatedFiles && index.config.admittedExpertRecordBytes == 2_150_400) else {
             throw ModelError("the affine reference profile requires the authenticated expert control")
         }
@@ -253,6 +260,7 @@ public final class Qwen4ExpModel {
             throw ModelError("affine reference context requires explicit bounded coefficient coverage")
         }
         self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
+        self.affinePiecewiseAllocation = affinePiecewiseAllocation
         self.authenticatedRotaryIdentity = affineControlCoefficients == nil ? nil : VQRotaryCoefficients.sha256
         self.inferenceContextLimit = affineControlReferenceArithmetic ? affineControlContextLimit : ContextPolicy.modelLimit
         let arithmetic: BlockArithmeticProfile = affineControlReferenceArithmetic ? .vqPR1788 : .deployed
@@ -346,11 +354,13 @@ public final class Qwen4ExpModel {
     /// The draft keeps the original independent four-bit recipe. Research
     /// speculation explicitly selects the existing row-invariant target mode;
     /// public loading and its deployed arithmetic stay unchanged.
-    package func enableAffineControlDraft(baseline: URL, streamedExperts: Bool = false) throws {
+    package func enableAffineControlDraft(baseline: URL, streamedExperts: Bool = false,
+                                         maximumProcessBytes: UInt64 = 10_000_000_000) throws {
         guard affineControlReferenceArithmetic, mtpHead == nil else {
             throw ModelError("the affine research draft requires its authenticated target and no existing head")
         }
-        let weights = try VQDraftWeights.load(baseline: baseline, streamedExperts: streamedExperts)
+        let weights = try VQDraftWeights.load(baseline: baseline, streamedExperts: streamedExperts,
+            maximumProcessBytes: maximumProcessBytes)
         let head = MTPHead(weights, stream: weights.verifiedExpertStream, arithmetic: .vqPR1788)
         head.rowInvariantFusion = true
         optimizations.rowInvariantProjection = true
@@ -597,7 +607,8 @@ public final class Qwen4ExpModel {
             reservedSlots: lookahead?.prefetch?.configuration.slotCap ?? 0)
         pool.pinGenerations = barrierPeriod > 1 ? barrierPeriod + 1 : 1
         prepareOptimizationKernels(using: optimizations)
-        pool.workspacePiecewiseWrites = optimizations.workspacePiecewiseWrites
+        pool.workspacePiecewiseWrites = affinePiecewiseAllocation || optimizations.workspacePiecewiseWrites
+        pool.admissionPiecewiseWrites = affinePiecewiseAllocation
         state.compactStateWindows = optimizations.compactStateWindows
         ngram.compactRows = optimizations.compactNgramRows
         mtpHead?.attn.indexer.incrementalBlocks = optimizations.incrementalIndexer

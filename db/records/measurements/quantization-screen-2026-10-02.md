@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T06:18:01.661722+00:00
+updated: 2026-10-04T07:27:55.846703+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -624,3 +624,31 @@ The original public streamed/resident draft and plain-lookahead regression passe
 All final static gates pass, with matching before/after source inputs. The final executable SHA-256 is `fc6faecc34177cada3820c23117e48ba20153ff41d377c6c73b4ebd88216491f`. An intermediate diagnostic compile failure remains preserved. Complete CI for `de75f797eec33b0429c92c9081146ad865ee6890` passes.
 
 Candidate planning now supports explicit streamed placement without inheriting the original pack's measured automatic placement threshold. No alternative becomes supported, installed, Auto-selected or quality/speed qualified. Candidate vision, held-out quality, complete-configuration performance and standalone distribution remain required.
+
+
+### Equal-ceiling actual Engine calibration with timing exclusions, October 4
+
+[[sources/runs/2026/10/2026-10-04-actual-planner-calibration-with-timing-exclusions]] preserves both build attempts, bounded input refusals and Engine regression, frozen task protocol, all six runs, original grader and complete host observations. Both arms request a 14 GB saved ceiling and physical watchdog, with a 17 GB real-memory preflight and 3 GB minimum headroom. They use two drafts and explicit original streamed experts, with vision, prefix retention and decode lookahead disabled. This larger allocation is the measurement itself; ordinary correctness fixtures remain under their prior bounds.
+
+The actual original planner chooses 2,162 slots and a 1,024-token prefill chunk; the conservative affine plan chooses 1,175 slots and a 512-token chunk. The smaller expert records alone therefore do not imply a larger cache: full replacement backing is still charged during admission.
+
+Every run passes 15 of the 16 unchanged calibration tasks, failing the same names-only sorting instruction. Repeated runs preserve prompt/output token IDs and terminal outcomes. Original physical peaks are 12,593,258,512, 12,537,176,056 and 12,528,508,824 bytes. Candidate peaks are 8,027,034,952, 8,034,866,504 and 8,023,676,208 bytes. These physical observations do not authorize lowering the planner's reserve without an ownership change.
+
+The first original run has CPU and process/request-paging exclusions; the first candidate run has a CPU exclusion. The later four runs meet their recorded timing conditions. The protocol requires all six eligible runs for its comparison, so no timing aggregate is published and no replacement runs are taken. The source is discarded for timing while retaining completed-task and memory evidence. This known calibration is not held-out noninferiority, sustained-rate certification, Auto qualification or a public release.
+
+
+### Sequential expert replacement lifetime and unchanged state, October 4
+
+[[sources/runs/2026/10/2026-10-04-sequential-affine-cache-allocation]] preserves the source-bound build, fourteen input refusals/accepted-header checks, complete native catalogue, real-model fixtures and final static suite. The copy contract is explicit and independent of the original profile. Each destination tensor finishes before the next replacement is issued. CLOCK decisions, staging bytes, canonical expert IDs, matrix geometry and reader lifetimes remain unchanged.
+
+For this authenticated record, the largest packed piece is 614,400 bytes per expert. All three packed pieces and all six BF16 scale/bias pieces remain resident where required. The conservative floor workspace at 640 slots and 512 query rows remains 2,517,897,216 bytes; the distinct sequential profile reserves 1,566,031,872 bytes. These are derived allocation bounds, not measured process savings. Larger caches still pay for their own largest destination replacement and gathered admissions. Invalid replacement bounds and mismatched resource identities refuse.
+
+| Check | Passing assertions | Physical process peak, bytes |
+| --- | --- | --- |
+| Speculation | 2,692 | 7,035,982,456 |
+| Engine | 78 | 7,360,418,904 |
+| Context | 1,444 | 8,083,443,528 |
+
+All 22 frozen prior resident-head observations match exactly for emitted IDs, consumed boundaries and committed target/head state digests. The additional speculation assertions prove the sequential path ran and its actual intrinsic reservation agrees with the profile. The Engine checks also compare complete tensor bytes and CLOCK keys/reference bits/hand across ordinary and sequential admissions, repeated resident hits and warm resize. The staged context consumes the full admitted window and preserves exact rollback and refusal behavior. Each model process retains the ordinary ten-GB watchdog and three-GB real headroom; the Engine integration fixture's separate conservative planning envelope is recorded in its receipt.
+
+The final static suite passes with identical before/after source manifests. Its sampled process-tree peak is 1,087,801,456 bytes. The frozen executable SHA-256 is `f8db9414ca20dc2f7bd706b0f9f63763396f514d414ae9c21f1605d0be6aa363`. All CI for the earlier streamed-draft commit `3608a4e10a94f240c89f4d59df5a224195a55f51` is successful. These checks do not qualify speed, held-out quality, vision, standalone distribution or another supported/automatic pack. A later performance experiment is a separate changed-candidate campaign.

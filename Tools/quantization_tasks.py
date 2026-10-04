@@ -301,6 +301,37 @@ def grade(protocol_path, receipts, output):
                 or receipt.get('sampling') != protocol['sampling']
                 or not 0 < receipt.get('peak_process_bytes', 0) <= protocol['memory_bytes']):
             raise ValueError('missing or mismatched complete task evidence')
+        if protocol.get('engine_plan') is True:
+            identity = receipt.get('identity', {})
+            plan = identity.get('plan', {})
+            ledger = plan.get('memory_ledger', {})
+            depth = protocol.get('draft_depth')
+            streamed = protocol.get('draft_experts') == 'streamed'
+            allocation = protocol.get('affine_allocation', 'batched')
+            affine = 'control_manifest_sha256' in identity
+            piecewise = affine and allocation == 'piecewise'
+            resource = ('affine3-piecewise-memory-v1' if piecewise else 'affine3-reference-memory-v3') if affine else 'original-affine4-memory-v1'
+            if (type(depth) is not int or not 0 <= depth <= 4
+                    or protocol.get('draft_experts') not in ('resident', 'streamed')
+                    or (streamed and depth == 0)
+                    or identity.get('engine_plan') is not True
+                    or identity.get('streamed_draft') is not streamed
+                    or allocation not in ('batched', 'piecewise')
+                    or identity.get('piecewise_allocation', False) is not piecewise
+                    or plan.get('resource_profile') != resource
+                    or ledger.get('resource_identity') != resource
+                    or receipt.get('draft_depth') != depth
+                    or receipt.get('process_bound_bytes') != protocol['memory_bytes']
+                    or plan.get('target_gb') != protocol['memory_bytes'] / 1e9
+                    or plan.get('source') != '--memory-gb'
+                    or plan.get('mtp') is not (depth > 0)
+                    or plan.get('mtp_streamed_experts') is not (depth > 0 and streamed)
+                    or plan.get('max_context_tokens') != protocol['context_limit']
+                    or plan.get('decode_lookahead') is not False
+                    or plan.get('vision') is not False
+                    or plan.get('prefix_cache_max_tokens') != 0
+                    or not 0 < ledger.get('expected_peak_bytes', 0) <= protocol['memory_bytes']):
+                raise ValueError('actual Engine plan differs from the frozen comparison budget or features')
         observed = receipt.get('cases', [])
         if [r['id'] for r in observed] != [c['id'] for c in cases]:
             raise ValueError('task coverage or order differs from the frozen protocol')

@@ -58,6 +58,56 @@ class TaskGrades(unittest.TestCase):
             tool_result('filter_records', {'min_score': 15, 'active_only': 1})
         self.assertEqual(tool_result('filter_records', {'min_score': 15, 'active_only': True}), ['r2', 'r4'])
 
+    def test_planned_engine_cannot_claim_a_different_budget_or_feature_set(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case = {'id': 'case', 'family': 'instruction', 'tokens': [10], 'grade': {'kind': 'text', 'value': 'yes'}}
+            protocol = {'scope': 'pilot', 'prepared': True, 'context_limit': 8192, 'output_limit': 512,
+                        'sampling': 'greedy', 'memory_bytes': 14_000_000_000, 'cases': [case],
+                        'engine_plan': True, 'draft_depth': 2, 'draft_experts': 'streamed'}
+            path = root / 'protocol.json'; path.write_text(json.dumps(protocol))
+            plan = {'target_gb': 14, 'source': '--memory-gb', 'mtp': True, 'mtp_streamed_experts': True,
+                    'max_context_tokens': 8192, 'decode_lookahead': False, 'vision': False,
+                    'prefix_cache_max_tokens': 0, 'resource_profile': 'original-affine4-memory-v1',
+                    'memory_ledger': {'expected_peak_bytes': 12_000_000_000, 'resource_identity': 'original-affine4-memory-v1'}}
+            receipt = {'complete': True, 'scope': 'pilot', 'context_limit': 8192, 'output_limit': 512,
+                       'sampling': 'greedy', 'protocol_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                       'peak_process_bytes': 9_000_000_000, 'process_bound_bytes': 14_000_000_000,
+                       'draft_depth': 2, 'identity': {'engine_plan': True, 'streamed_draft': True, 'plan': plan},
+                       'cases': [{'id': 'case', 'family': 'instruction', 'prompt_tokens': [10],
+                                  'output_tokens': [12], **self.output('yes')}]}
+            evidence = root / 'receipt.json'; evidence.write_text(json.dumps(receipt))
+            self.assertEqual(grade(path, [evidence], root / 'pass.json')['arms'][0]['passed'], 1)
+            faults = []
+            for key, value in [('target_gb', 10), ('source', 'auto'), ('mtp_streamed_experts', False),
+                               ('max_context_tokens', 4096), ('prefix_cache_max_tokens', 4096),
+                               ('decode_lookahead', True), ('vision', True),
+                               ('memory_ledger', {'expected_peak_bytes': 14_000_000_001})]:
+                bad = copy.deepcopy(receipt); bad['identity']['plan'][key] = value; faults.append(bad)
+            bad = copy.deepcopy(receipt); bad['identity']['engine_plan'] = False; faults.append(bad)
+            bad = copy.deepcopy(receipt); bad['process_bound_bytes'] = 10_000_000_000; faults.append(bad)
+            bad = copy.deepcopy(receipt); bad['draft_depth'] = 1; faults.append(bad)
+            bad = copy.deepcopy(receipt); bad['identity']['piecewise_allocation'] = True; faults.append(bad)
+            bad = copy.deepcopy(receipt); bad['identity']['plan']['resource_profile'] = 'affine3-piecewise-memory-v1'; faults.append(bad)
+            for bad in faults:
+                evidence.write_text(json.dumps(bad))
+                with self.assertRaises(ValueError):
+                    grade(path, [evidence], root / 'refused.json')
+                self.assertFalse((root / 'refused.json').exists())
+
+            protocol['affine_allocation'] = 'piecewise'
+            path.write_text(json.dumps(protocol))
+            receipt['protocol_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+            receipt['identity'].update(control_manifest_sha256='pinned-affine-control', piecewise_allocation=True)
+            receipt['identity']['plan']['resource_profile'] = 'affine3-piecewise-memory-v1'
+            receipt['identity']['plan']['memory_ledger']['resource_identity'] = 'affine3-piecewise-memory-v1'
+            evidence.write_text(json.dumps(receipt))
+            self.assertEqual(grade(path, [evidence], root / 'pieces-pass.json')['arms'][0]['passed'], 1)
+            receipt['identity']['plan']['memory_ledger']['resource_identity'] = 'affine3-reference-memory-v3'
+            evidence.write_text(json.dumps(receipt))
+            with self.assertRaises(ValueError):
+                grade(path, [evidence], root / 'pieces-refused.json')
+
     def test_coding_worker_executes_tests(self):
         rubric = {'function': 'f', 'tests': [{'args': [[2, 1, 2]], 'value': [2, 1]}, {'args': [[]], 'value': []}]}
         correct = 'def f(values):\n    result = []\n    for x in values:\n        if x not in result:\n            result.append(x)\n    return result'

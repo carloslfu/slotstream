@@ -7,7 +7,7 @@ extension Diagnostics {
     /// throughput result. The original head and all recurrent families remain
     /// live while recorded target passes are reconciled at the full window.
     public static func affineContext(baseline: URL, control: URL, table: URL,
-        limit: Int, output: URL, streamedDraft: Bool = false) throws -> Data {
+        limit: Int, output: URL, streamedDraft: Bool = false, piecewiseAllocation: Bool = false) throws -> Data {
         guard [4096, 8192, 32768].contains(limit),
               !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
@@ -37,6 +37,7 @@ extension Diagnostics {
                 "arithmetic": "pr1788-affine3-row-invariant-verification-v1",
                 "draft_sha256": VQDraftWeights.fileSHA256, "rotary_sha256": VQRotaryCoefficients.sha256,
                 "context_limit": limit, "prefill_chunk": 512, "slots": 640, "streamed_draft": streamedDraft,
+                "piecewise_allocation": piecewiseAllocation,
                 "observations": observations,
                 "report": try JSONSerialization.jsonObject(with: JSONEncoder().encode(c.report())),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -51,7 +52,8 @@ extension Diagnostics {
                 shouldContinue: { (try? guardResources()) != nil })
             let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true,
-                affineControlCoefficients: VQRotaryCoefficients(url: table), affineControlContextLimit: limit)
+                affineControlCoefficients: VQRotaryCoefficients(url: table), affineControlContextLimit: limit,
+                affinePiecewiseAllocation: piecewiseAllocation)
             try model.enableAffineControlDraft(baseline: baseline, streamedExperts: streamedDraft)
             c.equal("independent draft placement", model.mtpHead?.expertStream != nil, streamedDraft)
             try model.validate()
@@ -134,6 +136,9 @@ extension Diagnostics {
                 exact("refusal preserves complete committed state", full, hashes(state.diagnosticTensors()))
                 c.expect("final draft remains aligned", state.hasValidMTP)
                 c.equal("no expert pins retained", model.pool.pinnedSlotCount, 0)
+            }
+            if piecewiseAllocation {
+                c.expect("long context completes sequential workspace writes", model.pool.workspacePieceWriteCompletions > 0)
             }
             try index.verifyAuthenticatedFilesUnchanged(); try guardResources()
             _ = try save()

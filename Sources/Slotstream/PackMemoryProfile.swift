@@ -15,11 +15,15 @@ package struct PackMemoryProfile: Equatable, Sendable {
     package let supportsStreamedDraft: Bool
     package let supportsVision: Bool
     package let automaticOptimizations: Bool
+    /// Maximum per-record destination piece for an explicitly sequential
+    /// assembly/admission contract. Nil retains full replacement accounting.
+    private let largestReplacementPieceBytes: Int?
 
     private init(identity: String, expertRecordBytes: Int, residentReserveBytes: Int = 0,
                  expertWorkspaceBytes: Int = 0, maximumPrefill: Int,
                  maximumContext: Int, usesBaselineSpeedEvidence: Bool,
-                 supportsStreamedDraft: Bool, supportsVision: Bool, automaticOptimizations: Bool) {
+                 supportsStreamedDraft: Bool, supportsVision: Bool, automaticOptimizations: Bool,
+                 largestReplacementPieceBytes: Int? = nil) {
         self.identity = identity
         self.expertRecordBytes = expertRecordBytes
         self.residentReserveBytes = residentReserveBytes
@@ -30,6 +34,7 @@ package struct PackMemoryProfile: Equatable, Sendable {
         self.supportsStreamedDraft = supportsStreamedDraft
         self.supportsVision = supportsVision
         self.automaticOptimizations = automaticOptimizations
+        self.largestReplacementPieceBytes = largestReplacementPieceBytes
     }
 
     package static let original = Self(identity: "original-affine4-memory-v1",
@@ -54,6 +59,19 @@ package struct PackMemoryProfile: Equatable, Sendable {
         maximumContext: 32_768, usesBaselineSpeedEvidence: false,
         supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false)
 
+    /// Separate, explicit research contract. The three packed weight pieces
+    /// are 614,400 bytes per record; each of the six BF16 scale/bias pieces is
+    /// 51,200. Sequential evaluated writes bound replacement backing by one
+    /// largest piece while retaining the full source workspace and hot rows.
+    /// The floor is the same conservative formula at 640 slots and 512 rows.
+    /// This allocation mode does not qualify speed, quality or Auto selection.
+    package static let affine3PiecewiseControl = Self(identity: "affine3-piecewise-memory-v1",
+        expertRecordBytes: 2_150_400, residentReserveBytes: 357_580_800 + 67_108_864,
+        expertWorkspaceBytes: 1_566_031_872, maximumPrefill: 512,
+        maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
+        largestReplacementPieceBytes: 614_400)
+
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)
     }
@@ -65,7 +83,9 @@ package struct PackMemoryProfile: Equatable, Sendable {
         return ContextWorkspace.expertWorkspaceBytes(tokens: maximumPrefill, tile: 512,
             experts: 512, topK: 10, hidden: 2560, intermediate: 640,
             recordBytes: expertRecordBytes, loadBatch: 32,
-            admissionPoolBytes: poolBytes(slots), admissionRecords: min(512, max(1, slots / 48)))
+            admissionPoolBytes: poolBytes(slots), admissionRecords: min(512, max(1, slots / 48)),
+            largestWriteBytes: largestReplacementPieceBytes.map { ContextBytes.product(512, $0) },
+            largestAdmissionWriteBytes: largestReplacementPieceBytes.map { ContextBytes.product(slots, $0) })
     }
 
     /// The fixed allowance already includes the floor workspace. Capacity

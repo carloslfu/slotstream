@@ -13,6 +13,7 @@ struct AffineEngineCheck: ParsableCommand {
     @Option(name: .long) var output: String
     @Flag(name: .long) var draft = false
     @Flag(name: .long) var streamedDraft = false
+    @Flag(name: .long) var piecewiseAllocation = false
     func validate() throws {
         guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
     }
@@ -24,7 +25,7 @@ struct AffineEngineCheck: ParsableCommand {
                 result = try await Diagnostics.affineEngine(baseline: URL(fileURLWithPath: baseline),
                     control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
                     profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
-                    streamedDraft: streamedDraft)
+                    streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation)
             } catch { failure = error }
             semaphore.signal()
         }
@@ -77,13 +78,14 @@ struct AffineContextCheck: ParsableCommand {
     @Option(name: .long) var limit: Int
     @Option(name: .long) var output: String
     @Flag(name: .long) var streamedDraft = false
+    @Flag(name: .long) var piecewiseAllocation = false
     func validate() throws {
         guard [4096, 8192, 32768].contains(limit) else { throw ValidationError("context stages are 4096, 8192 and 32768") }
     }
     func run() throws {
         print(String(decoding: try Diagnostics.affineContext(baseline: URL(fileURLWithPath: baseline),
             control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table), limit: limit,
-            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft), as: UTF8.self))
+            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation), as: UTF8.self))
     }
 }
 
@@ -95,10 +97,11 @@ struct AffineSpeculationCheck: ParsableCommand {
     @Option(name: .long) var generationProfile: String
     @Option(name: .long) var output: String
     @Flag(name: .long) var streamedDraft = false
+    @Flag(name: .long) var piecewiseAllocation = false
     func run() throws {
         print(String(decoding: try Diagnostics.affineSpeculation(baseline: URL(fileURLWithPath: baseline),
             control: URL(fileURLWithPath: control), profile: URL(fileURLWithPath: generationProfile),
-            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft), as: UTF8.self))
+            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation), as: UTF8.self))
     }
 }
 
@@ -117,6 +120,9 @@ struct QuantizationTaskRun: ParsableCommand {
     @Option(name: .long) var output: String
     @Flag(name: .long, help: "Render and freeze exact input tokens without loading the model") var prepareOnly = false
     @Flag(name: .long, help: "Research only: overlap bounded candidate prefill reads after independent parity gates") var parallelPrefillReads = false
+    @Flag(name: .long, help: "Evaluate the actual Engine plan at the frozen protocol's memory ceiling; no Auto qualification") var enginePlan = false
+    @Flag(name: .long, help: "Explicit streamed original draft; requires --engine-plan and positive --draft-depth") var streamedDraft = false
+    @Flag(name: .long, help: "Explicit sequential-copy affine allocation; requires a matching frozen protocol and --engine-plan") var piecewiseAllocation = false
     func run() throws {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Data?, failure: Error?
@@ -129,7 +135,8 @@ struct QuantizationTaskRun: ParsableCommand {
                     composite: denseOverlayManifest.map { URL(fileURLWithPath: $0) },
                     table: table.map { URL(fileURLWithPath: $0) }, draftDepth: draftDepth,
                     output: URL(fileURLWithPath: output), prepareOnly: prepareOnly, parallelPrefillReads: parallelPrefillReads,
-                    affineControl: affineControl.map { URL(fileURLWithPath: $0) })
+                    affineControl: affineControl.map { URL(fileURLWithPath: $0) },
+                    enginePlan: enginePlan, streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation)
             } catch { failure = error }
             semaphore.signal()
         }

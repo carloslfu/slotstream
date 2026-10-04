@@ -7,9 +7,12 @@ import Tokenizers
 package struct AffineEngineSource {
     package let control: URL
     package let coefficients: URL
-    package init(control: URL, coefficients: URL) {
+    package let piecewiseAllocation: Bool
+    package var resources: PackMemoryProfile { piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control }
+    package init(control: URL, coefficients: URL, piecewiseAllocation: Bool = false) {
         self.control = control
         self.coefficients = coefficients
+        self.piecewiseAllocation = piecewiseAllocation
     }
 }
 

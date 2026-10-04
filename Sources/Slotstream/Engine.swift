@@ -371,10 +371,18 @@ public final class Engine {
         // allocation and 39 GB of swap. The flag travels on the plan so this
         // cannot be forgotten at a call site.
         if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
-        let resources: PackMemoryProfile = affineSource == nil ? .original : .affine3Control
+        let resources: PackMemoryProfile = affineSource?.resources ?? .original
         guard plan?.resources == resources || (plan == nil && affineSource == nil) else {
             throw SlotstreamError.invalidPlan("the loader and memory plan must describe the same pack")
         }
+        let candidateProcessBudget: UInt64?
+        if affineSource != nil {
+            guard let target = plan?.targetGB, target.isFinite, target > 0,
+                  target * 1e9 <= Double(ProcessInfo.processInfo.physicalMemory) else {
+                throw SlotstreamError.invalidPlan("the affine Engine requires an explicit bounded process target")
+            }
+            candidateProcessBudget = UInt64(target * 1e9)
+        } else { candidateProcessBudget = nil }
         guard affineSource == nil || ExpertStore.defaultLoadBatch <= 32 else {
             throw SlotstreamError.invalidPlan("the affine control admits expert staging batches of at most 32")
         }
@@ -469,7 +477,8 @@ public final class Engine {
                 shouldContinue: { (try? initial.check(phase: "rotary component loading")) != nil })
             self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true, affineControlCoefficients: coefficients,
-                affineControlContextLimit: context.maxContextTokens)
+                affineControlContextLimit: context.maxContextTokens,
+                affinePiecewiseAllocation: affineSource.piecewiseAllocation)
         } else { self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots) }
         self.responsiveGovernor = model.optimizations.responsiveGovernor
         try model.validate()
@@ -478,7 +487,12 @@ public final class Engine {
         self.visionAvailable = resources.supportsVision && VisionTower.present(index: index)
         self.visionAllowed = plan?.visionEnabled ?? visionAvailable
         if let plan, plan.mtpEnabled {
-            if affineSource != nil { try model.enableAffineControlDraft(baseline: modelDir, streamedExperts: plan.mtpStreamedExperts) }
+            if affineSource != nil {
+                // The actual admitted Engine plan owns this ceiling. Bounded
+                // component diagnostics retain their separate ten-GB default.
+                try model.enableAffineControlDraft(baseline: modelDir, streamedExperts: plan.mtpStreamedExperts,
+                    maximumProcessBytes: candidateProcessBudget!)
+            }
             else { try model.enableMTP(modelDir: modelDir, streamedExperts: plan.mtpStreamedExperts) }
         }
         self.generator = Generator(model: model)

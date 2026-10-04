@@ -190,3 +190,6 @@ Implement and verify durable original-pack activation, bounded health checks, se
 ## [2026-10-04 06:18] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implement authenticated independent streamed draft placement, all-or-nothing joined read publication, exact resident-state comparison and bounded Engine/32K recovery. Preserve original draft and static gates, failed builds and unchanged speed/quality qualification limits.
 
+## [2026-10-04 07:28] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Bind complete-task comparisons to the actual Engine plan; preserve the excluded first timing pair without an aggregate. Implement and verify explicit sequential expert replacement accounting with frozen exact state, byte/CLOCK/resize and 32K recovery checks; keep quality, speed and product promotion gates open.
+

@@ -34,10 +34,12 @@ package enum VQDraftWeights {
     package static func load(baseline: URL, maximumPayloadBytes: Int = payloadBytes,
                              maximumLoadCopyBytes: Int = largestLoadCopyBytes,
                              streamedExperts: Bool = false,
+                             maximumProcessBytes: UInt64 = 10_000_000_000,
                              shouldContinue: () -> Bool = { true }) throws -> MTPWeights {
         let streamedBytes = payloadBytes - PlannerCostModel.mtpExpertCount * PlannerCostModel.mtpExpertBytes
             + (PlannerCostModel.mtpStreamSlots + PlannerCostModel.mtpStreamScratchExperts) * PlannerCostModel.mtpExpertBytes
-        guard maximumPayloadBytes >= (streamedExperts ? streamedBytes : payloadBytes),
+        guard maximumProcessBytes > 0, maximumProcessBytes <= ProcessInfo.processInfo.physicalMemory,
+              maximumPayloadBytes >= (streamedExperts ? streamedBytes : payloadBytes),
               maximumLoadCopyBytes >= (streamedExperts ? 1 : largestLoadCopyBytes) else {
             throw ModelError("original draft payload or load-copy reservation is insufficient")
         }
@@ -46,7 +48,7 @@ package enum VQDraftWeights {
             guard shouldContinue() else { throw CheckpointReadError.cancelled }
             guard let vm = ProcessMemory.vmActivity(),
                   vm.reclaimableBytes >= UInt64(nextBytes + 3_000_000_000),
-                  ProcessMemory.peakResidentBytes() <= 10_000_000_000 else {
+                  ProcessMemory.peakResidentBytes() <= maximumProcessBytes else {
                 throw ModelError("original draft lost its bounded load or three-GB headroom")
             }
         }
