@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T18:30:07.024855+00:00
+updated: 2026-10-04T18:47:44.679537+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -919,3 +919,11 @@ The actual deployed image attention uses bounded query tiles, so its workspace i
 [[sources/runs/2026/10/2026-10-04-complete-product-campaign-driver]] records the bounded paired runner for the separately prepared image and synthetic long-conversation fixtures. It binds the driver and helper closure, exact original/minmax artifacts, complete native configuration, inputs, cumulative time and output/staging budget. Every conversation runs both arms in alternating pair order through separate sequential native sessions. A launched directory cannot be retried, and an execution or cleanup failure prevents complete analysis. Stored responses are regraded with the original typed gold; complete native request counters must agree. All candidate turns must be correct for this focused product check, which carries no statistical noninferiority, speed or pack-qualification verdict.
 
 Eight orchestration test groups pass on both Python runtimes and thirty-two static registration checks pass. Those checks use an explicit native-session mock and the real graders, complementing the separately tested production process owner. Full engine and Mac CI now accept the earlier complete native image-session implementation at `55fc67379175c56dc467df4574be354052630411`; the later vision-workspace assertions and this product runner still await their respective full CI results. Actual full image/long-conversation outcomes and capacity remain pending. The frozen held-out task campaign is unchanged, and its partial outcomes remain unopened.
+
+### Native standalone loading preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-native-standalone-loader-preparation]] captures the complete native standalone path and the completed earlier storage/preparation CI. The loader checks the exact standalone file namespace, component identities and byte ledger, then authenticates every main tensor file with the existing bounded parallel owner before constructing the checkpoint. The preserved parent configuration remains authoritative for the unchanged tokenizer, vision and separate draft; public checkpoint admission stays unchanged. Cache identity additionally binds the complete standalone digest.
+
+Inspection cannot authorize a model. The compiled standalone research allowlist remains empty until the actual export and independent audit produce its exact digest. The existing Engine checks and bounded conversation instrument can then exercise the standalone path without making it a supported pack. New weights-free metadata/rejection checks are registered but compilation and execution await CI; actual export, native arithmetic and resource proof, and complete product outcomes remain open. No local build overlaps the held-out campaign.
+
+The earlier standalone assembly commit passes full engine CI. The image-workspace commit passes full Mac CI and engine coverage/library jobs, but its full engine run failed the missing-machines brain field already corrected by the following commit. That failed workflow remains preserved and is not a successful whole-engine result. The product-driver successor is rerunning the corrected store and affected engine gates.

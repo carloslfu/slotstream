@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T18:30:06.867918Z
+updated: 2026-10-04T18:47:42.758855Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-native-standalone-loader-preparation]] — Complete native standalone loading path prepared behind a closed artifact allowlist, with earlier storage and image-workspace CI receipts
 - [[sources/runs/2026/10/2026-10-04-complete-product-campaign-driver]] — Bounded paired image and long-conversation product runner fixtures and completed native image-instrument CI
 - [[sources/runs/2026/10/2026-10-04-prepared-instruments-ci-and-image-workspace]] — Completed app verification and preparation CI, plus pending native image workspace checks
 - [[sources/runs/2026/10/2026-10-04-standalone-bundle-assembly]] — Complete standalone file ownership and bounded authenticated assembly checks, without weight export
@@ -506,9 +507,8 @@ updated: 2026-10-04T18:30:06.867918Z
 - [[sources/runs/2026/09/2026-09-07-optimization-full-verification-context-exit]] — Preserved full-verification resource failures and context exit handling repair
 - [[sources/runs/2026/09/2026-09-07-optimization-public-consumer-lifetime-preflight]] — Actual public consumer and corrected lifetime planner preflight
 - [[sources/runs/2026/09/2026-09-07-optimization-corrected-lifetime-composition]] — Guarded corrected-lifetime execution and explicit original-evidence composition
-- [[sources/runs/2026/09/2026-09-07-optimization-lifetime-mtp-vision-contract-correction]] — Unrun MTP-plus-vision lifetime contract corrected from source constraints
 
 ## More
 
-This folder has 798 files. The 500 most recent are listed above.
+This folder has 799 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -10,9 +10,15 @@ extension Diagnostics {
     /// arena. Nothing enters the supported registry or becomes active on disk.
     public static func affineEngine(baseline: URL, control: URL, table: URL,
                                     profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false,
-                                    piecewiseAllocation: Bool = false, groupedExperts: Bool = false) async throws -> Data {
+                                    piecewiseAllocation: Bool = false, groupedExperts: Bool = false,
+                                    standaloneManifestSHA256: String? = nil) async throws -> Data {
         guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
         guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
+        let standalone = try standaloneManifestSHA256.map { try AffineStandalonePack(directory: control, manifestSHA256: $0) }
+        guard standalone == nil || (groupedExperts && piecewiseAllocation
+            && table.resolvingSymlinksInPath() == control.appendingPathComponent("angles-f32le.bin").resolvingSymlinksInPath()) else {
+            throw ModelError("standalone Engine checks require grouped allocation and the bundle's own coefficients")
+        }
         let profileSHA = "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c"
         let bytes = try AffineExpertControl.bounded(profile, maximum: 100_000, sha256: profileSHA)
         guard let frozen = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
@@ -37,8 +43,10 @@ extension Diagnostics {
                 throw ModelError("affine Engine check exceeded its physical resource envelope")
             }
         }
-        let source = AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation,
-            groupedExperts: groupedExperts)
+        let source = standalone.map { AffineEngineSource(standalone: $0) }
+            ?? AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation,
+                groupedExperts: groupedExperts)
+        let engineDirectory = standalone?.directory ?? baseline
         let resource = source.resources
         let target = mtp ? 14.0 : 12.0
         func plan(_ slots: Int, source: MemoryPlan.Source = .memoryGB) -> MemoryPlan {
@@ -65,6 +73,7 @@ extension Diagnostics {
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
                 "report": try JSONSerialization.jsonObject(with: JSONEncoder().encode(c.report()))]
             result["failure"] = failure
+            result["standalone_manifest_sha256"] = standalone?.manifestSHA256
             let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: output.appendingPathComponent("receipt.json"), options: .atomic)
             return data
@@ -92,7 +101,7 @@ extension Diagnostics {
                 c.expect("original loader rejects candidate accounting before allocation",
                     String(describing: error).contains("same pack"))
             }
-            let engine = try await Engine(modelDir: baseline,
+            let engine = try await Engine(modelDir: engineDirectory,
                 affineSource: source, plan: plan(800))
             engine.gpuKeepAlive = .off
             engine.generator.footprintSampling = true
@@ -103,6 +112,11 @@ extension Diagnostics {
             c.expect("automatic read scopes cannot change reference dispatch", engine.model.optimizations.automaticReadScope == false)
             c.expect("resident draft matches the requested mode", (engine.model.mtpHead != nil) == mtp)
             c.equal("independent draft expert placement matches the plan", engine.model.mtpHead?.expertStream != nil, streamedDraft)
+            if let standalone {
+                c.equal("standalone Engine owns its complete exported directory", engine.modelDir, standalone.directory)
+                c.expect("standalone arithmetic binds the exact complete manifest",
+                    engine.model.authenticatedArtifactIdentity?.hasSuffix(":standalone:" + standalone.manifestSHA256) == true)
+            }
             let admittedHead = engine.model.mtpHead
             do {
                 try engine.model.enableMTP(modelDir: baseline, streamedExperts: true)

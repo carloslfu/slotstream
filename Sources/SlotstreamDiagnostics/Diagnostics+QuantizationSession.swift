@@ -95,14 +95,19 @@ extension Diagnostics {
     /// The explicit manifest must precede every model allocation. Candidate
     /// mode remains outside the supported pack registry and product Auto.
     public static func quantizationSession(protocolFile: URL, protocolSHA256: String,
-        baseline: URL, control: URL?, table: URL?, output: URL, planOnly: Bool = false) async throws -> Data {
+        baseline: URL, control: URL?, table: URL?, output: URL, planOnly: Bool = false,
+        standaloneManifestSHA256: String? = nil) async throws -> Data {
         guard (control == nil) == (table == nil), !FileManager.default.fileExists(atPath: output.path),
+              standaloneManifestSHA256 == nil || (control == nil && table == nil),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
               }) else { throw ModelError("session requires explicit clean inputs, paired candidate paths and new output") }
         let specification = try QuantizationSessionProtocol.load(protocolFile, sha256: protocolSHA256)
-        let artifact = try control.map { try AffineExpertControl.identify(control: $0) }
-        let resources: PackMemoryProfile = control == nil ? .original
+        let standalone = try standaloneManifestSHA256.map { try AffineStandalonePack(directory: baseline, manifestSHA256: $0) }
+        let artifact: AffineExpertControl.Artifact?
+        if standalone != nil { artifact = .minmax }
+        else { artifact = try control.map { try AffineExpertControl.identify(control: $0) } }
+        let resources: PackMemoryProfile = artifact == nil ? .original
             : (specification.vision ? .affine3GroupedVisionControl : .affine3GroupedControl)
         let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
             memoryGB: Double(specification.memoryBytes) / 1e9,
@@ -134,6 +139,7 @@ extension Diagnostics {
             identity["control_manifest_sha256"] = artifact.manifestSHA256
             identity["control_policy"] = artifact.policy
             identity["rotary_sha256"] = VQRotaryCoefficients.sha256
+            identity["standalone_manifest_sha256"] = standalone?.manifestSHA256
         } else { identity["manifest_sha256"] = ModelPackRegistry.baseline.manifestDigest }
         func serialize(_ value: [String: Any]) throws -> Data {
             try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
@@ -179,7 +185,10 @@ extension Diagnostics {
         }
         do {
             let engine: Engine
-            if let control, let table, let artifact {
+            if let standalone {
+                engine = try await Engine(modelDir: standalone.directory,
+                    affineSource: AffineEngineSource(standalone: standalone, vision: specification.vision), plan: plan)
+            } else if let control, let table, let artifact {
                 engine = try await Engine(modelDir: baseline,
                     affineSource: AffineEngineSource(control: control, artifact: artifact, coefficients: table,
                         piecewiseAllocation: true, groupedExperts: true, vision: specification.vision), plan: plan)

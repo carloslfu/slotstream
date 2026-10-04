@@ -256,3 +256,6 @@ Added the missing required machine references to the CI/source receipt without c
 ## [2026-10-04 18:30] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Added complete paired image and long-conversation product orchestration with frozen identities and budgets, serial ownership, preserved failures and response regrading. Eight groups pass on both Python runtimes and thirty-two registration checks pass. Captured complete native image-instrument engine and Mac CI; physical product outcomes remain pending.
 
+## [2026-10-04 18:48] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared complete standalone native loading, independent parent component paths, bound prefix identity and existing physical diagnostic entry points behind a closed compiled research allowlist. Added metadata rejection checks, pending compilation and CI. Captured successful standalone export CI and image-workspace Mac CI, preserving the corrected-field engine failure. Actual export and physical proof remain pending.
+

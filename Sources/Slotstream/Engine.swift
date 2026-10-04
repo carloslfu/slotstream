@@ -378,6 +378,11 @@ public final class Engine {
         guard affineSource?.vision != true || affineSource?.groupedExperts == true else {
             throw SlotstreamError.invalidPlan("candidate vision requires the explicit grouped allocation contract")
         }
+        if let standalone = affineSource?.standalone {
+            guard standalone.directory == modelDir.resolvingSymlinksInPath() else {
+                throw ModelError("standalone component metadata and tensor owners require the same directory")
+            }
+        }
         let resources: PackMemoryProfile = affineSource?.resources ?? .original
         guard plan?.resources == resources || (plan == nil && affineSource == nil) else {
             throw SlotstreamError.invalidPlan("the loader and memory plan must describe the same pack")
@@ -408,8 +413,9 @@ public final class Engine {
               resources.automaticOptimizations || plan?.decodeLookahead != true else {
             throw SlotstreamError.invalidPlan("engine pool must match a supported memory plan")
         }
-        let metadata = try affineSource.map { _ in try PinnedTokenizerMetadata(directory: modelDir) }
-        self.authenticatedVisionMetadata = try affineSource?.vision == true ? PinnedVisionMetadata(directory: modelDir) : nil
+        let metadata = try affineSource.map { try PinnedTokenizerMetadata(directory: modelDir, layout: $0.parentLayout) }
+        self.authenticatedVisionMetadata = try affineSource?.vision == true
+            ? PinnedVisionMetadata(directory: modelDir, layout: affineSource!.parentLayout) : nil
         let initialLedger = plan?.memoryLedger ?? ContextMemoryLedger(slots: poolSlots,
             context: context.maxContextTokens, chunk: 256,
             retentionTokens: Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
@@ -443,9 +449,15 @@ public final class Engine {
         let index: CheckpointIndex
         if let affineSource {
             try ModelProcessGuard.acquire()
-            index = try AffineExpertControl.open(baseline: modelDir, control: affineSource.control,
-                artifact: affineSource.artifact,
-                shouldContinue: { (try? initial.check(phase: "authenticated model loading")) != nil })
+            if let standalone = affineSource.standalone {
+                index = try standalone.open(shouldContinue: {
+                    (try? initial.check(phase: "authenticated standalone loading")) != nil
+                })
+            } else {
+                index = try AffineExpertControl.open(baseline: modelDir, control: affineSource.control,
+                    artifact: affineSource.artifact,
+                    shouldContinue: { (try? initial.check(phase: "authenticated model loading")) != nil })
+            }
         } else { index = try CheckpointIndex(dir: modelDir) }
         // Expert Lookahead: an explicitly requested pack is validated against
         // the checkpoint geometry before the model allocates anything. A plan
@@ -497,11 +509,11 @@ public final class Engine {
         self.visionAvailable = resources.supportsVision && VisionTower.present(index: index)
         self.visionAllowed = plan?.visionEnabled ?? visionAvailable
         if let plan, plan.mtpEnabled {
-            if affineSource != nil {
+            if let affineSource {
                 // The actual admitted Engine plan owns this ceiling. Bounded
                 // component diagnostics retain their separate ten-GB default.
                 try model.enableAffineControlDraft(baseline: modelDir, streamedExperts: plan.mtpStreamedExperts,
-                    maximumProcessBytes: candidateProcessBudget!)
+                    maximumProcessBytes: candidateProcessBudget!, parentLayout: affineSource.parentLayout)
             }
             else { try model.enableMTP(modelDir: modelDir, streamedExperts: plan.mtpStreamedExperts) }
         }

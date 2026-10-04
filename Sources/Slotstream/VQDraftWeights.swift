@@ -35,6 +35,7 @@ package enum VQDraftWeights {
                              maximumLoadCopyBytes: Int = largestLoadCopyBytes,
                              streamedExperts: Bool = false,
                              maximumProcessBytes: UInt64 = 10_000_000_000,
+                             parentLayout: PinnedParentLayout = .original,
                              shouldContinue: () -> Bool = { true }) throws -> MTPWeights {
         let streamedBytes = payloadBytes - PlannerCostModel.mtpExpertCount * PlannerCostModel.mtpExpertBytes
             + (PlannerCostModel.mtpStreamSlots + PlannerCostModel.mtpStreamScratchExperts) * PlannerCostModel.mtpExpertBytes
@@ -53,7 +54,7 @@ package enum VQDraftWeights {
             }
         }
         try admit(0)
-        let config = try configuration(baseline.appendingPathComponent("config.json"))
+        let config = try configuration(baseline.appendingPathComponent(parentLayout.configurationName))
         let url = MTPWeights.fileURL(modelDir: baseline)
         let owner = try VQTensorFile(url: url, identity: .init(fileBytes: 1_470_955_171,
             headerBytes: 8347, headerSHA256: "836ae4156c99452e932c7a81322bcca959ac6f7ed86d6270cfd56ff94c62f4b9",

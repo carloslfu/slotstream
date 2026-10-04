@@ -19,10 +19,12 @@ public final class Qwen4ExpModel {
     package var maximumForwardTokens: Int? { affineControlReferenceArithmetic ? 512 : nil }
     private let authenticatedRotaryIdentity: String?
     package let affineExpertArtifact: AffineExpertControl.Artifact?
+    private let authenticatedStorageIdentity: String?
     package var authenticatedArtifactIdentity: String? {
         guard affineControlReferenceArithmetic, let artifact = affineExpertArtifact else { return nil }
         return artifact.arithmeticIdentity(rotarySHA256: authenticatedRotaryIdentity,
-            piecewise: affinePiecewiseAllocation, grouped: affineGroupedExperts)
+            piecewise: affinePiecewiseAllocation, grouped: affineGroupedExperts,
+            storageSHA256: authenticatedStorageIdentity)
     }
 
     /// Charge the selected expert allocation independently of the optional
@@ -270,6 +272,7 @@ public final class Qwen4ExpModel {
         }
         self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
         self.affineExpertArtifact = index.affineExpertArtifact
+        self.authenticatedStorageIdentity = index.authenticatedStorageIdentity
         self.affinePiecewiseAllocation = affinePiecewiseAllocation
         self.affineGroupedExperts = affineGroupedExperts
         self.authenticatedRotaryIdentity = affineControlCoefficients == nil ? nil : VQRotaryCoefficients.sha256
@@ -367,12 +370,13 @@ public final class Qwen4ExpModel {
     /// speculation explicitly selects the existing row-invariant target mode;
     /// public loading and its deployed arithmetic stay unchanged.
     package func enableAffineControlDraft(baseline: URL, streamedExperts: Bool = false,
-                                         maximumProcessBytes: UInt64 = 10_000_000_000) throws {
+                                         maximumProcessBytes: UInt64 = 10_000_000_000,
+                                         parentLayout: PinnedParentLayout = .original) throws {
         guard affineControlReferenceArithmetic, mtpHead == nil else {
             throw ModelError("the affine research draft requires its authenticated target and no existing head")
         }
         let weights = try VQDraftWeights.load(baseline: baseline, streamedExperts: streamedExperts,
-            maximumProcessBytes: maximumProcessBytes)
+            maximumProcessBytes: maximumProcessBytes, parentLayout: parentLayout)
         let head = MTPHead(weights, stream: weights.verifiedExpertStream, arithmetic: .vqPR1788)
         head.rowInvariantFusion = true
         optimizations.rowInvariantProjection = true

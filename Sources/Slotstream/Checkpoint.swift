@@ -379,6 +379,7 @@ public final class CheckpointIndex {
     private var fds: [URL: Int32] = [:]
     private let authenticatedFiles: [URL: VQTensorFile]
     package let affineExpertArtifact: AffineExpertControl.Artifact?
+    package let authenticatedStorageIdentity: String?
     private let fdLock = NSLock()
 
     deinit {
@@ -402,6 +403,7 @@ public final class CheckpointIndex {
     public init(dir: URL) throws {
         self.authenticatedFiles = [:]
         self.affineExpertArtifact = nil
+        self.authenticatedStorageIdentity = nil
         let resolved = dir.resolvingSymlinksInPath()
         self.dir = resolved
         self.config = try ModelConfig.load(from: resolved)
@@ -420,13 +422,15 @@ public final class CheckpointIndex {
     /// bytes that passed admission. The public initializer is unchanged.
     package init(authenticatedDirectory: URL, config: ModelConfig,
                  files: [URL: VQTensorFile], tensors: [String: TensorRef],
-                 affineExpertArtifact: AffineExpertControl.Artifact? = nil) throws {
+                 affineExpertArtifact: AffineExpertControl.Artifact? = nil,
+                 authenticatedStorageIdentity: String? = nil) throws {
         guard !files.isEmpty, tensors.values.allSatisfy({ files[$0.file] != nil }) else {
             throw ModelError("authenticated checkpoint has an unowned tensor")
         }
         self.dir = authenticatedDirectory; self.config = config
         self.authenticatedFiles = files; self.tensors = tensors
         self.affineExpertArtifact = affineExpertArtifact
+        self.authenticatedStorageIdentity = authenticatedStorageIdentity
         try requireExpectedTensors()
     }
 

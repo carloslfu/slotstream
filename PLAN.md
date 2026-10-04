@@ -981,6 +981,14 @@ The actual deployed image attention uses bounded query tiles, so its workspace i
 
 Eight orchestration test groups pass on both Python runtimes and thirty-two static registration checks pass. Those checks use an explicit native-session mock and the real graders, complementing the separately tested production process owner. Full engine and Mac CI now accept the earlier complete native image-session implementation at `55fc67379175c56dc467df4574be354052630411`; the later vision-workspace assertions and this product runner still await their respective full CI results. Actual full image/long-conversation outcomes and capacity remain pending. The frozen held-out task campaign is unchanged, and its partial outcomes remain unopened.
 
+### Native standalone loading preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-native-standalone-loader-preparation]] captures the complete native standalone path and the completed earlier storage/preparation CI. The loader checks the exact standalone file namespace, component identities and byte ledger, then authenticates every main tensor file with the existing bounded parallel owner before constructing the checkpoint. The preserved parent configuration remains authoritative for the unchanged tokenizer, vision and separate draft; public checkpoint admission stays unchanged. Cache identity additionally binds the complete standalone digest.
+
+Inspection cannot authorize a model. The compiled standalone research allowlist remains empty until the actual export and independent audit produce its exact digest. The existing Engine checks and bounded conversation instrument can then exercise the standalone path without making it a supported pack. New weights-free metadata/rejection checks are registered but compilation and execution await CI; actual export, native arithmetic and resource proof, and complete product outcomes remain open. No local build overlaps the held-out campaign.
+
+The earlier standalone assembly commit passes full engine CI. The image-workspace commit passes full Mac CI and engine coverage/library jobs, but its full engine run failed the missing-machines brain field already corrected by the following commit. That failed workflow remains preserved and is not a successful whole-engine result. The product-driver successor is rerunning the corrected store and affected engine gates.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

@@ -32,11 +32,13 @@ package enum AffineExpertControl {
         // its identity for explicit rejection and provenance, not loading.
         package static let admitted: [Artifact] = [.minmax]
 
-        package func arithmeticIdentity(rotarySHA256: String?, piecewise: Bool, grouped: Bool) -> String {
+        package func arithmeticIdentity(rotarySHA256: String?, piecewise: Bool, grouped: Bool,
+                                        storageSHA256: String? = nil) -> String {
             let base = [policy, manifestSHA256, rotarySHA256 ?? "embedded-reference-coefficients-v1",
                 PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
             let allocated = piecewise ? base + ":piecewise-allocation-v1" : base
-            return grouped ? allocated + ":grouped-experts-v1" : allocated
+            let arithmetic = grouped ? allocated + ":grouped-experts-v1" : allocated
+            return storageSHA256.map { arithmetic + ":standalone:" + $0 } ?? arithmetic
         }
     }
     private struct File: Decodable { let path: String, size: Int, sha256: String }

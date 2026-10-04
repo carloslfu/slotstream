@@ -2,6 +2,14 @@ import Darwin
 import Foundation
 import Tokenizers
 
+/// Both layouts carry the exact original configuration for tokenizer, vision
+/// and the independent draft. The exported main-model config has a different
+/// recipe and must never be used to reinterpret those unchanged components.
+package enum PinnedParentLayout: Equatable {
+    case original, standalone
+    package var configurationName: String { self == .original ? "config.json" : "parent-config.json" }
+}
+
 /// Internal admission for the authenticated affine control. This does not
 /// add an eligible artifact to Auto or bypass product qualification.
 package struct AffineEngineSource {
@@ -11,6 +19,8 @@ package struct AffineEngineSource {
     package let piecewiseAllocation: Bool
     package let groupedExperts: Bool
     package let vision: Bool
+    package let standalone: AffineStandalonePack?
+    package var parentLayout: PinnedParentLayout { standalone == nil ? .original : .standalone }
     package var resources: PackMemoryProfile {
         vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
             : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control))
@@ -24,6 +34,15 @@ package struct AffineEngineSource {
         self.piecewiseAllocation = piecewiseAllocation
         self.groupedExperts = groupedExperts
         self.vision = vision
+        self.standalone = nil
+    }
+
+    package init(standalone: AffineStandalonePack, vision: Bool = false) {
+        self.control = standalone.directory
+        self.artifact = .minmax
+        self.coefficients = standalone.directory.appendingPathComponent("angles-f32le.bin")
+        self.piecewiseAllocation = true; self.groupedExperts = true; self.vision = vision
+        self.standalone = standalone
     }
 }
 
@@ -38,14 +57,15 @@ package struct PinnedTokenizerMetadata {
     package static let names = ["config.json", "tokenizer.json", "tokenizer_config.json",
                                 "chat_template.jinja", "generation_config.json"]
 
-    package init(directory: URL) throws {
+    package init(directory: URL, layout: PinnedParentLayout = .original) throws {
         var captured: [String: Data] = [:]
         for name in Self.names {
             guard let pin = PinnedModel.files.first(where: { $0.path == name }),
                   let sha = pin.sha256, pin.size > 0, pin.size <= 16_000_000 else {
                 throw ModelError("missing bounded tokenizer metadata identity")
             }
-            let fd = open(directory.appendingPathComponent(name).path,
+            let sourceName = name == "config.json" ? layout.configurationName : name
+            let fd = open(directory.appendingPathComponent(sourceName).path,
                 O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
             guard fd >= 0 else { throw ModelError("cannot open pinned tokenizer metadata: \(name)") }
             let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
@@ -83,13 +103,14 @@ package struct PinnedTokenizerMetadata {
 package struct PinnedVisionMetadata {
     package let configuration: (VisionConfig, (min: UInt32, max: UInt32))
 
-    package init(directory: URL) throws {
+    package init(directory: URL, layout: PinnedParentLayout = .original) throws {
         func read(_ name: String) throws -> Data {
             guard let pin = PinnedModel.files.first(where: { $0.path == name }),
                   let sha = pin.sha256, pin.size > 0, pin.size <= 4_000_000 else {
                 throw ModelError("missing bounded vision metadata pin")
             }
-            let data = try AffineExpertControl.bounded(directory.appendingPathComponent(name),
+            let sourceName = name == "config.json" ? layout.configurationName : name
+            let data = try AffineExpertControl.bounded(directory.appendingPathComponent(sourceName),
                 maximum: Int(pin.size), sha256: sha)
             guard data.count == pin.size else { throw ModelError("vision metadata size changed") }
             return data

@@ -6,7 +6,10 @@ import SlotstreamDiagnostics
 struct QuantizationSession: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "quantization-session",
         abstract: "Run a bounded explicit research conversation over the production HTTP handler")
-    @Option(name: .long) var baseline: String
+    @Option(name: .long, help: "Original directory, or the complete standalone directory with --standalone-manifest-sha256")
+    var baseline: String
+    @Option(name: .long, help: "Explicit frozen completion-manifest digest for research standalone loading")
+    var standaloneManifestSha256: String?
     @Option(name: .long) var control: String?
     @Option(name: .long) var table: String?
     @Option(name: .long) var protocolFile: String
@@ -21,7 +24,8 @@ struct QuantizationSession: ParsableCommand {
                 result = try await Diagnostics.quantizationSession(protocolFile: URL(fileURLWithPath: protocolFile),
                     protocolSHA256: protocolSha256, baseline: URL(fileURLWithPath: baseline),
                     control: control.map { URL(fileURLWithPath: $0) }, table: table.map { URL(fileURLWithPath: $0) },
-                    output: URL(fileURLWithPath: output), planOnly: planOnly)
+                    output: URL(fileURLWithPath: output), planOnly: planOnly,
+                    standaloneManifestSHA256: standaloneManifestSha256)
             } catch { failure = error }
             semaphore.signal()
         }
@@ -83,6 +87,8 @@ struct AffineEngineCheck: ParsableCommand {
         abstract: "Check authenticated alternate Engine ownership, memory recovery, prefix reuse and HTTP serving")
     @Option(name: .long) var baseline: String
     @Option(name: .long) var control: String
+    @Option(name: .long, help: "Treat --control as the complete standalone bundle; --baseline remains the tokenizer oracle")
+    var standaloneManifestSha256: String?
     @Option(name: .long) var table: String
     @Option(name: .long) var generationProfile: String
     @Option(name: .long) var output: String
@@ -93,6 +99,9 @@ struct AffineEngineCheck: ParsableCommand {
     func validate() throws {
         guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
         guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
+        guard standaloneManifestSha256 == nil || groupedExperts else {
+            throw ValidationError("standalone validation requires --grouped-experts and --piecewise-allocation")
+        }
     }
     func run() throws {
         let semaphore = DispatchSemaphore(value: 0)
@@ -102,7 +111,8 @@ struct AffineEngineCheck: ParsableCommand {
                 result = try await Diagnostics.affineEngine(baseline: URL(fileURLWithPath: baseline),
                     control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
                     profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
-                    streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts)
+                    streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts,
+                    standaloneManifestSHA256: standaloneManifestSha256)
             } catch { failure = error }
             semaphore.signal()
         }
