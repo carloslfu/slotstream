@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T05:28:04.423730+00:00
+updated: 2026-10-04T06:18:01.661722+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -611,3 +611,16 @@ The corrected full Mac suite passes, with an observed process-tree peak of 1,664
 Failed requested settings remain visible. The previous runtime can be restored under its own applied ceiling, while saved requested preferences remain unchanged and other queued work waits. A retry revalidates files and current headroom; unreadable journal bytes are preserved. The scripted Light, Dark and System failure screens pass, and the final Light screen was visually inspected. Optional persistent caches attach only after health and commit. A cancelled activation does not load another model for rollback.
 
 The static monitor's inherited engine-binary field is not the Mac executable identity; the frozen build records bind the actual check binaries and sources. No installed executable, user Home or quantization default changed. No alternate pack, held-out noninferiority verdict, sustained speed profile or public release is qualified by these tests.
+
+
+### Independent streamed draft and 32K recovery, October 4
+
+[[sources/runs/2026/10/2026-10-04-authenticated-streamed-original-draft]] records the original four-bit head's separately authenticated streamed placement. Its non-expert tensors remain resident, and its bounded cache and scratch use the original head's record size. Full-file authentication, tensor range validation and descriptor ownership precede allocation. Parallel reads publish only after the entire batch and integrity checks succeed. The target's three-bit descriptor never configures the draft.
+
+The frozen streamed candidate matches all 22 previous resident-head observations exactly, including emitted tokens, consumed length and committed target/head state digests. The speculation report passes 2,689 assertions, including joined-read failure without partial cache publication, retry and mutation detection on an owned disposable sidecar copy. The real Engine report passes 58 checks covering memory/disk reuse, live governance, cancellation and HTTP. Their process peaks are 7,546,573,384 and 7,678,072,112 bytes.
+
+The original public streamed/resident draft and plain-lookahead regression passes at 7,875,680,232 bytes under its unchanged separate resource allowance. The candidate's 32,768-token context and exact recovery report passes 1,443 assertions at 8,097,697,704 bytes, inside the ordinary ten-GB process bound. These fixture peaks are neither the complete planner envelope nor speed evidence.
+
+All final static gates pass, with matching before/after source inputs. The final executable SHA-256 is `fc6faecc34177cada3820c23117e48ba20153ff41d377c6c73b4ebd88216491f`. An intermediate diagnostic compile failure remains preserved. Complete CI for `de75f797eec33b0429c92c9081146ad865ee6890` passes.
+
+Candidate planning now supports explicit streamed placement without inheriting the original pack's measured automatic placement threshold. No alternative becomes supported, installed, Auto-selected or quality/speed qualified. Candidate vision, held-out quality, complete-configuration performance and standalone distribution remain required.

@@ -7,7 +7,7 @@ extension Diagnostics {
     /// original draft. Every retained speculative prefix is checked against
     /// token-at-a-time target/head consumption, including partial stops.
     public static func affineSpeculation(baseline: URL, control: URL, profile: URL,
-        output: URL) throws -> Data {
+        output: URL, streamedDraft: Bool = false) throws -> Data {
         let data = try AffineExpertControl.bounded(profile, maximum: 2023,
             sha256: "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c")
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -39,7 +39,7 @@ extension Diagnostics {
             var result: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
                 "control_manifest_sha256": AffineExpertControl.manifestSHA256,
                 "arithmetic": "pr1788-affine3-row-invariant-verification-v1",
-                "draft_sha256": VQDraftWeights.fileSHA256, "slots": 640,
+                "draft_sha256": VQDraftWeights.fileSHA256, "slots": 640, "streamed_draft": streamedDraft,
                 "observations": observations, "accepted_drafts": accepted,
                 "report": try JSONSerialization.jsonObject(with: JSONEncoder().encode(c.report())),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -54,7 +54,12 @@ extension Diagnostics {
                 shouldContinue: { (try? guardResources()) != nil })
             let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true)
-            try model.enableAffineControlDraft(baseline: baseline)
+            try model.enableAffineControlDraft(baseline: baseline, streamedExperts: streamedDraft)
+            c.equal("independent draft placement", model.mtpHead?.expertStream != nil, streamedDraft)
+            if streamedDraft {
+                c.expect("streamed draft fits its independent resident allowance",
+                    (model.mtpHead?.residentBytes ?? Int.max) <= PlannerCostModel.mtpStreamedBytes)
+            }
             try model.validate()
             model.optimizations.skipUnusedFinalForward = true
             model.optimizations.boundedDraftTail = true
@@ -168,6 +173,17 @@ extension Diagnostics {
                 c.equal("next request recovers exact output", recovery.ids, plain.ids)
                 try checkCanonical("after-cancellation", recovery, targetOnly: false)
                 c.expect("actual drafts are accepted", accepted > 0)
+                if let stream = model.mtpHead?.expertStream {
+                    c.expect("independent draft streams demanded original experts", stream.misses > 0)
+                    c.expect("independent draft reuses resident experts", stream.hits > 0)
+                    stream.readFault = ModelError("injected authenticated draft read failure")
+                    let failed = generator.generate(promptIds: prompt, params: greedy, eosIds: [])
+                    c.expect("independent draft read failure terminates the request", failed.1.runtimeError != nil)
+                    c.expect("independent draft failure is consumed", stream.readFault == nil)
+                    let recovered = try run("after-draft-read-failure", greedy, depth: 2)
+                    c.equal("independent draft read recovery keeps target output", recovered.ids, plain.ids)
+                    try checkCanonical("after-draft-read-failure", recovered, targetOnly: false)
+                }
 
                 // The public Generator has no RequestController here. Its
                 // own admission and provisional draft tail must therefore
@@ -198,6 +214,49 @@ extension Diagnostics {
                 c.equal("over-reserved context is typed", refused.1.requestFailure?.code, .contextLengthExceeded)
                 c.equal("over-reserved context performs no expert reads", model.pool.recordsFetched, 0)
                 c.equal("context edge retains no expert pins", model.pool.pinnedSlotCount, 0)
+            }
+            if streamedDraft {
+                // Only this disposable copy is mutated. Keep the real parent
+                // unchanged while exercising the retained descriptor and
+                // drain-before-publication boundary on actual expert bytes.
+                let fixture = output.appendingPathComponent("private-draft-copy")
+                try FileManager.default.createDirectory(at: fixture, withIntermediateDirectories: false)
+                defer { try? FileManager.default.removeItem(at: fixture) }
+                for name in ["config.json", "mtp.safetensors"] {
+                    try FileManager.default.copyItem(at: baseline.appendingPathComponent(name), to: fixture.appendingPathComponent(name))
+                }
+                try guardResources()
+                let weights = try VQDraftWeights.load(baseline: fixture, streamedExperts: true)
+                guard let stream = weights.verifiedExpertStream else { throw ModelError("missing authenticated stream fixture") }
+                func bankBits() -> [String] {
+                    stream.pools.map { value in
+                        eval(value)
+                        return AffineExpertControl.digest(value.asData(access: .copy).data)
+                    }
+                }
+                _ = try stream.slots(for: Array(0..<10).map(Int32.init))
+                let before = bankBits(), misses = stream.misses
+                stream.readJoinFault = ModelError("injected failure after joined draft reads")
+                do {
+                    _ = try stream.slots(for: Array(100..<110).map(Int32.init))
+                    c.expect("joined-read failure refuses publication", false)
+                } catch { c.expect("joined-read failure refuses publication", String(describing: error).contains("after joined")) }
+                c.equal("failed joined batch publishes no cache bytes", bankBits(), before)
+                c.equal("failed joined batch publishes no valid records", stream.misses, misses)
+                _ = try stream.slots(for: Array(100..<110).map(Int32.init))
+                c.equal("retry fills complete records exactly once", stream.misses, misses + 10)
+                let verified = bankBits()
+                let handle = try FileHandle(forWritingTo: fixture.appendingPathComponent("mtp.safetensors"))
+                try handle.seekToEnd(); try handle.write(contentsOf: Data([0])); try handle.synchronize(); try handle.close()
+                do {
+                    _ = try stream.slots(for: Array(200..<210).map(Int32.init))
+                    c.expect("changed owned sidecar refuses subsequent demand", false)
+                } catch { c.expect("changed owned sidecar refuses subsequent demand", true) }
+                c.equal("mutated sidecar never changes published cache bytes", bankBits(), verified)
+                do {
+                    _ = try VQDraftWeights.load(baseline: fixture, streamedExperts: true)
+                    c.expect("new owner reauthenticates a damaged sidecar", false)
+                } catch { c.expect("new owner reauthenticates a damaged sidecar", true) }
             }
             try index.verifyAuthenticatedFilesUnchanged(); try guardResources()
             _ = try save()

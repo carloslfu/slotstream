@@ -35,6 +35,8 @@ package final class VQTensorFile {
     private let byteRanges: [Int: Set<Int>]
     package let tensors: [String: TensorRef]
     package let uncachedRandomReads: Bool
+    /// The complete payload digest verified through this owned descriptor.
+    package let fileSHA256: String
 
     private static func hash(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -134,6 +136,7 @@ package final class VQTensorFile {
                 }
             }
             self.uncachedRandomReads = uncachedRandomReads
+            self.fileSHA256 = identity.fileSHA256
             descriptor = fd; self.url = url; stamp = Stamp(initial); tensors = parsed
             byteRanges = Dictionary(grouping: parsed.values, by: \.byteOffset).mapValues { Set($0.map(\.byteCount)) }
         } catch {

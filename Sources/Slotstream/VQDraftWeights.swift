@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 import MLX
 
-/// Original four-bit head attached only to the research composite. This is a
+/// Original four-bit head attached only to authenticated research targets. This is a
 /// separate authenticated recipe, never the VQ trunk's default quantization.
 /// All centered norms in this sidecar already have +1 folded into BF16.
 package enum VQDraftWeights {
@@ -33,8 +33,12 @@ package enum VQDraftWeights {
 
     package static func load(baseline: URL, maximumPayloadBytes: Int = payloadBytes,
                              maximumLoadCopyBytes: Int = largestLoadCopyBytes,
+                             streamedExperts: Bool = false,
                              shouldContinue: () -> Bool = { true }) throws -> MTPWeights {
-        guard maximumPayloadBytes >= payloadBytes, maximumLoadCopyBytes >= largestLoadCopyBytes else {
+        let streamedBytes = payloadBytes - PlannerCostModel.mtpExpertCount * PlannerCostModel.mtpExpertBytes
+            + (PlannerCostModel.mtpStreamSlots + PlannerCostModel.mtpStreamScratchExperts) * PlannerCostModel.mtpExpertBytes
+        guard maximumPayloadBytes >= (streamedExperts ? streamedBytes : payloadBytes),
+              maximumLoadCopyBytes >= (streamedExperts ? 1 : largestLoadCopyBytes) else {
             throw ModelError("original draft payload or load-copy reservation is insufficient")
         }
         try ModelProcessGuard.acquire()
@@ -46,12 +50,13 @@ package enum VQDraftWeights {
                 throw ModelError("original draft lost its bounded load or three-GB headroom")
             }
         }
-        try admit(payloadBytes + largestLoadCopyBytes)
+        try admit(0)
         let config = try configuration(baseline.appendingPathComponent("config.json"))
         let url = MTPWeights.fileURL(modelDir: baseline)
         let owner = try VQTensorFile(url: url, identity: .init(fileBytes: 1_470_955_171,
             headerBytes: 8347, headerSHA256: "836ae4156c99452e932c7a81322bcca959ac6f7ed86d6270cfd56ff94c62f4b9",
-            fileSHA256: fileSHA256), shouldContinue: { (try? admit(0)) != nil })
+            fileSHA256: fileSHA256), uncachedRandomReads: streamedExperts,
+            shouldContinue: { (try? admit(0)) != nil })
         let refs = owner.tensors
         guard refs.count == 68, refs.values.reduce(0, { $0 + $1.byteCount }) == payloadBytes,
               refs.values.map(\.byteCount).max() == largestLoadCopyBytes,
@@ -61,11 +66,22 @@ package enum VQDraftWeights {
               refs.keys.filter({ $0.hasSuffix(".scales") }).count == 18 else {
             throw ModelError("original draft tensor coverage differs from its byte ledger")
         }
+        let selected = refs.filter { !streamedExperts || !$0.key.contains(".switch_mlp.") }
+        let selectedBytes = selected.values.reduce(0) { $0 + $1.byteCount }
+        let loadCopyBytes = selected.values.map(\.byteCount).max() ?? 0
+        let cacheBytes = streamedExperts
+            ? (PlannerCostModel.mtpStreamSlots + PlannerCostModel.mtpStreamScratchExperts) * PlannerCostModel.mtpExpertBytes : 0
+        guard selected.count == (streamedExperts ? 59 : 68),
+              selectedBytes + cacheBytes == (streamedExperts ? streamedBytes : payloadBytes),
+              maximumLoadCopyBytes >= loadCopyBytes else {
+            throw ModelError("original draft resident families exceed their declared reservation")
+        }
+        try admit(selectedBytes + cacheBytes + loadCopyBytes)
         var arrays: [String: MLXArray] = [:]
         // One host copy and one MLX array may coexist for the current tensor.
         // Earlier arrays stay owned. No partial loader is published on failure.
-        for name in refs.keys.sorted() {
-            let ref = refs[name]!
+        for name in selected.keys.sorted() {
+            let ref = selected[name]!
             guard ref.byteCount > 0, ref.byteCount <= largestLoadCopyBytes,
                   ref.dtype == "BF16" || ref.dtype == "U32" else {
                 throw ModelError("original draft tensor exceeds its pinned load extent")
@@ -85,9 +101,11 @@ package enum VQDraftWeights {
             MLX.Memory.clearCache()
         }
         try admit(0); try owner.verifyUnchanged()
-        guard arrays.values.reduce(0, { $0 + $1.nbytes }) == payloadBytes else {
+        guard arrays.values.reduce(0, { $0 + $1.nbytes }) == selectedBytes else {
             throw ModelError("original draft materialized payload differs")
         }
-        return try MTPWeights(verifiedArrays: arrays, config: config, url: url)
+        try admit(cacheBytes)
+        let stream = try streamedExperts ? MTPExpertStream(verifiedOwner: owner, slots: PlannerCostModel.mtpStreamSlots) : nil
+        return try MTPWeights(verifiedArrays: arrays, config: config, url: url, stream: stream)
     }
 }

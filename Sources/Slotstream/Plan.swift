@@ -1271,7 +1271,11 @@ public enum Planner {
             switch mtpExperts {
             case .resident: return false
             case .streamed: return true
-            case .automatic: return resources.supportsStreamedDraft && Geometry.perLayer(slotsAfterResident) < mtpResidentFloorPerLayer
+            case .automatic:
+                // Capability alone does not transfer the original pack's
+                // measured residency threshold to a different arithmetic path.
+                return resources.automaticOptimizations && resources.supportsStreamedDraft
+                    && Geometry.perLayer(slotsAfterResident) < mtpResidentFloorPerLayer
             }
         }
         /// The floor a head of this placement must leave: resident heads keep

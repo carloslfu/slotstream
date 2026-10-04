@@ -26,8 +26,10 @@ package final class MTPExpertStream {
 
     let slots: Int
     /// The nine pieces, each `slots` records long, in `pieceSuffixes` order.
-    let pools: [MLXArray]
+    package let pools: [MLXArray]
     private let fd: Int32
+    private let verifiedOwner: VQTensorFile?
+    private let verifiedRefs: [TensorRef]
     private let expertCount: Int
     private let starts: [Int]
     private let pieceBytes: [Int]
@@ -45,6 +47,8 @@ package final class MTPExpertStream {
     package private(set) var readSeconds = 0.0
     /// Test seam: the next read fails with this error, once.
     package var readFault: Error?
+    /// Test seam after joined reads, before any cache byte is published.
+    package var readJoinFault: Error?
 
     var residentBytes: Int { pools.reduce(0) { $0 + $1.nbytes } + scratchRecords * recordBytes }
 
@@ -116,6 +120,8 @@ package final class MTPExpertStream {
             bases.append(UnsafeMutableRawPointer(mutating: base))
         }
         self.fd = fd
+        self.verifiedOwner = nil
+        self.verifiedRefs = []
         self.slots = slots
         self.pools = pools
         self.expertCount = expertCount
@@ -131,15 +137,67 @@ package final class MTPExpertStream {
         refBit = Array(repeating: false, count: slots)
     }
 
+    /// The independently configured candidate head must never reopen a path
+    /// after hashing it. The complete original sidecar is authenticated before
+    /// this allocation; every demanded range is read through that same owner.
+    package init(verifiedOwner owner: VQTensorFile, slots: Int) throws {
+        let count = PlannerCostModel.mtpExpertCount
+        let topK = PlannerCostModel.mtpStreamScratchExperts
+        guard owner.fileSHA256 == VQDraftWeights.fileSHA256, owner.uncachedRandomReads,
+              (topK...count).contains(slots) else {
+            throw ModelError("independent draft stream requires its pinned original sidecar and bounded cache")
+        }
+        var refs: [TensorRef] = [], sizes: [Int] = [], offsets: [Int] = []
+        var shapes: [[Int]] = [], dtypes: [DType] = [], record = 0
+        for suffix in Self.pieceSuffixes {
+            let name = "mtp.layers.0.mlp.switch_mlp." + suffix
+            guard let ref = owner.tensors[name], ref.shape.count == 3, ref.shape[0] == count,
+                  ref.byteCount > 0, ref.byteCount % count == 0,
+                  ref.dtype == (suffix.hasSuffix(".weight") ? "U32" : "BF16") else {
+                throw ModelError("independent draft expert geometry differs from its pinned recipe")
+            }
+            refs.append(ref); sizes.append(ref.byteCount / count); offsets.append(record)
+            record += ref.byteCount / count
+            shapes.append([slots] + Array(ref.shape.dropFirst()))
+            dtypes.append(ref.dtype == "U32" ? .uint32 : .bfloat16)
+        }
+        guard record == PlannerCostModel.mtpExpertBytes else {
+            throw ModelError("independent draft stream differs from its memory ledger")
+        }
+        try owner.verifyUnchanged()
+        var pointer: UnsafeMutableRawPointer?
+        guard posix_memalign(&pointer, 16384, topK * record) == 0, let pointer else {
+            throw ModelError("out of memory for the independent draft read buffer")
+        }
+        let arrays = zip(shapes, dtypes).map { MLXArray.zeros($0.0, dtype: $0.1) }
+        eval(arrays)
+        var addresses: [UnsafeMutableRawPointer] = []
+        for (piece, array) in arrays.enumerated() {
+            let view = array.asData(access: .noCopyIfContiguous)
+            guard view.data.count == array.nbytes, array.nbytes == slots * sizes[piece],
+                  let base = view.data.withUnsafeBytes({ $0.baseAddress }) else {
+                free(pointer); throw ModelError("independent draft cache is not addressable")
+            }
+            addresses.append(UnsafeMutableRawPointer(mutating: base))
+        }
+        self.fd = -1; verifiedOwner = owner; verifiedRefs = refs
+        self.slots = slots; pools = arrays; expertCount = count
+        starts = refs.map(\.byteOffset); pieceBytes = sizes; pieceOffsets = offsets
+        recordBytes = record; bases = addresses; scratch = pointer; scratchRecords = topK
+        slotOf = Array(repeating: -1, count: count)
+        keyOf = Array(repeating: -1, count: slots)
+        refBit = Array(repeating: false, count: slots)
+    }
+
     deinit {
-        close(fd)
+        if fd >= 0 { close(fd) }
         free(scratch)
     }
 
     /// Slot indices holding `ids`, reading the missing experts first. The
     /// distinct experts of one call must fit the cache; a draft row's ten do.
     /// A failed read leaves its slots empty, never stale, and throws.
-    func slots(for ids: [Int32]) throws -> [Int32] {
+    package func slots(for ids: [Int32]) throws -> [Int32] {
         let distinct = Set(ids)
         guard distinct.count <= slots, distinct.allSatisfy({ $0 >= 0 && Int($0) < expertCount }) else {
             throw ModelError("draft expert stream: \(distinct.count) experts in one call exceed its \(slots) slots or its range")
@@ -189,11 +247,14 @@ package final class MTPExpertStream {
     private func read(_ batch: [(expert: Int32, slot: Int32)]) throws {
         if let fault = readFault { readFault = nil; throw fault }
         let start = RuntimeClock.now()
+        defer { readSeconds += RuntimeClock.seconds(since: start) }
         let pieces = Self.pieceSuffixes.count
         let jobs = batch.count * pieces
         var status = [Int32](repeating: 0, count: jobs)
         let fd = self.fd, scratch = self.scratch, bases = self.bases, recordBytes = self.recordBytes
         let starts = self.starts, pieceBytes = self.pieceBytes, pieceOffsets = self.pieceOffsets
+        let owner = verifiedOwner, refs = verifiedRefs
+        try owner?.verifyUnchanged()
         status.withUnsafeMutableBufferPointer { results in
             let results = results.baseAddress!
             DispatchQueue.concurrentPerform(iterations: jobs) { j in
@@ -201,6 +262,11 @@ package final class MTPExpertStream {
                 let count = pieceBytes[p]
                 let buffer = scratch + (j / pieces) * recordBytes + pieceOffsets[p]
                 let offset = starts[p] + Int(m.expert) * count
+                if let owner {
+                    do { try owner.readDirect(into: buffer, ref: refs[p], offset: Int(m.expert) * count, count: count) }
+                    catch { results[j] = -2 }
+                    return
+                }
                 var done = 0
                 while done < count {
                     let got = pread(fd, buffer + done, count - done, off_t(offset + done))
@@ -208,13 +274,22 @@ package final class MTPExpertStream {
                     if got <= 0 { results[j] = got < 0 ? errno : -1; return }
                     done += got
                 }
-                memcpy(bases[p] + Int(m.slot) * count, buffer, count)
             }
         }
-        readSeconds += RuntimeClock.seconds(since: start)
         if let failed = status.first(where: { $0 != 0 }) {
+            if failed == -2 { throw ModelError("authenticated draft expert read failed; no partial batch was published") }
             throw ModelError(failed < 0 ? "draft expert read hit the end of mtp.safetensors"
                 : "draft expert read failed: \(String(cString: strerror(failed)))")
+        }
+        try owner?.verifyUnchanged()
+        if let fault = readJoinFault { readJoinFault = nil; throw fault }
+        // Workers only fill reserved scratch. Copy after all reads and the
+        // identity check succeed; no failed batch can publish partial bytes.
+        for (row, item) in batch.enumerated() {
+            for piece in 0..<pieces {
+                memcpy(bases[piece] + Int(item.slot) * pieceBytes[piece],
+                    scratch + row * recordBytes + pieceOffsets[piece], pieceBytes[piece])
+            }
         }
     }
 }

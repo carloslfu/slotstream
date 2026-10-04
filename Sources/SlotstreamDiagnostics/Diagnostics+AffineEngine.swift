@@ -9,7 +9,8 @@ extension Diagnostics {
     /// is distinct from this test's ten-GB physical watchdog and fixed small
     /// arena. Nothing enters the supported registry or becomes active on disk.
     public static func affineEngine(baseline: URL, control: URL, table: URL,
-                                    profile: URL, mtp: Bool, output: URL) async throws -> Data {
+                                    profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false) async throws -> Data {
+        guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
         let profileSHA = "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c"
         let bytes = try AffineExpertControl.bounded(profile, maximum: 100_000, sha256: profileSHA)
         guard let frozen = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
@@ -44,7 +45,7 @@ extension Diagnostics {
                 // complete-prompt state, including its raw vocabulary row.
                 prefillChunk: 256, prefixCacheTokens: 4096, mtpEnabled: mtp, visionEnabled: false,
                 maxContextTokens: 8192, notes: ["bounded Engine integration fixture; physical process limited to ten GB"],
-                memoryLimitGB: source == .auto ? target : nil, mtpStreamedExperts: false, resources: resource)
+                memoryLimitGB: source == .auto ? target : nil, mtpStreamedExperts: streamedDraft, resources: resource)
         }
         var c = CheckBuilder("affine-engine-\(mtp ? "draft" : "plain")")
         var observations: [[String: Any]] = [], complete = false
@@ -52,7 +53,7 @@ extension Diagnostics {
             var result: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
                 "control_manifest_sha256": AffineExpertControl.manifestSHA256,
                 "rotary_sha256": VQRotaryCoefficients.sha256, "profile_sha256": profileSHA,
-                "resource_identity": resource.identity, "mtp": mtp, "initial_plan": plan(800).json(),
+                "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft, "initial_plan": plan(800).json(),
                 "maximum_physical_process_bytes": 10_000_000_000, "observations": observations,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -95,6 +96,7 @@ extension Diagnostics {
             c.expect("unsupported image capability is absent", !engine.visionAvailable && !engine.visionAllowed)
             c.expect("automatic read scopes cannot change reference dispatch", engine.model.optimizations.automaticReadScope == false)
             c.expect("resident draft matches the requested mode", (engine.model.mtpHead != nil) == mtp)
+            c.equal("independent draft expert placement matches the plan", engine.model.mtpHead?.expertStream != nil, streamedDraft)
             let admittedHead = engine.model.mtpHead
             do {
                 try engine.model.enableMTP(modelDir: baseline, streamedExperts: true)

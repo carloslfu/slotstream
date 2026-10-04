@@ -35,6 +35,9 @@ public final class MTPWeights: TensorSource {
     let url: URL
     /// True when the routed experts were left on disk for a stream.
     let streamedExperts: Bool
+    /// An authenticated independent loader can supply an already owned stream.
+    /// Public checkpoint loading retains its existing path and placement.
+    package let verifiedExpertStream: MTPExpertStream?
 
     public static func fileURL(modelDir: URL) -> URL {
         modelDir.appendingPathComponent("mtp.safetensors")
@@ -56,6 +59,7 @@ public final class MTPWeights: TensorSource {
         try ModelProcessGuard.acquire()
         self.config = config
         self.streamedExperts = streamedExperts
+        self.verifiedExpertStream = nil
         let url = Self.fileURL(modelDir: modelDir)
         self.url = url
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -73,9 +77,11 @@ public final class MTPWeights: TensorSource {
 
     /// Only the authenticated research loader supplies materialized arrays.
     /// Public loading keeps its existing checkpoint and arithmetic contract.
-    init(verifiedArrays: [String: MLXArray], config: ModelConfig, url: URL) throws {
+    init(verifiedArrays: [String: MLXArray], config: ModelConfig, url: URL,
+         stream: MTPExpertStream? = nil) throws {
         try ModelProcessGuard.acquire()
-        self.config = config; self.url = url; arrays = verifiedArrays; streamedExperts = false
+        self.config = config; self.url = url; arrays = verifiedArrays
+        verifiedExpertStream = stream; streamedExperts = stream != nil
     }
 
     public func optionalTensor(_ name: String) -> MLXArray? { arrays[name] }

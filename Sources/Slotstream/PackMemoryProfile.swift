@@ -48,11 +48,11 @@ package struct PackMemoryProfile: Equatable, Sendable {
     /// The exact reference profile currently admits at most 512 query rows and
     /// the locally checked 32K context. Its speed and feature activation floors
     /// cannot inherit the original arithmetic's timing evidence.
-    package static let affine3Control = Self(identity: "affine3-reference-memory-v2",
+    package static let affine3Control = Self(identity: "affine3-reference-memory-v3",
         expertRecordBytes: 2_150_400, residentReserveBytes: 357_580_800 + 67_108_864,
         expertWorkspaceBytes: 2_517_897_216, maximumPrefill: 512,
         maximumContext: 32_768, usesBaselineSpeedEvidence: false,
-        supportsStreamedDraft: false, supportsVision: false, automaticOptimizations: false)
+        supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false)
 
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)

@@ -7,7 +7,7 @@ extension Diagnostics {
     /// throughput result. The original head and all recurrent families remain
     /// live while recorded target passes are reconciled at the full window.
     public static func affineContext(baseline: URL, control: URL, table: URL,
-        limit: Int, output: URL) throws -> Data {
+        limit: Int, output: URL, streamedDraft: Bool = false) throws -> Data {
         guard [4096, 8192, 32768].contains(limit),
               !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
@@ -36,7 +36,7 @@ extension Diagnostics {
                 "control_manifest_sha256": AffineExpertControl.manifestSHA256,
                 "arithmetic": "pr1788-affine3-row-invariant-verification-v1",
                 "draft_sha256": VQDraftWeights.fileSHA256, "rotary_sha256": VQRotaryCoefficients.sha256,
-                "context_limit": limit, "prefill_chunk": 512, "slots": 640,
+                "context_limit": limit, "prefill_chunk": 512, "slots": 640, "streamed_draft": streamedDraft,
                 "observations": observations,
                 "report": try JSONSerialization.jsonObject(with: JSONEncoder().encode(c.report())),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -52,7 +52,8 @@ extension Diagnostics {
             let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true,
                 affineControlCoefficients: VQRotaryCoefficients(url: table), affineControlContextLimit: limit)
-            try model.enableAffineControlDraft(baseline: baseline)
+            try model.enableAffineControlDraft(baseline: baseline, streamedExperts: streamedDraft)
+            c.equal("independent draft placement", model.mtpHead?.expertStream != nil, streamedDraft)
             try model.validate()
             guard let head = model.mtpHead else { throw ModelError("affine context requires its independent draft") }
             let state = model.makeState(); state.mtp = MTPState()

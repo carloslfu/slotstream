@@ -478,7 +478,7 @@ public final class Engine {
         self.visionAvailable = resources.supportsVision && VisionTower.present(index: index)
         self.visionAllowed = plan?.visionEnabled ?? visionAvailable
         if let plan, plan.mtpEnabled {
-            if affineSource != nil { try model.enableAffineControlDraft(baseline: modelDir) }
+            if affineSource != nil { try model.enableAffineControlDraft(baseline: modelDir, streamedExperts: plan.mtpStreamedExperts) }
             else { try model.enableMTP(modelDir: modelDir, streamedExperts: plan.mtpStreamedExperts) }
         }
         self.generator = Generator(model: model)

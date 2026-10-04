@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T05:28:04.404722+00:00
+updated: 2026-10-04T06:18:01.683392+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -695,3 +695,12 @@ Original-pack activation revalidates actual files, observes headroom after relea
 The full Mac suite passes, including journal-phase recovery, failed writes, exclusive ownership, stale attempts, corrupt/symlink history, queue gating and rendered failure controls. Real original-weight tests pass health/commit, post-allocation failure, sequential rollback, failed-selection refusal, explicit retry, new-owner reload and cancellation during the final commit. A review fixed initial journal failures that occurred before the queue gate and added the last cancellation check before publication. The failed compiler assertion and all earlier attempts remain captured.
 
 This closes the original-pack activation foundation, not the multi-pack distribution gate. Candidate standalone ownership, compatible loader/vision/draft paths, qualification, verified publication and the integrated release are still required. The public registry and installed artifacts remain unchanged.
+
+
+### Authenticated streamed original head, October 4
+
+[[sources/runs/2026/10/2026-10-04-authenticated-streamed-original-draft]] closes independent streamed placement for the affine target. The original head owns its fully authenticated sidecar and exact tensor ranges; parallel reads cannot publish partial cache records after a read or integrity failure. Its cache and scratch retain original four-bit accounting, independently of the target recipe.
+
+All prior resident-head token and committed-state observations match exactly. Candidate speculation, Engine/prefix/governor/HTTP, original draft regressions and staged 32K recovery pass within their unchanged bounded protocols. The final static suite passes. Failed diagnostic compilation is retained, and no reference, tolerance or golden changes.
+
+Explicit streamed placement is available to the research Engine. Candidate Auto still cannot inherit the baseline's measured placement threshold. Next compare complete configurations through the actual planner at equal saved ceilings, then qualify quality and the remaining production features before publishing or selecting another pack. Vision, standalone distribution, held-out noninferiority and integrated release remain open.

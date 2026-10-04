@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T05:26:57.329057Z
+updated: 2026-10-04T06:16:41.020215Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-authenticated-streamed-original-draft]] — Authenticated original draft streaming and exact candidate recovery
 - [[sources/runs/2026/10/2026-10-04-durable-model-activation-and-recovery]] — Durable original-pack model activation, cancellation and recovery
 - [[sources/runs/2026/10/2026-10-04-complete-pair-exclusions-and-context-ci]] — Complete draft pilot exclusions and isolated context dependency repair
 - [[sources/runs/2026/10/2026-10-04-affine-engine-memory-and-governor]] — Authenticated affine Engine integration and pack-specific live memory accounting
@@ -506,9 +507,8 @@ updated: 2026-10-04T05:26:57.329057Z
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-default-sampler-installer]] — Combined candidate passes sampler oracle and real local installer transitions
 - [[sources/runs/2026/09/2026-09-07-optimization-correctness-memory-policy]] — Preserved swap guard stop and explicit correctness-only VM observations
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-default-metadata-and-runtime]] — Combined candidate passes native metadata, exact planner and runtime defaults
-- [[sources/runs/2026/09/2026-09-07-optimization-combined-default-candidate-build]] — Separate combined-default candidate builds and restores the shared checkout
 
 ## More
 
-This folder has 765 files. The 500 most recent are listed above.
+This folder has 766 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

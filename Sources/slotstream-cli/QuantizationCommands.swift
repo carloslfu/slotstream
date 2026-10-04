@@ -12,6 +12,10 @@ struct AffineEngineCheck: ParsableCommand {
     @Option(name: .long) var generationProfile: String
     @Option(name: .long) var output: String
     @Flag(name: .long) var draft = false
+    @Flag(name: .long) var streamedDraft = false
+    func validate() throws {
+        guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
+    }
     func run() throws {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Data?, failure: Error?
@@ -19,7 +23,8 @@ struct AffineEngineCheck: ParsableCommand {
             do {
                 result = try await Diagnostics.affineEngine(baseline: URL(fileURLWithPath: baseline),
                     control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
-                    profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output))
+                    profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
+                    streamedDraft: streamedDraft)
             } catch { failure = error }
             semaphore.signal()
         }
@@ -71,13 +76,14 @@ struct AffineContextCheck: ParsableCommand {
     @Option(name: .long) var table: String
     @Option(name: .long) var limit: Int
     @Option(name: .long) var output: String
+    @Flag(name: .long) var streamedDraft = false
     func validate() throws {
         guard [4096, 8192, 32768].contains(limit) else { throw ValidationError("context stages are 4096, 8192 and 32768") }
     }
     func run() throws {
         print(String(decoding: try Diagnostics.affineContext(baseline: URL(fileURLWithPath: baseline),
             control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table), limit: limit,
-            output: URL(fileURLWithPath: output)), as: UTF8.self))
+            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft), as: UTF8.self))
     }
 }
 
@@ -88,10 +94,11 @@ struct AffineSpeculationCheck: ParsableCommand {
     @Option(name: .long) var control: String
     @Option(name: .long) var generationProfile: String
     @Option(name: .long) var output: String
+    @Flag(name: .long) var streamedDraft = false
     func run() throws {
         print(String(decoding: try Diagnostics.affineSpeculation(baseline: URL(fileURLWithPath: baseline),
             control: URL(fileURLWithPath: control), profile: URL(fileURLWithPath: generationProfile),
-            output: URL(fileURLWithPath: output)), as: UTF8.self))
+            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft), as: UTF8.self))
     }
 }
 

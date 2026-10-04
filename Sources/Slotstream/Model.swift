@@ -346,12 +346,12 @@ public final class Qwen4ExpModel {
     /// The draft keeps the original independent four-bit recipe. Research
     /// speculation explicitly selects the existing row-invariant target mode;
     /// public loading and its deployed arithmetic stay unchanged.
-    package func enableAffineControlDraft(baseline: URL) throws {
+    package func enableAffineControlDraft(baseline: URL, streamedExperts: Bool = false) throws {
         guard affineControlReferenceArithmetic, mtpHead == nil else {
             throw ModelError("the affine research draft requires its authenticated target and no existing head")
         }
-        let weights = try VQDraftWeights.load(baseline: baseline)
-        let head = MTPHead(weights, referenceArithmetic: true)
+        let weights = try VQDraftWeights.load(baseline: baseline, streamedExperts: streamedExperts)
+        let head = MTPHead(weights, stream: weights.verifiedExpertStream, arithmetic: .vqPR1788)
         head.rowInvariantFusion = true
         optimizations.rowInvariantProjection = true
         optimizations.verifySplitAttention = true

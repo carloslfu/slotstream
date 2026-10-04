@@ -53,9 +53,15 @@ extension Diagnostics {
         c.equal("image metadata does not advertise an unsupported path", candidate.json()["vision_context_limit"] as? Int, 0)
         _ = try json(candidate)
         c.expect("candidate banner makes no original speed claim", !candidate.banner().contains("M5 Pro anchors"))
-        let head = try plan(profile, mtp: .on)
+        let head = try plan(profile, mtp: .on, placement: .resident)
         c.equal("draft keeps its own four-bit cost", head.memoryLedger.mtpResidentBytes, 1_600_000_000)
         c.expect("explicit draft uses admitted resident placement", head.mtpEnabled && !head.mtpStreamedExperts)
+        c.expect("candidate automatic placement does not inherit original timing floors", !(try plan(profile, mtp: .on)).mtpStreamedExperts)
+        let streamed = try plan(profile, mtp: .on, placement: .streamed)
+        c.expect("independent streamed draft is explicitly admitted", streamed.mtpEnabled && streamed.mtpStreamedExperts)
+        c.equal("independent streamed draft retains original record cost", streamed.memoryLedger.mtpResidentBytes,
+            PlannerCostModel.mtpStreamedBytes)
+        c.expect("streaming leaves more budget for target capacity", streamed.slots > head.slots)
         let autoHead = try plan(profile, mtp: .auto)
         c.expect("unmeasured draft floor is not inherited", !autoHead.mtpEnabled)
         let policy = try RuntimeAllocationPolicy(prefillChunkOverride: 256, prefixCacheEnabled: false)
@@ -71,7 +77,6 @@ extension Diagnostics {
             { _ = try plan(profile, context: 32769) },
             { _ = try plan(profile, policy: RuntimeAllocationPolicy(prefillChunkOverride: 1024)) },
             { _ = try plan(profile, vision: .on) },
-            { _ = try plan(profile, mtp: .on, placement: .streamed) },
             { _ = try plan(profile, lookahead: .retained(enabled: true, bytes: 1024)) },
             { _ = try Planner.applyingRuntimePolicy(candidate, policy: RuntimeAllocationPolicy(prefillChunkOverride: 1024)) }
         ] {
