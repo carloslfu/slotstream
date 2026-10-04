@@ -1095,6 +1095,8 @@ The complete-performance producer still needs two concrete integrations before f
 
 The pure selector currently matches caller-provided proposed plans. Full candidate Auto integration still needs the qualified recipe's own initial plan and automatic ceiling, supported custom-ceiling behavior, accepted installed-content ownership and frozen activation/recovery. Do not treat the prepared matcher or an empty compiled profile list as that completed product behavior. Candidate qualification, artifact production and complete local integrated acceptance remain open.
 
+The first corrected engine run exposed a second fixture compilation error, preserved in [[sources/runs/2026/10/2026-10-04-pack-range-stride-correction]]. The interior-control sweep passed an Int64 byte increment to Swift's Int stride parameter. An explicit conversion of that bounded increment fixes the fixture without changing its boundaries or planner expectations. No policy/range execution is claimed from that failed run; full corrected acceptance remains pending.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

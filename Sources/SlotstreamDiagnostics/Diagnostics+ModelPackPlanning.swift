@@ -31,7 +31,7 @@ extension Diagnostics {
             // Include optional-component and pass-size transitions inside the
             // displayed range, not just its endpoints. These are planner-only
             // fixtures; they do not simulate another Mac's actual speed.
-            for bound in stride(from: range.minimumBytes, through: range.hardwareMaximumBytes, by: range.incrementBytes) {
+            for bound in stride(from: range.minimumBytes, through: range.hardwareMaximumBytes, by: Int(range.incrementBytes)) {
                 for draftPresent in [false, true] {
                     let plan = try pack.plan(PlanRequest(memoryLimitGB: Double(bound) / 1e9,
                         mtp: .auto, vision: .off, maxContextTokens: 32768), on: quiet, mtpAvailable: draftPresent)

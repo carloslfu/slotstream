@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T22:41:09.110875Z
+updated: 2026-10-04T22:59:26.755920Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-pack-range-stride-correction]] — Preserve the range-test stride type failure and its bounded conversion correction
 - [[sources/runs/2026/10/2026-10-04-auto-policy-ci-access-correction]] — Preserve the failed first Auto-policy diagnostic compilation and its package-access correction
 - [[sources/runs/2026/10/2026-10-04-complete-performance-native-ci]] — Complete successful engine and Mac CI for the frozen complete-configuration native performance instrument
 - [[sources/runs/2026/10/2026-10-04-complete-performance-latency-acceptance]] — Require complete natural answers and prospective response/startup latency margins alongside simultaneous decode speed acceptance
@@ -506,9 +507,8 @@ updated: 2026-10-04T22:41:09.110875Z
 - [[sources/runs/2026/09/2026-09-07-optimization-vision-qualification-profile-correction]] — Full-image qualification command reconciled with the original complete-photo profile
 - [[sources/runs/2026/09/2026-09-07-optimization-current-vision-native-preparation]] — Current query-tiled vision prerequisites prepared; original admission retained
 - [[sources/runs/2026/09/2026-09-07-optimization-current-read-scope-gates-preparation]] — Current bounded read-scope prerequisites and original long-prefill study prepared
-- [[sources/runs/2026/09/2026-09-07-optimization-original-mtp-image-gates-preparation]] — Current MTP and image prerequisites prepared for original serving gates
 
 ## More
 
-This folder has 811 files. The 500 most recent are listed above.
+This folder has 812 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

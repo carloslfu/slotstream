@@ -298,3 +298,6 @@ Prepared pack-owned planning and ledger-derived stable memory ranges, connected 
 ## [2026-10-04 22:56] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Bound measured Auto profiles and estimate anchors to the complete-performance protocol’s nominal non-Low-Power operating state, preserved missing-state and legacy-initializer behavior, and clarified historical-test wording. New fixtures await CI. Recorded the concrete remaining standalone-load and Desktop short-prompt performance integrations, and kept full candidate Auto recipe/ceiling/activation ownership explicitly open.
 
+## [2026-10-04 23:01] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserved the first range-fixture compilation failure and corrected its Int64-to-Int stride conversion. Numeric expectations, planner choices and allocation safety remain unchanged. Full corrected engine catalogue, app and native rendering acceptance remain pending.
+

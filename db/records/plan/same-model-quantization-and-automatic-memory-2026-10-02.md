@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T22:54:37.183073+00:00
+updated: 2026-10-04T23:01:14.876811+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1033,3 +1033,5 @@ Auto profile matching now includes current OS thermal state and Low Power Mode. 
 The complete-performance producer still needs two concrete integrations before final use: its candidate path currently measures the composite original-plus-control research source, while the finished product will load the standalone artifact; and its stock Engine setup does not yet apply Desktop's short-prompt policy. The next prospective producer revision must support authenticated standalone loading and explicitly frozen short-prompt settings, preserve the existing producer contract and resource bounds, and update paired validation/receipts. No actual complete-performance pilot or final protocol has been frozen or executed, so these changes do not replace or reinterpret observations.
 
 The pure selector currently matches caller-provided proposed plans. Full candidate Auto integration still needs the qualified recipe's own initial plan and automatic ceiling, supported custom-ceiling behavior, accepted installed-content ownership and frozen activation/recovery. Do not treat the prepared matcher or an empty compiled profile list as that completed product behavior. Candidate qualification, artifact production and complete local integrated acceptance remain open.
+
+The first corrected engine run exposed a second fixture compilation error, preserved in [[sources/runs/2026/10/2026-10-04-pack-range-stride-correction]]. The interior-control sweep passed an Int64 byte increment to Swift's Int stride parameter. An explicit conversion of that bounded increment fixes the fixture without changing its boundaries or planner expectations. No policy/range execution is claimed from that failed run; full corrected acceptance remains pending.
