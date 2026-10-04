@@ -25,7 +25,7 @@ struct Slotstream: ParsableCommand {
             AffineSpeculationCheck.self,
             AffineContextCheck.self,
             AffineEngineCheck.self,
-            AffineGroupedExpertsCheck.self,
+            AffineGroupedExpertsCheck.self, AffineVisionCheck.self,
             QuantizationModelCheck.self,
             QuantizationDraftCheck.self, QuantizationStateCheck.self, QuantizationGenerationCheck.self,
             QuantizationRotaryCheck.self, QuantizationContextCheck.self,

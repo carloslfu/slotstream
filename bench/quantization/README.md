@@ -89,6 +89,26 @@ must precede frozen held-out examples, sample counts, paired confidence methods,
 noninferiority and latency margins. Complete app tasks, tool traces, exact
 native reference parity, memory/governor checks and actual hardware qualification
 remain independent gates in the canonical plan.
+## Paired task-outcome analysis
+
+`Tools/quantization_paired.py` provides prospective paired binary-outcome
+analysis for a separately frozen held-out protocol. It uses the
+[Tango score interval](https://www.site.uottawa.ca/~nat/Courses/csi5388/Tango.paired.pdf)
+with a constrained discordance fit. For fixed task-family strata, simultaneous
+Bonferroni family bounds are combined using the declared family weights.
+The coverage is asymptotic, not an exact finite-sample guarantee. The method
+does not pool different task families as identically distributed trials.
+
+A task pair, including its whole tool trajectory or translated problem, is
+one observation. Repeated tokens, repeated generations and translations of
+the same problem cannot enlarge the independent sample. Corpus selection,
+grader behavior, missing outcomes, sample counts, margins, family weights and
+candidate multiplicity must be frozen before the final model outputs.
+Structural safety and successful execution remain separate gates. The helper
+always returns `qualification: false`; statistical results alone cannot admit
+a pack. The tests include published interval witnesses and an independent
+constrained-likelihood optimization.
+
 ## Fused expert pilot
 
 `fused-v1.json` freezes the first fused projection pilot. `fused-v2.json`

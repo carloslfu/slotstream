@@ -62,6 +62,23 @@ extension Diagnostics {
             piecewisePlan.json()["est_warm_tok_s"] is NSNull && !piecewisePlan.mtpEnabled && !piecewisePlan.decodeLookahead)
         c.expect("sequential allocation ledger respects its saved ceiling", piecewisePlan.expectedPeakGB <= 14)
         let grouped = PackMemoryProfile.affine3GroupedControl
+        let groupedVision = PackMemoryProfile.affine3GroupedVisionControl
+        c.expect("owned vision is an independent explicit capability identity", groupedVision != grouped
+            && groupedVision.supportsVision && !grouped.supportsVision
+            && !groupedVision.automaticOptimizations && !groupedVision.usesBaselineSpeedEvidence)
+        c.equal("vision profile preserves the checked text horizon", groupedVision.maximumContext, 32768)
+        let imagePlan = try plan(groupedVision, mtp: .on, vision: .on, placement: .streamed)
+        let loadedImagePlan = try Planner.loadingVision(imagePlan)
+        c.expect("owned vision reserves tower residency before loading", !imagePlan.visionResidentReserved && loadedImagePlan.visionResidentReserved)
+        c.equal("owned vision keeps its resource identity", loadedImagePlan.resources, groupedVision)
+        c.expect("owned image reservation keeps the saved ceiling and cannot grow cache", loadedImagePlan.targetGB == imagePlan.targetGB && loadedImagePlan.slots <= imagePlan.slots)
+        c.expect("owned image plan prices all memory", loadedImagePlan.expectedPeakGB <= 14)
+        c.equal("owned image plan reports the bounded horizon", imagePlan.json()["vision_context_limit"] as? Int, 32768)
+        c.equal("vision profile preserves resident text allowance", groupedVision.residentReserveBytes, grouped.residentReserveBytes)
+        for slots in [640, 1000, 7000, 24576] {
+            c.equal("vision profile shares grouped workspace at \(slots)", groupedVision.workspaceBytes(slots: slots), grouped.workspaceBytes(slots: slots))
+            c.equal("vision profile shares grouped capacity cost at \(slots)", groupedVision.capacityBudgetGB(slots), grouped.capacityBudgetGB(slots))
+        }
         c.equal("grouped floor includes its independent allocation witness", grouped.workspaceBytes(slots: 640), 623_597_568)
         c.equal("grouped floor is charged exactly once", grouped.workspaceBytes(slots: 640), grouped.expertWorkspaceBytes)
         c.equal("grouped larger arena includes a larger live replacement", grouped.workspaceBytes(slots: 1000), 874_887_168)

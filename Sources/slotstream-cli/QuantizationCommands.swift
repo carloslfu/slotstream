@@ -3,6 +3,33 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct AffineVisionCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-vision-check",
+        abstract: "Check owned image features and bounded explicit candidate vision integration")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var table: String
+    @Option(name: .long) var output: String
+    func run() throws {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Data?, failure: Error?
+        Task {
+            do {
+                result = try await Diagnostics.affineVision(baseline: URL(fileURLWithPath: baseline),
+                    control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
+                    output: URL(fileURLWithPath: output))
+            } catch { failure = error }
+            semaphore.signal()
+        }
+        semaphore.wait()
+        if let failure { throw failure }
+        guard let result else { throw ValidationError("owned vision check produced no receipt") }
+        print(String(decoding: result, as: UTF8.self))
+        let report = try JSONSerialization.jsonObject(with: result) as? [String: Any]
+        guard report?["complete"] as? Bool == true else { throw ValidationError("owned vision check failed") }
+    }
+}
+
 struct AffineGroupedExpertsCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "affine-grouped-experts-check",
         abstract: "Check bounded affine expert groups against complete-domain component arithmetic")

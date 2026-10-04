@@ -93,6 +93,7 @@ public final class Engine {
     package private(set) var reasoningOpenIds: [Int] = []
     public let modelName: String
     private let resources: PackMemoryProfile
+    private let authenticatedVisionMetadata: PinnedVisionMetadata?
     /// Metadata follows the authenticated loaded artifact, independent of
     /// mutable memory settings. Preserve existing identities for legacy clients.
     package var modelQuantization: String {
@@ -191,7 +192,7 @@ public final class Engine {
         return ["configured_window": maxContextTokens, "model_limit": ContextPolicy.modelLimit,
             "implementation_limit": min(ContextPolicy.implementationLimit, resources.maximumContext),
             "mtp_limit": min(ContextPolicy.mtpLimit, resources.maximumContext),
-            "vision_limit": resources.supportsVision ? ContextPolicy.visionLimit : 0,
+            "vision_limit": resources.supportsVision ? min(resources.maximumContext, ContextPolicy.visionLimit) : 0,
             "max_prefill_wait_minutes": plan?.maxPrefillWaitMinutes ?? ContextConfiguration.defaultWaitMinutes,
             "wait_scope": "accepted_request_to_first_model_token",
             "qualification": plan?.contextQualification ?? false,
@@ -374,6 +375,9 @@ public final class Engine {
         guard affineSource?.groupedExperts != true || affineSource?.piecewiseAllocation == true else {
             throw SlotstreamError.invalidPlan("grouped affine experts require the explicit sequential allocation contract")
         }
+        guard affineSource?.vision != true || affineSource?.groupedExperts == true else {
+            throw SlotstreamError.invalidPlan("candidate vision requires the explicit grouped allocation contract")
+        }
         let resources: PackMemoryProfile = affineSource?.resources ?? .original
         guard plan?.resources == resources || (plan == nil && affineSource == nil) else {
             throw SlotstreamError.invalidPlan("the loader and memory plan must describe the same pack")
@@ -405,6 +409,7 @@ public final class Engine {
             throw SlotstreamError.invalidPlan("engine pool must match a supported memory plan")
         }
         let metadata = try affineSource.map { _ in try PinnedTokenizerMetadata(directory: modelDir) }
+        self.authenticatedVisionMetadata = try affineSource?.vision == true ? PinnedVisionMetadata(directory: modelDir) : nil
         let initialLedger = plan?.memoryLedger ?? ContextMemoryLedger(slots: poolSlots,
             context: context.maxContextTokens, chunk: 256,
             retentionTokens: Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
@@ -809,6 +814,11 @@ public final class Engine {
 
     // MARK: Vision
 
+    private func visionConfiguration() throws -> (VisionConfig, (min: UInt32, max: UInt32)) {
+        if let metadata = authenticatedVisionMetadata { return metadata.configuration }
+        return try VisionTower.configuration(directory: modelDir)
+    }
+
     /// Load the vision tower on first use, and only if the machine can spare
     /// it right now.
     ///
@@ -877,7 +887,7 @@ public final class Engine {
             }
             try request?.check(nextAllocationBytes: workspaceBytes, phase: "vision workspace admission")
             if let vt = visionTower { return vt }
-            let idx = try CheckpointIndex(dir: modelDir)
+            let idx = try authenticatedVisionMetadata != nil ? model.pool.expertStore.index : CheckpointIndex(dir: modelDir)
             guard VisionTower.present(index: idx) else {
                 throw SlotstreamError.vision(
                     "this checkpoint has no vision tower — it is a text-only model")
@@ -910,7 +920,15 @@ public final class Engine {
                 updatePlan(p)
                 publishPoolSnapshot()
             }
-            let vt = try VisionTower(index: idx)
+            let vt: VisionTower
+            if let metadata = authenticatedVisionMetadata {
+                vt = try VisionTower(index: idx, metadata: metadata, shouldContinue: {
+                    do {
+                        try request?.check(phase: "authenticated vision loading")
+                        return self.pressureBoundary.snapshot() == nil
+                    } catch { return false }
+                })
+            } else { vt = try VisionTower(index: idx) }
             self.visionTower = vt
             return vt
         }()
@@ -977,7 +995,7 @@ public final class Engine {
         guard visionAllowed else {
             throw SlotstreamError.vision("this server was started with --vision off; images are not accepted")
         }
-        let (visionConfig, pixelBounds) = try VisionTower.configuration(directory: modelDir)
+        let (visionConfig, pixelBounds) = try visionConfiguration()
         for (i, source) in sources.enumerated() {
             do {
                 let size = try VisionPreprocess.uprightDimensions(try VisionPreprocess.loadImageData(from: source))
@@ -1015,7 +1033,7 @@ public final class Engine {
             catch { throw SlotstreamError.vision("image \(i + 1): \(error)") }
         }
         let decodedSeconds = RuntimeClock.seconds(since: started)
-        let (visionConfig, pixelBounds) = try VisionTower.configuration(directory: modelDir)
+        let (visionConfig, pixelBounds) = try visionConfiguration()
         var items: [VisionPrompt.Item] = []
         items.reserveCapacity(decoded.count)
         var expandedCount = baseIds.count

@@ -436,7 +436,8 @@ public final class CheckpointIndex {
     /// path-based MLX lazy mapping would reopen a file after authentication.
     /// One inspected dense tensor and its load copy fit the research loader's
     /// existing envelope; PLE tables are never admitted through this method.
-    package func authenticatedArray(_ name: String) throws -> MLXArray {
+    package func authenticatedArray(_ name: String, shouldContinue: () -> Bool = { true }) throws -> MLXArray {
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
         guard let ref = tensors[name], let file = authenticatedFiles[ref.file],
               (1...800_000_000).contains(ref.byteCount), !name.contains("ngram_embedding.shard_") else {
             throw ModelError("authenticated resident tensor is absent or exceeds its load-copy bound")
@@ -453,11 +454,13 @@ public final class CheckpointIndex {
         }
         var bytes = Data(count: ref.byteCount)
         try bytes.withUnsafeMutableBytes { destination in
-            try file.readDirect(into: destination.baseAddress!, ref: ref, offset: 0, count: ref.byteCount)
+            try file.readDirect(into: destination.baseAddress!, ref: ref, offset: 0, count: ref.byteCount,
+                shouldContinue: shouldContinue)
         }
         let array = MLXArray(bytes, ref.shape, dtype: dtype)
         eval(array)
         try file.verifyUnchanged()
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
         return array
     }
 

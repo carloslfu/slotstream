@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T09:08:18.979441Z
+updated: 2026-10-04T09:56:22.691314Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-owned-vision-static-acceptance]] — Owned vision and paired score static acceptance
+- [[sources/runs/2026/10/2026-10-04-paired-outcome-score-instrument]] — Paired binary outcome score instrument
+- [[sources/runs/2026/10/2026-10-04-owned-affine-vision-integration]] — Owned affine vision integration and original regression
+- [[sources/runs/2026/10/2026-10-04-grouped-affine-calibration-with-timing-exclusion]] — Grouped affine calibration with a frozen timing exclusion
 - [[sources/runs/2026/10/2026-10-04-grouped-affine-static-acceptance]] — Grouped affine static acceptance
 - [[sources/runs/2026/10/2026-10-04-phase-bounded-affine-memory]] — Phase-bounded affine memory with exact functional checks
 - [[sources/runs/2026/10/2026-10-04-explicit-model-setup-repair]] — Explicit model setup repair and real-model recovery
@@ -503,12 +507,8 @@ updated: 2026-10-04T09:08:18.979441Z
 - [[sources/runs/2026/09/2026-09-07-optimization-current-candidate-metadata-and-api]] — Current candidate passes complete metadata, runtime and actual API correctness
 - [[sources/runs/2026/09/2026-09-07-optimization-current-source-candidate-build]] — Current combined source builds with exact shared-state restoration
 - [[sources/runs/2026/09/2026-09-07-optimization-current-source-build-resource-stop]] — Current-source release build stops at its memory floor and restores the checkout
-- [[sources/runs/2026/09/2026-09-07-optimization-current-source-external-consumer]] — Actual external consumer compiles the combined defaults with current planner device extraction
-- [[sources/runs/2026/09/2026-09-07-optimization-planner-device-extraction-rebase]] — Unchanged planner family rebases onto the current device-observer source seam
-- [[sources/runs/2026/09/2026-09-07-optimization-campaign-and-active-throughput-reporting]] — Frozen complete campaign and paired active-emission reporting are executable
-- [[sources/runs/2026/09/2026-09-07-optimization-combined-bounded-components]] — Combined candidate passes bounded read, socket, prefix and RoPE components
 
 ## More
 
-This folder has 773 files. The 500 most recent are listed above.
+This folder has 777 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

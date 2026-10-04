@@ -523,9 +523,13 @@ public final class VisionTower: TensorSource {
     }
 
     package static func configuration(directory: URL) throws -> (VisionConfig, (min: UInt32, max: UInt32)) {
+        try configuration(configData: Data(contentsOf: directory.appendingPathComponent("config.json")),
+            processorData: try? Data(contentsOf: directory.appendingPathComponent("preprocessor_config.json")))
+    }
+
+    package static func configuration(configData: Data, processorData: Data?) throws -> (VisionConfig, (min: UInt32, max: UInt32)) {
         var vc = VisionConfig()
-        let data = try Data(contentsOf: directory.appendingPathComponent("config.json"))
-        if let root = try JSONSerialization.jsonObject(with: data) as? [String: Any], let v = root["vision_config"] as? [String: Any] {
+        if let root = try JSONSerialization.jsonObject(with: configData) as? [String: Any], let v = root["vision_config"] as? [String: Any] {
             if let x = v["hidden_size"] as? Int { vc.hiddenSize = x }
             if let x = v["depth"] as? Int { vc.depth = x }
             if let x = v["num_heads"] as? Int { vc.numHeads = x }
@@ -539,8 +543,7 @@ public final class VisionTower: TensorSource {
         // `size.longest_edge` is max_pixels in every Qwen*VL processor; the
         // engine cap is applied on top by `effectiveBounds`.
         var cfgMin: UInt32 = 0, cfgMax: UInt32 = 0
-        let procPath = directory.appendingPathComponent("preprocessor_config.json")
-        if let pdata = try? Data(contentsOf: procPath),
+        if let pdata = processorData,
             let proc = try? JSONSerialization.jsonObject(with: pdata) as? [String: Any],
             let size = proc["size"] as? [String: Any]
         {
@@ -550,23 +553,43 @@ public final class VisionTower: TensorSource {
         return (vc, VisionPreprocess.effectiveBounds(cfgMin: cfgMin, cfgMax: cfgMax))
     }
 
-    public init(index: CheckpointIndex) throws {
+    public convenience init(index: CheckpointIndex) throws {
+        try self.init(index: index, metadata: nil, shouldContinue: { true })
+    }
+
+    package convenience init(index: CheckpointIndex, metadata: PinnedVisionMetadata,
+                             shouldContinue: () -> Bool = { true }) throws {
+        try self.init(index: index, metadata: Optional(metadata), shouldContinue: shouldContinue)
+    }
+
+    private init(index: CheckpointIndex, metadata: PinnedVisionMetadata?, shouldContinue: () -> Bool) throws {
+        guard index.hasAuthenticatedFiles == (metadata != nil) else {
+            throw ModelError("authenticated vision requires matching owned metadata and tensors")
+        }
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
         self.config = index.config
-        let (vc, bounds) = try Self.configuration(directory: index.dir)
+        let (vc, bounds) = try metadata?.configuration ?? Self.configuration(directory: index.dir)
         self.vcfg = vc
         self.pixelBounds = bounds
         var kept: [String: MLXArray] = [:]
-        let files = Set(index.tensors.values.map { $0.file })
-        for f in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            let all = try loadArrays(url: f)
-            for (rawKey, arr) in all {
-                var key = rawKey
-                if key.hasPrefix("language_model.") { key.removeFirst("language_model.".count) }
-                if Self.isTowerKey(key) {
-                    kept[key] = arr
+        if index.hasAuthenticatedFiles {
+            for key in index.tensors.keys.sorted() where Self.isTowerKey(key) {
+                guard shouldContinue() else { throw CheckpointReadError.cancelled }
+                kept[key] = try index.authenticatedArray(key, shouldContinue: shouldContinue)
+            }
+            try index.verifyAuthenticatedFilesUnchanged()
+        } else {
+            let files = Set(index.tensors.values.map { $0.file })
+            for f in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                let all = try loadArrays(url: f)
+                for (rawKey, arr) in all {
+                    var key = rawKey
+                    if key.hasPrefix("language_model.") { key.removeFirst("language_model.".count) }
+                    if Self.isTowerKey(key) { kept[key] = arr }
                 }
             }
         }
+        guard shouldContinue() else { throw CheckpointReadError.cancelled }
         // Every tensor below is required. A checkpoint missing one is a
         // checkpoint this tower cannot run, and saying so beats trapping the
         // process on a force-unwrap halfway through a request.

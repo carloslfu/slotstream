@@ -18,12 +18,13 @@ package struct PackMemoryProfile: Equatable, Sendable {
     /// Maximum per-record destination piece for an explicitly sequential
     /// assembly/admission contract. Nil retains full replacement accounting.
     private let largestReplacementPieceBytes: Int?
+    private let groupedWorkspace: Bool
 
     private init(identity: String, expertRecordBytes: Int, residentReserveBytes: Int = 0,
                  expertWorkspaceBytes: Int = 0, maximumPrefill: Int,
                  maximumContext: Int, usesBaselineSpeedEvidence: Bool,
                  supportsStreamedDraft: Bool, supportsVision: Bool, automaticOptimizations: Bool,
-                 largestReplacementPieceBytes: Int? = nil) {
+                 largestReplacementPieceBytes: Int? = nil, groupedWorkspace: Bool = false) {
         self.identity = identity
         self.expertRecordBytes = expertRecordBytes
         self.residentReserveBytes = residentReserveBytes
@@ -35,6 +36,7 @@ package struct PackMemoryProfile: Equatable, Sendable {
         self.supportsVision = supportsVision
         self.automaticOptimizations = automaticOptimizations
         self.largestReplacementPieceBytes = largestReplacementPieceBytes
+        self.groupedWorkspace = groupedWorkspace
     }
 
     package static let original = Self(identity: "original-affine4-memory-v1",
@@ -82,7 +84,18 @@ package struct PackMemoryProfile: Equatable, Sendable {
         expertWorkspaceBytes: 623_597_568, maximumPrefill: 512,
         maximumContext: 32_768, usesBaselineSpeedEvidence: false,
         supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
-        largestReplacementPieceBytes: 614_400)
+        largestReplacementPieceBytes: 614_400, groupedWorkspace: true)
+
+    /// Separate capability identity for bounded, owned vision loading. The
+    /// usual context ledger additionally charges tower residency and image
+    /// workspace. Text arithmetic and the grouped expert allowance are shared;
+    /// this explicit image probe is not a product or quality qualification.
+    package static let affine3GroupedVisionControl = Self(identity: "affine3-grouped-vision-memory-v1",
+        expertRecordBytes: 2_150_400, residentReserveBytes: 357_580_800 + 67_108_864,
+        expertWorkspaceBytes: 623_597_568, maximumPrefill: 512,
+        maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: true, automaticOptimizations: false,
+        largestReplacementPieceBytes: 614_400, groupedWorkspace: true)
 
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)
@@ -92,7 +105,7 @@ package struct PackMemoryProfile: Equatable, Sendable {
     package func poolGB(_ slots: Int) -> Double { Double(poolBytes(slots)) / 1e9 }
     package func workspaceBytes(slots: Int) -> Int {
         guard expertWorkspaceBytes > 0 else { return 0 }
-        if self == .affine3GroupedControl {
+        if groupedWorkspace {
             return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: maximumPrefill, slots: slots, admits: true)
         }
         return ContextWorkspace.expertWorkspaceBytes(tokens: maximumPrefill, tile: 512,

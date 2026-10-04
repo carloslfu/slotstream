@@ -196,3 +196,6 @@ Bind complete-task comparisons to the actual Engine plan; preserve the excluded 
 ## [2026-10-04 09:08] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Implement bounded grouped affine experts with exact routing, admission and phase accounting; preserve the first failed accounting assertion and the excluded sequential-copy timing campaign. Verify full native and static gates. Add explicit archived activation-record repair with scripted UI and real-model recovery; keep alternate quality, vision, distribution and speed qualification open.
 
+## [2026-10-04 09:56] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implement authenticated candidate vision metadata and tower ownership, cancellation, real Engine/HTTP image behavior and original MTP/image regression. Preserve compiler and timing exclusions, verify full static acceptance, and add independently checked prospective paired-outcome analysis. Held-out quality, image capacity, standalone delivery, measured profiles and promotion remain open.
+
