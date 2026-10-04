@@ -963,6 +963,12 @@ No tensor payload is copied or authenticated by this metadata pass. Whole-output
 
 Driver and grader fixtures pass on both Python runtimes, as does static entry-point acceptance. Native compilation, protocol checks, actual image execution and capacity qualification remain pending. The prepared questions cover known photographs and deterministic color/bar images; they cannot establish broad or statistical image noninferiority. Freeze complete paired execution and acceptance before collecting answers, and preserve the distinction between wrong/incomplete answers and execution failures.
 
+### Standalone whole-pack assembly preparation
+
+[[sources/runs/2026/10/2026-10-04-standalone-bundle-assembly]] records the bounded assembly primitive and the complete model-specific file plan. The actual header and metadata preparation accounts for every retained shard, converted expert file, generated config/index, original parent metadata/card, tokenizer/template/vision/draft/license companion, rotary table and final manifest. The output reservation is 90,236,537,746 bytes for 78 files plus the bounded completion manifest. It is separate from the still-unfrozen whole-workspace reservation and does not enlarge the current staging cap.
+
+The exporter preserves original inodes, authenticates copied inputs, independently reconstructs retained tensors, and rehashes every finished output before publishing a completion manifest. Cancellation, disk exhaustion, corruption, source/directory mutation, manifest overflow and final sync failure leave no accepted completion. Eleven storage groups and five preparation groups pass on both Python runtimes; thirty-two static entry checks pass. Full CI and the actual export remain pending. Completion is always unqualified: standalone native identity/parity, outcomes, performance, redistribution review and independent public transfer remain separate gates.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

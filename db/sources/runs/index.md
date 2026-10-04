@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T17:33:39.968573Z
+updated: 2026-10-04T17:55:36.993211Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-standalone-bundle-assembly]] — Complete standalone file ownership and bounded authenticated assembly checks, without weight export
 - [[sources/runs/2026/10/2026-10-04-image-outcome-session-preparation]] — Separate native image-session source, checked complete-answer grader and prepared product image fixtures
 - [[sources/runs/2026/10/2026-10-04-standalone-affine-metadata-preparation]] — Actual-header preparation of coherent standalone affine config and tensor index
 - [[sources/runs/2026/10/2026-10-04-selected-pack-store-ci]] — Complete transport, native and Mac CI for the selected-pack download store
@@ -506,9 +507,8 @@ updated: 2026-10-04T17:33:39.968573Z
 - [[sources/runs/2026/09/2026-09-07-optimization-lifetime-mtp-vision-contract-correction]] — Unrun MTP-plus-vision lifetime contract corrected from source constraints
 - [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-short-request-pair]] — Current joined-evaluation build: fixed short-request latency and memory comparison
 - [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-current-gates]] — Joined-evaluation candidate correctness, portable compatibility and failed long-resource gate
-- [[sources/runs/2026/09/2026-09-07-optimization-joined-state-eval-implementation]] — Joined retained-state evaluation implementation and new-build native acceptance
 
 ## More
 
-This folder has 795 files. The 500 most recent are listed above.
+This folder has 796 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
