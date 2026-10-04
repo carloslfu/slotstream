@@ -121,6 +121,7 @@ public protocol Inference: Sendable {
     var simulated: Bool { get }
     var performanceTelemetry: PerformanceTelemetry? { get }
     func configure(_ preferences: PerformancePreferences) async throws
+    func recoverModelActivation() async throws
     func prepareCache(_ context: InferenceCacheContext) async throws
     func turn(history: [ChatMessage], tools: [ToolDefinition], cancellation: Cancellation, buffer: TurnBuffer) async throws -> EngineTurn
     /// A turn that may think first. `thinking` is nil for tool turns; `control`
@@ -137,6 +138,7 @@ public protocol Inference: Sendable {
     func releasePrivateState() async
 }
 public extension Inference {
+    func recoverModelActivation() async throws { throw SevraError.refused("This inference owner has no model setup record to repair.") }
     func prepareCache(_ context: InferenceCacheContext) async throws {}
     func prepareAhead() async {}
     func releasePrivateState() async { await unload() }
@@ -188,8 +190,9 @@ public actor LocalInference: Inference {
     private let activationWriteFault: ((ModelActivationJournal.WritePoint) throws -> Void)?
     private var activationJournal: ModelActivationJournal?
     private var activationAttempt: UUID?
+    private var activationRecoveryAvailable = false
     private var activationFailure: String? {
-        didSet { performanceTelemetry?.activationFailed(activationFailure) }
+        didSet { performanceTelemetry?.activationFailed(activationFailure, recoveryAvailable: activationRecoveryAvailable) }
     }
     private var activationRetryRequested = false
     private var inTurn = false
@@ -271,6 +274,25 @@ public actor LocalInference: Inference {
         activationFailure = nil
         activationRetryRequested = true
     }
+    public func recoverModelActivation() async throws {
+        guard !inTurn, !maintaining, engine == nil, activationJournal == nil,
+              activationFailure != nil, activationRecoveryAvailable, let activationDirectory else {
+            throw SevraError.refused("Model setup can be repaired only while the damaged record is preventing an unloaded model from starting.")
+        }
+        let selection = try ModelActivationJournal.Selection(preferences)
+        maintaining = true
+        defer { maintaining = false }
+        let journal = try ModelActivationJournal(directory: activationDirectory, fault: activationWriteFault,
+            archiveInvalidState: true)
+        // This records intent only. A later load must still authenticate the
+        // complete pack and finish its own health check before publication.
+        let attempt = try journal.begin(selection)
+        activationJournal = journal; activationAttempt = attempt
+        activationRecoveryAvailable = false; activationFailure = nil
+        activationRetryRequested = true
+        performanceTelemetry?.update(state: "Model not loaded",
+            detail: "Your previous setup record is preserved. The model will be checked again when work resumes.")
+    }
     public func turn(history: [ChatMessage], tools: [ToolDefinition], cancellation: Cancellation, buffer: TurnBuffer) async throws -> EngineTurn {
         try await turn(history: history, tools: tools, thinking: nil, replyTokens: ReplyPolicy.answerTokens, control: ThinkingControl(), cancellation: cancellation, buffer: buffer)
     }
@@ -300,7 +322,9 @@ public actor LocalInference: Inference {
                 // before a candidate exists. Their failures must stop queued
                 // work too, rather than fail each waiting request in turn.
                 if activationDirectory != nil, !cancellation.isCancelled {
-                    activationFailure = Self.activationRecoveryMessage
+                    activationFailure = activationRecoveryAvailable
+                        ? "The requested model configuration did not activate because its setup record is unreadable. Repair model setup to preserve that record and verify the model again."
+                        : Self.activationRecoveryMessage
                 }
                 throw error
             }
@@ -433,7 +457,12 @@ public actor LocalInference: Inference {
     private func loadForTurn(cancellation: Cancellation, buffer: TurnBuffer) async throws {
         let selection = try ModelActivationJournal.Selection(preferences)
         if activationJournal == nil, let activationDirectory {
-            let journal = try ModelActivationJournal(directory: activationDirectory, fault: activationWriteFault)
+            activationRecoveryAvailable = false
+            let journal: ModelActivationJournal
+            do { journal = try ModelActivationJournal(directory: activationDirectory, fault: activationWriteFault) }
+            catch let error as ModelActivationJournal.RecoverableHistory {
+                activationRecoveryAvailable = true; throw error
+            }
             _ = try journal.recoverInterrupted()
             activationJournal = journal
         }

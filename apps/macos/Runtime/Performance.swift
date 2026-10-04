@@ -172,6 +172,7 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var appliedCeilingGB: Double? = nil
     public var failure: String? = nil
     public var activationFailure: String? = nil
+    public var activationRecoveryAvailable = false
     public var activePack: String? = nil
     public var selectionReason: String? = nil
     public var configuration: AppliedModelConfiguration? = nil
@@ -189,6 +190,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var monitor: DispatchSourceMemoryPressure?
     private var configuration: AppliedModelConfiguration?
     private var activationFailure: String?
+    private var activationRecoveryAvailable = false
     public init() {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical],
             queue: DispatchQueue(label: "sevra.memory-status", qos: .utility))
@@ -211,13 +213,16 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     func applied(_ configuration: AppliedModelConfiguration?) {
         lock.lock(); self.configuration = configuration; lock.unlock()
     }
-    func activationFailed(_ message: String?) {
-        lock.lock(); activationFailure = message; lock.unlock()
+    func activationFailed(_ message: String?, recoveryAvailable: Bool = false) {
+        lock.lock(); activationFailure = message
+        activationRecoveryAvailable = message != nil && recoveryAvailable
+        lock.unlock()
     }
     public func snapshot(preferences: PerformancePreferences, pending: Bool, busy: Bool) -> PerformanceSnapshot {
         lock.lock()
         let current = engine, state = self.state, detail = self.detail, seconds = preparationSeconds, pressure = self.pressure,
-            configuration = self.configuration, activationFailure = self.activationFailure
+            configuration = self.configuration, activationFailure = self.activationFailure,
+            activationRecoveryAvailable = self.activationRecoveryAvailable
         lock.unlock()
         let machine = Machine.current()
         // Credit only Sevra's physical footprint, never RSS plus GPU memory.
@@ -237,6 +242,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
             physicalGB: machine.ramGB, ceilingGB: PerformancePolicy.ceilingGB(preferences, on: machine),
             appliedCeilingGB: plan?.memoryLimitGB,
             activationFailure: activationFailure,
+            activationRecoveryAvailable: activationRecoveryAvailable,
             activePack: current == nil ? nil : configuration?.packID,
             selectionReason: (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
             configuration: current == nil ? nil : configuration)

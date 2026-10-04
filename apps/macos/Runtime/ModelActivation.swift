@@ -50,11 +50,16 @@ package final class ModelActivationJournal {
         package var lastGood: Receipt?
         package var attempt: Attempt?
     }
-    package enum WritePoint { case beforeWrite, beforeRename, afterRename }
+    package enum WritePoint { case beforeWrite, beforeRename, afterRename, beforeArchive, afterArchive }
+    package struct RecoverableHistory: Error, LocalizedError {
+        package let message: String
+        public var errorDescription: String? { message }
+    }
     private let directory: Int32
     private let lease: Int32
     private let fault: ((WritePoint) throws -> Void)?
     package private(set) var state: State
+    package let archivedRecordName: String?
     private static let maximumBytes = 65_536
 
     /// Separate roots prevent a custom model directory or a second install
@@ -66,7 +71,8 @@ package final class ModelActivationJournal {
             .appendingPathComponent("Sevra/ModelActivation/" + key, isDirectory: true)
     }
 
-    package init(directory url: URL, fault: ((WritePoint) throws -> Void)? = nil) throws {
+    package init(directory url: URL, fault: ((WritePoint) throws -> Void)? = nil,
+                 archiveInvalidState: Bool = false) throws {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700])
         let dir = open(url.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -82,11 +88,50 @@ package final class ModelActivationJournal {
             close(lock); close(dir)
             throw SevraError.refused("Another Sevra instance owns this model configuration. Close it before changing the model.")
         }
+        var loaded = State(), archived: String?
         do {
-            state = try Self.read(dir)
+            do { loaded = try Self.read(dir) }
+            catch {
+                // Repair is an explicit user action. Only move this owner's
+                // regular, unshared record, under the same lifetime lease.
+                // Rename preserves even an oversized record without reading
+                // it into memory or copying/deleting any of its bytes.
+                var item = stat()
+                guard fstatat(dir, "state.json", &item, AT_SYMLINK_NOFOLLOW) == 0,
+                      item.st_mode & S_IFMT == S_IFREG, item.st_uid == getuid(), item.st_nlink == 1 else { throw error }
+                guard archiveInvalidState else { throw RecoverableHistory(message: error.localizedDescription) }
+                guard (try? Self.read(dir)) == nil else {
+                    throw SevraError.refused("The model setup record has changed. Retry settings to check it again.")
+                }
+                try fault?(.beforeArchive)
+                var current = stat()
+                guard fstatat(dir, "state.json", &current, AT_SYMLINK_NOFOLLOW) == 0,
+                      current.st_dev == item.st_dev, current.st_ino == item.st_ino,
+                      current.st_mode == item.st_mode, current.st_uid == item.st_uid,
+                      current.st_nlink == item.st_nlink, current.st_size == item.st_size,
+                      current.st_mtimespec.tv_sec == item.st_mtimespec.tv_sec,
+                      current.st_mtimespec.tv_nsec == item.st_mtimespec.tv_nsec,
+                      current.st_ctimespec.tv_sec == item.st_ctimespec.tv_sec,
+                      current.st_ctimespec.tv_nsec == item.st_ctimespec.tv_nsec else {
+                    throw SevraError.refused("The model setup record has changed. Retry settings to check it again.")
+                }
+                let name = "preserved-state-" + UUID().uuidString + ".json"
+                guard renameatx_np(dir, "state.json", dir, name, UInt32(RENAME_EXCL)) == 0 else {
+                    throw SevraError.refused("Cannot preserve the damaged model setup record. Its contents have not been replaced.")
+                }
+                try fault?(.afterArchive)
+                guard fsync(dir) == 0 else {
+                    throw SevraError.refused("Storage did not confirm the preserved model setup record. Retry settings to check it again.")
+                }
+                archived = name
+            }
+            guard !archiveInvalidState || archived != nil else {
+                throw SevraError.refused("The model setup record is valid or has already been repaired. Retry settings to verify the model.")
+            }
         } catch {
             flock(lock, LOCK_UN); close(lock); close(dir); throw error
         }
+        state = loaded; archivedRecordName = archived
         directory = dir; lease = lock; self.fault = fault
     }
     deinit { flock(lease, LOCK_UN); close(lease); close(directory) }

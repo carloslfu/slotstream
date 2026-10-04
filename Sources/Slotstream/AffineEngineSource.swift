@@ -8,11 +8,15 @@ package struct AffineEngineSource {
     package let control: URL
     package let coefficients: URL
     package let piecewiseAllocation: Bool
-    package var resources: PackMemoryProfile { piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control }
-    package init(control: URL, coefficients: URL, piecewiseAllocation: Bool = false) {
+    package let groupedExperts: Bool
+    package var resources: PackMemoryProfile {
+        groupedExperts ? .affine3GroupedControl : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)
+    }
+    package init(control: URL, coefficients: URL, piecewiseAllocation: Bool = false, groupedExperts: Bool = false) {
         self.control = control
         self.coefficients = coefficients
         self.piecewiseAllocation = piecewiseAllocation
+        self.groupedExperts = groupedExperts
     }
 }
 

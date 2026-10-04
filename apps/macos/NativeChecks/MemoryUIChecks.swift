@@ -16,22 +16,25 @@ import Vision
         window.setFrameOrigin(NSPoint(x: -30000, y: -30000))
         defer { window.orderOut(nil) }
         for appearance in ["light", "dark", "system"] {
-            for mode in ["automatic", "custom", "saved-above-range", "failed-settings", "failed-activation", "fixed", "unavailable-pack"] {
+            for mode in ["automatic", "custom", "saved-above-range", "failed-settings", "failed-activation", "corrupt-activation", "fixed", "unavailable-pack"] {
                 let custom = mode != "automatic"
                 let overRange = mode == "saved-above-range"
+                let activationFailed = ["failed-activation", "corrupt-activation"].contains(mode)
                 var preferences = custom ? PerformancePreferences(budget: .custom, customGB: 48) : .init()
                 if mode == "fixed" { preferences.liveMemory = .fixed }
                 if mode == "unavailable-pack" { preferences.quantization = .pack("removed-pack") }
                 model.performancePreferences = preferences
                 model.snapshot = RuntimeSnapshot(home: .init(), modelStatus: "Ready", error: nil, simulated: true)
                 model.performanceState.snapshot = PerformanceSnapshot(preferences: preferences,
-                    pending: custom && mode != "failed-activation", state: mode == "failed-activation" ? "Model change failed" : "In use", loaded: true,
-                    busy: mode != "failed-activation", usedGB: 13,
-                    budgetGB: 14.5, recommendationGB: 14.5, maximumGB: overRange ? 37 : 49.5,
-                    detail: mode == "failed-activation" ? "The previous configuration is loaded." : "Responding on your Mac.", idleMinutes: 10,
+                    pending: custom && !activationFailed, state: activationFailed ? "Model change failed" : "In use", loaded: mode != "corrupt-activation",
+                    busy: !activationFailed, usedGB: 13,
+                    budgetGB: mode == "corrupt-activation" ? nil : 14.5, recommendationGB: 14.5, maximumGB: overRange ? 37 : 49.5,
+                    detail: mode == "corrupt-activation" ? "Model setup needs repair."
+                        : mode == "failed-activation" ? "The previous configuration is loaded." : "Responding on your Mac.", idleMinutes: 10,
                     physicalGB: 64 * 1.073741824, ceilingGB: custom ? 48 : 33, appliedCeilingGB: 33,
                     failure: mode == "failed-settings" ? "Choose a supported memory limit." : nil,
-                    activationFailure: mode == "failed-activation" ? "The previous model was restored. Your requested settings are preserved." : nil,
+                    activationFailure: activationFailed ? "Your requested settings are preserved." : nil,
+                    activationRecoveryAvailable: mode == "corrupt-activation",
                     selectionReason: "Uses the original pack while alternative quantizations are being qualified.")
                 window.appearance = appearance == "system" ? nil : NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
                 let host = NSHostingView(rootView: Form { PerformanceSettings(model: model, performance: model.performanceState) }
@@ -52,9 +55,11 @@ import Vision
                 let request = VNRecognizeTextRequest(); request.recognitionLevel = .accurate
                 try VNImageRequestHandler(cgImage: rep.cgImage!, options: [:]).perform([request])
                 let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
-                let labels = ["Quantization", "While running", "Memory budget", "Budget available now", "14.5 GB", "Keep model ready"]
+                let labels = ["Quantization", "While running", "Memory budget", "Keep model ready"]
+                    + (mode == "corrupt-activation" ? [] : ["Budget available now", "14.5 GB"])
                     + (custom ? ["Custom limit", "48", overRange ? "37 GB" : "49.5 GB", "Your limit stays saved"] : ["Automatic", "Recommended now"])
-                    + (["failed-settings", "failed-activation"].contains(mode) ? ["Settings could not be applied", "Queued work waits", "Retry settings"] : custom ? ["Applies after"] : [])
+                    + (["failed-settings", "failed-activation", "corrupt-activation"].contains(mode) ? ["Settings could not be applied", "Queued work waits", "Retry settings"] : custom ? ["Applies after"] : [])
+                    + (mode == "corrupt-activation" ? ["Repair model setup"] : [])
                     + (overRange ? ["Choose between"] : [])
                     + (mode == "fixed" ? ["Fixed cache capacity", "Memory pressure can still stop"] : ["Automatic adjustment"])
                     + (mode == "unavailable-pack" ? ["Unavailable saved pack"] : [])

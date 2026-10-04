@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T07:27:55.719883+00:00
+updated: 2026-10-04T09:08:19.005848+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -722,3 +722,36 @@ The candidate's conservative workspace reservation prices a full decode-pool rep
 Exact frozen speculative tokens and complete committed states, real Engine byte/CLOCK/resize checks, reuse/governor/HTTP behavior and the entire staged 32K window pass within the existing physical guards. Actual-plan evaluation rejects a copy mode that does not match its frozen protocol and resource identity. Static acceptance and prior-commit CI pass.
 
 This completes the owned-copy and physical-memory checks for the explicit mode. It does not establish faster complete configurations or lower the original profile's allowance. The changed allocation receives a separately frozen equal-ceiling performance comparison. Candidate vision, held-out quality, standalone distribution, transactional multiple-pack integration and final product acceptance remain open; the whole-plan goal is active.
+
+
+### Sequential-copy calibration result, October 4
+
+[[sources/runs/2026/10/2026-10-04-sequential-affine-calibration-with-timing-exclusion]] completes the separately frozen actual-plan comparison. All six runs finish at the same saved fourteen-GB ceiling and preserve every prior same-artifact task outcome. Each scores fifteen of sixteen calibration tasks. The explicit sequential candidate admits 1,817 expert slots, compared with 1,175 in the earlier conservative candidate; the original remains at 2,162 slots. These are planner choices, not interchangeable record counts.
+
+The first candidate run exceeds the frozen competing-CPU condition. Five other runs are eligible, but the predefined all-six rule prevents an aggregate. Preserve all evidence and do not replace the excluded round. No speed target or held-out quality claim follows.
+
+The next bounded hypothesis removes complete-layer expert workspace through fixed-domain groups while preserving the reference kernel family, route order and exact BF16 results. It must pass a component matrix across dispatch boundaries and cache states before native model integration, memory-policy changes or a new performance comparison. Product qualification and the whole-plan goal remain open.
+
+### Bounded grouped affine expert checkpoint, October 4
+
+The explicit grouped operator now computes the same affine target with a fixed thirty-two-expert RHS and bounded route tiles. It preserves the full-domain reference dispatch family, restores original router order and copies hot records into independent allocations before admitting them once in the existing global hot order. It changes neither original arithmetic nor default selection. Its resource profile deliberately retains the earlier conservative sequential-copy reservation pending separate allocation qualification.
+
+The frozen integration binary passes 264 exact component comparisons, sixteen admission trajectories, 2,693 speculative assertions, the prior twenty-three emitted-token/committed-state observations, Engine/HTTP and memory/disk/cold continuation and recovery comparisons, and all sixty-four staged context observations through 32,768 tokens. Component, speculation, Engine and context process peaks remain inside the prospective ten-GB ceilings. The complete source-bound runs, two corrected compile failures and prior-main CI identities are captured in [[sources/runs/2026/10/2026-10-04-bounded-grouped-affine-experts]]. This is correctness and bounded-memory evidence, not speed or held-out quality qualification.
+
+Next derive the grouped allocation's phase-by-phase bound, validate it independently and compare complete Engine plans under a new prospective protocol. Default Auto, supported packs and installed artifacts remain unchanged. Vision, held-out noninferiority, standalone distribution and full product qualification remain required.
+
+### Explicit damaged-setup repair, October 4
+
+A corrupt activation record now has an explicit recovery action. Under the existing owner lease, repair preserves an owned regular single-link record at an exclusive archive name, keeps the saved preferences and requires a new complete verification and health check. It refuses valid, replaced, symlinked or shared records and cannot run against an active or loaded owner. Ordinary retry still preserves the record in place. Queue resumption uses normal request admission and does not replay failed work or completed tools.
+
+The complete Mac suite passes the scripted failure/recovery cases and native Light, Dark and System screens. The frozen real-model sequence also passes corrupt-record refusal, explicit archive, reauthentication, new healthy generation and a completed response while retaining the exact damaged bytes. Its process peak is 5,776,773,872 bytes under the prospective ten-GB watchdog; the development suite peaks at 1,843,318,624 bytes under its six-GB tree limit. Source identities, raw outputs and screenshot digests are in [[sources/runs/2026/10/2026-10-04-explicit-model-setup-repair]]. This closes damaged-history recovery for the original supported pack, without qualifying an alternate pack or a public release.
+
+### Phase-bounded grouped memory, October 4
+
+The explicit grouped profile now prices its owned allocation phases instead of retaining a complete-layer workspace. It includes raw and padded groups, retained output backing, route restoration, two selected-hot-record sets and the largest destination-piece copy. Complete residency can cost more than the old profile; the solver continues to charge it. The first catalogue stopped on an overbroad reduction assertion, which was corrected without relaxing the byte formula.
+
+The corrected catalogue, nineteen protocol/input cases, exact speculative state, Engine/recovery behavior and all sixty-four staged context checkpoints through 32K pass. All model processes remain inside their existing ten-GB physical envelope. The hypothesis, ownership evidence, both builds, failed catalogue and final raw checks are in [[sources/runs/2026/10/2026-10-04-phase-bounded-affine-memory]]. The new `affine3-grouped-memory-v1` profile is explicit research only. A separately frozen actual-plan comparison follows static acceptance; held-out quality, vision, standalone delivery, product integration and the speed target remain open.
+
+### Grouped static acceptance checkpoint, October 4
+
+The complete static suite passes against the same frozen grouped-memory binary, with matching before/after build inputs. This includes existing transport, installer, planner and public memory-override contracts. The guarded tree peaks at 1,089,783,992 physical bytes inside its six-GB ceiling, without loading a model. [[sources/runs/2026/10/2026-10-04-grouped-affine-static-acceptance]] preserves the complete raw gate and resource receipt. The new actual-plan timing pilot and remaining quality, vision, standalone distribution and integrated release gates are separate work.

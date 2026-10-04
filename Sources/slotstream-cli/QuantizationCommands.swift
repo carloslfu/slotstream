@@ -3,6 +3,23 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct AffineGroupedExpertsCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-grouped-experts-check",
+        abstract: "Check bounded affine expert groups against complete-domain component arithmetic")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var output: String
+    @Flag(name: .long) var admission = false
+    func run() throws {
+        let result = try Diagnostics.affineGroupedExperts(baseline: URL(fileURLWithPath: baseline),
+            control: URL(fileURLWithPath: control), output: URL(fileURLWithPath: output), admissionChecks: admission)
+        print(String(decoding: result, as: UTF8.self))
+        guard (try JSONSerialization.jsonObject(with: result) as? [String: Any])?["complete"] as? Bool == true else {
+            throw ValidationError("grouped expert component checks failed")
+        }
+    }
+}
+
 struct AffineEngineCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "affine-engine-check",
         abstract: "Check authenticated alternate Engine ownership, memory recovery, prefix reuse and HTTP serving")
@@ -14,8 +31,10 @@ struct AffineEngineCheck: ParsableCommand {
     @Flag(name: .long) var draft = false
     @Flag(name: .long) var streamedDraft = false
     @Flag(name: .long) var piecewiseAllocation = false
+    @Flag(name: .long) var groupedExperts = false
     func validate() throws {
         guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
+        guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
     }
     func run() throws {
         let semaphore = DispatchSemaphore(value: 0)
@@ -25,7 +44,7 @@ struct AffineEngineCheck: ParsableCommand {
                 result = try await Diagnostics.affineEngine(baseline: URL(fileURLWithPath: baseline),
                     control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
                     profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
-                    streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation)
+                    streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts)
             } catch { failure = error }
             semaphore.signal()
         }
@@ -79,13 +98,16 @@ struct AffineContextCheck: ParsableCommand {
     @Option(name: .long) var output: String
     @Flag(name: .long) var streamedDraft = false
     @Flag(name: .long) var piecewiseAllocation = false
+    @Flag(name: .long) var groupedExperts = false
     func validate() throws {
         guard [4096, 8192, 32768].contains(limit) else { throw ValidationError("context stages are 4096, 8192 and 32768") }
+        guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
     }
     func run() throws {
         print(String(decoding: try Diagnostics.affineContext(baseline: URL(fileURLWithPath: baseline),
             control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table), limit: limit,
-            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation), as: UTF8.self))
+            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation,
+            groupedExperts: groupedExperts), as: UTF8.self))
     }
 }
 
@@ -98,10 +120,15 @@ struct AffineSpeculationCheck: ParsableCommand {
     @Option(name: .long) var output: String
     @Flag(name: .long) var streamedDraft = false
     @Flag(name: .long) var piecewiseAllocation = false
+    @Flag(name: .long) var groupedExperts = false
+    func validate() throws {
+        guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
+    }
     func run() throws {
         print(String(decoding: try Diagnostics.affineSpeculation(baseline: URL(fileURLWithPath: baseline),
             control: URL(fileURLWithPath: control), profile: URL(fileURLWithPath: generationProfile),
-            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation), as: UTF8.self))
+            output: URL(fileURLWithPath: output), streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation,
+            groupedExperts: groupedExperts), as: UTF8.self))
     }
 }
 
@@ -123,6 +150,7 @@ struct QuantizationTaskRun: ParsableCommand {
     @Flag(name: .long, help: "Evaluate the actual Engine plan at the frozen protocol's memory ceiling; no Auto qualification") var enginePlan = false
     @Flag(name: .long, help: "Explicit streamed original draft; requires --engine-plan and positive --draft-depth") var streamedDraft = false
     @Flag(name: .long, help: "Explicit sequential-copy affine allocation; requires a matching frozen protocol and --engine-plan") var piecewiseAllocation = false
+    @Flag(name: .long, help: "Explicit bounded expert groups and their allocation contract; requires --piecewise-allocation and a matching frozen protocol") var groupedExperts = false
     func run() throws {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Data?, failure: Error?
@@ -136,7 +164,8 @@ struct QuantizationTaskRun: ParsableCommand {
                     table: table.map { URL(fileURLWithPath: $0) }, draftDepth: draftDepth,
                     output: URL(fileURLWithPath: output), prepareOnly: prepareOnly, parallelPrefillReads: parallelPrefillReads,
                     affineControl: affineControl.map { URL(fileURLWithPath: $0) },
-                    enginePlan: enginePlan, streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation)
+                    enginePlan: enginePlan, streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation,
+                    groupedExperts: groupedExperts)
             } catch { failure = error }
             semaphore.signal()
         }

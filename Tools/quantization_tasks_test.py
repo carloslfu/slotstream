@@ -108,6 +108,25 @@ class TaskGrades(unittest.TestCase):
             with self.assertRaises(ValueError):
                 grade(path, [evidence], root / 'pieces-refused.json')
 
+            protocol['affine_allocation'] = 'grouped'
+            path.write_text(json.dumps(protocol))
+            receipt['protocol_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+            receipt['identity']['grouped_experts'] = True
+            receipt['identity']['plan']['resource_profile'] = 'affine3-grouped-memory-v1'
+            receipt['identity']['plan']['memory_ledger']['resource_identity'] = 'affine3-grouped-memory-v1'
+            evidence.write_text(json.dumps(receipt))
+            self.assertEqual(grade(path, [evidence], root / 'grouped-pass.json')['arms'][0]['passed'], 1)
+            for changed in ['grouped_experts', 'piecewise_allocation']:
+                bad = copy.deepcopy(receipt); bad['identity'][changed] = False
+                evidence.write_text(json.dumps(bad))
+                with self.assertRaises(ValueError):
+                    grade(path, [evidence], root / 'grouped-refused.json')
+            bad = copy.deepcopy(receipt)
+            bad['identity']['plan']['memory_ledger']['resource_identity'] = 'affine3-piecewise-memory-v1'
+            evidence.write_text(json.dumps(bad))
+            with self.assertRaises(ValueError):
+                grade(path, [evidence], root / 'grouped-profile-refused.json')
+
     def test_coding_worker_executes_tests(self):
         rubric = {'function': 'f', 'tests': [{'args': [[2, 1, 2]], 'value': [2, 1]}, {'args': [[]], 'value': []}]}
         correct = 'def f(values):\n    result = []\n    for x in values:\n        if x not in result:\n            result.append(x)\n    return result'

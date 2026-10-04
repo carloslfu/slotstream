@@ -309,15 +309,19 @@ def grade(protocol_path, receipts, output):
             streamed = protocol.get('draft_experts') == 'streamed'
             allocation = protocol.get('affine_allocation', 'batched')
             affine = 'control_manifest_sha256' in identity
-            piecewise = affine and allocation == 'piecewise'
-            resource = ('affine3-piecewise-memory-v1' if piecewise else 'affine3-reference-memory-v3') if affine else 'original-affine4-memory-v1'
+            grouped = affine and allocation == 'grouped'
+            piecewise = affine and allocation in ('piecewise', 'grouped')
+            resource = ('affine3-grouped-memory-v1' if grouped else
+                        'affine3-piecewise-memory-v1' if piecewise else
+                        'affine3-reference-memory-v3') if affine else 'original-affine4-memory-v1'
             if (type(depth) is not int or not 0 <= depth <= 4
                     or protocol.get('draft_experts') not in ('resident', 'streamed')
                     or (streamed and depth == 0)
                     or identity.get('engine_plan') is not True
                     or identity.get('streamed_draft') is not streamed
-                    or allocation not in ('batched', 'piecewise')
+                    or allocation not in ('batched', 'piecewise', 'grouped')
                     or identity.get('piecewise_allocation', False) is not piecewise
+                    or identity.get('grouped_experts', False) is not grouped
                     or plan.get('resource_profile') != resource
                     or ledger.get('resource_identity') != resource
                     or receipt.get('draft_depth') != depth

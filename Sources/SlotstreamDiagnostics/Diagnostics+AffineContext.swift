@@ -7,7 +7,9 @@ extension Diagnostics {
     /// throughput result. The original head and all recurrent families remain
     /// live while recorded target passes are reconciled at the full window.
     public static func affineContext(baseline: URL, control: URL, table: URL,
-        limit: Int, output: URL, streamedDraft: Bool = false, piecewiseAllocation: Bool = false) throws -> Data {
+        limit: Int, output: URL, streamedDraft: Bool = false, piecewiseAllocation: Bool = false,
+        groupedExperts: Bool = false) throws -> Data {
+        guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
         guard [4096, 8192, 32768].contains(limit),
               !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
@@ -38,6 +40,7 @@ extension Diagnostics {
                 "draft_sha256": VQDraftWeights.fileSHA256, "rotary_sha256": VQRotaryCoefficients.sha256,
                 "context_limit": limit, "prefill_chunk": 512, "slots": 640, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation,
+                "grouped_experts": groupedExperts,
                 "observations": observations,
                 "report": try JSONSerialization.jsonObject(with: JSONEncoder().encode(c.report())),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -53,7 +56,7 @@ extension Diagnostics {
             let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true,
                 affineControlCoefficients: VQRotaryCoefficients(url: table), affineControlContextLimit: limit,
-                affinePiecewiseAllocation: piecewiseAllocation)
+                affinePiecewiseAllocation: piecewiseAllocation, affineGroupedExperts: groupedExperts)
             try model.enableAffineControlDraft(baseline: baseline, streamedExperts: streamedDraft)
             c.equal("independent draft placement", model.mtpHead?.expertStream != nil, streamedDraft)
             try model.validate()
@@ -138,7 +141,10 @@ extension Diagnostics {
                 c.equal("no expert pins retained", model.pool.pinnedSlotCount, 0)
             }
             if piecewiseAllocation {
-                c.expect("long context completes sequential workspace writes", model.pool.workspacePieceWriteCompletions > 0)
+                if groupedExperts {
+                    c.expect("long context executes bounded expert groups", model.affineGroupedPasses > 0)
+                    c.equal("long grouped context creates no complete RHS workspace", model.pool.workspacePieceWriteCompletions, 0)
+                } else { c.expect("long context completes sequential workspace writes", model.pool.workspacePieceWriteCompletions > 0) }
             }
             try index.verifyAuthenticatedFilesUnchanged(); try guardResources()
             _ = try save()

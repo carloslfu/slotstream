@@ -340,6 +340,41 @@ public enum ContextWorkspace {
         return ContextBytes.sum(weights, max(assembly, admission, routed), retained)
     }
 
+    /// Allocation contract for the explicit affine grouped operator. This is
+    /// fixed to its authenticated geometry and 512-row qualification bound.
+    /// Evaluated, non-traced MLX results detach their input graph; Gather owns
+    /// its output. These are allocation facts of the pinned backend, not a
+    /// deduction from a low observed peak. Keep the full admission replacement
+    /// until a different write contract proves it unnecessary.
+    package static func affineGroupedWorkspaceBytes(tokens: Int, slots: Int, admits: Bool) -> Int {
+        guard (1...512).contains(tokens), (Geometry.floorSlots...Geometry.totalRecords).contains(slots) else {
+            return Int.max
+        }
+        let rows = ContextBytes.product(tokens, 10)
+        // Splitting 512 active experts into resident and missing sets needs
+        // at most 17 groups of 32. Each group can add one partial tile. A
+        // sliced tile may retain its entire padded down-output allocation.
+        let tiles = ContextBytes.sum((rows + 255) / 256, 17)
+        let outputs = ContextBytes.product(tiles, 287, 2560, 4)
+        let common = ContextBytes.sum(ContextBytes.product(tokens, 2560, 8),
+            ContextBytes.product(tokens, 512, 8), ContextBytes.product(rows, 128), 512 * 128)
+        let hot = admits ? ContextBytes.product(min(512, max(1, slots / 48)), 2_150_400) : 0
+        // Raw staging, uploaded/gathered data and padding can overlap. Charge
+        // three complete groups plus alignment, even for a no-copy upload.
+        let weights = ContextBytes.sum(3 * 32 * 2_150_400, 9 * 16_384)
+        let compute = ContextBytes.sum(weights, hot, outputs,
+            287 * (5 * 2560 + 4 * 640) * 4, 287 * 64)
+        let restore = ContextBytes.sum(outputs, ContextBytes.product(rows, 2560, 8), hot)
+        // hotParts is released only after its concatenation finishes. The
+        // subsequent picked rows can coexist with the staged hot set and one
+        // complete destination piece. Retained tile outputs remain live too.
+        let admission = ContextBytes.sum(outputs, ContextBytes.product(rows, 2560, 4),
+            ContextBytes.product(hot, 2), admits ? ContextBytes.product(slots, 614_400) : 0)
+        let reduction = ContextBytes.sum(ContextBytes.product(rows, 2560, 12),
+            ContextBytes.product(tokens, 2560, 8))
+        return ContextBytes.sum(common, max(compute, restore, admission, reduction))
+    }
+
     public static func visionBytes(patches: Int, hidden: Int = 1152, heads: Int = 16,
                                    queryTile: Int = 0, padding: Int = 0) -> Int {
         guard patches > 0, patches <= 9216, hidden > 0, heads > 0,

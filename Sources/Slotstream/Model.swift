@@ -11,6 +11,8 @@ public final class Qwen4ExpModel {
     package let promptCheckpointIdentity = UUID()
     private let affineControlReferenceArithmetic: Bool
     package let affinePiecewiseAllocation: Bool
+    package let affineGroupedExperts: Bool
+    package var affineGroupedPasses: Int { moe.values.reduce(0) { $0 + $1.affineGroupedPasses } }
     /// The finite research coefficients do not widen the public context
     /// contract. Refuse an out-of-range forward before touching any state.
     package let inferenceContextLimit: Int
@@ -21,14 +23,18 @@ public final class Qwen4ExpModel {
         let identity = [AffineExpertControl.policy, AffineExpertControl.manifestSHA256,
                 authenticatedRotaryIdentity ?? "embedded-reference-coefficients-v1",
                 PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
-        return affinePiecewiseAllocation ? identity + ":piecewise-allocation-v1" : identity
+        let allocation = affinePiecewiseAllocation ? identity + ":piecewise-allocation-v1" : identity
+        return affineGroupedExperts ? allocation + ":grouped-experts-v1" : allocation
     }
 
-    /// This arithmetic owns a complete 512-expert RHS even for a seven-row
-    /// pass. Charge it independently of the optional deployed prefill sweep.
+    /// Charge the selected expert allocation independently of the optional
+    /// deployed prefill sweep, including its owned staging and admission.
     package func intrinsicExpertWorkspaceBytes(tokens: Int, admits: Bool) -> Int {
         guard affineControlReferenceArithmetic, tokens > 0,
               ContextBytes.product(tokens, cfg.topK) >= 64 else { return 0 }
+        if affineGroupedExperts {
+            return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: tokens, slots: pool.slots, admits: admits)
+        }
         return ContextWorkspace.expertWorkspaceBytes(tokens: tokens, tile: 512,
             experts: cfg.numExperts, topK: cfg.topK, hidden: cfg.hiddenSize,
             intermediate: cfg.moeIntermediate, recordBytes: pool.recordBytes,
@@ -246,7 +252,11 @@ public final class Qwen4ExpModel {
     package init(index: CheckpointIndex, poolSlots: Int, runLayers: Int? = nil, embeddingRowCache: Bool?,
                  packGDNProjections: Bool? = nil, affineControlReferenceArithmetic: Bool = false,
                  affineControlCoefficients: VQRotaryCoefficients? = nil,
-                 affineControlContextLimit: Int = 2054, affinePiecewiseAllocation: Bool = false) throws {
+                 affineControlContextLimit: Int = 2054, affinePiecewiseAllocation: Bool = false,
+                 affineGroupedExperts: Bool = false) throws {
+        guard !affineGroupedExperts || affinePiecewiseAllocation else {
+            throw ModelError("grouped affine experts require the explicit sequential allocation contract")
+        }
         guard !affinePiecewiseAllocation || affineControlReferenceArithmetic else {
             throw ModelError("piecewise affine allocation requires the authenticated reference profile")
         }
@@ -261,6 +271,7 @@ public final class Qwen4ExpModel {
         }
         self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
         self.affinePiecewiseAllocation = affinePiecewiseAllocation
+        self.affineGroupedExperts = affineGroupedExperts
         self.authenticatedRotaryIdentity = affineControlCoefficients == nil ? nil : VQRotaryCoefficients.sha256
         self.inferenceContextLimit = affineControlReferenceArithmetic ? affineControlContextLimit : ContextPolicy.modelLimit
         let arithmetic: BlockArithmeticProfile = affineControlReferenceArithmetic ? .vqPR1788 : .deployed
@@ -315,6 +326,7 @@ public final class Qwen4ExpModel {
                 qsa[l] = QSAAttention(resident, layer: l, arithmetic: arithmetic)
             }
             moe[l] = MoELayer(resident, layer: l, pool: pool, arithmetic: arithmetic)
+            moe[l]?.affineGroupedExperts = affineGroupedExperts
             attnHC.append(GatedResidual(resident, base: base + ".attn_hyper_connection", useCombine: true, arithmetic: arithmetic))
             mlpHC.append(GatedResidual(resident, base: base + ".mlp_hyper_connection", useCombine: true, arithmetic: arithmetic))
             if cfg.pleLayerIndices.contains(l) {

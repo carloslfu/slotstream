@@ -97,14 +97,63 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
         try check(journal.state.lastGood == nil && journal.state.attempt?.failure == "cancelled",
             "cancelled first setup is never an installed healthy model")
     }
-    for invalid in [Data("{not json".utf8), Data(repeating: 65, count: 65_537)] {
+    let validRepair = root.appendingPathComponent("activation-valid-repair-refusal")
+    let validReceipt = try seed(validRepair)
+    try expectFailure("repair cannot reset a valid activation") { _ = try Journal(directory: validRepair, archiveInvalidState: true) }
+    try check(try Journal(directory: validRepair).state.lastGood == validReceipt, "valid history survives an unnecessary repair")
+    for invalid in [Data(), Data("{not json".utf8), Data(repeating: 65, count: 65_537)] {
         let directory = root.appendingPathComponent("activation-corrupt-" + UUID().uuidString)
         _ = try seed(directory)
         try invalid.write(to: directory.appendingPathComponent("state.json"))
         try expectFailure("corrupt or oversized state fails closed") { _ = try Journal(directory: directory) }
         try check(try Data(contentsOf: directory.appendingPathComponent("state.json")) == invalid,
             "unreadable activation history is not erased")
+        let repaired = try Journal(directory: directory, archiveInvalidState: true)
+        guard let name = repaired.archivedRecordName else { throw SevraError.refused("CHECK FAILED: repair has no preserved record") }
+        try check(try Data(contentsOf: directory.appendingPathComponent(name)) == invalid,
+            "explicit repair preserves every damaged byte")
+        try check(repaired.state.lastGood == nil && repaired.state.attempt == nil,
+            "repaired setup has no invented successful health receipt")
+        try expectFailure("repair retains exclusive activation ownership") { _ = try Journal(directory: directory) }
+        _ = try repaired.begin(original)
+        try check(repaired.state.lastGood == nil && repaired.state.attempt?.phase == .requested,
+            "repair requires a new verified healthy load")
     }
+    for point in [Journal.WritePoint.beforeArchive, .afterArchive] {
+        let directory = root.appendingPathComponent("activation-repair-interruption-" + UUID().uuidString)
+        _ = try seed(directory)
+        let invalid = Data("{interrupted repair".utf8)
+        try invalid.write(to: directory.appendingPathComponent("state.json"))
+        try expectFailure("interrupted repair is not acknowledged") {
+            _ = try Journal(directory: directory, fault: { observed in
+                if observed == point { throw SevraError.refused("Injected repair interruption") }
+            }, archiveInvalidState: true)
+        }
+        let names = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        let preserved = names.filter { $0.hasPrefix("preserved-state-") }
+        try check(preserved.count == (point == .afterArchive ? 1 : 0), "repair interruption preserves exactly one record location")
+        let name = preserved.first ?? "state.json"
+        try check(try Data(contentsOf: directory.appendingPathComponent(name)) == invalid,
+            "repair interruption preserves original bytes")
+        if point == .afterArchive {
+            let reopened = try Journal(directory: directory)
+            try check(reopened.state.lastGood == nil && reopened.state.attempt == nil,
+                "restart after archival still requires health and activation")
+        }
+    }
+    let repairedElsewhere = root.appendingPathComponent("activation-repaired-before-archive")
+    _ = try seed(repairedElsewhere)
+    let goodBytes = try Data(contentsOf: repairedElsewhere.appendingPathComponent("state.json"))
+    try Data("{stale repair".utf8).write(to: repairedElsewhere.appendingPathComponent("state.json"))
+    try expectFailure("stale repair cannot move a replaced valid record") {
+        _ = try Journal(directory: repairedElsewhere, fault: { point in
+            if point == .beforeArchive { try goodBytes.write(to: repairedElsewhere.appendingPathComponent("state.json"), options: .atomic) }
+        }, archiveInvalidState: true)
+    }
+    try check(try Data(contentsOf: repairedElsewhere.appendingPathComponent("state.json")) == goodBytes,
+        "concurrent file repair remains at its original path")
+    try check(try !FileManager.default.contentsOfDirectory(atPath: repairedElsewhere.path).contains(where: { $0.hasPrefix("preserved-state-") }),
+        "stale repair creates no archive")
     let symlink = root.appendingPathComponent("activation-symlink")
     _ = try seed(symlink)
     let external = root.appendingPathComponent("outside-activation.json")
@@ -112,7 +161,14 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     try FileManager.default.removeItem(at: symlink.appendingPathComponent("state.json"))
     try FileManager.default.createSymbolicLink(at: symlink.appendingPathComponent("state.json"), withDestinationURL: external)
     try expectFailure("symlink activation history refused") { _ = try Journal(directory: symlink) }
+    try expectFailure("explicit repair cannot move a symlink") { _ = try Journal(directory: symlink, archiveInvalidState: true) }
     try check(try Data(contentsOf: external) == canary, "activation never mutates a symlink target")
+    let linked = root.appendingPathComponent("activation-hardlink")
+    _ = try seed(linked)
+    try FileManager.default.removeItem(at: linked.appendingPathComponent("state.json"))
+    try check(link(external.path, linked.appendingPathComponent("state.json").path) == 0, "create shared-inode refusal fixture")
+    try expectFailure("repair cannot move a shared inode") { _ = try Journal(directory: linked, archiveInvalidState: true) }
+    try check(try Data(contentsOf: external) == canary, "repair leaves a shared record untouched")
 
     // A real LocalInference owner must retain failure and accept an explicit
     // settings retry without ever initializing Metal for missing weights.
@@ -166,6 +222,23 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     } catch { try check(error.localizedDescription.contains("unreadable"), "explicit retry rechecks retained corrupt history") }
     try check(try Data(contentsOf: corruptDirectory.appendingPathComponent("state.json")) == corruptState,
         "retry preserves unreadable activation bytes")
+    try check(corruptInference.performanceTelemetry?.snapshot(preferences: .init(), pending: false, busy: false).activationRecoveryAvailable == true,
+        "damaged owned record exposes explicit repair")
+    try await corruptInference.recoverModelActivation()
+    try check(corruptInference.performanceTelemetry?.activationFailureMessage == nil && corruptInference.performanceTelemetry?.isLoaded == false,
+        "repair clears the storage failure without loading a model")
+    let preservedNames = try FileManager.default.contentsOfDirectory(atPath: corruptDirectory.path).filter { $0.hasPrefix("preserved-state-") }
+    try check(preservedNames.count == 1 && (try Data(contentsOf: corruptDirectory.appendingPathComponent(preservedNames[0]))) == corruptState,
+        "inference repair preserves the damaged record")
+    do {
+        _ = try await corruptInference.turn(history: [.init(role: "user", content: "Hello")], tools: [],
+            cancellation: Cancellation(), buffer: TurnBuffer())
+        throw SevraError.refused("CHECK FAILED: repair bypassed model verification")
+    } catch { try check(error.localizedDescription.contains("missing or incomplete"), "repaired setup still verifies its complete model") }
+    try check(corruptInference.performanceTelemetry?.snapshot(preferences: .init(), pending: false, busy: false).activationRecoveryAvailable == false,
+        "a missing model does not offer destructive setup repair")
+    do { try await corruptInference.recoverModelActivation(); throw SevraError.refused("CHECK FAILED: valid setup reset again") }
+    catch { try check(!error.localizedDescription.contains("CHECK FAILED"), "repeat repair refuses valid setup") }
 
     let queuedInference = LocalInference(model: missing, activationDirectory: root.appendingPathComponent("queue-activation"))
     let runtime = try SevraRuntime(homeURL: root.appendingPathComponent("activation-queue-home"), dbmd: dbmd,
@@ -185,7 +258,34 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     try check(queue.home.threads.first(where: { $0.id == second })?.run?.state == .queued,
         "other queued work waits for explicit activation recovery")
     try await runtime.shutdown()
-    print("PASS: durable activation phases, exclusive ownership, stale callbacks, interrupted writes, rollback, bounded state and weights-free retry")
+    let repairDirectory = root.appendingPathComponent("activation-runtime-repair")
+    try FileManager.default.createDirectory(at: repairDirectory, withIntermediateDirectories: true)
+    try corruptState.write(to: repairDirectory.appendingPathComponent("state.json"))
+    let repairOwner = LocalInference(model: missing, activationDirectory: repairDirectory)
+    let repairing = try SevraRuntime(homeURL: root.appendingPathComponent("activation-repair-home"), dbmd: dbmd, inference: repairOwner)
+    let waiting = try await repairing.newThread(mode: .shared)
+    _ = try await repairing.submit(threadID: "home", text: "Preserve my first request", nonce: "repair-first")
+    _ = try await repairing.submit(threadID: waiting, text: "Preserve my queued request", nonce: "repair-queued")
+    for _ in 0..<300 {
+        if await repairing.snapshot().home.threads.first(where: { $0.id == "home" })?.run?.state == .failed { break }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    try await Task.sleep(nanoseconds: 50_000_000)
+    try check(await repairing.snapshot().home.threads.first(where: { $0.id == waiting })?.run?.state == .queued,
+        "corrupt setup keeps later work queued")
+    try await repairing.recoverModelActivation()
+    for _ in 0..<300 {
+        if await repairing.snapshot().home.threads.first(where: { $0.id == waiting })?.run?.state == .failed { break }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    let repairedHome = await repairing.snapshot().home
+    try check(repairedHome.threads.first(where: { $0.id == waiting })?.run?.state == .failed,
+        "explicit repair resumes queued work through real missing-model verification")
+    let messages = repairedHome.threads.flatMap(\.messages).map(\.text)
+    try check(messages.contains("Preserve my first request") && messages.contains("Preserve my queued request"),
+        "repair preserves conversations and queued input")
+    try await repairing.shutdown()
+    print("PASS: durable activation phases, exclusive ownership, stale callbacks, interrupted writes, rollback, bounded state, explicit preserved-record repair and weights-free retry")
 }
 
 /// Uses the ordinary LocalInference owner and real original pack. The only
@@ -284,8 +384,34 @@ func realActivationCheckIfRequested() async throws -> Bool {
         let afterCancellation = try await run()
         try check(afterCancellation.text.trimmingCharacters(in: .whitespacesAndNewlines) == "OK",
             "a new request can retry a user-cancelled activation")
+        do { try await inference!.recoverModelActivation(); throw SevraError.refused("CHECK FAILED: repair reset a loaded model") }
+        catch { try check(!error.localizedDescription.contains("CHECK FAILED"), "repair cannot touch a healthy loaded owner") }
         await inference!.unload(); inference = nil
-        print("PASS: real bounded health, durable activation, partial-load failure, sequential rollback, blocked failed-selection work, explicit retry, new-owner recovery and cancellation during commit")
+        // Only this invocation's new disposable history is damaged. The
+        // installed pack, ordinary app history and all user Homes are untouched.
+        try Data(contentsOf: root.appendingPathComponent("state.json"))
+            .write(to: root.appendingPathComponent("healthy-before-repair-fixture.json"), options: .withoutOverwriting)
+        let damaged = Data("{damaged activation fixture".utf8)
+        try damaged.write(to: root.appendingPathComponent("state.json"))
+        inference = LocalInference(model: model, preferences: requested, activationDirectory: root)
+        do { _ = try await run(); throw SevraError.refused("CHECK FAILED: damaged setup loaded the model") }
+        catch { try check(error.localizedDescription.contains("unreadable"), "damaged real setup refuses before model allocation") }
+        try check(inference!.performanceTelemetry?.isLoaded == false, "damaged setup leaves the real model unloaded")
+        try await inference!.recoverModelActivation()
+        try check(try state().lastGood == nil && state().attempt?.phase == .requested,
+            "repair creates intent without claiming a healthy model")
+        let repaired = try await run()
+        try check(repaired.text.trimmingCharacters(in: .whitespacesAndNewlines) == "OK", "real model works after explicit repair")
+        let repairedState = try state()
+        try check(repairedState.lastGood?.selection.preferences == requested
+            && repairedState.lastGood?.generation == repaired.metrics?.configurations?.first?.generation
+            && repairedState.attempt?.phase == .committed,
+            "fresh real health and response bind the preserved requested settings")
+        let archives = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { $0.hasPrefix("preserved-state-") }
+        try check(archives.count == 1 && (try Data(contentsOf: root.appendingPathComponent(archives[0]))) == damaged,
+            "real repair preserves the exact damaged bytes")
+        await inference!.unload(); inference = nil
+        print("PASS: real bounded health, durable activation, partial-load failure, sequential rollback, blocked failed-selection work, explicit retry, new-owner recovery, cancellation during commit and preserved-record repair")
     } catch {
         await inference?.unload(); inference = nil
         throw error

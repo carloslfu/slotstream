@@ -72,6 +72,18 @@ package struct PackMemoryProfile: Equatable, Sendable {
         supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
         largestReplacementPieceBytes: 614_400)
 
+    /// Explicit grouped execution bounds expert weights independently of the
+    /// full 512-expert domain. Owned hot gathers still coexist with a complete
+    /// destination-piece replacement. The floor prices every allocation phase
+    /// at 640 slots and 512 query rows; larger pools pay their own overlap.
+    /// This remains a research profile with unknown speed and no Auto entry.
+    package static let affine3GroupedControl = Self(identity: "affine3-grouped-memory-v1",
+        expertRecordBytes: 2_150_400, residentReserveBytes: 357_580_800 + 67_108_864,
+        expertWorkspaceBytes: 623_597_568, maximumPrefill: 512,
+        maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
+        largestReplacementPieceBytes: 614_400)
+
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)
     }
@@ -80,6 +92,9 @@ package struct PackMemoryProfile: Equatable, Sendable {
     package func poolGB(_ slots: Int) -> Double { Double(poolBytes(slots)) / 1e9 }
     package func workspaceBytes(slots: Int) -> Int {
         guard expertWorkspaceBytes > 0 else { return 0 }
+        if self == .affine3GroupedControl {
+            return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: maximumPrefill, slots: slots, admits: true)
+        }
         return ContextWorkspace.expertWorkspaceBytes(tokens: maximumPrefill, tile: 512,
             experts: 512, topK: 10, hidden: 2560, intermediate: 640,
             recordBytes: expertRecordBytes, loadBatch: 32,

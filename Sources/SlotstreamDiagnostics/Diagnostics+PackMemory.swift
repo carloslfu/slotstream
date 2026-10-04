@@ -61,6 +61,40 @@ extension Diagnostics {
         c.expect("sequential allocation keeps unknown speed and conservative features",
             piecewisePlan.json()["est_warm_tok_s"] is NSNull && !piecewisePlan.mtpEnabled && !piecewisePlan.decodeLookahead)
         c.expect("sequential allocation ledger respects its saved ceiling", piecewisePlan.expectedPeakGB <= 14)
+        let grouped = PackMemoryProfile.affine3GroupedControl
+        c.equal("grouped floor includes its independent allocation witness", grouped.workspaceBytes(slots: 640), 623_597_568)
+        c.equal("grouped floor is charged exactly once", grouped.workspaceBytes(slots: 640), grouped.expertWorkspaceBytes)
+        c.equal("grouped larger arena includes a larger live replacement", grouped.workspaceBytes(slots: 1000), 874_887_168)
+        for slots in [640, 1000, 2000, 7000, Geometry.totalRecords] {
+            c.expect("grouped hot rows and destination overlap remain charged/\(slots)",
+                grouped.workspaceBytes(slots: slots) >= slots * 614_400 + 2 * min(512, slots / 48) * 2_150_400)
+            if slots <= 7000 {
+                c.expect("grouped weights release the unneeded full expert domain/\(slots)",
+                    grouped.workspaceBytes(slots: slots) < piecewise.workspaceBytes(slots: slots))
+            }
+            var prior = 0
+            for tokens in 1...512 {
+                let workspace = ContextWorkspace.affineGroupedWorkspaceBytes(tokens: tokens, slots: slots, admits: true)
+                c.expect("grouped query reservation is monotonic", workspace >= prior)
+                c.expect("grouped no-admission cannot exceed admission",
+                    ContextWorkspace.affineGroupedWorkspaceBytes(tokens: tokens, slots: slots, admits: false) <= workspace)
+                prior = workspace
+            }
+        }
+        for (tokens, slots) in [(0, 640), (-1, 640), (513, 640), (Int.max, 640), (512, 639), (512, -1), (512, Int.max)] {
+            c.equal("invalid grouped geometry refuses before arithmetic/\(tokens)/\(slots)",
+                ContextWorkspace.affineGroupedWorkspaceBytes(tokens: tokens, slots: slots, admits: true), Int.max)
+        }
+        for budget in stride(from: 2.0, through: 20.0, by: 0.125) {
+            let slots = grouped.slotsForCapacityBudgetGB(budget)
+            c.expect("grouped capacity pays for its larger admission overlap", grouped.capacityBudgetGB(slots) <= budget)
+            c.expect("grouped capacity does not leave an unpriced record", slots == Geometry.totalRecords || grouped.capacityBudgetGB(slots + 1) > budget)
+        }
+        let groupedPlan = try plan(grouped)
+        c.expect("grouped allocation returns released workspace to cache", groupedPlan.slots > piecewisePlan.slots)
+        c.expect("grouped ledger remains within the saved ceiling", groupedPlan.expectedPeakGB <= 14)
+        c.expect("grouped accounting does not inherit baseline speed or features",
+            groupedPlan.json()["est_warm_tok_s"] is NSNull && !groupedPlan.mtpEnabled && !groupedPlan.decodeLookahead)
         for replacement in [-1, 0, 640 * 2_150_400 + 1, Int.max] {
             c.equal("invalid replacement bound refuses before allocation/\(replacement)",
                 ContextWorkspace.expertWorkspaceBytes(tokens: 512, tile: 512, experts: 512,

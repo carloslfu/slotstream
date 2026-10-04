@@ -651,6 +651,14 @@ import Combine
             }
         }
     }
+    func recoverModelActivation() {
+        guard let runtime else { return }
+        Task {
+            do { try await runtime.recoverModelActivation() }
+            catch { self.error = error.localizedDescription }
+            await refresh()
+        }
+    }
     private var hasForegroundWindow: Bool {
         NSApp.isActive && NSApp.windows.contains { $0.isVisible && !$0.isMiniaturized }
     }

@@ -13,11 +13,12 @@ extension Diagnostics {
         draftDepth: Int, output: URL, prepareOnly: Bool = false,
         parallelPrefillReads: Bool = false, affineControl: URL? = nil,
         enginePlan: Bool = false, streamedDraft: Bool = false,
-        piecewiseAllocation: Bool = false) async throws -> Data {
+        piecewiseAllocation: Bool = false, groupedExperts: Bool = false) async throws -> Data {
         guard (source == nil) == (inventory == nil),
               !enginePlan || source == nil,
               !streamedDraft || (enginePlan && draftDepth > 0),
               !piecewiseAllocation || (enginePlan && affineControl != nil),
+              !groupedExperts || piecewiseAllocation,
               !parallelPrefillReads || (source != nil && !prepareOnly),
               affineControl == nil || (source == nil && composite == nil && table != nil && !prepareOnly && !parallelPrefillReads),
               source != nil || affineControl != nil || (composite == nil && table == nil),
@@ -60,8 +61,9 @@ extension Diagnostics {
             let allocation = protocolObject["affine_allocation"] as? String ?? "batched"
             guard protocolObject["draft_depth"] as? Int == draftDepth,
                   protocolObject["draft_experts"] as? String == (streamedDraft ? "streamed" : "resident"),
-                  ["batched", "piecewise"].contains(allocation),
-                  piecewiseAllocation == (affineControl != nil && allocation == "piecewise") else {
+                  ["batched", "piecewise", "grouped"].contains(allocation),
+                  piecewiseAllocation == (affineControl != nil && allocation != "batched"),
+                  groupedExperts == (affineControl != nil && allocation == "grouped") else {
                 throw ModelError("planned evaluation must freeze its explicit draft depth and placement")
             }
         }
@@ -136,7 +138,8 @@ extension Diagnostics {
         var identity: [String: Any] = ["baseline_revision": PinnedModel.revision,
                                      "parallel_prefill_reads": parallelPrefillReads,
                                      "engine_plan": enginePlan, "streamed_draft": streamedDraft,
-                                     "piecewise_allocation": piecewiseAllocation]
+                                     "piecewise_allocation": piecewiseAllocation,
+                                     "grouped_experts": groupedExperts]
         var rows: [[String: Any]] = []
         let loadStart = ProcessInfo.processInfo.systemUptime
         var loadSeconds = 0.0
@@ -159,7 +162,7 @@ extension Diagnostics {
         do {
             if enginePlan {
                 let resources: PackMemoryProfile = affineControl == nil ? .original
-                    : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)
+                    : (groupedExperts ? .affine3GroupedControl : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control))
                 let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
                     memoryGB: Double(memoryBytes) / 1e9,
                     mtp: draftDepth > 0 ? .on : .off, mtpAvailable: draftDepth > 0,
@@ -176,7 +179,7 @@ extension Diagnostics {
                 if let affineControl, let table {
                     engine = try await Engine(modelDir: baseline,
                         affineSource: AffineEngineSource(control: affineControl, coefficients: table,
-                            piecewiseAllocation: piecewiseAllocation), plan: plan)
+                            piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts), plan: plan)
                     identity["control_manifest_sha256"] = AffineExpertControl.manifestSHA256
                     identity["rotary_sha256"] = VQRotaryCoefficients.sha256
                     identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"

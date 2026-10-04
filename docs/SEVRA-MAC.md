@@ -501,6 +501,11 @@ restart preserves unfinished or failed activation state without replaying a
 response or tool action. This recovery currently covers the supported original
 pack; experimental quantizations remain unavailable in the product selector.
 
+If the saved model setup record is damaged, **Repair model setup** preserves
+that record and starts a fresh verification with your saved settings. The model
+must pass its health check before queued work resumes. Repair keeps your
+conversations and files. Ordinary **Retry settings** leaves the record intact.
+
 The independent engine CLI keeps its existing defaults. `slotstream model-packs
 --json` inspects maintained pack identities and qualification status without
 loading weights. `slotstream run --quantization auto --prompt "Hello"` opts into

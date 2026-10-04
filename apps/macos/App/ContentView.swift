@@ -921,6 +921,11 @@ struct PerformanceSettings: View {
             if let failure = status?.failure ?? status?.activationFailure {
                 Text("Settings could not be applied. \(failure)").foregroundStyle(.red).font(.callout)
                 Text("Queued work waits for a valid choice.").foregroundStyle(.secondary).font(.callout)
+                if status?.activationRecoveryAvailable == true {
+                    Button("Repair model setup") { model.recoverModelActivation() }
+                        .disabled(status?.busy == true || status?.pending == true)
+                        .help("Preserves the damaged setup record and checks the model again. Your settings and conversations stay saved.")
+                }
                 Button("Retry settings") { model.setPerformance(model.performancePreferences, retry: true) }
                     .disabled(status?.busy == true)
             } else if status?.pending == true {

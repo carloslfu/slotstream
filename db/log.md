@@ -193,3 +193,6 @@ Implement authenticated independent streamed draft placement, all-or-nothing joi
 ## [2026-10-04 07:28] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Bind complete-task comparisons to the actual Engine plan; preserve the excluded first timing pair without an aggregate. Implement and verify explicit sequential expert replacement accounting with frozen exact state, byte/CLOCK/resize and 32K recovery checks; keep quality, speed and product promotion gates open.
 
+## [2026-10-04 09:08] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implement bounded grouped affine experts with exact routing, admission and phase accounting; preserve the first failed accounting assertion and the excluded sequential-copy timing campaign. Verify full native and static gates. Add explicit archived activation-record repair with scripted UI and real-model recovery; keep alternate quality, vision, distribution and speed qualification open.
+

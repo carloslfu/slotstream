@@ -10,8 +10,9 @@ extension Diagnostics {
     /// arena. Nothing enters the supported registry or becomes active on disk.
     public static func affineEngine(baseline: URL, control: URL, table: URL,
                                     profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false,
-                                    piecewiseAllocation: Bool = false) async throws -> Data {
+                                    piecewiseAllocation: Bool = false, groupedExperts: Bool = false) async throws -> Data {
         guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
+        guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
         let profileSHA = "8e9ffd40c71d34bca08a55e7af55fda8ac7d45429f3ff7febef077d31bface7c"
         let bytes = try AffineExpertControl.bounded(profile, maximum: 100_000, sha256: profileSHA)
         guard let frozen = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
@@ -36,7 +37,8 @@ extension Diagnostics {
                 throw ModelError("affine Engine check exceeded its physical resource envelope")
             }
         }
-        let source = AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation)
+        let source = AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation,
+            groupedExperts: groupedExperts)
         let resource = source.resources
         let target = mtp ? 14.0 : 12.0
         func plan(_ slots: Int, source: MemoryPlan.Source = .memoryGB) -> MemoryPlan {
@@ -57,6 +59,7 @@ extension Diagnostics {
                 "rotary_sha256": VQRotaryCoefficients.sha256, "profile_sha256": profileSHA,
                 "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation, "initial_plan": plan(800).json(),
+                "grouped_experts": groupedExperts,
                 "maximum_physical_process_bytes": 10_000_000_000, "observations": observations,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -253,7 +256,10 @@ extension Diagnostics {
             c.equal("HTTP generation identifies the loaded pack", parsed?["model"] as? String, engine.modelName)
             observations.append(["case": "http", "status": response.head, "body": parsed ?? [:]])
             if piecewiseAllocation {
-                c.expect("real Engine completes sequential workspace copies", engine.model.pool.workspacePieceWriteCompletions > 0)
+                if groupedExperts {
+                    c.expect("real Engine executes bounded expert groups", engine.model.affineGroupedPasses > 0)
+                    c.equal("grouped Engine creates no complete RHS workspace", engine.model.pool.workspacePieceWriteCompletions, 0)
+                } else { c.expect("real Engine completes sequential workspace copies", engine.model.pool.workspacePieceWriteCompletions > 0) }
                 c.expect("real Engine completes sequential admission copies", engine.model.pool.admissionPieceWriteCompletions > 0)
                 c.equal("authenticated workspace largest piece matches the ledger", engine.model.pool.largestWorkspacePieceBytes, 512 * 614_400)
                 c.equal("resized pool largest piece matches the ledger", engine.model.pool.largestPoolPieceBytes, engine.model.pool.slots * 614_400)

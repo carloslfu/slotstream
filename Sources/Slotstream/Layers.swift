@@ -1348,6 +1348,8 @@ final class GDNLayer {
 
 final class MoELayer {
     let arithmetic: BlockArithmeticProfile
+    var affineGroupedExperts = false
+    private(set) var affineGroupedPasses = 0
     var minimumProjectionRows = 0
     // Context qualification successor: preserve the established grouped QMM
     // arithmetic for bounded 64/128-token prefill. Decode is unchanged.
@@ -1473,7 +1475,14 @@ final class MoELayer {
             // PR1788's SwitchGLU sorts once there are 64 routes. Use a
             // fixed original-expert domain, not physical pool slots: MLX's
             // sorted kernel selection depends on that domain's size.
-            routed = try referenceRouted(x, expertIds: expertIds, weights: weights)
+            if affineGroupedExperts {
+                let (experts, _) = try AffineGroupedExperts.apply(x, ids: expertIds, layer: layer,
+                    pool: pool, allowAdmissions: true)
+                routed = (experts * weights.expandedDimensions(axis: -1)).sum(axis: -2).asType(x.dtype)
+                affineGroupedPasses += 1
+            } else {
+                routed = try referenceRouted(x, expertIds: expertIds, weights: weights)
+            }
         } else if useLayerWorkspace, B * S >= SweepTuning.minTokens {
             routed = try workspaceRouted(x, expertIds: expertIds, weights: weights)
         } else {

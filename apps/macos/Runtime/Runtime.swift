@@ -488,6 +488,17 @@ public actor SevraRuntime {
         defer { finishPerformanceMaintenance() }
         await inference.unload(); modelStatus = "Model unloaded"
     }
+    public func recoverModelActivation() async throws {
+        guard !shuttingDown, !storagePaused, active == nil, !driving, !modelMaintenance,
+              !pendingPerformance else {
+            throw SevraError.refused("Finish active work and apply your model settings before repairing setup.")
+        }
+        modelMaintenance = true; performanceMaintenance = true
+        defer { finishPerformanceMaintenance() }
+        try await inference.recoverModelActivation()
+        performanceFailure = nil; performanceCache = nil; lastError = nil
+        modelStatus = "Model setup repaired"
+    }
     private func finishPerformanceMaintenance() {
         modelMaintenance = false; performanceMaintenance = false
         startQueuedWorkIfReady()

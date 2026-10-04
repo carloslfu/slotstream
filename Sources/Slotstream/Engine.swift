@@ -371,6 +371,9 @@ public final class Engine {
         // allocation and 39 GB of swap. The flag travels on the plan so this
         // cannot be forgotten at a call site.
         if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
+        guard affineSource?.groupedExperts != true || affineSource?.piecewiseAllocation == true else {
+            throw SlotstreamError.invalidPlan("grouped affine experts require the explicit sequential allocation contract")
+        }
         let resources: PackMemoryProfile = affineSource?.resources ?? .original
         guard plan?.resources == resources || (plan == nil && affineSource == nil) else {
             throw SlotstreamError.invalidPlan("the loader and memory plan must describe the same pack")
@@ -478,7 +481,8 @@ public final class Engine {
             self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots, embeddingRowCache: nil,
                 affineControlReferenceArithmetic: true, affineControlCoefficients: coefficients,
                 affineControlContextLimit: context.maxContextTokens,
-                affinePiecewiseAllocation: affineSource.piecewiseAllocation)
+                affinePiecewiseAllocation: affineSource.piecewiseAllocation,
+                affineGroupedExperts: affineSource.groupedExperts)
         } else { self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots) }
         self.responsiveGovernor = model.optimizations.responsiveGovernor
         try model.validate()

@@ -2,11 +2,16 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T07:26:48.753075Z
+updated: 2026-10-04T09:08:18.979441Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-grouped-affine-static-acceptance]] — Grouped affine static acceptance
+- [[sources/runs/2026/10/2026-10-04-phase-bounded-affine-memory]] — Phase-bounded affine memory with exact functional checks
+- [[sources/runs/2026/10/2026-10-04-explicit-model-setup-repair]] — Explicit model setup repair and real-model recovery
+- [[sources/runs/2026/10/2026-10-04-bounded-grouped-affine-experts]] — Bounded grouped affine experts and exact admission
+- [[sources/runs/2026/10/2026-10-04-sequential-affine-calibration-with-timing-exclusion]] — Sequential affine calibration with a frozen timing exclusion
 - [[sources/runs/2026/10/2026-10-04-sequential-affine-cache-allocation]] — Explicit sequential affine cache allocation and exact recovery
 - [[sources/runs/2026/10/2026-10-04-actual-planner-calibration-with-timing-exclusions]] — Actual planner calibration with frozen timing exclusions
 - [[sources/runs/2026/10/2026-10-04-authenticated-streamed-original-draft]] — Authenticated original draft streaming and exact candidate recovery
@@ -502,13 +507,8 @@ updated: 2026-10-04T07:26:48.753075Z
 - [[sources/runs/2026/09/2026-09-07-optimization-planner-device-extraction-rebase]] — Unchanged planner family rebases onto the current device-observer source seam
 - [[sources/runs/2026/09/2026-09-07-optimization-campaign-and-active-throughput-reporting]] — Frozen complete campaign and paired active-emission reporting are executable
 - [[sources/runs/2026/09/2026-09-07-optimization-combined-bounded-components]] — Combined candidate passes bounded read, socket, prefix and RoPE components
-- [[sources/runs/2026/09/2026-09-07-configurable-context-window-cli-matrix]] — Explicit context windows pass model-free CLI checks; native capacity remains unqualified
-- [[sources/runs/2026/09/2026-09-07-configurable-context-portable-software-acceptance]] — Configurable context software proxies and portable native qualification
-- [[sources/runs/2026/09/2026-09-07-optimization-combined-candidate-handoff]] — Combined candidate clean handback and complete37item disposition
-- [[sources/runs/2026/09/2026-09-07-optimization-consumer-build-contract]] — Standalone consumer rejects failed builds; native compilation remains unrun
-- [[sources/runs/2026/09/2026-09-07-optimization-combined-default-sampler-installer]] — Combined candidate passes sampler oracle and real local installer transitions
 
 ## More
 
-This folder has 768 files. The 500 most recent are listed above.
+This folder has 773 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
