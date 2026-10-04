@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T16:31:12.608076Z
+updated: 2026-10-04T17:05:17.653842Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-selected-pack-store-ci]] — Complete transport, native and Mac CI for the selected-pack download store
 - [[sources/runs/2026/10/2026-10-04-long-conversation-outcome-preparation]] — Deterministic long-conversation fixtures, checked grader and native tokenizer-only sizing
 - [[sources/runs/2026/10/2026-10-04-corrected-authentication-fixture-ci]] — Complete optimized CI after retaining authentication fixture owners
 - [[sources/runs/2026/10/2026-10-04-retained-tensor-subset-primitive]] — Bounded retained tensor copying and standalone geometry
@@ -506,9 +507,8 @@ updated: 2026-10-04T16:31:12.608076Z
 - [[sources/runs/2026/09/2026-09-07-optimization-joined-state-eval-implementation]] — Joined retained-state evaluation implementation and new-build native acceptance
 - [[sources/runs/2026/09/2026-09-07-optimization-native-retained-window-sync]] — Native Swift retained-window synchronization evidence
 - [[sources/runs/2026/09/2026-09-07-optimization-sync-probe-memory-label-correction]] — Correction to the component probe allocator-peak label
-- [[sources/runs/2026/09/2026-09-07-optimization-retained-window-sync-component]] — Retained-window synchronization component probe and explicit serving qualification boundary
 
 ## More
 
-This folder has 792 files. The 500 most recent are listed above.
+This folder has 793 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

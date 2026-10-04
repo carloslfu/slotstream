@@ -235,3 +235,6 @@ Bind WeightStore operations and Mac setup sizes to a compiled supported deployme
 ## [2026-10-04 16:32] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepare deterministic long-conversation retrieval and correction outcomes, preserve actual assistant history and distinguish native execution failures. Six test groups pass on both Python runtimes and thirty-two entry checks pass. Pinned native tokenizer-only preparation records exact first-turn sizes without loading another model; outcome execution and final protocol remain pending.
 
+## [2026-10-04 17:06] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Captured selected-pack store full engine, transport and Mac CI; bound app verification proofs to the selected manifest and added cross-manifest regression cases, pending Mac acceptance.
+

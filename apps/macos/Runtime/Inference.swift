@@ -551,10 +551,11 @@ public actor LocalInference: Inference {
             try cancellation.check()
             try await Task.sleep(nanoseconds: 50_000_000)
         }
-        let store = WeightStore(modelDirectory: model)
+        let store = WeightStore(modelDirectory: model, pack: selection.pack)
         let verified: Bool
         do {
-            verified = try modelVerification.check(files: selection.pack.files.map { model.appendingPathComponent($0.path) },
+            verified = try modelVerification.check(manifestDigest: selection.pack.manifestDigest,
+                files: selection.pack.files.map { model.appendingPathComponent($0.path) },
                 shouldContinue: { !cancellation.isCancelled }) {
                     try store.status(shouldContinue: { !cancellation.isCancelled }).isReady
                 }
@@ -629,12 +630,15 @@ public actor LocalInference: Inference {
     /// the model is loaded, or when the files are not all present.
     public func prepareAhead() async {
         guard engine == nil, !inTurn, !maintaining, !ProcessInfo.processInfo.isLowPowerModeEnabled,
-              WeightStore.remainingBytes(at: model) == 0, ahead.begin() else { return }
+              let selection = try? ModelPackRegistry.resolve(preferences.quantization),
+              selection.pack.id == ModelPackRegistry.baseline.id else { return }
+        let store = WeightStore(modelDirectory: model, pack: selection.pack)
+        guard store.remainingBytes() == 0, ahead.begin() else { return }
         let cache = modelVerification, model = model, ahead = ahead
-        let files = PinnedModel.files.map { model.appendingPathComponent($0.path) }
+        let files = selection.pack.files.map { model.appendingPathComponent($0.path) }
+        let manifestDigest = selection.pack.manifestDigest
         DispatchQueue.global(qos: .utility).async {
-            let store = WeightStore(modelDirectory: model)
-            _ = try? cache.check(files: files, shouldContinue: { !ahead.cancelled }) {
+            _ = try? cache.check(manifestDigest: manifestDigest, files: files, shouldContinue: { !ahead.cancelled }) {
                 try store.status(shouldContinue: { !ahead.cancelled }).isReady
             }
             ahead.end()

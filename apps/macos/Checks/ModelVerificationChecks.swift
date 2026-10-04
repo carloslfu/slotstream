@@ -11,9 +11,10 @@ func modelVerificationChecks(root: URL) throws {
     let good = Data("verified weights".utf8)
     try good.write(to: file)
     let cache = ModelVerificationCache()
+    let manifest = String(repeating: "a", count: 64), otherManifest = String(repeating: "b", count: 64)
     var hashes = 0
     func check() throws -> Bool {
-        try cache.check(files: [file, optional], shouldContinue: { true }) {
+        try cache.check(manifestDigest: manifest, files: [file, optional], shouldContinue: { true }) {
             hashes += 1; return try Data(contentsOf: file) == good
         }
     }
@@ -23,6 +24,23 @@ func modelVerificationChecks(root: URL) throws {
     // The repo's supported local Mac check volume is APFS. Other filesystems
     // deliberately fall back to hashing and make no reload-speed claim.
     let reusable = hashes == first
+    // Same file identity, different required digest: a proof for the first
+    // compiled deployment must never bypass the second deployment's verifier.
+    var otherHashes = 0
+    let other = try cache.check(manifestDigest: otherManifest, files: [file, optional], shouldContinue: { true }) {
+        otherHashes += 1; return false
+    }
+    try checkModelVerification(!other && otherHashes == 1, "a different manifest cannot reuse unchanged-file proof")
+    let beforeOriginal = hashes
+    try checkModelVerification(try check(), "returning to the original manifest verifies again")
+    try checkModelVerification(hashes == beforeOriginal + 1, "a failed selected-pack verification clears the prior proof")
+    let successfulOther = try cache.check(manifestDigest: otherManifest, files: [file, optional], shouldContinue: { true }) {
+        otherHashes += 1; return true
+    }
+    try checkModelVerification(successfulOther && otherHashes == 2, "each manifest can establish its own proof")
+    let beforeReturn = hashes
+    try checkModelVerification(try check(), "return from a successful different manifest verifies original")
+    try checkModelVerification(hashes == beforeReturn + 1, "successful proof remains bound to its own manifest")
     var original = stat()
     try checkModelVerification(lstat(file.path, &original) == 0, "capture exact file timestamps")
     let writer = try FileHandle(forWritingTo: file)
@@ -60,15 +78,15 @@ func modelVerificationChecks(root: URL) throws {
     try checkModelVerification(try check(), "symlink target is verified")
     try checkModelVerification(hashes > beforeLink, "symlink retarget invalidates the proof")
     do {
-        _ = try cache.check(files: [file, optional], shouldContinue: { false }) { throw SevraError.refused("CHECK FAILED: cancelled verification ran") }
+        _ = try cache.check(manifestDigest: manifest, files: [file, optional], shouldContinue: { false }) { throw SevraError.refused("CHECK FAILED: cancelled verification ran") }
         throw SevraError.refused("CHECK FAILED: cancelled cache hit accepted")
     } catch { try checkModelVerification(!error.localizedDescription.contains("CHECK FAILED"), "cached proof still respects cancellation") }
     if reusable {
         let changed = ModelVerificationCache()
         do {
-            _ = try changed.check(files: [file], shouldContinue: { true }) { try Data("changed contents".utf8).write(to: target); return true }
+            _ = try changed.check(manifestDigest: manifest, files: [file], shouldContinue: { true }) { try Data("changed contents".utf8).write(to: target); return true }
             throw SevraError.refused("CHECK FAILED: mutation during verification accepted")
         } catch { try checkModelVerification(!error.localizedDescription.contains("CHECK FAILED"), "mutation while hashing fails closed") }
     }
-    print("PASS: session model verification, same-size corruption, restored mtime, repair, optional arrival, replacement, symlink, cancellation and verification mutation; cached=\(reusable)")
+    print("PASS: manifest-bound session verification, same-size corruption, restored mtime, repair, optional arrival, replacement, symlink, cancellation and verification mutation; cached=\(reusable)")
 }

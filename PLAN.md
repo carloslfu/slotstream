@@ -945,6 +945,12 @@ New native fixtures exercise independent readiness for equal-name/equal-size fil
 
 Both local Python test runs and the static-entry harness pass. First-turn prompts span approximately two thousand, eight thousand and twenty-nine thousand tokens, with exact token IDs preserved from the pinned native template. The last group targets conversations inside the existing 32K window with separately reserved continuation and reply space. Only tokenizer metadata was loaded, under a bounded small process; no additional model ran alongside the ongoing final campaign. No model outcomes are available. Freeze the complete execution/resource and acceptance protocol before inference, then preserve every paired conversation and actual native token admission. These focused product fixtures cannot establish statistical long-context noninferiority or replace the general-task, application, vision or performance gates.
 
+### Selected-pack transport acceptance and app proof binding
+
+[[sources/runs/2026/10/2026-10-04-selected-pack-store-ci]] records complete engine, transport, static, instrumented, public-library and Mac runtime/Xcode acceptance for the selected-pack store at commit `be0bfb4545c869dd3c716af0fb0993619f52c295`. The retained-tensor primitive and manifest-specific resume changes are included. Actual standalone production, public transfer and integrated alternative activation remain separate requirements.
+
+The app's in-session verification proof now includes the selected compiled manifest digest as well as APFS file identity. A different pack cannot reuse the proof merely because the same filenames, sizes and timestamps are unchanged. Failed verification clears prior proof; returning to either selection must establish that selection's proof. Foreground load and background preparation use the same selected store and manifest. Unsupported saved choices do not trigger baseline preparation. New cross-manifest checks await Mac CI; no local build is run alongside the ongoing final model campaign.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

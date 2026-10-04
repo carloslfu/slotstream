@@ -4,6 +4,8 @@ import Foundation
 /// A proof held only by this inference owner, never persisted or shared across
 /// app launches. APFS file identity and nanosecond change times invalidate it on
 /// writes, replacement, symlink retargeting, or optional-file arrival/removal.
+/// A proof is also bound to the selected compiled manifest. Equal paths and
+/// unchanged files cannot certify a different set of required hashes.
 /// Other filesystems keep full verification on every load.
 package final class ModelVerificationCache: @unchecked Sendable {
     private struct Version: Equatable {
@@ -17,7 +19,11 @@ package final class ModelVerificationCache: @unchecked Sendable {
         var changedSeconds: Int = 0
         var changedNanos: Int = 0
     }
-    private var verified: [Version]?
+    private struct Proof: Equatable {
+        let manifestDigest: String
+        let versions: [Version]
+    }
+    private var verified: Proof?
     private let lock = NSLock()
     package init() {}
     private func versions(_ files: [URL]) -> [Version]? {
@@ -47,11 +53,12 @@ package final class ModelVerificationCache: @unchecked Sendable {
     /// Serialize proof publication, including verification, across both callers.
     /// The first load always executes the
     /// pinned SHA-256 verifier; only an unchanged successful proof can be reused.
-    package func check(files: [URL], shouldContinue: () -> Bool, verify: () throws -> Bool) throws -> Bool {
+    package func check(manifestDigest: String, files: [URL], shouldContinue: () -> Bool,
+                       verify: () throws -> Bool) throws -> Bool {
         lock.lock(); defer { lock.unlock() }
         guard shouldContinue() else { throw SevraError.cancelled }
         let before = versions(files)
-        if let before, before == verified {
+        if let before, Proof(manifestDigest: manifestDigest, versions: before) == verified {
             guard shouldContinue() else { throw SevraError.cancelled }
             return true
         }
@@ -62,7 +69,7 @@ package final class ModelVerificationCache: @unchecked Sendable {
             guard versions(files) == before else {
                 throw SevraError.unavailable("The model files changed while being verified. Try again after the files finish changing.")
             }
-            verified = before
+            verified = Proof(manifestDigest: manifestDigest, versions: before)
         }
         return true
     }
