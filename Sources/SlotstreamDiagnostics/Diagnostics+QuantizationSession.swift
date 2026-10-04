@@ -18,7 +18,11 @@ private struct QuantizationSessionProtocol: Decodable {
     let maximumRequests: Int
     let maximumSeconds: Int
     let seed: Int
-    var reservesCompleteReply: Bool { kind == "quantization-tool-session-v2" }
+    var vision: Bool { kind == "quantization-image-session-v1" }
+    var reservesCompleteReply: Bool { kind == "quantization-tool-session-v2" || vision }
+    /// Full original photographs retain their separately adopted six-GB
+    /// preflight reserve; the live three-GB headroom guard still applies.
+    var requiredPreflightBytes: Int { memoryBytes + (vision ? 6_000_000_000 : 3_000_000_000) }
 
     func checkReplyRoom(promptTokens: Int) throws {
         guard promptTokens >= 0, promptTokens <= contextLimit - outputLimit else {
@@ -35,13 +39,13 @@ private struct QuantizationSessionProtocol: Decodable {
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
         let outputLimits = value.reservesCompleteReply ? [128, 512, 1024, 2048, 4096, 12288] : [128, 512, 1024, 2048]
-        guard value.schema == 1, ["quantization-tool-session-v1", "quantization-tool-session-v2"].contains(value.kind),
+        guard value.schema == 1, ["quantization-tool-session-v1", "quantization-tool-session-v2", "quantization-image-session-v1"].contains(value.kind),
               ["instrument-check", "held-out"].contains(value.scope),
-              (10_000_000_000...14_000_000_000).contains(value.memoryBytes),
+              (10_000_000_000...(value.vision ? 14_500_000_000 : 14_000_000_000)).contains(value.memoryBytes),
               value.memoryBytes.isMultiple(of: 100_000_000),
               [8192, 32768].contains(value.contextLimit), outputLimits.contains(value.outputLimit),
               value.outputLimit < value.contextLimit,
-              [0, 2].contains(value.draftDepth), (1...256).contains(value.maximumRequests),
+              [0, 2].contains(value.draftDepth), (1...(value.vision ? 32 : 256)).contains(value.maximumRequests),
               (1...1800).contains(value.maximumSeconds), value.seed == 7 else {
             throw ModelError("conversation protocol exceeds its declared resource or arithmetic scope")
         }
@@ -98,16 +102,19 @@ extension Diagnostics {
               }) else { throw ModelError("session requires explicit clean inputs, paired candidate paths and new output") }
         let specification = try QuantizationSessionProtocol.load(protocolFile, sha256: protocolSHA256)
         let artifact = try control.map { try AffineExpertControl.identify(control: $0) }
-        let resources: PackMemoryProfile = control == nil ? .original : .affine3GroupedControl
+        let resources: PackMemoryProfile = control == nil ? .original
+            : (specification.vision ? .affine3GroupedVisionControl : .affine3GroupedControl)
         let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
             memoryGB: Double(specification.memoryBytes) / 1e9,
             mtp: specification.draftDepth > 0 ? .on : .off, mtpAvailable: specification.draftDepth > 0,
-            vision: .off, maxContextTokens: specification.contextLimit, qualification: false,
+            vision: specification.vision ? .on : .off, visionAvailable: specification.vision,
+            maxContextTokens: specification.contextLimit, qualification: false,
             runtimePolicy: RuntimeAllocationPolicy(prefixCacheEnabled: specification.prefixCache),
             decodeLookahead: .off, mtpExperts: .streamed)
         guard plan.source == .memoryGB, plan.targetGB == Double(specification.memoryBytes) / 1e9,
               plan.mtpEnabled == (specification.draftDepth > 0),
               plan.maxContextTokens == specification.contextLimit, !plan.decodeLookahead,
+              plan.visionEnabled == specification.vision,
               plan.mtpStreamedExperts == (specification.draftDepth > 0),
               plan.expectedPeakGB <= Double(specification.memoryBytes) / 1e9 else {
             throw ModelError("session planning changed a frozen setting or exceeded the ceiling")
@@ -116,6 +123,7 @@ extension Diagnostics {
             attributes: [.posixPermissions: 0o700])
         var identity: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
             "scope": specification.scope, "protocol_sha256": protocolSHA256, "protocol_kind": specification.kind,
+            "vision": specification.vision, "required_preflight_bytes": specification.requiredPreflightBytes,
             "resource_identity": resources.identity, "plan": plan.json(),
             "draft_depth": specification.draftDepth, "seed": specification.seed,
             "prefix_cache": specification.prefixCache, "output_limit": specification.outputLimit,
@@ -138,8 +146,8 @@ extension Diagnostics {
         _ = try save()
         if planOnly { identity["complete"] = true; return try save() }
         try ModelProcessGuard.acquire()
-        guard let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= UInt64(specification.memoryBytes + 3_000_000_000) else {
-            throw ModelError("session needs its physical ceiling plus three GB actual reclaimable memory")
+        guard let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= UInt64(specification.requiredPreflightBytes) else {
+            throw ModelError("session needs \(specification.requiredPreflightBytes) bytes of actual reclaimable memory")
         }
         let started = ProcessInfo.processInfo.systemUptime
         let oldLimit = MLX.Memory.memoryLimit, oldCache = MLX.Memory.cacheLimit
@@ -174,7 +182,7 @@ extension Diagnostics {
             if let control, let table, let artifact {
                 engine = try await Engine(modelDir: baseline,
                     affineSource: AffineEngineSource(control: control, artifact: artifact, coefficients: table,
-                        piecewiseAllocation: true, groupedExperts: true), plan: plan)
+                        piecewiseAllocation: true, groupedExperts: true, vision: specification.vision), plan: plan)
             } else {
                 try WeightStore.verify(at: baseline)
                 engine = try await Engine(modelDir: baseline, plan: plan)
@@ -184,6 +192,8 @@ extension Diagnostics {
             engine.prefixCache.enabled = specification.prefixCache
             engine.gpuKeepAlive = .off
             guard (engine.model.mtpHead != nil) == (specification.draftDepth > 0),
+                  engine.visionAllowed == specification.vision,
+                  !specification.vision || engine.visionAvailable,
                   (engine.model.mtpHead?.expertStream != nil) == (specification.draftDepth > 0) else {
                 throw ModelError("session loaded another draft configuration")
             }
@@ -229,7 +239,8 @@ extension Diagnostics {
                 var reservedPromptTokens: Int?
                 if specification.reservesCompleteReply {
                     let request = try OpenAIDialect.conversation(body, contextLimit: specification.contextLimit)
-                    guard request.messages.allSatisfy({ $0.images.isEmpty }) else {
+                    let images = request.messages.flatMap { $0.images }
+                    guard specification.vision || images.isEmpty else {
                         throw ModelError("text outcome sessions do not admit image requests")
                     }
                     let raw = body["messages"] as? [[String: Any]] ?? []
@@ -238,12 +249,17 @@ extension Diagnostics {
                         || raw.contains { $0["role"] as? String == "developer" }
                         || raw.filter { $0["role"] as? String == "system" }.count > 1
                     let ids: [Int]
-                    if extended {
+                    if extended && !images.isEmpty {
+                        // Image requests take encodeChatWithVision in the
+                        // production handler, which renders encodeChat first.
+                        ids = try engine.encodeChat(request.messages, tools: request.tools, thinking: false, effort: nil)
+                    } else if extended {
                         ids = try engine.encodeChatSpliced(request.messages, tools: request.tools, thinking: false, effort: nil)
                     } else {
                         ids = try engine.encodeChatOpenAI(messages: Server.templateMessages(body), tools: nil, thinking: false)
                     }
-                    if ids.count > specification.contextLimit - specification.outputLimit {
+                    let promptTokens = try engine.countImageTokens(baseCount: ids.count, sources: images)
+                    if promptTokens > specification.contextLimit - specification.outputLimit {
                         // A complete tool workflow may exhaust its declared
                         // context. Record that task outcome without silently
                         // shortening the reply or killing unrelated cases.
@@ -253,15 +269,15 @@ extension Diagnostics {
                         requests += 1; refusals += 1
                         try emit(["event": "admission_refusal", "id": id,
                             "code": "reply_reservation_exceeded", "request": body,
-                            "prompt_tokens": ids.count, "output_limit": specification.outputLimit,
+                            "prompt_tokens": promptTokens, "output_limit": specification.outputLimit,
                             "context_limit": specification.contextLimit])
                         identity["requests"] = requests; identity["resets"] = resets
                         identity["admission_refusals"] = refusals
                         identity["peak_process_bytes"] = ProcessMemory.peakResidentBytes()
                         _ = try save(); continue
                     }
-                    try specification.checkReplyRoom(promptTokens: ids.count)
-                    reservedPromptTokens = ids.count
+                    try specification.checkReplyRoom(promptTokens: promptTokens)
+                    reservedPromptTokens = promptTokens
                     try checkResources()
                 }
                 let began = ProcessInfo.processInfo.systemUptime
@@ -274,6 +290,7 @@ extension Diagnostics {
                 var event: [String: Any] = ["event": "response", "id": id, "request": body, "http_head": response.head,
                     "response": parsed, "request_seconds": ProcessInfo.processInfo.systemUptime - began,
                     "peak_process_bytes": ProcessMemory.peakResidentBytes()]
+                if specification.vision, let current = engine.currentPlan { event["applied_plan"] = current.json() }
                 if let reservedPromptTokens { event["reserved_prompt_tokens"] = reservedPromptTokens }
                 try emit(event)
                 if let reservedPromptTokens, response.head.hasPrefix("HTTP/1.1 200") {
@@ -364,6 +381,28 @@ extension Diagnostics {
             ("unknown protocol version", ["kind": "quantization-tool-session-v3"])
         ] {
             var changed = protocolObject
+            for (key, value) in change { changed[key] = value }
+            var refused = false
+            do { _ = try loadProtocol(changed) } catch { refused = true }
+            c.expect(name, refused)
+        }
+        var imageProtocol = protocolObject
+        imageProtocol["kind"] = "quantization-image-session-v1"
+        imageProtocol["memory_bytes"] = 14_500_000_000
+        imageProtocol["maximum_requests"] = 32
+        imageProtocol["output_limit"] = 512
+        let imageValue = try loadProtocol(imageProtocol)
+        c.expect("image protocol separately admits owned vision", imageValue.vision && imageValue.reservesCompleteReply)
+        c.equal("full photographs retain their actual preflight reserve", imageValue.requiredPreflightBytes, 20_500_000_000)
+        try imageValue.checkReplyRoom(promptTokens: imageValue.contextLimit - imageValue.outputLimit)
+        for (name, change) in [
+            ("text protocols cannot inherit the larger image budget", ["kind": "quantization-tool-session-v2"] as [String: Any]),
+            ("image process ceiling stays bounded", ["memory_bytes": 14_600_000_000]),
+            ("image transcripts retain a smaller request envelope", ["maximum_requests": 33]),
+            ("image reply allowance stays explicit", ["output_limit": 8192]),
+            ("image sessions retain checked draft depths", ["draft_depth": 3])
+        ] {
+            var changed = imageProtocol
             for (key, value) in change { changed[key] = value }
             var refused = false
             do { _ = try loadProtocol(changed) } catch { refused = true }

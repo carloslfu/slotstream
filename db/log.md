@@ -241,3 +241,6 @@ Captured selected-pack store full engine, transport and Mac CI; bound app verifi
 ## [2026-10-04 17:18] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared standalone mixed-affine config and complete tensor index from actual bounded headers; both Python fixture suites and static registration pass, with payload export and native admission still pending.
 
+## [2026-10-04 17:39] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared complete bounded image-answer sessions with exact native image-token reservation, applied memory-plan checks, strict conversation grading and eight frozen-input fixtures. Twelve driver groups, five image groups and thirty-two entry checks pass; native compilation, final execution protocol and actual outcomes remain pending.
+

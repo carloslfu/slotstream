@@ -30,6 +30,7 @@ from quantization_paired import stratified_mover_summary
 
 FAMILIES = ('facts', 'multilingual', 'coding', 'instruction', 'tools')
 MAX_EVENT = 2 << 20
+MAX_INPUT = 1 << 20
 
 
 def digest(path):
@@ -84,6 +85,23 @@ def validate_selection(tasks, protocol):
         raise ValueError('jobs must cover every frozen task exactly once')
 
 
+def validate_plan(plan, native):
+    vision = native['kind'] == 'quantization-image-session-v1'
+    if plan['target_gb'] * 1e9 != native['memory_bytes'] or plan['max_context_tokens'] != native['context_limit']:
+        raise ValueError('native admission plan differs')
+    if (plan.get('availability_clamped') is not False or plan.get('vision') is not vision
+            or plan.get('decode_lookahead') is not False):
+        raise ValueError('unexpected native feature or availability change')
+    drafted = native['draft_depth'] > 0
+    if (plan.get('mtp') is not drafted or plan.get('mtp_streamed_experts') is not drafted
+            or plan.get('runtime_prefix_cache_enabled') is not native['prefix_cache']):
+        raise ValueError('required complete configuration absent')
+    if vision:
+        peak = plan.get('memory_ledger', {}).get('expected_peak_bytes')
+        if type(peak) is not int or not 0 < peak <= native['memory_bytes']:
+            raise ValueError('image plan does not price its complete memory envelope')
+
+
 def validate_native(identity, native, pins, arm, protocol_sha):
     if identity.get('loaded') is not True or identity.get('protocol_sha256') != protocol_sha:
         raise ValueError('unloaded or wrong native protocol')
@@ -95,13 +113,12 @@ def validate_native(identity, native, pins, arm, protocol_sha):
     for key, expected in pins[arm].items():
         if identity.get(key) != expected:
             raise ValueError('native artifact differs: ' + key)
-    plan = identity['plan']
-    if plan['target_gb'] * 1e9 != native['memory_bytes'] or plan['max_context_tokens'] != native['context_limit']:
-        raise ValueError('native admission plan differs')
-    if plan.get('availability_clamped') or plan.get('vision') or plan.get('decode_lookahead'):
-        raise ValueError('unexpected native feature or availability change')
-    if not plan.get('mtp') or not plan.get('mtp_streamed_experts') or not plan.get('runtime_prefix_cache_enabled'):
-        raise ValueError('required complete configuration absent')
+    vision = native['kind'] == 'quantization-image-session-v1'
+    if identity.get('vision', False) is not vision:
+        raise ValueError('native image capability differs from the protocol')
+    if vision and identity.get('required_preflight_bytes') != native['memory_bytes'] + 6_000_000_000:
+        raise ValueError('native image preflight reserve differs')
+    validate_plan(identity['plan'], native)
 
 
 def verify_response(event, request_id, messages, tools, native):
@@ -132,6 +149,10 @@ def verify_response(event, request_id, messages, tools, native):
             or prompt + native['output_limit'] > native['context_limit']
             or usage['total_tokens'] != prompt + completion):
         raise ValueError('native token accounting differs from reservation')
+    if native['kind'] == 'quantization-image-session-v1':
+        if type(event.get('applied_plan')) is not dict:
+            raise ValueError('image response lacks its applied allocation plan')
+        validate_plan(event['applied_plan'], native)
     return response
 
 
@@ -239,7 +260,7 @@ class Session:
     def send(self, value):
         if self.error: raise self.error
         raw = json.dumps(value, ensure_ascii=False, allow_nan=False).encode() + b'\n'
-        if len(raw) > MAX_EVENT: raise ValueError('request exceeds native journal bound')
+        if len(raw) > MAX_INPUT: raise ValueError('request exceeds native input frame bound')
         self.child.stdin.write(raw); self.child.stdin.flush()
 
     def chat(self, messages, tools=None):

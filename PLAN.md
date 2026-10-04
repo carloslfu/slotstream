@@ -957,6 +957,12 @@ The app's in-session verification proof now includes the selected compiled manif
 
 No tensor payload is copied or authenticated by this metadata pass. Whole-output resource pricing, explanatory standalone metadata, verified export, completion identity and native parity remain open. Full CI for the new helper also remains pending. This prepares independent deployment without adding a supported pack or modifying the frozen quality campaign.
 
+### Complete image outcome instrument preparation
+
+[[sources/runs/2026/10/2026-10-04-image-outcome-session-preparation]] records a separately scoped native image-session implementation, its complete-answer Python grader and eight prepared product conversations. The source retains the photograph profile's physical ceiling and preflight reserve, owns candidate vision, counts image tokens before reply admission and records the actual applied allocation plan. Existing text protocols and the running frozen general-task campaign remain unchanged. The driver rejects oversized native input frames before sending.
+
+Driver and grader fixtures pass on both Python runtimes, as does static entry-point acceptance. Native compilation, protocol checks, actual image execution and capacity qualification remain pending. The prepared questions cover known photographs and deterministic color/bar images; they cannot establish broad or statistical image noninferiority. Freeze complete paired execution and acceptance before collecting answers, and preserve the distinction between wrong/incomplete answers and execution failures.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

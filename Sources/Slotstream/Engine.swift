@@ -990,8 +990,15 @@ public final class Engine {
     public func countChatTokens(
         _ messages: [ChatMessage], tools: [ToolDefinition], thinking: Bool, effort: String?
     ) throws -> Int {
-        var count = try encodeChat(messages, tools: tools, thinking: thinking, effort: effort).count
-        let sources = messages.flatMap { $0.images }
+        let count = try encodeChat(messages, tools: tools, thinking: thinking, effort: effort).count
+        return try countImageTokens(baseCount: count, sources: messages.flatMap { $0.images })
+    }
+
+    /// Share exact image expansion with bounded diagnostics that preserve the
+    /// OpenAI handler's alternate plain-chat template. Metadata only: no pixels
+    /// or tower allocations. The caller supplies its own rendered base count.
+    package func countImageTokens(baseCount: Int, sources: [String]) throws -> Int {
+        var count = baseCount
         guard !sources.isEmpty else { return count }
         guard visionAllowed else {
             throw SlotstreamError.vision("this server was started with --vision off; images are not accepted")

@@ -1,10 +1,12 @@
 import copy
+import io
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -92,6 +94,49 @@ class CampaignTests(unittest.TestCase):
             'request':{'messages':messages,'max_tokens':4096,'seed':7,'temperature':0,'stream':False,'think':False},
             'reserved_prompt_tokens':12, 'response':{'usage':{'prompt_tokens':12,'completion_tokens':1,'total_tokens':13},
                 'choices':[{'finish_reason':'stop','message':{'role':'assistant','content':'5'}}]}}
+
+    def test_image_identity_and_applied_plan_require_the_separate_priced_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            protocol, _, native = self.fixture(directory)
+            native.update(kind='quantization-image-session-v1', memory_bytes=14_500_000_000, maximum_requests=32)
+            identity = self.native_identity(protocol, native)
+            identity.update(vision=True, required_preflight_bytes=20_500_000_000)
+            identity['plan'].update(target_gb=14.5, vision=True,
+                                    memory_ledger={'expected_peak_bytes':14_400_000_000})
+            check = lambda value:q.validate_native(value,native,protocol['native_pins'],'original',protocol['native_protocol_sha256'])
+            check(identity)
+            for edit in [lambda x:x.pop('vision'), lambda x:x.update(required_preflight_bytes=17_500_000_000),
+                         lambda x:x['plan'].update(vision=False), lambda x:x['plan'].pop('memory_ledger'),
+                         lambda x:x['plan']['memory_ledger'].update(expected_peak_bytes=14_500_000_001)]:
+                changed=copy.deepcopy(identity);edit(changed)
+                with self.assertRaises(ValueError):check(changed)
+            messages=[{'role':'user','content':[{'type':'text','text':'Which animal?'},
+                       {'type':'image_url','image_url':{'url':'data:image/png;base64,fixture'}}]}]
+            event=self.response(native,messages);event['applied_plan']=identity['plan']
+            self.assertEqual(q.verify_response(event,'call-1',messages,None,native),event['response'])
+            for edit in [lambda x:x.pop('applied_plan'),
+                         lambda x:x['applied_plan'].update(target_gb=15),
+                         lambda x:x['applied_plan'].update(max_context_tokens=8192),
+                         lambda x:x['applied_plan']['memory_ledger'].update(expected_peak_bytes=14_600_000_000)]:
+                changed=copy.deepcopy(event);edit(changed)
+                with self.assertRaises(ValueError):q.verify_response(changed,'call-1',messages,None,native)
+            # An explicitly main-only fixture is allowed, but it must prove
+            # that placement. This does not relax the text campaign's fixed
+            # full-configuration protocol checked by validate_inputs.
+            native['draft_depth']=0;identity['draft_depth']=0
+            identity['plan'].update(mtp=False,mtp_streamed_experts=False)
+            check(identity)
+            identity['plan']['mtp']=True
+            with self.assertRaises(ValueError):check(identity)
+
+    def test_send_obeys_native_input_bound_before_writing_to_child(self):
+        session=q.Session.__new__(q.Session)
+        session.error=None;session.child=SimpleNamespace(stdin=io.BytesIO())
+        with self.assertRaisesRegex(ValueError,'input frame'):
+            session.send({'op':'chat','text':'x'*q.MAX_INPUT})
+        self.assertEqual(session.child.stdin.getvalue(),b'')
+        session.send({'op':'finish'})
+        self.assertEqual(json.loads(session.child.stdin.getvalue()),{'op':'finish'})
 
     def test_only_a_bound_verified_context_refusal_becomes_a_task_outcome(self):
         with tempfile.TemporaryDirectory() as directory:

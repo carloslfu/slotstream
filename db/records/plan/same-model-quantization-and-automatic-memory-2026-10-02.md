@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T17:16:55.283835+00:00
+updated: 2026-10-04T17:33:41.326606+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -895,3 +895,9 @@ The app's in-session verification proof now includes the selected compiled manif
 [[sources/runs/2026/10/2026-10-04-standalone-affine-metadata-preparation]] records coherent configuration and complete tensor-index construction, seven passing unit groups on both local Python runtimes, and static entry-point acceptance. The actual-header preparation changes only the routed expert recipes, preserves both config aliases and covers every parent tensor exactly once across retained and converted files. The old index byte total is recomputed from the output payload geometry. Parent config, index and model-card copies remain separately identified as provenance.
 
 No tensor payload is copied or authenticated by this metadata pass. Whole-output resource pricing, explanatory standalone metadata, verified export, completion identity and native parity remain open. Full CI for the new helper also remains pending. This prepares independent deployment without adding a supported pack or modifying the frozen quality campaign.
+
+### Complete image outcome instrument preparation
+
+[[sources/runs/2026/10/2026-10-04-image-outcome-session-preparation]] records a separately scoped native image-session implementation, its complete-answer Python grader and eight prepared product conversations. The source retains the photograph profile's physical ceiling and preflight reserve, owns candidate vision, counts image tokens before reply admission and records the actual applied allocation plan. Existing text protocols and the running frozen general-task campaign remain unchanged. The driver rejects oversized native input frames before sending.
+
+Driver and grader fixtures pass on both Python runtimes, as does static entry-point acceptance. Native compilation, protocol checks, actual image execution and capacity qualification remain pending. The prepared questions cover known photographs and deterministic color/bar images; they cannot establish broad or statistical image noninferiority. Freeze complete paired execution and acceptance before collecting answers, and preserve the distinction between wrong/incomplete answers and execution failures.
