@@ -989,6 +989,12 @@ Inspection cannot authorize a model. The compiled standalone research allowlist 
 
 The earlier standalone assembly commit passes full engine CI. The image-workspace commit passes full Mac CI and engine coverage/library jobs, but its full engine run failed the missing-machines brain field already corrected by the following commit. That failed workflow remains preserved and is not a successful whole-engine result. The product-driver successor is rerunning the corrected store and affected engine gates.
 
+### Complete standalone export driver, October 4
+
+[[sources/runs/2026/10/2026-10-04-bounded-standalone-export-driver]] records the bounded execution owner around the complete export primitive. A frozen source/component plan and whole-output staging reservation precede the copy. The driver holds the existing model lock through copying and independent audit, enforces process/headroom/pressure/time/disk bounds, and preserves incomplete attempts without retry or installation. Review corrected the preflight/lifetime-lock handoff; a real private-file-lock fixture now covers that boundary. Eight groups pass on both local Python runtimes and thirty-two static entry checks pass. Actual cleanup, protocol freeze, complete export, native proof and product admission remain open.
+
+The same source preserves successful complete engine CI for the earlier paired product driver at `afa6ae5c0858394ffbe3833c5070ccc9d89f5c52`. Its ancestry includes the corrected image-workspace and brain attribution checks. The new standalone loader and export owner still await their own CI. No new model process, payload export or partial held-out analysis accompanies this preparation.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

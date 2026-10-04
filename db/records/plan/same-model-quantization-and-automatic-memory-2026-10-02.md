@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T18:47:44.679537+00:00
+updated: 2026-10-04T19:11:06.493458+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -927,3 +927,9 @@ Eight orchestration test groups pass on both Python runtimes and thirty-two stat
 Inspection cannot authorize a model. The compiled standalone research allowlist remains empty until the actual export and independent audit produce its exact digest. The existing Engine checks and bounded conversation instrument can then exercise the standalone path without making it a supported pack. New weights-free metadata/rejection checks are registered but compilation and execution await CI; actual export, native arithmetic and resource proof, and complete product outcomes remain open. No local build overlaps the held-out campaign.
 
 The earlier standalone assembly commit passes full engine CI. The image-workspace commit passes full Mac CI and engine coverage/library jobs, but its full engine run failed the missing-machines brain field already corrected by the following commit. That failed workflow remains preserved and is not a successful whole-engine result. The product-driver successor is rerunning the corrected store and affected engine gates.
+
+### Complete standalone export driver, October 4
+
+[[sources/runs/2026/10/2026-10-04-bounded-standalone-export-driver]] records the bounded execution owner around the complete export primitive. A frozen source/component plan and whole-output staging reservation precede the copy. The driver holds the existing model lock through copying and independent audit, enforces process/headroom/pressure/time/disk bounds, and preserves incomplete attempts without retry or installation. Review corrected the preflight/lifetime-lock handoff; a real private-file-lock fixture now covers that boundary. Eight groups pass on both local Python runtimes and thirty-two static entry checks pass. Actual cleanup, protocol freeze, complete export, native proof and product admission remain open.
+
+The same source preserves successful complete engine CI for the earlier paired product driver at `afa6ae5c0858394ffbe3833c5070ccc9d89f5c52`. Its ancestry includes the corrected image-workspace and brain attribution checks. The new standalone loader and export owner still await their own CI. No new model process, payload export or partial held-out analysis accompanies this preparation.

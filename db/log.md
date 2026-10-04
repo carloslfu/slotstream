@@ -259,3 +259,6 @@ Added complete paired image and long-conversation product orchestration with fro
 ## [2026-10-04 18:48] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared complete standalone native loading, independent parent component paths, bound prefix identity and existing physical diagnostic entry points behind a closed compiled research allowlist. Added metadata rejection checks, pending compilation and CI. Captured successful standalone export CI and image-workspace Mac CI, preserving the corrected-field engine failure. Actual export and physical proof remain pending.
 
+## [2026-10-04 19:12] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Added complete standalone export execution with frozen sources and component plan, whole-staging reservation, real lock handoff, bounded resources, retained failures and no silent retries. Eight tiny execution groups pass on both Python runtimes and thirty-two static registration checks pass. Captured full paired-product engine CI. Actual whole export and native proof remain open.
+
