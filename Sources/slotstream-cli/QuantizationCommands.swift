@@ -3,6 +3,37 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct QuantizationPerformanceRun: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "quantization-performance-run",
+        abstract: "Measure a frozen complete Engine configuration without qualifying or activating a pack")
+    @Option(name: .long) var protocolFile: String
+    @Option(name: .long) var protocolSha256: String
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String?
+    @Option(name: .long) var table: String?
+    @Option(name: .long) var output: String
+    @Flag(name: .long) var planOnly = false
+    func run() throws {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Data?, failure: Error?
+        Task {
+            do {
+                result = try await Diagnostics.quantizationPerformance(protocolFile: URL(fileURLWithPath: protocolFile),
+                    protocolSHA256: protocolSha256, baseline: URL(fileURLWithPath: baseline),
+                    control: control.map { URL(fileURLWithPath: $0) }, table: table.map { URL(fileURLWithPath: $0) },
+                    output: URL(fileURLWithPath: output), planOnly: planOnly)
+            } catch { failure = error }
+            semaphore.signal()
+        }
+        semaphore.wait()
+        if let failure { throw failure }
+        guard let result, (try JSONSerialization.jsonObject(with: result) as? [String: Any])?["complete"] as? Bool == true else {
+            throw ValidationError("complete-configuration performance run did not finish")
+        }
+        print(String(decoding: result, as: UTF8.self))
+    }
+}
+
 struct QuantizationSession: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "quantization-session",
         abstract: "Run a bounded explicit research conversation over the production HTTP handler")

@@ -11,6 +11,7 @@ extension Catalogue {
             Check("quantization-geometry", tier: .t0) { try Diagnostics.quantizationGeometry() },
             Check("pack-memory", tier: .t0) { try Diagnostics.packMemory() },
             Check("quantization-session-framing", tier: .t0) { try Diagnostics.quantizationSessionFraming() },
+            Check("quantization-performance-protocol", tier: .t0) { try Diagnostics.quantizationPerformanceProtocol() },
             Check("quantization-metadata", tier: .t0) { try Diagnostics.quantizationMetadata() },
             Check("affine-standalone-metadata", tier: .t0) { try Diagnostics.affineStandaloneMetadata() },
             Check("quantization-read-batch", tier: .t0) { try Diagnostics.quantizationReadBatch() },

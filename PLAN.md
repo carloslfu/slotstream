@@ -1042,6 +1042,15 @@ Seven real-filesystem fixture groups pass on both Python runtimes, including lat
 
 The native catalogue and existing bounded Engine diagnostic now include explicit reserve/refusal checks and prepared demanded-versus-forecast output, allocation-owner, cancellation, prefix and governor checks. These additions await compilation, CI and physical parity/resource execution. Source inspection is not optimization qualification. Only after those gates may a separately frozen complete-configuration comparison measure whether this mode helps; the running quality study and frozen product protocols remain unchanged.
 
+
+### Complete-configuration performance instrument preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-configuration-performance-preparation]] records a native instrument for separately frozen complete Engine profiles, with explicit ceiling/target, draft, admitted lookahead, prefix, live governor and keep-alive settings. Fixed-work diagnostic output and ordinary natural completion remain separate. Raw receipts include committed-token intervals, decoded-text callbacks, startup, plan boundaries, memory, paging and operating conditions. The physical/pressure guards run before loading and continue throughout execution. A present invalid correction cannot be mistaken for an absent component.
+
+The conservative throughput helper removes the prefill-produced first token from its numerator while retaining the complete decode timer. It keeps active emission, visible text, short-response latency and tail stalls separate. A simultaneous one-sided median bound uses exact binomial rank tails under the stated independent run-level sampling assumption. Too few repetitions or a missing scenario cannot pass the speed gate, and the helper never grants model qualification. Eight groups pass on both Python runtimes, including independent exhaustive rank witnesses; all thirty-two static registration checks pass. Native compilation, physical instrument acceptance, paired execution and a prospective final scenario/sample-count freeze remain pending. No speed observation is produced by this preparation.
+
+The same source closes complete engine CI for the unanswered-only continuation at 54811942cd622d982291c0693b593039a2a7eaf0 and complete engine/Mac CI for explicit startup observation at 454209c6d377ebeefd2290e2866a48fbd3d72d88. These are source and integration gates, not completion of the still-running quality study.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

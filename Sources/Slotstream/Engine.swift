@@ -1224,6 +1224,24 @@ public final class Engine {
 
     public typealias GenerationResult = (text: String, ids: [Int], stats: GenStats)
 
+    /// A fixed-work timing diagnostic only. All ordinary Engine admission,
+    /// allocation, cancellation, decoding and cache ownership still apply.
+    /// Ignoring EOS changes task semantics, so this package-only entry point
+    /// cannot be selected by a serving request or treated as task quality.
+    package func generateFixedWorkDiagnostic(
+        promptIds: [Int], params: SampleParams,
+        shouldContinue: (() -> Bool)? = nil,
+        onToken: ((Int, String) -> Bool)? = nil
+    ) throws -> GenerationResult {
+        guard [128, 256, 512, 1024].contains(params.maxTokens), params.stop.isEmpty else {
+            throw ModelError("fixed-work diagnostic requires a bounded explicit output and no stop strings")
+        }
+        return generatePhase(promptIds: promptIds, params: params, vision: nil,
+            shouldContinue: shouldContinue, onToken: onToken, request: nil,
+            onAdmitted: nil, gateHeld: false, continuing: nil, retaining: nil,
+            diagnosticEOS: [])
+    }
+
     /// Two phases of one text generation, with independent samplers and output
     /// budgets. The transition supplies nonempty forced separator/closure tokens. The
     /// last sampled token is still pending and is consumed exactly once along
@@ -1268,7 +1286,8 @@ public final class Engine {
         promptIds: [Int], params: SampleParams, vision: VisionPrompt?,
         shouldContinue: (() -> Bool)?, onToken: ((Int, String) -> Bool)?,
         request: RequestController?, onAdmitted: (() -> Bool)?, gateHeld: Bool,
-        continuing: GenerationPhaseState?, retaining: GenerationPhaseState?
+        continuing: GenerationPhaseState?, retaining: GenerationPhaseState?,
+        diagnosticEOS: Set<Int>? = nil
     ) -> GenerationResult {
         let requestStart = RuntimeClock.now()
         let control: RequestController
@@ -1473,7 +1492,7 @@ public final class Engine {
         let keepAlive = keepAwake ? GPUKeepAlive.shared : nil
         keepAlive?.begin()
         var (ids, stats) = generator.generate(
-            promptIds: promptIds, params: params, eosIds: eosIds, cache: prefixCache,
+            promptIds: promptIds, params: params, eosIds: diagnosticEOS ?? eosIds, cache: prefixCache,
             vision: vision,
             shouldContinue: {
                 guard !clientGone, !stopFound else { return false }

@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T20:54:40.725890+00:00
+updated: 2026-10-04T21:17:43.090457+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -980,3 +980,12 @@ Seven real-filesystem fixture groups pass on both Python runtimes, including lat
 [[sources/runs/2026/10/2026-10-04-affine-lookahead-preparation]] records a prospective text-only grouped-affine lookahead mode. Its separate resource identity requires the exact complete uncorrected scheduler/router reservation, keeps candidate byte geometry and disables inherited activation and speed claims. Earlier candidate modes remain unchanged. The original learned correction is not loaded; public pack admission and Auto profiles stay closed.
 
 The native catalogue and existing bounded Engine diagnostic now include explicit reserve/refusal checks and prepared demanded-versus-forecast output, allocation-owner, cancellation, prefix and governor checks. These additions await compilation, CI and physical parity/resource execution. Source inspection is not optimization qualification. Only after those gates may a separately frozen complete-configuration comparison measure whether this mode helps; the running quality study and frozen product protocols remain unchanged.
+
+
+### Complete-configuration performance instrument preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-configuration-performance-preparation]] records a native instrument for separately frozen complete Engine profiles, with explicit ceiling/target, draft, admitted lookahead, prefix, live governor and keep-alive settings. Fixed-work diagnostic output and ordinary natural completion remain separate. Raw receipts include committed-token intervals, decoded-text callbacks, startup, plan boundaries, memory, paging and operating conditions. The physical/pressure guards run before loading and continue throughout execution. A present invalid correction cannot be mistaken for an absent component.
+
+The conservative throughput helper removes the prefill-produced first token from its numerator while retaining the complete decode timer. It keeps active emission, visible text, short-response latency and tail stalls separate. A simultaneous one-sided median bound uses exact binomial rank tails under the stated independent run-level sampling assumption. Too few repetitions or a missing scenario cannot pass the speed gate, and the helper never grants model qualification. Eight groups pass on both Python runtimes, including independent exhaustive rank witnesses; all thirty-two static registration checks pass. Native compilation, physical instrument acceptance, paired execution and a prospective final scenario/sample-count freeze remain pending. No speed observation is produced by this preparation.
+
+The same source closes complete engine CI for the unanswered-only continuation at 54811942cd622d982291c0693b593039a2a7eaf0 and complete engine/Mac CI for explicit startup observation at 454209c6d377ebeefd2290e2866a48fbd3d72d88. These are source and integration gates, not completion of the still-running quality study.

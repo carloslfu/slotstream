@@ -280,3 +280,6 @@ Implemented exact authenticated research-payload retirement with exclusive owner
 ## [2026-10-04 20:54] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared explicit grouped-affine text lookahead with exact full scheduler/router reserve and independent capability identity, retaining closed Auto admission. Added pure planner and physical Engine parity/ownership/recovery checks. No physical execution or speed claim; compilation and CI remain pending. Frozen quality and product protocols remain unchanged.
 
+## [2026-10-04 21:17] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared complete Engine performance profiles with separate fixed-work and natural completion, unchanged production safety, applied-plan and raw token/text timing evidence. Eight metric/order-statistic groups pass on both runtimes and thirty-two static registration checks pass. Native compilation, physical execution and final paired-study freeze remain pending. Captured complete startup engine/Mac and continuation engine CI acceptance; no speed or quality verdict.
+

@@ -29,7 +29,7 @@ struct Slotstream: ParsableCommand {
             QuantizationModelCheck.self,
             QuantizationDraftCheck.self, QuantizationStateCheck.self, QuantizationGenerationCheck.self,
             QuantizationRotaryCheck.self, QuantizationContextCheck.self,
-            QuantizationTaskRun.self, QuantizationSession.self,
+            QuantizationTaskRun.self, QuantizationSession.self, QuantizationPerformanceRun.self,
             QuantizationPerformancePilot.self,
             QuantizationBench.self,
             QuantizationLogits.self,
