@@ -48,6 +48,7 @@ private func eventually(_ predicate: () async -> Bool) async throws {
 }
 func performanceChecks(root: URL, dbmd: URL) async throws {
     try modelVerificationChecks(root: root)
+    try await modelActivationChecks(root: root, dbmd: dbmd)
     var plans = 0, refused = 0
     for ram in [8.0, 16, 24, 32, 48, 64, 96, 128] {
         for available in [0.0, 3, 8, 10, 13, 20, 35, 70] where available <= ram {
@@ -269,6 +270,7 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
 
 /// Explicit, bounded real-model check. No availability override or memory hog.
 func realPerformanceCheckIfRequested() async throws -> Bool {
+    if try await realActivationCheckIfRequested() { return true }
     guard CommandLine.arguments.contains("--performance-real") else { return false }
     let args = CommandLine.arguments
     guard let i = args.firstIndex(of: "--home"), i + 1 < args.count else { throw SevraError.refused("Pass a new disposable --home.") }

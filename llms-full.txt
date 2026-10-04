@@ -1473,6 +1473,15 @@ Response records bind the applied configuration generation, including pack
 manifest, engine arithmetic and allocation policy. A failed load never
 publishes a partially configured engine as active.
 
+The app records activation progress locally and checks the loaded model before
+making it available to requests. If a change fails, it releases the failed load
+before trying to restore the previous healthy configuration. Your requested
+settings stay saved, and other queued work waits. **Retry settings** starts a
+new verified attempt; choosing the previous settings is also explicit. A
+restart preserves unfinished or failed activation state without replaying a
+response or tool action. This recovery currently covers the supported original
+pack; experimental quantizations remain unavailable in the product selector.
+
 The independent engine CLI keeps its existing defaults. `slotstream model-packs
 --json` inspects maintained pack identities and qualification status without
 loading weights. `slotstream run --quantization auto --prompt "Hello"` opts into

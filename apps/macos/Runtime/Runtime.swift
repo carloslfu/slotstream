@@ -455,6 +455,7 @@ public actor SevraRuntime {
     }
     private func startQueuedWorkIfReady() {
         guard !driving, !modelMaintenance, !sleeping, !shuttingDown, performanceFailure == nil,
+              inference.performanceTelemetry?.activationFailureMessage == nil,
               home.threads.contains(where: { $0.run?.state == .queued }) else { return }
         driving = true; Task { await self.drive() }
     }
@@ -495,7 +496,7 @@ public actor SevraRuntime {
         try PerformancePolicy.validateSaved(value)
         guard performanceGeneration < UInt64.max else { throw SevraError.refused("Reopen Sevra before changing settings again.") }
         performanceGeneration += 1
-        if lastError == performanceFailure { lastError = nil }
+        if lastError == performanceFailure || lastError == inference.performanceTelemetry?.activationFailureMessage { lastError = nil }
         performancePreferences = value; pendingPerformance = true; performanceFailure = nil
         performanceCache?.ceilingGB = PerformancePolicy.ceilingGB(value, on: .current())
         if !driving && !modelMaintenance { try await applyPerformancePreferences() }
@@ -639,6 +640,9 @@ public actor SevraRuntime {
             // configuration. Retry only after an explicit corrected choice.
             do { try await applyPerformancePreferences() }
             catch { lastError = error.localizedDescription; break }
+            if let failure = inference.performanceTelemetry?.activationFailureMessage {
+                lastError = failure; break
+            }
             // A run starts only once its acceptance is on disk. If that save
             // failed, the run stays queued; sending again retries it.
             if thread.mode != .incognito {

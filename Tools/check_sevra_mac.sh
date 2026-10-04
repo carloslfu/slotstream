@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 # Native development regressions use scripted inference and disposable Homes.
 # This never starts a model or qualifies a signed/installed public release.
 for product in Sevra sevra-local sevra-composer-checks sevra-presentation-checks sevra-mac-checks sevra-extract; do
-  swift build --package-path apps/macos -c release --product "$product" -j 2
+  swift build --package-path apps/macos -c release --product "$product" -j "${SEVRA_BUILD_JOBS:-2}"
 done
 OUT=$(swift build --package-path apps/macos -c release --show-bin-path)
 # Run every suite even after one fails, so a slow run reports all its failures

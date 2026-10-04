@@ -918,9 +918,11 @@ struct PerformanceSettings: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Budget available now").accessibilityValue("Up to " + gb(budget))
             }
-            if let failure = status?.failure {
+            if let failure = status?.failure ?? status?.activationFailure {
                 Text("Settings could not be applied. \(failure)").foregroundStyle(.red).font(.callout)
                 Text("Queued work waits for a valid choice.").foregroundStyle(.secondary).font(.callout)
+                Button("Retry settings") { model.setPerformance(model.performancePreferences, retry: true) }
+                    .disabled(status?.busy == true)
             } else if status?.pending == true {
                 Label("Applies after the current response", systemImage: "clock")
                     .font(.callout).foregroundStyle(.secondary)

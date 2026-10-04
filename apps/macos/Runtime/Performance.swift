@@ -171,6 +171,7 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var ceilingGB: Double? = nil
     public var appliedCeilingGB: Double? = nil
     public var failure: String? = nil
+    public var activationFailure: String? = nil
     public var activePack: String? = nil
     public var selectionReason: String? = nil
     public var configuration: AppliedModelConfiguration? = nil
@@ -187,6 +188,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var pressure = false
     private var monitor: DispatchSourceMemoryPressure?
     private var configuration: AppliedModelConfiguration?
+    private var activationFailure: String?
     public init() {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical],
             queue: DispatchQueue(label: "sevra.memory-status", qos: .utility))
@@ -200,6 +202,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     public var underPressure: Bool { lock.lock(); defer { lock.unlock() }; return pressure }
     public var lastPreparationSeconds: Double { lock.lock(); defer { lock.unlock() }; return preparationSeconds }
     public var isLoaded: Bool { lock.lock(); defer { lock.unlock() }; return engine != nil }
+    public var activationFailureMessage: String? { lock.lock(); defer { lock.unlock() }; return activationFailure }
     func update(state: String, detail: String, engine: Engine? = nil) {
         lock.lock(); defer { lock.unlock() }
         self.state = state; self.detail = detail; self.engine = engine
@@ -208,10 +211,13 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     func applied(_ configuration: AppliedModelConfiguration?) {
         lock.lock(); self.configuration = configuration; lock.unlock()
     }
+    func activationFailed(_ message: String?) {
+        lock.lock(); activationFailure = message; lock.unlock()
+    }
     public func snapshot(preferences: PerformancePreferences, pending: Bool, busy: Bool) -> PerformanceSnapshot {
         lock.lock()
         let current = engine, state = self.state, detail = self.detail, seconds = preparationSeconds, pressure = self.pressure,
-            configuration = self.configuration
+            configuration = self.configuration, activationFailure = self.activationFailure
         lock.unlock()
         let machine = Machine.current()
         // Credit only Sevra's physical footprint, never RSS plus GPU memory.
@@ -230,6 +236,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
             idleMinutes: Int(ceil(PerformancePolicy.idleDelay(preparationSeconds: seconds, conservingPower: conserving) / 60)),
             physicalGB: machine.ramGB, ceilingGB: PerformancePolicy.ceilingGB(preferences, on: machine),
             appliedCeilingGB: plan?.memoryLimitGB,
+            activationFailure: activationFailure,
             activePack: current == nil ? nil : configuration?.packID,
             selectionReason: (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
             configuration: current == nil ? nil : configuration)

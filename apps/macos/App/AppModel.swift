@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import SevraRuntime
+import Slotstream
 import SevraPresentation
 import UniformTypeIdentifiers
 import Combine
@@ -358,7 +359,9 @@ import Combine
         poll = Task {
             do {
                 runtime = try await Task.detached(priority: .userInitiated) {
-                    let engine = modelPath.map { LocalInference(model: URL(fileURLWithPath: $0), preferences: preferences) } ?? LocalInference(preferences: preferences)
+                    let model = modelPath.map { URL(fileURLWithPath: $0) } ?? WeightStore.default.modelDirectory
+                    let engine = LocalInference(model: model, preferences: preferences,
+                        activationDirectory: LocalInference.defaultActivationDirectory(model: model))
                     return try SevraRuntime(homeURL: root, dbmd: dbmd, inference: engine, performancePreferences: preferences)
                 }.value
                 if let runtime { endpoint = try await Task.detached { try LocalEndpoint(runtime: runtime) }.value }
@@ -626,9 +629,9 @@ import Combine
         case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
         }
     }
-    func setPerformance(_ value: PerformancePreferences) {
+    func setPerformance(_ value: PerformancePreferences, retry: Bool = false) {
         guard let runtime else { return }
-        guard value != performancePreferences else { return }
+        guard retry || value != performancePreferences else { return }
         do {
             try PerformancePolicy.validateSaved(value)
             UserDefaults.standard.set(try JSONEncoder().encode(value), forKey: "performance.preferences.v1")
@@ -682,7 +685,15 @@ import Combine
             } catch SevraError.cancelled {
                 // The setup panel already reports the deliberate stop.
             } catch { self.error = error.localizedDescription }
-            if acquired { await runtime.endModelMaintenance() }
+            if acquired {
+                await runtime.endModelMaintenance()
+                // A completed explicit setup/repair permits a new activation
+                // attempt. Failed or cancelled setup never clears that gate.
+                if setup.snapshot().ready {
+                    do { try await runtime.setPerformancePreferences(performancePreferences) }
+                    catch { self.error = error.localizedDescription }
+                }
+            }
             preparingModel = false
             await refresh()
         }

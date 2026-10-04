@@ -16,7 +16,7 @@ import Vision
         window.setFrameOrigin(NSPoint(x: -30000, y: -30000))
         defer { window.orderOut(nil) }
         for appearance in ["light", "dark", "system"] {
-            for mode in ["automatic", "custom", "saved-above-range", "failed-settings", "fixed", "unavailable-pack"] {
+            for mode in ["automatic", "custom", "saved-above-range", "failed-settings", "failed-activation", "fixed", "unavailable-pack"] {
                 let custom = mode != "automatic"
                 let overRange = mode == "saved-above-range"
                 var preferences = custom ? PerformancePreferences(budget: .custom, customGB: 48) : .init()
@@ -25,11 +25,13 @@ import Vision
                 model.performancePreferences = preferences
                 model.snapshot = RuntimeSnapshot(home: .init(), modelStatus: "Ready", error: nil, simulated: true)
                 model.performanceState.snapshot = PerformanceSnapshot(preferences: preferences,
-                    pending: custom, state: "In use", loaded: true, busy: true, usedGB: 13,
+                    pending: custom && mode != "failed-activation", state: mode == "failed-activation" ? "Model change failed" : "In use", loaded: true,
+                    busy: mode != "failed-activation", usedGB: 13,
                     budgetGB: 14.5, recommendationGB: 14.5, maximumGB: overRange ? 37 : 49.5,
-                    detail: "Responding on your Mac.", idleMinutes: 10,
+                    detail: mode == "failed-activation" ? "The previous configuration is loaded." : "Responding on your Mac.", idleMinutes: 10,
                     physicalGB: 64 * 1.073741824, ceilingGB: custom ? 48 : 33, appliedCeilingGB: 33,
                     failure: mode == "failed-settings" ? "Choose a supported memory limit." : nil,
+                    activationFailure: mode == "failed-activation" ? "The previous model was restored. Your requested settings are preserved." : nil,
                     selectionReason: "Uses the original pack while alternative quantizations are being qualified.")
                 window.appearance = appearance == "system" ? nil : NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
                 let host = NSHostingView(rootView: Form { PerformanceSettings(model: model, performance: model.performanceState) }
@@ -52,7 +54,7 @@ import Vision
                 let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
                 let labels = ["Quantization", "While running", "Memory budget", "Budget available now", "14.5 GB", "Keep model ready"]
                     + (custom ? ["Custom limit", "48", overRange ? "37 GB" : "49.5 GB", "Your limit stays saved"] : ["Automatic", "Recommended now"])
-                    + (mode == "failed-settings" ? ["Settings could not be applied", "Queued work waits"] : custom ? ["Applies after"] : [])
+                    + (["failed-settings", "failed-activation"].contains(mode) ? ["Settings could not be applied", "Queued work waits", "Retry settings"] : custom ? ["Applies after"] : [])
                     + (overRange ? ["Choose between"] : [])
                     + (mode == "fixed" ? ["Fixed cache capacity", "Memory pressure can still stop"] : ["Automatic adjustment"])
                     + (mode == "unavailable-pack" ? ["Unavailable saved pack"] : [])

@@ -9,8 +9,8 @@ cd "$(dirname "$0")/.."
 # contacts a network. Snapshots land in .build/sevra-apps-ui/ (override with
 # SEVRA_UI_OUT).
 DBMD=${SEVRA_DBMD:-$HOME/.dbmd/bin/dbmd}
-swift build --package-path apps/macos --product Sevra -j 2
-swift build --package-path apps/macos --product sevra-extract -j 2
+swift build --package-path apps/macos --product Sevra -j "${SEVRA_BUILD_JOBS:-2}"
+swift build --package-path apps/macos --product sevra-extract -j "${SEVRA_BUILD_JOBS:-2}"
 BIN=$(swift build --package-path apps/macos --show-bin-path)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/sevra-apps-ui-XXXXXX")
 trap 'rm -rf "$TMP"' EXIT

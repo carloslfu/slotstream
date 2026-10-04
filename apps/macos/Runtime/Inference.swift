@@ -184,6 +184,14 @@ public actor LocalInference: Inference {
     private var releasedAt: TimeInterval?
     private var preferences: PerformancePreferences
     private var appliedConfiguration: AppliedModelConfiguration?
+    private let activationDirectory: URL?
+    private let activationWriteFault: ((ModelActivationJournal.WritePoint) throws -> Void)?
+    private var activationJournal: ModelActivationJournal?
+    private var activationAttempt: UUID?
+    private var activationFailure: String? {
+        didSet { performanceTelemetry?.activationFailed(activationFailure) }
+    }
+    private var activationRetryRequested = false
     private var inTurn = false
     /// Actor methods can interleave while draining the governor. Protect that
     /// await as well as generation so direct API callers cannot admit a turn
@@ -195,12 +203,26 @@ public actor LocalInference: Inference {
     /// The engine's own statistics for each request of the last turn, so a
     /// real check can compare them with what the app recorded.
     public private(set) var lastStats: [GenStats] = []
-    public init(model: URL = WeightStore.default.modelDirectory, preferences: PerformancePreferences = .init()) {
-        self.model = model; self.preferences = preferences
+    public init(model: URL = WeightStore.default.modelDirectory, preferences: PerformancePreferences = .init(),
+                activationDirectory: URL? = nil) {
+        self.model = model; self.preferences = preferences; self.activationDirectory = activationDirectory
+        self.activationWriteFault = nil
+    }
+    /// Bounded failure injection for the real activation check. Production
+    /// cannot enable this through model metadata, environment or preferences.
+    package init(model: URL, preferences: PerformancePreferences, activationDirectory: URL,
+                 activationWriteFault: @escaping (ModelActivationJournal.WritePoint) throws -> Void) {
+        self.model = model; self.preferences = preferences; self.activationDirectory = activationDirectory
+        self.activationWriteFault = activationWriteFault
     }
     /// Explicit bounded configuration for existing callers and real checks.
     public init(model: URL = WeightStore.default.modelDirectory, memoryGB: Double) {
         self.model = model; self.preferences = .init(budget: .custom, customGB: memoryGB)
+        self.activationDirectory = nil
+        self.activationWriteFault = nil
+    }
+    public static func defaultActivationDirectory(model: URL = WeightStore.default.modelDirectory) -> URL {
+        ModelActivationJournal.defaultDirectory(model: model)
     }
     public func prepareCache(_ context: InferenceCacheContext) async throws {
         guard !inTurn, !maintaining else { throw SevraError.refused("Cache ownership changes after the current response or model maintenance.") }
@@ -233,11 +255,21 @@ public actor LocalInference: Inference {
         if self.preferences.budget != preferences.budget ||
             (preferences.budget == .custom && self.preferences.customGB != preferences.customGB) ||
             self.preferences.liveMemory != preferences.liveMemory ||
-            oldPack != newPack {
+            oldPack != newPack || self.preferences.quantization != preferences.quantization || activationFailure != nil {
+            // Persist the requested switch before releasing an incumbent. A
+            // crash here cannot make the requested settings look applied.
+            if let journal = activationJournal {
+                if let attempt = activationAttempt ?? (activationFailure == nil ? nil : journal.state.attempt?.id) {
+                    try journal.fail(attempt, cancelled: true)
+                }
+                activationAttempt = try journal.begin(.init(preferences))
+            }
             await releaseEngine()
             performanceTelemetry?.update(state: "Model not loaded", detail: "Your new budget applies to the next message.")
         }
         self.preferences = preferences
+        activationFailure = nil
+        activationRetryRequested = true
     }
     public func turn(history: [ChatMessage], tools: [ToolDefinition], cancellation: Cancellation, buffer: TurnBuffer) async throws -> EngineTurn {
         try await turn(history: history, tools: tools, thinking: nil, replyTokens: ReplyPolicy.answerTokens, control: ThinkingControl(), cancellation: cancellation, buffer: buffer)
@@ -252,63 +284,25 @@ public actor LocalInference: Inference {
         lastStats = []
         defer {
             inTurn = false
-            performanceTelemetry?.update(state: self.engine == nil ? "Model not loaded" : "Ready",
-                detail: self.engine == nil ? "Loads when you send a message." : "Ready for your next message.", engine: self.engine)
+            if let activationFailure {
+                performanceTelemetry?.update(state: "Model change failed", detail: activationFailure, engine: self.engine)
+            } else {
+                performanceTelemetry?.update(state: self.engine == nil ? "Model not loaded" : "Ready",
+                    detail: self.engine == nil ? "Loads when you send a message." : "Ready for your next message.", engine: self.engine)
+            }
         }
         try cancellation.check()
+        if let activationFailure { throw SevraError.refused(activationFailure) }
         if engine == nil {
-            let selection = try ModelPackRegistry.resolve(preferences.quantization)
-            performanceTelemetry?.update(state: "Loading", detail: "Preparing the local model.")
-            buffer.stage("Verifying the local model")
-            // Join the check started ahead; Stop still ends the wait. The
-            // proof it leaves belongs to this owner, as one made here would.
-            while ahead.running {
-                try cancellation.check()
-                try await Task.sleep(nanoseconds: 50_000_000)
-            }
-            let store = WeightStore(modelDirectory: model)
-            let verified: Bool
-            do {
-                verified = try modelVerification.check(files: selection.pack.files.map { model.appendingPathComponent($0.path) },
-                    shouldContinue: { !cancellation.isCancelled }) {
-                        try store.status(shouldContinue: { !cancellation.isCancelled }).isReady
-                    }
-            }
-            catch { try cancellation.check(); throw error }
-            guard verified else { throw SevraError.unavailable("The local model is missing or incomplete. Set up the model before sending.") }
-            try cancellation.check()
-            // XNU caches host_statistics64 for a one-second window. A fast
-            // verified reload can otherwise size against our already-freed
-            // model, disable MTP and invalidate compatible disk checkpoints.
-            // Wait only for the remainder of that window; never invent credit
-            // for released bytes or override the real availability guard.
-            if let releasedAt {
-                let remaining = PerformancePolicy.memoryObservationDelay - (ProcessInfo.processInfo.systemUptime - releasedAt)
-                if remaining > 0 { try await Task.sleep(nanoseconds: UInt64(remaining * 1e9)) }
-                try cancellation.check()
-            }
-            let machine = Machine.current()
-            let plan = try PerformancePolicy.plan(preferences, on: machine, mtpAvailable: MTPWeights.present(modelDir: model),
-                decodeLookahead: .environment(modelDirectory: model))
-            buffer.stage("Loading the local model")
-            do {
-                let candidate = try await Engine(modelDir: model, plan: plan)
-                try candidate.configureShortPromptPrefill(maxPromptTokens: PerformancePolicy.shortPromptTokens,
-                    chunk: PerformancePolicy.shortPromptChunk)
-                let identity = try candidate.appliedConfiguration(pack: selection.pack, liveMemory: preferences.liveMemory)
-                try cancellation.check()
-                // Publish only after all initialization and identity work
-                // succeeds. No partially configured engine becomes active.
-                engine = candidate; appliedConfiguration = identity
-                performanceTelemetry?.applied(identity)
-            } catch {
-                Engine.releaseUnusedMemory()
+            do { try await loadForTurn(cancellation: cancellation, buffer: buffer) }
+            catch {
+                // Opening the journal and writing the initial intent happen
+                // before a candidate exists. Their failures must stop queued
+                // work too, rather than fail each waiting request in turn.
+                if activationDirectory != nil, !cancellation.isCancelled {
+                    activationFailure = Self.activationRecoveryMessage
+                }
                 throw error
-            }
-            configurePersistentCache()
-            if let engine {
-                governor = MemoryGovernor(engine: engine, management: preferences.liveMemory)
-                governor?.start()
             }
             metrics.loadSeconds = ProcessInfo.processInfo.systemUptime - started
             try cancellation.check()
@@ -434,6 +428,172 @@ public actor LocalInference: Inference {
         try turn.validateCompletion()
         return turn
     }
+    private static let activationRecoveryMessage = "The requested model configuration did not activate. Your settings are preserved. Retry settings or choose the previous configuration."
+
+    private func loadForTurn(cancellation: Cancellation, buffer: TurnBuffer) async throws {
+        let selection = try ModelActivationJournal.Selection(preferences)
+        if activationJournal == nil, let activationDirectory {
+            let journal = try ModelActivationJournal(directory: activationDirectory, fault: activationWriteFault)
+            _ = try journal.recoverInterrupted()
+            activationJournal = journal
+        }
+        let journal = activationJournal
+        if let attempt = journal?.state.attempt, attempt.phase == .failed, attempt.failure != "cancelled",
+           attempt.selection == selection, !activationRetryRequested {
+            activationFailure = Self.activationRecoveryMessage
+            throw SevraError.refused(Self.activationRecoveryMessage)
+        }
+        if let journal, activationAttempt == nil {
+            activationAttempt = try journal.begin(selection)
+        }
+        let attempt = activationAttempt
+        activationRetryRequested = false
+        let previous = journal?.state.lastGood
+        var loaded: (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int)?
+        do {
+            loaded = try await loadCandidate(preferences, cancellation: cancellation, buffer: buffer,
+                journal: journal, attempt: attempt, healthCheck: journal != nil)
+            try cancellation.check()
+            if let journal, let attempt {
+                try journal.commit(attempt, receipt: .init(selection: selection,
+                    generation: loaded!.identity.generation, arithmeticIdentity: loaded!.identity.identity,
+                    healthTokens: loaded!.healthTokens))
+            }
+            try cancellation.check()
+            // The health check and durable commit both precede publication.
+            publish(loaded!.engine, identity: loaded!.identity, liveMemory: preferences.liveMemory)
+            loaded = nil; activationAttempt = nil
+        } catch {
+            let original = error
+            // Drop the unpublished runtime before cleanup or rollback. A
+            // verification failure must not initialize an unused allocator.
+            let hadCandidate = loaded != nil
+            loaded = nil
+            if hadCandidate {
+                Engine.releaseUnusedMemory()
+                releasedAt = ProcessInfo.processInfo.systemUptime
+            }
+            activationAttempt = nil
+            if journal != nil, !cancellation.isCancelled { activationFailure = Self.activationRecoveryMessage }
+            if let journal, let attempt { try journal.fail(attempt, cancelled: cancellation.isCancelled) }
+            // Cancellation returns promptly and does not start another model.
+            // A failed change may restore the previous verified configuration,
+            // but the failed request still errors and later work stays blocked.
+            if !cancellation.isCancelled, let previous, previous.selection != selection,
+               (try? previous.selection.validate()) != nil {
+                do {
+                    buffer.stage("Restoring the previous model configuration")
+                    loaded = try await loadCandidate(previous.selection.preferences,
+                        cancellation: cancellation, buffer: buffer, healthCheck: true)
+                    if let journal, let attempt {
+                        try journal.restored(attempt, receipt: .init(selection: previous.selection,
+                            generation: loaded!.identity.generation, arithmeticIdentity: loaded!.identity.identity,
+                            healthTokens: loaded!.healthTokens))
+                    }
+                    publish(loaded!.engine, identity: loaded!.identity,
+                        liveMemory: previous.selection.preferences.liveMemory)
+                    loaded = nil
+                } catch {
+                    let hadRollback = loaded != nil
+                    loaded = nil
+                    if hadRollback {
+                        Engine.releaseUnusedMemory()
+                        releasedAt = ProcessInfo.processInfo.systemUptime
+                    }
+                }
+            }
+            throw original
+        }
+    }
+
+    private func loadCandidate(_ preference: PerformancePreferences, cancellation: Cancellation,
+                               buffer: TurnBuffer, journal: ModelActivationJournal? = nil,
+                               attempt: UUID? = nil, healthCheck: Bool) async throws
+        -> (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int) {
+        let selection = try ModelPackRegistry.resolve(preference.quantization)
+        // A future registry entry must supply its own verified loader before
+        // it can use this boundary. Never reinterpret it as the original pack.
+        guard selection.pack.id == ModelPackRegistry.baseline.id else {
+            throw SevraError.unavailable("This build cannot load the requested model pack.")
+        }
+        performanceTelemetry?.update(state: "Loading", detail: "Preparing the local model.")
+        buffer.stage("Verifying the local model")
+        while ahead.running {
+            try cancellation.check()
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        let store = WeightStore(modelDirectory: model)
+        let verified: Bool
+        do {
+            verified = try modelVerification.check(files: selection.pack.files.map { model.appendingPathComponent($0.path) },
+                shouldContinue: { !cancellation.isCancelled }) {
+                    try store.status(shouldContinue: { !cancellation.isCancelled }).isReady
+                }
+        } catch { try cancellation.check(); throw error }
+        guard verified else { throw SevraError.unavailable("The local model is missing or incomplete. Set up the model before sending.") }
+        try cancellation.check()
+        if let journal, let attempt { try journal.advance(attempt, to: .verified) }
+        // XNU caches host_statistics64 for one second. Observe fresh real
+        // availability after releasing old allocations, without invented credit.
+        if let releasedAt {
+            let remaining = PerformancePolicy.memoryObservationDelay - (ProcessInfo.processInfo.systemUptime - releasedAt)
+            if remaining > 0 { try await Task.sleep(nanoseconds: UInt64(remaining * 1e9)) }
+            try cancellation.check()
+        }
+        let plan = try PerformancePolicy.plan(preference, on: .current(), mtpAvailable: MTPWeights.present(modelDir: model),
+            decodeLookahead: .environment(modelDirectory: model))
+        if let journal, let attempt { try journal.advance(attempt, to: .loading) }
+        buffer.stage("Loading the local model")
+        do {
+            let candidate = try await Engine(modelDir: model, plan: plan)
+            try candidate.configureShortPromptPrefill(maxPromptTokens: PerformancePolicy.shortPromptTokens,
+                chunk: PerformancePolicy.shortPromptChunk)
+            let identity = try candidate.appliedConfiguration(pack: selection.pack, liveMemory: preference.liveMemory)
+            try cancellation.check()
+            if let journal, let attempt { try journal.advance(attempt, to: .checking) }
+            let healthTokens: Int
+            if healthCheck {
+                buffer.stage("Checking the local model")
+                healthTokens = try Self.checkHealth(candidate, cancellation: cancellation)
+            } else { healthTokens = 0 }
+            return (candidate, identity, healthTokens)
+        } catch {
+            Engine.releaseUnusedMemory()
+            releasedAt = ProcessInfo.processInfo.systemUptime
+            throw error
+        }
+    }
+
+    /// A fixed text-only request exercises the actual loaded target and draft.
+    /// It cannot execute tools or attach a disk cache; transient state is
+    /// discarded before any user prompt is prepared. Four
+    /// output tokens and a thirty-second connection deadline bound the probe;
+    /// ordinary request memory, cancellation and pressure guards still apply.
+    private static func checkHealth(_ engine: Engine, cancellation: Cancellation) throws -> Int {
+        let started = ProcessInfo.processInfo.systemUptime
+        let continuing = { !cancellation.isCancelled && ProcessInfo.processInfo.systemUptime - started < 30 }
+        let request = try engine.beginRequest(connected: continuing)
+        engine.dropPrefixCache()
+        defer { engine.dropPrefixCache() }
+        let ids = engine.tokenizer.encode(text: "Hello", addSpecialTokens: false)
+        guard !ids.isEmpty, ids.count <= 32 else { throw SevraError.refused("Model health prompt could not be prepared.") }
+        var params = SampleParams.greedy; params.maxTokens = 4
+        let result = engine.generate(promptIds: ids, params: params, shouldContinue: continuing, request: request)
+        try cancellation.check()
+        guard continuing(), result.stats.runtimeError == nil, (1...4).contains(result.ids.count) else {
+            throw SevraError.refused("The new model did not complete its bounded health check.")
+        }
+        return result.ids.count
+    }
+
+    private func publish(_ candidate: Engine, identity: AppliedModelConfiguration, liveMemory: LiveMemoryManagement) {
+        engine = candidate; appliedConfiguration = identity
+        performanceTelemetry?.applied(identity)
+        configurePersistentCache()
+        governor = MemoryGovernor(engine: candidate, management: liveMemory)
+        governor?.start()
+    }
+
     /// Checks the pinned model files now, so the first message after launch
     /// does not wait for the whole hash. It runs at utility priority, reads
     /// in bounded chunks and loads nothing. Skipped in Low Power Mode, when
@@ -470,6 +630,9 @@ public actor LocalInference: Inference {
         maintaining = true
         defer { maintaining = false }
         await releaseEngine()
+        if let activationFailure {
+            performanceTelemetry?.update(state: "Model change failed", detail: activationFailure)
+        }
     }
     /// Requires lifecycle ownership and no active turn. The caller keeps it
     /// across the asynchronous drain, including when there is no governor.

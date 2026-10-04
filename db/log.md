@@ -184,3 +184,6 @@ Integrate the authenticated affine control with Engine, real HTTP, exact memory/
 ## [2026-10-04 05:04] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Preserve the complete draft pilot exclusions and stopped thermal preflight without a speed claim; repair isolated context compilation and provenance after pack-memory integration.
 
+## [2026-10-04 05:28] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Implement and verify durable original-pack activation, bounded health checks, sequential rollback, explicit retry and restart/cancellation recovery. Preserve failed attempts and keep candidate quality, speed, distribution and release gates open.
+
