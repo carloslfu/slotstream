@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T19:19:06.752296+00:00
+updated: 2026-10-04T19:41:38.889575+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -26,7 +26,7 @@ This table supersedes the progress summary below without changing its historical
 | --- | --- | --- |
 | Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows, image outcomes/capacity and long-conversation task outcomes |
-| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The frozen final paired held-out campaign is running; no result or noninferiority verdict is available |
+| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The frozen final paired held-out campaign stopped at a native startup preflight; completed answers are preserved, and no noninferiority verdict is available |
 | Complete performance | Actual-plan pilots and preserved timing exclusions identify useful candidate improvements | Complete an eligible paired campaign and safe lower-budget matrix; qualify local profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Standalone artifact production, its native identity/parity, independent public pull and integrated multiple-pack transactions |
@@ -939,3 +939,11 @@ The same source preserves successful complete engine CI for the earlier paired p
 [[sources/runs/2026/10/2026-10-04-frozen-activation-pack-selection]] records loading and rollback bound to the exact resolved pack and manifest. Persisted selections validate the explicit supported entry without rerunning Auto. Pending activation retains that selection across independent readiness changes while rejecting changed effective settings. Optional forecast downloads and missing-component notices now use the selected compiled pack's explicit capability list. The original weight manifest and supported registry stay unchanged.
 
 New identity, persistence and pending-readiness checks await CI and later real-model acceptance. The earlier standalone loader passes complete Mac runtime/Xcode CI; its complete engine workflow is still pending at this checkpoint. These preparations do not qualify a candidate or enable alternative automatic profiles. The final paired campaign retains its frozen code and protocol.
+
+### Held-out startup refusal and release boundary, October 4
+
+[[sources/runs/2026/10/2026-10-04-heldout-native-startup-refusal]] preserves the interrupted frozen campaign and a hash inventory of its complete local evidence. Eighteen paired jobs completed. The next job completed the original arm and forty-five candidate tasks before the candidate process for the remaining tasks refused its memory preflight. That process loaded no model, reset no case and received no request. No answer or partial quality statistic has been selected or interpreted, and the frozen campaign remains incomplete.
+
+The parent recorded sufficient reclaimable memory, but the earlier native refusal omitted its own observation and could also represent an unavailable host-statistics read. A cached observation following release is plausible, not established. The session owner now waits past the existing one-second host-statistics boundary after its child exits, before sampling memory for another launch. It does not enlarge a ceiling, retry a process or accept an unsafe allocation. Repeated cleanup does not repeat the wait, and a live child cannot count as released. Both Python runtimes pass the actual-process cleanup and deadline checks. Native startup now records its preflight observation, including an unavailable value, into an incomplete receipt before refusing.
+
+A continuation requires a separately frozen causal instrument correction under [[records/decisions/final-paired-task-quality-protocol]]. It must bind all completed evidence, preserve the failed attempt, execute only unanswered cells, retain the original sample, graders, margins and native arithmetic, and count prior time, sessions and receipts against the original total resource limits. No continuation or quality verdict is established by this correction. Candidate promotion remains closed.

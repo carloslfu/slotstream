@@ -265,3 +265,6 @@ Added complete standalone export execution with frozen sources and component pla
 ## [2026-10-04 19:19] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Bound pending activation, load and rollback to the resolved supported pack and manifest without reselecting Auto. Preserved independent readiness changes and added identity/mismatch checks. Mac setup now uses each compiled pack own optional forecast capabilities. New native checks await CI; captured prior standalone Mac CI. Full export and candidate qualification remain open.
 
+## [2026-10-04 19:42] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserved the held-out campaign startup refusal and complete evidence inventory without interpreting partial quality. Added post-exit settling and explicit native preflight evidence; actual-process checks pass on both Python runtimes. The original study stays incomplete, with unchanged evidence and resource limits required for any separately frozen continuation. Full brain validation and claims/projections pass.
+

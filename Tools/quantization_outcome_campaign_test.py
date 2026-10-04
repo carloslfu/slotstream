@@ -224,6 +224,11 @@ for line in sys.stdin:
                 finally:session.close()
                 self.assertTrue(session.child.stdin.closed);self.assertTrue(session.child.stdout.closed)
                 with self.assertRaises(ProcessLookupError):os.kill(row['pid'],0)
+                self.assertGreaterEqual(row['release_settle_seconds'],q.Session.RELEASE_SETTLE_SECONDS)
+                self.assertEqual(row['exit_code'],0)
+                elapsed=row['release_settle_seconds']
+                session.close()
+                self.assertEqual(row['release_settle_seconds'],elapsed,'a closed child must not settle twice')
 
     def test_pressure_and_campaign_deadlines_abort_without_fabricating_an_outcome(self):
         with tempfile.TemporaryDirectory() as directory:

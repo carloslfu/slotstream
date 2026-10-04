@@ -152,8 +152,15 @@ extension Diagnostics {
         _ = try save()
         if planOnly { identity["complete"] = true; return try save() }
         try ModelProcessGuard.acquire()
-        guard let vm = ProcessMemory.vmActivity(), vm.reclaimableBytes >= UInt64(specification.requiredPreflightBytes) else {
-            throw ModelError("session needs \(specification.requiredPreflightBytes) bytes of actual reclaimable memory")
+        let preflight = ProcessMemory.vmActivity()
+        if let preflight {
+            identity["preflight"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(preflight))
+        } else { identity["preflight"] = NSNull() }
+        guard let preflight, preflight.reclaimableBytes >= UInt64(specification.requiredPreflightBytes) else {
+            let observed = preflight.map { String($0.reclaimableBytes) + " bytes" } ?? "unavailable"
+            let failure = "session needs \(specification.requiredPreflightBytes) bytes of actual reclaimable memory; observed \(observed)"
+            identity["failure"] = failure; _ = try save()
+            throw ModelError(failure)
         }
         let started = ProcessInfo.processInfo.systemUptime
         let oldLimit = MLX.Memory.memoryLimit, oldCache = MLX.Memory.cacheLimit

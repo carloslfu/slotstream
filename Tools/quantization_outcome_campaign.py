@@ -160,12 +160,19 @@ def verify_response(event, request_id, messages, tools, native):
 
 
 class Session:
+    # The app already waits past XNU's one-second host-statistics cache after
+    # releasing an Engine. Apply the same conservative boundary between owned
+    # native processes before a new caller can sample headroom and launch.
+    # This does not increase a budget, retry a session or authorize allocation.
+    RELEASE_SETTLE_SECONDS = 1.05
+
     def __init__(self, command, output, native, protocol, arm, row, *, campaign_deadline=None, output_root=None):
         self.row, self.native, self.protocol, self.arm = row, native, protocol, arm
         self.started = time.monotonic(); self.error = None
         self.stop = threading.Event(); self.buffer = bytearray()
         self.termination_lock = threading.Lock()
         self.termination_attempted = False; self.termination_error = None
+        self.release_settled = False
         self.count = self.resets = self.refusals = 0
         self.child = self.thread = self.selector = self.stderr = self.stdout = None
         self.output = Path(output)
@@ -312,6 +319,17 @@ class Session:
                 if stream is not None: cleanup(stream.close)
         for stream in (self.stderr, self.stdout):
             if stream is not None: cleanup(stream.close)
+        if self.child is not None and self.child.poll() is not None and not self.release_settled:
+            def settle():
+                began = time.monotonic()
+                remaining = self.RELEASE_SETTLE_SECONDS
+                while remaining > 0:
+                    time.sleep(remaining)
+                    remaining = self.RELEASE_SETTLE_SECONDS - (time.monotonic() - began)
+                self.row['release_settle_seconds'] = time.monotonic() - began
+                self.row['exit_code'] = self.child.returncode
+                self.release_settled = True
+            cleanup(settle)
         cleanup(lambda: self.row.update(after=vm_snapshot()))
         self.row['seconds'] = time.monotonic() - self.started
         if failure is not None:
