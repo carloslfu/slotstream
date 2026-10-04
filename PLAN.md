@@ -1051,6 +1051,15 @@ The conservative throughput helper removes the prefill-produced first token from
 
 The same source closes complete engine CI for the unanswered-only continuation at 54811942cd622d982291c0693b593039a2a7eaf0 and complete engine/Mac CI for explicit startup observation at 454209c6d377ebeefd2290e2866a48fbd3d72d88. These are source and integration gates, not completion of the still-running quality study.
 
+
+### Complete paired performance owner, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-performance-campaign-preparation]] records a source-bound sequential owner for the complete native configuration instrument. It binds binary, library, source archive, artifacts, prompts, reply reservations, context and memory controls before execution. Alternating adjacent pairs retain all attempted evidence. Final analysis requires complete coverage and recomputes work, memory and eligibility from authenticated raw receipts. A final speed study additionally requires a complete eligible pilot, an explicit prospective sampling rationale and enough run-level observations for the entire comparison family. The pilot cannot qualify an artifact.
+
+Native child supervision enforces physical and parent ceilings, real headroom, OS pressure, deadlines and complete storage reservation. Timing exclusions preserve functional evidence without selecting replacement runs or a favorable subset. Startup remains separated by profile; individual timing observations, single-token latency and worst observed stalls remain available. Nine fixture groups pass on both Python runtimes, including real tiny child cleanup after an injected physical violation and a post-exit observation failure. Thirty-two static entry checks pass. The initial broad test stub broke process-table enumeration and is preserved with its narrow fixture correction. No model or performance campaign ran during this work.
+
+The same source closes full engine and Mac CI for the explicit lookahead preparation at 0435d4871743c1d9a215fd8e3c500c2272eb7c0d. Physical lookahead parity, complete-configuration pilot/final execution, lower-budget performance profiles and promotion remain open. The held-out quality continuation keeps its existing frozen executable and protocol.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

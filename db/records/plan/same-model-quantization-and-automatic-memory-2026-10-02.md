@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T21:17:43.090457+00:00
+updated: 2026-10-04T21:42:55.932547+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -989,3 +989,12 @@ The native catalogue and existing bounded Engine diagnostic now include explicit
 The conservative throughput helper removes the prefill-produced first token from its numerator while retaining the complete decode timer. It keeps active emission, visible text, short-response latency and tail stalls separate. A simultaneous one-sided median bound uses exact binomial rank tails under the stated independent run-level sampling assumption. Too few repetitions or a missing scenario cannot pass the speed gate, and the helper never grants model qualification. Eight groups pass on both Python runtimes, including independent exhaustive rank witnesses; all thirty-two static registration checks pass. Native compilation, physical instrument acceptance, paired execution and a prospective final scenario/sample-count freeze remain pending. No speed observation is produced by this preparation.
 
 The same source closes complete engine CI for the unanswered-only continuation at 54811942cd622d982291c0693b593039a2a7eaf0 and complete engine/Mac CI for explicit startup observation at 454209c6d377ebeefd2290e2866a48fbd3d72d88. These are source and integration gates, not completion of the still-running quality study.
+
+
+### Complete paired performance owner, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-performance-campaign-preparation]] records a source-bound sequential owner for the complete native configuration instrument. It binds binary, library, source archive, artifacts, prompts, reply reservations, context and memory controls before execution. Alternating adjacent pairs retain all attempted evidence. Final analysis requires complete coverage and recomputes work, memory and eligibility from authenticated raw receipts. A final speed study additionally requires a complete eligible pilot, an explicit prospective sampling rationale and enough run-level observations for the entire comparison family. The pilot cannot qualify an artifact.
+
+Native child supervision enforces physical and parent ceilings, real headroom, OS pressure, deadlines and complete storage reservation. Timing exclusions preserve functional evidence without selecting replacement runs or a favorable subset. Startup remains separated by profile; individual timing observations, single-token latency and worst observed stalls remain available. Nine fixture groups pass on both Python runtimes, including real tiny child cleanup after an injected physical violation and a post-exit observation failure. Thirty-two static entry checks pass. The initial broad test stub broke process-table enumeration and is preserved with its narrow fixture correction. No model or performance campaign ran during this work.
+
+The same source closes full engine and Mac CI for the explicit lookahead preparation at 0435d4871743c1d9a215fd8e3c500c2272eb7c0d. Physical lookahead parity, complete-configuration pilot/final execution, lower-budget performance profiles and promotion remain open. The held-out quality continuation keeps its existing frozen executable and protocol.

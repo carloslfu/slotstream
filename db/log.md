@@ -283,3 +283,6 @@ Prepared explicit grouped-affine text lookahead with exact full scheduler/router
 ## [2026-10-04 21:17] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared complete Engine performance profiles with separate fixed-work and natural completion, unchanged production safety, applied-plan and raw token/text timing evidence. Eight metric/order-statistic groups pass on both runtimes and thirty-two static registration checks pass. Native compilation, physical execution and final paired-study freeze remain pending. Captured complete startup engine/Mac and continuation engine CI acceptance; no speed or quality verdict.
 
+## [2026-10-04 21:42] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Implemented source-bound paired performance ownership with complete-work and physical checks, preserved attempts, independent timing exclusions and prospective final sampling requirements. Nine groups pass on both Python runtimes and thirty-two static registration checks pass. Captured full lookahead engine and Mac CI; no physical optimization, performance campaign or model promotion occurred.
+
