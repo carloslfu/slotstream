@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T11:01:52.258032+00:00
+updated: 2026-10-04T11:56:30.855256+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -716,3 +716,15 @@ Exact public IFEval, MBPP, MGSM, BFCL and MMLU source versions and licenses are 
 
 The pinned BFCL base population has two hundred cases. Every unchanged gold trace passes the retained upstream state/response checker through the safe direct-call adapter, every empty trace fails, and a deliberately wrong filesystem fixture state fails. No reference call returns an execution or fixture error. The final adapter's largest observed worker footprint is 40,255,992 bytes under its prospective 256,000,000-byte ceiling. Six helper test groups pass on both Python runtimes, including real native denials and source-copy isolation; thirty-two static registration checks pass. These contain no candidate outputs and do not increase the number of independently evaluated model tasks. The original prototype and final guard/observation revision are both preserved.
 The same frozen native binary subsequently passes the complete model-free catalogue and static suite, with matching before/after build inputs. Physical tree peaks are 223,249,296 bytes for the catalogue and 1,115,949,264 bytes for static acceptance, inside the six-GB watchdog. [[sources/runs/2026/10/2026-10-04-executed-tool-static-acceptance]] preserves the full outputs and resource receipt. No model quality or timing inference follows.
+
+### Disjoint quality protocol pilot
+
+[[sources/runs/2026/10/2026-10-04-disjoint-completed-task-quality-pilot]] preserves the fixed tasks, protocols, source/runtime identities, complete native transcripts, exact offline tool traces and both driver attempts. The first attempt fails before any model launch on a helper-directory hash. The corrected attempt finishes ten sessions in 2,729.316262 seconds. Original outcomes are facts 4/5, multilingual 5/5, coding repair 3/5, strict instruction following 4/5 and tools 1/5. The grouped affine control records 4/5, 4/5, 3/5, 3/5 and 1/5 respectively. There are three discordant pairs against the candidate and one in its favor, for totals of 17/25 and 15/25.
+
+All responses come from actual fourteen-GB, 32K native plans with streamed original drafts and prefix retention. The process watchdog, actual preflight/headroom, request/session/campaign limits and before/after grader identities pass. These are sizing and instrument observations, not eligible speed measurements or held-out noninferiority. The smaller pilot reply/step limits, output truncation, step exhaustion and strict BFCL reference-response requirement remain explicit. No failed case is replaced. All underlying task IDs remain excluded from every final sample.
+
+### Stored affine-three-bit reconstruction refit
+
+[[sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component]] records a prospectively bounded component screen of least-squares scale/bias fitting against the original four-bit parent. It uses the same three-bit/group-64 representation and actual BF16 dequantization error, with the unchanged control retained per group unless a trial improves it. The implementation is distinct from HQQ's robust proximal objective and uses no held-out activations or task answers.
+
+Twenty component cases pass, including two synthetic shape/batching cases and eighteen real expert projections containing 29,491,200 values. Independent packed-code decoding, stored serialization and group-error reductions agree. The real component squared-error reductions range from 49.1930% to 49.4405%, with zero group-level regressions; maximum individual absolute error grows in twelve of the eighteen. The process peaks at 434,455,344 physical bytes and finishes in 14.261859 seconds inside its frozen four-GB/13-GB-preflight/three-GB-headroom and twenty-minute envelope. No complete model runs or new model weights are produced. This supports pricing a separate full conversion, without establishing quality, performance, original BF16 equivalence or promotion eligibility.

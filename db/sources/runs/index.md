@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T11:01:07.188302Z
+updated: 2026-10-04T11:57:21.554238Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-affine-three-bit-refit-component]] — Bounded BF16 affine refit component with independent stored-error, packing and batch checks
+- [[sources/runs/2026/10/2026-10-04-disjoint-completed-task-quality-pilot]] — Completed disjoint pilot of paired factual, multilingual, repair, instruction and executed-tool outcomes
 - [[sources/runs/2026/10/2026-10-04-executed-tool-static-acceptance]] — Executed tool instruments static acceptance
 - [[sources/runs/2026/10/2026-10-04-executed-tool-conversation-instruments]] — Native tool conversation and isolated offline outcome-grader acceptance
 - [[sources/runs/2026/10/2026-10-04-heldout-grader-and-source-preparation]] — Held-out grader and source preparation
@@ -505,10 +507,8 @@ updated: 2026-10-04T11:01:07.188302Z
 - [[sources/runs/2026/09/2026-09-07-optimization-final-candidate-native-and-build]] — Expanded-diagnostic candidate builds and passes all three exact-build native prerequisites
 - [[sources/runs/2026/09/2026-09-07-optimization-committed-checkpoint-read-failure-recovery]] — Committed prompt checkpoints survive decode errors exactly across every serving dialect
 - [[sources/runs/2026/09/2026-09-07-optimization-native-pass-and-read-failure-checkpoint-counterexample]] — Combined native passes expose stale failed-state checkpoint assertion
-- [[sources/runs/2026/09/2026-09-07-optimization-pressure-failure-cause-reporting]] — Pressure failures retain the observed kernel level without changing eligibility
-- [[sources/runs/2026/09/2026-09-07-optimization-native-comparison-pressure-stop]] — First current-candidate native comparison stops at non-normal OS pressure
 
 ## More
 
-This folder has 780 files. The 500 most recent are listed above.
+This folder has 782 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
