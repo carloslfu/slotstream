@@ -6,8 +6,13 @@ extension Diagnostics {
     /// allocating a model. Real speed/quality qualification stays independent.
     public static func automaticPackPolicy() throws -> CheckReport {
         var c = CheckBuilder("automatic-pack-policy")
-        let hardware = ModelPackHardware(model: "test-mac", chip: "test-chip", osBuild: "test-os",
-            nativeARM64: true, storage: .internalLocal, volumeID: "test-disk")
+        func system(model: String? = "test-mac", chip: String? = "test-chip", build: String? = "test-os",
+                    native: Bool = true, storage: ModelPackHardware.Storage = .internalLocal,
+                    volume: String? = "test-disk", thermal: String? = "nominal", lowPower: Bool? = false) -> ModelPackHardware {
+            ModelPackHardware(model: model, chip: chip, osBuild: build, nativeARM64: native,
+                storage: storage, volumeID: volume, thermalState: thermal, lowPowerModeEnabled: lowPower)
+        }
+        let hardware = system()
         let manifest = String(repeating: "a", count: 64), digest = String(repeating: "b", count: 64)
         let featureSet: Set<ModelPackFeature> = [.text, .tools, .prefixReuse]
         func candidate(_ id: String = "original", target: Int64 = 14_000_000_000,
@@ -91,20 +96,14 @@ extension Diagnostics {
             context(ceiling: 14_000_000_000, available: minimumAvailability.nextUp, working: 16)) != nil)
         c.expect("one byte below the headroom requirement is excluded", choose([original],
             context(available: minimumAvailability - 1e-9)) == nil)
-        for changed in [
-            ModelPackHardware(model: "different", chip: hardware.chip, osBuild: hardware.osBuild,
-                nativeARM64: true, storage: .internalLocal, volumeID: hardware.volumeID),
-            ModelPackHardware(model: hardware.model, chip: "different", osBuild: hardware.osBuild,
-                nativeARM64: true, storage: .internalLocal, volumeID: hardware.volumeID),
-            ModelPackHardware(model: hardware.model, chip: hardware.chip, osBuild: "updated",
-                nativeARM64: true, storage: .internalLocal, volumeID: hardware.volumeID),
-            ModelPackHardware(model: hardware.model, chip: hardware.chip, osBuild: hardware.osBuild,
-                nativeARM64: true, storage: .internalLocal, volumeID: "different-disk"),
-            ModelPackHardware(model: hardware.model, chip: hardware.chip, osBuild: hardware.osBuild,
-                nativeARM64: false, storage: .internalLocal, volumeID: hardware.volumeID),
-            ModelPackHardware(model: hardware.model, chip: hardware.chip, osBuild: hardware.osBuild,
-                nativeARM64: true, storage: .unknown, volumeID: nil)] {
+        for changed in [system(model: "different"), system(chip: "different"), system(build: "updated"),
+                        system(volume: "different-disk"), system(native: false), system(storage: .unknown, volume: nil),
+                        system(thermal: "fair"), system(lowPower: true), system(thermal: nil, lowPower: nil)] {
             c.expect("changed hardware does not inherit a measured result", choose([original], context(hw: changed)) == nil)
+        }
+        for changed in [system(thermal: "fair"), system(lowPower: true), system(thermal: nil, lowPower: nil)] {
+            c.expect("an unsupported operating-state profile cannot qualify itself",
+                choose([measured("unsupported-conditions", hw: changed)], context(hw: changed)) == nil)
         }
         c.expect("a RAM estimate is not a measured profile", choose([original], context(ram: 64)) == nil)
         c.expect("simulated machine cannot produce measured evidence", choose([original], context(simulated: true)) == nil)

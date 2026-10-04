@@ -516,7 +516,9 @@ with a custom model directory requires that directory to pass the complete
 pinned verification; it is not silently repaired into another representation.
 
 Selection metadata separates an exact measured configuration, a conservative
-estimate and unknown performance. A matching plan must preserve the requested
+estimate and unknown performance. Measured matching includes power and thermal
+conditions and describes performance observed in matching tests. A matching
+plan must preserve the requested
 context and features, fit current headroom and the saved ceiling, and refer to
 an accepted installed pack. This matching policy does not download weights or
 replace load-time verification. The reviewed profile registry remains empty;

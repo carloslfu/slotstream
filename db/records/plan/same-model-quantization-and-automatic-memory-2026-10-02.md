@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T22:42:57.990394+00:00
+updated: 2026-10-04T22:54:37.183073+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1025,3 +1025,11 @@ Desktop custom validation uses this pack/context range. Its first-use control ta
 Pure catalogue checks cover stable ranges under busy snapshots, exact endpoints and the preceding grid value, required draft/image and long-context costs, invalid hardware/controls, actual-headroom refusal and unchanged original-plan JSON. App fixtures bind the visible endpoints to the ledger and preserve both old budget-selector function behavior and saved values. Compilation, fixture execution and physical UI rendering of this range change are still pending; no alternative artifact is registered or loaded.
 
 [[sources/runs/2026/10/2026-10-04-auto-policy-ci-access-correction]] preserves the failed first Auto-policy CI. Swift synthesized the fixture profile initializer as module-private, so the separate diagnostics module could not construct its synthetic profiles. The explicit package-scoped initializer corrects that source error and remains unavailable to external applications or downloaded metadata. The earlier production Mac Xcode build passed; full corrected engine and app acceptance remains pending. The held-out quality continuation has completed another job and remains frozen and unanalyzed.
+
+### Measured operating-condition binding and remaining performance integration, October 4
+
+Auto profile matching now includes current OS thermal state and Low Power Mode. Only the nominal, non-conserving state admitted by the complete-performance protocol can match a measured point or serve as its estimate anchor. Missing, different or unsupported conditions cannot self-qualify. The original hardware initializer remains available and represents missing conditions explicitly. New pure fixtures change each hardware and operating-state dimension independently; execution is pending CI. User-facing wording describes a matching historical test, not a promised instantaneous rate. No runtime pressure event invokes selection or replaces the loaded pack.
+
+The complete-performance producer still needs two concrete integrations before final use: its candidate path currently measures the composite original-plus-control research source, while the finished product will load the standalone artifact; and its stock Engine setup does not yet apply Desktop's short-prompt policy. The next prospective producer revision must support authenticated standalone loading and explicitly frozen short-prompt settings, preserve the existing producer contract and resource bounds, and update paired validation/receipts. No actual complete-performance pilot or final protocol has been frozen or executed, so these changes do not replace or reinterpret observations.
+
+The pure selector currently matches caller-provided proposed plans. Full candidate Auto integration still needs the qualified recipe's own initial plan and automatic ceiling, supported custom-ceiling behavior, accepted installed-content ownership and frozen activation/recovery. Do not treat the prepared matcher or an empty compiled profile list as that completed product behavior. Candidate qualification, artifact production and complete local integrated acceptance remain open.

@@ -25,15 +25,29 @@ public struct ModelPackHardware: Equatable, Sendable {
     public let nativeARM64: Bool
     public let storage: Storage
     public let volumeID: String?
+    public let thermalState: String?
+    public let lowPowerModeEnabled: Bool?
 
     public init(model: String?, chip: String?, osBuild: String?, nativeARM64: Bool,
                 storage: Storage, volumeID: String?) {
+        self.init(model: model, chip: chip, osBuild: osBuild, nativeARM64: nativeARM64,
+            storage: storage, volumeID: volumeID, thermalState: nil, lowPowerModeEnabled: nil)
+    }
+
+    public init(model: String?, chip: String?, osBuild: String?, nativeARM64: Bool,
+                storage: Storage, volumeID: String?, thermalState: String?, lowPowerModeEnabled: Bool?) {
         self.model = model; self.chip = chip; self.osBuild = osBuild
         self.nativeARM64 = nativeARM64; self.storage = storage; self.volumeID = volumeID
+        self.thermalState = thermalState; self.lowPowerModeEnabled = lowPowerModeEnabled
     }
+
+    /// The current complete-performance protocol admits this operating state.
+    /// A different or unreadable state keeps measured speed evidence absent.
+    package var admitsMeasuredConditions: Bool { thermalState == "nominal" && lowPowerModeEnabled == false }
 
     public static func current(modelDirectory: URL) -> Self {
         let platform = OptimizationPlatform.current
+        let conditions = ProcessMemory.operatingConditions()
         let values = try? modelDirectory.resourceValues(forKeys: [
             .volumeIsLocalKey, .volumeIsInternalKey, .volumeUUIDStringKey])
         let storage: Storage
@@ -42,7 +56,8 @@ public struct ModelPackHardware: Equatable, Sendable {
             storage = internalDisk ? .internalLocal : .externalLocal
         } else { storage = .unknown }
         return Self(model: platform.machineModel, chip: platform.chip, osBuild: platform.osBuild,
-            nativeARM64: platform.nativeARM64, storage: storage, volumeID: values?.volumeUUIDString)
+            nativeARM64: platform.nativeARM64, storage: storage, volumeID: values?.volumeUUIDString,
+            thermalState: conditions.thermalState, lowPowerModeEnabled: conditions.lowPowerModeEnabled)
     }
 }
 
@@ -208,6 +223,7 @@ package enum AutomaticPackPolicy {
                 switch profile.evidence {
                 case let .measured(hardware, measuredRAM, digest, rate, reference):
                     guard !machine.isSimulated, !candidate.simulated, hardware == context.hardware,
+                          hardware.admitsMeasuredConditions,
                           hardware.storage != .unknown, hardware.storage != .remote,
                           hardware.model?.isEmpty == false, hardware.chip?.isEmpty == false,
                           hardware.osBuild?.isEmpty == false, hardware.volumeID?.isEmpty == false,
@@ -229,7 +245,8 @@ package enum AutomaticPackPolicy {
                               anchor.contextTokens == profile.contextTokens, anchor.features == profile.features,
                               anchor.qualityRank == profile.qualityRank, anchor.qualityReference == profile.qualityReference,
                               case let .measured(hardware, ram, digest, rate, reference) = anchor.evidence else { return false }
-                        return hardware.nativeARM64 && hardware.storage != .unknown && hardware.storage != .remote &&
+                        return hardware.nativeARM64 && hardware.admitsMeasuredConditions &&
+                            hardware.storage != .unknown && hardware.storage != .remote &&
                             hardware.model?.isEmpty == false && hardware.chip?.isEmpty == false &&
                             hardware.osBuild?.isEmpty == false && hardware.volumeID?.isEmpty == false &&
                             ram > 0 && !digest.isEmpty && rate.isFinite && rate > 0 && !reference.isEmpty

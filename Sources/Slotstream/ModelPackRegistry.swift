@@ -114,7 +114,7 @@ public enum ModelPackRegistry {
                 if match.evidence == .estimated {
                     reason = "Uses a conservative estimate for this Mac and your memory limit. Speed is not measured on this configuration."
                 } else if match.targetMet {
-                    reason = "Matches a measured configuration within your memory limit and the generation-speed target."
+                    reason = "Uses a configuration that met the generation-speed target in matching hardware tests. Current performance can vary."
                 } else {
                     reason = "Matches a measured configuration within your memory limit. The generation-speed target is still unmet."
                 }

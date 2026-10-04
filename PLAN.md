@@ -1087,6 +1087,14 @@ Pure catalogue checks cover stable ranges under busy snapshots, exact endpoints 
 
 [[sources/runs/2026/10/2026-10-04-auto-policy-ci-access-correction]] preserves the failed first Auto-policy CI. Swift synthesized the fixture profile initializer as module-private, so the separate diagnostics module could not construct its synthetic profiles. The explicit package-scoped initializer corrects that source error and remains unavailable to external applications or downloaded metadata. The earlier production Mac Xcode build passed; full corrected engine and app acceptance remains pending. The held-out quality continuation has completed another job and remains frozen and unanalyzed.
 
+### Measured operating-condition binding and remaining performance integration, October 4
+
+Auto profile matching now includes current OS thermal state and Low Power Mode. Only the nominal, non-conserving state admitted by the complete-performance protocol can match a measured point or serve as its estimate anchor. Missing, different or unsupported conditions cannot self-qualify. The original hardware initializer remains available and represents missing conditions explicitly. New pure fixtures change each hardware and operating-state dimension independently; execution is pending CI. User-facing wording describes a matching historical test, not a promised instantaneous rate. No runtime pressure event invokes selection or replaces the loaded pack.
+
+The complete-performance producer still needs two concrete integrations before final use: its candidate path currently measures the composite original-plus-control research source, while the finished product will load the standalone artifact; and its stock Engine setup does not yet apply Desktop's short-prompt policy. The next prospective producer revision must support authenticated standalone loading and explicitly frozen short-prompt settings, preserve the existing producer contract and resource bounds, and update paired validation/receipts. No actual complete-performance pilot or final protocol has been frozen or executed, so these changes do not replace or reinterpret observations.
+
+The pure selector currently matches caller-provided proposed plans. Full candidate Auto integration still needs the qualified recipe's own initial plan and automatic ceiling, supported custom-ceiling behavior, accepted installed-content ownership and frozen activation/recovery. Do not treat the prepared matcher or an empty compiled profile list as that completed product behavior. Candidate qualification, artifact production and complete local integrated acceptance remain open.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

@@ -295,3 +295,6 @@ Prepared deterministic context-aware Auto matching with exact measured identitie
 ## [2026-10-04 22:44] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared pack-owned planning and ledger-derived stable memory ranges, connected them to custom validation, cached telemetry, native controls and frozen activation planning, and added boundary/transition and saved-below-range/unavailable-range fixtures. Corrected the first Auto-policy diagnostic initializer access error and conservative decimal-byte fixture. Full corrected CI and physical rendering remain pending; failed engine and partial Mac CI are preserved. No alternate pack or speed claim is enabled.
 
+## [2026-10-04 22:56] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Bound measured Auto profiles and estimate anchors to the complete-performance protocol’s nominal non-Low-Power operating state, preserved missing-state and legacy-initializer behavior, and clarified historical-test wording. New fixtures await CI. Recorded the concrete remaining standalone-load and Desktop short-prompt performance integrations, and kept full candidate Auto recipe/ceiling/activation ownership explicitly open.
+
