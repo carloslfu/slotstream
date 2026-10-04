@@ -11,9 +11,11 @@ extension Diagnostics {
     public static func affineEngine(baseline: URL, control: URL, table: URL,
                                     profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false,
                                     piecewiseAllocation: Bool = false, groupedExperts: Bool = false,
-                                    standaloneManifestSHA256: String? = nil) async throws -> Data {
+                                    standaloneManifestSHA256: String? = nil,
+                                    decodeLookahead: Bool = false) async throws -> Data {
         guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
         guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
+        guard !decodeLookahead || groupedExperts else { throw ModelError("experimental lookahead requires grouped experts") }
         let standalone = try standaloneManifestSHA256.map { try AffineStandalonePack(directory: control, manifestSHA256: $0) }
         guard standalone == nil || (groupedExperts && piecewiseAllocation
             && table.resolvingSymlinksInPath() == control.appendingPathComponent("angles-f32le.bin").resolvingSymlinksInPath()) else {
@@ -43,9 +45,9 @@ extension Diagnostics {
                 throw ModelError("affine Engine check exceeded its physical resource envelope")
             }
         }
-        let source = standalone.map { AffineEngineSource(standalone: $0) }
+        let source = standalone.map { AffineEngineSource(standalone: $0, decodeLookahead: decodeLookahead) }
             ?? AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation,
-                groupedExperts: groupedExperts)
+                groupedExperts: groupedExperts, decodeLookahead: decodeLookahead)
         let engineDirectory = standalone?.directory ?? baseline
         let resource = source.resources
         let target = mtp ? 14.0 : 12.0
@@ -57,6 +59,8 @@ extension Diagnostics {
                 // complete-prompt state, including its raw vocabulary row.
                 prefillChunk: 256, prefixCacheTokens: 4096, mtpEnabled: mtp, visionEnabled: false,
                 maxContextTokens: 8192, notes: ["bounded Engine integration fixture; physical process limited to ten GB"],
+                lookaheadReserveBytes: decodeLookahead ? DecodeLookahead.reserveBytes : 0,
+                decodeLookahead: decodeLookahead,
                 memoryLimitGB: source == .auto ? target : nil, mtpStreamedExperts: streamedDraft, resources: resource)
         }
         var c = CheckBuilder("affine-engine-\(mtp ? "draft" : "plain")")
@@ -68,6 +72,7 @@ extension Diagnostics {
                 "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation, "initial_plan": plan(800).json(),
                 "grouped_experts": groupedExperts,
+                "decode_lookahead": decodeLookahead,
                 "maximum_physical_process_bytes": 10_000_000_000, "observations": observations,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -110,6 +115,15 @@ extension Diagnostics {
             c.equal("context metadata uses admitted candidate limit", engine.contextPolicyJSON["implementation_limit"] as? Int, 32768)
             c.expect("unsupported image capability is absent", !engine.visionAvailable && !engine.visionAllowed)
             c.expect("automatic read scopes cannot change reference dispatch", engine.model.optimizations.automaticReadScope == false)
+            c.equal("lookahead scheduler matches the explicit request", engine.model.lookahead?.prefetch != nil, decodeLookahead)
+            if decodeLookahead {
+                c.equal("experimental lookahead uses candidate record bytes",
+                    engine.model.lookahead?.prefetch?.accounting.capBytes, 32 * 2_150_400)
+                c.expect("experimental lookahead never loads the original correction",
+                    engine.model.lookahead?.prefetch?.configuration.correctionPath == nil)
+                c.expect("full router cache is explicitly reserved", engine.model.optimizations.cachedRouterWeights)
+                c.equal("experimental barriers retain bounded pin lifetimes", engine.model.decodeBarrierLayers, DecodeLookahead.barrierLayers)
+            }
             c.expect("resident draft matches the requested mode", (engine.model.mtpHead != nil) == mtp)
             c.equal("independent draft expert placement matches the plan", engine.model.mtpHead?.expertStream != nil, streamedDraft)
             if let standalone {
@@ -156,6 +170,50 @@ extension Diagnostics {
             c.expect("complete-prompt cache actually reused", repeatResult.stats.completePromptHits > 0)
             observations.append(["case": "greedy", "ids": first.ids, "repeat_ids": repeatResult.ids,
                 "complete_prompt_hits": repeatResult.stats.completePromptHits])
+            if decodeLookahead, let session = engine.model.lookahead {
+                c.expect("experimental lookahead actually performs forecasts", (first.stats.expertPrefetch?.forecastPasses ?? 0) > 0)
+                c.expect("experimental lookahead actually issues expert reads", (first.stats.expertPrefetch?.issued ?? 0) > 0)
+                c.equal("all cached router bytes have an explicit owner",
+                    engine.model.cachedRouterBytes, (mtp ? 49 : 48) * 512 * 2560 * MemoryLayout<Float32>.size)
+                // Pause the scheduler only inside this owned diagnostic. The
+                // complete plan/reserve stays charged in both directions;
+                // ordinary demand and forecast runs keep the same artifact,
+                // cache size, draft settings and independent fresh state.
+                let savedBarrier = engine.model.decodeBarrierLayers
+                let savedRouterCache = engine.model.optimizations.cachedRouterWeights
+                defer {
+                    session.prefetch?.invalidate()
+                    engine.model.lookahead = session
+                    engine.model.decodeBarrierLayers = savedBarrier
+                    engine.model.optimizations.cachedRouterWeights = savedRouterCache
+                }
+                for count in [44, 260, 2054] {
+                    let input = count == 44 ? prompt : (0..<count).map { 100 + ($0 * 17 % 1000) }
+                    session.prefetch?.invalidate(); engine.dropPrefixCache()
+                    engine.model.lookahead = nil
+                    engine.model.decodeBarrierLayers = 1
+                    engine.model.optimizations.cachedRouterWeights = false
+                    let demand = engine.generate(promptIds: input, params: params)
+                    engine.dropPrefixCache(); engine.model.lookahead = session
+                    engine.model.decodeBarrierLayers = savedBarrier
+                    engine.model.optimizations.cachedRouterWeights = savedRouterCache
+                    let forecast = engine.generate(promptIds: input, params: params)
+                    c.expect("both lookahead parity requests complete/\(count)",
+                        demand.stats.requestFailure == nil && demand.stats.runtimeError == nil
+                            && forecast.stats.requestFailure == nil && forecast.stats.runtimeError == nil
+                            && !demand.ids.isEmpty && !forecast.ids.isEmpty)
+                    c.equal("lookahead preserves committed IDs/\(count)", forecast.ids, demand.ids)
+                    c.expect("demand reference has no scheduler observation/\(count)", demand.stats.expertPrefetch == nil)
+                    c.equal("lookahead releases every speculative reservation/\(count)", session.prefetch?.reservedSlots, 0)
+                    c.equal("lookahead releases every expert pin/\(count)", engine.model.pool.pinnedSlotCount, 0)
+                    observations.append(["case": "lookahead-parity-\(count)", "demand_ids": demand.ids,
+                        "forecast_ids": forecast.ids,
+                        "demand_stats": try JSONSerialization.jsonObject(with: JSONEncoder().encode(demand.stats)),
+                        "forecast_stats": try JSONSerialization.jsonObject(with: JSONEncoder().encode(forecast.stats))])
+                    try guardResources(); _ = try save()
+                }
+                engine.dropPrefixCache()
+            }
             try guardResources(); _ = try save()
 
             let disk = try engine.enablePersistentPrefixCache(.init(directory: temporary.appendingPathComponent("prefix"),
@@ -213,6 +271,7 @@ extension Diagnostics {
             c.equal("live pressure shrinks the actual alternate arena", engine.poolSnapshot().slots, 640)
             c.equal("live pressure retains saved ceiling", engine.currentPlan?.memoryLimitGB, target)
             c.equal("live pressure retains resource identity", engine.currentPlan?.resources, resource)
+            c.equal("live pressure retains explicit lookahead", engine.currentPlan?.decodeLookahead, decodeLookahead)
             let refused = engine.generate(promptIds: prompt, params: params)
             c.expect("infeasible allocation refuses before inference", refused.ids.isEmpty && refused.stats.requestFailure?.code == .insufficientMemory)
             Planner.availabilityOverride = savedAvailability

@@ -277,3 +277,6 @@ Captured prospective image and long-conversation protocols, preserved preparatio
 ## [2026-10-04 20:46] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Implemented exact authenticated research-payload retirement with exclusive ownership, full pre-deletion hashes, preserved reconstruction custody, durable per-file intent and no retries. Seven tiny filesystem groups pass on both runtimes and thirty-two static registration checks pass. Metadata-only actual-plan validation passes; actual payload retirement remains pending behind the active study.
 
+## [2026-10-04 20:54] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared explicit grouped-affine text lookahead with exact full scheduler/router reserve and independent capability identity, retaining closed Auto admission. Added pure planner and physical Engine parity/ownership/recovery checks. No physical execution or speed claim; compilation and CI remain pending. Frozen quality and product protocols remain unchanged.
+

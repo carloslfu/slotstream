@@ -62,6 +62,36 @@ extension Diagnostics {
             piecewisePlan.json()["est_warm_tok_s"] is NSNull && !piecewisePlan.mtpEnabled && !piecewisePlan.decodeLookahead)
         c.expect("sequential allocation ledger respects its saved ceiling", piecewisePlan.expectedPeakGB <= 14)
         let grouped = PackMemoryProfile.affine3GroupedControl
+        let groupedLookahead = PackMemoryProfile.affine3GroupedLookaheadControl
+        c.expect("experimental lookahead is a separate explicit capability",
+            groupedLookahead != grouped && groupedLookahead.supportsDecodeLookahead
+                && !grouped.supportsDecodeLookahead && !groupedLookahead.automaticOptimizations
+                && !groupedLookahead.usesBaselineSpeedEvidence && !groupedLookahead.supportsVision)
+        let ahead = try plan(groupedLookahead, mtp: .on, placement: .streamed,
+            lookahead: .retained(enabled: true, bytes: DecodeLookahead.reserveBytes))
+        let demanded = try plan(grouped, mtp: .on, placement: .streamed, lookahead: .off)
+        c.expect("explicit candidate lookahead pays for its complete reservation",
+            ahead.decodeLookahead && ahead.lookaheadReserveBytes == DecodeLookahead.reserveBytes
+                && ahead.slots < demanded.slots && ahead.expectedPeakGB <= 14)
+        c.expect("candidate lookahead cannot claim the original speed curve", ahead.json()["est_warm_tok_s"] is NSNull)
+        c.expect("candidate lane scratch and every staged record fit the charged original envelope",
+            32 * groupedLookahead.expertRecordBytes + (16 + 8) * 614_400 <= DecodeLookahead.stagingReserveBytes)
+        let reapplied = try Planner.applyingRuntimePolicy(ahead,
+            policy: RuntimeAllocationPolicy(prefillChunkOverride: 256, prefixCacheEnabled: false))
+        c.expect("runtime policy retains the exact experimental reserve",
+            reapplied.resources == groupedLookahead && reapplied.decodeLookahead
+                && reapplied.lookaheadReserveBytes == DecodeLookahead.reserveBytes && reapplied.expectedPeakGB <= 14)
+        for lookahead: DecodeLookaheadPlanning in [.automatic, .off,
+            .retained(enabled: false, bytes: DecodeLookahead.reserveBytes),
+            .retained(enabled: true, bytes: DecodeLookahead.reserveBytes - 1),
+            .retained(enabled: true, bytes: DecodeLookahead.reserveBytes + 1)] {
+            do { _ = try plan(groupedLookahead, lookahead: lookahead); c.expect("experimental lookahead cannot inherit or change its reserve", false) }
+            catch { c.expect("experimental lookahead cannot inherit or change its reserve", true) }
+        }
+        do {
+            _ = try plan(grouped, lookahead: .retained(enabled: true, bytes: DecodeLookahead.reserveBytes))
+            c.expect("prior grouped profile cannot silently acquire lookahead", false)
+        } catch { c.expect("prior grouped profile cannot silently acquire lookahead", true) }
         let groupedVision = PackMemoryProfile.affine3GroupedVisionControl
         c.expect("owned vision is an independent explicit capability identity", groupedVision != grouped
             && groupedVision.supportsVision && !grouped.supportsVision

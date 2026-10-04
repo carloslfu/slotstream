@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T20:46:20.462478+00:00
+updated: 2026-10-04T20:54:40.725890+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -973,3 +973,10 @@ The source also preserves the official checkpoint license and its byte identity 
 [[sources/runs/2026/10/2026-10-04-authenticated-research-retirement-driver]] records the restricted execution owner for the already prepared two-artifact retirement plan. It verifies complete payload hashes before any deletion, preserves exact reconstruction custody, binds immutable file identities, holds the native exclusion lock and records durable per-file intent and outcome. Headroom, pressure, process, time and staging checks remain active; partial deletion is preserved and cannot be retried silently. Only the explicit generated files can be retired.
 
 Seven real-filesystem fixture groups pass on both Python runtimes, including late authentication failure, replacement/symlink refusal, mutation after hashing, interruption, live resource loss and scope/custody rejection. The initial canonical-path test failure is retained and corrected. All thirty-two static entry-point checks pass, and the real prospective plan passes metadata-only validation. Actual retirement and full standalone production still await exclusive ownership after the active study; no model payload was scanned or deleted for these instrument checks.
+
+
+### Explicit affine lookahead preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-affine-lookahead-preparation]] records a prospective text-only grouped-affine lookahead mode. Its separate resource identity requires the exact complete uncorrected scheduler/router reservation, keeps candidate byte geometry and disables inherited activation and speed claims. Earlier candidate modes remain unchanged. The original learned correction is not loaded; public pack admission and Auto profiles stay closed.
+
+The native catalogue and existing bounded Engine diagnostic now include explicit reserve/refusal checks and prepared demanded-versus-forecast output, allocation-owner, cancellation, prefix and governor checks. These additions await compilation, CI and physical parity/resource execution. Source inspection is not optimization qualification. Only after those gates may a separately frozen complete-configuration comparison measure whether this mode helps; the running quality study and frozen product protocols remain unchanged.

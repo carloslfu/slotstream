@@ -1178,8 +1178,13 @@ public enum Planner {
         case .reserved(let bytes): retainedLookahead = false; fixedLookaheadBytes = bytes; automaticCorrectionBytes = 0
         case .retained(let enabled, let bytes): retainedLookahead = enabled; fixedLookaheadBytes = bytes; automaticCorrectionBytes = 0
         }
-        guard resources.automaticOptimizations || retainedLookahead != true else {
+        guard resources.supportsDecodeLookahead || retainedLookahead != true else {
             throw PlanError("decode lookahead is not admitted for this pack")
+        }
+        if resources == .affine3GroupedLookaheadControl {
+            guard retainedLookahead == true, fixedLookaheadBytes == DecodeLookahead.reserveBytes else {
+                throw PlanError("experimental affine lookahead requires its exact explicit full reserve")
+            }
         }
         guard fixedLookaheadBytes >= 0, fixedLookaheadBytes <= (4096 << 20) else {
             throw PlanError("expert lookahead reserve must be between 0 and 4096 MiB")

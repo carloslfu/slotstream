@@ -19,29 +19,32 @@ package struct AffineEngineSource {
     package let piecewiseAllocation: Bool
     package let groupedExperts: Bool
     package let vision: Bool
+    package let decodeLookahead: Bool
     package let standalone: AffineStandalonePack?
     package var parentLayout: PinnedParentLayout { standalone == nil ? .original : .standalone }
     package var resources: PackMemoryProfile {
-        vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
-            : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control))
+        decodeLookahead ? .affine3GroupedLookaheadControl : (vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
+            : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)))
     }
     package init(control: URL, artifact: AffineExpertControl.Artifact = .minmax,
                  coefficients: URL, piecewiseAllocation: Bool = false,
-                 groupedExperts: Bool = false, vision: Bool = false) {
+                 groupedExperts: Bool = false, vision: Bool = false, decodeLookahead: Bool = false) {
         self.control = control
         self.artifact = artifact
         self.coefficients = coefficients
         self.piecewiseAllocation = piecewiseAllocation
         self.groupedExperts = groupedExperts
         self.vision = vision
+        self.decodeLookahead = decodeLookahead
         self.standalone = nil
     }
 
-    package init(standalone: AffineStandalonePack, vision: Bool = false) {
+    package init(standalone: AffineStandalonePack, vision: Bool = false, decodeLookahead: Bool = false) {
         self.control = standalone.directory
         self.artifact = .minmax
         self.coefficients = standalone.directory.appendingPathComponent("angles-f32le.bin")
         self.piecewiseAllocation = true; self.groupedExperts = true; self.vision = vision
+        self.decodeLookahead = decodeLookahead
         self.standalone = standalone
     }
 }

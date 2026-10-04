@@ -96,9 +96,11 @@ struct AffineEngineCheck: ParsableCommand {
     @Flag(name: .long) var streamedDraft = false
     @Flag(name: .long) var piecewiseAllocation = false
     @Flag(name: .long) var groupedExperts = false
+    @Flag(name: .long, help: "Explicit bounded uncorrected lookahead experiment; requires grouped experts") var decodeLookahead = false
     func validate() throws {
         guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
         guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
+        guard !decodeLookahead || groupedExperts else { throw ValidationError("--decode-lookahead requires --grouped-experts") }
         guard standaloneManifestSha256 == nil || groupedExperts else {
             throw ValidationError("standalone validation requires --grouped-experts and --piecewise-allocation")
         }
@@ -112,7 +114,7 @@ struct AffineEngineCheck: ParsableCommand {
                     control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
                     profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
                     streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts,
-                    standaloneManifestSHA256: standaloneManifestSha256)
+                    standaloneManifestSHA256: standaloneManifestSha256, decodeLookahead: decodeLookahead)
             } catch { failure = error }
             semaphore.signal()
         }

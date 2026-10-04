@@ -1035,6 +1035,13 @@ The source also preserves the official checkpoint license and its byte identity 
 
 Seven real-filesystem fixture groups pass on both Python runtimes, including late authentication failure, replacement/symlink refusal, mutation after hashing, interruption, live resource loss and scope/custody rejection. The initial canonical-path test failure is retained and corrected. All thirty-two static entry-point checks pass, and the real prospective plan passes metadata-only validation. Actual retirement and full standalone production still await exclusive ownership after the active study; no model payload was scanned or deleted for these instrument checks.
 
+
+### Explicit affine lookahead preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-affine-lookahead-preparation]] records a prospective text-only grouped-affine lookahead mode. Its separate resource identity requires the exact complete uncorrected scheduler/router reservation, keeps candidate byte geometry and disables inherited activation and speed claims. Earlier candidate modes remain unchanged. The original learned correction is not loaded; public pack admission and Auto profiles stay closed.
+
+The native catalogue and existing bounded Engine diagnostic now include explicit reserve/refusal checks and prepared demanded-versus-forecast output, allocation-owner, cancellation, prefix and governor checks. These additions await compilation, CI and physical parity/resource execution. Source inspection is not optimization qualification. Only after those gates may a separately frozen complete-configuration comparison measure whether this mode helps; the running quality study and frozen product protocols remain unchanged.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

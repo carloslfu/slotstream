@@ -14,6 +14,8 @@ package struct PackMemoryProfile: Equatable, Sendable {
     package let usesBaselineSpeedEvidence: Bool
     package let supportsStreamedDraft: Bool
     package let supportsVision: Bool
+    /// Explicit capability is separate from measured automatic activation.
+    package let supportsDecodeLookahead: Bool
     package let automaticOptimizations: Bool
     /// Maximum per-record destination piece for an explicitly sequential
     /// assembly/admission contract. Nil retains full replacement accounting.
@@ -24,7 +26,8 @@ package struct PackMemoryProfile: Equatable, Sendable {
                  expertWorkspaceBytes: Int = 0, maximumPrefill: Int,
                  maximumContext: Int, usesBaselineSpeedEvidence: Bool,
                  supportsStreamedDraft: Bool, supportsVision: Bool, automaticOptimizations: Bool,
-                 largestReplacementPieceBytes: Int? = nil, groupedWorkspace: Bool = false) {
+                 largestReplacementPieceBytes: Int? = nil, groupedWorkspace: Bool = false,
+                 supportsDecodeLookahead: Bool = false) {
         self.identity = identity
         self.expertRecordBytes = expertRecordBytes
         self.residentReserveBytes = residentReserveBytes
@@ -34,6 +37,7 @@ package struct PackMemoryProfile: Equatable, Sendable {
         self.usesBaselineSpeedEvidence = usesBaselineSpeedEvidence
         self.supportsStreamedDraft = supportsStreamedDraft
         self.supportsVision = supportsVision
+        self.supportsDecodeLookahead = supportsDecodeLookahead
         self.automaticOptimizations = automaticOptimizations
         self.largestReplacementPieceBytes = largestReplacementPieceBytes
         self.groupedWorkspace = groupedWorkspace
@@ -42,7 +46,8 @@ package struct PackMemoryProfile: Equatable, Sendable {
     package static let original = Self(identity: "original-affine4-memory-v1",
         expertRecordBytes: 2_764_800, maximumPrefill: 4096,
         maximumContext: ContextPolicy.modelLimit, usesBaselineSpeedEvidence: true,
-        supportsStreamedDraft: true, supportsVision: true, automaticOptimizations: true)
+        supportsStreamedDraft: true, supportsVision: true, automaticOptimizations: true,
+        supportsDecodeLookahead: true)
 
     /// Conservative research envelope, not a published supported pack. Keep
     /// the original fixed allowance and independently priced four-bit head.
@@ -96,6 +101,19 @@ package struct PackMemoryProfile: Equatable, Sendable {
         maximumContext: 32_768, usesBaselineSpeedEvidence: false,
         supportsStreamedDraft: true, supportsVision: true, automaticOptimizations: false,
         largestReplacementPieceBytes: 614_400, groupedWorkspace: true)
+
+    /// Prospective text-only experiment. The planner must separately charge
+    /// the complete original uncorrected-lookahead reserve: FP32 target/draft
+    /// routers plus 128 MiB for staging and lane scratch. Candidate records
+    /// and pieces are smaller than the original reserve's ownership envelope.
+    /// It does not inherit original activation floors, forecasts or speed.
+    package static let affine3GroupedLookaheadControl = Self(identity: "affine3-grouped-lookahead-memory-v1",
+        expertRecordBytes: 2_150_400, residentReserveBytes: 357_580_800 + 67_108_864,
+        expertWorkspaceBytes: 623_597_568, maximumPrefill: 512,
+        maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
+        largestReplacementPieceBytes: 614_400, groupedWorkspace: true,
+        supportsDecodeLookahead: true)
 
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)

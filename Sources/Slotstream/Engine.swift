@@ -378,6 +378,15 @@ public final class Engine {
         guard affineSource?.vision != true || affineSource?.groupedExperts == true else {
             throw SlotstreamError.invalidPlan("candidate vision requires the explicit grouped allocation contract")
         }
+        if affineSource?.decodeLookahead == true {
+            guard affineSource?.groupedExperts == true, affineSource?.vision == false,
+                  plan?.decodeLookahead == true, plan?.lookaheadReserveBytes == DecodeLookahead.reserveBytes,
+                  !ProcessInfo.processInfo.environment.keys.contains(where: {
+                      $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG")
+                  }) else {
+                throw SlotstreamError.invalidPlan("experimental affine lookahead requires grouped text, its complete reserve and no ambient overrides")
+            }
+        }
         if let standalone = affineSource?.standalone {
             guard standalone.directory == modelDir.resolvingSymlinksInPath() else {
                 throw ModelError("standalone component metadata and tensor owners require the same directory")
@@ -410,7 +419,7 @@ public final class Engine {
               (plan?.prefillChunk ?? 256) <= resources.maximumPrefill,
               resources.supportsVision || plan?.visionEnabled != true,
               resources.supportsStreamedDraft || plan?.mtpStreamedExperts != true,
-              resources.automaticOptimizations || plan?.decodeLookahead != true else {
+              resources.supportsDecodeLookahead || plan?.decodeLookahead != true else {
             throw SlotstreamError.invalidPlan("engine pool must match a supported memory plan")
         }
         let metadata = try affineSource.map { try PinnedTokenizerMetadata(directory: modelDir, layout: $0.parentLayout) }
@@ -469,13 +478,14 @@ public final class Engine {
             && !ExpertPrefetchConfiguration.explicitlyConfigured(processEnvironment)
         // The qualified default carries the checkpoint's shipped tap correction
         // when one is located next to the weights (measured file only).
-        let shippedCorrection = qualifiedLookahead
+        let shippedCorrection = qualifiedLookahead && affineSource == nil
             ? RouterTapCorrection.shipped(modelDirectory: modelDir, env: processEnvironment)
-            : (located: nil, reason: "")
+            : (located: nil, reason: affineSource?.decodeLookahead == true
+                ? "explicit uncorrected affine research configuration; no inherited speed qualification" : "")
         let prefetchConfiguration = qualifiedLookahead
             ? ExpertPrefetchConfiguration.qualifiedDecode(correction: shippedCorrection.located)
             : try ExpertPrefetchConfiguration.environment(optimizations: InferenceOptimizations.environment())
-        guard affineSource == nil || !prefetchConfiguration.active else {
+        guard affineSource == nil || !prefetchConfiguration.active || affineSource?.decodeLookahead == true else {
             throw SlotstreamError.invalidPlan("expert lookahead is not admitted for the affine control")
         }
         var predictor: ExpertPredictor? = nil
