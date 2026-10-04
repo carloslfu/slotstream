@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T14:29:31.348099+00:00
+updated: 2026-10-04T14:38:19.380561+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -820,3 +820,9 @@ Next freeze the final disjoint task selection, app-relevant reply and tool limit
 Both artifacts use the same fourteen-GB ceiling, 32K context, full 4,096-token reply reservation and two streamed drafts. Tool conversations retain twelve model steps per turn, eight calls per step and ninety-six per case. The 138 ordered paired jobs alternate arm order and may reload only between completed independent tasks under the fixed session cutoff. The prospective total allows seventy-two active job hours and six GB of receipts within the existing 430 GB staging bound, with no new weights, raw logits or paid services. The complete protocol hash is ee91815afe069b316bf095abc7bdcaadb46eabcd3a2f3fff898fda712789af5a.
 
 The final campaign has not produced an answer at this checkpoint. Its finite task populations and uncertain pilot discordance may yield inconclusive evidence; that does not qualify a pack or permit sampling until it passes. Ordinary app jobs, long-context and image outcomes, complete speed, standalone delivery and integrated release acceptance remain separate required work.
+
+### Lossless smaller-pack transport preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] closes the transport planner's unsupported byte-ratio assertion. Three-bit expert tensors use existing independent raw-weight and BF16 metadata objects instead of the combined four-bit transform. Byte-exact synthetic mixed main/draft reconstruction, chunk tails and coverage refusals pass on both Python runtimes. The original full object plan remains byte-identical. Header-only planning covers every byte of the control artifact without scanning payloads or loading a second model during the ongoing held-out campaign.
+
+This preparatory change does not enable an alternate download or model. Complete transport acceptance, standalone conversion, independent public pull and candidate qualification remain required before integration and promotion.

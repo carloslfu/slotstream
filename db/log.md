@@ -214,3 +214,6 @@ Hold the complete affine refit after its unchanged model screen loses both proxy
 ## [2026-10-04 14:30] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Verify the serial completed-task runner with actual original/minmax tool sessions, exact recorded-response replay, bounded input refusals and full static acceptance. Freeze disjoint deduplicated final tasks, paired method, fixed margins and resource cost before answers. Preserve initial instrument failures; final quality, memory, performance, distribution and promotion remain open.
 
+## [2026-10-04 14:38] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Add a lossless transport fallback for expert layouts outside the existing combined-transform byte ratios. Verify synthetic mixed main/draft reconstruction and exact original full-plan identity without overlapping heavy work with the final quality campaign. Complete transport acceptance and standalone/public-pull qualification remain pending.
+

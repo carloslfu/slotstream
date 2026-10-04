@@ -111,7 +111,13 @@ def plan(model, files):
         scale, bias = (names[namespace, prefix+'.'+suffix] for suffix in ['scales','biases'])
         assert scale['dtype'] == bias['dtype'] == 'BF16' and scale['size'] == bias['size']
         gs = t['size']*4//scale['size']
-        assert gs in (32,64) and scale['size']*gs == t['size']*4
+        # Kind 2 combines packed words with BF16 metadata only at its exact
+        # supported byte ratios. Three-bit/group-64 experts do not fit that
+        # transform. Leave all three tensors unconsumed so the ordinary raw
+        # and BF16 paths below preserve them independently, byte for byte.
+        # This is transport geometry, never inference-format admission.
+        if gs not in (32,64) or scale['size']*gs != t['size']*4:
+            continue
         consumed.update((namespace, a['name']) for a in (t,scale,bias))
         for off in range(0,t['size'],BLOCK):
             n = min(BLOCK,t['size']-off)

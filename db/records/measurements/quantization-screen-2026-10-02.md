@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-04T14:29:31.474058+00:00
+updated: 2026-10-04T14:38:19.555400+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -746,3 +746,7 @@ The same source then compiles and passes native V2 sessions for the original and
 After the input-envelope correction, a zero-model replay verifies all request histories and preserves those executed calls and outcomes. It also checks the historical native V2 success and context-refusal frames. Replay completes in 3.5612789160222746 seconds at a parent peak of 23,527,904 physical bytes. The complete subsequent static suite succeeds with a maximum sampled process-tree footprint of 1,076,316,296 bytes under its six-GB ceiling. These are instrument and process-bound observations, not speed or quality qualification.
 
 [[sources/runs/2026/10/2026-10-04-prospective-heldout-outcome-protocol]] captures the final protocol and exact task data before generation. There are 2,219 independent exact prompt groups across five families and 138 paired jobs. The coding deduplication removes one additional eligible duplicate, leaving 243 repairs. MMLU has 105 exact duplicate pairs before pilot-group exclusion and fixed hash selection. Multilingual translations share one underlying unit. Public-source training overlap and semantic dependencies beyond exact grouping are not ruled out. [[records/decisions/final-paired-task-quality-protocol]] states the prospective method, margins and inconclusive-result policy. No final model score, twenty-token result or promoted alternate exists at this checkpoint.
+
+### Three-bit transport fallback checks, October 4
+
+[[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] preserves the previous builder, its complete original plan, the changed source, production codec identity and both raw test logs. All four synthetic test groups pass on both Python runtimes, with byte-exact codec reconstruction and whole-file hashes. The original twenty-five-file, 4,155-object plan retains digest b2119ac3fb9a3a0eb534d87075ceb9b893fc3bcaad5aeee3622337d88be9dac0. Header-only planning covers the control's forty-eight files and 52,848,290,992 bytes in 1,776 independent objects; no model or full payload read occurs. No compression-size, complete transport, public-pull, performance or model-quality claim follows.

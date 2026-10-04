@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T14:28:17.999092Z
+updated: 2026-10-04T14:38:17.759729Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] — Lossless three-bit transport planning with unchanged original layout
 - [[sources/runs/2026/10/2026-10-04-prospective-heldout-outcome-protocol]] — Prospective final paired task-quality protocol
 - [[sources/runs/2026/10/2026-10-04-serial-outcome-campaign-acceptance]] — Serial completed-task campaign runner acceptance
 - [[sources/runs/2026/10/2026-10-04-complete-outcome-and-session-acceptance]] — Complete outcome grading and reply-reservation acceptance
@@ -506,9 +507,8 @@ updated: 2026-10-04T14:28:17.999092Z
 - [[sources/runs/2026/09/2026-09-07-optimization-external-consumer-and-long-preflight]] — Exact-source external Swift consumer pass and preserved long-memory preflight refusals
 - [[sources/runs/2026/09/2026-09-07-optimization-first-combined-pair-and-throughput-reporting]] — First combined paired workload and one-token throughput reporting correction
 - [[sources/runs/2026/09/2026-09-07-optimization-governor-and-mtp-recovery]] — Portable governor acceptance and complete MTP memory/vision recovery
-- [[sources/runs/2026/09/2026-09-07-optimization-full-verification-counterexample]] — Exact candidate full verification: 22 pass and three preserved failures
 
 ## More
 
-This folder has 786 files. The 500 most recent are listed above.
+This folder has 787 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

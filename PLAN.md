@@ -882,6 +882,12 @@ Both artifacts use the same fourteen-GB ceiling, 32K context, full 4,096-token r
 
 The final campaign has not produced an answer at this checkpoint. Its finite task populations and uncertain pilot discordance may yield inconclusive evidence; that does not qualify a pack or permit sampling until it passes. Ordinary app jobs, long-context and image outcomes, complete speed, standalone delivery and integrated release acceptance remain separate required work.
 
+### Lossless smaller-pack transport preparation, October 4
+
+[[sources/runs/2026/10/2026-10-04-three-bit-lossless-transport-planning]] closes the transport planner's unsupported byte-ratio assertion. Three-bit expert tensors use existing independent raw-weight and BF16 metadata objects instead of the combined four-bit transform. Byte-exact synthetic mixed main/draft reconstruction, chunk tails and coverage refusals pass on both Python runtimes. The original full object plan remains byte-identical. Header-only planning covers every byte of the control artifact without scanning payloads or loading a second model during the ongoing held-out campaign.
+
+This preparatory change does not enable an alternate download or model. Complete transport acceptance, standalone conversion, independent public pull and candidate qualification remain required before integration and promotion.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
