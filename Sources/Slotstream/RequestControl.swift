@@ -157,6 +157,10 @@ public final class RequestController: @unchecked Sendable {
     /// while tokenization, a disk read or a GPU evaluation has not returned.
     public var phase: String { lock.withLock { phaseValue } }
     private var estimateValue: Double?
+    private var baselinePrefillEstimate = true
+    package func useBaselinePrefillEstimate(_ enabled: Bool) {
+        lock.withLock { baselinePrefillEstimate = enabled }
+    }
     private let reservationID = UUID()
     private var reservations: RequestMemoryReservations?
     public var estimatedPrefillSeconds: Double? { lock.withLock { estimateValue } }
@@ -352,8 +356,9 @@ public final class RequestController: @unchecked Sendable {
     public func admit(missingTokens: Int, from position: Int, maxChunk: Int,
                       tailAware: Bool = false) throws {
         try check(phase: "admission")
-        let estimate = PrefillSchedule.estimateSeconds(tokens: missingTokens, from: position,
-            maxChunk: maxChunk, tailAware: tailAware)
+        let estimate = lock.withLock { baselinePrefillEstimate }
+            ? PrefillSchedule.estimateSeconds(tokens: missingTokens, from: position,
+                maxChunk: maxChunk, tailAware: tailAware) : nil
         lock.withLock { estimateValue = estimate; admittedReusedValue = position }
         let limit = configuration.maxPrefillWaitMinutes * 60
         if limit > 0, let estimate, elapsedSeconds + estimate > limit {

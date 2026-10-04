@@ -3,6 +3,35 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+struct AffineEngineCheck: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "affine-engine-check",
+        abstract: "Check authenticated alternate Engine ownership, memory recovery, prefix reuse and HTTP serving")
+    @Option(name: .long) var baseline: String
+    @Option(name: .long) var control: String
+    @Option(name: .long) var table: String
+    @Option(name: .long) var generationProfile: String
+    @Option(name: .long) var output: String
+    @Flag(name: .long) var draft = false
+    func run() throws {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Data?, failure: Error?
+        Task {
+            do {
+                result = try await Diagnostics.affineEngine(baseline: URL(fileURLWithPath: baseline),
+                    control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
+                    profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output))
+            } catch { failure = error }
+            semaphore.signal()
+        }
+        semaphore.wait()
+        if let failure { throw failure }
+        guard let result else { throw ValidationError("alternate Engine check produced no receipt") }
+        print(String(decoding: result, as: UTF8.self))
+        let report = try JSONSerialization.jsonObject(with: result) as? [String: Any]
+        guard report?["complete"] as? Bool == true else { throw ValidationError("alternate Engine check failed") }
+    }
+}
+
 struct AffineExpertCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "affine-expert-check",
         abstract: "Check the pinned research affine-three-bit expert control without activating a pack")
@@ -220,7 +249,7 @@ struct QuantizationCheck: ParsableCommand {
     func run() throws {
         let source = sourceDirectory.map { URL(fileURLWithPath: $0) }
         let inventory = sourceInventory.map { URL(fileURLWithPath: $0) }
-        var reports = [try Diagnostics.quantizationGeometry(), try Diagnostics.quantizationMetadata(),
+        var reports = [try Diagnostics.quantizationGeometry(), try Diagnostics.packMemory(), try Diagnostics.quantizationMetadata(),
                        try Diagnostics.quantizationReadBatch(),
                        try Diagnostics.quantizationPLEStorage(), try Diagnostics.quantizationTensorFile()]
         if kernels {

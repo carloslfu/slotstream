@@ -178,3 +178,6 @@ Record complete bounded original4-to-affine3 expert conversion, strict independe
 ## [2026-10-04 02:26] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
 Record authenticated native affine reference/generation, independent draft state and cancellation, staged contexts, calibrated tasks and complete static acceptance. Preserve all failed attempts; continue production and qualification work.
 
+## [2026-10-04 04:18] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02
+Integrate the authenticated affine control with Engine, real HTTP, exact memory/disk reuse, request cancellation and pack-specific live memory accounting. Preserve original numerical/static gates, fix first-image recovery from stale availability, retain all failed fixtures and keep quality, performance and product promotion open.
+

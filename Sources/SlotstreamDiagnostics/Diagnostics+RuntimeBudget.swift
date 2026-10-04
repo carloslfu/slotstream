@@ -37,15 +37,23 @@ extension Diagnostics {
             prefixCacheTokens: plan.prefixCacheTokens, mtpEnabled: plan.mtpEnabled,
             visionEnabled: plan.visionEnabled, maxContextTokens: plan.maxContextTokens,
             notes: ["bounded governor diagnostic: only shrinking is exercised"], runtimeAllocationPolicy: policy,
-            memoryLimitGB: nil, mtpStreamedExperts: plan.mtpStreamedExperts))
+            lookaheadReserveBytes: plan.lookaheadReserveBytes, decodeLookahead: plan.decodeLookahead,
+            memoryLimitGB: 10, mtpStreamedExperts: plan.mtpStreamedExperts, resources: plan.resources))
         let governor = MemoryGovernor(engine: engine)
-        let expectedDonation = GovernorPolicy.desiredSlots(GovernorPolicy.Inputs(
-            currentSlots: plan.slots, availableGB: 0, ramGB: plan.ramGB,
-            workingSetGB: plan.workingSetGB, ramPercent: plan.ramPercent,
-            visionEnabled: plan.visionEnabled, maxContextTokens: plan.maxContextTokens,
-            runtimeAllocationPolicy: policy))
+        var observed: GovernorPolicy.Inputs?
+        governor.inputsObserver = { observed = $0 }
         governor.pollNow()
-        c.equal("live governor applies the policy's resolved lower allocation", Optional(engine.model.pool.slots), expectedDonation)
+        guard let observed else { throw ModelError("runtime budget did not observe live governor inputs") }
+        let expectedDonation: Int
+        switch GovernorPolicy.decide(observed) {
+        case .hold: expectedDonation = plan.slots
+        case .resize(let slots, _): expectedDonation = slots
+        }
+        c.equal("live governor applies the policy's resolved lower allocation", engine.model.pool.slots, expectedDonation)
+        if GovernorPolicy.desiredPlan(observed) == nil {
+            let refused = engine.generate(promptIds: prompt, params: params)
+            c.expect("infeasible zero-headroom simulation refuses new work", refused.ids.isEmpty && refused.stats.requestFailure?.code == .insufficientMemory)
+        }
         c.expect("live governor releases real expert capacity", engine.model.pool.slots < plan.slots)
         c.equal("live governor preserves the runtime policy", engine.currentPlan?.runtimeAllocationPolicy, policy)
         c.equal("live governor preserves prefill ceiling", engine.generator.prefillChunk, 256)
@@ -54,6 +62,7 @@ extension Diagnostics {
         c.equal("post-shrink prefill cannot bypass the budget", engine.generator.prefillChunk, 256)
         c.equal("post-shrink retention cannot bypass the budget", engine.prefixCache.maxTokens, 0)
         Planner.availabilityOverride = priorAvailability
+        governor.pollNow() // Re-admit only after the real recovery replan.
         let smaller = engine.generate(promptIds: prompt, params: params)
         c.equal("live cache donation preserves exact output IDs", smaller.ids, original.ids)
         c.equal("live cache donation preserves exact text", smaller.text, original.text)

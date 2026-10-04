@@ -1,6 +1,7 @@
 // High-level engine: model + tokenizer + chat templating, shared by CLI/server.
 
 import CoreGraphics
+import CryptoKit
 import Foundation
 import MLX
 import Tokenizers
@@ -91,6 +92,23 @@ public final class Engine {
     /// them otherwise. Such a reply's stop sequences apply after `</think>`.
     package private(set) var reasoningOpenIds: [Int] = []
     public let modelName: String
+    private let resources: PackMemoryProfile
+    /// Metadata follows the authenticated loaded artifact, independent of
+    /// mutable memory settings. Preserve existing identities for legacy clients.
+    package var modelQuantization: String {
+        resources == .original ? "4bit" : "3bit experts / original dense and PLE"
+    }
+    package var modelDigest: String {
+        guard let identity = model.authenticatedArtifactIdentity else {
+            return "slotstream-qwen38-flash-next-4bit"
+        }
+        let deployed = identity + (model.mtpHead == nil ? ":no-draft" : ":" + VQDraftWeights.fileSHA256)
+        return "sha256:" + SHA256.hash(data: Data(deployed.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    package func acceptsModelName(_ requested: String) -> Bool {
+        if [modelName, "qwen3.8-flash-next", "qwen3.8-flash-next:latest"].contains(requested) { return true }
+        return resources == .original && requested == "qwen38-flash-next-mlx-4bit"
+    }
     /// Lazily-loaded vision tower (VLM). Loaded on the first request that
     /// carries an image and then cached; see `ensureVisionTower`.
     public private(set) var visionTower: VisionTower?
@@ -135,7 +153,7 @@ public final class Engine {
                     notes: p.notes, simulated: p.simulated, runtimeAllocationPolicy: p.runtimeAllocationPolicy,
                     maxPrefillWaitMinutes: p.maxPrefillWaitMinutes, contextQualification: p.contextQualification,
                     lookaheadReserveBytes: p.lookaheadReserveBytes, decodeLookahead: p.decodeLookahead,
-                    memoryLimitGB: p.memoryLimitGB, mtpStreamedExperts: p.mtpStreamedExperts))
+                    memoryLimitGB: p.memoryLimitGB, mtpStreamedExperts: p.mtpStreamedExperts, resources: p.resources))
             }
         }
     }
@@ -143,7 +161,9 @@ public final class Engine {
     /// Call when a complete request is accepted, before tokenization or images.
     public func beginRequest(connected: @escaping () -> Bool = { true }) throws -> RequestController {
         if let override = requestControllerOverride {
-            let control = try override(); try control.attachReservations(requestReservations); return control
+            let control = try override()
+            control.useBaselinePrefillEstimate(resources.usesBaselineSpeedEvidence)
+            try control.attachReservations(requestReservations); return control
         }
         if let contextAssignmentFailure = contextLock.withLock({ contextAssignmentFailure }) { throw contextAssignmentFailure }
         if let unavailable = planLock.withLock({ allocationUnavailable }) { throw unavailable }
@@ -157,6 +177,7 @@ public final class Engine {
                 return self.pressureBoundary.snapshot() != nil || self.osPressureLock.withLock { self.osPressure }
             })
         try control.attachReservations(requestReservations)
+        control.useBaselinePrefillEstimate(resources.usesBaselineSpeedEvidence)
         return control
     }
     private let requestReservations = RequestMemoryReservations()
@@ -168,13 +189,16 @@ public final class Engine {
     public var contextPolicyJSON: [String: Any] {
         let plan = currentPlan
         return ["configured_window": maxContextTokens, "model_limit": ContextPolicy.modelLimit,
-            "implementation_limit": ContextPolicy.implementationLimit,
-            "mtp_limit": ContextPolicy.mtpLimit, "vision_limit": ContextPolicy.visionLimit,
+            "implementation_limit": min(ContextPolicy.implementationLimit, resources.maximumContext),
+            "mtp_limit": min(ContextPolicy.mtpLimit, resources.maximumContext),
+            "vision_limit": resources.supportsVision ? ContextPolicy.visionLimit : 0,
             "max_prefill_wait_minutes": plan?.maxPrefillWaitMinutes ?? ContextConfiguration.defaultWaitMinutes,
             "wait_scope": "accepted_request_to_first_model_token",
             "qualification": plan?.contextQualification ?? false,
             "allocation_available": planLock.withLock { allocationUnavailable == nil },
-            "estimate_scope": "measured M5 Pro anchors; unknown for unqualified pass sizes"]
+            "estimate_scope": resources.usesBaselineSpeedEvidence
+                ? "measured M5 Pro anchors; unknown for unqualified pass sizes" : "unmeasured alternate arithmetic",
+            "resource_identity": resources.identity]
     }
 
     deinit { pressureMonitor?.cancel() }
@@ -256,6 +280,12 @@ public final class Engine {
     }
     public func updatePlan(_ p: MemoryPlan) {
         planLock.lock()
+        guard p.resources == resources else {
+            allocationUnavailable = RequestFailure(.invalidConfiguration,
+                "a memory plan cannot change the loaded pack's resource identity")
+            planLock.unlock()
+            return
+        }
         _plan = p
         planLock.unlock()
     }
@@ -326,23 +356,44 @@ public final class Engine {
     /// CLI validates its own flag.
     public var gpuKeepAlive: GPUKeepAlive.Policy = (try? GPUKeepAlive.environmentPolicy()) ?? .auto
 
-    public init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+    public convenience init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+        try await self.init(modelDir: modelDir, poolSlots: poolSlots, plan: plan, affineSource: nil)
+    }
+
+    package convenience init(modelDir: URL, affineSource: AffineEngineSource, plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan, affineSource: affineSource)
+    }
+
+    private init(modelDir: URL, poolSlots: Int, plan: MemoryPlan?, affineSource: AffineEngineSource?) async throws {
         // A plan made for a simulated machine may be printed and compared,
         // never loaded. Simulating memory the machine does not have still
         // allocates for real: on 2026-08-30 a simulated 60 GB drove a 25.4 GB
         // allocation and 39 GB of swap. The flag travels on the plan so this
         // cannot be forgotten at a call site.
         if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
-        if let plan, plan.source == .auto || plan.source == .memoryGB || plan.memoryLimitGB != nil {
+        let resources: PackMemoryProfile = affineSource == nil ? .original : .affine3Control
+        guard plan?.resources == resources || (plan == nil && affineSource == nil) else {
+            throw SlotstreamError.invalidPlan("the loader and memory plan must describe the same pack")
+        }
+        guard affineSource == nil || ExpertStore.defaultLoadBatch <= 32 else {
+            throw SlotstreamError.invalidPlan("the affine control admits expert staging batches of at most 32")
+        }
+        if let plan, affineSource != nil || plan.source == .auto || plan.source == .memoryGB || plan.memoryLimitGB != nil {
             try Planner.validateMemoryBudget(plan, availableGB: Planner.deviceAvailableGB())
         }
         let context = try ContextConfiguration(maxContextTokens: plan?.maxContextTokens ?? ContextPolicy.defaultTokens,
             maxPrefillWaitMinutes: plan?.maxPrefillWaitMinutes ?? ContextConfiguration.defaultWaitMinutes,
             qualification: plan?.contextQualification ?? false)
         guard poolSlots >= Geometry.floorSlots, poolSlots <= Geometry.totalRecords,
-              plan == nil || plan?.slots == poolSlots else {
+              context.maxContextTokens <= resources.maximumContext,
+              plan == nil || plan?.slots == poolSlots,
+              (plan?.prefillChunk ?? 256) <= resources.maximumPrefill,
+              resources.supportsVision || plan?.visionEnabled != true,
+              resources.supportsStreamedDraft || plan?.mtpStreamedExperts != true,
+              resources.automaticOptimizations || plan?.decodeLookahead != true else {
             throw SlotstreamError.invalidPlan("engine pool must match a supported memory plan")
         }
+        let metadata = try affineSource.map { _ in try PinnedTokenizerMetadata(directory: modelDir) }
         let initialLedger = plan?.memoryLedger ?? ContextMemoryLedger(slots: poolSlots,
             context: context.maxContextTokens, chunk: 256,
             retentionTokens: Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
@@ -352,6 +403,7 @@ public final class Engine {
         try initial.check(nextAllocationBytes: initialLedger.expectedPeakBytes, phase: "model allocation")
         self.allocatedContextTokens = context.maxContextTokens
         self.configuredContextTokens = context.maxContextTokens
+        self.resources = resources
         self.modelDir = modelDir
         self._plan = plan
         // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
@@ -361,16 +413,23 @@ public final class Engine {
             maxTokens: plan?.prefixCacheTokens
                 ?? Planner.prefixCacheTokensFor(poolBudgetGB: Geometry.gb(poolSlots)),
             enabled: env != "0" && (plan?.runtimeAllocationPolicy?.prefixCacheEnabled ?? true))
-        if let p = plan, p.runtimeAllocationPolicy != nil { prefixCache.setBudgetLimit(p.prefixCacheTokens) }
+        if let p = plan, p.runtimeAllocationPolicy != nil || affineSource != nil {
+            prefixCache.setBudgetLimit(p.prefixCacheTokens)
+        }
         // MLX's allocator otherwise retains freed transients (KV caches,
         // activations) in an unbounded internal cache — measured ~5 GB of RSS
         // above the memory plan after a few dozen requests. 2 GB keeps
         // per-token reallocation churn away while making real process memory
         // track the announced plan.
-        MLX.Memory.cacheLimit = 2 << 30
-        self.modelName = "qwen3.8-flash-next:4bit"
+        MLX.Memory.cacheLimit = affineSource == nil ? 2 << 30 : 128_000_000
+        self.modelName = affineSource == nil ? "qwen3.8-flash-next:4bit" : "qwen3.8-flash-next:affine3-control"
         let t0 = Date()
-        let index = try CheckpointIndex(dir: modelDir)
+        let index: CheckpointIndex
+        if let affineSource {
+            try ModelProcessGuard.acquire()
+            index = try AffineExpertControl.open(baseline: modelDir, control: affineSource.control,
+                shouldContinue: { (try? initial.check(phase: "authenticated model loading")) != nil })
+        } else { index = try CheckpointIndex(dir: modelDir) }
         // Expert Lookahead: an explicitly requested pack is validated against
         // the checkpoint geometry before the model allocates anything. A plan
         // made without the reserve cannot load a prefetch-enabled engine. With
@@ -387,6 +446,9 @@ public final class Engine {
         let prefetchConfiguration = qualifiedLookahead
             ? ExpertPrefetchConfiguration.qualifiedDecode(correction: shippedCorrection.located)
             : try ExpertPrefetchConfiguration.environment(optimizations: InferenceOptimizations.environment())
+        guard affineSource == nil || !prefetchConfiguration.active else {
+            throw SlotstreamError.invalidPlan("expert lookahead is not admitted for the affine control")
+        }
         var predictor: ExpertPredictor? = nil
         if prefetchConfiguration.active {
             guard plan == nil || (plan?.lookaheadReserveBytes ?? 0) >= prefetchConfiguration.reserveBytes else {
@@ -399,15 +461,25 @@ public final class Engine {
                     cfg: index.config, device: prefetchConfiguration.device)
             }
         }
-        self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots)
+        if let affineSource {
+            // Complete-file authentication can take time. A successful earlier
+            // admission is not permission to allocate after headroom changes.
+            try initial.check(nextAllocationBytes: initialLedger.expectedPeakBytes, phase: "authenticated model allocation")
+            let coefficients = try VQRotaryCoefficients(url: affineSource.coefficients,
+                shouldContinue: { (try? initial.check(phase: "rotary component loading")) != nil })
+            self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots, embeddingRowCache: nil,
+                affineControlReferenceArithmetic: true, affineControlCoefficients: coefficients,
+                affineControlContextLimit: context.maxContextTokens)
+        } else { self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots) }
         self.responsiveGovernor = model.optimizations.responsiveGovernor
         try model.validate()
         // Read from the index that is already open — no tensor is touched, and
         // nothing is allocated until an image actually arrives.
-        self.visionAvailable = VisionTower.present(index: index)
+        self.visionAvailable = resources.supportsVision && VisionTower.present(index: index)
         self.visionAllowed = plan?.visionEnabled ?? visionAvailable
         if let plan, plan.mtpEnabled {
-            try model.enableMTP(modelDir: modelDir, streamedExperts: plan.mtpStreamedExperts)
+            if affineSource != nil { try model.enableAffineControlDraft(baseline: modelDir) }
+            else { try model.enableMTP(modelDir: modelDir, streamedExperts: plan.mtpStreamedExperts) }
         }
         self.generator = Generator(model: model)
         if prefetchConfiguration.active {
@@ -453,7 +525,7 @@ public final class Engine {
                         .data(using: .utf8)!) }
             }
         }
-        if let p = plan, p.runtimeAllocationPolicy != nil {
+        if let p = plan, p.runtimeAllocationPolicy != nil || affineSource != nil {
             generator.setPrefillBudgetCeiling(p.prefillChunk)
             generator.prefillChunk = p.prefillChunk
         }
@@ -465,11 +537,13 @@ public final class Engine {
         } else if let p = plan, p.expectedPeakGB <= 12 {
             generator.prefillCacheLimit = 512 << 20
         }
-        self.tokenizer = try await AutoTokenizer.from(modelFolder: modelDir)
+        if affineSource != nil { generator.prefillCacheLimit = 128_000_000 }
+        if let metadata { self.tokenizer = try await metadata.load() }
+        else { self.tokenizer = try await AutoTokenizer.from(modelFolder: modelDir) }
         var eos: Set<Int> = [index.config.eosTokenId]
         if let e = tokenizer.eosTokenId { eos.insert(e) }
         // generation_config may list several
-        if let d = try? Data(contentsOf: modelDir.appendingPathComponent("generation_config.json")),
+        if let d = metadata?.generationConfig ?? (try? Data(contentsOf: modelDir.appendingPathComponent("generation_config.json"))),
             let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any]
         {
             if let list = o["eos_token_id"] as? [Int] { list.forEach { eos.insert($0) } }
@@ -741,6 +815,9 @@ public final class Engine {
             throw SlotstreamError.vision(
                 "this server was started with --vision off; images are not accepted")
         }
+        guard resources.supportsVision else {
+            throw SlotstreamError.vision("vision is not admitted for this weight configuration")
+        }
         if let request { try lock.lock(request: request) } else { lock.lock() }
         defer { lock.unlock() }
         return try { () throws -> VisionTower in
@@ -750,7 +827,20 @@ public final class Engine {
                 throw request?.fail(failure) ?? failure
             }
             let reservedPlan: MemoryPlan?
-            do { reservedPlan = try currentPlan.map { try Planner.loadingVision($0) } }
+            do {
+                reservedPlan = try currentPlan.map { plan in
+                    let owned = ProcessMemory.residentBytes()
+                    guard let available = Planner.deviceAvailableGB(), available.isFinite, available >= 0,
+                          owned > 0 else {
+                        throw PlanError("current memory ownership or availability cannot be read")
+                    }
+                    // Replanning prices the complete engine, including what
+                    // is already allocated. Bound that credit by both observed
+                    // physical ownership and the current engine's ledger.
+                    let credit = min(owned, UInt64(plan.memoryLedger.expectedPeakBytes))
+                    return try Planner.loadingVision(plan, availableGB: available + Double(credit) / 1e9)
+                }
+            }
             catch {
                 let failure = RequestFailure(.insufficientMemory, "vision allocation cannot fit the current plan: \(error)")
                 throw request?.fail(failure) ?? failure
@@ -1120,6 +1210,7 @@ public final class Engine {
             if let contextAssignmentFailure = contextLock.withLock({ contextAssignmentFailure }) { throw contextAssignmentFailure }
             if let unavailable = planLock.withLock({ allocationUnavailable }) { throw unavailable }
             control = try request ?? beginRequest()
+            control.useBaselinePrefillEstimate(resources.usesBaselineSpeedEvidence)
             try control.attachReservations(requestReservations)
             guard control.configuration.maxContextTokens <= allocatedContextTokens else {
                 throw RequestFailure(.invalidConfiguration, "request policy exceeds the allocated engine window")

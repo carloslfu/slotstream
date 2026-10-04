@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T02:26:14.257198+00:00
+updated: 2026-10-04T04:17:03.553150+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -16,7 +16,7 @@ Keep Qwen3.8 Flash Next as the same underlying model across the 16 to 64 GB Mac 
 
 The engineering target is at least 20 committed generation tokens per second in each supported automatic profile. This is a target, not an achieved result or a guarantee for arbitrary manual settings, prompts, context lengths, SSDs, temperatures or competing applications. If a profile fails, keep that failure visible and continue the optimization work. Do not quietly lower quality, substitute another model or declare the hardware qualified.
 
-Status on October 4, 2026: implementation in progress. Baseline Auto and the independent saved memory/live-allocation controls are implemented. The original-dense VQ3.2 composite and the same-parent affine-three-bit expert control now have bounded native generation, independently configured original drafts and staged context/recovery through 32,768 tokens. Both candidates match the original model's fifteen-of-sixteen calibration outcome; the affine control also reproduces every calibrated output with drafting off and on. These are calibration and functional results. No alternate pack has earned production/Auto admission, held-out noninferiority or a new measured speed profile. Complete-configuration performance, candidate production/vision ownership, pack-specific memory/governor integration and transactional distribution remain required. No twenty-token promise is established. Full evidence and failed attempts remain in [[records/measurements/quantization-screen-2026-10-02]].
+Status on October 4, 2026: implementation in progress. Baseline Auto and the independent saved memory/live-allocation controls are implemented. Both experimental candidates have bounded native generation, independent original drafts and staged context/recovery. The same-parent affine control now runs through the ordinary Engine and HTTP handler with owned tokenizer metadata, pack-specific planning, actual memory governance, compatible memory/disk reuse and cancellation. Its functional tests pass with drafting off and on. This does not confer quality, speed or Auto qualification. Candidate vision, complete-configuration performance, held-out noninferiority, standalone pack distribution/transactions and integrated product release remain required. No twenty-token promise is established. Evidence and failed attempts remain in [[records/measurements/quantization-screen-2026-10-02]].
 
 ### Implementation checkpoint, October 3
 
@@ -666,3 +666,14 @@ The existing Generator now runs the three-bit target with its independently auth
 The original baseline repeats all sixteen prior calibration streams exactly. The affine control scores fifteen of sixteen both with and without two drafts, failing the same names-only formatting case as the original. Both affine runs emit identical token streams across all sixteen tasks. Resource envelopes remain unchanged, and the final static suite passes. This does not replace held-out evaluation or paired timing. The research overlay still needs its parent and cannot be installed or selected as a product pack.
 
 Next compare complete configurations and freeze the held-out quality protocol before choosing the production candidate. Continue the existing Engine and owned-component integration, per-pack costs and live allocation, safe download/activation/recovery and the integrated Mac acceptance gates. Other physical Macs remain outside the required program; conservative estimates never become measured speed claims. The end-to-end goal stays active.
+
+
+### Affine Engine and pack-memory checkpoint, October 4
+
+[[sources/runs/2026/10/2026-10-04-affine-engine-memory-and-governor]] records the package-only candidate Engine adapter and immutable resource profile. The adapter binds authenticated expert, parent, rotary and tokenizer identities, retains the original public loader, and uses the existing request, prefix, governor and serving paths. Memory plans price actual expert bytes, extra resident components, layer workspace and pool replacement during admission. Unknown throughput stays unknown, and unadmitted images, read-ahead and streamed draft placement are refused. The separate original draft cannot be loaded using the candidate's target recipe.
+
+The live governor bounds restart credit by observed process ownership and keeps the saved ceiling and active artifact. Original shrink/recovery and real serving checks pass. A real first-image recovery bug exposed by the stricter credit is fixed: image replanning uses current availability with bounded owned credit instead of retaining a stale zero-headroom snapshot. The allocation safety checks and donated cache remain intact.
+
+Both candidate modes pass actual Engine generation, complete-prompt reuse, aligned memory/disk continuation, cancellation and retry, pressure donation/floor refusal/recovery, warm resize and real HTTP requests. HTTP metadata identifies the loaded quantization and rejects an explicit name for a different artifact. Existing original numerical gates and final static acceptance pass. The source preserves every failed build and fixture, including the under-reserved complete-prompt test rather than relaxing retention accounting.
+
+Next compare each complete draft configuration, freeze a defensible held-out protocol, then finish the qualifying candidate's vision and standalone artifact ownership, distribution/activation/recovery and product integration. The supported registry remains original-only. Other physical Macs are not required, and no performance result is inferred from these functional checks.

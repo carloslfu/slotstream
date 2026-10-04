@@ -740,7 +740,7 @@ public final class Server {
         let pool = engine.poolSnapshot()
         var d: [String: Any] = [
             "format": "safetensors", "family": "qwen4_exp",
-            "parameter_size": "176B-A6B", "quantization_level": "4bit",
+            "parameter_size": "176B-A6B", "quantization_level": engine.modelQuantization,
             "expert_cache_per_layer": Int(pool.slotsPerLayer.rounded()),
             "experts_per_layer": engine.model.cfg.numExperts,
         ]
@@ -753,7 +753,7 @@ public final class Server {
         var c: [String: Any] = [
             "name": engine.modelName, "model": engine.modelName,
             "modified_at": iso(Date()), "size": weightsBytes,
-            "digest": "slotstream-qwen38-flash-next-4bit",
+            "digest": engine.modelDigest,
             "details": modelDetails(),
         ]
         if loaded {
@@ -883,13 +883,9 @@ public final class Server {
         guard let raw = json["model"] else { return nil }
         guard let requested = raw as? String else { return "model must be text" }
         guard !requested.isEmpty else { return "model must not be empty" }
-        // Ollama clients routinely drop the tag or ask for ":latest". Both name
-        // the only model here, and a name is not a semantic knob.
-        let accepted = [
-            engine.modelName, "qwen3.8-flash-next:4bit", "qwen38-flash-next-mlx-4bit",
-            "qwen3.8-flash-next", "qwen3.8-flash-next:latest",
-        ]
-        return accepted.contains(requested)
+        // Untagged and latest aliases name the active artifact. An explicit
+        // quantization tag must never silently select a different artifact.
+        return engine.acceptsModelName(requested)
             ? nil : "model '\(requested)' is not loaded; this server has only '\(engine.modelName)'"
     }
 

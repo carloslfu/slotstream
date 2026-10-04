@@ -24,6 +24,7 @@ struct Slotstream: ParsableCommand {
             AffineGenerationCheck.self,
             AffineSpeculationCheck.self,
             AffineContextCheck.self,
+            AffineEngineCheck.self,
             QuantizationModelCheck.self,
             QuantizationDraftCheck.self, QuantizationStateCheck.self, QuantizationGenerationCheck.self,
             QuantizationRotaryCheck.self, QuantizationContextCheck.self,
@@ -1440,6 +1441,8 @@ struct ElasticDrill: ParsableCommand {
                 }
 
                 let gov = MemoryGovernor(engine: engine)
+                var observedInputs: GovernorPolicy.Inputs?
+                gov.inputsObserver = { observedInputs = $0 }
                 // Exercise the real queued poll/resize path at controlled
                 // boundaries. A background timer could apply an unchecked
                 // availability stimulus during the cooldown sleep.
@@ -1452,18 +1455,28 @@ struct ElasticDrill: ParsableCommand {
 
                 // --- shrink: pretend the machine just got busy
                 let smallRecovery = Geometry.gb(s0 - Geometry.floorSlots) < 2
-                let shrinkAvailability = smallRecovery ? min(realAvail, target + 3) : 2.0
-                Planner.availabilityOverride = shrinkAvailability
                 // A plain-decode plan can run the decode lookahead. The governor
                 // keeps its reserve across re-plans, so predict with it too.
                 func inputs(at available: Double) -> GovernorPolicy.Inputs {
-                    GovernorPolicy.Inputs(currentSlots: engine.model.pool.slots, availableGB: available,
+                    var value = GovernorPolicy.Inputs(currentSlots: engine.model.pool.slots, availableGB: available,
                         ramGB: plan.ramGB, workingSetGB: plan.workingSetGB, ramPercent: plan.ramPercent,
                         maxContextTokens: engine.maxContextTokens,
                         ownedAdditionalBytes: engine.prefixCache.ownedAdditionalBytes(mtpResident: false),
                         decodeLookahead: plan.decodeLookahead, lookaheadReserveBytes: plan.lookaheadReserveBytes,
                         memoryLimitGB: plan.memoryLimitGB)
+                    value.resources = plan.resources
+                    value.ownedFootprintBytes = ProcessMemory.residentBytes()
+                    return value
                 }
+                guard let ownedCredit = GovernorPolicy.restartCreditGB(inputs(at: realAvail)) else {
+                    throw PlanError("elastic-drill cannot observe its actual restart credit")
+                }
+                // Cross the shrink band while retaining a feasible workload.
+                // An idle peak allowance is not actual releasable ownership.
+                let shrinkBudget = max(Planner.minMemoryGB + 1.5, target - 3)
+                let shrinkAvailability = smallRecovery ? min(realAvail, target + 3)
+                    : min(realAvail, max(0, shrinkBudget + Planner.availabilitySlackGB(ramGB: plan.ramGB) - ownedCredit))
+                Planner.availabilityOverride = shrinkAvailability
                 func pollBounded(pressure: GovernorPolicy.Pressure? = nil) throws {
                     guard let available = Planner.availabilityOverride,
                           let desired = GovernorPolicy.desiredPlan(inputs(at: available)),
@@ -1472,20 +1485,28 @@ struct ElasticDrill: ParsableCommand {
                         throw PlanError("elastic-drill stimulus exceeds its bounded starting arena or total-memory ceiling")
                     }
                     try checkMemory(nextSlots: desired.slots)
+                    observedInputs = nil
                     if let pressure { gov.pressureNow(pressure) } else { gov.pollNow() }
                     try checkMemory()
+                    guard let observedInputs, let actualDesired = GovernorPolicy.desiredPlan(observedInputs),
+                          actualDesired.expectedPeakGB <= memoryCeiling,
+                          actualDesired.slots <= s0 else {
+                        throw PlanError("elastic-drill actual governor inputs exceeded the bounded configuration")
+                    }
                     guard engine.currentPlan?.memoryLimitGB == plan.memoryLimitGB,
                           engine.currentPlan?.maxPrefillWaitMinutes == plan.maxPrefillWaitMinutes else {
                         throw PlanError("elastic-drill resize lost the adaptive ceiling or request deadline")
                     }
-                    if engine.model.pool.slots == desired.slots,
-                       engine.currentPlan?.targetGB != desired.targetGB {
+                    if engine.model.pool.slots == actualDesired.slots,
+                       engine.currentPlan?.targetGB != actualDesired.targetGB {
                         throw PlanError("elastic-drill resize retained a stale startup budget")
                     }
                 }
-                let shrinkInputs = inputs(at: shrinkAvailability)
                 let startCache = engine.prefixCache.maxTokens
                 try pollBounded(pressure: smallRecovery ? .warning : nil)
+                guard let shrinkInputs = observedInputs else {
+                    throw PlanError("elastic-drill did not observe the shrink inputs")
+                }
                 let s1 = engine.model.pool.slots
                 let underPressure = try gen()
                 note(String(format: "  squeeze: %d slots (~%.0f/layer) -> %@",
@@ -1539,7 +1560,11 @@ struct ElasticDrill: ParsableCommand {
                         if restoresBudget(at: mid) { high = mid } else { low = mid }
                     }
                 }
-                let recoveryAvailability = high
+                // A saved ceiling makes a little additional headroom harmless:
+                // the target cannot rise above it. Avoid balancing recovery on
+                // one changing physical-footprint byte across the cooldown.
+                let recoveryAvailability = min(high + (plan.memoryLimitGB == nil ? 0 : 0.25),
+                    realAvail, Planner.deviceAvailableGB() ?? 0)
                 let recoveryInputs = inputs(at: recoveryAvailability)
                 note(String(
                     format: "  recovery stimulus: %.1f GB available -> %d desired slots (%.1f GB growth)",

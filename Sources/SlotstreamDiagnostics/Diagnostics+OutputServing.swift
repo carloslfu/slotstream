@@ -5,7 +5,7 @@ import Slotstream
 
 /// A real loopback connection entering the same HTTP handler as Server.run.
 /// The diagnostic owns only the client; handle() owns and closes the accepted fd.
-private final class OutputHTTPConnection {
+final class OutputHTTPConnection {
     let client: Int32
     let serverFD: Int32
     let done = DispatchGroup()
@@ -291,6 +291,11 @@ extension Diagnostics {
                 runtimeAllocationPolicy: current.runtimeAllocationPolicy,
                 contextQualification: current.contextQualification)
             inputs.mtpStreamedExperts = current.mtpStreamedExperts
+            inputs.resources = current.resources
+                // Leave room for allocator pages released before the actual
+                // poll; this diagnostic never invents machine availability.
+                let footprint = ProcessMemory.residentBytes()
+                inputs.ownedFootprintBytes = max(1, footprint - min(footprint, 250_000_000))
             return GovernorPolicy.desiredPlan(inputs) != nil && GovernorPolicy.decide(inputs) == .hold
         }
         guard let recovery else { throw ModelError("no bounded feasible HTTP governor recovery is available") }

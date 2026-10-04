@@ -949,3 +949,36 @@ the real exclusion lock and requires both standalone and research draft
 entrypoints to refuse before loading. `Tools/vq_draft_admission_gate.py` adds
 actual pinned-fixture/configuration/sidecar refusal checks for a research build;
 it requires explicit binary, baseline, fixture and new output paths.
+
+## Affine candidate Engine and memory checks
+
+`slotstream affine-engine-check` exercises the authenticated expert control
+through the ordinary Engine, request controller, governor and loopback HTTP
+handler. It requires existing pinned artifacts and a new output directory:
+
+```sh
+slotstream affine-engine-check \
+  --baseline "$BASELINE" --control "$CONTROL" --table "$ROTARY" \
+  --generation-profile bench/quantization/greedy-v1.json \
+  --output "$NEW_OUTPUT"
+```
+
+Repeat with `--draft` and a different output directory to exercise the
+independently authenticated original head. The command enforces its physical
+memory and headroom bounds. Its conservative planning allowance is separate
+from the smaller physical watchdog; the receipt preserves both. The
+weights-free `pack-memory` catalogue check covers profile geometry, capacity
+solving, context/feature refusals and unknown throughput estimates.
+
+The adapter keeps tokenizer and prefix identities bound to the authenticated
+artifact. It checks actual memory/disk reuse, cancellation, live donation and
+recovery, resizing, HTTP generation and wrong-artifact refusal. Candidate
+images and streamed draft experts remain unsupported. This package-only path
+does not add a pack to the supported registry or alter installed weights.
+
+`quantization-task-run --draft-depth` can also select the original baseline's
+draft configuration. Its receipt records the resolved plan and expert
+placement. Complete-configuration comparisons must retain this baseline
+optimization and distinguish a shared physical watchdog from equal user
+memory ceilings. Calibration receipts never qualify Auto selection or a
+speed promise. See the [current plan and evidence](../../db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md).

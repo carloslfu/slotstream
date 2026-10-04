@@ -49,11 +49,18 @@ public enum GovernorPolicy {
               current.maxContextTokens == availablePlan.maxContextTokens,
               current.mtpEnabled == availablePlan.mtpEnabled,
               current.mtpStreamedExperts == availablePlan.mtpStreamedExperts,
-              current.visionEnabled == availablePlan.visionEnabled else { return false }
+              current.visionEnabled == availablePlan.visionEnabled,
+              current.resources == availablePlan.resources else { return false }
         return Double(current.memoryLedger.expectedPeakBytes) <= budget * 1e9
     }
 
     public struct Inputs {
+        package var resources: PackMemoryProfile = .original
+        /// Cap the restart credit by the current physical ownership. An
+        /// empirical peak allowance is not memory this idle process owns.
+        /// nil preserves the public pure-policy seam; the live owner always
+        /// supplies a real observation and defers replanning if it fails.
+        package var ownedFootprintBytes: UInt64?
         public var currentSlots: Int
         public var availableGB: Double
         public var ramGB: Double
@@ -170,13 +177,21 @@ public enum GovernorPolicy {
     /// the pool AND the fixed footprint (the planner subtracts the fixed
     /// footprint again when deriving slots, so without this credit the steady
     /// state under contention double-reserves ~4 GB).
-    public static func desiredPlan(_ i: Inputs) -> MemoryPlan? {
-        let credited = i.availableGB + Geometry.gb(i.currentSlots) + Planner.fixedFootprintGB
+    package static func restartCreditGB(_ i: Inputs) -> Double? {
+        let estimatedCredit = i.resources.capacityBudgetGB(i.currentSlots) + i.resources.fixedAllowanceGB
             + (i.mtpEnabled ? (i.mtpStreamedExperts ? Planner.mtpStreamedGB : Planner.mtpResidentGB) : 0)
             + (i.visionResidentReserved ? Planner.visionResidentGB : 0)
             + Double(i.ownedAdditionalBytes) / 1e9
             + Double(i.lookaheadReserveBytes) / 1e9
+        if i.ownedFootprintBytes == 0 { return nil }
+        return min(estimatedCredit, i.ownedFootprintBytes.map { Double($0) / 1e9 } ?? estimatedCredit)
+    }
+
+    public static func desiredPlan(_ i: Inputs) -> MemoryPlan? {
+        guard let credit = restartCreditGB(i) else { return nil }
+        let credited = i.availableGB + credit
         guard let plan = try? Planner.plan(
+            resources: i.resources,
             expertsPerLayer: nil, poolGB: nil, memoryGB: nil, memoryLimitGB: i.memoryLimitGB,
             ramGB: i.ramGB, workingSetGB: i.workingSetGB, availableGB: credited,
             ramPercent: i.ramPercent,
@@ -218,14 +233,14 @@ public enum GovernorPolicy {
         if let p = desiredPlan(i), p.slots == targetSlots {
             return (p.prefillChunk, p.prefixCacheTokens)
         }
-        let gb = Geometry.gb(targetSlots)
+        let gb = i.resources.poolGB(targetSlots)
         return (
-            min(Planner.prefillChunkFor(poolBudgetGB: gb, contextCap: i.maxContextTokens), i.runtimeAllocationPolicy?.prefillChunkOverride ?? 4096),
+            min(Planner.prefillChunkFor(resources: i.resources, poolBudgetGB: gb, contextCap: i.maxContextTokens), i.runtimeAllocationPolicy?.prefillChunkOverride ?? i.resources.maximumPrefill),
             i.runtimeAllocationPolicy?.prefixCacheEnabled == false ? 0 : Planner.prefixCacheTokensFor(poolBudgetGB: gb, contextCap: i.maxContextTokens))
     }
 
     public static func decide(_ i: Inputs) -> Decision {
-        let curGB = Geometry.gb(i.currentSlots)
+        let curGB = i.resources.poolGB(i.currentSlots)
         let planned = desiredPlan(i)
         let desired = planned?.slots
         // OS pressure events see what availability math cannot: compressor and
@@ -233,12 +248,12 @@ public enum GovernorPolicy {
         // repeated events keep shedding until the pressure stops.
         if let p = i.pressure {
             let shedGB = p == .critical ? max(4.0, curGB * 0.5) : max(2.0, curGB * 0.15)
-            var target = Int((curGB - shedGB) * 1e9 / Geometry.recordBytes)
+            var target = Int((curGB - shedGB) * 1e9 / Double(i.resources.expertRecordBytes))
             if let d = desired { target = min(target, d) }
             return settle(target, i.currentSlots, "memory pressure (\(p.rawValue))")
         }
         guard let d = desired else { return settle(Geometry.floorSlots, i.currentSlots, "context plan unavailable") }
-        let desiredGB = Geometry.gb(d)
+        let desiredGB = i.resources.poolGB(d)
         if desiredGB <= curGB - shrinkDeadbandGB {
             return settle(d, i.currentSlots, "availability dropped")
         }
@@ -263,6 +278,9 @@ public final class MemoryGovernor: @unchecked Sendable {
     private var timer: DispatchSourceTimer?
     private var lastPressureAt: Date? = nil
     private var lastResizeAt: Date? = nil
+    /// Synchronous diagnostic observation, under the generation gate. It does
+    /// not replace availability, ownership, pressure or allocation guards.
+    package var inputsObserver: ((GovernorPolicy.Inputs) -> Void)?
 
     // policy constants — dead-bands are absolute GB, not relative: the
     // feasibility replan converges in one step, and a relative trigger can
@@ -372,6 +390,10 @@ public final class MemoryGovernor: @unchecked Sendable {
             decodeLookahead: cur.decodeLookahead, lookaheadReserveBytes: cur.lookaheadReserveBytes,
             memoryLimitGB: cur.memoryLimitGB)
         inputs.mtpStreamedExperts = cur.mtpStreamedExperts
+        inputs.resources = cur.resources
+        let footprint = ProcessMemory.residentBytes()
+        guard footprint > 0 else { return nil }
+        inputs.ownedFootprintBytes = footprint
         return inputs
     }
 
@@ -416,6 +438,7 @@ public final class MemoryGovernor: @unchecked Sendable {
                 }
                 return
             }
+            self.inputsObserver?(i)
             let desiredPlan = GovernorPolicy.desiredPlan(i)
             let fits = self.management == .automatic ? desiredPlan != nil :
                 GovernorPolicy.fixedCapacityFits(current: self.engine.currentPlan, availablePlan: desiredPlan)
@@ -483,7 +506,7 @@ public final class MemoryGovernor: @unchecked Sendable {
             // These are live allocation controls, not merely fields in the
             // reported plan. Leaving startup values here let a shrunken server
             // allocate the old large prefill and refill the old cache ceiling.
-            if ref?.runtimeAllocationPolicy != nil {
+            if ref?.runtimeAllocationPolicy != nil || ref.map({ $0.resources != .original }) == true {
                 engine.generator.setPrefillBudgetCeiling(prefillChunk)
                 engine.prefixCache.setBudgetLimit(livePrefixTokens)
             }
@@ -510,13 +533,14 @@ public final class MemoryGovernor: @unchecked Sendable {
                 contextQualification: ref?.contextQualification ?? false,
                 lookaheadReserveBytes: ref?.lookaheadReserveBytes ?? 0,
                 decodeLookahead: ref?.decodeLookahead ?? false,
-                memoryLimitGB: ref?.memoryLimitGB, mtpStreamedExperts: ref?.mtpStreamedExperts ?? false))
+                memoryLimitGB: ref?.memoryLimitGB, mtpStreamedExperts: ref?.mtpStreamedExperts ?? false, resources: ref?.resources ?? .original))
         }
         lastResizeAt = Date()
         log(String(
             format: "%@ — cache ~%.0f → ~%.0f experts/layer (%.1f → %.1f GB pool%@)",
             reason, Geometry.perLayer(before), Geometry.perLayer(after),
-            Geometry.gb(before), Geometry.gb(after),
+            engine.currentPlan?.resources.poolGB(before) ?? Geometry.gb(before),
+            engine.currentPlan?.resources.poolGB(after) ?? Geometry.gb(after),
             growing ? ", contents kept" : ", cold — refills from SSD"))
     }
 

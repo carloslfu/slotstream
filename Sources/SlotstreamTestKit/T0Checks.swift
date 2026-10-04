@@ -9,6 +9,7 @@ extension Catalogue {
     static var t0Checks: [Check] {
         [
             Check("quantization-geometry", tier: .t0) { try Diagnostics.quantizationGeometry() },
+            Check("pack-memory", tier: .t0) { try Diagnostics.packMemory() },
             Check("quantization-metadata", tier: .t0) { try Diagnostics.quantizationMetadata() },
             Check("quantization-read-batch", tier: .t0) { try Diagnostics.quantizationReadBatch() },
             Check("quantization-ple-storage", tier: .t0) { try Diagnostics.quantizationPLEStorage() },

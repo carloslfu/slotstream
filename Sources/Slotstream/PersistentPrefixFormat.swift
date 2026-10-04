@@ -87,18 +87,31 @@ public struct PersistentPrefixIdentity: Equatable {
     /// the first and last 4 MiB of every weight file. Sampled weight content
     /// rather than modification times: a copied model keeps its cache, and a
     /// different checkpoint with identical file sizes does not inherit it.
+    /// Authenticated alternate loading uses its complete immutable digests;
+    /// sampling only the parent paths would omit the alternate expert bytes.
     public static func make(model: Qwen4ExpModel, modelDirectory: URL) throws -> PersistentPrefixIdentity {
-        let directory = modelDirectory.resolvingSymlinksInPath()
-        var weights = try CheckpointIndex.shardFiles(in: directory)
-        let draft = MTPWeights.fileURL(modelDir: directory)
-        if FileManager.default.fileExists(atPath: draft.path) { weights.append(draft) }
-        guard !weights.isEmpty else {
-            throw ModelError("no weight files in \(directory.path) to identify persisted prefix states")
-        }
         guard let code = codeDigest else {
             throw ModelError("cannot read the executable image to identify persisted prefix states")
         }
-        let config = try Data(contentsOf: directory.appendingPathComponent("config.json"))
+        let weightIdentity: String, configIdentity: String
+        if let authenticated = model.authenticatedArtifactIdentity {
+            guard let config = PinnedModel.files.first(where: { $0.path == "config.json" })?.sha256 else {
+                throw ModelError("missing authenticated configuration identity")
+            }
+            configIdentity = config
+            weightIdentity = authenticated + (model.mtpHead == nil ? ":no-draft" : ":" + VQDraftWeights.fileSHA256)
+        } else {
+            let directory = modelDirectory.resolvingSymlinksInPath()
+            var weights = try CheckpointIndex.shardFiles(in: directory)
+            let draft = MTPWeights.fileURL(modelDir: directory)
+            if FileManager.default.fileExists(atPath: draft.path) { weights.append(draft) }
+            guard !weights.isEmpty else {
+                throw ModelError("no weight files in \(directory.path) to identify persisted prefix states")
+            }
+            let config = try Data(contentsOf: directory.appendingPathComponent("config.json"))
+            configIdentity = hex(SHA256.hash(data: config))
+            weightIdentity = try weights.map(sampledDigest).joined(separator: ",")
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let cfg = model.cfg
@@ -106,19 +119,27 @@ public struct PersistentPrefixIdentity: Equatable {
                         cfg.indexerCompressRatio, cfg.linearNumKHeads, cfg.linearNumVHeads, cfg.linearKHeadDim,
                         cfg.linearVHeadDim, cfg.convKernel, cfg.pleConvKernel, cfg.ngramSize, cfg.hcCount,
                         cfg.eosTokenId]
-        return PersistentPrefixIdentity(components: [
+        var components = [
             "format": String(PersistentPrefixFile.formatVersion),
             "slotstream": SlotstreamBuild.version,
             "code": code,
-            "config": hex(SHA256.hash(data: config)),
-            "weights": try weights.map(sampledDigest).joined(separator: ","),
+            "config": configIdentity,
+            "weights": weightIdentity,
             "layers": "\(model.runLayers):" + cfg.layerTypes.prefix(model.runLayers).joined(separator: ","),
             "ple_layers": cfg.pleLayerIds.map(String.init).joined(separator: ","),
             "geometry": geometry.map(String.init).joined(separator: ","),
             "optimizations": String(decoding: try encoder.encode(model.optimizations), as: UTF8.self),
             "attention_backend": FusedPrefillAttention.cacheIdentity,
             "context_arithmetic": String(PromptCheckpointKey.currentContextArithmetic),
-        ], optimizations: model.optimizations)
+        ]
+        if model.authenticatedArtifactIdentity != nil {
+            components["tokenizer_metadata"] = PinnedModel.files
+                .filter { PinnedTokenizerMetadata.names.contains($0.path) }
+                .sorted { $0.path < $1.path }.map { "\($0.path):\($0.size):\($0.sha256 ?? "missing")" }
+                .joined(separator: ",")
+            components["admitted_context"] = String(model.inferenceContextLimit)
+        }
+        return PersistentPrefixIdentity(components: components, optimizations: model.optimizations)
     }
 
     private static func hex(_ digest: SHA256.Digest) -> String { PersistentPrefixFile.hex(digest) }

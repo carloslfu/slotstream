@@ -13,6 +13,27 @@ public final class Qwen4ExpModel {
     /// The finite research coefficients do not widen the public context
     /// contract. Refuse an out-of-range forward before touching any state.
     package let inferenceContextLimit: Int
+    package var maximumForwardTokens: Int? { affineControlReferenceArithmetic ? 512 : nil }
+    private let authenticatedRotaryIdentity: String?
+    package var authenticatedArtifactIdentity: String? {
+        guard affineControlReferenceArithmetic else { return nil }
+        return [AffineExpertControl.policy, AffineExpertControl.manifestSHA256,
+                authenticatedRotaryIdentity ?? "embedded-reference-coefficients-v1",
+                PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
+    }
+
+    /// This arithmetic owns a complete 512-expert RHS even for a seven-row
+    /// pass. Charge it independently of the optional deployed prefill sweep.
+    package func intrinsicExpertWorkspaceBytes(tokens: Int, admits: Bool) -> Int {
+        guard affineControlReferenceArithmetic, tokens > 0,
+              ContextBytes.product(tokens, cfg.topK) >= 64 else { return 0 }
+        return ContextWorkspace.expertWorkspaceBytes(tokens: tokens, tile: 512,
+            experts: cfg.numExperts, topK: cfg.topK, hidden: cfg.hiddenSize,
+            intermediate: cfg.moeIntermediate, recordBytes: pool.recordBytes,
+            loadBatch: ExpertStore.defaultLoadBatch,
+            admissionPoolBytes: admits ? pool.poolBytes : 0,
+            admissionRecords: admits ? min(cfg.numExperts, max(1, pool.slots / cfg.numLayers)) : 0)
+    }
     public let cfg: ModelConfig
     public let resident: ResidentWeights
     /// The reduced prefill reserve is qualified only for the maintained BF16
@@ -228,10 +249,11 @@ public final class Qwen4ExpModel {
         guard affineControlCoefficients == nil || affineControlReferenceArithmetic,
               !affineControlReferenceArithmetic || (affineControlCoefficients == nil
                 ? affineControlContextLimit == 2054
-                : [4096, 8192, 32768].contains(affineControlContextLimit)) else {
+                : (1...32_768).contains(affineControlContextLimit)) else {
             throw ModelError("affine reference context requires explicit bounded coefficient coverage")
         }
         self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
+        self.authenticatedRotaryIdentity = affineControlCoefficients == nil ? nil : VQRotaryCoefficients.sha256
         self.inferenceContextLimit = affineControlReferenceArithmetic ? affineControlContextLimit : ContextPolicy.modelLimit
         let arithmetic: BlockArithmeticProfile = affineControlReferenceArithmetic ? .vqPR1788 : .deployed
         self.optimizations = try InferenceOptimizations.environment()
@@ -241,6 +263,10 @@ public final class Qwen4ExpModel {
             // it cannot inherit this reference's numerical qualification.
             self.optimizations.fusedPrefillAttention = nil
             self.optimizations.fusedPrefillWorkspace = false
+            guard !self.optimizations.readScopeEnabled, !self.optimizations.layerExpertWorkspace else {
+                throw ModelError("affine reference arithmetic does not admit experimental grouped read scopes")
+            }
+            self.optimizations.automaticReadScope = false
         }
         try ModelProcessGuard.acquire()
         self.cfg = index.config
@@ -307,6 +333,9 @@ public final class Qwen4ExpModel {
     /// `streamedExperts` loads the head without its routed experts, which
     /// then stream through a `PlannerCostModel.mtpStreamSlots` cache.
     public func enableMTP(modelDir: URL, streamedExperts: Bool) throws {
+        guard !affineControlReferenceArithmetic else {
+            throw ModelError("this target requires independently authenticated draft admission; its expert recipe cannot configure the original head")
+        }
         guard mtpHead == nil else { return }
         let weights = try MTPWeights(modelDir: modelDir, config: cfg, streamedExperts: streamedExperts)
         let stream = try streamedExperts ? MTPExpertStream(url: weights.url, base: "mtp.layers.0.mlp",
@@ -486,6 +515,9 @@ public final class Qwen4ExpModel {
     private func validateForward(_ ids: [Int], state: State) throws {
         guard !ids.isEmpty, ids.allSatisfy({ $0 >= 0 && $0 < cfg.vocabSize }) else {
             throw ModelError("model forward requires a nonempty sequence of valid token IDs")
+        }
+        guard maximumForwardTokens.map({ ids.count <= $0 }) ?? true else {
+            throw ModelError("model forward exceeds this pack's admitted query-row bound")
         }
         guard !affineControlReferenceArithmetic || (state.tokenCount >= 0 && state.tokenCount <= inferenceContextLimit
               && ids.count <= inferenceContextLimit - state.tokenCount) else {

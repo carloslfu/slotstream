@@ -15,9 +15,9 @@ extension Diagnostics {
         guard (source == nil) == (inventory == nil),
               !parallelPrefillReads || (source != nil && !prepareOnly),
               affineControl == nil || (source == nil && composite == nil && table != nil && !prepareOnly && !parallelPrefillReads),
-              source != nil || affineControl != nil || (composite == nil && table == nil && draftDepth == 0),
+              source != nil || affineControl != nil || (composite == nil && table == nil),
               source == nil || table != nil,
-              (0...4).contains(draftDepth), draftDepth == 0 || composite != nil || affineControl != nil,
+              (0...4).contains(draftDepth), draftDepth == 0 || composite != nil || affineControl != nil || source == nil,
               !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
@@ -176,8 +176,13 @@ extension Diagnostics {
             } else {
                 try WeightStore.verify(at: baseline)
                 let plan = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: 10,
-                    mtp: .off, vision: .off, maxContextTokens: context)
+                    mtp: draftDepth > 0 ? .on : .off, mtpAvailable: draftDepth > 0,
+                    vision: .off, maxContextTokens: context)
                 let engine = try await Engine(modelDir: baseline, plan: plan)
+                guard (engine.model.mtpHead != nil) == (draftDepth > 0) else {
+                    throw ModelError("baseline evaluation did not load the explicitly requested draft configuration")
+                }
+                if draftDepth > 0 { engine.generator.draftDepth = draftDepth }
                 engine.prefixCache.enabled = false
                 baselineEngine = engine
                 identity["manifest_sha256"] = ModelPackRegistry.baseline.manifestDigest

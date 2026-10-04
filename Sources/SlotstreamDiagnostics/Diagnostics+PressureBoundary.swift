@@ -198,6 +198,13 @@ extension Diagnostics {
                     runtimeAllocationPolicy: current.runtimeAllocationPolicy,
                     contextQualification: current.contextQualification)
                 inputs.mtpStreamedExperts = current.mtpStreamedExperts
+                inputs.resources = current.resources
+                // The allocator can return cached pages between this pure
+                // search and the actual poll. Leave 250 MB of credit unused
+                // so the recovery stimulus is feasible across that release;
+                // availability still cannot exceed the live machine reading.
+                let footprint = ProcessMemory.residentBytes()
+                inputs.ownedFootprintBytes = max(1, footprint - min(footprint, 250_000_000))
                 if phase == "fixed" {
                     return GovernorPolicy.fixedCapacityFits(current: current, availablePlan: GovernorPolicy.desiredPlan(inputs))
                 }

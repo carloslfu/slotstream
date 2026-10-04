@@ -73,6 +73,9 @@ public enum ContextGeometry {
 /// fixed and workspace allowances are measured budgets, not allocator telemetry.
 public struct ContextMemoryLedger: Sendable {
     public let fixedBytes: Int
+    public let packResidentReserveBytes: Int
+    public let expertWorkspaceBytes: Int
+    public let resourceIdentity: String
     public let poolBytes: Int
     public let activeCapacityBytes: Int
     public let additionalActiveBytes: Int
@@ -98,9 +101,20 @@ public struct ContextMemoryLedger: Sendable {
     /// through a small cache instead of staying resident.
     public init(slots: Int, context: Int, chunk: Int, retentionTokens: Int,
                 mtp: Bool, mtpStreamedExperts: Bool, visionResident: Bool, lookaheadReserveBytes: Int = 0) {
+        self.init(slots: slots, context: context, chunk: chunk, retentionTokens: retentionTokens,
+            mtp: mtp, mtpStreamedExperts: mtpStreamedExperts, visionResident: visionResident,
+            lookaheadReserveBytes: lookaheadReserveBytes, resources: .original)
+    }
+
+    package init(slots: Int, context: Int, chunk: Int, retentionTokens: Int,
+                 mtp: Bool, mtpStreamedExperts: Bool, visionResident: Bool,
+                 lookaheadReserveBytes: Int, resources: PackMemoryProfile) {
         self.lookaheadReserveBytes = max(0, lookaheadReserveBytes)
+        resourceIdentity = resources.identity
         fixedBytes = PlannerCostModel.fixedBytes
-        poolBytes = ContextBytes.product(slots, Int(Geometry.recordBytes))
+        packResidentReserveBytes = resources.residentReserveBytes
+        expertWorkspaceBytes = resources.workspaceBytes(slots: slots)
+        poolBytes = resources.poolBytes(slots)
         activeCapacityBytes = ContextGeometry.sequenceBytes(tokens: context, mtp: mtp)
         additionalActiveBytes = ContextGeometry.additionalActiveBytes(tokens: context, mtp: mtp)
         retainedCapacityBytes = ContextBytes.product(retentionTokens, PrefixCache.bytesPerToken)
@@ -124,12 +138,15 @@ public struct ContextMemoryLedger: Sendable {
     }
 
     public var expectedPeakBytes: Int {
-        ContextBytes.sum(fixedBytes, poolBytes, additionalActiveBytes, retainedCapacityBytes,
+        ContextBytes.sum(fixedBytes, packResidentReserveBytes, expertWorkspaceBytes, poolBytes, additionalActiveBytes, retainedCapacityBytes,
             retainedRecurrentBytes, prefillBytes, longContextReserveBytes, lookaheadReserveBytes,
             mtpResidentBytes, visionResidentBytes)
     }
     public var json: [String: Any] {
-        ["version": 1, "fixed_bytes": fixedBytes, "pool_bytes": poolBytes,
+        ["version": resourceIdentity == PackMemoryProfile.original.identity ? 1 : 2,
+         "resource_identity": resourceIdentity, "fixed_bytes": fixedBytes,
+         "pack_resident_reserve_bytes": packResidentReserveBytes, "expert_workspace_bytes": expertWorkspaceBytes,
+         "pool_bytes": poolBytes,
          "active_capacity_bytes": activeCapacityBytes, "additional_active_bytes": additionalActiveBytes,
          "retained_capacity_bytes": retainedCapacityBytes, "retained_recurrent_bytes": retainedRecurrentBytes,
          "prefill_bytes": prefillBytes, "long_context_reserve_bytes": longContextReserveBytes,

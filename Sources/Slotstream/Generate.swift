@@ -405,8 +405,9 @@ public final class Generator {
     /// the row to the CPU, so it is installed by diagnostics and nothing else.
     package var promptLogitsObserver: (([Float]) -> Void)?
     package func setPrefillBudgetCeiling(_ ceiling: Int?) {
-        prefillBudgetCeiling = ceiling
-        if let ceiling { prefillChunk = min(max(1, prefillChunk), ceiling) }
+        let bound = [ceiling, model.maximumForwardTokens].compactMap { $0 }.min()
+        prefillBudgetCeiling = bound
+        if let bound { prefillChunk = min(max(1, prefillChunk), bound) }
     }
     /// Draft tokens per speculative round when the MTP head is enabled.
     /// Operating choice: two drafts balance target passes against rejected work.
@@ -471,6 +472,10 @@ public final class Generator {
 
     public init(model: Qwen4ExpModel) {
         self.model = model
+        if let bound = model.maximumForwardTokens {
+            prefillBudgetCeiling = bound
+            prefillChunk = min(max(1, prefillChunk), bound)
+        }
     }
 
     func sample(_ logits: MLXArray, params: SampleParams, generated: Set<Int>) -> Int {
@@ -992,7 +997,11 @@ public final class Generator {
                         fusedKVHeads: readPolicy.fusedKVHeads))
                 }
                 workspace = ContextBytes.sum(workspace, ContextBytes.product(max(0, end - i - (group.max() ?? 0)), 32_768))
-                if options.layerExpertWorkspace, end - i >= SweepTuning.minTokens {
+                let intrinsic = model.intrinsicExpertWorkspaceBytes(tokens: end - i,
+                    admits: end == promptIds.count && SlotPool.sweepAdmitEnabled)
+                if intrinsic > 0 {
+                    workspace = ContextBytes.sum(workspace, intrinsic)
+                } else if options.layerExpertWorkspace, end - i >= SweepTuning.minTokens {
                     let admits = end == promptIds.count && SlotPool.sweepAdmitEnabled
                     let admissionRecords = admits ? min(model.cfg.numExperts,
                         max(1, model.pool.slots / model.cfg.numLayers)) : 0

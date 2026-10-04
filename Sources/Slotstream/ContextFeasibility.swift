@@ -26,7 +26,7 @@ extension Planner {
     /// Keep the adaptive ceiling meaningful before any allocation or replan.
     static func validateAdaptiveMemoryPolicy(_ plan: MemoryPlan) throws {
         guard let limit = plan.memoryLimitGB else { return }
-        guard limit.isFinite, limit >= minMemoryGB,
+        guard limit.isFinite, limit >= plan.resources.minimumMemoryGB,
               plan.source == .auto, let target = plan.targetGB,
               target.isFinite, target > 0, target <= limit else {
             throw PlanError("invalid adaptive memory policy: an automatic plan needs a positive target within its finite memory limit")
@@ -41,7 +41,7 @@ extension Planner {
         guard plan.ramGB.isFinite, plan.ramGB > 0,
               plan.workingSetGB.isFinite, plan.workingSetGB > 0,
               plan.targetGB.map({ $0.isFinite && $0 > 0 }) ?? true,
-              plan.memoryLimitGB.map({ $0.isFinite && $0 >= minMemoryGB }) ?? true else {
+              plan.memoryLimitGB.map({ $0.isFinite && $0 >= plan.resources.minimumMemoryGB }) ?? true else {
             throw PlanError("invalid memory budget: device, target and adaptive limit must be finite positive values")
         }
         guard let availableGB, !availableGB.isNaN, availableGB >= 0 else {
