@@ -253,3 +253,6 @@ Captured complete Mac CI for selected-manifest verification and full engine CI f
 ## [2026-10-04 18:08] update | sources/runs/2026/10/2026-10-04-prepared-instruments-ci-and-image-workspace.md
 Added the missing required machine references to the CI/source receipt without changing its captured evidence or verdicts. Full validation now reports zero errors and warnings; claims and projections pass.
 
+## [2026-10-04 18:30] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Added complete paired image and long-conversation product orchestration with frozen identities and budgets, serial ownership, preserved failures and response regrading. Eight groups pass on both Python runtimes and thirty-two registration checks pass. Captured complete native image-instrument engine and Mac CI; physical product outcomes remain pending.
+

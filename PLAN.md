@@ -975,6 +975,12 @@ The exporter preserves original inodes, authenticates copied inputs, independent
 
 The actual deployed image attention uses bounded query tiles, so its workspace is independent of the smaller candidate language-prefill cap. Image sessions now require and report that arithmetic. Later source adds deterministic complete-plan geometry checks for both packs across the photographs and maximum grid; native compilation/execution is pending. The twelve Python driver groups pass on both runtimes, including image arithmetic identity refusals. Actual image memory and answer outcomes remain required, and the ongoing final text/tool campaign keeps its frozen implementation.
 
+### Complete product campaign driver, October 4
+
+[[sources/runs/2026/10/2026-10-04-complete-product-campaign-driver]] records the bounded paired runner for the separately prepared image and synthetic long-conversation fixtures. It binds the driver and helper closure, exact original/minmax artifacts, complete native configuration, inputs, cumulative time and output/staging budget. Every conversation runs both arms in alternating pair order through separate sequential native sessions. A launched directory cannot be retried, and an execution or cleanup failure prevents complete analysis. Stored responses are regraded with the original typed gold; complete native request counters must agree. All candidate turns must be correct for this focused product check, which carries no statistical noninferiority, speed or pack-qualification verdict.
+
+Eight orchestration test groups pass on both Python runtimes and thirty-two static registration checks pass. Those checks use an explicit native-session mock and the real graders, complementing the separately tested production process owner. Full engine and Mac CI now accept the earlier complete native image-session implementation at `55fc67379175c56dc467df4574be354052630411`; the later vision-workspace assertions and this product runner still await their respective full CI results. Actual full image/long-conversation outcomes and capacity remain pending. The frozen held-out task campaign is unchanged, and its partial outcomes remain unopened.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

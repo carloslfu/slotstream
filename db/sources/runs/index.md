@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T18:07:56.405879Z
+updated: 2026-10-04T18:30:06.867918Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-complete-product-campaign-driver]] — Bounded paired image and long-conversation product runner fixtures and completed native image-instrument CI
 - [[sources/runs/2026/10/2026-10-04-prepared-instruments-ci-and-image-workspace]] — Completed app verification and preparation CI, plus pending native image workspace checks
 - [[sources/runs/2026/10/2026-10-04-standalone-bundle-assembly]] — Complete standalone file ownership and bounded authenticated assembly checks, without weight export
 - [[sources/runs/2026/10/2026-10-04-image-outcome-session-preparation]] — Separate native image-session source, checked complete-answer grader and prepared product image fixtures
@@ -506,9 +507,8 @@ updated: 2026-10-04T18:07:56.405879Z
 - [[sources/runs/2026/09/2026-09-07-optimization-public-consumer-lifetime-preflight]] — Actual public consumer and corrected lifetime planner preflight
 - [[sources/runs/2026/09/2026-09-07-optimization-corrected-lifetime-composition]] — Guarded corrected-lifetime execution and explicit original-evidence composition
 - [[sources/runs/2026/09/2026-09-07-optimization-lifetime-mtp-vision-contract-correction]] — Unrun MTP-plus-vision lifetime contract corrected from source constraints
-- [[sources/runs/2026/09/2026-09-07-optimization-joined-eval-short-request-pair]] — Current joined-evaluation build: fixed short-request latency and memory comparison
 
 ## More
 
-This folder has 797 files. The 500 most recent are listed above.
+This folder has 798 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
