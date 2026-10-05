@@ -17,7 +17,7 @@ VM = {'reclaimable_bytes': 20_000_000_000, 'reclaimableBytes': 20_000_000_000, '
 
 
 class PerformanceCampaignChecks(unittest.TestCase):
-    def fixture(self, root, *, scope='pilot', repetitions=3, profiles=1, version=1, deployment='composite'):
+    def fixture(self, root, *, scope='pilot', repetitions=3, profiles=1, version=1, deployment='composite', artifact='affine3'):
         root = Path(root).resolve()
         standalone = version == 2 and deployment == 'standalone'
         paths = {'binary': 'native/slotstream', 'metallib': 'native/mlx.metallib',
@@ -57,7 +57,7 @@ class PerformanceCampaignChecks(unittest.TestCase):
             name = 'profile-' + str(index); arms = {}
             for arm in m.ARMS:
                 path = name + '-' + arm + '.json'; arms[arm] = path
-                n = {**native, 'artifact': 'original' if arm == 'original' else 'affine3'}
+                n = {**native, 'artifact': 'original' if arm == 'original' else artifact}
                 if version == 2:
                     n.update(deployment='original' if arm == 'original' else deployment,
                              standalone_manifest_sha256=standalone_sha if arm == 'candidate' else None,
@@ -84,7 +84,8 @@ class PerformanceCampaignChecks(unittest.TestCase):
         return root, protocol
 
     def receipt(self, native, sha, arm):
-        resource = 'original-affine4-memory-v1' if arm == 'original' else 'affine3-grouped-memory-v1'
+        resource = ('original-affine4-memory-v1' if arm == 'original' else
+                    'affine3-native-memory-v1' if native['artifact'] == 'affine3-native' else 'affine3-grouped-memory-v1')
         plan = {'source': 'auto', 'resource_profile': resource, 'target_gb': 14, 'memory_limit_gb': 14,
                 'max_context_tokens': 32768, 'vision': False, 'runtime_prefix_cache_enabled': True,
                 'memory_ledger': {'expected_peak_bytes': 13_999_999_999}, 'mtp': True, 'mtp_streamed_experts': True,
@@ -162,6 +163,27 @@ class PerformanceCampaignChecks(unittest.TestCase):
                     self.assertEqual(native['numerical_manifest_sha256'], m.MANIFESTS['candidate'])
                     self.assertEqual(native['artifact_manifest_sha256'], protocol['files']['control/standalone-manifest.json']
                                      if deployment == 'standalone' else m.MANIFESTS['candidate'])
+
+    def test_native_standalone_pilot_keeps_its_arithmetic_and_resource_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2, deployment='standalone', artifact='affine3-native')
+            path, sha, _, _ = self.execute(root, protocol)
+            analysis = m.analyze(path, sha, root, root / 'run')
+            self.assertTrue(analysis['all_timings_eligible'])
+            self.assertFalse(analysis['qualification'])
+            self.assertFalse(analysis['performance_gate_passed'])
+            native = m.validate(protocol, root)['profile-0']['candidate']
+            receipt = self.receipt(native, '1' * 64, 'candidate')
+            m.validate_native(receipt, native, '1' * 64, 'candidate')
+            for key, value in [('artifact', 'affine3'), ('resource_identity', 'affine3-grouped-memory-v1')]:
+                changed = copy.deepcopy(receipt); changed[key] = value
+                with self.assertRaisesRegex(ValueError, 'identity or resources'):
+                    m.validate_native(changed, native, '1' * 64, 'candidate')
+        for scope, deployment in [('held-out', 'standalone'), ('pilot', 'composite')]:
+            with self.subTest(scope=scope, deployment=deployment), tempfile.TemporaryDirectory() as directory:
+                with self.assertRaisesRegex(ValueError, 'outside the priced scope'):
+                    self.fixture(directory, version=2, deployment=deployment, scope=scope,
+                                 repetitions=8, artifact='affine3-native')
 
     def test_v2_requires_actual_per_request_prefill_including_boundary_and_stock_policy(self):
         with tempfile.TemporaryDirectory() as directory:

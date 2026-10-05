@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T17:44:22.448221Z
+updated: 2026-10-05T17:56:21.715362Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-native-practical-comparison-prepared]] — Existing runner admits the native standalone pilot with separate arithmetic identity; sixteen tests and four allocation proposals pass; competing CPU prevents execution
 - [[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] — Corrected startup evidence comparison; unchanged real activation and memory-control checks pass within their physical ceilings
 - [[sources/runs/2026/10/2026-10-05-native-affine-lifecycle-and-draft-recovery]] — All eighty-six native checks and the existing original draft-stream gate pass; both earlier empty-output fixture failures are preserved
 - [[sources/runs/2026/10/2026-10-05-native-affine-focused-quality]] — All fifty outcomes recorded under physical supervision; original passes seventeen tasks and native candidate sixteen; no statistical equivalence or speed qualification
@@ -506,9 +507,8 @@ updated: 2026-10-05T17:44:22.448221Z
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-serving-preparation]] — Original full-photo and maximum-image studies rebound to resumed vision proofs
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-preparation]] — Resumed full vision integrations preserve original component proofs and guards
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-campaign-adapter]] — Fixed-MTP campaign adapter preserves exact original native evidence and eight workload contracts
-- [[sources/runs/2026/09/2026-09-08-optimization-resumed-scope-native-pass]] — Resumed original scope family passes 2698 assertions; original serving study frozen and unrun
 
 ## More
 
-This folder has 845 files. The 500 most recent are listed above.
+This folder has 846 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

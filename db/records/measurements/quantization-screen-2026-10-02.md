@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T17:44:53.980322+00:00
+updated: 2026-10-05T17:56:47.318495+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -20,6 +20,8 @@ status: measured
 [[sources/runs/2026/10/2026-10-05-native-affine-loader-and-focused-quality-launch]] captures the internal shared-loader descriptor, independently priced startup recipe, five passing native catalogue groups, loader plan/refusal checks and the focused quality launch. Both arms freshly run the same previously selected 25 pilot tasks, with existing bounded graders and no statistical noninferiority claim. [[sources/runs/2026/10/2026-10-05-native-affine-focused-quality]] records all fifty outcomes: original 17/25, native candidate 16/25. In family order (facts, multilingual, coding, instruction, tools), the original passes 4, 5, 3, 4, 1 and the candidate 4, 4, 3, 4, 1. The additional multilingual failure reaches the fixed output limit without a completed answer. One tool case improves and another regresses; both packs struggle on this small tool set. All ten sessions complete inside the physical and wall limits. These descriptive results do not establish broad quality equivalence. Native arithmetic does not inherit the reference path's earlier parity or quality qualification, and the original remains the only supported product pack.
 
 [[sources/runs/2026/10/2026-10-05-native-affine-lifecycle-and-draft-recovery]] records all 86 applicable native lifecycle assertions passing with a supervised peak of 7,948,523,784 bytes. It covers within-native plain/draft and lookahead equality, nonempty memory/disk/cold continuations, cancellation, pressure recovery and HTTP identity. The original draft-stream gate passes with a peak of 7,878,203,464 bytes. Two failed native fixture attempts remain preserved: immediate EOS prevented the original unframed prompt and arbitrary continuation token from exercising decode. The same lengths and assertions now use framed native inputs and the assistant's actual first token; reference fixtures remain unchanged. These are functional and process-memory observations, not qualified timing.
+
+[[sources/runs/2026/10/2026-10-05-native-practical-comparison-prepared]] prepares a prospective repeated comparison using the same existing runner and practical workloads. Native arithmetic has a distinct validated resource identity, and all sixteen runner checks pass. Four allocation proposals run without loading a model. The clean-start check refuses persistent unrelated CPU activity, so this preparation adds no speed observation or promotion evidence.
 
 ### Actual app activation and memory controls, October 5
 

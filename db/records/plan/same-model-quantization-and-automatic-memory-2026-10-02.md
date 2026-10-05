@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T17:44:53.961896+00:00
+updated: 2026-10-05T17:56:47.298433+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -23,6 +23,8 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 [[sources/runs/2026/10/2026-10-05-native-affine-lifecycle-and-draft-recovery]] closes the native lifecycle checks: all 86 assertions pass under the fixed physical watchdog. The original draft-stream/recovery gate also passes. Both earlier fixture attempts are preserved; meaningful native decode and continuation inputs fix immediate-EOS cases without relaxing assertions or changing reference goldens.
 
 [[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] closes actual original-pack app activation and memory-control checks. A one-line accounting correction makes Engine-observed startup verification compare the scheduler reserve with its own staging and correction allocation, excluding the separately budgeted router cache. The unchanged checks pass rollback, explicit retry, restart, commit cancellation, repair, queued ceiling/live-mode changes, sequential reload, idle release and draft preservation.
+
+[[sources/runs/2026/10/2026-10-05-native-practical-comparison-prepared]] freezes that comparison using the existing runner: three paired rounds at 14 and 22 GB with unchanged workloads and the native startup recipe. Its sixteen runner tests and all four plan-only proposals pass. Clean-start preflight observes nominal thermal/power conditions but persistent unrelated Bluetooth-service CPU activity and launches no model. The prepared inputs stay available; no repeated performance result exists.
 
 Next: obtain an eligible repeated performance comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
 

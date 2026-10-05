@@ -85,6 +85,8 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] closes actual original-pack app activation and memory-control checks. A one-line accounting correction makes Engine-observed startup verification compare the scheduler reserve with its own staging and correction allocation, excluding the separately budgeted router cache. The unchanged checks pass rollback, explicit retry, restart, commit cancellation, repair, queued ceiling/live-mode changes, sequential reload, idle release and draft preservation.
 
+[[sources/runs/2026/10/2026-10-05-native-practical-comparison-prepared]] freezes that comparison using the existing runner: three paired rounds at 14 and 22 GB with unchanged workloads and the native startup recipe. Its sixteen runner tests and all four plan-only proposals pass. Clean-start preflight observes nominal thermal/power conditions but persistent unrelated Bluetooth-service CPU activity and launches no model. The prepared inputs stay available; no repeated performance result exists.
+
 Next: obtain an eligible repeated performance comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
 
 ### Practical performance findings, October 5

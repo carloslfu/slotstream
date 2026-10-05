@@ -138,10 +138,13 @@ def validate(protocol, root):
             path = profile['arms'][arm]
             if path not in files: raise ValueError('native performance protocol is unpinned')
             native = read(root / path, files[path], maximum=4_000_000)
+            artifacts = ('original',) if arm == 'original' else ('affine3',)
+            if arm == 'candidate' and standalone and protocol['scope'] == 'pilot':
+                artifacts += ('affine3-native',)
             if (type(native.get('schema')) is not int or native['schema'] != protocol['schema']
                     or native['scope'] != protocol['scope']
                     or native['kind'] != ('same-model-engine-performance-v2' if extended else 'same-model-engine-performance-v1')
-                    or native['artifact'] != ('original' if arm == 'original' else 'affine3')
+                    or native['artifact'] not in artifacts
                     or not integer(native['memory_bytes'], 8_100_000_000, 24_000_000_000)
                     or not integer(native['maximum_seconds'], 1, 7200)
                     or not integer(native['request_seconds'], 1, 1800)
@@ -250,6 +253,7 @@ def validate_native(receipt, native, protocol_sha, arm):
     extended = native['kind'] == 'same-model-engine-performance-v2'
     physical_manifest = native['standalone_manifest_sha256'] if extended and native['deployment'] == 'standalone' else MANIFESTS[arm]
     resource = ('original-affine4-memory-v1' if arm == 'original' else
+                'affine3-native-memory-v1' if native['artifact'] == 'affine3-native' else
                 'affine3-grouped-lookahead-memory-v1' if native['lookahead'] == 'uncorrected' else 'affine3-grouped-memory-v1')
     if (type(receipt.get('schema')) is not int or receipt['schema'] != (2 if extended else 1)
             or receipt.get('complete') is not True or receipt.get('loaded') is not True
