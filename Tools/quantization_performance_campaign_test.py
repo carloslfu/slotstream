@@ -212,6 +212,22 @@ class PerformanceCampaignChecks(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'request prefill'):
                         m.validate_native(changed, native, '1' * 64, 'original')
 
+    def test_only_prospective_desktop_pilots_admit_the_existing_33gb_ceiling(self):
+        for version, scope, maximum in [(1, 'pilot', 24_000_000_000), (2, 'held-out', 24_000_000_000),
+                                         (2, 'pilot', 33_000_000_000)]:
+            with self.subTest(version=version, scope=scope), tempfile.TemporaryDirectory() as directory:
+                root, protocol = self.fixture(directory, version=version, scope=scope, repetitions=8)
+                for value in [maximum, maximum + 100_000_000]:
+                    changed = copy.deepcopy(protocol)
+                    for path in protocol['profiles'][0]['arms'].values():
+                        native = m.read(root / path); native['memory_bytes'] = value
+                        m.write(root / path, native); changed['files'][path] = m.digest(root / path)
+                    if value == maximum:
+                        m.validate(changed, root)
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'outside the priced scope'):
+                            m.validate(changed, root)
+
     def test_v2_refuses_substituted_deployment_manifest_prefill_and_prior_pilot(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol = self.fixture(directory, version=2, deployment='standalone')

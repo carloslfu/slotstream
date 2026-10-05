@@ -59,10 +59,14 @@ private struct QuantizationPerformanceProtocol: Decodable {
         }
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
+        // The practical Desktop pilot may measure its existing 33-GB default.
+        // This is only a watchdog ceiling: real headroom, OS pressure and the
+        // planner still gate every allocation. Retain historical study bounds.
+        let maximumMemoryBytes = extended && value.scope == "pilot" ? 33_000_000_000 : 24_000_000_000
         guard value.schema == (extended ? 2 : 1), value.kind == (extended ? "same-model-engine-performance-v2" : "same-model-engine-performance-v1"),
               ["pilot", "held-out"].contains(value.scope), ["original", "affine3", "affine3-native"].contains(value.artifact),
               value.artifact != "affine3-native" || (extended && value.deployment == "standalone" && value.scope == "pilot"),
-              (8_100_000_000...24_000_000_000).contains(value.memoryBytes), value.memoryBytes.isMultiple(of: 100_000_000),
+              (8_100_000_000...maximumMemoryBytes).contains(value.memoryBytes), value.memoryBytes.isMultiple(of: 100_000_000),
               ["ceiling", "target"].contains(value.memoryMode), [8192, 32768].contains(value.contextLimit),
               ["off", "on", "auto"].contains(value.draftMode), (0...4).contains(value.draftDepth),
               (value.draftMode == "off") == (value.draftDepth == 0),
@@ -193,6 +197,14 @@ extension Diagnostics {
         desktop["short_prompt_tokens"] = 1536; desktop["short_prompt_chunk"] = 512
         let desktopOriginal = try parse(desktop)
         try desktopOriginal.validateLoader(hasControl: false, hasTable: false)
+        var defaultCeiling = desktop; defaultCeiling["memory_bytes"] = 33_000_000_000
+        c.equal("the practical pilot can price the existing Desktop ceiling",
+            try parse(defaultCeiling).memoryBytes, 33_000_000_000)
+        for (key, value): (String, Any) in [("memory_bytes", 33_100_000_000), ("scope", "held-out")] {
+            var changed = defaultCeiling; changed[key] = value
+            do { _ = try parse(changed); c.expect("Desktop pilot cannot widen other envelopes/\(key)", false) }
+            catch { c.expect("Desktop pilot cannot widen other envelopes/\(key)", true) }
+        }
         c.equal("Desktop short requests use their explicit prefill policy",
             desktopOriginal.prefillChunk(planMaximum: 3072, promptTokens: 1535), 512)
         c.equal("the Desktop boundary returns to the priced full-context policy",

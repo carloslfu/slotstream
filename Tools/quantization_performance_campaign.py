@@ -169,11 +169,15 @@ def validate(protocol, root):
             artifacts = ('original',) if arm == 'original' else ('affine3',)
             if arm == 'candidate' and standalone and protocol['scope'] == 'pilot':
                 artifacts += ('affine3-native',)
+            # Measure the existing Desktop default only in prospective V2
+            # pilots. The native and parent watchdogs still require the full
+            # actual ceiling plus three GB and enforce pressure/headroom.
+            maximum_memory = 33_000_000_000 if extended and protocol['scope'] == 'pilot' else 24_000_000_000
             if (type(native.get('schema')) is not int or native['schema'] != protocol['schema']
                     or native['scope'] != protocol['scope']
                     or native['kind'] != ('same-model-engine-performance-v2' if extended else 'same-model-engine-performance-v1')
                     or native['artifact'] not in artifacts
-                    or not integer(native['memory_bytes'], 8_100_000_000, 24_000_000_000)
+                    or not integer(native['memory_bytes'], 8_100_000_000, maximum_memory)
                     or not integer(native['maximum_seconds'], 1, 7200)
                     or not integer(native['request_seconds'], 1, 1800)
                     or native['request_seconds'] > native['maximum_seconds']
