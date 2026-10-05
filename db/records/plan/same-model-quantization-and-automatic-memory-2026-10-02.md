@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T21:19:46.846685+00:00
+updated: 2026-10-05T21:29:18.949185+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -28,9 +28,11 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-practical-benchmark-host-recovery]] records the authorized Bluetooth-service recovery and subsequent attempts. The existing runner now has a separate prospective pilot policy that records brief CPU spikes, excludes sustained contention and waits for a quiet nominal start between processes; all twenty runner checks pass. Historical policies and exclusions remain intact. The full twelve-process comparison at 14 and 22 GB completes, with every physical budget and natural-answer completion flag passing. Five timing cells are excluded for sustained background CPU or paging, so the frozen analysis produces no clean median or speed qualification.
 
-[[sources/runs/2026/10/2026-10-05-practical-cooling-retry]] preserves the subsequent complete unchanged retry. All twelve physical and natural-answer checks pass, but one cell warms to fair and another encounters sustained Codex-renderer activity plus paging. Its full timing analysis remains excluded. The runner now requires two continuously quiet nominal minutes before each process, with the existing five-minute deadline and all exclusions retained; twenty tests pass. A fresh identical workload comparison with that prospective cooling interval is running after hiding the app window. This measures controlled interactive bursts, not sustained-session thermal performance. No favorable timing subset is selected.
+[[sources/runs/2026/10/2026-10-05-practical-cooling-retry]] preserves the subsequent complete unchanged retry. All twelve physical and natural-answer checks pass, but one cell warms to fair and another encounters sustained Codex-renderer activity plus paging. Its full timing analysis remains excluded. The runner now requires two continuously quiet nominal minutes before each process, with the existing five-minute deadline and all exclusions retained; twenty tests pass. A fresh identical workload comparison with that prospective cooling interval was started after hiding the app window. This measures controlled interactive bursts, not sustained-session thermal performance. No favorable timing subset is selected.
 
-Next: finish the cooled comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
+[[sources/runs/2026/10/2026-10-05-bounded-swapin-pilot-policy]] preserves the stopped cooled attempt: four whole-host swap-ins (64 KiB) with zero swap-outs excluded its first completed run despite nominal temperature and no sustained CPU contention. The prospective pilot now allows at most 1 MiB of aggregate swap-ins per process, reports the bytes and still excludes any swap-out or larger delta. It retains the same cooling, pressure, footprint, headroom, CPU and storage guards. All twenty-two tests pass, including exact byte limits, aggregate accounting, new-policy child cleanup and unchanged historical strict verdicts. The frozen fresh comparison is prepared; no partial throughput outcome informed this policy.
+
+Next: execute the prepared bounded-paging comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
 
 ### Practical performance findings, October 5
 

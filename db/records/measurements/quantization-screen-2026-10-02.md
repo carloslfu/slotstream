@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T21:19:46.867136+00:00
+updated: 2026-10-05T21:29:18.969151+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,10 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Tiny swap-in diagnostics and preserved strict attempt, October 5
+
+[[sources/runs/2026/10/2026-10-05-bounded-swapin-pilot-policy]] records one completed cooled run excluded for four 16-KiB whole-host swap-ins and zero swap-outs. Its second process is interrupted and drained; the attempt remains incomplete and timing-discarded. A separate prospective pilot permits at most 1 MiB of aggregate swap-ins per process, records all bytes, and still excludes any swap-out or larger delta. Twenty-two tests pass, including strict historical replay and byte boundaries. The same two-minute cooling and all physical/pressure/thermal/CPU guards remain. Fresh measurement is prepared and unexecuted; no zero-paging, speed or promotion claim follows.
+
 ### Complete retry and prospective cooling interval, October 5
 
 [[sources/runs/2026/10/2026-10-05-practical-cooling-retry]] preserves all twelve repeated processes and their complete frozen analysis. Physical ceilings and natural-answer completion pass. Cells 6 and 9 are timing-excluded for thermal state and for sustained competing UI activity with paging, respectively. No clean medians or throughput qualification follow. All twenty tests pass for extending the existing admission interval from 20 to 120 continuously quiet nominal seconds while retaining the five-minute deadline and every other exclusion. The prospective fresh comparison is pending; it targets controlled interactive bursts and carries no sustained-session speed claim.

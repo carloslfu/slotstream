@@ -13,7 +13,8 @@ from unittest.mock import patch
 import quantization_performance_campaign as m
 
 
-VM = {'reclaimable_bytes': 20_000_000_000, 'reclaimableBytes': 20_000_000_000, 'swapins': 3, 'swapouts': 4}
+VM = {'reclaimable_bytes': 20_000_000_000, 'reclaimableBytes': 20_000_000_000, 'swapins': 3, 'swapouts': 4,
+      'page_bytes': 16384}
 
 
 class PerformanceCampaignChecks(unittest.TestCase):
@@ -395,11 +396,11 @@ class PerformanceCampaignChecks(unittest.TestCase):
             self.assertFalse(record['complete']); self.assertEqual(record['cells'], [])
 
     def process(self, directory, script, *, physical=1_000_000, after_failure=False,
-                scope='pilot', busy=None, practical=False, observations=None):
+                scope='pilot', busy=None, practical=False, observations=None, practical_policy=m.PRACTICAL_ELIGIBILITY):
         root = Path(directory); destination = root / 'cell'
         native = {'memory_bytes': 14_000_000_000, 'maximum_seconds': 10}
         protocol = {'scope': scope, 'resource': {'maximum_campaign_seconds': 60}}
-        if practical: protocol['eligibility'] = m.PRACTICAL_ELIGIBILITY
+        if practical: protocol['eligibility'] = practical_policy
         fake_vm = [dict(VM), RuntimeError('post-exit observation failed')] if after_failure else None
         check_output = subprocess.check_output
         def read_only_command(command, **kwargs):
@@ -459,6 +460,62 @@ class PerformanceCampaignChecks(unittest.TestCase):
             path, sha, _, _ = self.execute(root, protocol)
             with self.assertRaisesRegex(ValueError, 'CPU observation policy is missing'):
                 m.analyze(path, sha, root, root / 'run')
+
+    def test_bounded_swapins_preserve_old_verdicts_and_refuse_swapouts_or_missing_page_size(self):
+        for policy, pages, outs, eligible in [
+                (m.PRACTICAL_ELIGIBILITY, 4, 0, False),
+                (m.BOUNDED_PAGING_ELIGIBILITY, 4, 0, True),
+                (m.BOUNDED_PAGING_ELIGIBILITY, 64, 0, True),
+                (m.BOUNDED_PAGING_ELIGIBILITY, 65, 0, False),
+                (m.BOUNDED_PAGING_ELIGIBILITY, 0, 1, False)]:
+            with self.subTest(policy=policy, pages=pages, outs=outs), tempfile.TemporaryDirectory() as directory:
+                root, protocol = self.fixture(directory, eligibility=policy)
+                def observations(receipt, observation, index):
+                    observation['eligibility'] = policy
+                    observation['cpu_samples'] = [{'seconds': 0, 'busy_processes': [], 'known_jobs': []}]
+                    if index == 1:
+                        observation['after']['swapins'] += pages
+                        observation['after']['swapouts'] += outs
+                        # Both nested request timers retain their own counters;
+                        # their ranges do not grant additional allowances.
+                        for row in receipt['cases']:
+                            row['vm_after']['swapins'] += min(pages, 32)
+                            row['stats']['generatorVMAfter']['swapins'] += min(pages, 32)
+                path, sha, _, _ = self.execute(root, protocol, mutation=observations)
+                result = m.analyze(path, sha, root, root / 'run')
+                self.assertEqual(result['all_timings_eligible'], eligible)
+                self.assertFalse(result['qualification'])
+                if policy == m.BOUNDED_PAGING_ELIGIBILITY:
+                    self.assertEqual(result['host_paging']['processes'][0]['swapins_bytes'], pages * 16384)
+                    self.assertEqual(result['host_paging']['processes'][0]['swapouts_bytes'], outs * 16384)
+        for page_bytes, pages in [(4096, 256), (16384, 64)]:
+            observation = self.observation()
+            observation.update(eligibility=m.BOUNDED_PAGING_ELIGIBILITY,
+                               cpu_samples=[{'seconds': 0, 'busy_processes': [], 'known_jobs': []}])
+            observation['before']['page_bytes'] = observation['after']['page_bytes'] = page_bytes
+            observation['after']['swapins'] += pages
+            self.assertEqual(m.exclusions({'load_conditions': m.NORMAL, 'cases': []}, observation), [])
+            observation['after']['swapins'] += 1
+            self.assertEqual(m.exclusions({'load_conditions': m.NORMAL, 'cases': []}, observation),
+                             ['whole-process global paging changed'])
+        for page_bytes in (None, True, 8192):
+            observation = self.observation()
+            observation.update(eligibility=m.BOUNDED_PAGING_ELIGIBILITY,
+                               cpu_samples=[{'seconds': 0, 'busy_processes': [], 'known_jobs': []}])
+            observation['before']['page_bytes'] = page_bytes
+            with self.assertRaisesRegex(ValueError, 'page size'):
+                m.exclusions({}, observation)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, 'changed complete performance protocol'):
+                self.fixture(directory, scope='held-out', repetitions=8, eligibility=m.BOUNDED_PAGING_ELIGIBILITY)
+
+    def test_bounded_swapin_child_binds_the_new_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.process(directory, 'print("finished")', practical=True,
+                                  practical_policy=m.BOUNDED_PAGING_ELIGIBILITY)
+            self.assertTrue(result['complete'])
+            self.assertEqual(result['eligibility'], m.BOUNDED_PAGING_ELIGIBILITY)
+            with self.assertRaises(ProcessLookupError): os.kill(result['pid'], 0)
 
     def test_readiness_requires_continuous_quiet_and_preserves_admission_failure(self):
         quiet = {'busy_processes': [], 'known_jobs': []}

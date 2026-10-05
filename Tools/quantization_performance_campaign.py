@@ -34,6 +34,8 @@ KIND = 'quantization-complete-performance-v1'
 KIND_V2 = 'quantization-complete-performance-v2'
 ELIGIBILITY = 'complete-normal-no-paging-no-competing-v1'
 PRACTICAL_ELIGIBILITY = 'complete-normal-no-paging-no-sustained-contention-v2'
+BOUNDED_PAGING_ELIGIBILITY = 'complete-normal-bounded-swapin-no-sustained-contention-v3'
+PRACTICAL_POLICIES = (PRACTICAL_ELIGIBILITY, BOUNDED_PAGING_ELIGIBILITY)
 NORMAL = {'thermalState': 'nominal', 'lowPowerModeEnabled': False}
 ARMS = ('original', 'candidate')
 REVISION = 'aa7c790e804bbf9d491ddb109c3d61bc4a555f7c'
@@ -59,6 +61,14 @@ SUSTAINED_CPU_SECONDS = 5.0
 # this heuristic if complete paired runs still cannot remain nominal.
 READY_STABLE_SECONDS = 120.0
 READY_MAX_SECONDS = 300.0
+# Pilot timing tolerance for whole-host reads of already swapped pages, not
+# an allocation allowance. A cooled, pressure-free run was excluded for four
+# 16-KiB swap-ins and zero swap-outs. Permit at most 1 MiB over the ENTIRE
+# process, retain every counter, and still exclude any swap-out or larger
+# swap-in delta. This bounded heuristic does not prove those reads are free;
+# it avoids treating tiny unrelated reads as active swapping. Historical
+# policies remain strict. Revisit only prospectively if run variance warrants.
+BACKGROUND_SWAPIN_BYTES = 1 << 20
 
 
 def read(path, sha=None, maximum=16_000_000):
@@ -99,8 +109,8 @@ def validate(protocol, root):
     if (set(protocol) != keys or type(protocol['schema']) is not int or protocol['schema'] != (2 if extended else 1)
             or protocol['kind'] != (KIND_V2 if extended else KIND) or protocol['scope'] not in ('pilot', 'held-out')
             or protocol['driver_sha256'] != digest(__file__) or protocol['helper_sha256'] != helper_pins()
-            or protocol['eligibility'] not in (ELIGIBILITY, PRACTICAL_ELIGIBILITY)
-            or protocol['eligibility'] == PRACTICAL_ELIGIBILITY and protocol['scope'] != 'pilot'
+            or protocol['eligibility'] not in (ELIGIBILITY, *PRACTICAL_POLICIES)
+            or protocol['eligibility'] in PRACTICAL_POLICIES and protocol['scope'] != 'pilot'
             or not integer(protocol['repetitions'], 3, 64)
             or extended and protocol['candidate_deployment'] not in ('composite', 'standalone')):
         raise ValueError('unknown, unbounded or changed complete performance protocol')
@@ -325,26 +335,37 @@ def validate_native(receipt, native, protocol_sha, arm):
     return result
 
 
-def paging(before, after):
+def paging(before, after, tolerated_swapin_pages=0):
+    if not integer(tolerated_swapin_pages, 0, 256): raise ValueError('invalid swap-in diagnostic allowance')
     for key in ('swapins', 'swapouts'):
         if not integer(before.get(key), 0, 2**64-1) or not integer(after.get(key), before[key], 2**64-1):
             raise ValueError('paging observation is missing or moved backwards')
-    return any(before[key] != after[key] for key in ('swapins', 'swapouts'))
+    return after['swapouts'] != before['swapouts'] or after['swapins'] - before['swapins'] > tolerated_swapin_pages
 
 
 def exclusions(receipt, observation):
     reasons = []
     if observation['timing_exclusions']: reasons.extend(observation['timing_exclusions'])
-    if observation.get('eligibility') == PRACTICAL_ELIGIBILITY:
+    if observation.get('eligibility') in PRACTICAL_POLICIES:
         reasons.extend(cpu_exclusions(observation['cpu_samples']))
-    if paging(observation['before'], observation['after']): reasons.append('whole-process global paging changed')
+    tolerated_pages = 0
+    if observation.get('eligibility') == BOUNDED_PAGING_ELIGIBILITY:
+        # Native request snapshots omit page size. The same host's enclosing
+        # observer binds it once, and the aggregate delta prevents granting
+        # another allowance to every request or overlapping timer.
+        page_bytes = observation['before'].get('page_bytes')
+        if type(page_bytes) is not int or page_bytes not in (4096, 16384) or observation['after'].get('page_bytes') != page_bytes:
+            raise ValueError('bounded swap-in policy requires a stable recorded host page size')
+        tolerated_pages = BACKGROUND_SWAPIN_BYTES // page_bytes
+    if paging(observation['before'], observation['after'], tolerated_pages): reasons.append('whole-process global paging changed')
     if receipt['load_conditions'] != NORMAL: reasons.append('startup thermal or power condition')
     for row in receipt['cases']:
         stats = row['stats']; label = row['id']
         if (not row['operating_conditions'] or any(value != NORMAL for value in row['operating_conditions'])
                 or any(stats.get(k) != NORMAL for k in ('generatorSystemBefore', 'generatorSystemAfter'))):
             reasons.append(label + ': thermal or power condition')
-        if paging(row['vm_before'], row['vm_after']) or paging(stats['generatorVMBefore'], stats['generatorVMAfter']):
+        if (paging(row['vm_before'], row['vm_after'], tolerated_pages)
+                or paging(stats['generatorVMBefore'], stats['generatorVMAfter'], tolerated_pages)):
             reasons.append(label + ': global paging changed')
         # A live resize is useful functional evidence, but no longer samples
         # the declared stationary allocation. Preserve it and exclude timing.
@@ -435,9 +456,9 @@ def run_cell(command, destination, native, protocol, root, output, campaign_star
     row = {'complete': False, 'timing_exclusions': [], 'samples': 0, 'peak_model_bytes': 0,
            'observer_scope': 'Sampled process CPU averages and known jobs; not continuous host isolation.'}
     child = None; started = time.monotonic()
-    practical = protocol.get('eligibility') == PRACTICAL_ELIGIBILITY
+    practical = protocol.get('eligibility') in PRACTICAL_POLICIES
     if practical:
-        row['eligibility'] = PRACTICAL_ELIGIBILITY
+        row['eligibility'] = protocol['eligibility']
         row['cpu_samples'] = []
     environment = {k: v for k, v in os.environ.items() if not k.startswith(('SLOTSTREAM_', 'SS_DEBUG', 'VQ_', 'VQLAB_'))}
     row['removed_override_names'] = sorted(set(os.environ) - set(environment))
@@ -585,14 +606,14 @@ def analyze(protocol_path, protocol_sha, root, output):
             or not number(coordinator.get('seconds')) or coordinator['seconds'] > protocol['resource']['maximum_campaign_seconds']
             or len(coordinator['cells']) != len(expected)):
         raise ValueError('complete frozen performance execution required before analysis')
-    measurements = {}; excluded = []; startup = {}; incomplete_answers = []
+    measurements = {}; excluded = []; startup = {}; incomplete_answers = []; host_paging = []
     for expected_cell, row in zip(expected, coordinator['cells']):
         if any(row[key] != value for key, value in expected_cell.items()): raise ValueError('performance execution order or coverage changed')
         destination = output / f"cell-{row['index']:04d}"
         receipt = read(destination / 'native/receipt.json', row['receipt_sha256'])
         observation = read(destination / 'supervision.json', row['supervision_sha256'])
-        if (protocol['eligibility'] == PRACTICAL_ELIGIBILITY
-                and observation.get('eligibility') != PRACTICAL_ELIGIBILITY):
+        if (protocol['eligibility'] in PRACTICAL_POLICIES
+                and observation.get('eligibility') != protocol['eligibility']):
             raise ValueError('prospective CPU observation policy is missing')
         if (observation.get('complete') is not True or observation.get('exit_code') != 0
                 or 'failure' in observation or 'cleanup_failure' in observation or not integer(observation.get('samples'), 1, 1_000_000)):
@@ -607,6 +628,10 @@ def analyze(protocol_path, protocol_sha, root, output):
                 incomplete_answers.append({**expected_cell, 'case': answer['id']})
         reasons = exclusions(receipt, observation)
         if reasons != row['timing_exclusions']: raise ValueError('stored timing eligibility differs from raw observations')
+        if protocol['eligibility'] == BOUNDED_PAGING_ELIGIBILITY:
+            host_paging.append({**expected_cell, **{
+                key + '_bytes': (observation['after'][key] - observation['before'][key]) * observation['before']['page_bytes']
+                for key in ('swapins', 'swapouts')}})
         if reasons: excluded.append({**expected_cell, 'reasons': reasons})
         startup.setdefault(row['profile'], {arm: [] for arm in ARMS})[row['arm']].append(receipt['load_seconds'])
         for case_id, value in measured.items():
@@ -620,8 +645,13 @@ def analyze(protocol_path, protocol_sha, root, output):
               'speed_gate_passed': False, 'latency_gate_passed': False, 'performance_gate_passed': False,
               'scope_limit': 'Frozen local configurations only; no other-Mac speed, task quality or model-promotion verdict.'}
     if protocol['schema'] == 2: result['candidate_deployment'] = protocol['candidate_deployment']
-    if protocol['eligibility'] == PRACTICAL_ELIGIBILITY:
+    if protocol['eligibility'] in PRACTICAL_POLICIES:
         result['scope_limit'] += ' Brief sampled CPU spikes are retained; this does not establish continuous host isolation.'
+    if protocol['eligibility'] == BOUNDED_PAGING_ELIGIBILITY:
+        result['scope_limit'] += ' At most 1 MiB of whole-host swap-ins and no swap-outs per process; no claim of zero paging.'
+        result['host_paging'] = {'scope': 'Whole-host counters, not model-attributed traffic.',
+            'maximum_swapin_bytes_per_process': BACKGROUND_SWAPIN_BYTES,
+            'maximum_swapout_bytes_per_process': 0, 'processes': host_paging}
     # Keep exclusions and individual raw receipts; do not manufacture a clean
     # median or final verdict from a selected subset of successful timings.
     if excluded or incomplete_answers: return result
