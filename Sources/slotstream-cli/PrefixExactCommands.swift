@@ -68,7 +68,7 @@ struct PrefixExactCheck: ParsableCommand {
             do {
                 let engine: Engine
                 if let planned {
-                    engine = try await Engine(modelDir: model.modelURL, plan: planned)
+                    engine = try await model.loadEngine(plan: planned)
                 } else {
                     engine = try await Engine(modelDir: model.modelURL, poolSlots: poolSlots)
                 }

@@ -71,7 +71,7 @@ struct VisionParity: ParsableCommand {
         try write("embed.bin", embed.asType(.float32).asArray(Float.self))
         let manifest: [String: Any] = [
             "image": path,
-            "model_dir": model.modelURL.path,
+            "model_dir": try model.modelURL.path,
             "height": Int(plan.height), "width": Int(plan.width),
             "grid_h": Int(plan.gridH), "grid_w": Int(plan.gridW),
             "patches": plan.patches, "merged_tokens": plan.mergedTokens,

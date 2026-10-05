@@ -418,7 +418,7 @@ struct Launch: ParsableCommand {
         var lines: [String] = []
         var automatic = ContextPolicy.defaultTokens
         if let model = try? modelOptions() {
-            if model.weightsMissing() {
+            if (try? model.weightsMissing()) == true {
                 lines.append(String(format: "Would ask to download %@ (%.1f GB) first.",
                     PinnedModel.name, Double(PinnedModel.totalBytes) / 1e9))
             } else if let window = try? model.automaticWindow() {
@@ -459,7 +459,7 @@ struct Launch: ParsableCommand {
             let model = try modelOptions()
             // The download asks first, and fails with the command when there
             // is no terminal to ask on.
-            if model.weightsMissing() { try model.ensureWeights() }
+            if try model.weightsMissing() { try model.ensureWeights() }
             if window == nil, tool.minimumContext > ContextPolicy.defaultTokens {
                 window = CodingToolLaunch.BackgroundServer.window(for: tool, automatic: try model.automaticWindow())
             }

@@ -15,7 +15,7 @@ struct DraftStreamCheck: ParsableCommand {
     var tokens: Int = 32
 
     func run() throws {
-        let dir = model.modelURL
+        let dir = try model.modelURL
         let tokens = self.tokens
         let sem = DispatchSemaphore(value: 0)
         var result: Result<[CheckReport], Error> = .success([])

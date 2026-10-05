@@ -33,6 +33,41 @@ def selection_checks(binary):
             output = run.stdout + run.stderr
             assert run.returncode != 0 and expected in output.lower() and not destination.exists(), (command, run.returncode, output)
             results.append(dict(name=name, pass_=True, exitCode=run.returncode, output=output))
+        destination = Path(tmp)/'custom-selected-model'
+        for command_name in ['run', 'serve']:
+            command = [binary, command_name, '--quantization', selected, '--model', str(destination)]
+            run = subprocess.run(command, capture_output=True, text=True, timeout=20)
+            output = run.stdout + run.stderr
+            assert run.returncode != 0 and 'selected verified pack' in output and not destination.exists(), (command, run.returncode, output)
+            results.append(dict(name=command_name+'-does-not-repair-custom-selection', pass_=True,
+                                exitCode=run.returncode, output=output))
+        destination.mkdir()
+        config = destination/'config.json'
+        content = b'{"model_type":"unrelated-custom-fixture"}\n'
+        config.write_bytes(content)
+        run = subprocess.run([binary, 'run', '--quantization', selected, '--model', str(destination)],
+                             capture_output=True, text=True, timeout=20)
+        output = run.stdout + run.stderr
+        assert run.returncode != 0 and 'selected verified pack' in output and config.read_bytes() == content
+        assert sorted(p.name for p in destination.iterdir()) == ['config.json']
+        results.append(dict(name='custom-metadata-is-not-selected-pack-proof', pass_=True,
+                            exitCode=run.returncode, output=output))
+        # Fixed synthetic hardware avoids racing real headroom. This memory
+        # ceiling fits the maximum feasibility probe, keeping CI work bounded.
+        doctor = [binary, 'doctor', '--model', str(Path(tmp)/'no-weights'), '--json',
+                  '--sim-ram', '48', '--sim-working-set', '36', '--sim-available', '40',
+                  '--memory-limit-gb', '33', '--max-context', '32768', '--mtp', 'off', '--vision', 'off']
+        legacy = json.loads(subprocess.run(doctor, capture_output=True, text=True, timeout=30, check=True).stdout)
+        for choice in [selected, 'auto']:
+            output = json.loads(subprocess.run(doctor+['--quantization', choice],
+                                capture_output=True, text=True, timeout=30, check=True).stdout)
+            assert output.pop('selected_pack') == selected
+            manifest = output.pop('selected_pack_manifest_sha256')
+            assert manifest == next(row['manifest_sha256'] for row in registry['packs'] if row['id'] == selected)
+            assert output.pop('selection_evidence') == 'unknown' and output.pop('meets_measured_speed_target') is False
+            assert output == legacy, (choice, output, legacy)
+            results.append(dict(name='original-doctor-equivalence-'+choice, pass_=True,
+                                manifest_sha256=manifest, plan=output))
     return selected, results
 
 

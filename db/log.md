@@ -339,3 +339,6 @@ Prepared pack-owned CLI pull/verify with preserved original defaults, native sel
 ## [2026-10-05 03:20] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared pack-owned context feasibility/window APIs with original public compatibility, real pack capability bounds and unknown timing for uncalibrated arithmetic. Diff, consumer shell syntax, claims 349/0, projections and full brain validation 0/0 pass; new native execution pending. Captured successful preceding telemetry and extended-view Mac workflows with three inspected renders. Physical quality, loaded observation, performance, standalone distribution and final integration remain open.
 
+## [2026-10-05 03:37] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared selected CLI directory/store/resource binding, guarded serving and pack-owned doctor output with no inherited timing evidence. Added native missing/custom-directory and original-plan-equivalence checks. Syntax, diff, claims 349/0, projections and full brain validation 0/0 pass; native execution remains pending. Preserved complete preceding Engine observation and Mac workflow results. Actual standalone loader, profile-aware CLI Auto, physical qualification and release remain open.
+

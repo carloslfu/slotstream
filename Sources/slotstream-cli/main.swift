@@ -180,17 +180,37 @@ struct ModelOptions: ParsableArguments {
         return policy
     }
 
-    // Resolved once here so the tokenizer, the draft-head probe, and the index
-    // all see the real directory; Foundation will not list a symlinked one.
-    var modelURL: URL { ModelLocator.resolve(model).resolvingSymlinksInPath() }
+    var originalModelName: Bool { model == PinnedModel.name || model == PinnedModel.dirName }
+
+    /// Omission retains the independent engine path. A supported explicit
+    /// choice owns all subsequent directory, verification and resource calls.
+    var selectedPack: ModelPack? {
+        get throws {
+            guard let quantization else { return nil }
+            return try ModelPackRegistry.resolve(quantization == "auto" ? .automatic : .pack(quantization)).pack
+        }
+    }
+
+    var resources: PackMemoryProfile { get throws { try selectedPack?.memoryProfile ?? .original } }
+
+    // The tokenizer, optional-component probes and loader share this resolved
+    // directory. Selecting a pack must not redirect an explicit custom path.
+    var modelURL: URL {
+        get throws {
+            let pack = try selectedPack
+            let url: URL
+            if originalModelName, let pack, pack.id != ModelPackRegistry.baseline.id {
+                url = ModelLocator.userModelsDir.appendingPathComponent(pack.directoryName)
+            } else { url = ModelLocator.resolve(model) }
+            return url.resolvingSymlinksInPath()
+        }
+    }
 
     func validate() throws {
-        if let quantization {
-            _ = try ModelPackRegistry.resolve(quantization == "auto" ? .automatic : .pack(quantization))
-        }
+        let minimum = try resources.minimumMemoryGB
         if let limit = memoryLimitGB {
-            guard limit.isFinite, limit >= Planner.minMemoryGB else {
-                throw ValidationError("--memory-limit-gb must be finite and at least \(Planner.minMemoryGB) GB")
+            guard limit.isFinite, limit >= minimum else {
+                throw ValidationError("--memory-limit-gb must be finite and at least \(minimum) GB")
             }
             guard memoryGB == nil, poolGB == nil, expertsPerLayer == nil else {
                 throw ValidationError("--memory-limit-gb cannot be combined with --memory-gb, --pool-gb or --experts-per-layer")
@@ -219,9 +239,24 @@ struct ModelOptions: ParsableArguments {
     }
 
     /// Does this checkpoint carry a tower? Reads the shard headers only.
-    func visionAvailable() -> Bool {
-        guard let idx = try? CheckpointIndex(dir: modelURL) else { return false }
+    func visionAvailable() throws -> Bool {
+        let directory = try modelURL
+        guard let idx = try? CheckpointIndex(dir: directory) else { return false }
         return VisionTower.present(index: idx)
+    }
+
+    /// Keep the chosen resource contract attached to serving. Registration of
+    /// another representation must provide its authenticated loader here; a
+    /// different pack cannot fall through to the original checkpoint loader.
+    func loadEngine(plan: MemoryPlan) async throws -> Engine {
+        let pack = try selectedPack
+        guard plan.resources == (pack?.memoryProfile ?? .original) else {
+            throw PlanError("the selected pack and load plan have different resource contracts")
+        }
+        guard pack == nil || pack?.id == ModelPackRegistry.baseline.id else {
+            throw PlanError("the selected pack has no supported serving loader in this build")
+        }
+        return try await Engine(modelDir: modelURL, plan: plan)
     }
 
     /// Resolve knobs -> plan, print the announce, return it. Also the first
@@ -237,7 +272,7 @@ struct ModelOptions: ParsableArguments {
             throw PlanError("this diagnostic requires the MTP draft head; --mtp off is incompatible")
         }
         try ensureWeights()
-        let base = try Planner.plan(
+        let base = try Planner.plan(resources: resources,
             expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB, memoryLimitGB: memoryLimitGB,
             ramPercent: maxRAMPercent,
             mtp: requireMTP ? .on : requestedMTP, mtpAvailable: MTPWeights.present(modelDir: modelURL),
@@ -267,7 +302,7 @@ struct ModelOptions: ParsableArguments {
             maxRAMPercent: maxRAMPercent, mtp: try mtpMode(), vision: try visionMode())
         request.mtpExperts = try Planner.MTPExpertPlacement.environment()
         try ensureWeights()
-        let resolved = try Planner.resolveContextWindow(.automatic, request: request, on: .current(),
+        let resolved = try Planner.resolveContextWindow(resources: resources, .automatic, request: request, on: .current(),
             mtpAvailable: MTPWeights.present(modelDir: modelURL), visionAvailable: visionAvailable(),
             runtimePolicy: policy, decodeLookahead: DecodeLookaheadPlanning.environment(modelDirectory: modelURL))
         let configuration = try ContextConfiguration(maxContextTokens: resolved.plan.maxContextTokens,
@@ -290,7 +325,7 @@ struct ModelOptions: ParsableArguments {
         var request = PlanRequest(expertsPerLayer: expertsPerLayer, poolGB: poolGB, memoryGB: memoryGB, memoryLimitGB: memoryLimitGB,
             maxRAMPercent: maxRAMPercent, mtp: try mtpMode(), vision: try visionMode())
         request.mtpExperts = try Planner.MTPExpertPlacement.environment()
-        return try Planner.resolveContextWindow(.automatic, request: request, on: .current(),
+        return try Planner.resolveContextWindow(resources: resources, .automatic, request: request, on: .current(),
             mtpAvailable: MTPWeights.present(modelDir: modelURL), visionAvailable: visionAvailable(),
             runtimePolicy: try runtimePolicy(),
             decodeLookahead: DecodeLookaheadPlanning.environment(modelDirectory: modelURL)).plan.maxContextTokens
@@ -298,11 +333,12 @@ struct ModelOptions: ParsableArguments {
 
     /// Whether the pinned model still has files to download. An explicit
     /// directory counts as present when it holds a config.
-    func weightsMissing() -> Bool {
-        guard quantization != nil || model == PinnedModel.name || model == PinnedModel.dirName else {
-            return !FileManager.default.fileExists(atPath: modelURL.appendingPathComponent("config.json").path)
+    func weightsMissing() throws -> Bool {
+        let url = try modelURL
+        guard let pack = try selectedPack ?? (originalModelName ? ModelPackRegistry.baseline : nil) else {
+            return !FileManager.default.fileExists(atPath: url.appendingPathComponent("config.json").path)
         }
-        return WeightStore.remainingBytes(at: modelURL) > 0
+        return WeightStore(modelDirectory: url, pack: pack).remainingBytes() > 0
     }
 
     /// The announce, doctor and serving metadata share the same reservation
@@ -326,15 +362,16 @@ struct ModelOptions: ParsableArguments {
     /// once and run the pull inline (resuming whatever is already there).
     /// Anything else fails with the fix, not a stack.
     func ensureWeights() throws {
-        let url = modelURL
+        let url = try modelURL
         let fm = FileManager.default
-        if quantization != nil, model != PinnedModel.name, model != PinnedModel.dirName {
-            guard WeightStore(modelDirectory: url).status().isReady else {
+        let pack = try selectedPack ?? (originalModelName ? ModelPackRegistry.baseline : nil)
+        if quantization != nil, !originalModelName, let pack {
+            guard WeightStore(modelDirectory: url, pack: pack).status().isReady else {
                 throw PlanError("this directory does not contain the selected verified pack; use slotstream pull with an explicit destination before selecting it")
             }
             return
         }
-        guard quantization != nil || model == PinnedModel.name || model == PinnedModel.dirName else {
+        guard let pack else {
             // explicit path: all we can check cheaply is that a model is there
             guard fm.fileExists(atPath: url.appendingPathComponent("config.json").path) else {
                 throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")
@@ -343,19 +380,21 @@ struct ModelOptions: ParsableArguments {
         }
         // pinned model: every manifest file must be present whole (a partial
         // first download must resume here, not die later in the engine)
-        var remaining = WeightStore.remainingBytes(at: url)
-        var corrupt: [PinnedModel.File] = []
+        let store = WeightStore(modelDirectory: url, pack: pack)
+        var remaining = store.remainingBytes()
         if remaining == 0 {
             // Size alone cannot distinguish a valid file from same-size
             // corruption. Hash before loading; this takes seconds and prevents
             // a damaged tokenizer/config/weight from reaching the engine.
-            corrupt = WeightStore.invalidFiles(at: url)
-            if corrupt.isEmpty { return }
-            remaining = corrupt.reduce(0) { $0 + $1.size }
-            print("found \(corrupt.count) same-size file(s) that fail the pinned sha256: "
-                + corrupt.map(\.path).joined(separator: ", "))
+            let status = store.status()
+            if status.isReady { return }
+            remaining = status.bytesToFetch
+            if case .corrupt(let paths, _, _) = status {
+                print("found \(paths.count) same-size file(s) that fail the pinned sha256: "
+                    + paths.joined(separator: ", "))
+            }
         }
-        let have = max(0, PinnedModel.requiredBytes - remaining)
+        let have = max(0, pack.requiredBytes - remaining)
         // free disk where the weights will actually land
         var probe = url
         while !fm.fileExists(atPath: probe.path), probe.path != "/" {
@@ -364,8 +403,8 @@ struct ModelOptions: ParsableArguments {
         let free = (try? fm.attributesOfFileSystem(
             forPath: probe.path))?[.systemFreeSize] as? Int64 ?? 0
         print("""
-            \(PinnedModel.name) is not \(have > 0 ? "fully " : "")downloaded yet.
-              size:  \(String(format: "%.1f", Double(PinnedModel.totalBytes) / 1e9)) GB in \(PinnedModel.files.count) files (resumable if interrupted)\(
+            \(pack.id) is not \(have > 0 ? "fully " : "")downloaded yet.
+              size:  \(String(format: "%.1f", Double(pack.totalBytes) / 1e9)) GB in \(pack.files.count) files (resumable if interrupted)\(
                   have > 0 ? String(format: "\n  have:  %.1f GB already here — the download resumes", Double(have) / 1e9) : "")
               time:  measured during download; compressed transfer and reconstruction overlap
               to:    \(url.path)
@@ -375,16 +414,16 @@ struct ModelOptions: ParsableArguments {
         switch askYesNo("download now? [Y/n] ") {
         case .some(true):
             try withInterruptiblePull { cancellation in
-                try WeightStore.download(to: url, transport: .automatic, cancellation: cancellation, log: { print($0); fflush(stdout) })
+                try store.download(.init(transport: .automatic, cancellation: cancellation), log: { print($0); fflush(stdout) })
                 // The same optional forecast sidecar `slotstream pull` fetches.
-                for file in TapCorrectionSidecar.files {
+                for file in pack.decodeForecastFiles {
                     TapCorrectionSidecar.ensure(modelDir: url, file: file, cancellation: cancellation, log: { print($0); fflush(stdout) })
                 }
             }
         case .some(false):
-            throw PlanError("not downloading — when you are ready:  slotstream pull")
+            throw PlanError("not downloading; when you are ready: slotstream pull \(pack.id)")
         case .none:  // no terminal to ask on
-            throw PlanError("no model at \(url.path) — download it first with:  slotstream pull")
+            throw PlanError("no model at \(url.path); download it first with: slotstream pull \(pack.id)")
         }
     }
 }
@@ -474,7 +513,7 @@ struct Run: ParsableCommand {
         let keepAlive = try model.gpuKeepAlivePolicy()
         Task {
             do {
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await model.loadEngine(plan: plan)
                 engine.gpuKeepAlive = keepAlive
                 let loadSeconds = RuntimeClock.seconds(since: launchStart)
                 engine.generator.footprintSampling = sampleFootprint
@@ -721,7 +760,7 @@ struct Serve: ParsableCommand {
         var engine: Engine!
         var err: Error?
         Task {
-            do { engine = try await Engine(modelDir: model.modelURL, plan: plan) } catch { err = error }
+            do { engine = try await model.loadEngine(plan: plan) } catch { err = error }
             sem.signal()
         }
         sem.wait()
@@ -954,16 +993,27 @@ struct Doctor: ParsableCommand {
 
     /// One line on the 104 GB the plan above says nothing about: is it here,
     /// is there room for it, and roughly how long it takes.
-    func weightsLine() -> String {
-        let url = model.modelURL
-        guard model.model == PinnedModel.name || model.model == PinnedModel.dirName else {
+    func weightsLine() throws -> String {
+        let url = try model.modelURL
+        guard let pack = try model.selectedPack ?? (model.originalModelName ? ModelPackRegistry.baseline : nil) else {
             return "weights: \(url.path) (not the pinned model — size unknown)"
         }
         let fm = FileManager.default
-        let remaining = WeightStore.remainingBytes(at: url)
+        let remaining = WeightStore(modelDirectory: url, pack: pack).remainingBytes()
         if remaining == 0 {
             let line = String(format: "weights: present by size, %.1f GB at %@ (run pull --verify for hashes)",
-                              Double(PinnedModel.totalBytes) / 1e9, url.path)
+                              Double(pack.totalBytes) / 1e9, url.path)
+            if pack.id != ModelPackRegistry.baseline.id {
+                var lines = [line]
+                for file in pack.decodeForecastFiles {
+                    switch TapCorrectionSidecar.status(modelDir: url, file: file) {
+                    case .present: break
+                    case .absent: lines.append("forecast: \(file.path) is missing; slotstream pull \(pack.id) downloads it")
+                    case .mismatched(let why): lines.append("forecast: \(file.path) does not match its pinned file (\(why)); slotstream pull \(pack.id) replaces it")
+                    }
+                }
+                return lines.joined(separator: "\n")
+            }
             // A model downloaded before 0.2.19, or by a download that skipped
             // the forecast sidecar, decodes with the earlier forecast until
             // `pull` fetches it.
@@ -997,6 +1047,8 @@ struct Doctor: ParsableCommand {
     func run() throws {
         _ = try ContextConfiguration(maxContextTokens: self.maxContext.tokens ?? ContextPolicy.defaultTokens,
             maxPrefillWaitMinutes: maxPrefillWait)
+        let resources = try model.resources
+        let pack = try model.selectedPack
         // --json is for machines: emit the plan and nothing else.
         let quiet = asJSON
         let info = MLX.GPU.deviceInfo()
@@ -1006,13 +1058,18 @@ struct Doctor: ParsableCommand {
                          Planner.deviceRAMGB(),
                          Planner.deviceAvailableGB() ?? .nan, Planner.deviceWorkingSetGB()))
         }
-        if !quiet {
+        if !quiet, resources.usesBaselineSpeedEvidence {
             print("model:  \(Geometry.layers) layers x \(Geometry.expertsPerLayer) experts x 2.76 MB "
                 + "(\(Geometry.totalRecords) records = 67.9 GB streamed from SSD)")
+        } else if !quiet {
+            print(String(format: "model:  %d layers x %d experts x %.2f MB (%d records = %.1f GB streamed from SSD)",
+                Geometry.layers, Geometry.expertsPerLayer, Double(resources.expertRecordBytes) / 1e6,
+                Geometry.totalRecords, resources.poolGB(Geometry.totalRecords)))
         }
+        if !quiet, let pack { print("pack:   \(pack.title) (\(pack.id)); speed evidence requires a matching loaded configuration") }
         // Disk is the gate that bites before memory does, and the README sends
         // people here *before* they download, so answer that question too.
-        if !quiet { print(weightsLine()) }
+        if !quiet { print(try weightsLine()) }
         if !quiet { print("") }
         let simulating = simRAM != nil || simWorkingSet != nil || simAvailable != nil
         if simulating, !quiet { print("what-if for a simulated machine (this device shown above):") }
@@ -1026,7 +1083,7 @@ struct Doctor: ParsableCommand {
                 workingSetGB: simWorkingSet ?? (simRAM.map { $0 * 0.75 } ?? Planner.deviceWorkingSetGB()),
                 availableGB: simulatedAvailable, isSimulated: true)
             : .current()
-        let lookahead = DecodeLookaheadPlanning.environment(modelDirectory: model.modelURL)
+        let lookahead = try DecodeLookaheadPlanning.environment(modelDirectory: model.modelURL)
         // The window: explicit, or this machine's automatic choice planned
         // against the (possibly simulated) live memory, exactly as serve does.
         var automatic: AutomaticContextWindow?
@@ -1039,17 +1096,17 @@ struct Doctor: ParsableCommand {
                 memoryGB: model.memoryGB, memoryLimitGB: model.memoryLimitGB, maxRAMPercent: model.maxRAMPercent,
                 mtp: try model.mtpMode(), vision: try model.visionMode())
             tierRequest.mtpExperts = try Planner.MTPExpertPlacement.environment()
-            let mtpPresent = MTPWeights.present(modelDir: model.modelURL)
-            let visionPresent = model.visionAvailable()
+            let mtpPresent = try MTPWeights.present(modelDir: model.modelURL)
+            let visionPresent = try model.visionAvailable()
             let policy = try model.runtimePolicy()
-            if let resolved = try? Planner.resolveContextWindow(.automatic, request: tierRequest, on: device,
+            if let resolved = try? Planner.resolveContextWindow(resources: resources, .automatic, request: tierRequest, on: device,
                     mtpAvailable: mtpPresent, visionAvailable: visionPresent, runtimePolicy: policy,
                     decodeLookahead: lookahead) {
                 automatic = resolved.automatic
                 automaticPlan = resolved.plan
                 maxContext = resolved.plan.maxContextTokens
             } else {
-                automatic = Planner.automaticContextWindow(tierRequest, on: device, mtpAvailable: mtpPresent,
+                automatic = Planner.automaticContextWindow(resources: resources, tierRequest, on: device, mtpAvailable: mtpPresent,
                     visionAvailable: visionPresent, runtimePolicy: policy, decodeLookahead: lookahead)
                 maxContext = ContextPolicy.defaultTokens
             }
@@ -1059,14 +1116,14 @@ struct Doctor: ParsableCommand {
             memoryGB: model.memoryGB, memoryLimitGB: model.memoryLimitGB, maxRAMPercent: model.maxRAMPercent,
             mtp: try model.mtpMode(), vision: try model.visionMode(), maxContextTokens: maxContext)
         request.mtpExperts = try Planner.MTPExpertPlacement.environment()
-        let feasibility = Planner.contextFeasibility(request, on: device,
+        let feasibility = try Planner.contextFeasibility(resources: resources, request, on: device,
             mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
             visionAvailable: model.visionAvailable(), runtimePolicy: try model.runtimePolicy(),
             decodeLookahead: lookahead)
         let advisory: MemoryPlan?
         if feasibility.requestedPlan == nil, maxContext <= ContextPolicy.defaultTokens,
            model.expertsPerLayer != nil || model.poolGB != nil {
-            advisory = try Planner.plan(expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
+            advisory = try Planner.plan(resources: resources, expertsPerLayer: model.expertsPerLayer, poolGB: model.poolGB,
                 memoryGB: model.memoryGB, memoryLimitGB: model.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                 availableGB: device.availableGB, ramPercent: model.maxRAMPercent,
                 mtp: model.mtpMode(), mtpAvailable: MTPWeights.present(modelDir: model.modelURL),
@@ -1091,6 +1148,13 @@ struct Doctor: ParsableCommand {
         let plan = try (automaticPlan ?? requestedPlan).withRequestPolicy(configuration)
         if asJSON {
             var output = plan.json(); output["context_feasibility"] = feasibility.json
+            if let pack {
+                output["selected_pack"] = pack.id
+                output["selected_pack_manifest_sha256"] = pack.manifestDigest
+                // Planning does not prove installed bytes or actual execution.
+                output["selection_evidence"] = ModelPackSelectionEvidence.unknown.rawValue
+                output["meets_measured_speed_target"] = false
+            }
             output["context_window_source"] = automatic == nil ? "explicit" : "automatic"
             if let automatic { output["automatic_context_window"] = automatic.json }
             let data = try JSONSerialization.data(
@@ -1101,20 +1165,27 @@ struct Doctor: ParsableCommand {
         print(plan.banner())
         print("memory-feasible window: \(feasibility.maximumFeasibleWindow) tokens; separate from the \(maxPrefillWait)-minute request-to-first-token policy")
         if let automatic { print(automatic.report(served: maxContext)) }
-        print("""
+        if resources.usesBaselineSpeedEvidence {
+            print("""
 
-        memory controls (with none, auto is the default):
-          --memory-limit-gb G     adaptive ceiling; cache shrinks and recovers within it
-          --memory-gb G           total process budget with a fixed cache
-          --experts-per-layer N   precise: cache N of 512 per layer (pool = N x 0.133 GB)
-          --pool-gb G             raw pool size (1 GB = 7.5 experts/layer)
-        Use the adaptive ceiling alone. Among fixed controls, experts-per-layer
-        takes precedence over pool-gb, then memory-gb.
-        """)
+            memory controls (with none, auto is the default):
+              --memory-limit-gb G     adaptive ceiling; cache shrinks and recovers within it
+              --memory-gb G           total process budget with a fixed cache
+              --experts-per-layer N   precise: cache N of 512 per layer (pool = N x 0.133 GB)
+              --pool-gb G             raw pool size (1 GB = 7.5 experts/layer)
+            Use the adaptive ceiling alone. Among fixed controls, experts-per-layer
+            takes precedence over pool-gb, then memory-gb.
+            """)
+        } else {
+            print("\nmemory controls: --memory-limit-gb is adaptive; --memory-gb, --experts-per-layer and --pool-gb pin the cache.")
+            print("Use the adaptive ceiling alone. Fixed controls keep their existing precedence: experts-per-layer, pool-gb, memory-gb.")
+            print("Pool size and the minimum process budget use this pack's actual record geometry and allocation contract.")
+        }
         print(String(
             format: "min ~%.0f/layer = %.1f GB total. The pool is one global cache shared across",
-            Geometry.perLayer(Geometry.floorSlots), Planner.minMemoryGB))
-        print("""
+            Geometry.perLayer(Geometry.floorSlots), resources.minimumMemoryGB))
+        if resources.usesBaselineSpeedEvidence {
+            print("""
             all layers -- per-layer is the unit of intuition (a token activates 10
             of its 512 per layer), not a quota: hot layers borrow slots from cold.
 
@@ -1124,14 +1195,19 @@ struct Doctor: ParsableCommand {
             whole context, follow-up turns read only what is new):
               target     experts/layer  est. warm decode   pass    full \(maxContext)-token prompt
             """)
-        for t in [Planner.minMemoryGB, 10, 12, 16, 24, 28, 36, 48, 73]
-        where t >= Planner.minMemoryGB
+        } else {
+            print("all layers. These memory-only proposals have no calibrated generation or prefill speed estimate.")
+            print("  target     experts/layer  warm decode       pass    full-context wait")
+        }
+        for t in [resources.minimumMemoryGB, 10, 12, 16, 24, 28, 36, 48, 73]
+        where t >= resources.minimumMemoryGB
         {
             let row: MemoryPlan
             do {
-                row = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: t,
+                row = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil, memoryGB: t,
                     ramGB: device.ramGB, workingSetGB: device.workingSetGB, availableGB: device.availableGB,
-                    maxContextTokens: maxContext, simulated: true, runtimePolicy: model.runtimePolicy())
+                    maxContextTokens: maxContext, simulated: true, qualification: false,
+                    runtimePolicy: model.runtimePolicy(), mtpExperts: .automatic)
                 try Planner.validateMemoryBudget(row, availableGB: device.availableGB)
             } catch {
                 // Name the constraint: a target above what this Mac can hold
@@ -1150,31 +1226,43 @@ struct Doctor: ParsableCommand {
             let est = row.estWarmTokS
             let full = row.fullyResident
             let chunk = row.prefillChunk
+            if !resources.usesBaselineSpeedEvidence {
+                print(String(format: "  %6.1f GB   %8.0f/512      uncalibrated      %5d   uncalibrated", t, e, chunk))
+                continue
+            }
             let wait = PrefillSchedule.estSeconds(tokens: maxContext, maxChunk: chunk)
             print(String(
                 format: "  %6.1f GB   %8.0f/512      ~%2.0f tok/s%@   %5d   %@",
                 t, e, est, full ? " (resident)" : "", chunk,
                 wait.isFinite ? "~" + PrefillSchedule.describe(seconds: wait) : "not yet calibrated"))
         }
-        print("""
+        if resources.usesBaselineSpeedEvidence {
+            print("""
 
-        time to first token at this plan, by prompt length (the pass shrinks past ~4k
-        tokens so its transient memory stays inside what was measured):
-        """)
+            time to first token at this plan, by prompt length (the pass shrinks past ~4k
+            tokens so its transient memory stays inside what was measured):
+            """)
+        } else {
+            print("\ntime to first token by prompt length: this representation has no calibrated timing estimate.")
+        }
         let chunk = plan.prefillChunk
         var lengths = [2048, 8192, 16384].filter { $0 < maxContext }
         lengths.append(maxContext)
         let row = lengths.map { n -> String in
-                let secs = PrefillSchedule.estSeconds(tokens: n, maxChunk: chunk)
+                let secs = resources.usesBaselineSpeedEvidence ? PrefillSchedule.estSeconds(tokens: n, maxChunk: chunk) : .infinity
                 let label = n % 1024 == 0 ? "\(n / 1024)k" : "\(n)"
                 return secs.isFinite ? "\(label) ~\(PrefillSchedule.describe(seconds: secs))" : "\(label) not yet calibrated"
             }
         print("  " + row.joined(separator: " · ") + " (the cap)")
-        print("""
-          context state is ~27 KiB per token, up to the model's \(ContextPolicy.modelLimit)-token limit.
-          `slotstream context-check --tokens N` reads an N-token synthetic prompt on this Mac and
-          stops early if reclaimable memory falls below its floor or its time limit passes.
-        """)
+        if resources.usesBaselineSpeedEvidence {
+            print("""
+              context state is ~27 KiB per token, up to the model's \(ContextPolicy.modelLimit)-token limit.
+              `slotstream context-check --tokens N` reads an N-token synthetic prompt on this Mac and
+              stops early if reclaimable memory falls below its floor or its time limit passes.
+            """)
+        } else {
+            print("  This pack supports contexts up to \(resources.maximumContext) tokens, subject to complete memory admission.")
+        }
     }
 }
 
@@ -1396,7 +1484,7 @@ struct ElasticDrill: ParsableCommand {
                     prefillChunk: chunk, prefixCacheTokens: cacheTokens,
                     notes: ["elastic drill bounded test plan"], maxPrefillWaitMinutes: 17,
                     memoryLimitGB: model.memoryLimitGB)
-                let engine = try await Engine(modelDir: model.modelURL, plan: plan)
+                let engine = try await model.loadEngine(plan: plan)
                 // Serve assigns its configured context after loading. Exercise
                 // that real plan-copy path before allowing the governor to run.
                 engine.maxContextTokens = plan.maxContextTokens

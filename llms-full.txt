@@ -1495,6 +1495,10 @@ the product selector; an explicit supported pack ID overrides it. Omitting
 `--quantization` preserves the existing `--model` behavior. Selecting a pack
 with a custom model directory requires that directory to pass the complete
 pinned verification; it is not silently repaired into another representation.
+Use `slotstream doctor --quantization PACK_ID` with the same memory and context
+options to inspect that pack's plan. The JSON report identifies the selected
+manifest and distinguishes planning from verified loaded performance. A pack
+without matching timing evidence reports uncalibrated estimates.
 
 `slotstream pull PACK_ID` downloads the supported pack named by `model-packs`.
 Use `--dir PATH` for an explicit destination and `--verify` to check an existing

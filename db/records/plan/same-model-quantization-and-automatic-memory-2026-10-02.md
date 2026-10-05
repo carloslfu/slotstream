@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T03:19:30.546392+00:00
+updated: 2026-10-05T03:37:20.983541+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1127,3 +1127,10 @@ The same change aligns app profile-confirmation ceiling conversion with downward
 [[sources/runs/2026/10/2026-10-04-pack-owned-context-planning-preparation]] preserves additive pack-owned context feasibility and automatic-window methods. The existing public Planner signatures keep their original behavior. Distinct pack geometry and capability limits now reach the complete ledger and discrete feasibility search; qualification cannot bypass a pack layout limit. Uncalibrated arithmetic keeps its supported default automatic context and receives no original-pack timing estimate. Explicit contexts remain subject to the same memory and component checks. Native original-equivalence, alternative-geometry and public-consumer fixtures are prepared. Diff, shell syntax and claims checks pass; native execution of this source remains pending.
 
 Complete Mac workflow receipts now confirm the preceding loaded-evidence application and extended native view/check stages, including their Xcode builds. Three representative loaded, unloaded and failed-pending Light/Dark/System renders were manually inspected without clipping. The actual physical loaded-observation acceptance remains pending, and those synthetic displays confer no speed or hardware evidence. Quality, actual standalone distribution, performance and final product integration remain open.
+
+
+### CLI selected-directory and resource binding, October 4
+
+[[sources/runs/2026/10/2026-10-04-pack-owned-cli-planning-preparation]] preserves explicit selection across CLI directory resolution, store verification, minimum adaptive ceilings, complete planning and the shared planned serving boundary. A custom directory stays selected and cannot be repaired into another representation. The load boundary rejects a different resource contract or an unimplemented pack loader instead of falling through. Doctor uses pack geometry and context limits, identifies the selected manifest, and withholds original timing estimates for uncalibrated arithmetic. Legacy behavior remains the default when quantization is omitted.
+
+The native CLI fixture now covers missing run/serve selections, retained unrelated custom metadata and complete legacy/explicit-original/Auto plan equality under fixed simulated hardware. Python syntax, diff, claims and generated projection checks pass; native execution of these edits remains pending. Complete preceding Engine observation and Mac pull-stage workflow receipts are also retained with their exact commits. The registry is still original-only. Actual standalone loading, hardware/profile-aware CLI Auto selection, physical qualification and final release remain required.
