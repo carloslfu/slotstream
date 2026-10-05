@@ -6921,6 +6921,18 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### Native attention predictor probe, October 5
+
+[[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] captures one prospectively frozen boundary/attention pair at a real 14-GB ceiling. The same three-bit bytes, two streamed drafts, 1,941 expert slots and complete workloads run through the common native Engine. All three outputs match exactly, both physical watchdogs pass and both cells are timing-eligible under the existing pilot policy.
+
+| Work | Boundary tok/s | Plain attention tok/s | Paired ratio |
+| --- | ---: | ---: | ---: |
+| short-256 | 11.84 | 12.63 | 1.067 |
+| context-256 | 14.71 | 15.61 | 1.061 |
+| coding-answer | 13.16 | 14.28 | 1.085 |
+
+The attention tap uses the already implemented one-layer forecast window without learned correction bytes. It reduces wasted reads and forecast evaluation time in the preserved counters. Those counters overlap and are not independent cost components. One directional pair and uncontrolled filesystem caching do not establish a general gain; the original remains the only supported default. Startup is not the mechanism claim because the diagnostic entry points differ in repeated metadata validation. Twenty-two runner tests and ten native protocol/lookahead/pack groups pass. The next unchanged three-round comparison against the original uses both real 14/22-GB ceilings; no new study framework is added.
+
 ### Complete practical comparison, October 5
 
 [[sources/runs/2026/10/2026-10-05-practical-complete-comparison]] preserves all twelve fresh processes, the frozen complete analysis, the earlier incomplete attempt and host restoration. Three interleaved rounds at each real 14/22-GB ceiling pass physical budgets, natural completion and every prospective pilot timing rule. One process has 851,968 bytes of whole-host swap-ins and none has swap-outs; the declared one-MiB allowance is not a zero-paging claim. Two-minute quiet/nominal admission and a temporary, automatically restored Photos analysis pause make this a controlled interactive-burst comparison on one 48-GB M5 Pro, not sustained-session or other-Mac performance. Filesystem caching remains uncontrolled.

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T22:38:40.260341Z
+updated: 2026-10-05T22:54:57.727759Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] — Single bounded predictor pair preserves exact outputs and improves generation in all three workloads; repeated product comparison remains required
 - [[sources/runs/2026/10/2026-10-05-practical-complete-comparison]] — Complete twelve-process pilot: all memory and timing eligibility checks pass; smaller pack generally decodes slower and improves long-prompt latency
 - [[sources/runs/2026/10/2026-10-05-bounded-swapin-pilot-policy]] — Preserve a cooled run excluded for 64 KiB of swap-ins; freeze a bounded pilot policy with explicit paging diagnostics and twenty-two passing tests
 - [[sources/runs/2026/10/2026-10-05-practical-cooling-retry]] — Complete repeated comparison remains excluded for heat and UI activity; preserve it and prospectively extend cooling with twenty passing tests
@@ -506,9 +507,8 @@ updated: 2026-10-05T22:38:40.260341Z
 - [[sources/runs/2026/09/2026-09-08-optimization-unique-image-serving-pressure-stop]] — Original unique-image guard stops at OS memory pressure before a measured request
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-pressure-stop]] — Original scope serving study preserves exact output pairs but stops at OS memory pressure
 - [[sources/runs/2026/09/2026-09-08-optimization-duplicate-image-serving-rejected]] — Original duplicate-image study completes with exact outputs but fails the speed gate
-- [[sources/runs/2026/09/2026-09-08-optimization-campaign-path-normalization]] — Unprepared final campaign adapter normalizes source identity across macOS temporary-directory aliases
 
 ## More
 
-This folder has 850 files. The 500 most recent are listed above.
+This folder has 851 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

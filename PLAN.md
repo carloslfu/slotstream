@@ -95,7 +95,9 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-practical-complete-comparison]] closes the practical comparison: all twelve processes are eligible under the frozen bounded-paging pilot, within their physical ceilings, with completed natural answers. The smaller pack generally generates more slowly and starts the longer-context answer faster. Neither pack reaches the twenty-token target on these workloads. The earlier Photos-contention stop remains separate; the completed retry records its temporary host controls and their restoration. All exact-head engine CI jobs also pass.
 
-Next: test the existing plain attention predictor in the candidate, whose current older boundary forecast wastes substantially more reads. This is a configuration hypothesis, not proof of a cause or inherited qualification. Keep the original supported default. Public redistribution permission, actual alternative setup/download/activation, useful selection rows and final release remain open. No universal throughput promise follows.
+[[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] closes the bounded predictor probe. One boundary/attention pair at 14 GB produces exactly matching outputs for all three workloads and passes physical and timing eligibility. The plain attention tap improves generation in each case, a lead for repetition rather than promotion evidence. Twenty-two runner tests and ten native groups pass; the change is internal and the original supported default stays intact.
+
+Next: complete the frozen three-round original/attention-candidate comparison at the same 14/22-GB ceilings, with all original workloads and safety/eligibility rules retained. Do not select a favorable subset or infer other-Mac speed from reduced ceilings here. Public redistribution permission, actual alternative setup/download/activation, useful selection rows and final release remain open. No universal throughput promise follows.
 
 ### Practical performance findings, October 5
 

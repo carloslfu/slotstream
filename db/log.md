@@ -399,3 +399,6 @@ Preserve the cooled attempt and its owned interruption: four swap-in pages with 
 ## [2026-10-05 22:39] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Capture all 97 files for the complete v8 practical pilot and prior Photos-contention stop. All twelve runs pass physical budgets, completion and prospectively bounded paging eligibility. Three-bit generation is generally slower while long-context first text improves; no promotion or universal speed claim. Preserve all attempts, host guard restoration and exact-head green CI. Existing attention predictor is the next narrow engineering check. Claims 349/0, projections, diff and full validation 0 errors/0 warnings pass.
 
+## [2026-10-05 22:57] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserve 45 files for the native attention mechanism probe, both plan-only proposals and all local acceptance. Exact token/text equality holds in all three workloads; both physical and pilot eligibility gates pass. One directional pair is a positive lead only. Keep the original default and repeat the original/candidate comparison at both existing ceilings. Code b771387, twenty-two runner tests and ten native groups pass. Claims 349/0, projections, diff and dbmd validation 0 errors/0 warnings pass.
+
