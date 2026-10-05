@@ -122,6 +122,20 @@ extension Diagnostics {
         c.expect("uncalibrated pack keeps its supported default and complete geometry",
             automatic.plan.resources == resources && automatic.plan.maxContextTokens == 32768 &&
             automatic.plan.mtpEnabled && automatic.plan.mtpStreamedExperts && automatic.plan.simulated)
+        do {
+            try pack.validateLoadPlan(automatic.plan)
+            c.expect("selected original cannot route an alternate allocation into its loader", false)
+        } catch {
+            c.expect("selected original cannot route an alternate allocation into its loader",
+                String(describing: error).contains("different resource contracts"))
+        }
+        let simulatedOriginal = try pack.plan(contextRequest, on: roomy)
+        do {
+            try pack.validateLoadPlan(simulatedOriginal)
+            c.expect("maintained loading cannot turn a simulated budget into an allocation", false)
+        } catch SlotstreamError.simulatedDeviceCannotLoad {
+            c.expect("maintained loading cannot turn a simulated budget into an allocation", true)
+        }
         c.expect("uncalibrated pack does not inherit original request estimates",
             !Planner.estimatedRequestSeconds(automatic.plan).isFinite &&
             automatic.automatic?.candidates.allSatisfy { $0.requestSeconds == nil && $0.relativeRequestCost == nil } == true)

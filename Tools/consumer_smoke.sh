@@ -57,6 +57,15 @@ let cancelled = PullCancellation()
 cancelled.cancel()
 let cancelledOptions = PullOptions(cancellation: cancelled)
 
+// Compile both the independent and maintained loaders without allocating or
+// reading weights. Product controls remain a separate, explicit operation.
+func independentLoad(_ directory: URL, _ plan: MemoryPlan) async throws -> Engine {
+    try await Engine(modelDir: directory, plan: plan)
+}
+func maintainedLoad(_ directory: URL, _ pack: ModelPack, _ plan: MemoryPlan) async throws -> Engine {
+    try await Engine(modelDir: directory, pack: pack, plan: plan)
+}
+
 // Preserve existing public function-value signatures and ordinary calls.
 func legacyEngineMethods(_ engine: Engine) {
     let generate: ([Int], SampleParams, VisionPrompt?, (() -> Bool)?, ((Int, String) -> Bool)?) -> (text: String, ids: [Int], stats: GenStats) = engine.generate
@@ -94,6 +103,10 @@ let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.simulated(ram
 precondition(plan.slots > 0, "a 16 GB plan should size a pool")
 precondition(plan.simulated, "a simulated machine must mark its plan")
 let maintained = ModelPackRegistry.baseline
+do {
+    _ = try await maintainedLoad(URL(fileURLWithPath: "/unused-model-fixture"), maintained, plan)
+    preconditionFailure("maintained loading must refuse simulated hardware before reading model files")
+} catch SlotstreamError.simulatedDeviceCannotLoad { }
 let legacyFeasibility: (PlanRequest, Machine, Bool, Bool, Bool, RuntimeAllocationPolicy?, Bool, DecodeLookaheadPlanning) -> ContextFeasibility = Planner.contextFeasibility
 let legacyAutomaticWindow: (PlanRequest, Machine, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning) -> AutomaticContextWindow = Planner.automaticContextWindow
 let legacyResolveWindow: (ContextWindowChoice, PlanRequest, Machine, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning) throws -> (plan: MemoryPlan, automatic: AutomaticContextWindow?) = Planner.resolveContextWindow

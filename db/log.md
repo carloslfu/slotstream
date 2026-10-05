@@ -348,3 +348,6 @@ Retained the pack allocation contract in automatic context results even when eve
 ## [2026-10-05 04:08] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Frozen the exact authenticated retirement protocol and helper closure for the previously reviewed reproducible payloads. Original and frozen metadata validation, claims 349/0, projections and full brain validation 0/0 pass. No payload hashes, deletions or exports have run. Actual retirement waits for completion and final analysis of the current quality study, then fresh process, memory and storage admission.
 
+## [2026-10-05 04:21] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared the shared maintained-pack Engine loader for Desktop and opt-in CLI, preserving independent constructors and requiring matching resources and real hardware before loading. Bound CLI catalogue size to the selected deployment. Extended planning and external-consumer refusals. Diff, shell syntax, claims 349/0, projections and full brain validation 0/0 pass; new native checks pending. Captured complete successful preceding context Engine and selected CLI Engine/Mac workflows. Alternate loaders, profiles and physical qualification remain open.
+

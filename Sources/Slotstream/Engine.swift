@@ -397,6 +397,15 @@ public final class Engine {
         try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan)
     }
 
+    /// Load a compiled maintained deployment with its own complete memory
+    /// plan. The owner authenticates the selected WeightStore first. This
+    /// does not apply product tuning or confer a measured performance profile;
+    /// those remain explicit steps before publishing a healthy runtime.
+    public convenience init(modelDir: URL, pack: ModelPack, plan: MemoryPlan) async throws {
+        try pack.validateLoadPlan(plan)
+        try await self.init(modelDir: modelDir, plan: plan)
+    }
+
     /// Whether generations keep the GPU awake (`GPUKeepAlive`). The default
     /// comes from SLOTSTREAM_GPU_KEEPALIVE, `auto` when unset or invalid; the
     /// CLI validates its own flag.

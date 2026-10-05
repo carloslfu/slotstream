@@ -181,6 +181,22 @@ public extension WeightStore {
     }
 }
 
+extension ModelPack {
+    /// The product's selected deployment must keep its own allocation and
+    /// loader contract. This check is shared by Desktop and the opt-in CLI;
+    /// adding a registry entry alone cannot enable a new representation.
+    package func validateLoadPlan(_ plan: MemoryPlan) throws {
+        guard plan.resources == memoryProfile else {
+            throw PlanError("The selected model pack and load plan have different resource contracts")
+        }
+        guard id == ModelPackRegistry.baseline.id,
+              manifestDigest == ModelPackRegistry.baseline.manifestDigest else {
+            throw PlanError("The selected model pack has no supported loader in this build")
+        }
+        guard !plan.simulated else { throw SlotstreamError.simulatedDeviceCannotLoad }
+    }
+}
+
 /// Startup selection and ongoing allocation management are independent.
 /// Fixed capacity still observes pressure and may refuse or stop a request.
 public enum LiveMemoryManagement: String, Codable, CaseIterable, Sendable {

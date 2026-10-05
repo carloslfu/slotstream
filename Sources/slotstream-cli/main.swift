@@ -249,12 +249,8 @@ struct ModelOptions: ParsableArguments {
     /// another representation must provide its authenticated loader here; a
     /// different pack cannot fall through to the original checkpoint loader.
     func loadEngine(plan: MemoryPlan) async throws -> Engine {
-        let pack = try selectedPack
-        guard plan.resources == (pack?.memoryProfile ?? .original) else {
-            throw PlanError("the selected pack and load plan have different resource contracts")
-        }
-        guard pack == nil || pack?.id == ModelPackRegistry.baseline.id else {
-            throw PlanError("the selected pack has no supported serving loader in this build")
+        if let pack = try selectedPack {
+            return try await Engine(modelDir: modelURL, pack: pack, plan: plan)
         }
         return try await Engine(modelDir: modelURL, plan: plan)
     }
@@ -851,7 +847,7 @@ struct Serve: ParsableCommand {
         }
         defer { governor?.stop() }
         let server = Server(
-            engine: engine, port: port, weightsBytes: Int(PinnedModel.totalBytes),
+            engine: engine, port: port, weightsBytes: Int(try model.selectedPack?.totalBytes ?? PinnedModel.totalBytes),
             listenFD: listenFD)
         server.onDiagnostic = { line in
             let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)

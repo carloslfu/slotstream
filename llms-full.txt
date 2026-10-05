@@ -580,6 +580,16 @@ tracks qualification separately from format support. The installed engine still
 admits its pinned affine pack. Experimental descriptors and decoders do not
 enable a candidate model or change the automatic recommendation.
 
+Maintained-model owners authenticate `WeightStore(modelDirectory:pack:)`, plan
+through the selected `ModelPack`, and load with
+`Engine(modelDir:pack:plan:)`. Desktop and the opt-in CLI share this loading
+boundary, which rejects a mismatched allocation contract or simulated hardware
+before model allocation. Product owners explicitly apply
+`configureStartupDefaults(for:)` and complete their health check before
+publishing the runtime. The independent Engine initializers retain their
+existing behavior. An additional registry entry still needs an authenticated
+loader and completed qualification.
+
 `slotstream quantization-check --kernels` checks native layout decoding and
 affine operation support. `Tools/quantization_inventory.py` and
 `Tools/quantization_fixture.py` inspect pinned metadata and extract bounded real

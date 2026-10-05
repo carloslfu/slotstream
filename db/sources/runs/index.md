@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T03:59:34.169072Z
+updated: 2026-10-05T04:19:58.223674Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-pack-owned-loader-preparation]] — Shared selected-pack Engine loading boundary and owned CLI server size, with source checks and preceding CI receipts
 - [[sources/runs/2026/10/2026-10-04-payload-retirement-protocol-freeze]] — Freeze and validate the exact existing retirement helper closure without scanning or retiring tensor payloads
 - [[sources/runs/2026/10/2026-10-04-pack-context-refusal-preparation]] — Preserve pack-specific timing authority when context planning refuses every candidate
 - [[sources/runs/2026/10/2026-10-04-pack-owned-cli-planning-preparation]] — Bind explicit CLI selection to directory verification and complete planning without inheriting original arithmetic or speed evidence
@@ -506,9 +507,8 @@ updated: 2026-10-05T03:59:34.169072Z
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-validation-controls]] — New combined validation controls and long-throughput drafts preserve original workload criteria
 - [[sources/runs/2026/09/2026-09-08-optimization-native-headroom-comparison]] — Native pressure stop compared with the prior successful launch
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-native-pressure-stop]] — New combined native attempt stops on OS pressure with owned physical-footprint evidence
-- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-combined-build]] — Compact cache and bounded greedy tail compile in the new combined candidate
 
 ## More
 
-This folder has 829 files. The 500 most recent are listed above.
+This folder has 830 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

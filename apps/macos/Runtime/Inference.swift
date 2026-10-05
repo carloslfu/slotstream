@@ -701,11 +701,6 @@ public actor LocalInference: Inference {
         let pack = try selection.validatedPack()
         let model = try modelDirectory(for: pack)
         let preference = selection.preferences
-        // A future registry entry must supply its own verified loader before
-        // it can use this boundary. Never reinterpret it as the original pack.
-        guard pack.id == ModelPackRegistry.baseline.id else {
-            throw SevraError.unavailable("This build cannot load the requested model pack.")
-        }
         performanceTelemetry?.update(state: "Loading", detail: "Preparing the local model.")
         buffer.stage("Verifying the local model")
         while ahead.running {
@@ -738,7 +733,7 @@ public actor LocalInference: Inference {
         if let journal, let attempt { try journal.advance(attempt, to: .loading) }
         buffer.stage("Loading the local model")
         do {
-            let candidate = try await Engine(modelDir: model, plan: plan)
+            let candidate = try await Engine(modelDir: model, pack: pack, plan: plan)
             try candidate.configureStartupDefaults(for: pack)
             let identity = try candidate.appliedConfiguration(pack: pack, liveMemory: preference.liveMemory)
             try cancellation.check()

@@ -1206,6 +1206,11 @@ The native CLI fixture now covers missing run/serve selections, retained unrelat
 
 [[sources/runs/2026/10/2026-10-04-payload-retirement-protocol-freeze]] records the copied helper closure and exact execution protocol for the previously reviewed reproducible payloads. Original and frozen metadata validation pass. Full payload authentication and retirement remain unexecuted while quality owns the physical slot. The existing limits and per-file receipts are unchanged. The export execution protocol follows actual successful cleanup and fresh storage admission.
 
+
+### Shared maintained-pack loading boundary
+
+[[sources/runs/2026/10/2026-10-04-pack-owned-loader-preparation]] records the additive Engine entry point used by Desktop and the opt-in CLI. Selected resource validation and compiled loader refusal now have one owner. Simulated plans are refused before model allocation, and CLI catalogue size follows the selected deployment. The existing native planning and public-consumer gates cover these boundaries. Diff, shell syntax, claims and documentation regeneration pass; the new native checks remain pending. The preceding context and selected-CLI CI receipts are preserved separately. Standalone admission, profile-aware CLI Auto and all remaining physical qualification still require completion.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
