@@ -146,6 +146,20 @@ extension Diagnostics {
             on: candidateMachine, mtpAvailable: true, qualification: true)
         c.expect("qualification cannot bypass the selected pack's context limit",
             qualified.requestedPlan == nil && qualified.maximumFeasibleWindow == resources.maximumContext)
+        let impossible = Planner.automaticContextWindow(resources: resources,
+            PlanRequest(memoryLimitGB: 1, mtp: .off, vision: .off), on: candidateMachine)
+        c.expect("an impossible candidate retains unknown timing in both context explanations",
+            impossible.candidates.allSatisfy { $0.plan == nil && $0.requestSeconds == nil } &&
+            impossible.announcement(served: impossible.window).contains("no calibrated") &&
+            impossible.report(served: impossible.window).contains("no context-speed estimate"))
+        for outcome in [automatic.automatic!, impossible] {
+            c.expect("uncalibrated JSON does not advertise the original request-cost policy",
+                outcome.json["timing_calibrated"] as? Bool == false &&
+                outcome.json["request_time_tolerance"] is NSNull &&
+                outcome.json["representative_request"] is NSNull &&
+                outcome.json["pack_context_limit"] as? Int == resources.maximumContext)
+            _ = try JSONSerialization.data(withJSONObject: outcome.json, options: [.sortedKeys])
+        }
         return c.report()
     }
 }

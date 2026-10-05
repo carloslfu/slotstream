@@ -39,9 +39,16 @@ public struct AutomaticContextWindow {
 
     public let window: Int
     public let candidates: [Candidate]
+    // Keep the contract even when every proposed plan is refused. Absence of
+    // a feasible plan cannot restore the original pack's timing explanation.
+    fileprivate let resources: PackMemoryProfile
+
+    fileprivate init(window: Int, candidates: [Candidate], resources: PackMemoryProfile) {
+        self.window = window; self.candidates = candidates; self.resources = resources
+    }
 
     public var json: [String: Any] {
-        [
+        var result: [String: Any] = [
             "window": window,
             "candidate_windows": ContextPolicy.automaticWindows,
             "request_time_tolerance": ContextPolicy.automaticRequestTimeTolerance,
@@ -68,13 +75,20 @@ public struct AutomaticContextWindow {
                 return d
             },
         ]
+        if !resources.usesBaselineSpeedEvidence {
+            result["request_time_tolerance"] = NSNull()
+            result["representative_request"] = NSNull()
+            result["timing_calibrated"] = false
+            result["pack_context_limit"] = resources.maximumContext
+        }
+        return result
     }
 
     /// The startup line under the plan banner.
     public func announcement(served: Int) -> String {
-        if let plan = candidates.first?.plan, !plan.resources.usesBaselineSpeedEvidence {
+        if !resources.usesBaselineSpeedEvidence {
             return "  window: automatic, \(served) tokens; this pack has no calibrated context-speed tradeoff. "
-                + "--max-context N selects a supported window up to \(plan.resources.maximumContext) tokens."
+                + "--max-context N selects a supported window up to \(resources.maximumContext) tokens."
         }
         let windows = ContextPolicy.automaticWindows.map(String.init).joined(separator: ", ")
         let percent = Int((ContextPolicy.automaticRequestTimeTolerance * 100).rounded())
@@ -85,10 +99,10 @@ public struct AutomaticContextWindow {
 
     /// The doctor section: each candidate and why auto took or declined it.
     public func report(served: Int) -> String {
-        if let plan = candidates.first?.plan, !plan.resources.usesBaselineSpeedEvidence {
+        if !resources.usesBaselineSpeedEvidence {
             return "\ncontext window: automatic, \(served) tokens. The pack's memory contract sets its supported limit; "
                 + "no context-speed estimate is available. Use --max-context N to choose another supported window "
-                + "up to \(plan.resources.maximumContext) tokens. Every choice still needs current memory admission."
+                + "up to \(resources.maximumContext) tokens. Every choice still needs current memory admission."
         }
         func pad(_ s: String, _ width: Int) -> String {
             s.count >= width ? s : String(repeating: " ", count: width - s.count) + s
@@ -219,7 +233,7 @@ extension Planner {
         guard let basePlan else {
             return AutomaticContextWindow(window: base, candidates: [Candidate(
                 window: base, plan: nil, refusal: baseRefusal, requestSeconds: nil, relativeRequestCost: nil,
-                accepted: true, reason: "default window; no plan on this machine to compare against")])
+                accepted: true, reason: "default window; no plan on this machine to compare against")], resources: resources)
         }
         guard resources.usesBaselineSpeedEvidence else {
             var candidates = [Candidate(window: base, plan: basePlan, refusal: nil,
@@ -231,7 +245,7 @@ extension Planner {
                     reason: window > resources.maximumContext ? "above this pack's supported limit"
                         : "this pack has no calibrated context-speed tradeoff"))
             }
-            return AutomaticContextWindow(window: base, candidates: candidates)
+            return AutomaticContextWindow(window: base, candidates: candidates, resources: resources)
         }
         let baseSeconds = estimatedRequestSeconds(basePlan)
         var chosen = base
@@ -262,7 +276,7 @@ extension Planner {
                 relativeRequestCost: hasUnmeasuredCacheReduction(value, from: basePlan) ? nil : cost,
                 accepted: accepted, reason: reason))
         }
-        return AutomaticContextWindow(window: chosen, candidates: candidates)
+        return AutomaticContextWindow(window: chosen, candidates: candidates, resources: resources)
     }
 
     /// The window and plan a process uses. An explicit window is planned as

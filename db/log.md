@@ -342,3 +342,6 @@ Prepared pack-owned context feasibility/window APIs with original public compati
 ## [2026-10-05 03:37] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared selected CLI directory/store/resource binding, guarded serving and pack-owned doctor output with no inherited timing evidence. Added native missing/custom-directory and original-plan-equivalence checks. Syntax, diff, claims 349/0, projections and full brain validation 0/0 pass; native execution remains pending. Preserved complete preceding Engine observation and Mac workflow results. Actual standalone loader, profile-aware CLI Auto, physical qualification and release remain open.
 
+## [2026-10-05 03:47] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Retained the pack allocation contract in automatic context results even when every plan is refused; uncalibrated text and JSON cannot recover original timing authority. Added refusal and JSON fixtures. Diff, claims 349/0, projections and full brain validation 0/0 pass; native correction checks pending. Captured separate preceding context-foundation CI progress. Physical studies and qualification remain open.
+

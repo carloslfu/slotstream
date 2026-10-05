@@ -1196,6 +1196,11 @@ Complete Mac workflow receipts now confirm the preceding loaded-evidence applica
 
 The native CLI fixture now covers missing run/serve selections, retained unrelated custom metadata and complete legacy/explicit-original/Auto plan equality under fixed simulated hardware. Python syntax, diff, claims and generated projection checks pass; native execution of these edits remains pending. Complete preceding Engine observation and Mac pull-stage workflow receipts are also retained with their exact commits. The registry is still original-only. Actual standalone loading, hardware/profile-aware CLI Auto selection, physical qualification and final release remain required.
 
+
+#### Refused-context explanation keeps pack authority
+
+[[sources/runs/2026/10/2026-10-04-pack-context-refusal-preparation]] records the refusal review and correction. The automatic context result retains its pack contract even when no proposed plan fits, so missing feasibility cannot restore the original timing explanation. Uncalibrated JSON withholds the original request-cost calibration. Native fixtures cover both feasible and impossible candidates; diff and claims checks pass, with native execution pending. The preceding context foundation has passing public-library and coverage jobs, separately identified in the receipt. No capability or speed qualification changes.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

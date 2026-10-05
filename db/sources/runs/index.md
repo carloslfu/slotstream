@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T03:35:08.094885Z
+updated: 2026-10-05T03:45:20.395085Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-pack-context-refusal-preparation]] — Preserve pack-specific timing authority when context planning refuses every candidate
 - [[sources/runs/2026/10/2026-10-04-pack-owned-cli-planning-preparation]] — Bind explicit CLI selection to directory verification and complete planning without inheriting original arithmetic or speed evidence
 - [[sources/runs/2026/10/2026-10-04-pack-owned-context-planning-preparation]] — Pack-owned context feasibility and conservative automatic windows with complete earlier Mac telemetry acceptance
 - [[sources/runs/2026/10/2026-10-04-pack-owned-cli-pull-preparation]] — Route explicit CLI pack downloads and verification through their compiled manifest while preserving original defaults
@@ -506,9 +507,8 @@ updated: 2026-10-05T03:35:08.094885Z
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-native-pressure-stop]] — New combined native attempt stops on OS pressure with owned physical-footprint evidence
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-combined-build]] — Compact cache and bounded greedy tail compile in the new combined candidate
 - [[sources/runs/2026/09/2026-09-08-optimization-bounded-tail-candidate-integration]] — Qualified bounded greedy tail joins the explicit combined candidate
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-tail-cache-carryover-qualified]] — Fixed-depth greedy MTP tail qualifies in a fresh cache-carryover study
 
 ## More
 
-This folder has 827 files. The 500 most recent are listed above.
+This folder has 828 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

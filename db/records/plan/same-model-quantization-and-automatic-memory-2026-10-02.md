@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T03:37:20.983541+00:00
+updated: 2026-10-05T03:47:12.264353+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1134,3 +1134,8 @@ Complete Mac workflow receipts now confirm the preceding loaded-evidence applica
 [[sources/runs/2026/10/2026-10-04-pack-owned-cli-planning-preparation]] preserves explicit selection across CLI directory resolution, store verification, minimum adaptive ceilings, complete planning and the shared planned serving boundary. A custom directory stays selected and cannot be repaired into another representation. The load boundary rejects a different resource contract or an unimplemented pack loader instead of falling through. Doctor uses pack geometry and context limits, identifies the selected manifest, and withholds original timing estimates for uncalibrated arithmetic. Legacy behavior remains the default when quantization is omitted.
 
 The native CLI fixture now covers missing run/serve selections, retained unrelated custom metadata and complete legacy/explicit-original/Auto plan equality under fixed simulated hardware. Python syntax, diff, claims and generated projection checks pass; native execution of these edits remains pending. Complete preceding Engine observation and Mac pull-stage workflow receipts are also retained with their exact commits. The registry is still original-only. Actual standalone loading, hardware/profile-aware CLI Auto selection, physical qualification and final release remain required.
+
+
+#### Refused-context explanation keeps pack authority
+
+[[sources/runs/2026/10/2026-10-04-pack-context-refusal-preparation]] records the refusal review and correction. The automatic context result retains its pack contract even when no proposed plan fits, so missing feasibility cannot restore the original timing explanation. Uncalibrated JSON withholds the original request-cost calibration. Native fixtures cover both feasible and impossible candidates; diff and claims checks pass, with native execution pending. The preceding context foundation has passing public-library and coverage jobs, separately identified in the receipt. No capability or speed qualification changes.
