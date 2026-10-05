@@ -321,3 +321,6 @@ Prepared separate reviewed setup offers, selected-pack setup UI, fixed collectio
 ## [2026-10-05 01:47] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared direct production setup-view rendering for reviewed, changed, verified-file and unavailable choices in Light, Dark and System. Source and CI progress are captured; no local model or UI process ran. Diff checking passes, claims have 349 checks and zero failures, projections are current, and full dbmd validation has zero errors and warnings. Native rendering, direct image inspection, actual loaded-profile confirmation and final physical qualification remain pending.
 
+## [2026-10-05 02:04] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Captured complete scripted Mac setup/recovery success and the separate Xcode package-access failure. AppModel now uses a public read-only startup-recipe identity instead of the package-scoped pack. The failed Xcode receipt is preserved and both corrected build paths remain pending. Claims have 349 checks and zero failures, projections are current, the diff is clean, and full dbmd validation has zero errors and warnings. Loaded-profile observation work remains separate and uncommitted; no model or profile is promoted.
+

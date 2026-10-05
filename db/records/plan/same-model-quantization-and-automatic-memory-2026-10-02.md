@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T01:47:00.063913+00:00
+updated: 2026-10-05T02:03:32.723194+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1092,3 +1092,7 @@ The source includes native fixtures for prospective component pricing, storage a
 ### Production setup-view rendering coverage, October 4
 
 [[sources/runs/2026/10/2026-10-04-model-setup-view-checks-preparation]] preserves the extracted production model-files view and its new offscreen Light/Dark/System fixtures. The panel retains the current color and control behavior, wraps recommendation/status copy, and explains a changed choice while the earlier setup can still be stopped. The fixtures cover reviewed, stale, verified-file and unavailable-pack states; they use a nonmutating real setup offer with synthetic display state and check that file verification is not presented as a healthy loaded model. CI retains the resulting images. Diff checking passes; native execution and direct visual review remain pending. The preceding setup source's external-library job passes while its full workflows continue. No qualification or distribution gate is waived.
+
+#### Native setup checks and Xcode metadata boundary
+
+[[sources/runs/2026/10/2026-10-04-model-setup-xcode-access-correction]] records the complete scripted Mac job passing for the reviewed-setup and failed-settings-repair stage. It confirms the earlier corrupt-history fixture correction and current-choice repair behavior, including the no-Metal repeat and memory-control rendering. The separate Xcode job exposes package-scoped recipe access from the application target. A public read-only recipe identity now replaces that access without exposing the pack owner. The Xcode failure is preserved; the corrected build and the newer setup-view renders still require confirmation. Physical qualification remains unchanged and pending.

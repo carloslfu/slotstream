@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T01:46:16.004119Z
+updated: 2026-10-05T02:02:34.120362Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-model-setup-xcode-access-correction]] — Preserve passing setup/recovery checks and fix the Xcode app's access to setup recipe metadata
 - [[sources/runs/2026/10/2026-10-04-model-setup-view-checks-preparation]] — Prepare production setup-view rendering checks for reviewed, stale, verified and unavailable selections
 - [[sources/runs/2026/10/2026-10-04-model-setup-retry-boundary-correction]] — Preserve failed Mac acceptance and correct the earlier journal-read retry and repair boundary
 - [[sources/runs/2026/10/2026-10-04-reviewed-model-setup-offers-preparation]] — Prepare reviewed prospective setup offers, selected-pack downloads and stale-choice acceptance checks
@@ -506,9 +507,8 @@ updated: 2026-10-05T01:46:16.004119Z
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-cache-candidate-integration]] — Qualified compact cache added to the explicit integration candidate
 - [[sources/runs/2026/09/2026-09-08-optimization-failure-footprint-observer]] — Owned physical-footprint failure observer preserves the original memory guard
 - [[sources/runs/2026/09/2026-09-08-optimization-long-decode-measurement-preparation]] — Bounded long-decode timing and eligibility reporter prepared and tested
-- [[sources/runs/2026/09/2026-09-08-optimization-image-serving-pressure-stop]] — Original duplicate-image study stopped before its first measured cell
 
 ## More
 
-This folder has 820 files. The 500 most recent are listed above.
+This folder has 821 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

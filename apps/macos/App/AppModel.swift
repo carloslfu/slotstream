@@ -700,7 +700,7 @@ import Combine
             // visible. A different reviewed recipe needs its own setup state.
             if let previous = setup, let proposed,
                previous.packID == proposed.packID, previous.matches(performancePreferences),
-               previous.pack.startupDefaults.recipeIdentity == proposed.pack.startupDefaults.recipeIdentity,
+               previous.startupRecipeIdentity == proposed.startupRecipeIdentity,
                previous.offer?.automaticProfileID == proposed.offer?.automaticProfileID,
                previous.offer?.evidence == proposed.offer?.evidence,
                previous.offer?.reason == proposed.offer?.reason {

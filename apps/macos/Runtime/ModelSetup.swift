@@ -17,6 +17,7 @@ public final class ModelSetup: @unchecked Sendable {
     package let pack: ModelPack
     public var packID: String { pack.id }
     public var packTitle: String { pack.title }
+    public var startupRecipeIdentity: String { pack.startupDefaults.recipeIdentity }
     public var modelDirectory: URL { store.modelDirectory }
     public let offer: ModelPackSetupOffer?
     private let selectionPreferences: PerformancePreferences?
