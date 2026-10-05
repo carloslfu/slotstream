@@ -1216,8 +1216,10 @@ public final class SlotPool {
         returnedLock.lock(); returnedSlots.append(slot); returnedLock.unlock()
     }
 
-    /// Model thread: give returned slots back to the victim scan.
-    private func drainReturnedSlots() {
+    /// Model thread: give returned slots back to the victim scan. Request
+    /// completion calls this after joining readers so idle engines retain no
+    /// speculative reservations until their next demand.
+    package func drainReturnedSlots() {
         returnedLock.lock()
         let drained = returnedSlots
         returnedSlots.removeAll(keepingCapacity: true)

@@ -27,11 +27,12 @@ package struct AffineStandalonePack {
     }
 
     package static let manifestName = "standalone-manifest.json"
-    /// Deliberately empty until the complete export and its independent byte
-    /// audit exist. Adding that exact digest admits research execution only;
-    /// product quality, performance and supported-pack qualification remain
-    /// separate gates. Do not replace this with caller or manifest authority.
-    package static let admittedManifestSHA256: String? = nil
+    /// Complete export and independent whole-file audit, October 5, 2026.
+    /// This exact digest admits research execution only; product quality,
+    /// performance and supported-pack qualification remain separate gates.
+    /// Do not replace this with caller or manifest authority.
+    package static let admittedManifestSHA256: String? =
+        "8f8c9a58558828a76d8eb6d40299ac472380adb456790f4f82330bdf5dc352d5"
     package static let fileBytes = 90_232_537_746
     package static let retainedNames = (1...11).map { String(format: "retained-%05d.safetensors", $0) }
     package static let expertNames = (0..<48).map { String(format: "experts-%02d.safetensors", $0) }

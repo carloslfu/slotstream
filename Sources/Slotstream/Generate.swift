@@ -564,6 +564,7 @@ public final class Generator {
             // is joined before the next request can start.
             if let session = model.lookahead {
                 session.requestFinished()
+                model.pool.drainReturnedSlots()
                 stats.expertPrefetch = session.prefetch?.observation
             }
             // Every completion, cancellation and early refusal publishes the

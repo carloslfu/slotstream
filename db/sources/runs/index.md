@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T08:38:51.756120Z
+updated: 2026-10-05T15:07:20.150295Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-standalone-engine-request-cleanup]] — All 105 standalone Engine checks pass after fixing deferred reservation returns; failed original attempt preserved
+- [[sources/runs/2026/10/2026-10-05-standalone-affine-export]] — Authenticated retirement of redundant payloads and complete independently hashed standalone export; research admission only
+- [[sources/runs/2026/10/2026-10-05-practical-quantization-scope]] — Owner narrows completion to one packaged candidate, reproducible performance and focused product checks; prior incomplete study stays preserved
 - [[sources/runs/2026/10/2026-10-05-grader-recovery-complete-ci]] — Corrected full Engine CI, context contracts and docs pass; resumed quality jobs complete without replacement
 - [[sources/runs/2026/10/2026-10-05-grader-recovery-harness-and-launch]] — Recovery continues without answer replacement; static harness registration fixed and future attempt marker sync hardened
 - [[sources/runs/2026/10/2026-10-05-heldout-instruction-worker-recovery]] — Unchanged held-out answers, diagnosed Python ABI mismatch, synthetic grader checks and frozen unanswered-only recovery
@@ -504,11 +507,8 @@ updated: 2026-10-05T08:38:51.756120Z
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-metadata-pass]] — Corrected fixed-MTP candidate passes pure and CLI checks
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-cache-fixed-mtp-build]] — Compact-cache candidate builds with the original fixed MTP verification shape
 - [[sources/runs/2026/09/2026-09-08-optimization-mtp-verification-shape-correction]] — Combined candidate restores fixed MTP verification shape after exact-output failures
-- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-native-counterexample]] — Full native qualification rejects the bounded MTP tail while ordinary and recovery pass
-- [[sources/runs/2026/09/2026-09-08-optimization-long-decoding-guarded-executor]] — Long decoding executor preserves fixed workloads and rejects stale qualification
-- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-complete-static]] — New combined binary passes the complete static acceptance suite
 
 ## More
 
-This folder has 836 files. The 500 most recent are listed above.
+This folder has 839 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

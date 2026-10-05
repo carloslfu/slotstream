@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T07:40:30.978956+00:00
+updated: 2026-10-05T15:07:36.821479+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,14 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Standalone Engine and request cleanup, October 5
+
+[[sources/runs/2026/10/2026-10-05-standalone-engine-request-cleanup]] records all 105 native checks passing for the complete standalone candidate with streamed original drafts and explicit uncorrected lookahead. Its physical process peak is 7,428,495,096 bytes, inside the ten-GB fixture watchdog. Short and sparse-context lookahead outputs match demand-only execution; memory/disk/cold prefix recovery, cancellation, pressure shrink/regrow and HTTP checks pass. The original attempt preserved output correctness but left returned speculative slots queued until the next demand. The shared Generator now drains those returns after joining readers at request completion; the exact unchanged assertions pass. Five expert-check catalogue groups and standalone metadata checks also pass. This closes standalone correctness for the tested recipe; clean practical performance and candidate product promotion remain pending.
+
+### Standalone candidate assembled, October 5
+
+[[sources/runs/2026/10/2026-10-05-standalone-affine-export]] preserves the complete frozen export and bounded payload retirement. The standalone bundle owns 78 files totaling 90,232,537,746 bytes before its manifest. Its independently audited complete manifest is `8f8c9a58558828a76d8eb6d40299ac472380adb456790f4f82330bdf5dc352d5`. Retirement removed only 96 authenticated reproducible files from the losing refit and redundant contiguous VQ copy; all outputs and numerical evidence remain. Staging after export is 412,690,948,096 bytes within the existing 430 GB ceiling. The exact bundle is admitted for research execution only. Native standalone parity and practical performance are next; product registration and release remain pending.
+
 The first implementation screen for [[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]] establishes metadata geometry, bounded native row decoding and an existing-pack baseline. It does not qualify another pack, establish similar task quality, or achieve the proposed hardware-wide speed target.
 
 ### Evidence and method

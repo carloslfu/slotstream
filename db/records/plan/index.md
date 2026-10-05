@@ -2,7 +2,7 @@
 type: index
 scope: type-folder
 folder: records/plan
-updated: 2026-10-05T08:39:24.400531Z
+updated: 2026-10-05T15:07:36.802969Z
 ---
 
 # records/plan

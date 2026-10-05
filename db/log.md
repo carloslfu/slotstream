@@ -369,3 +369,9 @@ Recorded launch of the frozen grader recovery without regenerating its saved ans
 ## [2026-10-05 08:39] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Captured complete successful Engine, context-contract and docs CI at eacc29fe9920a1d24ceb957f4c0120fd79c34258, including optimized safety, native catalogue, public-library, coverage and tested/archive identity. Preserved the prior failed workflow and filtered custody of the completed recovered job and next job; no partial quality outcome inspected. Updated current status. Claims 349/0, projections, diff and full brain validation 0/0 pass. Complete quality and all remaining product/performance/distribution gates remain pending.
 
+## [2026-10-05 14:44] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Owner approved practical completion: one standalone candidate, performance first, focused quality and product safety, default Auto and independent overrides. Preserved the incomplete broad study without inspecting scores or restarting it. Added the scope decision and filtered stopped-process receipt. Full dbmd validation reports zero errors and warnings; claims 349/0, projections and diff checks pass. Existing safety gates remain required.
+
+## [2026-10-05 15:07] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserve bounded standalone export and retirement receipts; record 105 passing Engine checks after terminal speculative-slot cleanup; move to practical performance before promotion.
+

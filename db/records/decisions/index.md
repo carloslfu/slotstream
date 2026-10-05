@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-05T07:40:30.814970Z
+updated: 2026-10-05T14:42:11.281805Z
 ---
 
 # records/decisions
 
+- [[records/decisions/practical-quantization-release-scope]] — Finish one useful quantization and default Auto with focused product acceptance; preserve and defer the broad statistical campaign
 - [[records/decisions/heldout-instruction-worker-recovery]] — Preserve the ungraded answer and correct only the instruction worker interpreter in a new frozen continuation
 - [[records/decisions/heldout-unanswered-startup-continuation]] — Preserve all completed quality evidence in an explicit unanswered-only continuation
 - [[records/decisions/final-paired-task-quality-protocol]] — Freeze the final paired task-quality gate before answers

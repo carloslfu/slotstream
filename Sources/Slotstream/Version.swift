@@ -2,7 +2,7 @@
 // /api/version response, and the release tag check in CI all read this.
 
 public enum SlotstreamBuild {
-    public static let version = "0.2.27"
+    public static let version = "0.2.28"
 
     /// Read the compiler's actual assertion mode rather than a user-supplied
     /// DEBUG define. The checked optimized build is the measured product
