@@ -45,6 +45,11 @@ public struct ModelPackHardware: Equatable, Sendable {
     /// A different or unreadable state keeps measured speed evidence absent.
     package var admitsMeasuredConditions: Bool { thermalState == "nominal" && lowPowerModeEnabled == false }
 
+    package func sameMachine(as other: Self) -> Bool {
+        model == other.model && chip == other.chip && osBuild == other.osBuild && nativeARM64 == other.nativeARM64
+            && thermalState == other.thermalState && lowPowerModeEnabled == other.lowPowerModeEnabled
+    }
+
     public static func current(modelDirectory: URL) -> Self {
         let platform = OptimizationPlatform.current
         let conditions = ProcessMemory.operatingConditions()
@@ -75,9 +80,18 @@ public struct ModelPackCandidate: Sendable {
     public let contextTokens: Int
     public let features: Set<ModelPackFeature>
     public let simulated: Bool
+    /// A pack on a different volume cannot borrow the selection root's disk
+    /// evidence. Older callers may supply one common identity in the context.
+    public let hardware: ModelPackHardware?
 
     public init(pack: ModelPack, plan: MemoryPlan, executionPolicyID: String,
                 tools: Bool, prefixReuse: Bool) throws {
+        try self.init(pack: pack, plan: plan, executionPolicyID: executionPolicyID,
+            tools: tools, prefixReuse: prefixReuse, hardware: nil)
+    }
+
+    public init(pack: ModelPack, plan: MemoryPlan, executionPolicyID: String,
+                tools: Bool, prefixReuse: Bool, hardware: ModelPackHardware?) throws {
         try Planner.validateAdaptiveMemoryPolicy(plan)
         guard !executionPolicyID.isEmpty, plan.resources == pack.memoryProfile, let target = plan.targetGB,
               let bytes = AutomaticPackPolicy.bytes(target), bytes > 0,
@@ -108,16 +122,17 @@ public struct ModelPackCandidate: Sendable {
         self.init(packID: pack.id, manifestDigest: pack.manifestDigest, executionPolicyID: executionPolicyID,
             configurationDigest: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
             targetBytes: bytes, expectedPeakBytes: Int64(plan.memoryLedger.expectedPeakBytes),
-            contextTokens: plan.maxContextTokens, features: features, simulated: plan.simulated)
+            contextTokens: plan.maxContextTokens, features: features, simulated: plan.simulated, hardware: hardware)
     }
 
     package init(packID: String, manifestDigest: String, executionPolicyID: String, configurationDigest: String,
                  targetBytes: Int64, expectedPeakBytes: Int64, contextTokens: Int,
-                 features: Set<ModelPackFeature>, simulated: Bool) {
+                 features: Set<ModelPackFeature>, simulated: Bool, hardware: ModelPackHardware? = nil) {
         self.packID = packID; self.manifestDigest = manifestDigest; self.executionPolicyID = executionPolicyID
         self.configurationDigest = configurationDigest; self.targetBytes = targetBytes
         self.expectedPeakBytes = expectedPeakBytes; self.contextTokens = contextTokens
         self.features = features; self.simulated = simulated
+        self.hardware = hardware
     }
 }
 
@@ -215,14 +230,17 @@ package enum AutomaticPackPolicy {
                   registeredManifests[profile.packID] == profile.manifestDigest,
                   context.acceptedInstalledManifests[profile.packID] == profile.manifestDigest else { continue }
             for candidate in context.candidates where candidate.packID == profile.packID {
+                let observedHardware = candidate.hardware ?? context.hardware
                 guard candidate.manifestDigest == profile.manifestDigest,
+                      observedHardware.nativeARM64,
+                      observedHardware.sameMachine(as: context.hardware),
                       candidate.executionPolicyID == profile.executionPolicyID,
                       candidate.contextTokens == context.contextTokens, candidate.features == profile.features,
                       candidate.targetBytes > 0, candidate.targetBytes <= feasible,
                       candidate.expectedPeakBytes > 0, candidate.expectedPeakBytes <= candidate.targetBytes else { continue }
                 switch profile.evidence {
                 case let .measured(hardware, measuredRAM, digest, rate, reference):
-                    guard !machine.isSimulated, !candidate.simulated, hardware == context.hardware,
+                    guard !machine.isSimulated, !candidate.simulated, hardware == observedHardware,
                           hardware.admitsMeasuredConditions,
                           hardware.storage != .unknown, hardware.storage != .remote,
                           hardware.model?.isEmpty == false, hardware.chip?.isEmpty == false,
@@ -231,10 +249,10 @@ package enum AutomaticPackPolicy {
                           rate.isFinite, rate > 0, !reference.isEmpty else { continue }
                     matches.append(Match(profile: profile, candidate: candidate, evidence: .measured, decodeLowerBound: rate))
                 case let .estimated(models, chips, builds, storage, rams, targets, anchors, rationale):
-                    guard let model = context.hardware.model, let chip = context.hardware.chip,
-                          let build = context.hardware.osBuild, models.contains(model), chips.contains(chip),
-                          builds.contains(build), storage.contains(context.hardware.storage),
-                          context.hardware.storage != .unknown, context.hardware.storage != .remote,
+                    guard let model = observedHardware.model, let chip = observedHardware.chip,
+                          let build = observedHardware.osBuild, models.contains(model), chips.contains(chip),
+                          builds.contains(build), storage.contains(observedHardware.storage),
+                          observedHardware.storage != .unknown, observedHardware.storage != .remote,
                           rams.lowerBound > 0, rams.contains(ram), targets.lowerBound > 0,
                           targets.contains(candidate.targetBytes), !anchors.isEmpty, !rationale.isEmpty,
                           Set(anchors).count == anchors.count else { continue }

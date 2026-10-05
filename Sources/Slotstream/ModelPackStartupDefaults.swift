@@ -82,9 +82,12 @@ public struct ModelPackStartupDefaults: Sendable {
     }
 
     package var runtimePolicy: RuntimeAllocationPolicy? {
-        // Keep the existing original plan JSON and reservation arithmetic.
-        // Disabling a cache must explicitly credit its freed reservation.
-        prefixCacheEnabled ? nil : .init(prefixCacheEnabled: false)
+        get throws {
+            // Keep the existing original plan JSON and reservation arithmetic.
+            // Disabling a cache must explicitly credit its freed reservation.
+            if prefixCacheEnabled { return nil }
+            return try RuntimeAllocationPolicy(prefixCacheEnabled: false)
+        }
     }
 
     /// Hardware-only ceiling. Opening another application cannot reduce this

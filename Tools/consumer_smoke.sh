@@ -100,6 +100,18 @@ precondition(ownedPlan.maxContextTokens == maintained.startupDefaults.contextTok
 let startupRange = try maintained.startupMemoryRange(on: startupMachine)
 let automaticCeiling = try maintained.automaticMemoryCeilingGB(on: startupMachine)
 precondition(startupRange.minimumGB <= 10 && automaticCeiling <= startupRange.maximumGB)
+let selectionHardware = ModelPackHardware(model: nil, chip: nil, osBuild: nil,
+    nativeARM64: true, storage: .unknown, volumeID: nil)
+let startupObservation = ModelPackStartupObservation(pack: maintained, hardware: selectionHardware, mtpAvailable: false)
+let startupContext = try ModelPackRegistry.startupContext(on: startupMachine, hardware: selectionHardware,
+    contextTokens: maintained.startupDefaults.contextTokens, requiredFeatures: [.text, .tools],
+    customMemoryGB: 10, observations: [startupObservation],
+    acceptedInstalledManifests: [maintained.id: maintained.manifestDigest])
+precondition(startupContext.candidates.count == 1 && startupContext.ceilingBytes == 10_000_000_000)
+let startupDecision = try ModelPackRegistry.resolve(.automatic, context: startupContext)
+precondition(startupDecision.evidence == .unknown)
+let legacyCandidate: (ModelPack, MemoryPlan, String, Bool, Bool) throws -> ModelPackCandidate = ModelPackCandidate.init
+_ = try legacyCandidate(maintained, ownedPlan, "compatibility-only", true, true)
 
 // Direct plans must reject contradictory adaptive policy before touching a
 // checkpoint. This exercises real Engine startup without allocating a model.

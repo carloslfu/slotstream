@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T00:00:41.837046+00:00
+updated: 2026-10-05T00:22:31.786146+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1054,3 +1054,13 @@ Desktop now consumes the frozen pack's recipe for planning, ranges, selected-cei
 Pure native fixtures, application identity/planning fixtures, the external-consumer API probe and the real activation check are extended. Only the thirty-two static entry checks and shell/diff checks have run locally on this stage; native compilation, the new fixtures and real updated activation remain pending. The previous performance V2 source has passed its instrumented Auto, memory-range and protocol catalogue; complete engine and Mac checks remain in progress in the preserved snapshot.
 
 This is startup recipe ownership, not completed alternative Auto activation. Qualified proposal generation/matching, accepted installed-content state, multiple-pack setup, actual candidate app loading, full quality/performance, standalone public transfer and integrated acceptance still remain. No alternate pack or profile is enabled, and the running quality continuation remains unchanged.
+
+### Actual startup proposals and storage evidence, October 4
+
+[[sources/runs/2026/10/2026-10-04-pack-startup-proposals-preparation]] records generation of complete Auto proposals from each supported pack's own startup recipe, accepted installed identity, observed components and current headroom. Custom limits stay exact; a busy start does not reduce the pack's automatic ceiling. The execution identity includes the active compiled forecast. Experimental settings do not inherit a qualified profile. Each pack carries its actual disk identity while all observations must agree on the machine and operating state, so another volume cannot borrow a measurement or estimate from the selection root.
+
+New pure fixtures and the external-consumer probe cover proposal-to-profile matching, missing/unaccepted content, independent live management, exact custom limits, unknown headroom, changed corrections and separate storage. [[sources/runs/2026/10/2026-10-04-pack-startup-proposals-fixture-identity]] preserves the final fixture's explicit machine-observation constructor correction. Thirty-two registration checks and shell/diff checks pass; native compilation and execution remain pending.
+
+The startup-defaults commit's native compiler found missing propagation of RuntimeAllocationPolicy's throwing initializer. Its full log is preserved, and the getter now propagates the error through the existing throwing planners without changing memory policy. The preceding complete-performance V2 commit has now passed the full engine and Mac workflows. Those CI results do not constitute a physical performance run.
+
+Durable accepted-installation ownership, multiple-pack setup and activation, qualified profile data, complete outcome and speed evaluation, standalone export/public pull and integrated local acceptance remain open. Production still registers only the original pack and no qualified Auto profile. The frozen held-out continuation is unchanged and unanalyzed.

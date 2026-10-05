@@ -18,10 +18,11 @@ extension Diagnostics {
         func candidate(_ id: String = "original", target: Int64 = 14_000_000_000,
                        peak: Int64 = 13_000_000_000, hash: String? = nil,
                        policy: String = "fixture-v1", context: Int = 32768,
-                       features: Set<ModelPackFeature>? = nil, simulated: Bool = false) -> ModelPackCandidate {
+                       features: Set<ModelPackFeature>? = nil, simulated: Bool = false,
+                       hardware: ModelPackHardware? = nil) -> ModelPackCandidate {
             ModelPackCandidate(packID: id, manifestDigest: hash ?? manifest, executionPolicyID: policy,
                 configurationDigest: digest, targetBytes: target, expectedPeakBytes: peak,
-                contextTokens: context, features: features ?? featureSet, simulated: simulated)
+                contextTokens: context, features: features ?? featureSet, simulated: simulated, hardware: hardware)
         }
         func measured(_ id: String, pack: String = "original", rate: Double = 21,
                       rank: Int = 0, hash: String? = nil, quality: String = "fixture-outcomes",
@@ -108,11 +109,22 @@ extension Diagnostics {
         c.expect("a RAM estimate is not a measured profile", choose([original], context(ram: 64)) == nil)
         c.expect("simulated machine cannot produce measured evidence", choose([original], context(simulated: true)) == nil)
         c.expect("simulated plan cannot produce measured evidence", choose([original], context(candidates: [candidate(simulated: true)])) == nil)
+        c.expect("a pack on another disk cannot borrow the root disk's measurement",
+            choose([original], context(candidates: [candidate(hardware: system(volume: "another-disk"))])) == nil)
+        c.expect("a pack with unreadable storage cannot borrow the root disk's measurement",
+            choose([original], context(candidates: [candidate(hardware: system(storage: .unknown, volume: nil))])) == nil)
+        c.expect("a pack's measured disk can match independently of the root disk",
+            choose([original], context(candidates: [candidate(hardware: hardware)], hw: system(volume: "another-disk"))) != nil)
+        c.expect("per-pack storage cannot substitute a different machine or stale operating state",
+            choose([original], context(candidates: [candidate(hardware: hardware)], hw: system(thermal: "fair"))) == nil)
         let anchor = measured("anchor", rate: 18), estimate = estimated()
         let estimatedMatch = choose([anchor, estimate], context(ram: 64, working: 48))
         c.expect("reviewed larger-Mac estimate keeps its evidence and missing speed bound",
             estimatedMatch?.evidence == .estimated && estimatedMatch?.decodeLowerBound == nil && estimatedMatch?.targetMet == false)
         c.equal("a local measured match precedes an estimated profile", choose([anchor, estimate])?.evidence, .measured)
+        c.expect("an external pack cannot borrow an internal-disk estimate",
+            choose([anchor, estimate], context(candidates: [candidate(hardware: system(storage: .externalLocal))],
+                ram: 64, working: 48)) == nil)
         for profiles in [[estimate], [estimated(anchors: ["estimate"])], [anchor, estimated(anchors: ["anchor", "anchor"])],
                          [anchor, estimated(quality: "different")], [anchor, estimated(rationale: "")]] {
             c.expect("missing, circular, duplicate or unrelated estimate anchors are excluded",
