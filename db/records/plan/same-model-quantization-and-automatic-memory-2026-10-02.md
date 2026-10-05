@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T05:18:31.059201+00:00
+updated: 2026-10-05T05:58:28.125493+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -16,21 +16,24 @@ Keep Qwen3.8 Flash Next as the same underlying model across the 16 to 64 GB Mac 
 
 The engineering target is at least 20 committed generation tokens per second in each supported automatic profile. This is a target, not an achieved result or a guarantee for arbitrary manual settings, prompts, context lengths, SSDs, temperatures or competing applications. If a profile fails, keep that failure visible and continue the optimization work. Do not quietly lower quality, substitute another model or declare the hardware qualified.
 
-Status on October 4, 2026: implementation in progress. Baseline Auto and the independent saved memory/live-allocation controls are implemented. Experimental candidates have bounded native generation, independent original drafts and staged context/recovery. The same-parent affine control runs through Engine and HTTP with owned metadata, pack-specific planning, live governance and compatible memory/disk reuse. The Mac original-pack owner now has durable activation, bounded health checks, sequential rollback, explicit retry and failed-selection queue gates, tested with real weights. This does not confer candidate quality, speed or Auto qualification. Owned candidate vision and native multi-step tool instruments now pass their bounded functional gates. Image-answer quality and capacity, complete-configuration performance, held-out noninferiority, standalone multi-pack distribution and integrated product release remain required. No twenty-token promise is established. Evidence and failed attempts remain in [[records/measurements/quantization-screen-2026-10-02]].
+Status on October 5, 2026: implementation in progress. Baseline Auto and the independent saved memory/live-allocation controls are implemented. Experimental candidates have bounded native generation, independent original drafts and staged context/recovery. The same-parent affine control runs through Engine and HTTP with owned metadata, pack-specific planning, live governance and compatible memory/disk reuse. The Mac original-pack owner now has durable activation, bounded health checks, sequential rollback, explicit retry and failed-selection queue gates, tested with real weights. This does not confer candidate quality, speed or Auto qualification. Owned candidate vision and native multi-step tool instruments now pass their bounded functional gates. Image-answer quality and capacity, complete-configuration performance, held-out noninferiority, standalone multi-pack distribution and integrated product release remain required. No twenty-token promise is established. Evidence and failed attempts remain in [[records/measurements/quantization-screen-2026-10-02]].
 
-### Current implementation checkpoint, October 4
+### Current implementation checkpoint, October 5
 
 This table supersedes the progress summary below without changing its historical evidence or the exit gates.
 
 | Work | Current result | Remaining exit gate |
 | --- | --- | --- |
-| Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
+| Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, exact saved-limit editing and response details, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
+| Pack-owned startup and selection | CI validates startup recipe/range/context matching, installation-journal recovery, metadata evidence guards and public compilation boundaries | Real updated Engine observations, the actual standalone loader, profile-aware CLI Auto and alternative-pack activation after qualification |
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows and the prospectively frozen image and long-conversation outcome campaigns |
 | Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The separately frozen unanswered-only continuation is running after the unloaded startup refusal; its first incomplete job is now complete, with no noninferiority verdict yet |
-| Complete performance | Actual-plan pilots preserve timing exclusions; standalone and Desktop-aware V2 performance instruments are prepared | Native V2 acceptance, actual standalone startup, an eligible paired pilot/final and safe lower-budget matrix; qualify profiles against the stated speed and latency gates |
+| Complete performance | Actual-plan pilots preserve timing exclusions; standalone and Desktop-aware V2 instruments compile and pass their weights-free fixtures | Actual integrated V2 execution and standalone startup, an eligible paired pilot/final and safe lower-budget matrix; qualify profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Authenticate and retire only the planned reproducible copies, produce the standalone artifact, prove native identity/parity, complete independent public pull and integrated multiple-pack transactions |
 | Promotion and release | Original pack is the only supported registry entry; no alternate Auto profile is enabled | Candidate qualification, deterministic measured/estimated selection, final local integrated acceptance, documentation and release |
+
+The latest completed native CI and direct visual acceptance are captured in [[sources/runs/2026/10/2026-10-05-saved-memory-limit-native-acceptance]]. Those results validate controls and evidence boundaries; no alternative model performance profile is qualified by them.
 
 Other physical Macs are not required. Safe lower budgets test this Mac, and other hardware receives conservative labeled estimates. The current evidence does not establish the twenty-token target. The campaign uses frozen binaries and helpers, independent of subsequent source-only repairs.
 
@@ -1161,3 +1164,10 @@ The native CLI fixture now covers missing run/serve selections, retained unrelat
 [[sources/runs/2026/10/2026-10-05-saved-memory-limit-precision-preparation]] records a precision correction: the editable saved limit previously rounded to one decimal place, allowing an unchanged field commit to replace the requested value. Settings and response details now preserve the exact saved ceiling while live usage remains approximate. Locale and persistence fixtures, plus fractional-limit rendering in every appearance, are prepared. New native checks and visual inspection remain pending; no local model execution was added.
 
 The same source preserves complete successful context-refusal and shared-loader Engine/Mac workflows at their respective commits, and the preceding compiler-mode Mac workflow. These are prior-change results, not acceptance of the new precision checks. Frozen quality, full candidate performance, standalone transport, alternative activation and final qualification remain open.
+
+
+### Exact saved-limit native acceptance, October 5
+
+[[sources/runs/2026/10/2026-10-05-saved-memory-limit-native-acceptance]] closes the precision correction's pending native and visual checks. The complete Mac workflow passes, including the Xcode app, locale/persistence checks, unchanged re-commit identity, response formatting and rendering in Light, Dark and System. Direct inspection of the six new scenes confirms exact fractional limits and readable response details without clipping or overlap. These are synthetic CI fixtures, not physical RAM or throughput measurements.
+
+The preceding compiler-mode Engine workflow also passes in full: optimized safety and catalogue gates, coverage and external consumer. Frozen quality remains active and unanalyzed. The actual candidate performance, standalone packaging and public pull, alternate activation, final physical acceptance and release gates remain open.

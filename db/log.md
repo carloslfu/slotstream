@@ -357,3 +357,6 @@ Bound complete startup execution identity to the compiler assertion configuratio
 ## [2026-10-05 05:19] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared exact saved-memory text round trips, locale/persistence checks and fractional Settings/response-detail rendering. Diff, claims 349/0, projections and full dbmd validation 0/0 pass; new native execution and visual review remain pending. Captured complete successful context-refusal and shared-loader Engine/Mac workflows plus the preceding compiler-mode Mac workflow at their own commits. Frozen quality and final physical qualification remain open.
 
+## [2026-10-05 05:58] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Recorded complete native Mac acceptance for exact saved-memory limits and direct review of six Light/Dark/System renders. Captured the completed preceding compiler-mode Engine workflow, updated the current implementation checkpoint and retained pending physical qualification. Diff and claims 349/0 pass; projections are current; full dbmd validation reports zero errors and warnings. Frozen quality remains running and unanalyzed; no alternative pack or profile is promoted.
+

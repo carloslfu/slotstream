@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T05:18:07.135614Z
+updated: 2026-10-05T05:58:27.759307Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-saved-memory-limit-native-acceptance]] — Complete native acceptance and direct visual review of exact saved ceilings, plus completed compiler-mode Engine acceptance
 - [[sources/runs/2026/10/2026-10-05-saved-memory-limit-precision-preparation]] — Preserve fractional saved memory limits through editing and response details; capture completed preceding native workflows
 - [[sources/runs/2026/10/2026-10-04-pack-build-evidence-preparation]] — Bind startup performance proposals to actual compiler assertion mode and withhold loaded speed evidence for nonrelease builds
 - [[sources/runs/2026/10/2026-10-04-pack-owned-loader-preparation]] — Shared selected-pack Engine loading boundary and owned CLI server size, with source checks and preceding CI receipts
@@ -506,9 +507,8 @@ updated: 2026-10-05T05:18:07.135614Z
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-external-consumer]] — New combined source passes external public-library and planner contracts
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-activation-preparation]] — Current-source activation patch prepared without applying it
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-metadata-pass]] — New combined binary passes all pure Swift and CLI metadata contracts
-- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-validation-controls]] — New combined validation controls and long-throughput drafts preserve original workload criteria
 
 ## More
 
-This folder has 832 files. The 500 most recent are listed above.
+This folder has 833 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
