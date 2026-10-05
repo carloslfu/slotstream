@@ -19,6 +19,7 @@ from pathlib import Path
 # answer and its grader fixture inside the same finite I/O envelope rather
 # than truncating a correct long answer or inheriting the coding-code limit.
 INSTRUCTION_PAYLOAD_LIMIT = 2 << 20
+INSTRUCTION_PHYSICAL_LIMIT = 256_000_000
 
 
 class TaskBudgetExceeded(Exception):
@@ -214,18 +215,48 @@ def grade(family, case, response, *, instruction_source=None, runtime=None):
     raise ValueError('unknown text outcome family')
 
 
-def isolated_instruction(case, response, instruction_source, runtime):
+def isolated_instruction(case, response, instruction_source, runtime, *,
+                         worker_executable=None, worker_source=None):
     from quantization_code_sandbox import _bounded_process, runtime_executable
     text=terminal(response)
     if text is None:return {'passed':False,'reason':'no completed plain answer'}
     # Usage, timing and model metadata stay in the caller's journal. The
     # grader needs only the complete text, and never interprets metadata.
     payload=json.dumps({'case':case,'text':text,'instruction_source':str(Path(instruction_source).absolute()),'runtime':str(Path(runtime).absolute())},ensure_ascii=False).encode()
-    result=_bounded_process([str(runtime_executable()),'-I','-S','-B',str(Path(__file__).resolve()),'--instruction-worker'],payload,timeout=8,maximum_payload=INSTRUCTION_PAYLOAD_LIMIT)
+    # A package bundle can contain extensions for another Python ABI. The
+    # prospective owner binds both paths and their hashes; it must run the
+    # real preflight below before loading a model. Defaults retain the older
+    # interface, including its isolated interpreter and resource bounds.
+    executable = runtime_executable() if worker_executable is None else Path(worker_executable)
+    source = Path(__file__).resolve() if worker_source is None else Path(worker_source)
+    result=_bounded_process([str(executable),'-I','-S','-B',str(source),'--instruction-worker'],payload,timeout=8,maximum_payload=INSTRUCTION_PAYLOAD_LIMIT)
     if result['exit_code']:raise RuntimeError('instruction grader infrastructure failed: '+result['stderr'].decode(errors='replace')[:1000])
     value=json.loads(result['stdout'])
     if not isinstance(value,dict) or type(value.get('passed')) is not bool:raise ValueError('invalid instruction outcome')
     return value
+
+
+def preflight_instruction(grader, instruction_source, runtime):
+    """Exercise the actual worker with public synthetic pass/refusal cases.
+
+    Importing the coordinator or mocking its subprocess is insufficient to
+    establish that the pinned extension modules match the worker interpreter.
+    These fixtures contain no held-out prompt, response or score.
+    """
+    case = {'grader': {'key': -1, 'instruction_id_list': ['change_case:english_capital'],
+        'prompt': 'Synthetic infrastructure fixture: reply in capital letters.', 'kwargs': [{}]}}
+    rows = []
+    for text, expected in [('SYNTHETIC WORKER CHECK.', True), ('synthetic worker check.', False)]:
+        response = {'choices': [{'finish_reason': 'stop',
+            'message': {'role': 'assistant', 'content': text}}]}
+        value = grader(case, response, instruction_source, runtime)
+        if (value.get('passed') is not expected or value.get('instructions') != [expected]
+                or value.get('method') != 'upstream-strict-prompt'
+                or type(value.get('peak_worker_bytes')) is not int
+                or not 0 < value['peak_worker_bytes'] <= INSTRUCTION_PHYSICAL_LIMIT):
+            raise ValueError('instruction worker preflight differs from its bounded synthetic fixture')
+        rows.append(value)
+    return rows
 
 
 if __name__=='__main__':
@@ -237,7 +268,7 @@ if __name__=='__main__':
         buf=ctypes.create_string_buffer(296)
         if lib.proc_pid_rusage(os.getpid(),4,buf)!=0:raise RuntimeError('missing instruction-worker physical observation')
         physical=max(int.from_bytes(buf.raw[72:80],'little'),int.from_bytes(buf.raw[240:248],'little'));peak[0]=max(peak[0],physical)
-        if physical>256_000_000:raise MemoryError('instruction-worker physical ceiling')
+        if physical>INSTRUCTION_PHYSICAL_LIMIT:raise MemoryError('instruction-worker physical ceiling')
     signal.signal(signal.SIGALRM,check);signal.setitimer(signal.ITIMER_REAL,.05,.05)
     raw=sys.stdin.buffer.read(INSTRUCTION_PAYLOAD_LIMIT+1)
     if len(raw)>INSTRUCTION_PAYLOAD_LIMIT:raise ValueError('instruction payload exceeds bound')

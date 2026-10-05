@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T05:58:28.125493+00:00
+updated: 2026-10-05T07:40:30.961251+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -27,7 +27,7 @@ This table supersedes the progress summary below without changing its historical
 | Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, exact saved-limit editing and response details, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
 | Pack-owned startup and selection | CI validates startup recipe/range/context matching, installation-journal recovery, metadata evidence guards and public compilation boundaries | Real updated Engine observations, the actual standalone loader, profile-aware CLI Auto and alternative-pack activation after qualification |
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows and the prospectively frozen image and long-conversation outcome campaigns |
-| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The separately frozen unanswered-only continuation is running after the unloaded startup refusal; its first incomplete job is now complete, with no noninferiority verdict yet |
+| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The earlier continuation stopped at its first instruction grade due to a reproduced Python ABI mismatch; a separately frozen recovery preserves every complete job and the one ungraded answer, with final analysis still pending |
 | Complete performance | Actual-plan pilots preserve timing exclusions; standalone and Desktop-aware V2 instruments compile and pass their weights-free fixtures | Actual integrated V2 execution and standalone startup, an eligible paired pilot/final and safe lower-budget matrix; qualify profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Authenticate and retire only the planned reproducible copies, produce the standalone artifact, prove native identity/parity, complete independent public pull and integrated multiple-pack transactions |
@@ -36,6 +36,12 @@ This table supersedes the progress summary below without changing its historical
 The latest completed native CI and direct visual acceptance are captured in [[sources/runs/2026/10/2026-10-05-saved-memory-limit-native-acceptance]]. Those results validate controls and evidence boundaries; no alternative model performance profile is qualified by them.
 
 Other physical Macs are not required. Safe lower budgets test this Mac, and other hardware receives conservative labeled estimates. The current evidence does not establish the twenty-token target. The campaign uses frozen binaries and helpers, independent of subsequent source-only repairs.
+
+### Instruction worker recovery, October 5
+
+[[sources/runs/2026/10/2026-10-05-heldout-instruction-worker-recovery]] captures the failure, synthetic reproduction, complete source custody audit, repaired interpreter binding and prospective recovery before new grading. All forty-six completed jobs and the next fully journaled answer are retained. The saved answer receives its first grade only under the new frozen protocol; it is never regenerated. The unchanged instruction worker and sandboxed tool-grader imports pass their synthetic checks. All forty-six relevant unit checks pass under both local Python runtimes, including nested source custody, no replacement, complete-study replay and refusal after another error.
+
+[[records/decisions/heldout-instruction-worker-recovery]] keeps original budgets, model binaries, sample, ordering and quality gates. Instruction-worker footprints remain separate bounded observations during final replay, with grading fields unchanged. This repair does not qualify the candidate or complete performance and product acceptance.
 
 ### Historical implementation checkpoint, October 3
 

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-04T20:08:47.962093Z
+updated: 2026-10-05T07:40:30.814970Z
 ---
 
 # records/decisions
 
+- [[records/decisions/heldout-instruction-worker-recovery]] — Preserve the ungraded answer and correct only the instruction worker interpreter in a new frozen continuation
 - [[records/decisions/heldout-unanswered-startup-continuation]] — Preserve all completed quality evidence in an explicit unanswered-only continuation
 - [[records/decisions/final-paired-task-quality-protocol]] — Freeze the final paired task-quality gate before answers
 - [[records/decisions/hold-unconstrained-affine-refit]] — Hold the unconstrained affine-three-bit refit

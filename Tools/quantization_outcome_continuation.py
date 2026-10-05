@@ -294,7 +294,7 @@ def stable_grade(family, value):
     check their form/bound, and compare every other field exactly.
     """
     value = copy.deepcopy(value)
-    custody = value.get('grade') if family == 'tools' else value if family == 'coding' else None
+    custody = value.get('grade') if family == 'tools' else value if family in ('coding', 'instruction') else None
     if custody is not None and 'sandbox_profile_sha256' in custody:
         if re.fullmatch('[a-f0-9]{64}', custody.pop('sandbox_profile_sha256')) is None:
             raise ValueError('invalid sandbox custody digest')
@@ -302,19 +302,25 @@ def stable_grade(family, value):
         peak = custody.pop('peak_worker_bytes')
         if type(peak) is not int or not 0 < peak <= campaign.bfcl.MAX_PHYSICAL_BYTES:
             raise ValueError('fixture worker exceeded its original physical ceiling')
+    if family == 'instruction' and custody is not None and (
+            custody.get('method') == 'upstream-strict-prompt' or 'peak_worker_bytes' in custody):
+        peak = custody.pop('peak_worker_bytes', None)
+        if type(peak) is not int or not 0 < peak <= campaign.outcomes.INSTRUCTION_PHYSICAL_LIMIT:
+            raise ValueError('instruction worker exceeded its original physical ceiling')
     return value
 
 
-def analyze(protocol_path, pin, root, output):
-    if campaign.digest(protocol_path) != pin: raise ValueError('continuation protocol changed')
-    protocol = campaign.read(protocol_path); root = Path(root)
-    effective, native, tasks, inherited = validate(protocol, root)
+def analyze_complete(effective, native, tasks, root, output, checked, *, instruction_grader=None):
+    """Replay only a complete authenticated study, preserving worker custody."""
+    instruction_grader = campaign.outcomes.isolated_instruction if instruction_grader is None else instruction_grader
     # Refuse before any regrading or summary unless the entire frozen study
     # completed. This also authenticates native counters, memory and transcripts.
     spent = sessions = 0; receipts = {}
-    for index, (row, _) in enumerate(checked_rows(protocol, pin, root, output, effective, native, inherited, len(effective['jobs']))):
+    for index, (row, _) in enumerate(checked()):
         spent += row['seconds']; sessions += len(row['sessions'])
         path = f'job-{index:04d}/receipt.json'; receipts[path] = campaign.digest(Path(output) / path)
+    if len(receipts) != len(effective['jobs']):
+        raise ValueError('complete analysis requires every frozen job')
     if (spent > effective['resource']['maximum_campaign_seconds']
             or sessions > effective['resource']['maximum_model_sessions']
             or campaign.allocated(output) > effective['resource']['maximum_output_bytes']):
@@ -323,7 +329,7 @@ def analyze(protocol_path, pin, root, output):
     paths = effective['paths']; pairs = []; regrade_custody = []
     with campaign.bfcl.Bundle(root / paths['bfcl_source'], root / paths['bfcl_runtime'],
                               root / paths['bfcl_manifest'], effective['files'][paths['bfcl_manifest']]) as bundle:
-        for (row, cells), job in zip(checked_rows(protocol, pin, root, output, effective, native, inherited, len(effective['jobs'])), effective['jobs']):
+        for (row, cells), job in zip(checked(), effective['jobs']):
             path = f"job-{job['index']:04d}/receipt.json"
             if campaign.digest(Path(output) / path) != receipts[path]: raise ValueError('receipt changed during complete analysis')
             by_arm = {arm: {} for arm in job['arms']}
@@ -335,7 +341,7 @@ def analyze(protocol_path, pin, root, output):
                 else:
                     try:
                         response = replay.chat([{'role': 'user', 'content': case['prompt']}])
-                        grade = (campaign.outcomes.isolated_instruction(case, response, root / paths['instruction_source'], root / paths['grader_runtime'])
+                        grade = (instruction_grader(case, response, root / paths['instruction_source'], root / paths['grader_runtime'])
                                  if job['family'] == 'instruction' else campaign.outcomes.grade(job['family'], case, response))
                         grade['response'] = response
                     except campaign.outcomes.TaskBudgetExceeded as error:
@@ -343,7 +349,7 @@ def analyze(protocol_path, pin, root, output):
                 recorded = {key: item for key, item in value.items() if key not in ('arm', 'id', 'seconds')}
                 if replay.used != len(events) or stable_grade(job['family'], grade) != stable_grade(job['family'], recorded):
                     raise ValueError('complete case replay differs from its recorded frozen grade')
-                custody = grade.get('grade', {}) if job['family'] == 'tools' else grade if job['family'] == 'coding' else {}
+                custody = grade.get('grade', {}) if job['family'] == 'tools' else grade if job['family'] in ('coding', 'instruction') else {}
                 regrade_custody.append({'family': job['family'], 'id': value['id'], 'arm': value['arm'],
                     **{key: custody[key] for key in ('sandbox_profile_sha256', 'peak_worker_bytes') if key in custody}})
                 by_arm[value['arm']][value['id']] = value['passed']
@@ -351,9 +357,18 @@ def analyze(protocol_path, pin, root, output):
                        'baseline_pass': by_arm['original'][case_id], 'candidate_pass': by_arm['candidate'][case_id]} for case_id in job['ids']]
     result = campaign.stratified_mover_summary(pairs, family_weights=effective['family_weights'],
         family_margins=effective['family_margins'], overall_margin=effective['overall_margin'], alpha=effective['alpha'])
-    result.update(protocol_sha256=pin, original_protocol_sha256=protocol['base_protocol_sha256'], paired_rows=pairs,
-                  campaign_scope=effective['scope'],
-                  receipts=receipts, regrade_custody=regrade_custody,
+    result.update(paired_rows=pairs, campaign_scope=effective['scope'], receipts=receipts,
+                  regrade_custody=regrade_custody)
+    return result
+
+
+def analyze(protocol_path, pin, root, output):
+    if campaign.digest(protocol_path) != pin: raise ValueError('continuation protocol changed')
+    protocol = campaign.read(protocol_path); root = Path(root)
+    effective, native, tasks, inherited = validate(protocol, root)
+    checked = lambda: checked_rows(protocol, pin, root, output, effective, native, inherited, len(effective['jobs']))
+    result = analyze_complete(effective, native, tasks, root, output, checked)
+    result.update(protocol_sha256=pin, original_protocol_sha256=protocol['base_protocol_sha256'],
                   scope='Frozen text/task outcomes with preserved preflight interruption. Product, memory, speed and distribution gates remain independent.')
     return result
 

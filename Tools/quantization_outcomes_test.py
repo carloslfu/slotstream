@@ -90,6 +90,32 @@ class OutcomeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'source fixture'):
                 q.grade('coding',{'function':'repair','tests':['x'*64_001]},self.response('def repair(): return 1'))
 
+    def test_instruction_worker_can_bind_an_explicit_interpreter_and_unchanged_source(self):
+        with patch('quantization_code_sandbox.runtime_executable',side_effect=AssertionError('must use the pinned interpreter')),\
+             patch('quantization_code_sandbox._bounded_process',return_value={'exit_code':0,'stdout':b'{"passed":true}','stderr':b''}) as worker:
+            result=q.isolated_instruction({'grader':{}},self.response('complete text'),'/fixture','/packages',
+                worker_executable='/pinned/python3.12',worker_source='/frozen/worker.py')
+            self.assertTrue(result['passed'])
+            command,payload=worker.call_args.args
+            self.assertEqual(command,['/pinned/python3.12','-I','-S','-B','/frozen/worker.py','--instruction-worker'])
+            self.assertEqual(json.loads(payload)['text'],'complete text')
+            self.assertEqual(worker.call_args.kwargs,{'timeout':8,'maximum_payload':q.INSTRUCTION_PAYLOAD_LIMIT})
+
+    def test_actual_instruction_preflight_requires_both_outcomes_and_bounded_observation(self):
+        calls=[]
+        def grader(case,response,source,runtime):
+            calls.append((case,response,source,runtime));passed=q.terminal(response).isupper()
+            return {'passed':passed,'instructions':[passed],'method':'upstream-strict-prompt','peak_worker_bytes':1000}
+        self.assertEqual([row['passed'] for row in q.preflight_instruction(grader,'/source','/runtime')],[True,False])
+        self.assertEqual(len(calls),2)
+        for row in [{'passed':True,'instructions':[True],'method':'upstream-strict-prompt','peak_worker_bytes':1000},
+                    {'passed':True,'instructions':[True],'method':'upstream-strict-prompt','peak_worker_bytes':256_000_001},
+                    {'passed':True,'instructions':[True],'method':'upstream-strict-prompt'},
+                    {'passed':1,'instructions':[True],'method':'upstream-strict-prompt','peak_worker_bytes':1000}]:
+            with self.assertRaises(ValueError):q.preflight_instruction(lambda *args:row,'/source','/runtime')
+        with self.assertRaisesRegex(ModuleNotFoundError,'extension'):
+            q.preflight_instruction(lambda *args:(_ for _ in ()).throw(ModuleNotFoundError('extension')),'/source','/runtime')
+
     def test_tool_trace_size_refusal_keeps_only_executed_steps_and_actual_results(self):
         with tempfile.TemporaryDirectory() as root:
             source,case,classes=self.tool_fixture(root);case['entry']['question']=case['entry']['question'][:1]

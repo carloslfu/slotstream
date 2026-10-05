@@ -89,6 +89,20 @@ class CampaignTests(unittest.TestCase):
                 altered = copy.deepcopy(identity); edit(altered)
                 with self.assertRaises(ValueError):check(altered)
 
+    def test_grader_import_failure_precedes_every_model_or_fixture_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);protocol,tasks,native=self.fixture(root)
+            tasks['instruction']=[{'id':'synthetic'}]
+            protocol['paths'].update(instruction_source='source',grader_runtime='packages')
+            def failed_worker(*args):raise ModuleNotFoundError('pinned extension ABI')
+            with patch.object(q,'Session',side_effect=AssertionError('must not load a model')),\
+                 patch.object(q.bfcl,'Bundle',side_effect=AssertionError('must not enter another worker')):
+                with self.assertRaisesRegex(ModuleNotFoundError,'extension ABI'):
+                    q.execute_job(protocol,'p'*64,tasks,native,root,root/'run',0,instruction_grader=failed_worker)
+            receipt=q.read(root/'run/job-0000/receipt.json')
+            self.assertFalse(receipt['complete']);self.assertEqual(receipt['sessions'],[])
+            self.assertEqual(receipt['outcomes'],[]);self.assertIn('extension ABI',receipt['failure'])
+
     def response(self, native, messages):
         return {'event':'response','id':'call-1','http_head':'HTTP/1.1 200 OK\r\nContent-Type: application/json',
             'request':{'messages':messages,'max_tokens':4096,'seed':7,'temperature':0,'stream':False,'think':False},

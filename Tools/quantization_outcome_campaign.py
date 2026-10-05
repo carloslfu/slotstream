@@ -388,7 +388,8 @@ def run_job(protocol_path, protocol_sha, root, output, job_index):
     return execute_job(protocol, protocol_sha, tasks, native, root, output, job_index)
 
 
-def execute_job(protocol, protocol_sha, tasks, native, root, output, job_index, *, inherited=None):
+def execute_job(protocol, protocol_sha, tasks, native, root, output, job_index, *, inherited=None,
+                instruction_grader=None):
     """Execute a validated job; only the separately frozen continuation supplies inherited evidence.
 
     Imported cells must be an exact leading prefix, never a selection of good
@@ -396,6 +397,7 @@ def execute_job(protocol, protocol_sha, tasks, native, root, output, job_index, 
     The continuation owner authenticates the old transcripts before calling.
     """
     root, output = Path(root), Path(output)
+    instruction_grader = outcomes.isolated_instruction if instruction_grader is None else instruction_grader
     if not 0 <= job_index < len(protocol['jobs']): raise ValueError('job outside frozen selection')
     output.mkdir(parents=True, exist_ok=True)
     with (output / 'campaign.lock').open('a') as lock:
@@ -436,6 +438,10 @@ def execute_job(protocol, protocol_sha, tasks, native, root, output, job_index, 
         try:
             save(); budget()
             paths = protocol['paths']
+            if 'instruction' in tasks:
+                result['instruction_preflight'] = outcomes.preflight_instruction(instruction_grader,
+                    root / paths['instruction_source'], root / paths['grader_runtime'])
+                save(); budget()
             with bfcl.Bundle(root / paths['bfcl_source'], root / paths['bfcl_runtime'],
                     root / paths['bfcl_manifest'], protocol['files'][paths['bfcl_manifest']]) as bundle:
                 for arm in job['arms']:
@@ -463,7 +469,7 @@ def execute_job(protocol, protocol_sha, tasks, native, root, output, job_index, 
                         else:
                             try:
                                 response = session.chat([{'role':'user', 'content':case['prompt']}])
-                                outcome = (outcomes.isolated_instruction(case, response, root / paths['instruction_source'], root / paths['grader_runtime'])
+                                outcome = (instruction_grader(case, response, root / paths['instruction_source'], root / paths['grader_runtime'])
                                     if job['family'] == 'instruction' else outcomes.grade(job['family'], case, response))
                                 outcome['response'] = response
                             except outcomes.TaskBudgetExceeded as error:

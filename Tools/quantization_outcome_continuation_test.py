@@ -139,6 +139,21 @@ class ContinuationTests(unittest.TestCase):
             self.assertEqual(result['original_protocol_sha256'], protocol['base_protocol_sha256'])
             with self.assertRaises(FileExistsError): self.execute_fixture(root, protocol, native, tasks)
 
+    def test_instruction_worker_footprint_is_custody_not_an_outcome(self):
+        left={'passed':True,'instructions':[True],'method':'upstream-strict-prompt','peak_worker_bytes':1000}
+        right=copy.deepcopy(left);right['peak_worker_bytes']=2000
+        self.assertEqual(q.stable_grade('instruction',left),q.stable_grade('instruction',right))
+        self.assertEqual(left['peak_worker_bytes'],1000)
+        right['instructions']=[False]
+        self.assertNotEqual(q.stable_grade('instruction',left),q.stable_grade('instruction',right))
+        for peak in [None,True,0,256_000_001]:
+            bad=copy.deepcopy(left);bad['peak_worker_bytes']=peak
+            with self.assertRaises(ValueError):q.stable_grade('instruction',bad)
+        bad=copy.deepcopy(left);bad.pop('peak_worker_bytes')
+        with self.assertRaises(ValueError):q.stable_grade('instruction',bad)
+        ungraded={'passed':False,'reason':'no completed plain answer'}
+        self.assertEqual(q.stable_grade('instruction',ungraded),ungraded)
+
     def test_partial_answers_cannot_be_analyzed_or_regraded(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol, _, _, _, _ = self.fixture(directory)
