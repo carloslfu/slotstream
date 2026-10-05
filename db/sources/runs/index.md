@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T17:56:21.715362Z
+updated: 2026-10-05T20:29:37.014533Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-practical-benchmark-host-recovery]] — Bluetooth recovery, twenty runner checks and a complete twelve-process comparison; background CPU and paging exclude five timings
 - [[sources/runs/2026/10/2026-10-05-native-practical-comparison-prepared]] — Existing runner admits the native standalone pilot with separate arithmetic identity; sixteen tests and four allocation proposals pass; competing CPU prevents execution
 - [[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] — Corrected startup evidence comparison; unchanged real activation and memory-control checks pass within their physical ceilings
 - [[sources/runs/2026/10/2026-10-05-native-affine-lifecycle-and-draft-recovery]] — All eighty-six native checks and the existing original draft-stream gate pass; both earlier empty-output fixture failures are preserved
@@ -506,9 +507,8 @@ updated: 2026-10-05T17:56:21.715362Z
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-image-serving-preparation]] — Original image comparisons prepared with exact native proof and normalized source paths
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-serving-preparation]] — Original full-photo and maximum-image studies rebound to resumed vision proofs
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-preparation]] — Resumed full vision integrations preserve original component proofs and guards
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-campaign-adapter]] — Fixed-MTP campaign adapter preserves exact original native evidence and eight workload contracts
 
 ## More
 
-This folder has 846 files. The 500 most recent are listed above.
+This folder has 847 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

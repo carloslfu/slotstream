@@ -7712,3 +7712,18 @@ The final publication review in the same source adds file-sync, directory-sync, 
 [[sources/runs/2026/10/2026-10-05-heldout-instruction-worker-recovery]] preserves the stopped coordinator and source audit. Forty-six paired jobs are complete. The first instruction job contains one complete original-model answer, no grade and a cleanly terminated native session after the worker import error. The preserved lineage totals 55,866.17972529016 active job seconds, 137 attempted model sessions and 25,698,304 allocated receipt bytes. Those costs remain charged; they are not task-quality results.
 
 A synthetic import reproduces the Python 3.9/cp312 regex mismatch. The exact same frozen worker passes synthetic success and refusal inputs under the already installed Python 3.12 image, within the unchanged bounds. Every BFCL class additionally imports inside its native sandbox with an empty synthetic call list. The preparation checks unchanged grading definitions, all source evidence and the exclusive saved-answer grading path. Forty-six unit checks pass under each local Python runtime. No held-out response was scored or inspected during preparation. The separately frozen recovery has yet to execute at this capture; complete final outcomes, product gates and performance remain pending.
+
+### Host recovery and complete practical comparison, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-benchmark-host-recovery]] preserves the authorized service recovery, both incomplete excluded attempts, the new prospective pilot policy, all twenty passing runner checks and every receipt from the complete follow-up. The native executable and both pack recipes are unchanged. The new policy retains short CPU spikes as diagnostics, excludes at least five seconds of consecutive observed competing CPU or any known heavy job, and waits for twenty quiet nominal seconds before launch, bounded to five minutes. These are operating heuristics, not proof that shorter activity has no effect. Old policies and results remain unchanged; no thermal, paging or allocation rule is relaxed.
+
+All twelve processes complete their fixed workloads and natural-answer completion flags inside their physical ceilings. The following values summarize all three runs of each complete configuration. They prove the observed process envelope and cache allocation, not a throughput advantage or task-quality equivalence. GB values are decimal; physical peaks are rounded.
+
+| Saved ceiling | Pack | Actual planned target (GB) | Expert slots | Largest observed physical footprint (GB) |
+| --- | --- | --- | --- | --- |
+| 14 GB | Native smaller pack | 14 | 1941 | 11.202 |
+| 14 GB | Original | 14 | 1635 | 11.370 |
+| 22 GB | Native smaller pack | 22 | 4923 | 17.847 |
+| 22 GB | Original | 22 | 3531 | 18.040 |
+
+Five timing cells are excluded for sustained background CPU or global paging. The complete frozen analysis has `all_timings_eligible: false` and `qualification: false`, and emits no clean medians. Individually eligible runs are not selected into a replacement comparison. This timing attempt is discarded. The original remains the only supported/public pack; a quiet-host repeat, alternative product activation/distribution and redistribution clearance remain open.

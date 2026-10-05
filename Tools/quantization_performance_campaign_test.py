@@ -17,7 +17,7 @@ VM = {'reclaimable_bytes': 20_000_000_000, 'reclaimableBytes': 20_000_000_000, '
 
 
 class PerformanceCampaignChecks(unittest.TestCase):
-    def fixture(self, root, *, scope='pilot', repetitions=3, profiles=1, version=1, deployment='composite', artifact='affine3'):
+    def fixture(self, root, *, scope='pilot', repetitions=3, profiles=1, version=1, deployment='composite', artifact='affine3', eligibility=m.ELIGIBILITY):
         root = Path(root).resolve()
         standalone = version == 2 and deployment == 'standalone'
         paths = {'binary': 'native/slotstream', 'metallib': 'native/mlx.metallib',
@@ -74,7 +74,7 @@ class PerformanceCampaignChecks(unittest.TestCase):
         files = {str(path.relative_to(root)): m.digest(path) for path in root.rglob('*') if path.is_file()}
         protocol = {'schema': version, 'kind': m.KIND_V2 if version == 2 else m.KIND, 'scope': scope, 'driver_sha256': m.digest(m.__file__),
                     'helper_sha256': m.helper_pins(), 'files': files, 'paths': paths, 'profiles': declared,
-                    'repetitions': repetitions, 'eligibility': m.ELIGIBILITY, 'sampling_basis': basis,
+                    'repetitions': repetitions, 'eligibility': eligibility, 'sampling_basis': basis,
                     'latency_max_ratio': {'request': 1.1, 'first_text': 1.1, 'load': 1.1} if scope == 'held-out' else None,
                     'resource': {'maximum_parent_bytes': 256_000_000, 'maximum_campaign_seconds': 3600,
                         'maximum_output_bytes': 100_000_000, 'maximum_research_staging_bytes': 430_000_000_000,
@@ -395,10 +395,11 @@ class PerformanceCampaignChecks(unittest.TestCase):
             self.assertFalse(record['complete']); self.assertEqual(record['cells'], [])
 
     def process(self, directory, script, *, physical=1_000_000, after_failure=False,
-                scope='pilot', busy=None):
+                scope='pilot', busy=None, practical=False, observations=None):
         root = Path(directory); destination = root / 'cell'
         native = {'memory_bytes': 14_000_000_000, 'maximum_seconds': 10}
         protocol = {'scope': scope, 'resource': {'maximum_campaign_seconds': 60}}
+        if practical: protocol['eligibility'] = m.PRACTICAL_ELIGIBILITY
         fake_vm = [dict(VM), RuntimeError('post-exit observation failed')] if after_failure else None
         check_output = subprocess.check_output
         def read_only_command(command, **kwargs):
@@ -406,11 +407,80 @@ class PerformanceCampaignChecks(unittest.TestCase):
             return check_output(command, **kwargs)
         with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', return_value=dict(VM)), \
              patch.object(m, 'observe', return_value={'ready': True, 'conditions': m.NORMAL}), \
-             patch.object(m, 'contention', return_value=busy or {'busy_processes': [], 'known_jobs': []}), \
+             patch.object(m, 'contention', side_effect=observations, return_value=busy or {'busy_processes': [], 'known_jobs': []}), \
+             patch.object(m, 'READY_STABLE_SECONDS', 0), \
              patch.object(m, 'physical_bytes', return_value=physical), \
              patch.object(m, 'vm_snapshot', side_effect=fake_vm, return_value=dict(VM)), \
              patch.object(m.subprocess, 'check_output', side_effect=read_only_command):
             return m.run_cell([sys.executable, '-c', script], destination, native, protocol, root, root, time.monotonic())
+
+    def test_practical_cpu_policy_keeps_spikes_and_excludes_sustained_or_heavy_work(self):
+        def sample(seconds, busy=False, job=False):
+            return {'seconds': seconds, 'busy_processes': [{'pid': 17, 'cpu_percent': 100}] if busy else [],
+                    'known_jobs': [{'pid': 19, 'kind': 'build'}] if job else []}
+        self.assertEqual(m.cpu_exclusions([sample(0), sample(1, True), sample(2), sample(7, True), sample(8)]), [])
+        self.assertEqual(m.cpu_exclusions([sample(0, True), sample(4.99, True)]), [])
+        self.assertEqual(m.cpu_exclusions([sample(0, True), sample(5, True)]), ['sustained competing CPU'])
+        self.assertEqual(m.cpu_exclusions([sample(0), sample(.01, job=True)]), ['sampled competing build/storage job'])
+        for samples in ([], [sample(2), sample(1)], [sample(float('nan'))]):
+            with self.assertRaises(ValueError): m.cpu_exclusions(samples)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, 'changed complete performance protocol'):
+                self.fixture(directory, scope='held-out', repetitions=8, eligibility=m.PRACTICAL_ELIGIBILITY)
+
+    def test_practical_child_retains_cpu_spike_without_reclassifying_old_policy(self):
+        quiet = {'busy_processes': [], 'known_jobs': []}
+        busy = {'busy_processes': [{'pid': 17, 'cpu_percent': 100}], 'known_jobs': []}
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.process(directory, 'import time; time.sleep(.05)', practical=True,
+                                  observations=[quiet, busy, quiet])
+            self.assertTrue(result['complete']); self.assertEqual(result['timing_exclusions'], [])
+            self.assertEqual(result['eligibility'], m.PRACTICAL_ELIGIBILITY)
+            self.assertTrue(result['cpu_samples'][0]['busy_processes'])
+            self.assertEqual(m.cpu_exclusions(result['cpu_samples']), [])
+            with self.assertRaises(ProcessLookupError): os.kill(result['pid'], 0)
+
+    def test_practical_analysis_replays_raw_cpu_evidence_and_requires_its_policy(self):
+        for sustained in (False, True):
+            with self.subTest(sustained=sustained), tempfile.TemporaryDirectory() as directory:
+                root, protocol = self.fixture(directory, eligibility=m.PRACTICAL_ELIGIBILITY)
+                def observations(receipt, observation, index):
+                    observation['eligibility'] = m.PRACTICAL_ELIGIBILITY
+                    observation['cpu_samples'] = [
+                        {'seconds': 0, 'busy_processes': [{'pid': 17, 'cpu_percent': 100}], 'known_jobs': []},
+                        {'seconds': 5, 'busy_processes': [{'pid': 17, 'cpu_percent': 100}] if sustained else [], 'known_jobs': []}]
+                path, sha, _, _ = self.execute(root, protocol, mutation=observations)
+                analysis = m.analyze(path, sha, root, root / 'run')
+                self.assertEqual(analysis['all_timings_eligible'], not sustained)
+                self.assertEqual(analysis['eligibility'], m.PRACTICAL_ELIGIBILITY)
+                self.assertFalse(analysis['qualification'])
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, eligibility=m.PRACTICAL_ELIGIBILITY)
+            path, sha, _, _ = self.execute(root, protocol)
+            with self.assertRaisesRegex(ValueError, 'CPU observation policy is missing'):
+                m.analyze(path, sha, root, root / 'run')
+
+    def test_readiness_requires_continuous_quiet_and_preserves_admission_failure(self):
+        quiet = {'busy_processes': [], 'known_jobs': []}
+        busy = {'busy_processes': [{'pid': 17, 'cpu_percent': 100}], 'known_jobs': []}
+        clock = [0.0]; row = {}; saved = []
+        def sleep(seconds): clock[0] += seconds
+        with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', return_value=dict(VM)), \
+             patch.object(m, 'observe', return_value={'ready': True}), \
+             patch.object(m, 'contention', side_effect=[quiet, quiet, busy, quiet, quiet, quiet, quiet, quiet]), \
+             patch.object(m.time, 'monotonic', side_effect=lambda: clock[0]), patch.object(m.time, 'sleep', side_effect=sleep):
+            m.await_ready({'memory_bytes': 14_000_000_000}, {}, Path('.'), Path('.'), 0, row, lambda: saved.append(clock[0]))
+        self.assertEqual(clock[0], 35); self.assertEqual(len(saved), 8)
+        with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', side_effect=RuntimeError('unsafe admission')):
+            with self.assertRaisesRegex(RuntimeError, 'unsafe admission'):
+                m.await_ready({'memory_bytes': 14_000_000_000}, {}, Path('.'), Path('.'), 0, {}, lambda: None)
+        clock[0] = 0
+        with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', return_value=dict(VM)), \
+             patch.object(m, 'observe', return_value={'ready': False}), patch.object(m, 'contention', return_value=quiet), \
+             patch.object(m.time, 'monotonic', side_effect=lambda: clock[0]), patch.object(m.time, 'sleep', side_effect=sleep):
+            with self.assertRaisesRegex(TimeoutError, 'native process not launched'):
+                m.await_ready({'memory_bytes': 14_000_000_000}, {}, Path('.'), Path('.'), 0, {}, lambda: None)
+        self.assertEqual(clock[0], m.READY_MAX_SECONDS)
 
     def test_pilot_preserves_cpu_exclusion_but_heavy_jobs_and_final_runs_refuse(self):
         busy = {'busy_processes': [{'pid': 999999, 'cpu_percent': 100}], 'known_jobs': []}

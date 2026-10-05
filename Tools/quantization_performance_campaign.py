@@ -33,6 +33,7 @@ from thermal_readiness import observe
 KIND = 'quantization-complete-performance-v1'
 KIND_V2 = 'quantization-complete-performance-v2'
 ELIGIBILITY = 'complete-normal-no-paging-no-competing-v1'
+PRACTICAL_ELIGIBILITY = 'complete-normal-no-paging-no-sustained-contention-v2'
 NORMAL = {'thermalState': 'nominal', 'lowPowerModeEnabled': False}
 ARMS = ('original', 'candidate')
 REVISION = 'aa7c790e804bbf9d491ddb109c3d61bc4a555f7c'
@@ -43,6 +44,14 @@ ROTARY = 'f077c4de8473b644afae5b9f939ddb2e70dcdfd876ad3e04d79f05018f133d9a'
 # clean-timing exclusion, not a safety limit or proof that lesser activity is
 # harmless. A different threshold requires a new protocol before collection.
 COMPETING_CPU_PERCENT = 50
+# Prospective pilot policy, not a claim of CPU isolation. Preserve one-second
+# observations and exclude >=5 seconds of consecutively observed competing
+# CPU. A single desktop repaint is retained as a diagnostic. Historical
+# protocols keep their immediate-exclusion rule. Revisit these operating
+# heuristics if repeated paired runs remain unstable; never regrade old runs.
+SUSTAINED_CPU_SECONDS = 5.0
+READY_STABLE_SECONDS = 20.0
+READY_MAX_SECONDS = 300.0
 
 
 def read(path, sha=None, maximum=16_000_000):
@@ -83,7 +92,9 @@ def validate(protocol, root):
     if (set(protocol) != keys or type(protocol['schema']) is not int or protocol['schema'] != (2 if extended else 1)
             or protocol['kind'] != (KIND_V2 if extended else KIND) or protocol['scope'] not in ('pilot', 'held-out')
             or protocol['driver_sha256'] != digest(__file__) or protocol['helper_sha256'] != helper_pins()
-            or protocol['eligibility'] != ELIGIBILITY or not integer(protocol['repetitions'], 3, 64)
+            or protocol['eligibility'] not in (ELIGIBILITY, PRACTICAL_ELIGIBILITY)
+            or protocol['eligibility'] == PRACTICAL_ELIGIBILITY and protocol['scope'] != 'pilot'
+            or not integer(protocol['repetitions'], 3, 64)
             or extended and protocol['candidate_deployment'] not in ('composite', 'standalone')):
         raise ValueError('unknown, unbounded or changed complete performance protocol')
     files, paths = protocol['files'], protocol['paths']
@@ -317,6 +328,8 @@ def paging(before, after):
 def exclusions(receipt, observation):
     reasons = []
     if observation['timing_exclusions']: reasons.extend(observation['timing_exclusions'])
+    if observation.get('eligibility') == PRACTICAL_ELIGIBILITY:
+        reasons.extend(cpu_exclusions(observation['cpu_samples']))
     if paging(observation['before'], observation['after']): reasons.append('whole-process global paging changed')
     if receipt['load_conditions'] != NORMAL: reasons.append('startup thermal or power condition')
     for row in receipt['cases']:
@@ -361,6 +374,46 @@ def contention(excluded_pids):
     return {'busy_processes': busy, 'known_jobs': jobs}
 
 
+def cpu_exclusions(samples):
+    """Replay the prospective policy from raw observations, not saved verdicts."""
+    reasons = set(); busy_since = None; previous = -1
+    if not samples: raise ValueError('missing CPU observations')
+    for sample in samples:
+        elapsed = sample['seconds']
+        if not number(elapsed, zero=True) or elapsed < previous:
+            raise ValueError('CPU observation clock is invalid')
+        previous = elapsed
+        if sample['known_jobs']: reasons.add('sampled competing build/storage job')
+        if sample['busy_processes']:
+            if busy_since is None: busy_since = elapsed
+            if elapsed - busy_since >= SUSTAINED_CPU_SECONDS:
+                reasons.add('sustained competing CPU')
+        else: busy_since = None
+    return sorted(reasons)
+
+
+def await_ready(native, protocol, root, output, campaign_started, row, save):
+    """Wait only between processes; retain actual admission and a bounded wait."""
+    started = time.monotonic(); stable_since = None; row['readiness'] = []
+    while True:
+        resource_check(root, output, protocol, campaign_started)
+        # Memory pressure, another model/compiler and insufficient headroom
+        # still refuse. Waiting for cooling never relaxes allocation admission.
+        memory = quiet_preflight(native['memory_bytes'] / 1e9 + 3)
+        conditions = observe(); busy = contention({os.getpid()}); now = time.monotonic()
+        row['readiness'].append({'seconds': now - started, 'conditions': conditions,
+                                 'contention': busy, 'reclaimable_bytes': memory['reclaimable_bytes']})
+        save()
+        if busy['known_jobs']: raise RuntimeError('competing job; native process not launched')
+        if conditions['ready'] and not busy['busy_processes']:
+            if stable_since is None: stable_since = now
+            if now - stable_since >= READY_STABLE_SECONDS: return memory, conditions, busy
+        else: stable_since = None
+        if now - started >= READY_MAX_SECONDS:
+            raise TimeoutError('host did not settle; native process not launched')
+        time.sleep(5)
+
+
 def resource_check(root, output, protocol, started):
     resource = protocol['resource']
     if time.monotonic() - started > resource['maximum_campaign_seconds']: raise TimeoutError('performance campaign deadline')
@@ -375,14 +428,22 @@ def run_cell(command, destination, native, protocol, root, output, campaign_star
     row = {'complete': False, 'timing_exclusions': [], 'samples': 0, 'peak_model_bytes': 0,
            'observer_scope': 'Sampled process CPU averages and known jobs; not continuous host isolation.'}
     child = None; started = time.monotonic()
+    practical = protocol.get('eligibility') == PRACTICAL_ELIGIBILITY
+    if practical:
+        row['eligibility'] = PRACTICAL_ELIGIBILITY
+        row['cpu_samples'] = []
     environment = {k: v for k, v in os.environ.items() if not k.startswith(('SLOTSTREAM_', 'SS_DEBUG', 'VQ_', 'VQLAB_'))}
     row['removed_override_names'] = sorted(set(os.environ) - set(environment))
     def save():
         row['seconds'] = time.monotonic() - started; write(destination / 'supervision.json', row)
     try:
         save(); resource_check(root, output, protocol, campaign_started)
-        row['before'] = quiet_preflight(native['memory_bytes'] / 1e9 + 3)
-        row['conditions_before'] = observe(); row['contention_before'] = contention({os.getpid()})
+        if practical:
+            row['before'], row['conditions_before'], row['contention_before'] = await_ready(
+                native, protocol, root, output, campaign_started, row, save)
+        else:
+            row['before'] = quiet_preflight(native['memory_bytes'] / 1e9 + 3)
+            row['conditions_before'] = observe(); row['contention_before'] = contention({os.getpid()})
         busy = row['contention_before']
         if (not row['conditions_before']['ready'] or busy['known_jobs']
                 or busy['busy_processes'] and protocol.get('scope') != 'pilot'):
@@ -397,10 +458,11 @@ def run_cell(command, destination, native, protocol, root, output, campaign_star
         with (destination / 'stdout.txt').open('xb') as stdout, (destination / 'stderr.txt').open('xb') as stderr:
             child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
                                      env=environment, start_new_session=True)
+            child_started = time.monotonic()
             row['pid'] = child.pid; save(); next_slow = next_disk = next_save = 0.0
             while child.poll() is None:
                 now = time.monotonic()
-                if now - started > native['maximum_seconds'] + 30: raise TimeoutError('native performance process deadline')
+                if now - child_started > native['maximum_seconds'] + 30: raise TimeoutError('native performance process deadline')
                 if now - campaign_started > protocol['resource']['maximum_campaign_seconds']: raise TimeoutError('performance campaign deadline')
                 try: physical = physical_bytes(child.pid)
                 except RuntimeError:
@@ -415,7 +477,9 @@ def run_cell(command, destination, native, protocol, root, output, campaign_star
                         raise MemoryError('performance OS memory pressure')
                     if not observe()['ready']: row['timing_exclusions'].append('sampled thermal or power condition')
                     busy = contention({os.getpid(), child.pid})
-                    if any(busy.values()):
+                    if practical:
+                        row['cpu_samples'].append({'seconds': now - child_started, **busy})
+                    elif any(busy.values()):
                         row['timing_exclusions'].append('sampled competing CPU or known build/storage job')
                         row.setdefault('first_contention', busy)
                     row['timing_exclusions'] = sorted(set(row['timing_exclusions']))
@@ -442,7 +506,10 @@ def run_cell(command, destination, native, protocol, root, output, campaign_star
                 row['release_settle_seconds'] = time.monotonic() - settle
             row['after'] = vm_snapshot(); row['conditions_after'] = observe()
             row['contention_after'] = contention({os.getpid()})
-            if not row['conditions_after']['ready'] or any(row['contention_after'].values()):
+            if practical and child is not None:
+                row['cpu_samples'].append({'seconds': time.monotonic() - child_started, **row['contention_after']})
+                row['timing_exclusions'].extend(cpu_exclusions(row['cpu_samples']))
+            if not row['conditions_after']['ready'] or not practical and any(row['contention_after'].values()):
                 row['timing_exclusions'].append('post-process thermal, power or contention condition')
         except BaseException as error:
             cleanup_error = error; row['cleanup_failure'] = type(error).__name__ + ': ' + str(error); row['complete'] = False
@@ -517,6 +584,9 @@ def analyze(protocol_path, protocol_sha, root, output):
         destination = output / f"cell-{row['index']:04d}"
         receipt = read(destination / 'native/receipt.json', row['receipt_sha256'])
         observation = read(destination / 'supervision.json', row['supervision_sha256'])
+        if (protocol['eligibility'] == PRACTICAL_ELIGIBILITY
+                and observation.get('eligibility') != PRACTICAL_ELIGIBILITY):
+            raise ValueError('prospective CPU observation policy is missing')
         if (observation.get('complete') is not True or observation.get('exit_code') != 0
                 or 'failure' in observation or 'cleanup_failure' in observation or not integer(observation.get('samples'), 1, 1_000_000)):
             raise ValueError('performance process cleanup or physical supervision did not complete')
@@ -536,12 +606,15 @@ def analyze(protocol_path, protocol_sha, root, output):
             key = row['profile'] + '/' + case_id
             measurements.setdefault(key, {arm: [] for arm in ARMS})[row['arm']].append(value)
     result = {'schema': protocol['schema'], 'kind': protocol['kind'], 'scope': protocol['scope'], 'complete': True, 'qualification': False,
+              'eligibility': protocol['eligibility'],
               'protocol_sha256': protocol_sha, 'all_timings_eligible': not excluded, 'excluded_cells': excluded,
               'comparison_count': comparison_count(protocol, natives),
               'natural_completion_complete': not incomplete_answers, 'incomplete_natural_answers': incomplete_answers,
               'speed_gate_passed': False, 'latency_gate_passed': False, 'performance_gate_passed': False,
               'scope_limit': 'Frozen local configurations only; no other-Mac speed, task quality or model-promotion verdict.'}
     if protocol['schema'] == 2: result['candidate_deployment'] = protocol['candidate_deployment']
+    if protocol['eligibility'] == PRACTICAL_ELIGIBILITY:
+        result['scope_limit'] += ' Brief sampled CPU spikes are retained; this does not establish continuous host isolation.'
     # Keep exclusions and individual raw receipts; do not manufacture a clean
     # median or final verdict from a selected subset of successful timings.
     if excluded or incomplete_answers: return result

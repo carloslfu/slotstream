@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T17:56:47.298433+00:00
+updated: 2026-10-05T20:31:11.669939+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -26,7 +26,9 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-native-practical-comparison-prepared]] freezes that comparison using the existing runner: three paired rounds at 14 and 22 GB with unchanged workloads and the native startup recipe. Its sixteen runner tests and all four plan-only proposals pass. Clean-start preflight observes nominal thermal/power conditions but persistent unrelated Bluetooth-service CPU activity and launches no model. The prepared inputs stay available; no repeated performance result exists.
 
-Next: obtain an eligible repeated performance comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
+[[sources/runs/2026/10/2026-10-05-practical-benchmark-host-recovery]] records the authorized Bluetooth-service recovery and subsequent attempts. The existing runner now has a separate prospective pilot policy that records brief CPU spikes, excludes sustained contention and waits for a quiet nominal start between processes; all twenty runner checks pass. Historical policies and exclusions remain intact. The full twelve-process comparison at 14 and 22 GB completes, with every physical budget and natural-answer completion flag passing. Five timing cells are excluded for sustained background CPU or paging, so the frozen analysis produces no clean median or speed qualification.
+
+Next: obtain a quiet-host repeated comparison before promotion. Ongoing background work, including Chrome activity, remains a measurement limitation after the Bluetooth fix. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
 
 ### Practical performance findings, October 5
 
