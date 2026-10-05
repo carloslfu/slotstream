@@ -50,7 +50,14 @@ COMPETING_CPU_PERCENT = 50
 # protocols keep their immediate-exclusion rule. Revisit these operating
 # heuristics if repeated paired runs remain unstable; never regrade old runs.
 SUSTAINED_CPU_SECONDS = 5.0
-READY_STABLE_SECONDS = 20.0
+# Require two continuously nominal, quiet minutes between processes. The
+# former twenty-second interval allowed heat to accumulate in the unchanged
+# 12-process comparison on the development Mac despite no competing CPU or
+# paging. This is a prospective controlled-burst benchmark precaution, not a
+# product delay or evidence of sustained-session thermal performance. Keep
+# the five-minute admission deadline and every in-process exclusion; revisit
+# this heuristic if complete paired runs still cannot remain nominal.
+READY_STABLE_SECONDS = 120.0
 READY_MAX_SECONDS = 300.0
 
 

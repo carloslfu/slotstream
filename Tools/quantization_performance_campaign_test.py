@@ -467,10 +467,10 @@ class PerformanceCampaignChecks(unittest.TestCase):
         def sleep(seconds): clock[0] += seconds
         with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', return_value=dict(VM)), \
              patch.object(m, 'observe', return_value={'ready': True}), \
-             patch.object(m, 'contention', side_effect=[quiet, quiet, busy, quiet, quiet, quiet, quiet, quiet]), \
+             patch.object(m, 'contention', side_effect=lambda _: busy if clock[0] == 10 else quiet), \
              patch.object(m.time, 'monotonic', side_effect=lambda: clock[0]), patch.object(m.time, 'sleep', side_effect=sleep):
             m.await_ready({'memory_bytes': 14_000_000_000}, {}, Path('.'), Path('.'), 0, row, lambda: saved.append(clock[0]))
-        self.assertEqual(clock[0], 35); self.assertEqual(len(saved), 8)
+        self.assertEqual(clock[0], 135); self.assertEqual(len(saved), 28)
         with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', side_effect=RuntimeError('unsafe admission')):
             with self.assertRaisesRegex(RuntimeError, 'unsafe admission'):
                 m.await_ready({'memory_bytes': 14_000_000_000}, {}, Path('.'), Path('.'), 0, {}, lambda: None)

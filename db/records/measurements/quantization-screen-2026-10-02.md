@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T20:31:11.695489+00:00
+updated: 2026-10-05T21:19:46.867136+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,10 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Complete retry and prospective cooling interval, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-cooling-retry]] preserves all twelve repeated processes and their complete frozen analysis. Physical ceilings and natural-answer completion pass. Cells 6 and 9 are timing-excluded for thermal state and for sustained competing UI activity with paging, respectively. No clean medians or throughput qualification follow. All twenty tests pass for extending the existing admission interval from 20 to 120 continuously quiet nominal seconds while retaining the five-minute deadline and every other exclusion. The prospective fresh comparison is pending; it targets controlled interactive bursts and carries no sustained-session speed claim.
+
 ### Native arithmetic and focused quality, October 5
 
 [[sources/runs/2026/10/2026-10-05-native-affine-arithmetic-trials-excluded]] preserves four complete executions of the same standalone bytes through the deployed affine kernels. The ordinary allocator cache and existing small-row verification remove two inherited research settings. The final tested recipe completes at both 14 GB and 22 GB within their process budgets. Competing CPU activity excludes every timing from clean comparative claims; the observed response-latency improvement is a lead for a later eligible comparison. No 20-token-per-second or general speed claim follows.
