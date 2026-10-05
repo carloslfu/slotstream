@@ -318,3 +318,6 @@ Prepared durable accepted-version ownership, actual Auto startup-context wiring,
 ## [2026-10-05 01:35] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared separate reviewed setup offers, selected-pack setup UI, fixed collection ownership and stale-choice acceptance guards. Preserved the prior failed Mac CI and corrected the earlier corrupt-history configure fixture plus explicit repair of failed pending settings using the current saved choice. Thirty-two static entry checks pass; claims have 349 checks and zero failures; projections are current; full dbmd validation has zero errors and warnings. Current native execution, visual review, physical setup and final model qualification remain pending. No model or profile was promoted.
 
+## [2026-10-05 01:47] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared direct production setup-view rendering for reviewed, changed, verified-file and unavailable choices in Light, Dark and System. Source and CI progress are captured; no local model or UI process ran. Diff checking passes, claims have 349 checks and zero failures, projections are current, and full dbmd validation has zero errors and warnings. Native rendering, direct image inspection, actual loaded-profile confirmation and final physical qualification remain pending.
+

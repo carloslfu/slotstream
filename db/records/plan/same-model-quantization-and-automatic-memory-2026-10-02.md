@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T01:35:14.837285+00:00
+updated: 2026-10-05T01:47:00.063913+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1088,3 +1088,7 @@ The source includes native fixtures for prospective component pricing, storage a
 #### Earlier journal-read failure and explicit repair
 
 [[sources/runs/2026/10/2026-10-04-model-setup-retry-boundary-correction]] preserves the subsequently failed durable-acceptance Mac job. The source trace identifies a corrupt-history fixture whose unguarded configure call predates the new journal read at configuration time; the updated fixture requires the earlier refusal and continued admission failure. The production repair path also now permits a failed pending setting when its owned journal is explicitly recoverable, supplies the latest saved preferences to repair, and keeps normal queued-configuration and model-verification boundaries. The old recovery API remains compatible. The UI's repair control and a corresponding pending-failure rendering fixture follow that same state, and CI retains memory-control screenshots. Native confirmation, direct visual review and physical acceptance remain pending. The earlier running-status capture is unchanged and is not a passing Mac verdict.
+
+### Production setup-view rendering coverage, October 4
+
+[[sources/runs/2026/10/2026-10-04-model-setup-view-checks-preparation]] preserves the extracted production model-files view and its new offscreen Light/Dark/System fixtures. The panel retains the current color and control behavior, wraps recommendation/status copy, and explains a changed choice while the earlier setup can still be stopped. The fixtures cover reviewed, stale, verified-file and unavailable-pack states; they use a nonmutating real setup offer with synthetic display state and check that file verification is not presented as a healthy loaded model. CI retains the resulting images. Diff checking passes; native execution and direct visual review remain pending. The preceding setup source's external-library job passes while its full workflows continue. No qualification or distribution gate is waived.

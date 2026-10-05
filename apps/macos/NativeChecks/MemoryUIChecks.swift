@@ -11,6 +11,10 @@ import Vision
         NSApplication.shared.setActivationPolicy(.prohibited)
         let out = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SEVRA_UI_OUT"]!)
         let model = AppModel()
+        let setupOwner = LocalInference(model: out.appendingPathComponent("uninstalled-fixture-model"))
+        guard let reviewedSetup = try await setupOwner.modelSetup(preferences: .init()) else {
+            throw NSError(domain: "MemoryUI", code: 6, userInfo: [NSLocalizedDescriptionKey: "local setup offer missing"])
+        }
         let window = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 620, height: 1050),
             styleMask: [.borderless], backing: .buffered, defer: false)
         window.setFrameOrigin(NSPoint(x: -30000, y: -30000))
@@ -84,6 +88,33 @@ import Vision
                 }
                 print("PASS: \(name), rendered controls, current budget, supported range and pending state")
             }
+            for setupMode in ["reviewed", "stale", "verified", "unavailable"] {
+                model.performancePreferences = setupMode == "stale" ? .init(liveMemory: .fixed) : .init()
+                model.setup = setupMode == "unavailable" ? nil : reviewedSetup
+                model.setupIssue = setupMode == "unavailable" ? "The selected model pack is unavailable in this build. Your saved choice has been preserved." : nil
+                model.setupRequestPending = false
+                model.preparingModel = setupMode == "stale"
+                var status = reviewedSetup.snapshot()
+                status.freeBytes = 128_000_000_000 // deterministic display fixture, not a disk measurement
+                if setupMode == "verified" {
+                    // A view fixture only. No files were downloaded or checked.
+                    status.ready = true; status.requiredBytes = 0
+                    status.phase = "Model files verified"
+                    status.detail = "The installed files match their pinned hashes. Loading and the startup check happen before the next reply."
+                }
+                model.setupStatus = setupMode == "unavailable" ? nil : status
+                let labels: [String]
+                if setupMode == "unavailable" { labels = ["Model files", "unavailable", "saved choice"] }
+                else {
+                    labels = ["Model files", "Quantization", reviewedSetup.packTitle, "Complete installation", "Available storage"]
+                        + (setupMode == "stale" ? ["Settings changed", "Stop setup"]
+                            : setupMode == "verified" ? ["Model files verified", "before the next reply", "Check local model"]
+                            : ["Not checked", "Check local model", "Download or repair", "Conversation data is not sent"])
+                }
+                try await renderSetup(model: model, window: window, output: out,
+                    name: "\(appearance)-setup-\(setupMode)", labels: labels)
+            }
+            model.preparingModel = false
             // Render the production response-details view at its actual width:
             // the saved ceiling must remain readable beside a smaller budget.
             var metrics = ResponseMetrics()
@@ -110,5 +141,35 @@ import Vision
             }
             print("PASS: \(name), reduced budget and saved ceiling remain readable")
         }
+    }
+
+    @MainActor private static func renderSetup(model: AppModel, window: NSWindow, output: URL,
+                                              name: String, labels: [String]) async throws {
+        let host = NSHostingView(rootView: Form { ModelFilesSettings(model: model, ready: true) }
+            .formStyle(.grouped).frame(width: 620, height: 1050))
+        window.contentView = host; window.orderFront(nil)
+        guard !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) else {
+            throw NSError(domain: "MemoryUI", code: 1, userInfo: [NSLocalizedDescriptionKey: "setup check must remain offscreen"])
+        }
+        for _ in 0..<30 { host.layoutSubtreeIfNeeded(); try await Task.sleep(nanoseconds: 20_000_000) }
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1240, pixelsHigh: 2100,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        rep.size = host.bounds.size
+        host.cacheDisplay(in: host.bounds, to: rep)
+        try rep.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent(name + ".png"))
+        let request = VNRecognizeTextRequest(); request.recognitionLevel = .accurate
+        try VNImageRequestHandler(cgImage: rep.cgImage!, options: [:]).perform([request])
+        let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+        func normalized(_ value: String) -> String {
+            value.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        for label in labels where !normalized(text).contains(normalized(label)) {
+            throw NSError(domain: "MemoryUI", code: 7, userInfo: [NSLocalizedDescriptionKey: "\(name) missing rendered setup label: \(label)\n\(text)"])
+        }
+        guard !text.localizedCaseInsensitiveContains("Local model ready") else {
+            throw NSError(domain: "MemoryUI", code: 8, userInfo: [NSLocalizedDescriptionKey: "setup must not present file verification as a healthy loaded model"])
+        }
+        print("PASS: \(name), reviewed pack, complete installation and file-versus-load status remain readable")
     }
 }

@@ -507,32 +507,7 @@ struct ContentView: View {
                     }
                 case .model:
                     PerformanceSettings(model: model, performance: model.performanceState)
-                    Section("Model files") {
-                        if let issue = model.setupIssue { Text(issue).foregroundStyle(secondaryInk).textSelection(.enabled) }
-                        if model.setupRequestPending { ProgressView("Reviewing model setup").controlSize(.small) }
-                        if let selection = model.setup {
-                            LabeledContent("Quantization", value: selection.packTitle)
-                            if let offer = selection.offer { Text(offer.reason).font(.callout).foregroundStyle(secondaryInk) }
-                            LabeledContent("Complete installation", value: ByteCountFormatter.string(fromByteCount: selection.completeBytes, countStyle: .file))
-                        }
-                        if let setup = model.setupStatus {
-                            Text(setup.phase).font(.headline)
-                            if setup.detail != setup.phase {
-                                Text(setup.phase == "Not checked" ? "Check whether the model files are ready on this Mac." : setup.detail).foregroundStyle(secondaryInk).textSelection(.enabled)
-                            }
-                            if setup.requiredBytes > 0 && !setup.busy && setup.phase != "Not checked" { LabeledContent("Files remaining", value: ByteCountFormatter.string(fromByteCount: setup.requiredBytes, countStyle: .file)) }
-                            if setup.freeBytes > 0 { LabeledContent("Available storage", value: ByteCountFormatter.string(fromByteCount: setup.freeBytes, countStyle: .file)).accessibilityElement(children: .ignore).accessibilityLabel("Available storage").accessibilityValue(ByteCountFormatter.string(fromByteCount: setup.freeBytes, countStyle: .file)) }
-                            if setup.busy || model.preparingModel {
-                                HStack { ProgressView().controlSize(.small); Button("Stop setup") { model.setup?.cancel() }.help("Stop model setup; completed downloads are kept") }
-                            } else {
-                                HStack {
-                                    Button("Check local model") { model.setUpModel(download: false) }.help("Verify the model files already on this Mac")
-                                    if !setup.ready { Button("Download or repair…") { model.setUpModel(download: true) }.help("Download missing model files or repair damaged files") }
-                                }.disabled(model.busy || !ready || model.setupRequestPending || model.setup?.matches(model.performancePreferences) == false)
-                                if !setup.ready { Text("Downloads contact the model host. Conversation data is not sent.").font(.callout).foregroundStyle(secondaryInk) }
-                            }
-                        }
-                    }
+                    ModelFilesSettings(model: model, ready: ready)
                 case .keyboard:
                     Section("Keyboard shortcuts") {
                         ForEach(MacCommand.reference, id: \.title) { command in
@@ -815,6 +790,48 @@ extension Notification.Name {
     static let sevraJumpToLatest = Notification.Name("SevraJumpToLatest")
     static let sevraFind = Notification.Name("SevraFindDocument")
     static let sevraToggleSidebar = Notification.Name("SevraToggleSidebar")
+}
+
+struct ModelFilesSettings: View {
+    @ObservedObject var model: AppModel
+    let ready: Bool
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    private var secondaryInk: Color { contrast == .increased ? .primary : scheme == .dark ? Color(red: 184/255, green: 182/255, blue: 170/255) : Color(red: 99/255, green: 97/255, blue: 91/255) }
+    var body: some View {
+        Section("Model files") {
+            if let issue = model.setupIssue { Text(issue).foregroundStyle(secondaryInk).textSelection(.enabled) }
+            if model.setupRequestPending { ProgressView("Reviewing model setup").controlSize(.small) }
+            if let selection = model.setup {
+                LabeledContent("Quantization", value: selection.packTitle)
+                if let offer = selection.offer { Text(offer.reason).font(.callout).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true) }
+                LabeledContent("Complete installation", value: ByteCountFormatter.string(fromByteCount: selection.completeBytes, countStyle: .file))
+                if !selection.matches(model.performancePreferences) {
+                    Text(model.preparingModel
+                        ? "Settings changed. Finish or stop this setup to review the current choice."
+                        : "Settings changed. Reviewing setup for your current choice.")
+                        .font(.callout).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if let setup = model.setupStatus {
+                Text(setup.phase).font(.headline)
+                if setup.detail != setup.phase {
+                    Text(setup.phase == "Not checked" ? "Check whether the model files are ready on this Mac." : setup.detail).foregroundStyle(secondaryInk).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                }
+                if setup.requiredBytes > 0 && !setup.busy && setup.phase != "Not checked" { LabeledContent("Files remaining", value: ByteCountFormatter.string(fromByteCount: setup.requiredBytes, countStyle: .file)) }
+                if setup.freeBytes > 0 { LabeledContent("Available storage", value: ByteCountFormatter.string(fromByteCount: setup.freeBytes, countStyle: .file)).accessibilityElement(children: .ignore).accessibilityLabel("Available storage").accessibilityValue(ByteCountFormatter.string(fromByteCount: setup.freeBytes, countStyle: .file)) }
+                if setup.busy || model.preparingModel {
+                    HStack { ProgressView().controlSize(.small); Button("Stop setup") { model.setup?.cancel() }.help("Stop model setup; completed downloads are kept") }
+                } else {
+                    HStack {
+                        Button("Check local model") { model.setUpModel(download: false) }.help("Verify the model files already on this Mac")
+                        if !setup.ready { Button("Download or repair…") { model.setUpModel(download: true) }.help("Download missing model files or repair damaged files") }
+                    }.disabled(model.busy || !ready || model.setupRequestPending || model.setup?.matches(model.performancePreferences) == false)
+                    if !setup.ready { Text("Downloads contact the model host. Conversation data is not sent.").font(.callout).foregroundStyle(secondaryInk) }
+                }
+            }
+        }
+    }
 }
 
 struct PerformanceSettings: View {
