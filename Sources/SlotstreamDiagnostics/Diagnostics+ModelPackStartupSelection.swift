@@ -98,13 +98,19 @@ extension Diagnostics {
         for environment in [[:], ["PATH": "/fixture", "SEVRA_MODEL": "/fixture/model"],
                             ["SLOTSTREAM_TEST_BINARY": "/fixture/cli", "SLOTSTREAM_METALLIB_MACOS": "26"]] {
             c.expect("ordinary paths and build-tool selectors do not change loaded execution evidence",
-                Engine.admitsStartupEvidence(environment: environment))
+                Engine.admitsStartupEvidence(environment: environment, build: .release))
         }
         for environment in [["SLOTSTREAM_OPT_ROUTER_WEIGHTS": "1"], ["SLOTSTREAM_FUTURE_OVERRIDE": "fixture"],
                             ["MLX_FIXTURE_OPTION": "fixture"]] {
             c.expect("explicit or unknown runtime tuning cannot inherit default measurements",
-                !Engine.admitsStartupEvidence(environment: environment))
+                !Engine.admitsStartupEvidence(environment: environment, build: .release))
         }
+        for build in SlotstreamBuild.PerformanceConfiguration.allCases where build != .release {
+            c.expect("unmeasured compiler modes cannot inherit optimized runtime evidence/\(build.rawValue)",
+                !Engine.admitsStartupEvidence(environment: [:], build: build))
+        }
+        c.equal("the production evidence check observes this compiled library's actual mode",
+            Engine.admitsStartupEvidence(environment: [:]), _isReleaseAssertConfiguration())
         let overridden = try ModelPackRegistry.resolve(.pack(pack.id), context: try input(installed: [:]))
         c.expect("explicit choice remains exact without granting installation or allocation",
             overridden.pack.id == pack.id && !overridden.automatic && overridden.evidence == .unknown)

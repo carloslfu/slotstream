@@ -20,7 +20,9 @@ extension Engine {
     /// measurements. Only names are inspected; secret values are never hashed,
     /// retained or exposed as evidence. These two names select test/build tools
     /// and have no effect on execution inside an already built runtime.
-    package static func admitsStartupEvidence(environment: [String: String]) -> Bool {
+    package static func admitsStartupEvidence(environment: [String: String],
+        build: SlotstreamBuild.PerformanceConfiguration = .current) -> Bool {
+        guard build == .release else { return false }
         let tooling: Set<String> = ["SLOTSTREAM_TEST_BINARY", "SLOTSTREAM_METALLIB_MACOS"]
         return !environment.keys.contains { name in
             (name.hasPrefix("SLOTSTREAM_") && !tooling.contains(name)) || name.hasPrefix("MLX_")

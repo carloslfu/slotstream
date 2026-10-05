@@ -104,9 +104,10 @@ public extension ModelPack {
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let optimizations = startupOptimizations(plan: plan, hardware: observation.hardware)
-        let object: [String: Any] = ["schema": 2,
+        let object: [String: Any] = ["schema": 3,
             "recipe": startupDefaults.executionIdentity(liveMemory: liveMemory), "forecast": forecast,
             "runtime_version": SlotstreamBuild.version, "compatibility": compatibility,
+            "assert_configuration": SlotstreamBuild.PerformanceConfiguration.current.rawValue,
             "optimizations": String(decoding: try encoder.encode(optimizations), as: UTF8.self),
             "context_arithmetic": PromptCheckpointKey.currentContextArithmetic]
         let bytes = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])

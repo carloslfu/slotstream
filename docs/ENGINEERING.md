@@ -40,6 +40,11 @@ publishing the runtime. The independent Engine initializers retain their
 existing behavior. An additional registry entry still needs an authenticated
 loader and completed qualification.
 
+Automatic performance matching also binds the compiler's assertion mode.
+Debug and unchecked builds cannot inherit a checked optimized build's speed
+evidence. They still run supported models with normal admission and user
+controls; their performance status remains unknown.
+
 `slotstream quantization-check --kernels` checks native layout decoding and
 affine operation support. `Tools/quantization_inventory.py` and
 `Tools/quantization_fixture.py` inspect pinned metadata and extract bounded real

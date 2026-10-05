@@ -1211,6 +1211,11 @@ The native CLI fixture now covers missing run/serve selections, retained unrelat
 
 [[sources/runs/2026/10/2026-10-04-pack-owned-loader-preparation]] records the additive Engine entry point used by Desktop and the opt-in CLI. Selected resource validation and compiled loader refusal now have one owner. Simulated plans are refused before model allocation, and CLI catalogue size follows the selected deployment. The existing native planning and public-consumer gates cover these boundaries. Diff, shell syntax, claims and documentation regeneration pass; the new native checks remain pending. The preceding context and selected-CLI CI receipts are preserved separately. Standalone admission, profile-aware CLI Auto and all remaining physical qualification still require completion.
 
+
+### Compiler mode stays separate from release performance evidence
+
+[[sources/runs/2026/10/2026-10-04-pack-build-evidence-preparation]] records the actual compiler-mode binding in proposed execution identities and loaded evidence. Debug, unchecked and unknown modes cannot inherit checked optimized speed measurements. The environment guard still withholds evidence for runtime experiments. The existing native checks now cover all modes and their real compiled default. Diff, claims and documentation regeneration pass; optimized and instrumented native validation remain pending. No automatic profile exists yet, and the frozen quality protocol and installation remain unchanged. Exact-binary final performance and release provenance remain required.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

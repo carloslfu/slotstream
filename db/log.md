@@ -351,3 +351,6 @@ Frozen the exact authenticated retirement protocol and helper closure for the pr
 ## [2026-10-05 04:21] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared the shared maintained-pack Engine loader for Desktop and opt-in CLI, preserving independent constructors and requiring matching resources and real hardware before loading. Bound CLI catalogue size to the selected deployment. Extended planning and external-consumer refusals. Diff, shell syntax, claims 349/0, projections and full brain validation 0/0 pass; new native checks pending. Captured complete successful preceding context Engine and selected CLI Engine/Mac workflows. Alternate loaders, profiles and physical qualification remain open.
 
+## [2026-10-05 04:30] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Bound complete startup execution identity to the compiler assertion configuration and withheld loaded speed evidence for debug, unchecked and unknown modes. Preserved runtime-environment refusal and added mode/default checks for optimized and instrumented CI. Inspected the installed standard-library implementation. Diff, claims 349/0, projections and full brain validation 0/0 pass; native checks pending. No version, installed pack, qualified profile or frozen quality change.
+

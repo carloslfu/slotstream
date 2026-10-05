@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T04:20:42.710954+00:00
+updated: 2026-10-05T04:29:55.117727+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1149,3 +1149,8 @@ The native CLI fixture now covers missing run/serve selections, retained unrelat
 ### Shared maintained-pack loading boundary
 
 [[sources/runs/2026/10/2026-10-04-pack-owned-loader-preparation]] records the additive Engine entry point used by Desktop and the opt-in CLI. Selected resource validation and compiled loader refusal now have one owner. Simulated plans are refused before model allocation, and CLI catalogue size follows the selected deployment. The existing native planning and public-consumer gates cover these boundaries. Diff, shell syntax, claims and documentation regeneration pass; the new native checks remain pending. The preceding context and selected-CLI CI receipts are preserved separately. Standalone admission, profile-aware CLI Auto and all remaining physical qualification still require completion.
+
+
+### Compiler mode stays separate from release performance evidence
+
+[[sources/runs/2026/10/2026-10-04-pack-build-evidence-preparation]] records the actual compiler-mode binding in proposed execution identities and loaded evidence. Debug, unchecked and unknown modes cannot inherit checked optimized speed measurements. The environment guard still withholds evidence for runtime experiments. The existing native checks now cover all modes and their real compiled default. Diff, claims and documentation regeneration pass; optimized and instrumented native validation remain pending. No automatic profile exists yet, and the frozen quality protocol and installation remain unchanged. Exact-binary final performance and release provenance remain required.
