@@ -788,7 +788,7 @@ public actor LocalInference: Inference {
         let candidate = loaded.engine, identity = loaded.identity
         let ceilingBytes: Int64
         if let gb = identity.memoryCeilingGB, gb.isFinite, gb > 0, gb * 1e9 < Double(Int64.max) {
-            ceilingBytes = Int64((gb * 1e9).rounded())
+            ceilingBytes = Int64((gb * 1e9).rounded(.down))
         } else { ceilingBytes = 0 }
         let confirmed = proposed.flatMap { ModelPackRegistry.confirm($0, candidate: loaded.observed,
             admissionMachine: loaded.admissionMachine, ceilingBytes: ceilingBytes, requiredFeatures: [.text, .tools]) }

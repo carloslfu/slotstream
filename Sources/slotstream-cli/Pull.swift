@@ -13,7 +13,7 @@ struct Pull: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Download losslessly compressed model weights (resumable and hash-verified). Then: slotstream serve")
 
-    @Argument(help: "Model to pull (only \(PinnedModel.name) exists in v0)")
+    @Argument(help: "Supported pack ID from model-packs, or the original model alias")
     var model: String = PinnedModel.name
 
     @Option(name: .customLong("dir"), help: "Destination directory (default ~/.slotstream/models/\(PinnedModel.dirName))")
@@ -29,17 +29,18 @@ struct Pull: ParsableCommand {
     var verifyOnly = false
 
     func run() throws {
-        guard model == PinnedModel.name || model == PinnedModel.dirName else {
-            throw ValidationError(
-                "unknown model '\(model)' — v0 ships exactly one: \(PinnedModel.name)")
-        }
+        let pack: ModelPack
+        if model == PinnedModel.name || model == PinnedModel.dirName { pack = ModelPackRegistry.baseline }
+        else { pack = try ModelPackRegistry.resolve(.pack(model)).pack }
         guard connections.map({ (1...32).contains($0) }) ?? true else { throw ValidationError("connections must be 1–32") }
         guard let selectedTransport = WeightTransport(rawValue: transport) else { throw ValidationError("transport must be automatic, compressed, or raw") }
         let dest = dir.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
-            ?? ModelLocator.resolve(model)
+            ?? (pack.id == ModelPackRegistry.baseline.id ? ModelLocator.resolve(model)
+                : ModelLocator.userModelsDir.appendingPathComponent(pack.directoryName))
+        let store = WeightStore(modelDirectory: dest, pack: pack)
         if verifyOnly {
-            try WeightStore.verify(at: dest, log: { print($0) })
-            for file in TapCorrectionSidecar.files {
+            try store.verify(log: { print($0) })
+            for file in pack.decodeForecastFiles {
                 switch TapCorrectionSidecar.status(modelDir: dest, file: file) {
                 case .present: print("\(file.path): present, digest verified (optional sidecar)")
                 case .absent: print("\(file.path): absent (optional sidecar; `slotstream pull` fetches it)")
@@ -49,12 +50,17 @@ struct Pull: ParsableCommand {
             return
         }
         try withInterruptiblePull { cancellation in
-            try WeightStore.download(to: dest, connections: connections, transport: selectedTransport, cancellation: cancellation, log: { print($0); fflush(stdout) })
-            for file in TapCorrectionSidecar.files {
+            try store.download(.init(connections: connections, transport: selectedTransport, cancellation: cancellation),
+                log: { print($0); fflush(stdout) })
+            for file in pack.decodeForecastFiles {
                 TapCorrectionSidecar.ensure(modelDir: dest, file: file, cancellation: cancellation, log: { print($0); fflush(stdout) })
             }
         }
-        print("\nready. next:  slotstream serve     (or: slotstream run --prompt \"...\")")
+        if pack.id == ModelPackRegistry.baseline.id {
+            print("\nready. next:  slotstream serve     (or: slotstream run --prompt \"...\")")
+        } else {
+            print("\nModel files verified for \(pack.title) (\(pack.id)).")
+        }
     }
 }
 

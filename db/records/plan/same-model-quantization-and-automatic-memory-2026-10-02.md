@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T02:35:48.218248+00:00
+updated: 2026-10-05T02:55:30.495805+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1114,3 +1114,9 @@ Synthetic invalidation and presentation fixtures are prepared and the diff check
 [[sources/runs/2026/10/2026-10-04-native-loaded-evidence-acceptance-preparation]] preserves the extended original activation check and native memory-view fixtures. The actual loaded observation is retained as package-only diagnostic metadata and cleared on unload. Physical activation will assert a complete Engine observation under ordinary runtime defaults, unknown speed evidence after failed replacement/rollback, and cleared metadata after release. The existing view checks now render the production selection explanation, including unverified loaded speed and an unloaded automatic state. Diff and shell syntax checks pass; these extended native assertions remain unexecuted.
 
 The preceding Xcode correction now has a fully successful Mac workflow. The Engine observation foundation has successful public-library and coverage jobs, with its full static job still running at capture. No such result substitutes for the pending application telemetry, physical quality/performance, artifact or final integration gates.
+
+### Pack-owned CLI pull and verification, October 4
+
+[[sources/runs/2026/10/2026-10-04-pack-owned-cli-pull-preparation]] preserves the explicit pull adapter. The positional supported pack ID selects its own compiled store, destination and declared forecast files; original names, default lookup and transport controls remain compatible. Unknown identities refuse before file creation. The existing CLI fixture now has a selection-only native CI mode and an explicit-pack full transport case, with owned process/server cleanup on failure. Thirty-four lightweight entry checks and syntax/diff/claims gates pass. Native command execution and the physical transport cases remain required.
+
+The same change aligns app profile-confirmation ceiling conversion with downward whole-byte accounting and documents the download and loaded-evidence boundaries. The registry still contains only the original pack. CLI run/serve, doctor and the product loader must be connected to the actual qualified standalone entry and validated before alternate promotion; this generic download adapter does not close those gates.

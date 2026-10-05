@@ -515,6 +515,12 @@ the product selector; an explicit supported pack ID overrides it. Omitting
 with a custom model directory requires that directory to pass the complete
 pinned verification; it is not silently repaired into another representation.
 
+`slotstream pull PACK_ID` downloads the supported pack named by `model-packs`.
+Use `--dir PATH` for an explicit destination and `--verify` to check an existing
+copy without downloading. Its manifest and optional forecast components belong
+to that selected pack. An unavailable ID is refused before model files are
+written. Plain `slotstream pull` keeps the original model and destination rules.
+
 Selection metadata separates an exact measured configuration, a conservative
 estimate and unknown performance. Measured matching includes power and thermal
 conditions and describes performance observed in matching tests. A matching
@@ -524,6 +530,12 @@ an accepted installed pack. This matching policy does not download weights or
 replace load-time verification. The reviewed profile registry remains empty;
 the original pack is still the supported fallback and no speed target is
 certified. Manual choices remain independent of the recommendation.
+
+The app confirms speed evidence only after the actual loaded configuration
+passes its startup check and activation succeeds. A changed memory allocation,
+operating condition or pending setting withholds that evidence. A restored
+previous model cannot inherit the failed selection's speed label. These status
+changes leave your quantization choice and memory ceiling intact.
 
 The model loads with the first request and verifies the pinned files. Within
 that app session, unchanged files on APFS can reuse the successful verification

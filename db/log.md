@@ -333,3 +333,6 @@ Prepared app confirmation after healthy durable activation and metadata-only inv
 ## [2026-10-05 02:36] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Extended existing real activation and native memory-view checks for Engine observation, rollback speed-evidence invalidation, unload cleanup and production before/after-load status. Diff, shell syntax, claims 349/0, projections and full brain validation 0/0 pass; new native checks pending. Preserved completed prior Mac correction and observation foundation CI results without attributing them to new code.
 
+## [2026-10-05 02:57] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared pack-owned CLI pull/verify with preserved original defaults, native selection-only gate, explicit-pack transport fixture and bounded failure cleanup. All 34 lightweight entry checks pass; syntax, claims 349/0, projections, llms projection and full brain validation 0/0 pass. Native CLI and physical full transport remain pending. Documented remaining alternate serving/doctor/product loader integration and aligned app ceiling byte rounding.
+

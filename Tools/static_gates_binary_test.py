@@ -62,6 +62,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/pull_interrupt_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PULL_INTERRUPT') == '1' else 0)\n")
         self.write('Tools/memory_override_gate.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN']]\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MEMORY_OVERRIDES') == '1' else 0)\n")
         self.write('Tools/mtp_process_guard_gate.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN']]\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DRAFT_LOCK') == '1' else 0)\n")
+        self.write('Tools/slotpack/cli_checks.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN'], '--selection-only', '--receipt', '.build/model-pack-selection.json']\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PACK_SELECTION') == '1' else 0)\n")
         for suite in OPTIMIZATION_SUITES:
             self.write(f'Tools/{suite}_test.py', f'''import json, os
 with open(os.environ['SLOTSTREAM_SUITE_TRACE'], 'a') as output:
@@ -159,6 +160,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_pull_interrupt_gate_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_PULL_INTERRUPT': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual([row['arguments'] for row in rows], [['runtime-check'], ['pull-check']])
+
+    def test_failed_pack_selection_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_PACK_SELECTION': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual([row['arguments'] for row in rows], [['runtime-check'], ['pull-check']])
+
+    def test_missing_pack_selection_stops_acceptance(self):
+        (self.root/'Tools/slotpack/cli_checks.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
         self.assertEqual([row['arguments'] for row in rows], [['runtime-check'], ['pull-check']])
 
     def test_missing_pull_interrupt_gate_stops_acceptance(self):

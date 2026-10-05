@@ -1176,6 +1176,12 @@ Synthetic invalidation and presentation fixtures are prepared and the diff check
 
 The preceding Xcode correction now has a fully successful Mac workflow. The Engine observation foundation has successful public-library and coverage jobs, with its full static job still running at capture. No such result substitutes for the pending application telemetry, physical quality/performance, artifact or final integration gates.
 
+### Pack-owned CLI pull and verification, October 4
+
+[[sources/runs/2026/10/2026-10-04-pack-owned-cli-pull-preparation]] preserves the explicit pull adapter. The positional supported pack ID selects its own compiled store, destination and declared forecast files; original names, default lookup and transport controls remain compatible. Unknown identities refuse before file creation. The existing CLI fixture now has a selection-only native CI mode and an explicit-pack full transport case, with owned process/server cleanup on failure. Thirty-four lightweight entry checks and syntax/diff/claims gates pass. Native command execution and the physical transport cases remain required.
+
+The same change aligns app profile-confirmation ceiling conversion with downward whole-byte accounting and documents the download and loaded-evidence boundaries. The registry still contains only the original pack. CLI run/serve, doctor and the product loader must be connected to the actual qualified standalone entry and validated before alternate promotion; this generic download adapter does not close those gates.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

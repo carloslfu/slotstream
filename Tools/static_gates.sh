@@ -53,6 +53,7 @@ python3 Tools/mtp_process_guard_gate.py --binary "$BIN"
 # It compiles the production counter directly, without MLX or model weights.
 python3 Tools/process_memory_gate.py
 "$BIN" pull-check
+python3 Tools/slotpack/cli_checks.py --binary "$BIN" --selection-only --receipt .build/model-pack-selection.json
 python3 Tools/pull_interrupt_gate.py
 python3 Tools/slotpack/checks.py
 Tools/planner_gates.sh
