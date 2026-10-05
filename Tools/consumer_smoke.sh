@@ -63,7 +63,9 @@ func legacyEngineMethods(_ engine: Engine) {
     let images: ([[String: Any]], [[String: Any]]?, Bool) throws -> ([Int], VisionPrompt?) = engine.encodeWithVision
     let typedImages: ([ChatMessage], [ToolDefinition], Bool, String?) throws -> ([Int], VisionPrompt?) = engine.encodeChatWithVision
     let tower: () throws -> VisionTower = engine.ensureVisionTower
-    _ = (generate, images, typedImages, tower)
+    let configurePack: (ModelPack) throws -> Void = engine.configureStartupDefaults
+    let applied: (ModelPack, LiveMemoryManagement) throws -> AppliedModelConfiguration = engine.appliedConfiguration
+    _ = (generate, images, typedImages, tower, configurePack, applied)
 }
 let oldPlanner: (PlanRequest, Machine, Bool, Bool) throws -> MemoryPlan = Planner.plan
 let loosePlanner: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool) throws -> MemoryPlan = Planner.plan
@@ -90,6 +92,14 @@ try controller.check()
 let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.simulated(ramGB: 32))
 precondition(plan.slots > 0, "a 16 GB plan should size a pool")
 precondition(plan.simulated, "a simulated machine must mark its plan")
+let maintained = ModelPackRegistry.baseline
+let startupMachine = Machine.simulated(ramGB: 48, availableGB: 40)
+let ownedPlan = try maintained.startupPlan(customMemoryGB: 10, on: startupMachine)
+precondition(ownedPlan.simulated && ownedPlan.memoryLimitGB == 10)
+precondition(ownedPlan.maxContextTokens == maintained.startupDefaults.contextTokens)
+let startupRange = try maintained.startupMemoryRange(on: startupMachine)
+let automaticCeiling = try maintained.automaticMemoryCeilingGB(on: startupMachine)
+precondition(startupRange.minimumGB <= 10 && automaticCeiling <= startupRange.maximumGB)
 
 // Direct plans must reject contradictory adaptive policy before touching a
 // checkpoint. This exercises real Engine startup without allocating a model.

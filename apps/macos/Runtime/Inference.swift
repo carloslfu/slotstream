@@ -588,8 +588,7 @@ public actor LocalInference: Inference {
         buffer.stage("Loading the local model")
         do {
             let candidate = try await Engine(modelDir: model, plan: plan)
-            try candidate.configureShortPromptPrefill(maxPromptTokens: PerformancePolicy.shortPromptTokens,
-                chunk: PerformancePolicy.shortPromptChunk)
+            try candidate.configureStartupDefaults(for: pack)
             let identity = try candidate.appliedConfiguration(pack: pack, liveMemory: preference.liveMemory)
             try cancellation.check()
             if let journal, let attempt { try journal.advance(attempt, to: .checking) }

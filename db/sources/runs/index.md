@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-04T23:27:35.791926Z
+updated: 2026-10-04T23:59:46.504086Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-pack-startup-defaults-preparation]] — Prepare pack-owned product startup recipes, exact applied policy identity and durable activation compatibility
 - [[sources/runs/2026/10/2026-10-04-standalone-desktop-performance-v2]] — Prepare standalone and Desktop-aware complete performance protocols and correct a range fixture assumption
 - [[sources/runs/2026/10/2026-10-04-pack-range-stride-correction]] — Preserve the range-test stride type failure and its bounded conversion correction
 - [[sources/runs/2026/10/2026-10-04-auto-policy-ci-access-correction]] — Preserve the failed first Auto-policy diagnostic compilation and its package-access correction
@@ -506,9 +507,8 @@ updated: 2026-10-04T23:27:35.791926Z
 - [[sources/runs/2026/09/2026-09-08-optimization-current-vision-mtp-static-gates]] — Current vision components, fixed MTP work, image reuse and full static suite pass
 - [[sources/runs/2026/09/2026-09-07-optimization-current-maximum-image-gates-preparation]] — Current full-photo and original maximum-image serving gates prepared
 - [[sources/runs/2026/09/2026-09-07-optimization-vision-qualification-profile-correction]] — Full-image qualification command reconciled with the original complete-photo profile
-- [[sources/runs/2026/09/2026-09-07-optimization-current-vision-native-preparation]] — Current query-tiled vision prerequisites prepared; original admission retained
 
 ## More
 
-This folder has 813 files. The 500 most recent are listed above.
+This folder has 814 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

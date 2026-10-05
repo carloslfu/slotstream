@@ -293,6 +293,7 @@ public final class Engine {
 
     private let lock = GenerationGate()
     private var shortPromptPrefill: (limit: Int, chunk: Int)?
+    private var configuredStartupDefaults: (manifest: String, policy: ModelPackStartupDefaults)?
 
     /// An embedding may favor earlier checkpoints for short conversations.
     /// The full planned workspace stays reserved. Zero disables this policy.
@@ -306,6 +307,50 @@ public final class Engine {
             shortPromptPrefill = maxPromptTokens == 0 ? nil : (maxPromptTokens, chunk)
             if maxPromptTokens == 0, let plan = currentPlan { generator.prefillChunk = plan.prefillChunk }
         }
+    }
+
+    /// Apply one compiled product recipe after initialization and before the
+    /// product publishes this runtime. The independent Engine and CLI retain
+    /// their defaults unless their owner explicitly calls this method.
+    public func configureStartupDefaults(for pack: ModelPack) throws {
+        let policy = pack.startupDefaults
+        try policy.validate(resources: pack.memoryProfile)
+        try withExclusive {
+            guard let plan = currentPlan, plan.resources == pack.memoryProfile,
+                  plan.maxContextTokens == policy.contextTokens,
+                  policy.draftMode != .on || plan.mtpEnabled,
+                  policy.draftMode != .off || !plan.mtpEnabled,
+                  policy.lookahead != .off || !plan.decodeLookahead,
+                  policy.lookahead != .uncorrected || (plan.decodeLookahead && model.lookahead?.prefetch?.tapCorrection == nil),
+                  (plan.runtimeAllocationPolicy?.prefixCacheEnabled ?? true) == policy.prefixCacheEnabled else {
+                throw ModelError("Loaded resources differ from this pack's startup recipe")
+            }
+            generator.draftDepth = max(1, policy.draftDepth)
+            generator.speculationEnabled = true
+            gpuKeepAlive = policy.gpuKeepAlive
+            prefixCache.enabled = policy.prefixCacheEnabled
+            shortPromptPrefill = policy.shortPromptTokens == 0 ? nil : (policy.shortPromptTokens, policy.shortPromptChunk)
+            generator.prefillChunk = plan.prefillChunk
+            configuredStartupDefaults = (pack.manifestDigest, policy)
+        }
+    }
+
+    /// Caller holds the generation gate. A later manual mutation cannot be
+    /// reported as the unchanged product recipe. Its actual arithmetic and
+    /// correction content are separately bound by the applied identity.
+    package func startupExecutionIdentity(pack: ModelPack, liveMemory: LiveMemoryManagement) throws -> (id: String, digest: String)? {
+        guard let configured = configuredStartupDefaults else { return nil }
+        let policy = configured.policy
+        let prefillMatches = policy.shortPromptTokens == 0 ? shortPromptPrefill == nil
+            : shortPromptPrefill?.limit == policy.shortPromptTokens && shortPromptPrefill?.chunk == policy.shortPromptChunk
+        guard configured.manifest == pack.manifestDigest, policy.id == pack.startupDefaults.id,
+              policy.executionIdentity(liveMemory: liveMemory) == pack.startupDefaults.executionIdentity(liveMemory: liveMemory),
+              generator.draftDepth == max(1, policy.draftDepth), generator.speculationEnabled,
+              gpuKeepAlive == policy.gpuKeepAlive,
+              prefixCache.enabled == policy.prefixCacheEnabled, prefillMatches else {
+            throw ModelError("The configured product startup policy has changed")
+        }
+        return (policy.id, policy.executionIdentity(liveMemory: liveMemory))
     }
     package let pressureBoundary = PressureBoundary()
     // Immutable after startup, so the governor never reads mutable model

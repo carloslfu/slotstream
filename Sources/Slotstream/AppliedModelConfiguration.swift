@@ -16,6 +16,10 @@ public struct AppliedModelConfiguration: Codable, Equatable, Sendable {
     public let liveMemory: LiveMemoryManagement
     public let startupTargetGB: Double?
     public let memoryCeilingGB: Double?
+    /// Missing in earlier receipts and independent Engine callers that have
+    /// not applied a compiled product startup recipe.
+    public let startupPolicyID: String?
+    public let executionPolicyIdentity: String?
 }
 
 extension Engine {
@@ -27,13 +31,17 @@ extension Engine {
                   let plan = currentPlan else { throw ModelError("Cannot identify an unsupported or unplanned product configuration") }
             let arithmetic = try PersistentPrefixIdentity.make(model: model, modelDirectory: modelDir)
             let ledger = try JSONSerialization.data(withJSONObject: plan.json(), options: [.sortedKeys])
-            let identity = PersistentPrefixIdentity(components: ["schema": "product-configuration-v1",
+            let startup = try startupExecutionIdentity(pack: pack, liveMemory: liveMemory)
+            var components = ["schema": "product-configuration-v1",
                 "pack": pack.manifestDigest, "arithmetic": arithmetic.digest,
-                "plan": String(decoding: ledger, as: UTF8.self), "live_memory": liveMemory.rawValue]).digest
+                "plan": String(decoding: ledger, as: UTF8.self), "live_memory": liveMemory.rawValue]
+            if let startup { components["schema"] = "product-configuration-v2"; components["startup_policy"] = startup.digest }
+            let identity = PersistentPrefixIdentity(components: components).digest
             return AppliedModelConfiguration(generation: UUID(), identity: identity, packID: pack.id,
                 manifestDigest: pack.manifestDigest, contextTokens: plan.maxContextTokens,
                 mtp: plan.mtpEnabled, vision: plan.visionEnabled, liveMemory: liveMemory,
-                startupTargetGB: plan.targetGB, memoryCeilingGB: plan.memoryLimitGB)
+                startupTargetGB: plan.targetGB, memoryCeilingGB: plan.memoryLimitGB,
+                startupPolicyID: startup?.id, executionPolicyIdentity: startup?.digest)
         }
     }
 }

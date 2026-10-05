@@ -32,13 +32,23 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     let encodedSelection = try JSONEncoder().encode(selected)
     let reopenedSelection = try JSONDecoder().decode(Journal.Selection.self, from: encodedSelection)
     try check(try reopenedSelection.validatedPack().manifestDigest == ModelPackRegistry.baseline.manifestDigest &&
-        reopenedSelection.preferences.quantization == .automatic, "durable Auto retains its exact pack and the saved Auto choice")
+        reopenedSelection.preferences.quantization == .automatic &&
+        reopenedSelection.startupPolicyID == ModelPackRegistry.baseline.startupDefaults.id,
+        "durable Auto retains its exact pack, startup policy and the saved Auto choice")
+    var legacyObject = try JSONSerialization.jsonObject(with: encodedSelection) as! [String: Any]
+    legacyObject.removeValue(forKey: "startupPolicyID")
+    let legacySelection = try JSONDecoder().decode(Journal.Selection.self,
+        from: JSONSerialization.data(withJSONObject: legacyObject))
+    try legacySelection.validate()
+    try check(legacySelection == selected && legacySelection.startupPolicyID == nil,
+        "legacy original startup identity remains equivalent and does not unlock an automatic retry")
     try expectFailure("resolved pack cannot override an explicit unsupported choice") {
         _ = try Journal.Selection(.init(quantization: .pack("unavailable-pack")), pack: ModelPackRegistry.baseline)
     }
     let frozenDirectory = root.appendingPathComponent("activation-frozen-selection")
     let frozenJournal = try Journal(directory: frozenDirectory)
-    for (key, value) in [("manifest", String(repeating: "f", count: 64)), ("packID", "unavailable-pack"), ("packID", "")] {
+    for (key, value) in [("manifest", String(repeating: "f", count: 64)), ("packID", "unavailable-pack"),
+                         ("packID", ""), ("startupPolicyID", "superseded-startup-policy")] {
         var object = try JSONSerialization.jsonObject(with: encodedSelection) as! [String: Any]
         object[key] = value
         let altered = try JSONDecoder().decode(Journal.Selection.self, from: JSONSerialization.data(withJSONObject: object))
@@ -371,6 +381,17 @@ func realActivationCheckIfRequested() async throws -> Bool {
             "real health check precedes the initial activation receipt")
         try check(initial.lastGood?.generation == first.metrics?.configurations?.first?.generation,
             "the real response owns the committed generation")
+        let configuration = first.metrics?.configurations?.first
+        try check(configuration?.startupPolicyID == ModelPackRegistry.baseline.startupDefaults.id &&
+            configuration?.executionPolicyIdentity?.count == 64 &&
+            initial.lastGood?.selection.startupPolicyID == configuration?.startupPolicyID,
+            "the real response and durable activation bind the applied startup recipe")
+        let firstStats = await inference!.lastStats
+        try check(!firstStats.isEmpty && firstStats.allSatisfy { stats in
+            guard let maximum = stats.prefillChunkLimit, (256...4096).contains(maximum) else { return false }
+            return stats.prefillComputePasses.allSatisfy { $0 <= maximum }
+                && (stats.promptTokens >= PerformancePolicy.shortPromptTokens || maximum <= PerformancePolicy.shortPromptChunk)
+        }, "the real app applies and reports the bounded short-prompt policy")
         // requested, verified, loading, checking: fail the fourth durable
         // transition after the replacement Engine exists, before health/commit.
         remainingWrites = 4

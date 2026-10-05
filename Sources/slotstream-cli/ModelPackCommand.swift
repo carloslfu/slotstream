@@ -11,11 +11,24 @@ struct ModelPackCommand: ParsableCommand {
         let decision = try ModelPackRegistry.resolve(selection == "auto" ? .automatic : .pack(selection))
         if json {
             let rows: [[String: Any]] = ModelPackRegistry.supported.map { pack in
-                ["id": pack.id, "title": pack.title, "manifest_sha256": pack.manifestDigest,
+                let defaults: [String: Any] = ["id": pack.startupDefaults.id,
+                    "automatic_ceiling_bytes": pack.startupDefaults.automaticCeilingBytes,
+                    "context_tokens": pack.startupDefaults.contextTokens,
+                    "draft_mode": pack.startupDefaults.draftMode.rawValue,
+                    "draft_placement": pack.startupDefaults.draftPlacement.rawValue,
+                    "draft_depth": pack.startupDefaults.draftDepth,
+                    "lookahead": pack.startupDefaults.lookahead.rawValue,
+                    "prefix_cache": pack.startupDefaults.prefixCacheEnabled,
+                    "short_prompt_tokens": pack.startupDefaults.shortPromptTokens,
+                    "short_prompt_chunk": pack.startupDefaults.shortPromptChunk,
+                    "gpu_keep_alive": pack.startupDefaults.gpuKeepAlive.rawValue,
+                    "reference": pack.startupDefaults.reference]
+                return ["id": pack.id, "title": pack.title, "manifest_sha256": pack.manifestDigest,
                  "checkpoint_revision": pack.checkpointRevision, "conversion_revision": pack.conversionRevision,
                  "layout": pack.layout, "compatibility": pack.compatibility,
                  "required_bytes": pack.requiredBytes, "total_bytes": pack.totalBytes,
                  "qualified_automatic_profiles": pack.qualifiedAutomaticProfiles,
+                 "startup_defaults": defaults,
                  "support_evidence": pack.supportEvidence]
             }
             let data = try JSONSerialization.data(withJSONObject: ["schema": 1, "packs": rows,

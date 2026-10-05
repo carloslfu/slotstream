@@ -84,6 +84,15 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
         pack: ModelPackRegistry.baseline, on: roomy, mtpAvailable: false)
     try verifyPerformance(frozenPackPlan.targetGB == 10 && frozenPackPlan.memoryLimitGB == 10,
         "activation plans its frozen pack without selecting again")
+    let ownedStartup = try ModelPackRegistry.baseline.startupPlan(customMemoryGB: 10, on: roomy)
+    let ownedJSON = try JSONSerialization.data(withJSONObject: ownedStartup.json(), options: [.sortedKeys])
+    let frozenJSON = try JSONSerialization.data(withJSONObject: frozenPackPlan.json(), options: [.sortedKeys])
+    try verifyPerformance(ownedJSON == frozenJSON,
+        "Desktop delegates its complete plan to the frozen pack's own recipe")
+    try verifyPerformance(PerformancePolicy.contextTokens == ModelPackRegistry.baseline.startupDefaults.contextTokens &&
+        PerformancePolicy.shortPromptTokens == ModelPackRegistry.baseline.startupDefaults.shortPromptTokens &&
+        PerformancePolicy.shortPromptChunk == ModelPackRegistry.baseline.startupDefaults.shortPromptChunk,
+        "legacy product constants project the original compiled recipe")
     let fast = try PerformancePolicy.plan(.init(), on: roomy, mtpAvailable: true)
     try verifyPerformance(fast.mtpEnabled && fast.decodeLookahead, "Desktop enables qualified automatic MTP and lookahead when they fit")
     try verifyPerformance(fast.targetGB == Planner.usefulCeilingGB && fast.memoryLimitGB == Planner.usefulCeilingGB,

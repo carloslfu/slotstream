@@ -22,6 +22,7 @@ public struct ModelPack: Sendable {
     public let conversionRevision: String
     let deployment: WeightDeployment
     package let memoryProfile: PackMemoryProfile
+    public let startupDefaults: ModelPackStartupDefaults
     public var files: [PinnedModel.File] { deployment.files }
     public let directoryName: String
     public let layout: String
@@ -74,7 +75,7 @@ public struct ModelPackDecision: Sendable {
 public enum ModelPackRegistry {
     public static let baseline = ModelPack(id: PinnedModel.name, title: "Original 4-bit",
         checkpointRevision: "de4b8e4d43b917e7706784d8bb445c9af86a3540",
-        conversionRevision: PinnedModel.revision, deployment: .original, memoryProfile: .original,
+        conversionRevision: PinnedModel.revision, deployment: .original, memoryProfile: .original, startupDefaults: .original,
         directoryName: PinnedModel.dirName, layout: "affine-4-group64-ple-group32",
         compatibility: "slotstream-affine-v1",
         supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md"],

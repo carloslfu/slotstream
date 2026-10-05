@@ -304,3 +304,8 @@ Preserved the first range-fixture compilation failure and corrected its Int64-to
 ## [2026-10-04 23:29] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared native and paired complete-performance V2 with standalone physical identity and shared Desktop prefill policy, actual per-request observation and preserved V1 behavior. Fourteen campaign groups pass on both Python runtimes and thirty-two registration checks pass. Preserved the range fixture failure and corrected its rounded-floor assumption without changing planner policy; native V2 and corrected range acceptance remain pending CI. No model launch, payload export or qualification.
 
+## [2026-10-05 00:06] update | --help
+
+## [2026-10-05 00:06] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared pack-owned startup recipes, stable per-pack automatic ceilings, exact custom limits, explicit Desktop execution settings and activation compatibility identities. Source and receipts are preserved; thirty-two static registration groups and shell syntax pass, claims report 349 with zero errors, projections are current, and dbmd validation reports zero errors and warnings. Native compilation and execution remain pending CI; no pack is qualified or promoted. The preceding --help log entry was an accidental help invocation and records no content change.
+

@@ -15,6 +15,9 @@ package final class ModelActivationJournal {
         package let preferences: PerformancePreferences
         package let packID: String
         package let manifest: String
+        /// Older original-pack receipts predate explicit startup recipes.
+        /// A pending load or rollback may not silently adopt revised defaults.
+        package let startupPolicyID: String?
         package init(_ preferences: PerformancePreferences) throws {
             try self.init(preferences, pack: ModelPackRegistry.resolve(preferences.quantization).pack)
         }
@@ -22,7 +25,15 @@ package final class ModelActivationJournal {
         /// Auto recommendation must not change a pending load or rollback.
         package init(_ preferences: PerformancePreferences, pack: ModelPack) throws {
             self.preferences = preferences; packID = pack.id; manifest = pack.manifestDigest
+            startupPolicyID = pack.startupDefaults.id
             try validate()
+        }
+        private var effectiveStartupPolicyID: String {
+            startupPolicyID ?? (packID == ModelPackRegistry.baseline.id ? ModelPackStartupDefaults.legacyOriginalPolicyID : "")
+        }
+        package static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.preferences == rhs.preferences && lhs.packID == rhs.packID && lhs.manifest == rhs.manifest
+                && lhs.effectiveStartupPolicyID == rhs.effectiveStartupPolicyID
         }
         package func validatedPack() throws -> ModelPack {
             try PerformancePolicy.validateSaved(preferences)
@@ -34,6 +45,9 @@ package final class ModelActivationJournal {
             }
             guard matchesOverride, pack.manifestDigest == manifest else {
                 throw SevraError.refused("This model activation belongs to a different supported pack. Choose model settings again.")
+            }
+            guard effectiveStartupPolicyID == pack.startupDefaults.id else {
+                throw SevraError.refused("This model activation uses different startup settings. Choose model settings again; your saved preference is preserved.")
             }
             return pack
         }

@@ -62,15 +62,15 @@ public enum PerformancePolicy {
     /// planner reports the same 9.0 GB peak as the former 8,192-token window
     /// and one fewer cached expert per layer (doctor, September 17, 2026).
     /// Documents, file changes and apps need the room.
-    public static let contextTokens = 32768
+    public static let contextTokens = ModelPackRegistry.baseline.startupDefaults.contextTokens
     /// Short chats need stable intermediate checkpoints before the next turn.
     /// Keep 512-token compute passes below 1,536 prompt tokens; longer inputs
     /// retain the engine's throughput schedule. Keep its workspace reservation
     /// so read sharing and pressure recovery still have room. These are measured
     /// Desktop operating choices, not numerical limits or CLI policy.
     /// Rationale and revision gate: db/records/decisions/sevra-app-speed-defaults-2026-09-23.md.
-    public static let shortPromptTokens = 1536
-    public static let shortPromptChunk = 512
+    public static let shortPromptTokens = ModelPackRegistry.baseline.startupDefaults.shortPromptTokens
+    public static let shortPromptChunk = ModelPackRegistry.baseline.startupDefaults.shortPromptChunk
     /// Seconds after releasing the model before another allocation plan. XNU's
     /// host-statistics cache lasts one second; a small margin avoids its edge.
     /// Only immediate reloads wait, and always use a new real reading afterward.
@@ -79,8 +79,7 @@ public enum PerformancePolicy {
     // as admission, at the native control's half-GB resolution. The simulated
     // hardware only removes transient availability from this range inquiry.
     public static let minimumGB: Double = {
-        let request = PlanRequest(mtp: .auto, vision: .off, maxContextTokens: contextTokens)
-        return (try? ModelPackRegistry.baseline.memoryRange(for: request,
+        return (try? ModelPackRegistry.baseline.startupMemoryRange(
             on: .simulated(ramGB: 64)))?.minimumGB ?? ceil(Planner.minMemoryGB * 2) / 2
     }()
     public static func maximumGB(on machine: Machine) -> Double {
@@ -99,8 +98,9 @@ public enum PerformancePolicy {
         guard preferences.budget == .custom else { return }
         let range: ModelPackMemoryRange
         do {
-            range = try pack.memoryRange(for: PlanRequest(mtp: .auto, vision: .off,
-                maxContextTokens: contextTokens), on: machine)
+            // A hardware control range prices required components even before
+            // their download. Actual startup separately checks their presence.
+            range = try pack.startupMemoryRange(on: machine, mtpAvailable: true)
         } catch {
             throw SevraError.refused("This Mac cannot fit the selected model and context within its supported memory range. Your saved limit is preserved.")
         }
@@ -119,7 +119,9 @@ public enum PerformancePolicy {
         }
     }
     public static func ceilingGB(_ preferences: PerformancePreferences, on machine: Machine) -> Double {
-        preferences.budget == .custom ? preferences.customGB : min(Planner.usefulCeilingGB, maximumGB(on: machine))
+        if preferences.budget == .custom { return preferences.customGB }
+        guard let pack = try? ModelPackRegistry.resolve(preferences.quantization).pack else { return 0 }
+        return (try? pack.automaticMemoryCeilingGB(on: machine)) ?? 0
     }
     public static func plan(_ preferences: PerformancePreferences, on machine: Machine) throws -> MemoryPlan {
         try plan(preferences, on: machine, mtpAvailable: MTPWeights.present(modelDir: WeightStore.default.modelDirectory))
@@ -133,6 +135,9 @@ public enum PerformancePolicy {
     /// Auto here or price an alternate selection with the original geometry.
     package static func plan(_ preferences: PerformancePreferences, pack: ModelPack, on machine: Machine,
                              mtpAvailable: Bool, decodeLookahead: DecodeLookaheadPlanning = .automatic) throws -> MemoryPlan {
+        guard pack.startupDefaults.draftMode != .on || mtpAvailable else {
+            throw SevraError.unavailable("A required model component is missing. Finish model setup before sending.")
+        }
         try validate(preferences, on: machine, pack: pack)
         guard let available = machine.availableGB, available.isFinite, available > 0,
               machine.ramGB.isFinite, machine.ramGB > 0, machine.workingSetGB.isFinite else {
@@ -143,14 +148,15 @@ public enum PerformancePolicy {
         // Desktop's displayed ceiling includes the draft head. The independent
         // CLI may lift its automatic model ceiling by MTP's resident cost; an
         // explicit adaptive ceiling keeps this app's total budget unchanged.
-        let ceiling = ceilingGB(preferences, on: machine)
+        let ceiling: Double
+        if preferences.budget == .custom { ceiling = preferences.customGB }
+        else { ceiling = try pack.automaticMemoryCeilingGB(on: machine) }
         let plan: MemoryPlan
         do {
             // Use the engine's qualified automatic MTP and lookahead policy.
             // The head is optional and its full cost must fit before enabling it.
-            plan = try pack.plan(PlanRequest(memoryLimitGB: ceiling, mtp: .auto, vision: .off,
-                maxContextTokens: contextTokens), on: machine, mtpAvailable: mtpAvailable,
-                decodeLookahead: decodeLookahead)
+            plan = try pack.startupPlan(customMemoryGB: preferences.budget == .custom ? preferences.customGB : nil,
+                on: machine, mtpAvailable: mtpAvailable, originalLookahead: decodeLookahead)
         } catch {
             throw SevraError.refused("There isn’t enough memory available for this model. Close a large app and try again. Your conversation is preserved.")
         }
@@ -223,6 +229,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var activationRecoveryAvailable = false
     private struct RangeKey: Equatable {
         let manifest: String
+        let startupPolicy: String
         let ramGB: Double
         let workingSetGB: Double
     }
@@ -278,22 +285,25 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         } else { rangeChoice = preferences.quantization }
         let rangePack = try? ModelPackRegistry.resolve(rangeChoice).pack
         let rangeKey = RangeKey(manifest: rangePack?.manifestDigest ?? "unavailable",
+            startupPolicy: rangePack?.startupDefaults.id ?? "unavailable",
             ramGB: machine.ramGB, workingSetGB: machine.workingSetGB)
         lock.lock(); let cached = cachedRange; lock.unlock()
         let range: ModelPackMemoryRange?
         if let cached, cached.key == rangeKey { range = cached.value }
         else {
-            range = try? rangePack?.memoryRange(for: .init(mtp: .auto, vision: .off,
-                maxContextTokens: PerformancePolicy.contextTokens), on: machine)
+            range = try? rangePack?.startupMemoryRange(on: machine, mtpAvailable: true)
             lock.lock(); cachedRange = (rangeKey, range); lock.unlock()
         }
+        let selectedCeiling: Double?
+        if preferences.budget == .custom { selectedCeiling = preferences.customGB }
+        else { selectedCeiling = try? rangePack?.automaticMemoryCeilingGB(on: machine) }
         return PerformanceSnapshot(preferences: preferences, pending: pending, state: state,
             loaded: current != nil, busy: busy, usedGB: bytes == 0 ? nil : Double(bytes) / 1e9,
             budgetGB: plan?.targetGB, recommendationGB: recommendation?.targetGB,
             maximumGB: range?.maximumGB ?? PerformancePolicy.maximumGB(on: machine),
             detail: pressure ? "Giving memory back to your Mac." : detail,
             idleMinutes: Int(ceil(PerformancePolicy.idleDelay(preparationSeconds: seconds, conservingPower: conserving) / 60)),
-            physicalGB: machine.ramGB, ceilingGB: PerformancePolicy.ceilingGB(preferences, on: machine),
+            physicalGB: machine.ramGB, ceilingGB: selectedCeiling,
             appliedCeilingGB: plan?.memoryLimitGB,
             activationFailure: activationFailure,
             activationRecoveryAvailable: activationRecoveryAvailable,

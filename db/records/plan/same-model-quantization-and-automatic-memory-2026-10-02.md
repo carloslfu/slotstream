@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-04T23:29:00.753660+00:00
+updated: 2026-10-05T00:00:41.837046+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1044,3 +1044,13 @@ The first corrected engine run exposed a second fixture compilation error, prese
 Fourteen campaign fixture groups pass on both Python runtimes and all thirty-two static entry checks pass. The V2 owner preserves paired coverage, resource supervision, statistical and latency gates, and refuses a final sampling basis from another deployment. No actual complete-performance campaign or native V2 run has occurred; compiled standalone admission remains closed pending the complete export and byte audit. The existing held-out quality campaign remains unchanged.
 
 The same source preserves the latest range-fixture failure: its strict claim that a required streamed draft must raise the rounded control minimum was false. The correction checks the required head, its exact byte charge and full allocation within the returned minimum; full resident placement has a separate higher-floor check. The planner and resource policy are unchanged. Auto matching passed the instrumented catalogue, but corrected full range and V2 acceptance remain pending. The older Mac build at 1ba2dc02ef1db40068f2c12e5dee2336eca2b6b2 now has complete successful runtime and Xcode results.
+
+### Pack-owned product startup recipes, October 4
+
+[[sources/runs/2026/10/2026-10-04-pack-startup-defaults-preparation]] records a compiled startup recipe required by each supported pack. It owns the automatic ceiling and complete product execution choices instead of inheriting the original cap or hidden ambient draft/power tuning. The original Desktop values and independent CLI defaults are preserved. Pack-owned startup planning keeps the hardware ceiling separate from current headroom, permits a larger valid custom limit and retains exact saved values. Hardware controls price required components; actual load checks availability separately.
+
+Desktop now consumes the frozen pack's recipe for planning, ranges, selected-ceiling display and explicit startup configuration. Applied identity binds the recipe's non-planner choices alongside the actual model arithmetic, correction, complete plan and executable. Durable activation stores the recipe identity and refuses a changed policy during load or rollback. Legacy original records retain their historical interpretation and semantic equality, so the new identity field cannot silently unlock retries of earlier failures.
+
+Pure native fixtures, application identity/planning fixtures, the external-consumer API probe and the real activation check are extended. Only the thirty-two static entry checks and shell/diff checks have run locally on this stage; native compilation, the new fixtures and real updated activation remain pending. The previous performance V2 source has passed its instrumented Auto, memory-range and protocol catalogue; complete engine and Mac checks remain in progress in the preserved snapshot.
+
+This is startup recipe ownership, not completed alternative Auto activation. Qualified proposal generation/matching, accepted installed-content state, multiple-pack setup, actual candidate app loading, full quality/performance, standalone public transfer and integrated acceptance still remain. No alternate pack or profile is enabled, and the running quality continuation remains unchanged.

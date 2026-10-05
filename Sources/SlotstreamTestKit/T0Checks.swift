@@ -12,6 +12,7 @@ extension Catalogue {
             Check("pack-memory", tier: .t0) { try Diagnostics.packMemory() },
             Check("automatic-pack-policy", tier: .t0) { try Diagnostics.automaticPackPolicy() },
             Check("model-pack-planning", tier: .t0) { try Diagnostics.modelPackPlanning() },
+            Check("model-pack-startup-defaults", tier: .t0) { try Diagnostics.modelPackStartupDefaults() },
             Check("quantization-session-framing", tier: .t0) { try Diagnostics.quantizationSessionFraming() },
             Check("quantization-performance-protocol", tier: .t0) { try Diagnostics.quantizationPerformanceProtocol() },
             Check("quantization-metadata", tier: .t0) { try Diagnostics.quantizationMetadata() },
