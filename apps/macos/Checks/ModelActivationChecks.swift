@@ -33,14 +33,16 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     let reopenedSelection = try JSONDecoder().decode(Journal.Selection.self, from: encodedSelection)
     try check(try reopenedSelection.validatedPack().manifestDigest == ModelPackRegistry.baseline.manifestDigest &&
         reopenedSelection.preferences.quantization == .automatic &&
-        reopenedSelection.startupPolicyID == ModelPackRegistry.baseline.startupDefaults.id,
+        reopenedSelection.startupPolicyID == ModelPackRegistry.baseline.startupDefaults.id &&
+        reopenedSelection.startupRecipeIdentity == ModelPackRegistry.baseline.startupDefaults.recipeIdentity,
         "durable Auto retains its exact pack, startup policy and the saved Auto choice")
     var legacyObject = try JSONSerialization.jsonObject(with: encodedSelection) as! [String: Any]
     legacyObject.removeValue(forKey: "startupPolicyID")
+    legacyObject.removeValue(forKey: "startupRecipeIdentity")
     let legacySelection = try JSONDecoder().decode(Journal.Selection.self,
         from: JSONSerialization.data(withJSONObject: legacyObject))
     try legacySelection.validate()
-    try check(legacySelection == selected && legacySelection.startupPolicyID == nil,
+    try check(legacySelection == selected && legacySelection.startupPolicyID == nil && legacySelection.startupRecipeIdentity == nil,
         "legacy original startup identity remains equivalent and does not unlock an automatic retry")
     try expectFailure("resolved pack cannot override an explicit unsupported choice") {
         _ = try Journal.Selection(.init(quantization: .pack("unavailable-pack")), pack: ModelPackRegistry.baseline)
@@ -48,7 +50,8 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     let frozenDirectory = root.appendingPathComponent("activation-frozen-selection")
     let frozenJournal = try Journal(directory: frozenDirectory)
     for (key, value) in [("manifest", String(repeating: "f", count: 64)), ("packID", "unavailable-pack"),
-                         ("packID", ""), ("startupPolicyID", "superseded-startup-policy")] {
+                         ("packID", ""), ("startupPolicyID", "superseded-startup-policy"),
+                         ("startupRecipeIdentity", String(repeating: "f", count: 64))] {
         var object = try JSONSerialization.jsonObject(with: encodedSelection) as! [String: Any]
         object[key] = value
         let altered = try JSONDecoder().decode(Journal.Selection.self, from: JSONSerialization.data(withJSONObject: object))
@@ -69,6 +72,79 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     }
     try check(!original.matchesRequestedConfiguration(.init(budget: .custom, customGB: 9)),
         "a changed custom ceiling requires a new selection")
+
+    let acceptanceDirectory = root.appendingPathComponent("activation-accepted-setup")
+    let acceptanceGood = try seed(acceptanceDirectory)
+    var acceptanceJournal: Journal? = try Journal(directory: acceptanceDirectory)
+    try check(acceptanceJournal!.state.acceptedPacks == nil && acceptanceJournal!.acceptedManifests.isEmpty,
+        "older original journals do not fabricate a new setup acceptance list")
+    try acceptanceJournal!.accept(ModelPackRegistry.baseline)
+    let accepted = try Data(contentsOf: acceptanceDirectory.appendingPathComponent("state.json"))
+    try acceptanceJournal!.accept(ModelPackRegistry.baseline)
+    try check(try Data(contentsOf: acceptanceDirectory.appendingPathComponent("state.json")) == accepted,
+        "repeated setup acceptance preserves exact durable bytes")
+    try check(acceptanceJournal!.state.lastGood == acceptanceGood &&
+        acceptanceJournal!.acceptedManifests == [ModelPackRegistry.baseline.id: ModelPackRegistry.baseline.manifestDigest],
+        "acceptance grants selection permission without replacing the healthy configuration")
+    acceptanceJournal = nil
+    acceptanceJournal = try Journal(directory: acceptanceDirectory)
+    try check(acceptanceJournal!.state.acceptedPacks?.count == 1 && acceptanceJournal!.state.lastGood == acceptanceGood,
+        "accepted version and prior health survive an offline restart")
+    acceptanceJournal = nil
+    let acceptanceObject = try JSONSerialization.jsonObject(with: accepted) as! [String: Any]
+    let acceptedRows = acceptanceObject["acceptedPacks"] as! [[String: Any]]
+    for (field, replacement) in [("packID", "future-supported-pack"), ("manifest", String(repeating: "f", count: 64)),
+                                 ("startupPolicyID", "future-startup-policy"), ("startupRecipeIdentity", String(repeating: "f", count: 64))] {
+        let directory = root.appendingPathComponent("activation-acceptance-version-" + field)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var object = acceptanceObject, rows = acceptedRows
+        rows[0][field] = replacement; object["acceptedPacks"] = rows
+        let bytes = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        try bytes.write(to: directory.appendingPathComponent("state.json"))
+        let journal = try Journal(directory: directory)
+        try check(journal.acceptedManifests.isEmpty && journal.state.acceptedPacks?.count == 1,
+            "unmatched accepted versions remain preserved and cannot authorize the current pack")
+        try check(try Data(contentsOf: directory.appendingPathComponent("state.json")) == bytes,
+            "inspection does not migrate a stale acceptance into current permission")
+    }
+    let tooManyAcceptedRows = (0..<65).map { index -> [String: Any] in
+        var row = acceptedRows[0]; row["packID"] = "historical-pack-\(index)"; return row
+    }
+    for rows in [acceptedRows + acceptedRows, tooManyAcceptedRows,
+                 [acceptedRows[0].merging(["manifest": "not-a-digest"], uniquingKeysWith: { _, new in new })]] {
+        let directory = root.appendingPathComponent("activation-invalid-acceptance-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var object = acceptanceObject; object["acceptedPacks"] = rows
+        let bytes = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        try bytes.write(to: directory.appendingPathComponent("state.json"))
+        try expectFailure("duplicate, oversized or malformed acceptance history fails closed") { _ = try Journal(directory: directory) }
+        try check(try Data(contentsOf: directory.appendingPathComponent("state.json")) == bytes,
+            "rejected acceptance history preserves the original bytes")
+    }
+    for point in [Journal.WritePoint.beforeWrite, .beforeRename, .afterRename] {
+        let directory = root.appendingPathComponent("activation-acceptance-write-" + UUID().uuidString)
+        let good = try seed(directory)
+        var armed = true
+        var journal: Journal? = try Journal(directory: directory, fault: { observed in
+            if armed, observed == point { armed = false; throw SevraError.refused("Injected acceptance interruption") }
+        })
+        try expectFailure("failed acceptance persistence is not acknowledged") { try journal!.accept(ModelPackRegistry.baseline) }
+        try check(journal!.state.lastGood == good && journal!.state.attempt?.phase == .committed,
+            "an acceptance write cannot replace or fail the active model transaction")
+        journal = nil
+        let reopened = try Journal(directory: directory)
+        try check(reopened.state.lastGood == good, "acceptance interruption retains the prior healthy configuration")
+        let expected = point == .afterRename ? 1 : 0
+        try check((reopened.state.acceptedPacks?.count ?? 0) == expected,
+            "acceptance interruption recovers the actual renamed state")
+    }
+    let absentSetup = ModelSetup(model: root.appendingPathComponent("not-installed-model"))
+    let absentHistory = root.appendingPathComponent("unaccepted-model-history")
+    let absentOwner = LocalInference(model: absentSetup.modelDirectory, activationDirectory: absentHistory)
+    do { try await absentOwner.acceptModelSetup(absentSetup); throw SevraError.refused("CHECK FAILED: accepted unchecked setup") }
+    catch { try check(!error.localizedDescription.contains("CHECK FAILED"), "an unchecked setup never grants acceptance") }
+    try check(!FileManager.default.fileExists(atPath: absentHistory.path),
+        "unchecked setup creates no acceptance history or model")
 
     // Reopen after each durable phase, as a different inference owner would
     // after termination. None of these fixtures allocates an Engine or GPU.

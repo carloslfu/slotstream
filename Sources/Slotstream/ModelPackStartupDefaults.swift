@@ -15,6 +15,9 @@ public struct ModelPackStartupDefaults: Sendable {
     /// Compatibility interpretation for activation records written before
     /// explicit startup recipes. Keep this identity when later defaults change.
     public static let legacyOriginalPolicyID = "original-desktop-startup-v1"
+    /// Exact original Desktop recipe, independent of future edited defaults.
+    /// Old activation records without a recipe digest map only to these bytes.
+    public static let legacyOriginalRecipeIdentity = "85bf53207e62ea89d8e527c4c381f792c0cd525ba90b9dcb8ada00146a144278"
 
     public let id: String
     public let automaticCeilingBytes: Int64
@@ -28,6 +31,11 @@ public struct ModelPackStartupDefaults: Sendable {
     public let shortPromptChunk: Int
     public let gpuKeepAlive: GPUKeepAlive.Policy
     public let reference: String
+
+    /// Stable acceptance identity for this compiled recipe. Canonicalizing
+    /// live management here keeps the user's independent live preference out
+    /// of installation permission; actual execution binds that preference too.
+    public var recipeIdentity: String { executionIdentity(liveMemory: .automatic) }
 
     package init(id: String, automaticCeilingBytes: Int64, contextTokens: Int,
                  draftMode: Planner.MTPMode, draftPlacement: Planner.MTPExpertPlacement,

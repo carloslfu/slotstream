@@ -15,6 +15,8 @@ private actor PerformanceProbe: Inference {
     var failConfiguration = false
     var configurationAttempts = 0
     var remainingConfigurationFailures = 0
+    var setupAcceptances = 0
+    func acceptModelSetup(_ setup: ModelSetup) { setupAcceptances += 1 }
     func holdSettings(_ value: Bool) { holdConfiguration = value }
     func failSettings(_ value: Bool) { failConfiguration = value }
     func failNextSettings(_ count: Int) { remainingConfigurationFailures = count }
@@ -263,6 +265,30 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
     try verifyPerformance(await probe.changes.last?.customGB == 9, "latest return selection applies")
     try await runtime.shutdown()
     print("PASS: deferred budget coalescing, queued submission during handoff, active release refusal, idle release and draft preservation")
+
+    // This probe certifies queue ownership only, not files or setup readiness.
+    // The real LocalInference refuses the unchecked setup in activation checks.
+    let setupProbe = PerformanceProbe()
+    await setupProbe.release()
+    let setupRuntime = try SevraRuntime(homeURL: root.appendingPathComponent("setup-performance-home"), dbmd: dbmd, inference: setupProbe)
+    let setup = ModelSetup(model: root.appendingPathComponent("setup-probe-no-weights"))
+    do { try await setupRuntime.acceptModelSetup(setup); throw SevraError.refused("CHECK FAILED: accepted setup outside maintenance") }
+    catch { try verifyPerformance(!error.localizedDescription.contains("CHECK FAILED"), "setup acceptance requires stopped local work") }
+    try verifyPerformance(await setupProbe.setupAcceptances == 0, "an invalid setup boundary never reaches inference")
+    try await setupRuntime.beginModelMaintenance()
+    try await setupRuntime.acceptModelSetup(setup)
+    try verifyPerformance(await setupProbe.setupAcceptances == 1, "completed setup acceptance reaches its inference owner once")
+    await setupProbe.holdSettings(true)
+    await setupRuntime.endModelMaintenance()
+    let submittingAfterSetup = Task { try await setupRuntime.submit(threadID: "home", text: "Use the accepted configuration", nonce: "setup-boundary") }
+    try await eventually { await setupProbe.configuring }
+    try verifyPerformance(await setupProbe.calls == 0, "queued work cannot use old settings after accepted setup")
+    await setupProbe.holdSettings(false)
+    _ = try await submittingAfterSetup.value
+    try await eventually { await setupRuntime.snapshot().home.threads[0].run?.state == .completed }
+    try verifyPerformance(await setupProbe.calls == 1, "work runs once after the accepted setup configuration applies")
+    try await setupRuntime.shutdown()
+    print("PASS: accepted setup remains inside maintenance and forces the next configuration boundary")
 
     let sleeper = PerformanceProbe()
     let sleepRuntime = try SevraRuntime(homeURL: root.appendingPathComponent("sleep-home"), dbmd: dbmd, inference: sleeper)

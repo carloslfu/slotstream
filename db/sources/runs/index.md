@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T00:22:31.778223Z
+updated: 2026-10-05T00:48:51.886555Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-durable-model-acceptance-preparation]] — Prepare durable accepted-version ownership, concrete Auto startup selection and maintenance handoff
 - [[sources/runs/2026/10/2026-10-04-pack-startup-proposals-fixture-identity]] — Explicit machine-observation identity in the final prepared startup-selection fixture
 - [[sources/runs/2026/10/2026-10-04-pack-startup-proposals-preparation]] — Prepare actual per-pack startup proposals and storage-bound evidence while preserving the startup compilation failure
 - [[sources/runs/2026/10/2026-10-04-pack-startup-defaults-preparation]] — Prepare pack-owned product startup recipes, exact applied policy identity and durable activation compatibility
@@ -506,9 +507,8 @@ updated: 2026-10-05T00:22:31.778223Z
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-lifecycle-dependency]] — Fixed-tail MTP prerequisites preserve adaptive rejection and isolate passing lifecycle evidence
 - [[sources/runs/2026/09/2026-09-08-optimization-native-memory-pressure-stops]] — Full-model vision and prefill native runs stopped at memory-pressure warnings
 - [[sources/runs/2026/09/2026-09-08-optimization-current-adaptive-policy-counterexample]] — Current adaptive speculation retains its exact-output rejection
-- [[sources/runs/2026/09/2026-09-08-optimization-current-vision-mtp-static-gates]] — Current vision components, fixed MTP work, image reuse and full static suite pass
 
 ## More
 
-This folder has 816 files. The 500 most recent are listed above.
+This folder has 817 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

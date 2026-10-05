@@ -685,11 +685,16 @@ import Combine
         preparingModel = true
         Task {
             var acquired = false
+            var accepted = false
             do {
                 try await runtime.beginModelMaintenance(); acquired = true
                 try await Task.detached(priority: .utility) {
                     if download { try setup.download() } else { try setup.check() }
                 }.value
+                if setup.snapshot().ready {
+                    try await runtime.acceptModelSetup(setup)
+                    accepted = true
+                }
             } catch SevraError.cancelled {
                 // The setup panel already reports the deliberate stop.
             } catch { self.error = error.localizedDescription }
@@ -697,7 +702,7 @@ import Combine
                 await runtime.endModelMaintenance()
                 // A completed explicit setup/repair permits a new activation
                 // attempt. Failed or cancelled setup never clears that gate.
-                if setup.snapshot().ready {
+                if accepted {
                     do { try await runtime.setPerformancePreferences(performancePreferences) }
                     catch { self.error = error.localizedDescription }
                 }

@@ -530,7 +530,10 @@ public actor SevraRuntime {
             let value = performancePreferences
             let generation = performanceGeneration
             do {
-                try PerformancePolicy.validate(value, on: .current())
+                // The concrete inference owner selects and validates the pack
+                // at this boundary. The outer owner must not impose the
+                // original pack's range on a different accepted selection.
+                try PerformancePolicy.validateSaved(value)
                 try await inference.configure(value)
             } catch {
                 // A newer choice arriving during configure supersedes a failed
@@ -588,6 +591,16 @@ public actor SevraRuntime {
         guard !shuttingDown, active == nil, !driving, !modelMaintenance else { throw SevraError.refused("Finish or stop active work before model setup.") }
         modelMaintenance = true
         await inference.unload(); modelStatus = "Model unloaded"
+    }
+    public func acceptModelSetup(_ setup: ModelSetup) async throws {
+        guard modelMaintenance, !performanceMaintenance, active == nil, !driving, !shuttingDown else {
+            throw SevraError.refused("Model setup can be accepted only while local work is stopped for maintenance.")
+        }
+        try await inference.acceptModelSetup(setup)
+        // Mark a configuration boundary before maintenance is released. A
+        // queued request cannot slip into the old configuration between the
+        // completed setup and the UI's subsequent preference retry.
+        try await setPerformancePreferences(performancePreferences)
     }
     public func endModelMaintenance() { modelMaintenance = false }
     /// Starts checking the model files while the person reads and writes, so

@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T00:22:31.786146+00:00
+updated: 2026-10-05T00:50:12.148053+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1064,3 +1064,15 @@ New pure fixtures and the external-consumer probe cover proposal-to-profile matc
 The startup-defaults commit's native compiler found missing propagation of RuntimeAllocationPolicy's throwing initializer. Its full log is preserved, and the getter now propagates the error through the existing throwing planners without changing memory policy. The preceding complete-performance V2 commit has now passed the full engine and Mac workflows. Those CI results do not constitute a physical performance run.
 
 Durable accepted-installation ownership, multiple-pack setup and activation, qualified profile data, complete outcome and speed evaluation, standalone export/public pull and integrated local acceptance remain open. Production still registers only the original pack and no qualified Auto profile. The frozen held-out continuation is unchanged and unanalyzed.
+
+### Durable setup acceptance and concrete Auto selection, October 4
+
+[[sources/runs/2026/10/2026-10-04-durable-model-acceptance-preparation]] records explicit setup acceptance in the existing exclusive activation journal. It binds the compiled artifact and complete startup recipe independently of file authentication or a successful health check. Duplicate acceptance preserves durable bytes; unsupported versions remain recorded but cannot authorize current content. Unchecked, busy or wrongly located setup cannot grant acceptance. The runtime marks settings pending before setup maintenance ends, and the UI retries only after acceptance succeeds, preventing queued work from slipping into the old configuration.
+
+LocalInference now constructs the real Auto context from accepted installed versions, actual components and disk observations, current headroom and saved choices at configuration/load boundaries. Pending and rollback selections stay frozen; readiness and inactive custom-value changes do not rerun selection. The actual load still authenticates and replans from fresh memory before its health check and durable commit. Native telemetry retains the concrete selection reason and derives the displayed range and recommendation from that pack. The generic runtime delegates pack-specific feasibility to its concrete inference owner instead of applying the original pack's range first.
+
+Activation also binds full recipe identity, with an independently fixed historical mapping for older original records. Keeping a policy name while changing its values cannot silently inherit the prior recipe. A mismatched old automatic setup requires explicit verification/acceptance of the replacement. The exact canonical JSON and historical digest are captured with a native equality fixture.
+
+New fixtures cover persistence, idempotence, malformed and obsolete permission records, atomic-write interruptions, unchecked-setup refusal and queued-work handoff. Thirty-two entry checks pass; native compilation, the new fixtures and real integrated setup/activation remain pending. The prior proposal commit passes its full native instrumented catalogue, public-library job and complete Mac/Xcode workflow; its full engine receipt was still in progress when captured.
+
+Alternative setup offers, standalone production and public transfer, the qualified candidate loader and profile data, confirmation of selected evidence against actual loaded configuration, complete quality/performance and final integrated acceptance remain open. Only the original pack is supported. The frozen held-out continuation remains unchanged and unanalyzed.

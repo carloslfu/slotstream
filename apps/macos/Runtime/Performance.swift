@@ -90,7 +90,7 @@ public enum PerformancePolicy {
     public static func validate(_ preferences: PerformancePreferences, on machine: Machine) throws {
         try validate(preferences, on: machine, pack: ModelPackRegistry.resolve(preferences.quantization).pack)
     }
-    private static func validate(_ preferences: PerformancePreferences, on machine: Machine, pack: ModelPack) throws {
+    package static func validate(_ preferences: PerformancePreferences, on machine: Machine, pack: ModelPack) throws {
         try validateSaved(preferences)
         if case .pack(let requested) = preferences.quantization, requested != pack.id {
             throw SevraError.refused("The planned model does not match your saved quantization choice.")
@@ -227,6 +227,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var configuration: AppliedModelConfiguration?
     private var activationFailure: String?
     private var activationRecoveryAvailable = false
+    private var selectedConfiguration: (decision: ModelPackDecision, preferences: PerformancePreferences)?
     private struct RangeKey: Equatable {
         let manifest: String
         let startupPolicy: String
@@ -256,6 +257,9 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     func applied(_ configuration: AppliedModelConfiguration?) {
         lock.lock(); self.configuration = configuration; lock.unlock()
     }
+    func selected(_ decision: ModelPackDecision, preferences: PerformancePreferences) {
+        lock.lock(); selectedConfiguration = (decision, preferences); lock.unlock()
+    }
     func activationFailed(_ message: String?, recoveryAvailable: Bool = false) {
         lock.lock(); activationFailure = message
         activationRecoveryAvailable = message != nil && recoveryAvailable
@@ -265,27 +269,41 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         lock.lock()
         let current = engine, state = self.state, detail = self.detail, seconds = preparationSeconds, pressure = self.pressure,
             configuration = self.configuration, activationFailure = self.activationFailure,
-            activationRecoveryAvailable = self.activationRecoveryAvailable
+            activationRecoveryAvailable = self.activationRecoveryAvailable,
+            selectedConfiguration = self.selectedConfiguration
         lock.unlock()
         let machine = Machine.current()
         // Credit only Sevra's physical footprint, never RSS plus GPU memory.
         let bytes = ProcessMemory.residentBytes()
         var credited = machine
         if let available = machine.availableGB { credited.availableGB = min(machine.ramGB, available + Double(bytes) / 1e9) }
-        let recommendation = try? PerformancePolicy.plan(.init(), on: credited)
         let plan = current?.currentPlan
         let conditions = ProcessMemory.operatingConditions()
         let conserving = conditions.lowPowerModeEnabled || ["serious", "critical"].contains(conditions.thermalState)
         // Ranges depend on hardware and selected context/components, never
         // live availability. Price only when this key changes, outside the
         // telemetry lock; polling and governor updates reuse that result.
+        let selected = selectedConfiguration.flatMap { value -> ModelPackDecision? in
+            let previous = value.preferences
+            return previous.quantization == preferences.quantization && previous.budget == preferences.budget
+                && previous.liveMemory == preferences.liveMemory
+                && (previous.budget != .custom || previous.customGB == preferences.customGB) ? value.decision : nil
+        }
         let rangeChoice: ModelPackSelection
         if preferences.quantization == .automatic, let packID = configuration?.packID {
             rangeChoice = .pack(packID)
+        } else if let selected { rangeChoice = .pack(selected.pack.id)
         } else { rangeChoice = preferences.quantization }
         let rangePack = try? ModelPackRegistry.resolve(rangeChoice).pack
+        let recommendedLookahead: DecodeLookaheadPlanning = plan.map {
+            .retained(enabled: $0.decodeLookahead, bytes: $0.lookaheadReserveBytes)
+        } ?? .automatic
+        let recommendation = rangePack.flatMap { pack in
+            try? pack.startupPlan(on: credited, mtpAvailable: plan?.mtpEnabled ?? false,
+                originalLookahead: recommendedLookahead)
+        }
         let rangeKey = RangeKey(manifest: rangePack?.manifestDigest ?? "unavailable",
-            startupPolicy: rangePack?.startupDefaults.id ?? "unavailable",
+            startupPolicy: rangePack?.startupDefaults.recipeIdentity ?? "unavailable",
             ramGB: machine.ramGB, workingSetGB: machine.workingSetGB)
         lock.lock(); let cached = cachedRange; lock.unlock()
         let range: ModelPackMemoryRange?
@@ -308,7 +326,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
             activationFailure: activationFailure,
             activationRecoveryAvailable: activationRecoveryAvailable,
             activePack: current == nil ? nil : configuration?.packID,
-            selectionReason: (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
+            selectionReason: selected?.reason ?? (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
             configuration: current == nil ? nil : configuration,
             minimumGB: range?.minimumGB ?? PerformancePolicy.minimumGB,
             memoryRangeAvailable: range != nil)
@@ -317,5 +335,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
 
 public extension Inference {
     var performanceTelemetry: PerformanceTelemetry? { nil }
-    func configure(_ preferences: PerformancePreferences) async throws {}
+    func configure(_ preferences: PerformancePreferences) async throws {
+        try PerformancePolicy.validate(preferences, on: .current())
+    }
 }

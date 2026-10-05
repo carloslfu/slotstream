@@ -14,6 +14,10 @@ public struct ModelSetupStatus: Sendable, Equatable {
 /// blocking library download drains its workers. It never downloads on init.
 public final class ModelSetup: @unchecked Sendable {
     private let store: WeightStore
+    package let pack: ModelPack
+    public var packID: String { pack.id }
+    public var packTitle: String { pack.title }
+    public var modelDirectory: URL { store.modelDirectory }
     private let decodeForecastFiles: [TapCorrectionSidecar.File]
     private let lock = NSLock()
     private var cancellation: PullCancellation?
@@ -22,6 +26,7 @@ public final class ModelSetup: @unchecked Sendable {
         self.init(model: model, pack: ModelPackRegistry.baseline)
     }
     public init(model: URL, pack: ModelPack) {
+        self.pack = pack
         store = WeightStore(modelDirectory: model, pack: pack)
         decodeForecastFiles = pack.decodeForecastFiles
         value = ModelSetupStatus(phase: "Not checked", detail: "Check the installed local model, or download its pinned files.",

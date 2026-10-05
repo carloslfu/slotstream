@@ -5,6 +5,8 @@ extension Diagnostics {
     public static func modelPackStartupDefaults() throws -> CheckReport {
         var c = CheckBuilder("model-pack-startup-defaults")
         let pack = ModelPackRegistry.baseline, defaults = ModelPackRegistry.baseline.startupDefaults
+        c.equal("legacy activation mapping binds the exact historical startup recipe",
+            defaults.recipeIdentity, ModelPackStartupDefaults.legacyOriginalRecipeIdentity)
         func encoded(_ plan: MemoryPlan) throws -> Data {
             try JSONSerialization.data(withJSONObject: plan.json(), options: [.sortedKeys])
         }

@@ -18,6 +18,7 @@ package final class ModelActivationJournal {
         /// Older original-pack receipts predate explicit startup recipes.
         /// A pending load or rollback may not silently adopt revised defaults.
         package let startupPolicyID: String?
+        package let startupRecipeIdentity: String?
         package init(_ preferences: PerformancePreferences) throws {
             try self.init(preferences, pack: ModelPackRegistry.resolve(preferences.quantization).pack)
         }
@@ -26,14 +27,21 @@ package final class ModelActivationJournal {
         package init(_ preferences: PerformancePreferences, pack: ModelPack) throws {
             self.preferences = preferences; packID = pack.id; manifest = pack.manifestDigest
             startupPolicyID = pack.startupDefaults.id
+            startupRecipeIdentity = pack.startupDefaults.recipeIdentity
             try validate()
         }
         private var effectiveStartupPolicyID: String {
             startupPolicyID ?? (packID == ModelPackRegistry.baseline.id ? ModelPackStartupDefaults.legacyOriginalPolicyID : "")
         }
+        private var effectiveStartupRecipeIdentity: String {
+            startupRecipeIdentity ?? (packID == ModelPackRegistry.baseline.id
+                && effectiveStartupPolicyID == ModelPackStartupDefaults.legacyOriginalPolicyID
+                ? ModelPackStartupDefaults.legacyOriginalRecipeIdentity : "")
+        }
         package static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.preferences == rhs.preferences && lhs.packID == rhs.packID && lhs.manifest == rhs.manifest
                 && lhs.effectiveStartupPolicyID == rhs.effectiveStartupPolicyID
+                && lhs.effectiveStartupRecipeIdentity == rhs.effectiveStartupRecipeIdentity
         }
         package func validatedPack() throws -> ModelPack {
             try PerformancePolicy.validateSaved(preferences)
@@ -46,7 +54,8 @@ package final class ModelActivationJournal {
             guard matchesOverride, pack.manifestDigest == manifest else {
                 throw SevraError.refused("This model activation belongs to a different supported pack. Choose model settings again.")
             }
-            guard effectiveStartupPolicyID == pack.startupDefaults.id else {
+            guard effectiveStartupPolicyID == pack.startupDefaults.id,
+                  effectiveStartupRecipeIdentity == pack.startupDefaults.recipeIdentity else {
                 throw SevraError.refused("This model activation uses different startup settings. Choose model settings again; your saved preference is preserved.")
             }
             return pack
@@ -77,10 +86,33 @@ package final class ModelActivationJournal {
         /// might contain a prompt, tool result or a private filesystem path.
         package var failure: String?
     }
+    /// Permission to use a reviewed installed version, never a hash-verification
+    /// or health receipt. Unsupported entries stay in history but cannot select
+    /// a pack. A changed startup recipe requires a new accepted setup as well.
+    package struct AcceptedPack: Codable, Equatable {
+        package let packID: String
+        package let manifest: String
+        package let startupPolicyID: String
+        package let startupRecipeIdentity: String
+        package init(_ pack: ModelPack) {
+            packID = pack.id; manifest = pack.manifestDigest
+            startupPolicyID = pack.startupDefaults.id; startupRecipeIdentity = pack.startupDefaults.recipeIdentity
+        }
+        fileprivate var structurallyValid: Bool {
+            !packID.isEmpty && packID.utf8.count <= 256 && !packID.utf8.contains(0)
+                && !startupPolicyID.isEmpty && startupPolicyID.utf8.count <= 128 && !startupPolicyID.utf8.contains(0)
+                && [manifest, startupRecipeIdentity].allSatisfy { value in
+                    value.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+                }
+        }
+        fileprivate var key: String { [packID, manifest, startupPolicyID, startupRecipeIdentity].joined(separator: "\u{0}") }
+    }
     package struct State: Codable, Equatable {
         package var schema = 1
         package var lastGood: Receipt?
         package var attempt: Attempt?
+        /// Optional so the older original-only journal decodes unchanged.
+        package var acceptedPacks: [AcceptedPack]? = nil
     }
     package enum WritePoint { case beforeWrite, beforeRename, afterRename, beforeArchive, afterArchive }
     package struct RecoverableHistory: Error, LocalizedError {
@@ -93,6 +125,9 @@ package final class ModelActivationJournal {
     package private(set) var state: State
     package let archivedRecordName: String?
     private static let maximumBytes = 65_536
+    /// Bounded device-local version history. It is not a model catalog and is
+    /// never silently pruned to authorize or delete an installed version.
+    private static let maximumAcceptedPacks = 64
 
     /// Separate roots prevent a custom model directory or a second install
     /// from changing the normal app's activation history.
@@ -184,6 +219,12 @@ package final class ModelActivationJournal {
         do { value = try JSONDecoder().decode(State.self, from: data) }
         catch { throw SevraError.refused("Model activation history is unreadable. Its previous contents have been preserved.") }
         guard value.schema == 1 else { throw SevraError.refused("This model activation history needs a compatible Sevra version.") }
+        if let accepted = value.acceptedPacks {
+            guard accepted.count <= maximumAcceptedPacks, accepted.allSatisfy(\.structurallyValid),
+                  Set(accepted.map(\.key)).count == accepted.count else {
+                throw SevraError.refused("The accepted model setup record is invalid. Its previous contents have been preserved.")
+            }
+        }
         if let good = value.lastGood {
             guard good.arithmeticIdentity.count == 64, good.arithmeticIdentity.allSatisfy({ $0.isHexDigit }),
                   (1...4).contains(good.healthTokens) else { throw SevraError.refused("Invalid model health receipt.") }
@@ -239,6 +280,34 @@ package final class ModelActivationJournal {
         attempt.phase = .failed; attempt.failure = "interrupted"
         var next = state; next.attempt = attempt; try save(next)
         return true
+    }
+    /// Called only after explicit setup completes, under the inference owner's
+    /// lifetime lease. Accepting content cannot publish a model or clear a
+    /// failed activation, and repeated acceptance is a byte-preserving no-op.
+    package func accept(_ pack: ModelPack) throws {
+        let registered = try ModelPackRegistry.resolve(.pack(pack.id)).pack
+        let record = AcceptedPack(pack)
+        guard registered.manifestDigest == pack.manifestDigest,
+              registered.startupDefaults.recipeIdentity == pack.startupDefaults.recipeIdentity,
+              record.structurallyValid else { throw SevraError.refused("This model setup is no longer supported.") }
+        var accepted = state.acceptedPacks ?? []
+        guard !accepted.contains(record) else { return }
+        guard accepted.count < Self.maximumAcceptedPacks else {
+            throw SevraError.refused("The accepted model setup history is full. Your installed models and previous settings are preserved.")
+        }
+        accepted.append(record)
+        var next = state; next.acceptedPacks = accepted
+        try save(next)
+    }
+    /// A caller must additionally check installed content. Permission survives
+    /// offline restarts, but an old manifest or changed recipe never inherits
+    /// the current version's acceptance.
+    package var acceptedManifests: [String: String] {
+        var result: [String: String] = [:]
+        for pack in ModelPackRegistry.supported where state.acceptedPacks?.contains(AcceptedPack(pack)) == true {
+            result[pack.id] = pack.manifestDigest
+        }
+        return result
     }
     package func begin(_ selection: Selection) throws -> UUID {
         try selection.validate()

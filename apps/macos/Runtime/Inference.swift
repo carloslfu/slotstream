@@ -121,6 +121,7 @@ public protocol Inference: Sendable {
     var simulated: Bool { get }
     var performanceTelemetry: PerformanceTelemetry? { get }
     func configure(_ preferences: PerformancePreferences) async throws
+    func acceptModelSetup(_ setup: ModelSetup) async throws
     func recoverModelActivation() async throws
     func prepareCache(_ context: InferenceCacheContext) async throws
     func turn(history: [ChatMessage], tools: [ToolDefinition], cancellation: Cancellation, buffer: TurnBuffer) async throws -> EngineTurn
@@ -138,6 +139,7 @@ public protocol Inference: Sendable {
     func releasePrivateState() async
 }
 public extension Inference {
+    func acceptModelSetup(_ setup: ModelSetup) async throws { throw SevraError.refused("This inference owner cannot accept a local model setup.") }
     func recoverModelActivation() async throws { throw SevraError.refused("This inference owner has no model setup record to repair.") }
     func prepareCache(_ context: InferenceCacheContext) async throws {}
     func prepareAhead() async {}
@@ -227,6 +229,88 @@ public actor LocalInference: Inference {
     public static func defaultActivationDirectory(model: URL = WeightStore.default.modelDirectory) -> URL {
         ModelActivationJournal.defaultDirectory(model: model)
     }
+    public func acceptModelSetup(_ setup: ModelSetup) async throws {
+        guard !inTurn, !maintaining, engine == nil else {
+            throw SevraError.refused("Finish active work and unload the model before accepting setup.")
+        }
+        let status = setup.snapshot()
+        let pack = try ModelPackRegistry.resolve(.pack(setup.packID)).pack
+        guard status.ready, !status.busy, pack.manifestDigest == setup.pack.manifestDigest,
+              try modelDirectory(for: pack).standardizedFileURL.resolvingSymlinksInPath()
+                == setup.modelDirectory.standardizedFileURL.resolvingSymlinksInPath() else {
+            throw SevraError.refused("Complete and verify this model's setup before accepting it.")
+        }
+        guard let journal = try openActivationJournal() else {
+            throw SevraError.refused("This inference owner has no durable model setup record.")
+        }
+        do { try journal.accept(pack) }
+        catch {
+            activationFailure = Self.activationRecoveryMessage
+            throw error
+        }
+    }
+
+    /// The legacy custom-directory initializer still denotes one original
+    /// checkpoint. The normal managed collection owns separate compiled paths.
+    private func modelDirectory(for pack: ModelPack) throws -> URL {
+        if pack.id == ModelPackRegistry.baseline.id { return model }
+        let normal = WeightStore.default.modelDirectory
+        guard model.standardizedFileURL.resolvingSymlinksInPath() == normal.standardizedFileURL.resolvingSymlinksInPath(),
+              !pack.directoryName.isEmpty, pack.directoryName != ".", pack.directoryName != "..",
+              !pack.directoryName.contains("/"), !pack.directoryName.contains("\\"), !pack.directoryName.utf8.contains(0) else {
+            throw SevraError.refused("This model pack needs its own location in the managed model collection.")
+        }
+        return normal.deletingLastPathComponent().appendingPathComponent(pack.directoryName, isDirectory: true)
+    }
+
+    private func openActivationJournal() throws -> ModelActivationJournal? {
+        if activationJournal == nil, let activationDirectory {
+            activationRecoveryAvailable = false
+            let journal: ModelActivationJournal
+            do { journal = try ModelActivationJournal(directory: activationDirectory, fault: activationWriteFault) }
+            catch let error as ModelActivationJournal.RecoverableHistory {
+                activationRecoveryAvailable = true
+                activationFailure = Self.activationRecordRecoveryMessage
+                throw error
+            }
+            _ = try journal.recoverInterrupted()
+            activationJournal = journal
+        }
+        return activationJournal
+    }
+
+    private func resolveStartup(_ preferences: PerformancePreferences, on machine: Machine) throws -> ModelPackDecision {
+        if case .pack = preferences.quantization { return try ModelPackRegistry.resolve(preferences.quantization) }
+        var accepted = activationJournal?.acceptedManifests ?? [:]
+        // The original-only product had no separate acceptance list. Preserve
+        // a successfully used original version when its exact recipe is still
+        // supported; finding arbitrary files does not migrate another pack.
+        if activationJournal?.state.acceptedPacks == nil, let prior = activationJournal?.state.lastGood,
+           let original = try? prior.selection.validatedPack(), original.id == ModelPackRegistry.baseline.id {
+            accepted[original.id] = original.manifestDigest
+        }
+        var installed: [String: String] = [:]
+        var observations: [ModelPackStartupObservation] = []
+        for pack in ModelPackRegistry.supported where accepted[pack.id] == pack.manifestDigest {
+            guard let directory = try? modelDirectory(for: pack),
+                  WeightStore(modelDirectory: directory, pack: pack).remainingBytes() == 0 else { continue }
+            installed[pack.id] = pack.manifestDigest
+            observations.append(.current(pack: pack, modelDirectory: directory))
+        }
+        let context = try ModelPackRegistry.startupContext(on: machine, hardware: .current(modelDirectory: model),
+            contextTokens: PerformancePolicy.contextTokens, requiredFeatures: [.text, .tools],
+            customMemoryGB: preferences.budget == .custom ? preferences.customGB : nil,
+            liveMemory: preferences.liveMemory, observations: observations,
+            acceptedInstalledManifests: installed,
+            incumbentPackID: appliedConfiguration?.packID ?? activationJournal?.state.lastGood?.selection.packID)
+        let decision = try ModelPackRegistry.resolve(preferences.quantization, context: context)
+        if let previous = activationJournal?.state.lastGood,
+           previous.selection.packID != decision.pack.id || (try? previous.selection.validatedPack()) == nil,
+           accepted[decision.pack.id] != decision.pack.manifestDigest {
+            throw SevraError.refused("The previous model setup no longer matches this version. Review and verify model setup before using the new automatic choice. Your settings and previous record are preserved.")
+        }
+        return decision
+    }
     public func prepareCache(_ context: InferenceCacheContext) async throws {
         guard !inTurn, !maintaining else { throw SevraError.refused("Cache ownership changes after the current response or model maintenance.") }
         guard cacheContext != context || (privateWorkingState && context.directory != nil) else { return }
@@ -249,12 +333,27 @@ public actor LocalInference: Inference {
         persistentCacheActive = (try? engine.enablePersistentPrefixCache(.init(directory: directory))) != nil
     }
     public func configure(_ preferences: PerformancePreferences) async throws {
-        try PerformancePolicy.validate(preferences, on: .current())
+        try PerformancePolicy.validateSaved(preferences)
         guard !inTurn, !maintaining else { throw SevraError.refused("Memory settings apply after the current response or model maintenance.") }
         maintaining = true
         defer { maintaining = false }
-        let oldPack = appliedConfiguration?.packID ?? (try? ModelPackRegistry.resolve(self.preferences.quantization).pack.id)
-        let requested = try ModelActivationJournal.Selection(preferences)
+        let relevantChange = self.preferences.quantization != preferences.quantization
+            || self.preferences.budget != preferences.budget
+            || (preferences.budget == .custom && self.preferences.customGB != preferences.customGB)
+            || self.preferences.liveMemory != preferences.liveMemory || activationFailure != nil
+        if !relevantChange, engine != nil || activationAttempt != nil {
+            // Readiness and an inactive custom value do not rerun selection
+            // or replace a frozen pending activation with a noisier sample.
+            self.preferences = preferences
+            return
+        }
+        _ = try openActivationJournal()
+        let machine = Machine.current()
+        let decision = try resolveStartup(preferences, on: machine)
+        try PerformancePolicy.validate(preferences, on: machine, pack: decision.pack)
+        let oldPack = appliedConfiguration?.packID ?? activationJournal?.state.lastGood?.selection.packID
+            ?? (try? ModelPackRegistry.resolve(self.preferences.quantization).pack.id)
+        let requested = try ModelActivationJournal.Selection(preferences, pack: decision.pack)
         let newPack = requested.packID
         if self.preferences.budget != preferences.budget ||
             (preferences.budget == .custom && self.preferences.customGB != preferences.customGB) ||
@@ -272,6 +371,7 @@ public actor LocalInference: Inference {
             performanceTelemetry?.update(state: "Model not loaded", detail: "Your new budget applies to the next message.")
         }
         self.preferences = preferences
+        performanceTelemetry?.selected(decision, preferences: preferences)
         activationFailure = nil
         activationRetryRequested = true
     }
@@ -324,7 +424,7 @@ public actor LocalInference: Inference {
                 // work too, rather than fail each waiting request in turn.
                 if activationDirectory != nil, !cancellation.isCancelled {
                     activationFailure = activationRecoveryAvailable
-                        ? "The requested model configuration did not activate because its setup record is unreadable. Repair model setup to preserve that record and verify the model again."
+                        ? Self.activationRecordRecoveryMessage
                         : Self.activationRecoveryMessage
                 }
                 throw error
@@ -454,8 +554,10 @@ public actor LocalInference: Inference {
         return turn
     }
     private static let activationRecoveryMessage = "The requested model configuration did not activate. Your settings are preserved. Retry settings or choose the previous configuration."
+    private static let activationRecordRecoveryMessage = "The requested model configuration did not activate because its setup record is unreadable. Repair model setup to preserve that record and verify the model again."
 
     private func loadForTurn(cancellation: Cancellation, buffer: TurnBuffer) async throws {
+        let journal = try openActivationJournal()
         let selection: ModelActivationJournal.Selection
         if let id = activationAttempt {
             guard let pending = activationJournal?.state.attempt, pending.id == id,
@@ -465,19 +567,10 @@ public actor LocalInference: Inference {
             try pending.selection.validate()
             selection = pending.selection
         } else {
-            selection = try ModelActivationJournal.Selection(preferences)
+            let decision = try resolveStartup(preferences, on: .current())
+            selection = try ModelActivationJournal.Selection(preferences, pack: decision.pack)
+            performanceTelemetry?.selected(decision, preferences: preferences)
         }
-        if activationJournal == nil, let activationDirectory {
-            activationRecoveryAvailable = false
-            let journal: ModelActivationJournal
-            do { journal = try ModelActivationJournal(directory: activationDirectory, fault: activationWriteFault) }
-            catch let error as ModelActivationJournal.RecoverableHistory {
-                activationRecoveryAvailable = true; throw error
-            }
-            _ = try journal.recoverInterrupted()
-            activationJournal = journal
-        }
-        let journal = activationJournal
         if let attempt = journal?.state.attempt, attempt.phase == .failed, attempt.failure != "cancelled",
            attempt.selection == selection, !activationRetryRequested {
             activationFailure = Self.activationRecoveryMessage
@@ -551,6 +644,7 @@ public actor LocalInference: Inference {
                                attempt: UUID? = nil, healthCheck: Bool) async throws
         -> (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int) {
         let pack = try selection.validatedPack()
+        let model = try modelDirectory(for: pack)
         let preference = selection.preferences
         // A future registry entry must supply its own verified loader before
         // it can use this boundary. Never reinterpret it as the original pack.
@@ -640,14 +734,20 @@ public actor LocalInference: Inference {
     /// in bounded chunks and loads nothing. Skipped in Low Power Mode, when
     /// the model is loaded, or when the files are not all present.
     public func prepareAhead() async {
-        guard engine == nil, !inTurn, !maintaining, !ProcessInfo.processInfo.isLowPowerModeEnabled,
-              let selection = try? ModelPackRegistry.resolve(preferences.quantization),
-              selection.pack.id == ModelPackRegistry.baseline.id else { return }
-        let store = WeightStore(modelDirectory: model, pack: selection.pack)
+        guard engine == nil, !inTurn, !maintaining, !ProcessInfo.processInfo.isLowPowerModeEnabled else { return }
+        let pack: ModelPack
+        if let attempt = activationAttempt, let pending = activationJournal?.state.attempt,
+           pending.id == attempt, let frozen = try? pending.selection.validatedPack() { pack = frozen }
+        else {
+            guard let selection = try? resolveStartup(preferences, on: .current()) else { return }
+            pack = selection.pack
+        }
+        guard let model = try? modelDirectory(for: pack) else { return }
+        let store = WeightStore(modelDirectory: model, pack: pack)
         guard store.remainingBytes() == 0, ahead.begin() else { return }
-        let cache = modelVerification, model = model, ahead = ahead
-        let files = selection.pack.files.map { model.appendingPathComponent($0.path) }
-        let manifestDigest = selection.pack.manifestDigest
+        let cache = modelVerification, ahead = ahead
+        let files = pack.files.map { model.appendingPathComponent($0.path) }
+        let manifestDigest = pack.manifestDigest
         DispatchQueue.global(qos: .utility).async {
             _ = try? cache.check(manifestDigest: manifestDigest, files: files, shouldContinue: { !ahead.cancelled }) {
                 try store.status(shouldContinue: { !ahead.cancelled }).isReady
