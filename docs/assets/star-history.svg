@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500" role="img" aria-labelledby="title desc">
   <title id="title">carloslfu/slotstream GitHub star history</title>
-  <desc id="desc">402 GitHub stars from Aug 28–Sep 28, 2026.</desc>
+  <desc id="desc">414 GitHub stars from Aug 28–Oct 5, 2026.</desc>
   <defs>
     <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#54aeff" stop-opacity="0.30"/>
@@ -10,8 +10,8 @@
   <rect x="0.5" y="0.5" width="959" height="499" rx="12" fill="#ffffff" stroke="#d0d7de"/>
   <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
     <text x="42" y="49" fill="#1f2328" font-size="22" font-weight="600">GitHub stars over time</text>
-    <text x="42" y="78" fill="#656d76" font-size="14">carloslfu/slotstream · Aug 28–Sep 28, 2026</text>
-    <text x="918" y="50" text-anchor="end" fill="#1f2328" font-size="30" font-weight="600">402</text>
+    <text x="42" y="78" fill="#656d76" font-size="14">carloslfu/slotstream · Aug 28–Oct 5, 2026</text>
+    <text x="918" y="50" text-anchor="end" fill="#1f2328" font-size="30" font-weight="600">414</text>
     <text x="918" y="77" text-anchor="end" fill="#656d76" font-size="14">stars</text>
     <line x1="78" y1="432.00" x2="922" y2="432.00" stroke="#d8dee4" stroke-width="1"/>
     <text x="65" y="432.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">0</text>
@@ -26,13 +26,13 @@
     <line x1="78" y1="122.00" x2="922" y2="122.00" stroke="#d8dee4" stroke-width="1"/>
     <text x="65" y="122.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">500</text>
     <text x="78.00" y="469" text-anchor="middle" fill="#656d76" font-size="12">Aug 28</text>
-    <text x="241.35" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 3</text>
-    <text x="404.71" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 9</text>
-    <text x="595.29" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 16</text>
-    <text x="758.65" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 22</text>
-    <text x="922.00" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 28</text>
-    <path d="M 78.00 432.00 L 105.23 432.00 L 132.45 432.00 L 159.68 430.76 L 186.90 358.22 L 214.13 281.34 L 241.35 261.50 L 268.58 255.92 L 295.81 250.96 L 323.03 249.72 L 350.26 245.38 L 377.48 232.98 L 404.71 226.78 L 431.94 219.96 L 459.16 217.48 L 486.39 216.24 L 513.61 212.52 L 540.84 210.66 L 568.06 208.18 L 595.29 205.70 L 622.52 201.36 L 649.74 199.50 L 676.97 195.78 L 704.19 193.92 L 731.42 190.82 L 758.65 189.58 L 785.87 189.58 L 813.10 187.10 L 840.32 185.86 L 867.55 184.62 L 894.77 182.76 L 922.00 182.76 L 922.00 432.00 L 78.00 432.00 Z" fill="url(#area)"/>
-    <path d="M 78.00 432.00 L 105.23 432.00 L 132.45 432.00 L 159.68 430.76 L 186.90 358.22 L 214.13 281.34 L 241.35 261.50 L 268.58 255.92 L 295.81 250.96 L 323.03 249.72 L 350.26 245.38 L 377.48 232.98 L 404.71 226.78 L 431.94 219.96 L 459.16 217.48 L 486.39 216.24 L 513.61 212.52 L 540.84 210.66 L 568.06 208.18 L 595.29 205.70 L 622.52 201.36 L 649.74 199.50 L 676.97 195.78 L 704.19 193.92 L 731.42 190.82 L 758.65 189.58 L 785.87 189.58 L 813.10 187.10 L 840.32 185.86 L 867.55 184.62 L 894.77 182.76 L 922.00 182.76" fill="none" stroke="#0969da" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="922.00" cy="182.76" r="5" fill="#ffffff" stroke="#0969da" stroke-width="3"/>
+    <text x="255.68" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 5</text>
+    <text x="411.16" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 12</text>
+    <text x="588.84" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 20</text>
+    <text x="744.32" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 27</text>
+    <text x="922.00" y="469" text-anchor="middle" fill="#656d76" font-size="12">Oct 5</text>
+    <path d="M 78.00 432.00 L 100.21 432.00 L 122.42 432.00 L 144.63 430.76 L 166.84 358.22 L 189.05 281.34 L 211.26 261.50 L 233.47 255.92 L 255.68 250.96 L 277.89 249.72 L 300.11 245.38 L 322.32 232.98 L 344.53 226.78 L 366.74 220.58 L 388.95 218.10 L 411.16 216.86 L 433.37 213.14 L 455.58 211.28 L 477.79 208.80 L 500.00 206.32 L 522.21 201.98 L 544.42 200.12 L 566.63 196.40 L 588.84 194.54 L 611.05 191.44 L 633.26 190.20 L 655.47 190.20 L 677.68 187.72 L 699.89 186.48 L 722.11 185.24 L 744.32 183.38 L 766.53 182.76 L 788.74 180.28 L 810.95 179.66 L 833.16 179.66 L 855.37 177.18 L 877.58 176.56 L 899.79 175.94 L 922.00 175.32 L 922.00 432.00 L 78.00 432.00 Z" fill="url(#area)"/>
+    <path d="M 78.00 432.00 L 100.21 432.00 L 122.42 432.00 L 144.63 430.76 L 166.84 358.22 L 189.05 281.34 L 211.26 261.50 L 233.47 255.92 L 255.68 250.96 L 277.89 249.72 L 300.11 245.38 L 322.32 232.98 L 344.53 226.78 L 366.74 220.58 L 388.95 218.10 L 411.16 216.86 L 433.37 213.14 L 455.58 211.28 L 477.79 208.80 L 500.00 206.32 L 522.21 201.98 L 544.42 200.12 L 566.63 196.40 L 588.84 194.54 L 611.05 191.44 L 633.26 190.20 L 655.47 190.20 L 677.68 187.72 L 699.89 186.48 L 722.11 185.24 L 744.32 183.38 L 766.53 182.76 L 788.74 180.28 L 810.95 179.66 L 833.16 179.66 L 855.37 177.18 L 877.58 176.56 L 899.79 175.94 L 922.00 175.32" fill="none" stroke="#0969da" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="922.00" cy="175.32" r="5" fill="#ffffff" stroke="#0969da" stroke-width="3"/>
   </g>
 </svg>
