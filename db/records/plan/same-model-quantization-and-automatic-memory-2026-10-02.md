@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T03:47:12.264353+00:00
+updated: 2026-10-05T04:02:03.535938+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1139,3 +1139,8 @@ The native CLI fixture now covers missing run/serve selections, retained unrelat
 #### Refused-context explanation keeps pack authority
 
 [[sources/runs/2026/10/2026-10-04-pack-context-refusal-preparation]] records the refusal review and correction. The automatic context result retains its pack contract even when no proposed plan fits, so missing feasibility cannot restore the original timing explanation. Uncalibrated JSON withholds the original request-cost calibration. Native fixtures cover both feasible and impossible candidates; diff and claims checks pass, with native execution pending. The preceding context foundation has passing public-library and coverage jobs, separately identified in the receipt. No capability or speed qualification changes.
+
+
+### Frozen retirement execution protocol
+
+[[sources/runs/2026/10/2026-10-04-payload-retirement-protocol-freeze]] records the copied helper closure and exact execution protocol for the previously reviewed reproducible payloads. Original and frozen metadata validation pass. Full payload authentication and retirement remain unexecuted while quality owns the physical slot. The existing limits and per-file receipts are unchanged. The export execution protocol follows actual successful cleanup and fresh storage admission.

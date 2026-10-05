@@ -345,3 +345,6 @@ Prepared selected CLI directory/store/resource binding, guarded serving and pack
 ## [2026-10-05 03:47] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Retained the pack allocation contract in automatic context results even when every plan is refused; uncalibrated text and JSON cannot recover original timing authority. Added refusal and JSON fixtures. Diff, claims 349/0, projections and full brain validation 0/0 pass; native correction checks pending. Captured separate preceding context-foundation CI progress. Physical studies and qualification remain open.
 
+## [2026-10-05 04:08] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Frozen the exact authenticated retirement protocol and helper closure for the previously reviewed reproducible payloads. Original and frozen metadata validation, claims 349/0, projections and full brain validation 0/0 pass. No payload hashes, deletions or exports have run. Actual retirement waits for completion and final analysis of the current quality study, then fresh process, memory and storage admission.
+
