@@ -271,7 +271,7 @@ def validate_plan(plan, native, resource_identity):
             or native['memory_mode'] == 'target' and plan['target_gb'] != native['memory_bytes'] / 1e9):
         raise ValueError('applied native plan differs from its complete user envelope')
     if (native['draft_mode'] in ('on', 'off') and plan.get('mtp') is not (native['draft_mode'] == 'on')
-            or native['lookahead'] in ('off', 'uncorrected') and plan.get('decode_lookahead') is not (native['lookahead'] == 'uncorrected')
+            or native['lookahead'] in ('off', 'uncorrected', 'attention') and plan.get('decode_lookahead') is not (native['lookahead'] != 'off')
             or plan.get('mtp') is True and native['draft_placement'] in ('streamed', 'resident')
                 and plan.get('mtp_streamed_experts') is not (native['draft_placement'] == 'streamed')):
         raise ValueError('applied native features differ from explicit performance overrides')

@@ -67,7 +67,9 @@ private struct QuantizationPerformanceProtocol: Decodable {
               ["off", "on", "auto"].contains(value.draftMode), (0...4).contains(value.draftDepth),
               (value.draftMode == "off") == (value.draftDepth == 0),
               ["automatic", "streamed", "resident"].contains(value.draftPlacement),
-              (value.artifact == "original" ? ["off", "automatic"] : ["off", "uncorrected"]).contains(value.lookahead),
+              (value.artifact == "original" ? ["off", "automatic"]
+                : (value.artifact == "affine3-native" ? ["off", "uncorrected", "attention"]
+                    : ["off", "uncorrected"])).contains(value.lookahead),
               value.originalCorrectionSha256 == nil || (value.artifact == "original" && value.lookahead == "automatic"
                 && value.originalCorrectionSha256 == RouterTapCorrection.shippedSHA256),
               ["automatic", "fixed"].contains(value.liveMemory), ["auto", "on", "off"].contains(value.gpuKeepAlive),
@@ -210,6 +212,18 @@ extension Diagnostics {
         var native = standalone; native["artifact"] = "affine3-native"
         c.equal("native trial binds its own allocation and arithmetic contract",
             try parse(native).resources, .affine3Native)
+        var attention = native; attention["lookahead"] = "attention"
+        c.equal("plain attention is an explicit native standalone experiment",
+            try parse(attention).resources, .affine3Native)
+        for artifact in ["original", "affine3"] {
+            var changed = attention; changed["artifact"] = artifact
+            do { _ = try parse(changed); c.expect("attention cannot change a retained recipe/\(artifact)", false) }
+            catch { c.expect("attention cannot change a retained recipe/\(artifact)", true) }
+        }
+        let attentionConfiguration = ExpertPrefetchConfiguration.experimentalAffineAttention
+        var expectedAttention = ExpertPrefetchConfiguration.qualifiedDecode
+        expectedAttention.tap = .attention; expectedAttention.windowLayers = 1
+        c.expect("attention changes only tap and forecast window", attentionConfiguration == expectedAttention)
         for (key, value): (String, Any) in [("scope", "held-out"), ("deployment", "composite") ] {
             var changed = native; changed[key] = value
             do { _ = try parse(changed); c.expect("native trial cannot inherit reference qualification/\(key)", false) }
@@ -277,7 +291,7 @@ extension Diagnostics {
         }
         let lookahead: DecodeLookaheadPlanning
         switch specification.lookahead {
-        case "uncorrected": lookahead = .retained(enabled: true, bytes: DecodeLookahead.reserveBytes)
+        case "uncorrected", "attention": lookahead = .retained(enabled: true, bytes: DecodeLookahead.reserveBytes)
         case "automatic": lookahead = located.map { .automaticCorrected(bytes: $0.header.fileBytes) } ?? .automatic
         default: lookahead = .off
         }
@@ -359,7 +373,11 @@ extension Diagnostics {
             let loadStarted = ProcessInfo.processInfo.systemUptime
             let loaded: Engine
             if let standalone {
-                if specification.artifact == "affine3-native" {
+                if specification.lookahead == "attention" {
+                    loaded = try await Engine(modelDir: standalone.directory,
+                        affineSource: AffineEngineSource(standalone: standalone, decodeLookahead: true,
+                            nativeArithmetic: true, decodeLookaheadTap: .attention), plan: plan)
+                } else if specification.artifact == "affine3-native" {
                     loaded = try await Engine(modelDir: standalone.directory,
                         pack: ModelPackRegistry.researchStandalone, plan: plan)
                 } else {
@@ -387,6 +405,13 @@ extension Diagnostics {
                   (loaded.model.lookahead?.prefetch != nil) == plan.decodeLookahead,
                   !plan.decodeLookahead || loaded.model.lookahead?.prefetch?.tapCorrection?.identity == specification.originalCorrectionSha256 else {
                 throw ModelError("loaded performance features differ from the complete plan")
+            }
+            if specification.artifact != "original", plan.decodeLookahead {
+                let expected: ExpertPrefetchConfiguration = specification.lookahead == "attention"
+                    ? .experimentalAffineAttention : .qualifiedDecode
+                guard loaded.model.lookahead?.prefetch?.configuration == expected else {
+                    throw ModelError("loaded candidate forecast differs from its explicit protocol")
+                }
             }
             record["load_seconds"] = ProcessInfo.processInfo.systemUptime - loadStarted
             record["loaded"] = true; record["arithmetic_identity"] = loaded.model.authenticatedArtifactIdentity ?? "native-deployed-defaults"

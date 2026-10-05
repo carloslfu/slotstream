@@ -321,7 +321,8 @@ public final class Engine {
                   policy.draftMode != .on || plan.mtpEnabled,
                   policy.draftMode != .off || !plan.mtpEnabled,
                   policy.lookahead != .off || !plan.decodeLookahead,
-                  policy.lookahead != .uncorrected || (plan.decodeLookahead && model.lookahead?.prefetch?.tapCorrection == nil),
+                  policy.lookahead != .uncorrected || (plan.decodeLookahead
+                    && model.lookahead?.prefetch?.configuration == .qualifiedDecode),
                   (plan.runtimeAllocationPolicy?.prefixCacheEnabled ?? true) == policy.prefixCacheEnabled else {
                 throw ModelError("Loaded resources differ from this pack's startup recipe")
             }
@@ -438,6 +439,12 @@ public final class Engine {
             && affineSource?.vision == false) else {
             throw SlotstreamError.invalidPlan("native affine arithmetic requires the owned text-only standalone pack")
         }
+        if let affineSource, affineSource.decodeLookaheadTap != .boundary {
+            guard affineSource.decodeLookaheadTap == .attention,
+                  affineSource.nativeArithmetic, affineSource.decodeLookahead else {
+                throw SlotstreamError.invalidPlan("the affine attention probe requires native standalone lookahead")
+            }
+        }
         guard affineSource?.groupedExperts != true || affineSource?.piecewiseAllocation == true else {
             throw SlotstreamError.invalidPlan("grouped affine experts require the explicit sequential allocation contract")
         }
@@ -553,10 +560,13 @@ public final class Engine {
         let shippedCorrection = qualifiedLookahead && affineSource == nil
             ? RouterTapCorrection.shipped(modelDirectory: modelDir, env: processEnvironment)
             : (located: nil, reason: affineSource?.decodeLookahead == true
-                ? "explicit uncorrected affine research configuration; no inherited speed qualification" : "")
-        let prefetchConfiguration = qualifiedLookahead
+                ? "explicit affine \(affineSource!.decodeLookaheadTap.rawValue) research configuration; no inherited speed qualification" : "")
+        var prefetchConfiguration = qualifiedLookahead
             ? ExpertPrefetchConfiguration.qualifiedDecode(correction: shippedCorrection.located)
             : try ExpertPrefetchConfiguration.environment(optimizations: InferenceOptimizations.environment())
+        if affineSource?.decodeLookaheadTap == .attention {
+            prefetchConfiguration = .experimentalAffineAttention
+        }
         guard affineSource == nil || !prefetchConfiguration.active || affineSource?.decodeLookahead == true else {
             throw SlotstreamError.invalidPlan("expert lookahead is not admitted for the affine control")
         }
@@ -636,7 +646,7 @@ public final class Engine {
                 }
                 // The plan banner already announces the default; name its forecast, then describe only experiments.
                 if qualifiedLookahead { FileHandle.standardError.write(
-                    "[expert-lookahead] \(shippedCorrection.located == nil ? "boundary forecast" : "corrected attention forecast"): \(shippedCorrection.reason)\n"
+                    "[expert-lookahead] \(prefetchConfiguration.tap.rawValue) forecast: \(shippedCorrection.reason)\n"
                         .data(using: .utf8)!) }
                 if !qualifiedLookahead { FileHandle.standardError.write(
                     "[expert-lookahead] \(prefetchConfiguration.shadow ? "shadow" : "prefetch") mode, policy \(prefetchConfiguration.policy.rawValue), cap \(prefetchConfiguration.capRecords) records, \(prefetchConfiguration.lanes) lanes, window \(prefetchConfiguration.windowLayers), top \(prefetchConfiguration.topPerLayer)\(prefetchConfiguration.policy == .router ? ", strides \(prefetchConfiguration.strides.map(String.init).joined(separator: ",")), issue cap \(prefetchConfiguration.issueCapPerTarget), memo layers \(prefetchConfiguration.memoLayers)" : ""), adoption \(prefetchConfiguration.adoption.rawValue)\(prefetchConfiguration.adoption == .slot ? " (slot cap \(prefetchConfiguration.slotCap))" : "")\n"

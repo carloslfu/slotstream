@@ -180,6 +180,12 @@ class PerformanceCampaignChecks(unittest.TestCase):
                 changed = copy.deepcopy(receipt); changed[key] = value
                 with self.assertRaisesRegex(ValueError, 'identity or resources'):
                     m.validate_native(changed, native, '1' * 64, 'candidate')
+            attention = copy.deepcopy(native); attention['lookahead'] = 'attention'
+            attention_plan = copy.deepcopy(receipt['plan']); attention_plan['decode_lookahead'] = True
+            m.validate_plan(attention_plan, attention, 'affine3-native-memory-v1')
+            attention_plan['decode_lookahead'] = False
+            with self.assertRaisesRegex(ValueError, 'features differ'):
+                m.validate_plan(attention_plan, attention, 'affine3-native-memory-v1')
         for scope, deployment in [('held-out', 'standalone'), ('pilot', 'composite')]:
             with self.subTest(scope=scope, deployment=deployment), tempfile.TemporaryDirectory() as directory:
                 with self.assertRaisesRegex(ValueError, 'outside the priced scope'):

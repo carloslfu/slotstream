@@ -67,6 +67,17 @@ extension ExpertPrefetchConfiguration {
         return c
     }
 
+    /// Reuse the existing plain attention mechanism in a separately identified
+    /// native three-bit probe. It needs no correction bytes and keeps the same
+    /// staging reserve. The original pack's measured gain does not qualify this
+    /// configuration on different expert weights.
+    package static var experimentalAffineAttention: Self {
+        var c = qualifiedDecode
+        c.tap = .attention
+        c.windowLayers = 1
+        return c
+    }
+
     /// True when the environment selects an experimental lookahead instead of
     /// the qualified default: either prefetch switch, or an explicit reserve
     /// (the capacity control). Tuning variables alone do not change the default.
