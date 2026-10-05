@@ -60,7 +60,9 @@ extension Engine {
                             == modelDir.appendingPathComponent(pins[0].path).standardizedFileURL.resolvingSymlinksInPath() else { return nil }
                     expected.tap = .attentionCorrected; expected.windowLayers = 1
                     expected.correctionPath = path; expected.correctionBytes = bytes
-                    expected.reserveBytes = DecodeLookahead.reserveBytes(correctionBytes: bytes)
+                    // The scheduler owns staging and correction bytes. The
+                    // plan also charges the model's separate router cache.
+                    expected.reserveBytes += DecodeLookahead.roundedMiB(bytes)
                 }
                 guard scheduler.configuration == expected else { return nil }
             } else if model.lookahead?.prefetch != nil { return nil }

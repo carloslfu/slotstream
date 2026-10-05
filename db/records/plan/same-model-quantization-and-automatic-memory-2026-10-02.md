@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T16:29:54.421673+00:00
+updated: 2026-10-05T17:44:53.961896+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -18,7 +18,13 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-native-affine-arithmetic-trials-excluded]] preserves all four actual trials, including slower configurations. The latest native recipe completes within the 14 GB and 22 GB physical envelopes. Its latency observations are promising but remain excluded because of competing CPU. [[sources/runs/2026/10/2026-10-05-native-affine-loader-and-focused-quality-launch]] captures five passing native catalogue groups, explicit standalone plan/refusal checks, the complete prior main CI and the frozen launch of the existing 25-case quality comparison in both arms. The larger statistical study remains deferred.
 
-Next: finish that bounded quality check, close affected native safety and actual app activation checks, then obtain an eligible repeated performance comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
+[[sources/runs/2026/10/2026-10-05-native-affine-focused-quality]] completes the fixed comparison: the original passes 17 of 25 tasks and the native smaller pack passes 16. The one-count aggregate difference comes from the multilingual group; individual tool wins also differ. Both packs pass only one of five tool tasks. All sessions finish within the physical and wall limits. This small descriptive sample does not establish broad quality equivalence.
+
+[[sources/runs/2026/10/2026-10-05-native-affine-lifecycle-and-draft-recovery]] closes the native lifecycle checks: all 86 assertions pass under the fixed physical watchdog. The original draft-stream/recovery gate also passes. Both earlier fixture attempts are preserved; meaningful native decode and continuation inputs fix immediate-EOS cases without relaxing assertions or changing reference goldens.
+
+[[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] closes actual original-pack app activation and memory-control checks. A one-line accounting correction makes Engine-observed startup verification compare the scheduler reserve with its own staging and correction allocation, excluding the separately budgeted router cache. The unchanged checks pass rollback, explicit retry, restart, commit cancellation, repair, queued ceiling/live-mode changes, sequential reload, idle release and draft preservation.
+
+Next: obtain an eligible repeated performance comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
 
 ### Practical performance findings, October 5
 

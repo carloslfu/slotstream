@@ -523,7 +523,9 @@ public final class Engine {
         // allocator cache. Only reference arithmetic uses the smaller probe cap.
         MLX.Memory.cacheLimit = affineSource == nil || affineSource?.nativeArithmetic == true
             ? 2 << 30 : 128_000_000
-        self.modelName = affineSource?.artifact.modelName ?? "qwen3.8-flash-next:4bit"
+        self.modelName = affineSource?.nativeArithmetic == true
+            ? PinnedAffineStandalone.id
+            : affineSource?.artifact.modelName ?? "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index: CheckpointIndex
         if let affineSource {

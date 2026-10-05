@@ -12,12 +12,15 @@ extension Diagnostics {
                                     profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false,
                                     piecewiseAllocation: Bool = false, groupedExperts: Bool = false,
                                     standaloneManifestSHA256: String? = nil,
-                                    decodeLookahead: Bool = false) async throws -> Data {
+                                    decodeLookahead: Bool = false, nativeArithmetic: Bool = false) async throws -> Data {
         guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
         guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
-        guard !decodeLookahead || groupedExperts else { throw ModelError("experimental lookahead requires grouped experts") }
+        guard !decodeLookahead || groupedExperts || nativeArithmetic else { throw ModelError("experimental lookahead requires an admitted allocation contract") }
         let standalone = try standaloneManifestSHA256.map { try AffineStandalonePack(directory: control, manifestSHA256: $0) }
-        guard standalone == nil || (groupedExperts && piecewiseAllocation
+        guard !nativeArithmetic || (standalone != nil && !groupedExperts && !piecewiseAllocation) else {
+            throw ModelError("native arithmetic requires the exact standalone pack and deployed allocation")
+        }
+        guard standalone == nil || nativeArithmetic || (groupedExperts && piecewiseAllocation
             && table.resolvingSymlinksInPath() == control.appendingPathComponent("angles-f32le.bin").resolvingSymlinksInPath()) else {
             throw ModelError("standalone Engine checks require grouped allocation and the bundle's own coefficients")
         }
@@ -45,7 +48,8 @@ extension Diagnostics {
                 throw ModelError("affine Engine check exceeded its physical resource envelope")
             }
         }
-        let source = standalone.map { AffineEngineSource(standalone: $0, decodeLookahead: decodeLookahead) }
+        let source = standalone.map { AffineEngineSource(standalone: $0,
+            decodeLookahead: decodeLookahead, nativeArithmetic: nativeArithmetic) }
             ?? AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation,
                 groupedExperts: groupedExperts, decodeLookahead: decodeLookahead)
         let engineDirectory = standalone?.directory ?? baseline
@@ -72,6 +76,7 @@ extension Diagnostics {
                 "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation, "initial_plan": plan(800).json(),
                 "grouped_experts": groupedExperts,
+                "native_arithmetic": nativeArithmetic,
                 "decode_lookahead": decodeLookahead,
                 "maximum_physical_process_bytes": 10_000_000_000, "observations": observations,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(),
@@ -79,6 +84,7 @@ extension Diagnostics {
                 "report": try JSONSerialization.jsonObject(with: JSONEncoder().encode(c.report()))]
             result["failure"] = failure
             result["standalone_manifest_sha256"] = standalone?.manifestSHA256
+            if nativeArithmetic { result.removeValue(forKey: "rotary_sha256") }
             let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: output.appendingPathComponent("receipt.json"), options: .atomic)
             return data
@@ -106,15 +112,40 @@ extension Diagnostics {
                 c.expect("original loader rejects candidate accounting before allocation",
                     String(describing: error).contains("same pack"))
             }
-            let engine = try await Engine(modelDir: engineDirectory,
-                affineSource: source, plan: plan(800))
+            let engine: Engine
+            if nativeArithmetic {
+                engine = try await Engine(modelDir: engineDirectory,
+                    pack: ModelPackRegistry.researchStandalone, plan: plan(800))
+            } else {
+                engine = try await Engine(modelDir: engineDirectory, affineSource: source, plan: plan(800))
+            }
             engine.gpuKeepAlive = .off
             engine.generator.footprintSampling = true
             engine.generator.draftDepth = 2
+            func fixturePrompt(_ count: Int) -> [Int] {
+                guard count != prompt.count else { return prompt }
+                guard nativeArithmetic else { return (0..<count).map { 100 + ($0 * 17 % 1000) } }
+                // The reference's unframed synthetic 260-token input emits
+                // EOS immediately under deployed arithmetic. Keep the same
+                // pass lengths, but frame a real question so the equality
+                // assertions exercise nonempty decode and continuation.
+                let padding = engine.tokenizer.encode(text:
+                    "Read this background note before answering the final question. This example checks a bounded cache. ")
+                precondition(count > prompt.count && !padding.isEmpty)
+                return Array(prompt.prefix(3))
+                    + (0..<(count - prompt.count)).map { padding[$0 % padding.count] }
+                    + Array(prompt.dropFirst(3))
+            }
             c.equal("actual cache bytes use the alternate record", engine.poolSnapshot().poolBytes, 800 * 2_150_400)
             c.equal("context metadata uses admitted candidate limit", engine.contextPolicyJSON["implementation_limit"] as? Int, 32768)
             c.expect("unsupported image capability is absent", !engine.visionAvailable && !engine.visionAllowed)
-            c.expect("automatic read scopes cannot change reference dispatch", engine.model.optimizations.automaticReadScope == false)
+            if nativeArithmetic {
+                c.expect("native model retains the deployed expert path", !engine.model.affineGroupedExperts)
+                c.equal("native Engine metadata names its maintained descriptor", engine.modelName,
+                    ModelPackRegistry.researchStandalone.id)
+            } else {
+                c.expect("automatic read scopes cannot change reference dispatch", engine.model.optimizations.automaticReadScope == false)
+            }
             c.equal("lookahead scheduler matches the explicit request", engine.model.lookahead?.prefetch != nil, decodeLookahead)
             if decodeLookahead {
                 c.equal("experimental lookahead uses candidate record bytes",
@@ -152,17 +183,40 @@ extension Diagnostics {
             do {
                 let state = engine.model.makeState(), fetched = engine.model.pool.recordsFetched
                 do {
-                    _ = try engine.model.lastLogitsChecked(Array(repeating: 100, count: 513), state: state)
+                    let bound = nativeArithmetic ? engine.model.inferenceContextLimit : 512
+                    _ = try engine.model.lastLogitsChecked(Array(repeating: 100, count: bound + 1), state: state)
                     c.expect("oversized direct dispatch refused", false)
-                } catch { c.expect("oversized direct dispatch refused", String(describing: error).contains("query-row bound")) }
+                } catch { c.expect("oversized direct dispatch refused",
+                    String(describing: error).contains(nativeArithmetic ? "admitted context" : "query-row bound")) }
                 c.equal("invalid dispatch changes no state", state.tokenCount, 0)
                 c.equal("invalid dispatch reads no expert", engine.model.pool.recordsFetched, fetched)
             }
             var params = SampleParams.greedy; params.maxTokens = 16; params.seed = 7
+            var plainNativeIDs: [Int]?
+            if nativeArithmetic {
+                // This is a within-engine invariance control, not an imported
+                // reference golden or a task-quality assertion. Explicitly
+                // disable both speculation and prefix reuse for its source.
+                engine.generator.speculationEnabled = false
+                engine.prefixCache.enabled = false
+                let plain = engine.generate(promptIds: prompt, params: params)
+                c.expect("native plain control completes", plain.stats.requestFailure == nil
+                    && plain.stats.runtimeError == nil && plain.ids.count == 16)
+                plainNativeIDs = plain.ids
+                engine.dropPrefixCache()
+                engine.prefixCache.enabled = true
+                engine.generator.speculationEnabled = mtp
+                observations.append(["case": "native-plain-control", "ids": plain.ids,
+                    "stats": try JSONSerialization.jsonObject(with: JSONEncoder().encode(plain.stats))])
+            }
             let request = try engine.beginRequest()
             let first = engine.generate(promptIds: prompt, params: params, request: request)
-            c.equal("Engine matches independently checked greedy tokens", first.ids,
-                [760, 1156, 369, 9859, 883, 264, 10597, 8282, 5265, 310, 2136, 14791, 14, 2581, 42903, 11])
+            if let plainNativeIDs {
+                c.equal("native drafted execution preserves plain target IDs", first.ids, plainNativeIDs)
+            } else {
+                c.equal("Engine matches independently checked greedy tokens", first.ids,
+                    [760, 1156, 369, 9859, 883, 264, 10597, 8282, 5265, 310, 2136, 14791, 14, 2581, 42903, 11])
+            }
             c.expect("candidate does not inherit baseline prefill ETA", request.estimatedPrefillSeconds == nil)
             c.expect("initial request completes successfully", first.stats.requestFailure == nil && first.stats.runtimeError == nil)
             let repeatResult = engine.generate(promptIds: prompt, params: params)
@@ -188,7 +242,7 @@ extension Diagnostics {
                     engine.model.optimizations.cachedRouterWeights = savedRouterCache
                 }
                 for count in [44, 260, 2054] {
-                    let input = count == 44 ? prompt : (0..<count).map { 100 + ($0 * 17 % 1000) }
+                    let input = fixturePrompt(count)
                     session.prefetch?.invalidate(); engine.dropPrefixCache()
                     engine.model.lookahead = nil
                     engine.model.decodeBarrierLayers = 1
@@ -219,15 +273,25 @@ extension Diagnostics {
             let disk = try engine.enablePersistentPrefixCache(.init(directory: temporary.appendingPathComponent("prefix"),
                 maxBytes: 700_000_000, minimumTokens: 16))
             c.expect("persistent identity includes alternate manifest", disk.identity.components["weights"]?.contains(AffineExpertControl.manifestSHA256) == true)
-            c.expect("persistent identity includes rotary identity", disk.identity.components["weights"]?.contains(VQRotaryCoefficients.sha256) == true)
+            if nativeArithmetic {
+                c.expect("persistent identity distinguishes deployed arithmetic",
+                    disk.identity.components["weights"]?.contains("native-affine3-v1") == true)
+            } else {
+                c.expect("persistent identity includes rotary identity", disk.identity.components["weights"]?.contains(VQRotaryCoefficients.sha256) == true)
+            }
             c.expect("persistent identity includes tokenizer", disk.identity.components["tokenizer_metadata"]?.contains("0997f410") == true)
             var changedIdentity = disk.identity.components; changedIdentity["weights"] = "another-pack"
             c.expect("a different pack cannot reuse the identity", PersistentPrefixIdentity(components: changedIdentity).digest != disk.identity.digest)
-            let longPrompt = (0..<260).map { 100 + ($0 * 17 % 1000) }
+            let longPrompt = fixturePrompt(260)
             var short = params; short.maxTokens = 4
             engine.dropPrefixCache()
             let primed = engine.generate(promptIds: longPrompt, params: short)
-            let continuation = longPrompt + [123]
+            // Extend the native assistant turn with a token it actually
+            // emitted. The reference's arbitrary byte token ends the native
+            // reply immediately, which cannot exercise continued decoding.
+            let suffix = nativeArithmetic ? Array(primed.ids.prefix(1)) : [123]
+            guard suffix.count == 1 else { throw ModelError("prefix fixture produced no continuation token") }
+            let continuation = longPrompt + suffix
             let memory = engine.generate(promptIds: continuation, params: short)
             c.expect("aligned memory prefix is actually reused", memory.stats.reusedPrefixTokens >= 256)
             c.expect("prefill state reached the persistent tier", disk.storedStates > 0)
@@ -243,6 +307,7 @@ extension Diagnostics {
             })
             observations.append(["case": "prefix", "memory_tokens": memory.stats.reusedPrefixTokens,
                 "disk_tokens": restored.stats.persistentPrefix?.restoredTokens ?? 0,
+                "primed_ids": primed.ids, "continuation_input": continuation,
                 "memory_ids": memory.ids, "disk_ids": restored.ids, "cold_ids": cold.ids])
             try guardResources(); _ = try save()
 

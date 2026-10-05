@@ -6115,6 +6115,23 @@ Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
 
+## Unreleased
+
+- The development Mac app separates quantization, memory ceiling and live
+  memory adjustment. Each defaults to Automatic and can be overridden
+  independently. Changes wait for the current response to finish. The original
+  pack remains the only supported choice while the smaller pack is evaluated.
+- Model activation checks the selected files and a short response before
+  making a new configuration active. A failed change can restore the previous
+  working configuration while preserving the requested setting for an explicit
+  retry. Responses record the configuration that actually ran them.
+- `slotstream model-packs` lists supported pack identities. `--quantization`
+  opts `doctor`, `run` and `serve` into the same selection and memory planning
+  used by the app. Existing custom-model commands keep their behavior when
+  the option is omitted.
+- Returned expert-lookahead slots are released when a request finishes, after
+  its readers have joined, instead of waiting for the next demand read.
+
 ## 0.2.27 - 2026-09-30
 
 - Raw downloads stop their other requests as soon as a required file fails,

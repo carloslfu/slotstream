@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T16:26:52.168654Z
+updated: 2026-10-05T17:44:22.448221Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] — Corrected startup evidence comparison; unchanged real activation and memory-control checks pass within their physical ceilings
+- [[sources/runs/2026/10/2026-10-05-native-affine-lifecycle-and-draft-recovery]] — All eighty-six native checks and the existing original draft-stream gate pass; both earlier empty-output fixture failures are preserved
+- [[sources/runs/2026/10/2026-10-05-native-affine-focused-quality]] — All fifty outcomes recorded under physical supervision; original passes seventeen tasks and native candidate sixteen; no statistical equivalence or speed qualification
 - [[sources/runs/2026/10/2026-10-05-native-affine-loader-and-focused-quality-launch]] — Internal native loader and planning checks pass; unchanged 25-case quality comparison starts without promotion or speed claims
 - [[sources/runs/2026/10/2026-10-05-native-affine-arithmetic-trials-excluded]] — Four bounded native executions complete; competing CPU excludes every timing and the bundle remains unqualified
 - [[sources/runs/2026/10/2026-10-05-practical-configuration-timings-excluded]] — CPU contention excludes all timings; incomplete repeated trial and three one-shot recipe diagnostics are preserved
@@ -504,11 +507,8 @@ updated: 2026-10-05T16:26:52.168654Z
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-preparation]] — Resumed full vision integrations preserve original component proofs and guards
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-campaign-adapter]] — Fixed-MTP campaign adapter preserves exact original native evidence and eight workload contracts
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-scope-native-pass]] — Resumed original scope family passes 2698 assertions; original serving study frozen and unrun
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-long-decode-executor]] — Long decoding runner follows corrected fixed-MTP candidate controls
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-native-pass]] — Corrected compact-cache candidate passes all original native suites
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-validation-controls]] — Final study drafts preserve compact rows and the original MTP schedule
 
 ## More
 
-This folder has 842 files. The 500 most recent are listed above.
+This folder has 845 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -131,13 +131,17 @@ struct AffineEngineCheck: ParsableCommand {
     @Flag(name: .long) var streamedDraft = false
     @Flag(name: .long) var piecewiseAllocation = false
     @Flag(name: .long) var groupedExperts = false
-    @Flag(name: .long, help: "Explicit bounded uncorrected lookahead experiment; requires grouped experts") var decodeLookahead = false
+    @Flag(name: .long, help: "Explicit bounded uncorrected lookahead experiment; requires grouped or native experts") var decodeLookahead = false
+    @Flag(name: .long, help: "Check the pinned standalone pack with the deployed arithmetic and allocation") var nativeArithmetic = false
     func validate() throws {
         guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
         guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
-        guard !decodeLookahead || groupedExperts else { throw ValidationError("--decode-lookahead requires --grouped-experts") }
-        guard standaloneManifestSha256 == nil || groupedExperts else {
-            throw ValidationError("standalone validation requires --grouped-experts and --piecewise-allocation")
+        guard !decodeLookahead || groupedExperts || nativeArithmetic else { throw ValidationError("--decode-lookahead requires an explicit affine execution path") }
+        guard standaloneManifestSha256 == nil || groupedExperts || nativeArithmetic else {
+            throw ValidationError("standalone validation requires grouped or native arithmetic")
+        }
+        guard !nativeArithmetic || (standaloneManifestSha256 != nil && !groupedExperts && !piecewiseAllocation) else {
+            throw ValidationError("--native-arithmetic requires the standalone pin and deployed allocation")
         }
     }
     func run() throws {
@@ -149,7 +153,8 @@ struct AffineEngineCheck: ParsableCommand {
                     control: URL(fileURLWithPath: control), table: URL(fileURLWithPath: table),
                     profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
                     streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts,
-                    standaloneManifestSHA256: standaloneManifestSha256, decodeLookahead: decodeLookahead)
+                    standaloneManifestSHA256: standaloneManifestSha256, decodeLookahead: decodeLookahead,
+                    nativeArithmetic: nativeArithmetic)
             } catch { failure = error }
             semaphore.signal()
         }
