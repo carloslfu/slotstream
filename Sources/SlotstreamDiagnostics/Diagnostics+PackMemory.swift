@@ -26,6 +26,16 @@ extension Diagnostics {
             try JSONSerialization.data(withJSONObject: p.json(), options: [.sortedKeys])
         }
         c.equal("legacy planner retains exact original decisions", try json(original), try json(legacy))
+        for target in [10.0, 14, 22] {
+            let native = try plan(.affine3Native, target: target, mtp: .on, context: 32768,
+                placement: .streamed, lookahead: .retained(enabled: true, bytes: DecodeLookahead.reserveBytes))
+            c.equal("native affine ledger charges the exact expert size/\(target)",
+                native.memoryLedger.poolBytes, native.slots * 2_150_400)
+            c.expect("native affine full plan stays inside the target/\(target)",
+                native.expectedPeakGB <= target && native.mtpStreamedExperts && native.decodeLookahead)
+            c.expect("native affine does not inherit an original speed estimate/\(target)",
+                native.json()["est_warm_tok_s"] is NSNull)
+        }
         for slots in [640, 1000, 7000, Geometry.totalRecords] {
             let bytes = profile.poolBytes(slots)
             c.equal("three-bit complete-record byte cost \(slots)", bytes, slots * 2_150_400)

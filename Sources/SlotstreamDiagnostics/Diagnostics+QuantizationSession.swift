@@ -96,19 +96,23 @@ extension Diagnostics {
     /// mode remains outside the supported pack registry and product Auto.
     public static func quantizationSession(protocolFile: URL, protocolSHA256: String,
         baseline: URL, control: URL?, table: URL?, output: URL, planOnly: Bool = false,
-        standaloneManifestSHA256: String? = nil) async throws -> Data {
+        standaloneManifestSHA256: String? = nil, nativeArithmetic: Bool = false) async throws -> Data {
         guard (control == nil) == (table == nil), !FileManager.default.fileExists(atPath: output.path),
               standaloneManifestSHA256 == nil || (control == nil && table == nil),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
               }) else { throw ModelError("session requires explicit clean inputs, paired candidate paths and new output") }
         let specification = try QuantizationSessionProtocol.load(protocolFile, sha256: protocolSHA256)
+        guard !nativeArithmetic || (standaloneManifestSHA256 != nil && !specification.vision
+            && specification.scope == "instrument-check") else {
+            throw ModelError("native affine session requires an explicit standalone text pilot")
+        }
         let standalone = try standaloneManifestSHA256.map { try AffineStandalonePack(directory: baseline, manifestSHA256: $0) }
         let artifact: AffineExpertControl.Artifact?
         if standalone != nil { artifact = .minmax }
         else { artifact = try control.map { try AffineExpertControl.identify(control: $0) } }
-        let resources: PackMemoryProfile = artifact == nil ? .original
-            : (specification.vision ? .affine3GroupedVisionControl : .affine3GroupedControl)
+        let resources: PackMemoryProfile = nativeArithmetic ? .affine3Native : (artifact == nil ? .original
+            : (specification.vision ? .affine3GroupedVisionControl : .affine3GroupedControl))
         let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
             memoryGB: Double(specification.memoryBytes) / 1e9,
             mtp: specification.draftDepth > 0 ? .on : .off, mtpAvailable: specification.draftDepth > 0,
@@ -135,10 +139,11 @@ extension Diagnostics {
             "maximum_requests": specification.maximumRequests, "maximum_seconds": specification.maximumSeconds,
             "baseline_revision": PinnedModel.revision, "loaded": false, "requests": 0, "resets": 0,
             "admission_refusals": 0]
+        identity["native_arithmetic"] = nativeArithmetic
         if let artifact {
             identity["control_manifest_sha256"] = artifact.manifestSHA256
             identity["control_policy"] = artifact.policy
-            identity["rotary_sha256"] = VQRotaryCoefficients.sha256
+            if !nativeArithmetic { identity["rotary_sha256"] = VQRotaryCoefficients.sha256 }
             identity["standalone_manifest_sha256"] = standalone?.manifestSHA256
         } else { identity["manifest_sha256"] = ModelPackRegistry.baseline.manifestDigest }
         func serialize(_ value: [String: Any]) throws -> Data {
@@ -193,8 +198,13 @@ extension Diagnostics {
         do {
             let engine: Engine
             if let standalone {
-                engine = try await Engine(modelDir: standalone.directory,
-                    affineSource: AffineEngineSource(standalone: standalone, vision: specification.vision), plan: plan)
+                if nativeArithmetic {
+                    engine = try await Engine(modelDir: standalone.directory,
+                        pack: ModelPackRegistry.researchStandalone, plan: plan)
+                } else {
+                    engine = try await Engine(modelDir: standalone.directory,
+                        affineSource: AffineEngineSource(standalone: standalone, vision: specification.vision), plan: plan)
+                }
             } else if let control, let table, let artifact {
                 engine = try await Engine(modelDir: baseline,
                     affineSource: AffineEngineSource(control: control, artifact: artifact, coefficients: table,
@@ -223,6 +233,7 @@ extension Diagnostics {
             }
             try checkResources()
             identity["loaded"] = true; identity["model"] = engine.modelName
+            identity["arithmetic_identity"] = engine.model.authenticatedArtifactIdentity ?? "native-deployed-defaults"
             identity["load_seconds"] = ProcessInfo.processInfo.systemUptime - started
             _ = try save()
             signal(SIGPIPE, SIG_IGN)

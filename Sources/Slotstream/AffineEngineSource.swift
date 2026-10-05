@@ -20,10 +20,14 @@ package struct AffineEngineSource {
     package let groupedExperts: Bool
     package let vision: Bool
     package let decodeLookahead: Bool
+    /// Reuse the deployed trunk and expert kernels for the exact standalone
+    /// affine pack. Reference probes keep their existing arithmetic.
+    package let nativeArithmetic: Bool
     package let standalone: AffineStandalonePack?
     package var parentLayout: PinnedParentLayout { standalone == nil ? .original : .standalone }
     package var resources: PackMemoryProfile {
-        decodeLookahead ? .affine3GroupedLookaheadControl : (vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
+        if nativeArithmetic { return .affine3Native }
+        return decodeLookahead ? .affine3GroupedLookaheadControl : (vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
             : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)))
     }
     package init(control: URL, artifact: AffineExpertControl.Artifact = .minmax,
@@ -36,15 +40,18 @@ package struct AffineEngineSource {
         self.groupedExperts = groupedExperts
         self.vision = vision
         self.decodeLookahead = decodeLookahead
+        self.nativeArithmetic = false
         self.standalone = nil
     }
 
-    package init(standalone: AffineStandalonePack, vision: Bool = false, decodeLookahead: Bool = false) {
+    package init(standalone: AffineStandalonePack, vision: Bool = false, decodeLookahead: Bool = false,
+                 nativeArithmetic: Bool = false) {
         self.control = standalone.directory
         self.artifact = .minmax
         self.coefficients = standalone.directory.appendingPathComponent("angles-f32le.bin")
-        self.piecewiseAllocation = true; self.groupedExperts = true; self.vision = vision
+        self.piecewiseAllocation = !nativeArithmetic; self.groupedExperts = !nativeArithmetic; self.vision = vision
         self.decodeLookahead = decodeLookahead
+        self.nativeArithmetic = nativeArithmetic
         self.standalone = standalone
     }
 }

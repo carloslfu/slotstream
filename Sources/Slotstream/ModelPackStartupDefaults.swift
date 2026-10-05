@@ -59,6 +59,16 @@ public struct ModelPackStartupDefaults: Sendable {
         shortPromptTokens: 1536, shortPromptChunk: 512, gpuKeepAlive: .auto,
         reference: "db/records/decisions/sevra-app-speed-defaults-2026-09-23.md")
 
+    /// Explicit candidate recipe. Generic original Auto thresholds do not
+    /// qualify a different arithmetic path. The streamed head is already
+    /// checked; selection and speed qualification remain separate.
+    package static let affine3Standalone = Self(id: "affine3-standalone-startup-v1",
+        automaticCeilingBytes: 22_000_000_000, contextTokens: 32768,
+        draftMode: .on, draftPlacement: .streamed, draftDepth: 2,
+        lookahead: .uncorrected, prefixCacheEnabled: true,
+        shortPromptTokens: 1536, shortPromptChunk: 512, gpuKeepAlive: .auto,
+        reference: "db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md")
+
     package func validate(resources: PackMemoryProfile) throws {
         guard !id.isEmpty, id.utf8.count <= 128, !reference.isEmpty,
               automaticCeilingBytes > 0, automaticCeilingBytes <= 1_000_000_000_000,
@@ -70,7 +80,7 @@ public struct ModelPackStartupDefaults: Sendable {
               (0...contextTokens).contains(shortPromptTokens),
               (256...4096).contains(shortPromptChunk),
               lookahead != .originalAutomatic || resources == .original,
-              lookahead != .uncorrected || resources == .affine3GroupedLookaheadControl else {
+              lookahead != .uncorrected || resources == .affine3GroupedLookaheadControl || resources == .affine3Native else {
             throw PlanError("This pack's startup recipe is incomplete or incompatible with its resource contract")
         }
     }

@@ -60,7 +60,8 @@ private struct QuantizationPerformanceProtocol: Decodable {
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
         guard value.schema == (extended ? 2 : 1), value.kind == (extended ? "same-model-engine-performance-v2" : "same-model-engine-performance-v1"),
-              ["pilot", "held-out"].contains(value.scope), ["original", "affine3"].contains(value.artifact),
+              ["pilot", "held-out"].contains(value.scope), ["original", "affine3", "affine3-native"].contains(value.artifact),
+              value.artifact != "affine3-native" || (extended && value.deployment == "standalone" && value.scope == "pilot"),
               (8_100_000_000...24_000_000_000).contains(value.memoryBytes), value.memoryBytes.isMultiple(of: 100_000_000),
               ["ceiling", "target"].contains(value.memoryMode), [8192, 32768].contains(value.contextLimit),
               ["off", "on", "auto"].contains(value.draftMode), (0...4).contains(value.draftDepth),
@@ -106,7 +107,8 @@ private struct QuantizationPerformanceProtocol: Decodable {
     }
 
     var resources: PackMemoryProfile {
-        artifact == "original" ? .original : (lookahead == "uncorrected" ? .affine3GroupedLookaheadControl : .affine3GroupedControl)
+        artifact == "original" ? .original : (artifact == "affine3-native" ? .affine3Native
+            : (lookahead == "uncorrected" ? .affine3GroupedLookaheadControl : .affine3GroupedControl))
     }
     var placement: Planner.MTPExpertPlacement {
         draftPlacement == "automatic" ? .automatic : (draftPlacement == "streamed" ? .streamed : .resident)
@@ -205,6 +207,14 @@ extension Diagnostics {
         try standaloneCandidate.validateLoader(hasControl: true, hasTable: false)
         c.expect("standalone protocol parsing cannot admit an artifact for model loading",
             standaloneCandidate.standalone && standaloneCandidate.resources == .affine3GroupedLookaheadControl)
+        var native = standalone; native["artifact"] = "affine3-native"
+        c.equal("native trial binds its own allocation and arithmetic contract",
+            try parse(native).resources, .affine3Native)
+        for (key, value): (String, Any) in [("scope", "held-out"), ("deployment", "composite") ] {
+            var changed = native; changed[key] = value
+            do { _ = try parse(changed); c.expect("native trial cannot inherit reference qualification/\(key)", false) }
+            catch { c.expect("native trial cannot inherit reference qualification/\(key)", true) }
+        }
         for (profile, controls): (QuantizationPerformanceProtocol, [(Bool, Bool)]) in [
             (desktopOriginal, [(true, true), (true, false), (false, true)]),
             (standaloneCandidate, [(false, false), (true, true), (false, true)]),
@@ -349,9 +359,14 @@ extension Diagnostics {
             let loadStarted = ProcessInfo.processInfo.systemUptime
             let loaded: Engine
             if let standalone {
-                loaded = try await Engine(modelDir: standalone.directory,
-                    affineSource: AffineEngineSource(standalone: standalone,
-                        decodeLookahead: specification.lookahead == "uncorrected"), plan: plan)
+                if specification.artifact == "affine3-native" {
+                    loaded = try await Engine(modelDir: standalone.directory,
+                        pack: ModelPackRegistry.researchStandalone, plan: plan)
+                } else {
+                    loaded = try await Engine(modelDir: standalone.directory,
+                        affineSource: AffineEngineSource(standalone: standalone,
+                            decodeLookahead: specification.lookahead == "uncorrected"), plan: plan)
+                }
             } else if let control, let table {
                 loaded = try await Engine(modelDir: baseline,
                     affineSource: AffineEngineSource(control: control, coefficients: table,

@@ -372,10 +372,11 @@ class PerformanceCampaignChecks(unittest.TestCase):
             record = m.read(root / 'run/coordinator.json')
             self.assertFalse(record['complete']); self.assertEqual(record['cells'], [])
 
-    def process(self, directory, script, *, physical=1_000_000, after_failure=False):
+    def process(self, directory, script, *, physical=1_000_000, after_failure=False,
+                scope='pilot', busy=None):
         root = Path(directory); destination = root / 'cell'
         native = {'memory_bytes': 14_000_000_000, 'maximum_seconds': 10}
-        protocol = {'resource': {'maximum_campaign_seconds': 60}}
+        protocol = {'scope': scope, 'resource': {'maximum_campaign_seconds': 60}}
         fake_vm = [dict(VM), RuntimeError('post-exit observation failed')] if after_failure else None
         check_output = subprocess.check_output
         def read_only_command(command, **kwargs):
@@ -383,11 +384,26 @@ class PerformanceCampaignChecks(unittest.TestCase):
             return check_output(command, **kwargs)
         with patch.object(m, 'resource_check'), patch.object(m, 'quiet_preflight', return_value=dict(VM)), \
              patch.object(m, 'observe', return_value={'ready': True, 'conditions': m.NORMAL}), \
-             patch.object(m, 'contention', return_value={'busy_processes': [], 'known_jobs': []}), \
+             patch.object(m, 'contention', return_value=busy or {'busy_processes': [], 'known_jobs': []}), \
              patch.object(m, 'physical_bytes', return_value=physical), \
              patch.object(m, 'vm_snapshot', side_effect=fake_vm, return_value=dict(VM)), \
              patch.object(m.subprocess, 'check_output', side_effect=read_only_command):
             return m.run_cell([sys.executable, '-c', script], destination, native, protocol, root, root, time.monotonic())
+
+    def test_pilot_preserves_cpu_exclusion_but_heavy_jobs_and_final_runs_refuse(self):
+        busy = {'busy_processes': [{'pid': 999999, 'cpu_percent': 100}], 'known_jobs': []}
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.process(directory, 'import time; time.sleep(.05)', busy=busy)
+            self.assertTrue(result['complete'])
+            self.assertIn('pre-process competing CPU', result['timing_exclusions'])
+            with self.assertRaises(ProcessLookupError): os.kill(result['pid'], 0)
+        for scope, observation in [('held-out', busy),
+                ('pilot', {'busy_processes': [], 'known_jobs': [{'pid': 999999, 'kind': 'build'}]})]:
+            with self.subTest(scope=scope), tempfile.TemporaryDirectory() as directory:
+                with self.assertRaisesRegex(RuntimeError, 'native process not launched'):
+                    self.process(directory, 'raise RuntimeError("must not run")', scope=scope, busy=observation)
+                result = m.read(Path(directory) / 'cell/supervision.json')
+                self.assertFalse(result['complete']); self.assertNotIn('pid', result)
 
     def test_real_tiny_child_completion_and_physical_failure_drain_before_return(self):
         with tempfile.TemporaryDirectory() as directory:

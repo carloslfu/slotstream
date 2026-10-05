@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T15:07:20.150295Z
+updated: 2026-10-05T16:26:52.168654Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-native-affine-loader-and-focused-quality-launch]] — Internal native loader and planning checks pass; unchanged 25-case quality comparison starts without promotion or speed claims
+- [[sources/runs/2026/10/2026-10-05-native-affine-arithmetic-trials-excluded]] — Four bounded native executions complete; competing CPU excludes every timing and the bundle remains unqualified
+- [[sources/runs/2026/10/2026-10-05-practical-configuration-timings-excluded]] — CPU contention excludes all timings; incomplete repeated trial and three one-shot recipe diagnostics are preserved
 - [[sources/runs/2026/10/2026-10-05-standalone-engine-request-cleanup]] — All 105 standalone Engine checks pass after fixing deferred reservation returns; failed original attempt preserved
 - [[sources/runs/2026/10/2026-10-05-standalone-affine-export]] — Authenticated retirement of redundant payloads and complete independently hashed standalone export; research admission only
 - [[sources/runs/2026/10/2026-10-05-practical-quantization-scope]] — Owner narrows completion to one packaged candidate, reproducible performance and focused product checks; prior incomplete study stays preserved
@@ -504,11 +507,8 @@ updated: 2026-10-05T15:07:20.150295Z
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-long-decode-executor]] — Long decoding runner follows corrected fixed-MTP candidate controls
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-native-pass]] — Corrected compact-cache candidate passes all original native suites
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-validation-controls]] — Final study drafts preserve compact rows and the original MTP schedule
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-metadata-pass]] — Corrected fixed-MTP candidate passes pure and CLI checks
-- [[sources/runs/2026/09/2026-09-08-optimization-compact-cache-fixed-mtp-build]] — Compact-cache candidate builds with the original fixed MTP verification shape
-- [[sources/runs/2026/09/2026-09-08-optimization-mtp-verification-shape-correction]] — Combined candidate restores fixed MTP verification shape after exact-output failures
 
 ## More
 
-This folder has 839 files. The 500 most recent are listed above.
+This folder has 842 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

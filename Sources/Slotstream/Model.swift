@@ -10,6 +10,7 @@ public final class Qwen4ExpModel {
     /// when another model has the same vocabulary and cache geometry.
     package let promptCheckpointIdentity = UUID()
     private let affineControlReferenceArithmetic: Bool
+    private let affineNativeArithmetic: Bool
     package let affinePiecewiseAllocation: Bool
     package let affineGroupedExperts: Bool
     package var affineGroupedPasses: Int { moe.values.reduce(0) { $0 + $1.affineGroupedPasses } }
@@ -21,7 +22,11 @@ public final class Qwen4ExpModel {
     package let affineExpertArtifact: AffineExpertControl.Artifact?
     private let authenticatedStorageIdentity: String?
     package var authenticatedArtifactIdentity: String? {
-        guard affineControlReferenceArithmetic, let artifact = affineExpertArtifact else { return nil }
+        guard let artifact = affineExpertArtifact else { return nil }
+        if affineNativeArithmetic {
+            return "native-affine3-v1:" + artifact.manifestSHA256 + ":standalone:" + authenticatedStorageIdentity!
+        }
+        guard affineControlReferenceArithmetic else { return nil }
         return artifact.arithmeticIdentity(rotarySHA256: authenticatedRotaryIdentity,
             piecewise: affinePiecewiseAllocation, grouped: affineGroupedExperts,
             storageSHA256: authenticatedStorageIdentity)
@@ -253,7 +258,15 @@ public final class Qwen4ExpModel {
                  packGDNProjections: Bool? = nil, affineControlReferenceArithmetic: Bool = false,
                  affineControlCoefficients: VQRotaryCoefficients? = nil,
                  affineControlContextLimit: Int = 2054, affinePiecewiseAllocation: Bool = false,
-                 affineGroupedExperts: Bool = false) throws {
+                 affineGroupedExperts: Bool = false, affineNativeArithmetic: Bool = false) throws {
+        guard !affineNativeArithmetic || (!affineControlReferenceArithmetic && !affinePiecewiseAllocation
+            && !affineGroupedExperts && affineControlCoefficients == nil
+            && index.hasAuthenticatedFiles && index.affineExpertArtifact == .minmax
+            && index.authenticatedStorageIdentity == PinnedAffineStandalone.manifestSHA256
+            && index.config.admittedExpertRecordBytes == 2_150_400
+            && (1...32_768).contains(affineControlContextLimit)) else {
+            throw ModelError("native affine arithmetic requires the exact authenticated standalone pack and bounded context")
+        }
         guard !affineGroupedExperts || affinePiecewiseAllocation else {
             throw ModelError("grouped affine experts require the explicit sequential allocation contract")
         }
@@ -271,12 +284,14 @@ public final class Qwen4ExpModel {
             throw ModelError("affine reference context requires explicit bounded coefficient coverage")
         }
         self.affineControlReferenceArithmetic = affineControlReferenceArithmetic
+        self.affineNativeArithmetic = affineNativeArithmetic
         self.affineExpertArtifact = index.affineExpertArtifact
         self.authenticatedStorageIdentity = index.authenticatedStorageIdentity
         self.affinePiecewiseAllocation = affinePiecewiseAllocation
         self.affineGroupedExperts = affineGroupedExperts
         self.authenticatedRotaryIdentity = affineControlCoefficients == nil ? nil : VQRotaryCoefficients.sha256
-        self.inferenceContextLimit = affineControlReferenceArithmetic ? affineControlContextLimit : ContextPolicy.modelLimit
+        self.inferenceContextLimit = affineControlReferenceArithmetic || affineNativeArithmetic
+            ? affineControlContextLimit : ContextPolicy.modelLimit
         let arithmetic: BlockArithmeticProfile = affineControlReferenceArithmetic ? .vqPR1788 : .deployed
         self.optimizations = try InferenceOptimizations.environment()
         if affineControlReferenceArithmetic {
@@ -356,7 +371,7 @@ public final class Qwen4ExpModel {
     /// `streamedExperts` loads the head without its routed experts, which
     /// then stream through a `PlannerCostModel.mtpStreamSlots` cache.
     public func enableMTP(modelDir: URL, streamedExperts: Bool) throws {
-        guard !affineControlReferenceArithmetic else {
+        guard affineExpertArtifact == nil else {
             throw ModelError("this target requires independently authenticated draft admission; its expert recipe cannot configure the original head")
         }
         guard mtpHead == nil else { return }
@@ -372,12 +387,15 @@ public final class Qwen4ExpModel {
     package func enableAffineControlDraft(baseline: URL, streamedExperts: Bool = false,
                                          maximumProcessBytes: UInt64 = 10_000_000_000,
                                          parentLayout: PinnedParentLayout = .original) throws {
-        guard affineControlReferenceArithmetic, mtpHead == nil else {
+        guard affineControlReferenceArithmetic || affineNativeArithmetic, mtpHead == nil else {
             throw ModelError("the affine research draft requires its authenticated target and no existing head")
         }
         let weights = try VQDraftWeights.load(baseline: baseline, streamedExperts: streamedExperts,
             maximumProcessBytes: maximumProcessBytes, parentLayout: parentLayout)
-        let head = MTPHead(weights, stream: weights.verifiedExpertStream, arithmetic: .vqPR1788)
+        let head = MTPHead(weights, stream: weights.verifiedExpertStream,
+            arithmetic: affineNativeArithmetic ? .deployed : .vqPR1788)
+        // Keep the checked small-row verification implementation for both
+        // affine recipes. The deployed prefill sweep remains independent.
         head.rowInvariantFusion = true
         optimizations.rowInvariantProjection = true
         optimizations.verifySplitAttention = true
@@ -545,7 +563,7 @@ public final class Qwen4ExpModel {
         guard maximumForwardTokens.map({ ids.count <= $0 }) ?? true else {
             throw ModelError("model forward exceeds this pack's admitted query-row bound")
         }
-        guard !affineControlReferenceArithmetic || (state.tokenCount >= 0 && state.tokenCount <= inferenceContextLimit
+        guard !(affineControlReferenceArithmetic || affineNativeArithmetic) || (state.tokenCount >= 0 && state.tokenCount <= inferenceContextLimit
               && ids.count <= inferenceContextLimit - state.tokenCount) else {
             throw ModelError("model forward exceeds its admitted context or coefficient coverage")
         }

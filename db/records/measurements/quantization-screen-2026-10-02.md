@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T15:07:36.821479+00:00
+updated: 2026-10-05T16:29:54.388118+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,18 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Native arithmetic and focused quality, October 5
+
+[[sources/runs/2026/10/2026-10-05-native-affine-arithmetic-trials-excluded]] preserves four complete executions of the same standalone bytes through the deployed affine kernels. The ordinary allocator cache and existing small-row verification remove two inherited research settings. The final tested recipe completes at both 14 GB and 22 GB within their process budgets. Competing CPU activity excludes every timing from clean comparative claims; the observed response-latency improvement is a lead for a later eligible comparison. No 20-token-per-second or general speed claim follows.
+
+[[sources/runs/2026/10/2026-10-05-native-affine-loader-and-focused-quality-launch]] captures the internal shared-loader descriptor, independently priced startup recipe, five passing native catalogue groups, loader plan/refusal checks and the focused quality launch. Both arms freshly run the same previously selected 25 pilot tasks, with existing bounded graders and no statistical noninferiority claim. Results remain pending. Native arithmetic does not inherit the reference path's earlier parity or quality qualification, and the original remains the only supported product pack.
+
+### Practical configuration pilot, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-configuration-timings-excluded]] preserves the refused clean comparison, four completed cells of the separately frozen diagnostic pilot, its thermal stop before the fifth launch, and three completed streamed-draft recipe probes. Persistent Bluetooth-service CPU activity excludes every timing from clean performance claims. This is not a completed repeated comparison or a speed qualification. The explicit candidate recipes reduce observed memory use but show mixed response latency; the smaller bundle has not earned promotion.
+
+The first candidate recipe used generic Auto, which correctly left an unqualified draft threshold disabled. Explicit streamed-draft probes remove that mismatch. The candidate's reference arithmetic also imposes a 512-row prefill cap and separate precise operations across the trunk. Reusing the existing deployed affine kernels is the next bounded engineering check; reference parity and quality receipts cannot automatically qualify that different arithmetic.
+
 ### Standalone Engine and request cleanup, October 5
 
 [[sources/runs/2026/10/2026-10-05-standalone-engine-request-cleanup]] records all 105 native checks passing for the complete standalone candidate with streamed original drafts and explicit uncorrected lookahead. Its physical process peak is 7,428,495,096 bytes, inside the ten-GB fixture watchdog. Short and sparse-context lookahead outputs match demand-only execution; memory/disk/cold prefix recovery, cancellation, pressure shrink/regrow and HTTP checks pass. The original attempt preserved output correctness but left returned speculative slots queued until the next demand. The shared Generator now drains those returns after joining readers at request completion; the exact unchanged assertions pass. Five expert-check catalogue groups and standalone metadata checks also pass. This closes standalone correctness for the tested recipe; clean practical performance and candidate product promotion remain pending.

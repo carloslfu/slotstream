@@ -124,6 +124,16 @@ extension ModelPack {
         let platform = OptimizationPlatform(machineModel: hardware.model, chip: hardware.chip,
             osBuild: hardware.osBuild, nativeARM64: hardware.nativeARM64)
         var value = InferenceOptimizations.deploymentCandidate(on: platform)
+        if !memoryProfile.automaticOptimizations && memoryProfile != .affine3Native {
+            value.fusedPrefillAttention = nil
+            value.fusedPrefillWorkspace = false
+            value.automaticReadScope = false
+        }
+        if memoryProfile == .affine3Native, plan.mtpEnabled {
+            value.rowInvariantProjection = true
+            value.verifySplitAttention = true
+            value.verifySplitMinContext = 0
+        }
         if plan.decodeLookahead { value.cachedRouterWeights = true }
         return value
     }

@@ -73,6 +73,20 @@ release date or performance result is established by this wording change.
 [[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]] details the current Mac workstream: keep Flash Next, qualify a few representations, default to automatic selection and retain independent supported-pack and memory-ceiling overrides. A separate live governor adapts allocations without changing the chosen pack. This narrows the current optimization program without reversing the broader maintained-model architecture. The control decision is [[records/decisions/same-model-automatic-quantization-with-overrides]]. The plan is not implementation or new hardware-performance evidence.
 
 ## Flash Next quantization and automatic memory implementation
+### Current native trial and completion boundary, October 5
+
+The smaller standalone bundle now reuses the production affine kernels, bounded prefill sweep and allocator cache, with the already checked small-row draft verification. Its internal descriptor uses the shared maintained-pack Engine entry point and a distinct resource/arithmetic identity. Its startup recipe explicitly prices streamed drafts and uncorrected lookahead; startup prediction mirrors the actual verification settings. It stays outside public downloads, supported selection and Auto. The research reference path and its existing checks remain unchanged.
+
+[[sources/runs/2026/10/2026-10-05-native-affine-arithmetic-trials-excluded]] preserves all four actual trials, including slower configurations. The latest native recipe completes within the 14 GB and 22 GB physical envelopes. Its latency observations are promising but remain excluded because of competing CPU. [[sources/runs/2026/10/2026-10-05-native-affine-loader-and-focused-quality-launch]] captures five passing native catalogue groups, explicit standalone plan/refusal checks, the complete prior main CI and the frozen launch of the existing 25-case quality comparison in both arms. The larger statistical study remains deferred.
+
+Next: finish that bounded quality check, close affected native safety and actual app activation checks, then obtain an eligible repeated performance comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
+
+### Practical performance findings, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-configuration-timings-excluded]] records the complete unsuccessful/excluded timing attempts before any result is selected. The clean owner launched no model because of competing CPU. The diagnostic owner completed four cells then refused the next launch on thermal state. Three explicit streamed-draft one-shot probes completed. None is a qualified speed comparison, and the original remains the sole supported pack.
+
+The next concrete simplification tests the same authenticated standalone weights with the already deployed affine kernels and ordinary trunk arithmetic. Keep the original reference path and its evidence unchanged, use separate allocation/arithmetic identities, and require actual native output and physical-budget checks before treating the new path as useful. Do not build more study infrastructure or promote a quantization merely because its stored bytes are smaller.
+
 Keep the same Qwen3.8 Flash Next checkpoint across the supported Mac range. Finish one useful smaller quantization, automatic selection by default, independent user overrides, and separate live memory management.
 
 ### Current practical completion scope, October 5

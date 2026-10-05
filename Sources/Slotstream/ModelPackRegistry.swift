@@ -85,6 +85,21 @@ public enum ModelPackRegistry {
     /// label or component parity cannot grant service or download eligibility.
     public static let supported: [ModelPack] = [baseline]
 
+    /// The exact exported bundle exercises the same loader, planner and
+    /// startup recipe used by product owners. It stays outside supported,
+    /// setup offers and Auto until practical qualification and distribution
+    /// are complete. Empty sources cannot initiate a public download.
+    package static let researchStandalone = ModelPack(id: PinnedAffineStandalone.id, title: "Smaller 3-bit experts",
+        checkpointRevision: baseline.checkpointRevision,
+        conversionRevision: PinnedAffineStandalone.manifestSHA256,
+        deployment: try! WeightDeployment(repository: "local-standalone-affine3",
+            revision: PinnedAffineStandalone.manifestSHA256, files: PinnedAffineStandalone.files, rawBases: []),
+        memoryProfile: .affine3Native, startupDefaults: .affine3Standalone,
+        directoryName: PinnedAffineStandalone.directoryName, layout: "affine-3-group64-experts-original-dense-draft",
+        compatibility: "slotstream-affine3-standalone-v1",
+        supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md"],
+        qualifiedAutomaticProfiles: [], decodeForecastFiles: [])
+
     /// Populated only after complete outcome, memory, latency and throughput
     /// review. The matching implementation cannot qualify a research export.
     package static let automaticProfiles: [AutomaticPackProfile] = []
@@ -189,8 +204,8 @@ extension ModelPack {
         guard plan.resources == memoryProfile else {
             throw PlanError("The selected model pack and load plan have different resource contracts")
         }
-        guard id == ModelPackRegistry.baseline.id,
-              manifestDigest == ModelPackRegistry.baseline.manifestDigest else {
+        let admitted = [ModelPackRegistry.baseline, ModelPackRegistry.researchStandalone]
+        guard admitted.contains(where: { $0.id == id && $0.manifestDigest == manifestDigest }) else {
             throw PlanError("The selected model pack has no supported loader in this build")
         }
         guard !plan.simulated else { throw SlotstreamError.simulatedDeviceCannotLoad }

@@ -379,8 +379,16 @@ def run_cell(command, destination, native, protocol, root, output, campaign_star
         save(); resource_check(root, output, protocol, campaign_started)
         row['before'] = quiet_preflight(native['memory_bytes'] / 1e9 + 3)
         row['conditions_before'] = observe(); row['contention_before'] = contention({os.getpid()})
-        if (not row['conditions_before']['ready'] or any(row['contention_before'].values())):
+        busy = row['contention_before']
+        if (not row['conditions_before']['ready'] or busy['known_jobs']
+                or busy['busy_processes'] and protocol.get('scope') != 'pilot'):
             raise RuntimeError('timing preflight is not eligible; native process not launched')
+        if busy['busy_processes']:
+            # A pilot can still expose functional failures under ordinary host
+            # activity. Keep the timing excluded even if that activity later
+            # stops. Analysis cannot turn these observations into a clean
+            # comparison or qualification, and known heavy jobs still refuse.
+            row['timing_exclusions'].append('pre-process competing CPU')
         row['command'] = command; save()
         with (destination / 'stdout.txt').open('xb') as stdout, (destination / 'stderr.txt').open('xb') as stderr:
             child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,

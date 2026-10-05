@@ -403,7 +403,15 @@ public final class Engine {
     /// those remain explicit steps before publishing a healthy runtime.
     public convenience init(modelDir: URL, pack: ModelPack, plan: MemoryPlan) async throws {
         try pack.validateLoadPlan(plan)
-        try await self.init(modelDir: modelDir, plan: plan)
+        if pack.id == PinnedAffineStandalone.id {
+            let bundle = try AffineStandalonePack(directory: modelDir,
+                manifestSHA256: PinnedAffineStandalone.manifestSHA256)
+            try await self.init(modelDir: bundle.directory,
+                affineSource: AffineEngineSource(standalone: bundle,
+                    decodeLookahead: plan.decodeLookahead, nativeArithmetic: true), plan: plan)
+        } else {
+            try await self.init(modelDir: modelDir, plan: plan)
+        }
     }
 
     /// Whether generations keep the GPU awake (`GPUKeepAlive`). The default
@@ -426,6 +434,10 @@ public final class Engine {
         // allocation and 39 GB of swap. The flag travels on the plan so this
         // cannot be forgotten at a call site.
         if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
+        guard affineSource?.nativeArithmetic != true || (affineSource?.standalone != nil
+            && affineSource?.vision == false) else {
+            throw SlotstreamError.invalidPlan("native affine arithmetic requires the owned text-only standalone pack")
+        }
         guard affineSource?.groupedExperts != true || affineSource?.piecewiseAllocation == true else {
             throw SlotstreamError.invalidPlan("grouped affine experts require the explicit sequential allocation contract")
         }
@@ -433,7 +445,8 @@ public final class Engine {
             throw SlotstreamError.invalidPlan("candidate vision requires the explicit grouped allocation contract")
         }
         if affineSource?.decodeLookahead == true {
-            guard affineSource?.groupedExperts == true, affineSource?.vision == false,
+            guard affineSource?.groupedExperts == true || affineSource?.nativeArithmetic == true,
+                  affineSource?.vision == false,
                   plan?.decodeLookahead == true, plan?.lookaheadReserveBytes == DecodeLookahead.reserveBytes,
                   !ProcessInfo.processInfo.environment.keys.contains(where: {
                       $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG")
@@ -506,7 +519,10 @@ public final class Engine {
         // above the memory plan after a few dozen requests. 2 GB keeps
         // per-token reallocation churn away while making real process memory
         // track the announced plan.
-        MLX.Memory.cacheLimit = affineSource == nil ? 2 << 30 : 128_000_000
+        // The deployed allocation allowance already includes the ordinary
+        // allocator cache. Only reference arithmetic uses the smaller probe cap.
+        MLX.Memory.cacheLimit = affineSource == nil || affineSource?.nativeArithmetic == true
+            ? 2 << 30 : 128_000_000
         self.modelName = affineSource?.artifact.modelName ?? "qwen3.8-flash-next:4bit"
         let t0 = Date()
         let index: CheckpointIndex
@@ -558,13 +574,13 @@ public final class Engine {
             // Complete-file authentication can take time. A successful earlier
             // admission is not permission to allocate after headroom changes.
             try initial.check(nextAllocationBytes: initialLedger.expectedPeakBytes, phase: "authenticated model allocation")
-            let coefficients = try VQRotaryCoefficients(url: affineSource.coefficients,
+            let coefficients = try affineSource.nativeArithmetic ? nil : VQRotaryCoefficients(url: affineSource.coefficients,
                 shouldContinue: { (try? initial.check(phase: "rotary component loading")) != nil })
             self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots, embeddingRowCache: nil,
-                affineControlReferenceArithmetic: true, affineControlCoefficients: coefficients,
+                affineControlReferenceArithmetic: !affineSource.nativeArithmetic, affineControlCoefficients: coefficients,
                 affineControlContextLimit: context.maxContextTokens,
                 affinePiecewiseAllocation: affineSource.piecewiseAllocation,
-                affineGroupedExperts: affineSource.groupedExperts)
+                affineGroupedExperts: affineSource.groupedExperts, affineNativeArithmetic: affineSource.nativeArithmetic)
         } else { self.model = try Qwen4ExpModel(index: index, poolSlots: poolSlots) }
         self.responsiveGovernor = model.optimizations.responsiveGovernor
         try model.validate()
@@ -637,7 +653,7 @@ public final class Engine {
         } else if let p = plan, p.expectedPeakGB <= 12 {
             generator.prefillCacheLimit = 512 << 20
         }
-        if affineSource != nil { generator.prefillCacheLimit = 128_000_000 }
+        if affineSource != nil, affineSource?.nativeArithmetic != true { generator.prefillCacheLimit = 128_000_000 }
         if let metadata { self.tokenizer = try await metadata.load() }
         else { self.tokenizer = try await AutoTokenizer.from(modelFolder: modelDir) }
         var eos: Set<Int> = [index.config.eosTokenId]

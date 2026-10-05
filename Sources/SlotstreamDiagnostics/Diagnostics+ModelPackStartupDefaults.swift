@@ -5,6 +5,17 @@ extension Diagnostics {
     public static func modelPackStartupDefaults() throws -> CheckReport {
         var c = CheckBuilder("model-pack-startup-defaults")
         let pack = ModelPackRegistry.baseline, defaults = ModelPackRegistry.baseline.startupDefaults
+        let research = ModelPackRegistry.researchStandalone
+        try research.startupDefaults.validate(resources: research.memoryProfile)
+        let researchPlan = try research.startupPlan(customMemoryGB: 14,
+            on: .simulated(ramGB: 48, availableGB: 40), mtpAvailable: true)
+        c.expect("standalone recipe prices streamed drafts and lookahead inside the saved ceiling",
+            researchPlan.mtpStreamedExperts && researchPlan.decodeLookahead && researchPlan.expectedPeakGB <= 14
+                && researchPlan.memoryLimitGB == 14 && researchPlan.resources == .affine3Native)
+        c.expect("local trial remains outside supported selection and downloads",
+            !ModelPackRegistry.supported.contains(where: { $0.id == research.id }))
+        do { _ = try ModelPackRegistry.resolve(.pack(research.id)); c.expect("research pack cannot be selected by users", false) }
+        catch { c.expect("research pack cannot be selected by users", true) }
         c.equal("legacy activation mapping binds the exact historical startup recipe",
             defaults.recipeIdentity, ModelPackStartupDefaults.legacyOriginalRecipeIdentity)
         func encoded(_ plan: MemoryPlan) throws -> Data {

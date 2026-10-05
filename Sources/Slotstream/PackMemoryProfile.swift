@@ -49,6 +49,17 @@ package struct PackMemoryProfile: Equatable, Sendable {
         supportsStreamedDraft: true, supportsVision: true, automaticOptimizations: true,
         supportsDecodeLookahead: true)
 
+    /// Explicit standalone trial using the deployed arithmetic and bounded
+    /// 32-record sweep. Expert records shrink; the original fixed, staging,
+    /// allocator and per-token workspace allowances remain unchanged. Retain
+    /// the reference pack's additional resident allowance conservatively.
+    /// No original speed curve or automatic activation threshold is inherited.
+    package static let affine3Native = Self(identity: "affine3-native-memory-v1",
+        expertRecordBytes: 2_150_400, residentReserveBytes: 357_580_800 + 67_108_864,
+        maximumPrefill: 4096, maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
+        supportsDecodeLookahead: true)
+
     /// Conservative research envelope, not a published supported pack. Keep
     /// the original fixed allowance and independently priced four-bit head.
     /// Reserve the eager embedding, authenticated rotary table, canonical RHS

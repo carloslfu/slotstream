@@ -43,6 +43,8 @@ struct QuantizationSession: ParsableCommand {
     var baseline: String
     @Option(name: .long, help: "Explicit frozen completion-manifest digest for research standalone loading")
     var standaloneManifestSha256: String?
+    @Flag(name: .long, help: "Explicit text pilot using the deployed affine kernels; requires the pinned standalone pack")
+    var nativeArithmetic = false
     @Option(name: .long) var control: String?
     @Option(name: .long) var table: String?
     @Option(name: .long) var protocolFile: String
@@ -58,7 +60,7 @@ struct QuantizationSession: ParsableCommand {
                     protocolSHA256: protocolSha256, baseline: URL(fileURLWithPath: baseline),
                     control: control.map { URL(fileURLWithPath: $0) }, table: table.map { URL(fileURLWithPath: $0) },
                     output: URL(fileURLWithPath: output), planOnly: planOnly,
-                    standaloneManifestSHA256: standaloneManifestSha256)
+                    standaloneManifestSHA256: standaloneManifestSha256, nativeArithmetic: nativeArithmetic)
             } catch { failure = error }
             semaphore.signal()
         }

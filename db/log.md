@@ -375,3 +375,6 @@ Owner approved practical completion: one standalone candidate, performance first
 ## [2026-10-05 15:07] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Preserve bounded standalone export and retirement receipts; record 105 passing Engine checks after terminal speculative-slot cleanup; move to practical performance before promotion.
 
+## [2026-10-05 16:31] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserve all excluded configuration and native-arithmetic trials. Reuse deployed affine kernels, bounded sweep/cache and small-row verification behind an internal exact standalone loader and separate resource contract; retain baseline-only public selection. Five native catalogue groups, loader plan/refusal checks, 15 campaign tests, claims 349/0, projections and full dbmd validation 0/0 pass. Start the fixed 25-case fresh two-arm quality pilot with the verified grader interpreter; outcomes, full new CI, native safety, app activation, clean speed evidence and redistribution remain pending.
+
