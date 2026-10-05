@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T07:40:30.961251+00:00
+updated: 2026-10-05T07:52:09.474545+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1177,3 +1177,9 @@ The same source preserves complete successful context-refusal and shared-loader 
 [[sources/runs/2026/10/2026-10-05-saved-memory-limit-native-acceptance]] closes the precision correction's pending native and visual checks. The complete Mac workflow passes, including the Xcode app, locale/persistence checks, unchanged re-commit identity, response formatting and rendering in Light, Dark and System. Direct inspection of the six new scenes confirms exact fractional limits and readable response details without clipping or overlap. These are synthetic CI fixtures, not physical RAM or throughput measurements.
 
 The preceding compiler-mode Engine workflow also passes in full: optimized safety and catalogue gates, coverage and external consumer. Frozen quality remains active and unanalyzed. The actual candidate performance, standalone packaging and public pull, alternate activation, final physical acceptance and release gates remain open.
+
+### Running grader recovery and harness registration, October 5
+
+[[sources/runs/2026/10/2026-10-05-grader-recovery-harness-and-launch]] records actual memory/storage admission, import of the complete prefix and the first grade of the preserved answer without regeneration. The frozen recovery is now running; partial outcomes remain uninspected. Its interpreter, native image, limits, tasks and analysis remain pinned.
+
+The initial main CI weights-free job exposed missing registrations in its isolated harness fixture tree. Both suites now occupy the same checked sequence in the real gate and fixture list; all thirty-four entry-point checks pass on both local Python runtimes. A separate future-owner correction synchronizes the exclusive grading marker and directory before worker invocation, with both sync-failure refusals covered. The running frozen owner is unchanged, and no power-loss recovery is claimed. Complete corrected CI and every final quality/product gate remain pending.

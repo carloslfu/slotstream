@@ -147,6 +147,25 @@ class GraderRecoveryTests(unittest.TestCase):
             receipt = campaign.read(output / 'recovered-answer.json')
             self.assertFalse(receipt['complete']); self.assertNotIn('outcome', receipt)
 
+    def test_attempt_sync_failure_prevents_grading_and_leaves_exclusive_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol, _, _ = self.fixture(directory)
+            effective, _, tasks, sources, proof, _ = q.validate(protocol, root)
+            for phase in (1, 2):
+                output = root / ('sync-failure-' + str(phase)); output.mkdir()
+                calls = []
+                def sync(_):
+                    calls.append(1)
+                    if len(calls) == phase: raise OSError('synthetic sync failure')
+                with patch.object(q.os, 'fsync', side_effect=sync), \
+                        patch.object(campaign.outcomes, 'preflight_instruction', side_effect=AssertionError('must not grade')):
+                    with self.assertRaisesRegex(OSError, 'sync failure'):
+                        q.recover_answer(protocol, 'pin', effective, tasks, sources, proof, synthetic_grader, output)
+                self.assertEqual(len(calls), phase)
+                self.assertFalse(campaign.read(output / 'recovered-answer.json')['complete'])
+                with self.assertRaises(FileExistsError):
+                    q.recover_answer(protocol, 'pin', effective, tasks, sources, proof, synthetic_grader, output)
+
     def test_partial_completion_never_replays_any_grade(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol, _, _ = self.fixture(directory); output = root / 'incomplete'; output.mkdir()

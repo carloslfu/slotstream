@@ -1239,6 +1239,12 @@ The same source preserves complete successful context-refusal and shared-loader 
 
 The preceding compiler-mode Engine workflow also passes in full: optimized safety and catalogue gates, coverage and external consumer. Frozen quality remains active and unanalyzed. The actual candidate performance, standalone packaging and public pull, alternate activation, final physical acceptance and release gates remain open.
 
+### Running grader recovery and harness registration, October 5
+
+[[sources/runs/2026/10/2026-10-05-grader-recovery-harness-and-launch]] records actual memory/storage admission, import of the complete prefix and the first grade of the preserved answer without regeneration. The frozen recovery is now running; partial outcomes remain uninspected. Its interpreter, native image, limits, tasks and analysis remain pinned.
+
+The initial main CI weights-free job exposed missing registrations in its isolated harness fixture tree. Both suites now occupy the same checked sequence in the real gate and fixture list; all thirty-four entry-point checks pass on both local Python runtimes. A separate future-owner correction synchronizes the exclusive grading marker and directory before worker invocation, with both sync-failure refusals covered. The running frozen owner is unchanged, and no power-loss recovery is claimed. Complete corrected CI and every final quality/product gate remain pending.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.

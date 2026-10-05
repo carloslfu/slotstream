@@ -10,6 +10,7 @@ import copy
 import functools
 import hashlib
 import json
+import os
 from pathlib import Path
 import signal
 import stat
@@ -150,7 +151,11 @@ def recover_answer(protocol, pin, effective, tasks, sources, proof, grader, outp
     began = time.monotonic()
     receipt = {'schema': 1, 'complete': False, 'protocol_sha256': pin,
         'pending_answer': proof['pending_answer'], 'model_runs': 0}
-    with path.open('x') as stream: json.dump(receipt, stream)
+    with path.open('x') as stream:
+        json.dump(receipt, stream); stream.flush(); os.fsync(stream.fileno())
+    directory = os.open(output, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try: os.fsync(directory)
+    finally: os.close(directory)
     try:
         paths = effective['paths']; root = effective['_root']
         receipt['instruction_preflight'] = campaign.outcomes.preflight_instruction(grader,
