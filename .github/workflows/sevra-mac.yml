@@ -59,6 +59,7 @@ jobs:
           path: |
             .build/sevra-thinking-ui/
             .build/sevra-apps-ui/
+            .build/sevra-memory-ui/
           if-no-files-found: ignore
   xcode:
     runs-on: macos-26

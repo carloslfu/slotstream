@@ -51,6 +51,20 @@ public struct ModelPackHardware: Equatable, Sendable {
     }
 
     public static func current(modelDirectory: URL) -> Self {
+        observed(modelDirectory: modelDirectory)
+    }
+
+    /// A new pack's directory may not exist yet. Only prospective setup uses
+    /// its nearest existing ancestor's volume; actual loading uses current().
+    public static func setupDestination(_ modelDirectory: URL) -> Self {
+        var directory = modelDirectory.standardizedFileURL
+        while !FileManager.default.fileExists(atPath: directory.path), directory.path != "/" {
+            directory.deleteLastPathComponent()
+        }
+        return observed(modelDirectory: directory)
+    }
+
+    private static func observed(modelDirectory: URL) -> Self {
         let platform = OptimizationPlatform.current
         let conditions = ProcessMemory.operatingConditions()
         let values = try? modelDirectory.resourceValues(forKeys: [

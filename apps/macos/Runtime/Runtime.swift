@@ -490,12 +490,15 @@ public actor SevraRuntime {
     }
     public func recoverModelActivation() async throws {
         guard !shuttingDown, !storagePaused, active == nil, !driving, !modelMaintenance,
-              !pendingPerformance else {
+              !pendingPerformance || (performanceFailure != nil && inference.performanceTelemetry?.hasRecoverableActivationFailure == true) else {
             throw SevraError.refused("Finish active work and apply your model settings before repairing setup.")
         }
         modelMaintenance = true; performanceMaintenance = true
         defer { finishPerformanceMaintenance() }
-        try await inference.recoverModelActivation()
+        // Configure now opens the accepted-version journal. If that read
+        // failed, repair must remain available and use the current saved
+        // choice, not the inference owner's older un-applied preferences.
+        try await inference.recoverModelActivation(preferences: performancePreferences)
         performanceFailure = nil; performanceCache = nil; lastError = nil
         modelStatus = "Model setup repaired"
     }
@@ -592,9 +595,18 @@ public actor SevraRuntime {
         modelMaintenance = true
         await inference.unload(); modelStatus = "Model unloaded"
     }
+    public func modelSetup() async throws -> ModelSetup? {
+        // A read-only offer may reflect a queued preference while the current
+        // engine drains. Acceptance still requires exclusive maintenance.
+        guard !shuttingDown else { throw SevraError.refused("Sevra is closing.") }
+        return try await inference.modelSetup(preferences: performancePreferences)
+    }
     public func acceptModelSetup(_ setup: ModelSetup) async throws {
         guard modelMaintenance, !performanceMaintenance, active == nil, !driving, !shuttingDown else {
             throw SevraError.refused("Model setup can be accepted only while local work is stopped for maintenance.")
+        }
+        guard setup.matches(performancePreferences) else {
+            throw SevraError.refused("Your model settings changed during setup. The files are kept. Review setup for your current choice before continuing.")
         }
         try await inference.acceptModelSetup(setup)
         // Mark a configuration boundary before maintenance is released. A

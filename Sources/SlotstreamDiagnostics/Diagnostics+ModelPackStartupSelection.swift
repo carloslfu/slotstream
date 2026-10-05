@@ -88,6 +88,42 @@ extension Diagnostics {
         let overridden = try ModelPackRegistry.resolve(.pack(pack.id), context: try input(installed: [:]))
         c.expect("explicit choice remains exact without granting installation or allocation",
             overridden.pack.id == pack.id && !overridden.automatic && overridden.evidence == .unknown)
+        let prospective = ModelPackStartupObservation.setup(pack: pack, hardware: hardware, environment: [:])
+        c.expect("complete setup proposes its declared independent draft", prospective.mtpAvailable)
+        c.equal("complete setup prices its pinned optional forecast", prospective.originalLookahead,
+            .automaticCorrected(bytes: TapCorrectionSidecar.attention.size))
+        let disabledForecast = ModelPackStartupObservation.setup(pack: pack, hardware: hardware,
+            environment: ["SLOTSTREAM_OPT_EXPERT_PREFETCH": "0"])
+        c.equal("setup respects an explicit forecast override", disabledForecast.originalLookahead, .off)
+        let offer = try ModelPackRegistry.setupOffer(.automatic, on: machine, hardware: hardware,
+            contextTokens: 32768, requiredFeatures: [.text, .tools], observations: [prospective])
+        c.expect("an undownloaded setup offer is distinct from qualification",
+            offer.pack.id == pack.id && offer.automatic && offer.evidence == .unknown && offer.automaticProfileID == nil)
+        c.expect("creating an offer does not admit unaccepted files",
+            try input(observations: [prospective], installed: [:]).candidates.isEmpty)
+        let explicitOffer = try ModelPackRegistry.setupOffer(.pack(pack.id), on: machine, hardware: hardware,
+            contextTokens: 32768, requiredFeatures: [.text, .tools], observations: [])
+        c.expect("an explicit supported pack can be reviewed before it is installed",
+            explicitOffer.pack.id == pack.id && !explicitOffer.automatic && explicitOffer.evidence == .unknown)
+        do {
+            _ = try ModelPackRegistry.setupOffer(.pack("unavailable-saved-choice"), on: machine, hardware: hardware,
+                contextTokens: 32768, requiredFeatures: [.text, .tools], observations: [prospective])
+            c.expect("setup cannot replace an unavailable explicit choice", false)
+        } catch { c.expect("setup cannot replace an unavailable explicit choice", true) }
+        do {
+            _ = try ModelPackRegistry.setupOffer(.automatic, on: machine, hardware: hardware,
+                contextTokens: 32768, requiredFeatures: [.text, .tools], observations: [prospective, prospective])
+            c.expect("ambiguous setup observations are refused", false)
+        } catch { c.expect("ambiguous setup observations are refused", true) }
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("setup-destination-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let existingVolume = ModelPackHardware.current(modelDirectory: temporary)
+        let prospectiveVolume = ModelPackHardware.setupDestination(temporary.appendingPathComponent("new/pack"))
+        c.equal("uncreated setup directory uses its existing ancestor's volume", prospectiveVolume.volumeID, existingVolume.volumeID)
+        c.equal("uncreated setup directory keeps its actual storage class", prospectiveVolume.storage, existingVolume.storage)
+        c.expect("prospective storage inspection creates no model directory",
+            !FileManager.default.fileExists(atPath: temporary.appendingPathComponent("new").path))
         return c.report()
     }
 }

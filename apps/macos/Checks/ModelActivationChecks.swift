@@ -145,6 +145,39 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     catch { try check(!error.localizedDescription.contains("CHECK FAILED"), "an unchecked setup never grants acceptance") }
     try check(!FileManager.default.fileExists(atPath: absentHistory.path),
         "unchecked setup creates no acceptance history or model")
+    let offered = try await absentOwner.modelSetup(preferences: .init())
+    guard let offered else { throw SevraError.refused("CHECK FAILED: local setup offer absent") }
+    try check(offered.packID == ModelPackRegistry.baseline.id && offered.offer?.automatic == true
+        && !offered.snapshot().ready && !offered.snapshot().busy,
+        "an unloaded owner offers the supported setup without verifying or accepting it")
+    try check(offered.modelDirectory == absentSetup.modelDirectory
+        && offered.completeBytes >= ModelPackRegistry.baseline.totalBytes,
+        "setup keeps the owner's original directory and includes all declared installation bytes")
+    try check(!FileManager.default.fileExists(atPath: absentHistory.path)
+        && !FileManager.default.fileExists(atPath: absentSetup.modelDirectory.path),
+        "reviewing setup creates no history or downloaded model")
+    var setupPreferences = PerformancePreferences()
+    setupPreferences.readiness = .keepReady; setupPreferences.customGB = 13.75
+    try check(offered.matches(setupPreferences), "readiness and an inactive custom limit preserve the reviewed setup")
+    setupPreferences.liveMemory = .fixed
+    try check(!offered.matches(setupPreferences), "a different live policy needs an updated setup recommendation")
+    setupPreferences = .init(budget: .custom, customGB: 14, quantization: .pack(ModelPackRegistry.baseline.id))
+    let explicitSetup = try await absentOwner.modelSetup(preferences: setupPreferences)
+    try check(explicitSetup?.offer?.automatic == false && explicitSetup?.matches(setupPreferences) == true,
+        "a manual setup offer preserves the explicit quantization and ceiling")
+    setupPreferences.customGB = 14.5
+    try check(explicitSetup?.matches(setupPreferences) == false, "an edited active ceiling invalidates a prior setup offer")
+    do {
+        _ = try await absentOwner.modelSetup(preferences: .init(quantization: .pack("unavailable-saved-choice")))
+        throw SevraError.refused("CHECK FAILED: setup replaced an unavailable explicit choice")
+    } catch { try check(!error.localizedDescription.contains("CHECK FAILED"), "setup preserves an unavailable explicit choice") }
+    let managedOriginal = root.appendingPathComponent("managed/original")
+    try check(LocalInference.managedRoot(model: managedOriginal, defaultModel: managedOriginal)
+        == managedOriginal.standardizedFileURL.resolvingSymlinksInPath().deletingLastPathComponent(),
+        "the managed model collection is resolved at owner creation")
+    try check(LocalInference.managedRoot(model: absentSetup.modelDirectory, defaultModel: managedOriginal) == nil,
+        "a custom original directory does not acquire another collection")
+    print("PASS: durable accepted versions, offline restart, exact setup ownership and nonmutating offers")
 
     // Reopen after each durable phase, as a different inference owner would
     // after termination. None of these fixtures allocates an Engine or GPU.
@@ -336,12 +369,15 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
                 "bootstrap failure is visible to queue admission")
         }
     }
-    try await corruptInference.configure(.init())
+    do {
+        try await corruptInference.configure(.init())
+        throw SevraError.refused("CHECK FAILED: settings retry ignored corrupt history")
+    } catch { try check(error.localizedDescription.contains("unreadable"), "settings retry now checks accepted-version history before selection") }
     do {
         _ = try await corruptInference.turn(history: [.init(role: "user", content: "Hello")], tools: [],
             cancellation: Cancellation(), buffer: TurnBuffer())
         throw SevraError.refused("CHECK FAILED: explicit retry erased corrupt history")
-    } catch { try check(error.localizedDescription.contains("unreadable"), "explicit retry rechecks retained corrupt history") }
+    } catch { try check(error.localizedDescription.contains("did not activate"), "a failed settings retry retains the admission failure") }
     try check(try Data(contentsOf: corruptDirectory.appendingPathComponent("state.json")) == corruptState,
         "retry preserves unreadable activation bytes")
     try check(corruptInference.performanceTelemetry?.snapshot(preferences: .init(), pending: false, busy: false).activationRecoveryAvailable == true,
@@ -395,6 +431,16 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     try await Task.sleep(nanoseconds: 50_000_000)
     try check(await repairing.snapshot().home.threads.first(where: { $0.id == waiting })?.run?.state == .queued,
         "corrupt setup keeps later work queued")
+    let correctedPreferences = PerformancePreferences(liveMemory: .fixed)
+    do {
+        try await repairing.setPerformancePreferences(correctedPreferences)
+        throw SevraError.refused("CHECK FAILED: queued settings ignored corrupt history")
+    } catch { try check(error.localizedDescription.contains("unreadable"), "pending settings retain a failed accepted-version read") }
+    await repairing.maintainPerformance()
+    let failedPending = await repairing.snapshot().performance
+    try check(failedPending?.pending == true && failedPending?.failure != nil
+        && failedPending?.activationRecoveryAvailable == true,
+        "failed pending settings still expose explicit setup repair")
     try await repairing.recoverModelActivation()
     for _ in 0..<300 {
         if await repairing.snapshot().home.threads.first(where: { $0.id == waiting })?.run?.state == .failed { break }
@@ -406,6 +452,10 @@ func modelActivationChecks(root: URL, dbmd: URL) async throws {
     let messages = repairedHome.threads.flatMap(\.messages).map(\.text)
     try check(messages.contains("Preserve my first request") && messages.contains("Preserve my queued request"),
         "repair preserves conversations and queued input")
+    let repairedState = try JSONDecoder().decode(Journal.State.self,
+        from: Data(contentsOf: repairDirectory.appendingPathComponent("state.json")))
+    try check(repairedState.attempt?.selection.preferences.liveMemory == .fixed,
+        "repair and resumed admission use the latest saved settings")
     try await repairing.shutdown()
     print("PASS: durable activation phases, exclusive ownership, stale callbacks, interrupted writes, rollback, bounded state, explicit preserved-record repair and weights-free retry")
 }

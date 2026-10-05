@@ -112,6 +112,9 @@ import Combine
             }
         }))
     @Published var setupStatus: ModelSetupStatus?
+    @Published var setupIssue: String?
+    @Published var setupRequestPending = false
+    private var setupRequestRevision: UInt64 = 0
     @Published var preparingModel = false
     @Published var performancePreferences = PerformancePreferences.restore(UserDefaults.standard.data(forKey: "performance.preferences.v1"))
     @Published var preparingForSleep = false
@@ -120,7 +123,7 @@ import Combine
     @Published var appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "System") ?? .system
     var runtime: SevraRuntime?
     var endpoint: LocalEndpoint?
-    var setup: ModelSetup?
+    @Published var setup: ModelSetup?
     var poll: Task<Void, Never>?
     var onFind: (() -> Void)?
     var thread: WorkThread? { conversation.thread }
@@ -355,7 +358,6 @@ import Combine
         let dbmd = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/dbmd")
         let modelPath = ProcessInfo.processInfo.environment["SEVRA_MODEL"]
         let preferences = performancePreferences
-        setup = modelPath.map { ModelSetup(model: URL(fileURLWithPath: $0)) } ?? ModelSetup()
         poll = Task {
             do {
                 runtime = try await Task.detached(priority: .userInitiated) {
@@ -366,6 +368,7 @@ import Combine
                 }.value
                 if let runtime { endpoint = try await Task.detached { try LocalEndpoint(runtime: runtime) }.value }
                 await runtime?.maintainPerformance(userPresent: hasForegroundWindow)
+                await refreshModelSetup()
                 await runtime?.prepareModelAhead()
                 // Compiled once; the first app opened later need not wait for it.
                 Task { _ = try? await MiniAppController.rules() }
@@ -649,6 +652,7 @@ import Combine
                 if revision == performancePreferenceRevision { self.error = error.localizedDescription }
                 await refresh()
             }
+            if revision == performancePreferenceRevision { await refreshModelSetup() }
         }
     }
     func recoverModelActivation() {
@@ -680,8 +684,39 @@ import Combine
             await runtime?.maintainPerformance(userPresent: hasForegroundWindow); await refresh()
         }
     }
+    func refreshModelSetup() async {
+        guard let runtime, !preparingModel else { return }
+        setupRequestRevision += 1
+        let revision = setupRequestRevision
+        let requested = performancePreferences
+        setupRequestPending = true; setupIssue = nil
+        defer { if revision == setupRequestRevision { setupRequestPending = false } }
+        do {
+            let proposed = try await runtime.modelSetup()
+            guard revision == setupRequestRevision,
+                  proposed?.matches(requested) != false,
+                  proposed?.matches(performancePreferences) != false else { return }
+            // A readiness-only change leaves a completed file verification
+            // visible. A different reviewed recipe needs its own setup state.
+            if let previous = setup, let proposed,
+               previous.packID == proposed.packID, previous.matches(performancePreferences),
+               previous.pack.startupDefaults.recipeIdentity == proposed.pack.startupDefaults.recipeIdentity,
+               previous.offer?.automaticProfileID == proposed.offer?.automaticProfileID,
+               previous.offer?.evidence == proposed.offer?.evidence,
+               previous.offer?.reason == proposed.offer?.reason {
+                return
+            }
+            setup = proposed; setupStatus = proposed?.snapshot()
+        } catch {
+            guard revision == setupRequestRevision else { return }
+            setup = nil; setupStatus = nil; setupIssue = error.localizedDescription
+        }
+    }
     func setUpModel(download: Bool) {
         guard let runtime, let setup, !preparingModel else { return }
+        guard !setupRequestPending, setup.matches(performancePreferences) else {
+            error = "Review setup for your current model settings before continuing."; return
+        }
         preparingModel = true
         Task {
             var acquired = false
@@ -708,6 +743,7 @@ import Combine
                 }
             }
             preparingModel = false
+            if !setup.matches(performancePreferences) { await refreshModelSetup() }
             await refresh()
         }
     }

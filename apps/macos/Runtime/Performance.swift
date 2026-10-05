@@ -207,6 +207,9 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var failure: String? = nil
     public var activationFailure: String? = nil
     public var activationRecoveryAvailable = false
+    public var canRepairActivation: Bool {
+        activationRecoveryAvailable && !busy && (!pending || failure != nil)
+    }
     public var activePack: String? = nil
     public var selectionReason: String? = nil
     public var configuration: AppliedModelConfiguration? = nil
@@ -249,6 +252,9 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     public var lastPreparationSeconds: Double { lock.lock(); defer { lock.unlock() }; return preparationSeconds }
     public var isLoaded: Bool { lock.lock(); defer { lock.unlock() }; return engine != nil }
     public var activationFailureMessage: String? { lock.lock(); defer { lock.unlock() }; return activationFailure }
+    var hasRecoverableActivationFailure: Bool {
+        lock.lock(); defer { lock.unlock() }; return activationFailure != nil && activationRecoveryAvailable
+    }
     func update(state: String, detail: String, engine: Engine? = nil) {
         lock.lock(); defer { lock.unlock() }
         self.state = state; self.detail = detail; self.engine = engine

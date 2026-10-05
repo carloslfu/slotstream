@@ -31,6 +31,44 @@ public struct ModelPackStartupObservation: Sendable {
             originalLookahead: pack.startupDefaults.lookahead == .originalAutomatic
                 ? .environment(modelDirectory: modelDirectory) : .off)
     }
+
+    /// Prospective components of a complete setup. This reads no model files
+    /// and proves no installation. The load boundary observes the files again.
+    public static func setup(pack: ModelPack, hardware: ModelPackHardware,
+                             environment: [String: String] = ProcessInfo.processInfo.environment) -> Self {
+        var forecast: DecodeLookaheadPlanning = .off
+        if pack.startupDefaults.lookahead == .originalAutomatic {
+            forecast = .environment(environment)
+            if forecast == .automatic, pack.decodeForecastFiles.count == 1 {
+                forecast = .automaticCorrected(bytes: pack.decodeForecastFiles[0].size)
+            }
+        }
+        return Self(pack: pack, hardware: hardware,
+            mtpAvailable: pack.files.contains { $0.path == "mtp.safetensors" }, originalLookahead: forecast)
+    }
+}
+
+/// A recommendation to review before setup, never an accepted installation or
+/// a loaded configuration. Only the compiled registry can produce an offer.
+public struct ModelPackSetupOffer: Sendable {
+    public let pack: ModelPack
+    public let reason: String
+    public let automatic: Bool
+    public let evidence: ModelPackSelectionEvidence
+    public let automaticProfileID: String?
+
+    fileprivate init(_ decision: ModelPackDecision) {
+        pack = decision.pack; automatic = decision.automatic
+        evidence = decision.evidence; automaticProfileID = decision.automaticProfileID
+        if !decision.automatic { reason = "Setup for your selected quantization." }
+        else if decision.evidence == .measured {
+            reason = "Recommended from matching configuration tests. The files and actual configuration are checked before use."
+        } else if decision.evidence == .estimated {
+            reason = "Recommended from a conservative estimate for this Mac and your memory limit. Speed is not measured on this configuration."
+        } else {
+            reason = "Setup for the supported pack. No qualified alternative matches this configuration."
+        }
+    }
 }
 
 public extension ModelPack {
@@ -88,8 +126,37 @@ public extension ModelPackRegistry {
                                observations: [ModelPackStartupObservation],
                                acceptedInstalledManifests: [String: String],
                                incumbentPackID: String? = nil) throws -> ModelPackSelectionContext {
+        try proposalContext(on: machine, hardware: hardware, contextTokens: contextTokens,
+            requiredFeatures: requiredFeatures, customMemoryGB: customMemoryGB, liveMemory: liveMemory,
+            observations: observations, eligibleManifests: acceptedInstalledManifests, incumbentPackID: incumbentPackID)
+    }
+
+    /// Considers the complete components offered by setup, including packs not
+    /// downloaded yet. This separate result cannot be used as an activation
+    /// decision or as proof of installed/accepted content.
+    static func setupOffer(_ selection: ModelPackSelection, on machine: Machine, hardware: ModelPackHardware,
+                           contextTokens: Int, requiredFeatures: Set<ModelPackFeature>,
+                           customMemoryGB: Double? = nil, liveMemory: LiveMemoryManagement = .automatic,
+                           observations: [ModelPackStartupObservation],
+                           incumbentPackID: String? = nil) throws -> ModelPackSetupOffer {
+        if case .pack = selection { return ModelPackSetupOffer(try resolve(selection)) }
+        let eligible = Dictionary(uniqueKeysWithValues: supported.filter { pack in
+            observations.contains { $0.packID == pack.id && $0.manifestDigest == pack.manifestDigest }
+        }.map { ($0.id, $0.manifestDigest) })
+        let context = try proposalContext(on: machine, hardware: hardware, contextTokens: contextTokens,
+            requiredFeatures: requiredFeatures, customMemoryGB: customMemoryGB, liveMemory: liveMemory,
+            observations: observations, eligibleManifests: eligible, incumbentPackID: incumbentPackID)
+        return ModelPackSetupOffer(try resolve(selection, context: context))
+    }
+
+    private static func proposalContext(on machine: Machine, hardware: ModelPackHardware,
+                                        contextTokens: Int, requiredFeatures: Set<ModelPackFeature>,
+                                        customMemoryGB: Double?, liveMemory: LiveMemoryManagement,
+                                        observations: [ModelPackStartupObservation],
+                                        eligibleManifests: [String: String],
+                                        incumbentPackID: String?) throws -> ModelPackSelectionContext {
         guard contextTokens > 0, Set(observations.map(\.packID)).count == observations.count else {
-            throw PlanError("Auto selection needs one unambiguous observation per installed pack")
+            throw PlanError("Auto selection needs one unambiguous observation per pack")
         }
         let customBytes = customMemoryGB.flatMap(AutomaticPackPolicy.bytes)
         if customMemoryGB != nil, customBytes == nil || customBytes == 0 {
@@ -100,7 +167,7 @@ public extension ModelPackRegistry {
         var ceilings: [Int64] = []
         for pack in supported {
             guard let observation = byID[pack.id], observation.manifestDigest == pack.manifestDigest,
-                  acceptedInstalledManifests[pack.id] == pack.manifestDigest,
+                  eligibleManifests[pack.id] == pack.manifestDigest,
                   pack.startupDefaults.contextTokens == contextTokens else { continue }
             if let ceiling = try? pack.automaticMemoryCeilingGB(on: machine),
                let bytes = AutomaticPackPolicy.bytes(ceiling) { ceilings.append(bytes) }
@@ -112,7 +179,7 @@ public extension ModelPackRegistry {
         }
         return ModelPackSelectionContext(machine: machine, hardware: hardware,
             ceilingBytes: customBytes ?? ceilings.max() ?? 0, contextTokens: contextTokens,
-            requiredFeatures: requiredFeatures, acceptedInstalledManifests: acceptedInstalledManifests,
+            requiredFeatures: requiredFeatures, acceptedInstalledManifests: eligibleManifests,
             candidates: candidates, incumbentPackID: incumbentPackID)
     }
 }

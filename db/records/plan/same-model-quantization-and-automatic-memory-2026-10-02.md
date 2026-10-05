@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T00:50:12.148053+00:00
+updated: 2026-10-05T01:35:14.837285+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1076,3 +1076,15 @@ Activation also binds full recipe identity, with an independently fixed historic
 New fixtures cover persistence, idempotence, malformed and obsolete permission records, atomic-write interruptions, unchecked-setup refusal and queued-work handoff. Thirty-two entry checks pass; native compilation, the new fixtures and real integrated setup/activation remain pending. The prior proposal commit passes its full native instrumented catalogue, public-library job and complete Mac/Xcode workflow; its full engine receipt was still in progress when captured.
 
 Alternative setup offers, standalone production and public transfer, the qualified candidate loader and profile data, confirmation of selected evidence against actual loaded configuration, complete quality/performance and final integrated acceptance remain open. Only the original pack is supported. The frozen held-out continuation remains unchanged and unanalyzed.
+
+### Reviewed setup offers and selected-pack downloads, October 4
+
+[[sources/runs/2026/10/2026-10-04-reviewed-model-setup-offers-preparation]] preserves the prospective setup policy, native app wiring and prepared acceptance checks. The compiled registry now exposes a separate setup-offer type. It prices declared complete components before download and uses the destination volume's existing ancestor when needed, but grants no installed eligibility, acceptance or loaded-performance claim. Actual activation still observes and authenticates accepted files at its own boundary. Explicit unavailable choices remain saved and refused. The supported registry and qualified profile set remain unchanged.
+
+The native inference owner provides the setup selected for the saved quantization, active ceiling and live-memory mode. Its managed collection root is fixed at creation; a custom original directory remains original-only. The panel names that quantization and the complete installation size. Revision and preference checks prevent delayed offers from replacing newer choices. A setting change during download preserves the completed files and refuses stale acceptance before the inference owner receives it. Readiness and an inactive saved custom limit do not invalidate setup. Verification is labeled separately from loading and the startup health check.
+
+The source includes native fixtures for prospective component pricing, storage ancestry, exact overrides, absent installations, nonmutating review, directory ownership and stale-acceptance refusal. Thirty-two static entry checks and the diff check pass. The preceding durable-acceptance source passes its complete instrumented catalogue, external-library job and Xcode build; its captured full workflows remain in progress. Current native execution, rendered UI review and the physical setup/activation drill remain pending. The held-out study continues without partial outcome inspection. Standalone production/pull, qualified alternative loading, actual loaded-profile confirmation, complete quality and speed qualification, final integration and release remain required.
+
+#### Earlier journal-read failure and explicit repair
+
+[[sources/runs/2026/10/2026-10-04-model-setup-retry-boundary-correction]] preserves the subsequently failed durable-acceptance Mac job. The source trace identifies a corrupt-history fixture whose unguarded configure call predates the new journal read at configuration time; the updated fixture requires the earlier refusal and continued admission failure. The production repair path also now permits a failed pending setting when its owned journal is explicitly recoverable, supplies the latest saved preferences to repair, and keeps normal queued-configuration and model-verification boundaries. The old recovery API remains compatible. The UI's repair control and a corresponding pending-failure rendering fixture follow that same state, and CI retains memory-control screenshots. Native confirmation, direct visual review and physical acceptance remain pending. The earlier running-status capture is unchanged and is not a passing Mac verdict.

@@ -121,8 +121,10 @@ public protocol Inference: Sendable {
     var simulated: Bool { get }
     var performanceTelemetry: PerformanceTelemetry? { get }
     func configure(_ preferences: PerformancePreferences) async throws
+    func modelSetup(preferences: PerformancePreferences) async throws -> ModelSetup?
     func acceptModelSetup(_ setup: ModelSetup) async throws
     func recoverModelActivation() async throws
+    func recoverModelActivation(preferences: PerformancePreferences) async throws
     func prepareCache(_ context: InferenceCacheContext) async throws
     func turn(history: [ChatMessage], tools: [ToolDefinition], cancellation: Cancellation, buffer: TurnBuffer) async throws -> EngineTurn
     /// A turn that may think first. `thinking` is nil for tool turns; `control`
@@ -139,8 +141,10 @@ public protocol Inference: Sendable {
     func releasePrivateState() async
 }
 public extension Inference {
+    func modelSetup(preferences: PerformancePreferences) async throws -> ModelSetup? { nil }
     func acceptModelSetup(_ setup: ModelSetup) async throws { throw SevraError.refused("This inference owner cannot accept a local model setup.") }
     func recoverModelActivation() async throws { throw SevraError.refused("This inference owner has no model setup record to repair.") }
+    func recoverModelActivation(preferences: PerformancePreferences) async throws { try await recoverModelActivation() }
     func prepareCache(_ context: InferenceCacheContext) async throws {}
     func prepareAhead() async {}
     func releasePrivateState() async { await unload() }
@@ -181,6 +185,7 @@ public actor LocalInference: Inference {
     private var engine: Engine?
     private var governor: MemoryGovernor?
     private let model: URL
+    private let managedModelRoot: URL?
     private let modelVerification = ModelVerificationCache()
     /// The file check started ahead of the first message, off the inference
     /// queue. A turn joins it instead of hashing again.
@@ -211,6 +216,7 @@ public actor LocalInference: Inference {
     public init(model: URL = WeightStore.default.modelDirectory, preferences: PerformancePreferences = .init(),
                 activationDirectory: URL? = nil) {
         self.model = model; self.preferences = preferences; self.activationDirectory = activationDirectory
+        managedModelRoot = Self.managedRoot(model: model, defaultModel: WeightStore.default.modelDirectory)
         self.activationWriteFault = nil
     }
     /// Bounded failure injection for the real activation check. Production
@@ -218,16 +224,45 @@ public actor LocalInference: Inference {
     package init(model: URL, preferences: PerformancePreferences, activationDirectory: URL,
                  activationWriteFault: @escaping (ModelActivationJournal.WritePoint) throws -> Void) {
         self.model = model; self.preferences = preferences; self.activationDirectory = activationDirectory
+        managedModelRoot = Self.managedRoot(model: model, defaultModel: WeightStore.default.modelDirectory)
         self.activationWriteFault = activationWriteFault
     }
     /// Explicit bounded configuration for existing callers and real checks.
     public init(model: URL = WeightStore.default.modelDirectory, memoryGB: Double) {
         self.model = model; self.preferences = .init(budget: .custom, customGB: memoryGB)
+        managedModelRoot = Self.managedRoot(model: model, defaultModel: WeightStore.default.modelDirectory)
         self.activationDirectory = nil
         self.activationWriteFault = nil
     }
     public static func defaultActivationDirectory(model: URL = WeightStore.default.modelDirectory) -> URL {
         ModelActivationJournal.defaultDirectory(model: model)
+    }
+    /// Freeze ownership when this owner is created. Later locator changes do
+    /// not move an accepted pack to a different collection during a reload.
+    package static func managedRoot(model: URL, defaultModel: URL) -> URL? {
+        let normal = defaultModel.standardizedFileURL.resolvingSymlinksInPath()
+        return model.standardizedFileURL.resolvingSymlinksInPath() == normal
+            ? normal.deletingLastPathComponent() : nil
+    }
+    public func modelSetup(preferences: PerformancePreferences) async throws -> ModelSetup? {
+        try PerformancePolicy.validateSaved(preferences)
+        var machine = Machine.current()
+        // A setup unloads this owner's engine. Credit its physical footprint
+        // once for this prospective recommendation, never for load admission.
+        if engine != nil, let available = machine.availableGB {
+            machine.availableGB = min(machine.ramGB, available + Double(ProcessMemory.residentBytes()) / 1e9)
+        }
+        let observations = ModelPackRegistry.supported.compactMap { pack -> ModelPackStartupObservation? in
+            guard let directory = try? modelDirectory(for: pack) else { return nil }
+            return .setup(pack: pack, hardware: .setupDestination(directory))
+        }
+        let offer = try ModelPackRegistry.setupOffer(preferences.quantization, on: machine,
+            hardware: .setupDestination(model), contextTokens: PerformancePolicy.contextTokens,
+            requiredFeatures: [.text, .tools],
+            customMemoryGB: preferences.budget == .custom ? preferences.customGB : nil,
+            liveMemory: preferences.liveMemory, observations: observations,
+            incumbentPackID: appliedConfiguration?.packID ?? activationJournal?.state.lastGood?.selection.packID)
+        return ModelSetup(model: try modelDirectory(for: offer.pack), offer: offer, preferences: preferences)
     }
     public func acceptModelSetup(_ setup: ModelSetup) async throws {
         guard !inTurn, !maintaining, engine == nil else {
@@ -254,13 +289,12 @@ public actor LocalInference: Inference {
     /// checkpoint. The normal managed collection owns separate compiled paths.
     private func modelDirectory(for pack: ModelPack) throws -> URL {
         if pack.id == ModelPackRegistry.baseline.id { return model }
-        let normal = WeightStore.default.modelDirectory
-        guard model.standardizedFileURL.resolvingSymlinksInPath() == normal.standardizedFileURL.resolvingSymlinksInPath(),
+        guard let managedModelRoot,
               !pack.directoryName.isEmpty, pack.directoryName != ".", pack.directoryName != "..",
               !pack.directoryName.contains("/"), !pack.directoryName.contains("\\"), !pack.directoryName.utf8.contains(0) else {
             throw SevraError.refused("This model pack needs its own location in the managed model collection.")
         }
-        return normal.deletingLastPathComponent().appendingPathComponent(pack.directoryName, isDirectory: true)
+        return managedModelRoot.appendingPathComponent(pack.directoryName, isDirectory: true)
     }
 
     private func openActivationJournal() throws -> ModelActivationJournal? {
@@ -376,6 +410,9 @@ public actor LocalInference: Inference {
         activationRetryRequested = true
     }
     public func recoverModelActivation() async throws {
+        try await recoverModelActivation(preferences: preferences)
+    }
+    public func recoverModelActivation(preferences: PerformancePreferences) async throws {
         guard !inTurn, !maintaining, engine == nil, activationJournal == nil,
               activationFailure != nil, activationRecoveryAvailable, let activationDirectory else {
             throw SevraError.refused("Model setup can be repaired only while the damaged record is preventing an unloaded model from starting.")
@@ -389,6 +426,7 @@ public actor LocalInference: Inference {
         // complete pack and finish its own health check before publication.
         let attempt = try journal.begin(selection)
         activationJournal = journal; activationAttempt = attempt
+        self.preferences = preferences
         activationRecoveryAvailable = false; activationFailure = nil
         activationRetryRequested = true
         performanceTelemetry?.update(state: "Model not loaded",

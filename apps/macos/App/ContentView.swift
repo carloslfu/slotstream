@@ -508,6 +508,13 @@ struct ContentView: View {
                 case .model:
                     PerformanceSettings(model: model, performance: model.performanceState)
                     Section("Model files") {
+                        if let issue = model.setupIssue { Text(issue).foregroundStyle(secondaryInk).textSelection(.enabled) }
+                        if model.setupRequestPending { ProgressView("Reviewing model setup").controlSize(.small) }
+                        if let selection = model.setup {
+                            LabeledContent("Quantization", value: selection.packTitle)
+                            if let offer = selection.offer { Text(offer.reason).font(.callout).foregroundStyle(secondaryInk) }
+                            LabeledContent("Complete installation", value: ByteCountFormatter.string(fromByteCount: selection.completeBytes, countStyle: .file))
+                        }
                         if let setup = model.setupStatus {
                             Text(setup.phase).font(.headline)
                             if setup.detail != setup.phase {
@@ -521,7 +528,7 @@ struct ContentView: View {
                                 HStack {
                                     Button("Check local model") { model.setUpModel(download: false) }.help("Verify the model files already on this Mac")
                                     if !setup.ready { Button("Download or repair…") { model.setUpModel(download: true) }.help("Download missing model files or repair damaged files") }
-                                }.disabled(model.busy || !ready)
+                                }.disabled(model.busy || !ready || model.setupRequestPending || model.setup?.matches(model.performancePreferences) == false)
                                 if !setup.ready { Text("Downloads contact the model host. Conversation data is not sent.").font(.callout).foregroundStyle(secondaryInk) }
                             }
                         }
@@ -934,7 +941,7 @@ struct PerformanceSettings: View {
                 Text("Queued work waits for a valid choice.").foregroundStyle(.secondary).font(.callout)
                 if status?.activationRecoveryAvailable == true {
                     Button("Repair model setup") { model.recoverModelActivation() }
-                        .disabled(status?.busy == true || status?.pending == true)
+                        .disabled(status?.canRepairActivation != true)
                         .help("Preserves the damaged setup record and checks the model again. Your settings and conversations stay saved.")
                 }
                 Button("Retry settings") { model.setPerformance(model.performancePreferences, retry: true) }

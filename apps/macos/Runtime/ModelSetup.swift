@@ -18,6 +18,11 @@ public final class ModelSetup: @unchecked Sendable {
     public var packID: String { pack.id }
     public var packTitle: String { pack.title }
     public var modelDirectory: URL { store.modelDirectory }
+    public let offer: ModelPackSetupOffer?
+    private let selectionPreferences: PerformancePreferences?
+    /// Disk bytes for a complete offered installation, including declared
+    /// optional components. This is not the remaining network transfer size.
+    public var completeBytes: Int64 { pack.totalBytes + decodeForecastFiles.reduce(0) { $0 + Int64($1.size) } }
     private let decodeForecastFiles: [TapCorrectionSidecar.File]
     private let lock = NSLock()
     private var cancellation: PullCancellation?
@@ -25,12 +30,26 @@ public final class ModelSetup: @unchecked Sendable {
     public convenience init(model: URL = WeightStore.default.modelDirectory) {
         self.init(model: model, pack: ModelPackRegistry.baseline)
     }
-    public init(model: URL, pack: ModelPack) {
-        self.pack = pack
+    public convenience init(model: URL, pack: ModelPack) {
+        self.init(model: model, pack: pack, offer: nil, preferences: nil)
+    }
+    package convenience init(model: URL, offer: ModelPackSetupOffer, preferences: PerformancePreferences) {
+        self.init(model: model, pack: offer.pack, offer: offer, preferences: preferences)
+    }
+    private init(model: URL, pack: ModelPack, offer: ModelPackSetupOffer?, preferences: PerformancePreferences?) {
+        self.pack = pack; self.offer = offer; selectionPreferences = preferences
         store = WeightStore(modelDirectory: model, pack: pack)
         decodeForecastFiles = pack.decodeForecastFiles
         value = ModelSetupStatus(phase: "Not checked", detail: "Check the installed local model, or download its pinned files.",
-            requiredBytes: store.requiredBytes, freeBytes: 0, ready: false, busy: false)
+            requiredBytes: store.requiredBytes, freeBytes: WeightStore.freeDiskBytes(near: model), ready: false, busy: false)
+    }
+    /// Readiness and an unused saved custom limit do not change a setup.
+    /// Legacy direct callers have no bound proposal and remain compatible.
+    public func matches(_ preferences: PerformancePreferences) -> Bool {
+        guard let selected = selectionPreferences else { return true }
+        return selected.quantization == preferences.quantization && selected.budget == preferences.budget
+            && (selected.budget != .custom || selected.customGB == preferences.customGB)
+            && selected.liveMemory == preferences.liveMemory
     }
     public func snapshot() -> ModelSetupStatus { lock.lock(); defer { lock.unlock() }; return value }
     private func set(_ mutate: (inout ModelSetupStatus) -> Void) { lock.lock(); defer { lock.unlock() }; mutate(&value) }
@@ -84,8 +103,8 @@ public final class ModelSetup: @unchecked Sendable {
             $0.freeBytes = result.freeDiskBytes ?? WeightStore.freeDiskBytes(near: store.modelDirectory)
             switch result {
             case .ready:
-                $0.phase = "Local model ready"
-                $0.detail = "The installed model matches its pinned file hashes."
+                $0.phase = "Model files verified"
+                $0.detail = "The installed files match their pinned hashes. Loading and the startup check happen before the next reply."
                     + (forecastMissing ? " The decode forecast file is missing, so replies use the earlier, slower forecast." : "")
             case .missing: $0.phase = "Model download needed"; $0.detail = "Download the pinned model files to use local inference."
             case .incomplete: $0.phase = "Download incomplete"; $0.detail = "Resume setup to finish and verify the local model."

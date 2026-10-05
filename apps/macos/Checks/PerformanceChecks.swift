@@ -276,6 +276,13 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
     catch { try verifyPerformance(!error.localizedDescription.contains("CHECK FAILED"), "setup acceptance requires stopped local work") }
     try verifyPerformance(await setupProbe.setupAcceptances == 0, "an invalid setup boundary never reaches inference")
     try await setupRuntime.beginModelMaintenance()
+    let proposedOwner = LocalInference(model: root.appendingPathComponent("setup-proposal-no-weights"))
+    guard let staleSetup = try await proposedOwner.modelSetup(preferences: .init(liveMemory: .fixed)) else {
+        throw SevraError.refused("CHECK FAILED: missing local setup proposal")
+    }
+    do { try await setupRuntime.acceptModelSetup(staleSetup); throw SevraError.refused("CHECK FAILED: accepted stale setup settings") }
+    catch { try verifyPerformance(!error.localizedDescription.contains("CHECK FAILED"), "changed settings refuse stale setup acceptance") }
+    try verifyPerformance(await setupProbe.setupAcceptances == 0, "a stale setup never reaches the accepting inference owner")
     try await setupRuntime.acceptModelSetup(setup)
     try verifyPerformance(await setupProbe.setupAcceptances == 1, "completed setup acceptance reaches its inference owner once")
     await setupProbe.holdSettings(true)
