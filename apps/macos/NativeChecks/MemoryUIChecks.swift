@@ -20,31 +20,35 @@ import Vision
         window.setFrameOrigin(NSPoint(x: -30000, y: -30000))
         defer { window.orderOut(nil) }
         for appearance in ["light", "dark", "system"] {
-            for mode in ["automatic", "custom", "saved-above-range", "saved-below-range", "unavailable-range", "failed-settings", "failed-activation", "corrupt-activation", "corrupt-pending-settings", "fixed", "unavailable-pack"] {
-                let custom = mode != "automatic"
+            for mode in ["automatic", "unloaded-automatic", "custom", "saved-above-range", "saved-below-range", "unavailable-range", "failed-settings", "failed-activation", "corrupt-activation", "corrupt-pending-settings", "fixed", "unavailable-pack"] {
+                let custom = mode != "automatic" && mode != "unloaded-automatic"
                 let overRange = mode == "saved-above-range"
                 let belowRange = mode == "saved-below-range"
                 let rangeAvailable = mode != "unavailable-range"
                 let corrupt = ["corrupt-activation", "corrupt-pending-settings"].contains(mode)
                 let failedPending = mode == "corrupt-pending-settings"
                 let activationFailed = mode == "failed-activation" || corrupt
+                let loaded = !corrupt && mode != "unloaded-automatic"
+                let pending = failedPending || (custom && !activationFailed)
                 var preferences = custom ? PerformancePreferences(budget: .custom, customGB: belowRange ? 10 : 48) : .init()
                 if mode == "fixed" { preferences.liveMemory = .fixed }
                 if mode == "unavailable-pack" { preferences.quantization = .pack("removed-pack") }
                 model.performancePreferences = preferences
                 model.snapshot = RuntimeSnapshot(home: .init(), modelStatus: "Ready", error: nil, simulated: true)
                 model.performanceState.snapshot = PerformanceSnapshot(preferences: preferences,
-                    pending: failedPending || (custom && !activationFailed), state: activationFailed ? "Model change failed" : "In use", loaded: !corrupt,
-                    busy: !activationFailed, usedGB: 13,
-                    budgetGB: corrupt ? nil : 14.5, recommendationGB: 14.5, maximumGB: overRange ? 37 : 49.5,
+                    pending: pending, state: activationFailed ? "Model change failed" : loaded ? "In use" : "Model not loaded", loaded: loaded,
+                    busy: loaded && !activationFailed, usedGB: 13,
+                    budgetGB: loaded ? 14.5 : nil, recommendationGB: 14.5, maximumGB: overRange ? 37 : 49.5,
                     detail: corrupt ? "Model setup needs repair."
-                        : mode == "failed-activation" ? "The previous configuration is loaded." : "Responding on your Mac.", idleMinutes: 10,
-                    physicalGB: 64 * 1.073741824, ceilingGB: custom ? 48 : 33, appliedCeilingGB: 33,
+                        : mode == "failed-activation" ? "The previous configuration is loaded."
+                        : loaded ? "Responding on your Mac." : "Loads when you send a message.", idleMinutes: 10,
+                    physicalGB: 64 * 1.073741824, ceilingGB: custom ? 48 : 33, appliedCeilingGB: loaded ? 33 : nil,
                     failure: failedPending ? "The retained model setup record is unreadable."
                         : mode == "failed-settings" ? "Choose a supported memory limit." : nil,
                     activationFailure: activationFailed ? "Your requested settings are preserved." : nil,
                     activationRecoveryAvailable: corrupt,
-                    selectionReason: "Uses the original pack while alternative quantizations are being qualified.",
+                    selectionReason: PerformanceTelemetry.selectionReason(selection: preferences.quantization,
+                        proposed: nil, confirmed: nil, loaded: loaded, pending: pending, activationFailed: activationFailed),
                     minimumGB: belowRange ? 12 : PerformancePolicy.minimumGB,
                     memoryRangeAvailable: rangeAvailable)
                 window.appearance = appearance == "system" ? nil : NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
@@ -67,7 +71,7 @@ import Vision
                 try VNImageRequestHandler(cgImage: rep.cgImage!, options: [:]).perform([request])
                 let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
                 let labels = ["Quantization", "While running", "Memory budget", "Keep model ready"]
-                    + (corrupt ? [] : ["Budget available now", "14.5 GB"])
+                    + (loaded ? ["Budget available now", "14.5 GB"] : [])
                     + (custom ? ["Custom limit", belowRange ? "10" : "48", "Your limit stays saved"]
                         + (rangeAvailable ? [overRange ? "37 GB" : "49.5 GB"] : []) : ["Automatic", "Recommended now"])
                     + (mode == "failed-settings" || activationFailed ? ["Settings could not be applied", "Queued work waits", "Retry settings"] : custom ? ["Applies after"] : [])
@@ -77,6 +81,8 @@ import Vision
                     + (rangeAvailable ? [] : ["A supported memory range is unavailable"])
                     + (mode == "fixed" ? ["Fixed cache capacity", "Memory pressure can still stop"] : ["Automatic adjustment"])
                     + (mode == "unavailable-pack" ? ["Unavailable saved pack"] : [])
+                    + (mode == "automatic" ? ["Speed is not verified"] : [])
+                    + (mode == "unloaded-automatic" ? ["when the model loads"] : [])
                 for label in labels where !text.localizedCaseInsensitiveContains(label) {
                     throw NSError(domain: "MemoryUI", code: 2, userInfo: [NSLocalizedDescriptionKey: "\(name) missing rendered label: \(label)\n\(text)"])
                 }

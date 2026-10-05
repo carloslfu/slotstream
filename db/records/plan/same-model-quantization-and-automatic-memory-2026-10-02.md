@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T02:24:41.814125+00:00
+updated: 2026-10-05T02:35:48.218248+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1108,3 +1108,9 @@ The registry can confirm only the same proposed automatic profile against that o
 [[sources/runs/2026/10/2026-10-04-loaded-profile-telemetry-preparation]] preserves the application integration. The proposed profile follows its frozen selection; actual component and admission observations follow the authenticated load. Healthy execution and durable activation precede profile confirmation and publication. Rollback receives no evidence from the failed new selection. Telemetry binds evidence to the loaded generation, complete current allocation, independent user controls and current hardware/storage/operating conditions. Pending settings, pressure or a mismatch withhold measured labels and the target flag. The saved ceiling remains unchanged, and polling takes no generation lock or tensor/file verification path.
 
 Synthetic invalidation and presentation fixtures are prepared and the diff check passes. Native execution of this application source and actual loaded proof remain pending. The preceding setup-view checks passed all twelve Light/Dark/System states, and four representative renders were manually inspected. The separate Xcode access correction also passed its native Xcode build. Those results do not qualify this new telemetry source, a model pack, physical activation or a speed promise; the complete study and remaining physical gates are still open.
+
+### Existing native acceptance extended for loaded evidence, October 4
+
+[[sources/runs/2026/10/2026-10-04-native-loaded-evidence-acceptance-preparation]] preserves the extended original activation check and native memory-view fixtures. The actual loaded observation is retained as package-only diagnostic metadata and cleared on unload. Physical activation will assert a complete Engine observation under ordinary runtime defaults, unknown speed evidence after failed replacement/rollback, and cleared metadata after release. The existing view checks now render the production selection explanation, including unverified loaded speed and an unloaded automatic state. Diff and shell syntax checks pass; these extended native assertions remain unexecuted.
+
+The preceding Xcode correction now has a fully successful Mac workflow. The Engine observation foundation has successful public-library and coverage jobs, with its full static job still running at capture. No such result substitutes for the pending application telemetry, physical quality/performance, artifact or final integration gates.

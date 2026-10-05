@@ -270,6 +270,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var activationRecoveryAvailable = false
     private var selectedConfiguration: (decision: ModelPackDecision, preferences: PerformancePreferences)?
     private var confirmedProfile: (decision: ModelPackDecision, binding: PerformanceProfileBinding)?
+    private var startupObservation: LoadedModelPackCandidate?
     private struct RangeKey: Equatable {
         let manifest: String
         let startupPolicy: String
@@ -291,6 +292,12 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     public var lastPreparationSeconds: Double { lock.lock(); defer { lock.unlock() }; return preparationSeconds }
     public var isLoaded: Bool { lock.lock(); defer { lock.unlock() }; return engine != nil }
     public var activationFailureMessage: String? { lock.lock(); defer { lock.unlock() }; return activationFailure }
+    /// Native acceptance can inspect the actual load even before any speed
+    /// profile qualifies. This is observation only, never profile approval.
+    package var loadedStartupCandidate: LoadedModelPackCandidate? {
+        lock.lock(); defer { lock.unlock() }
+        return engine == nil ? nil : startupObservation
+    }
     var hasRecoverableActivationFailure: Bool {
         lock.lock(); defer { lock.unlock() }; return activationFailure != nil && activationRecoveryAvailable
     }
@@ -303,6 +310,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
                  observed: LoadedModelPackCandidate? = nil, preferences: PerformancePreferences? = nil) {
         lock.lock(); defer { lock.unlock() }
         self.configuration = configuration
+        startupObservation = configuration == nil ? nil : observed
         confirmedProfile = nil
         guard let configuration, let confirmed, let observed, let preferences,
               confirmed.evidence != .unknown,

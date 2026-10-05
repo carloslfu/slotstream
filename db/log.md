@@ -330,3 +330,6 @@ Prepared Engine-owned observations and exact-profile confirmation; bind executio
 ## [2026-10-05 02:25] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared app confirmation after healthy durable activation and metadata-only invalidation for reload, pressure, allocation, preferences and operating conditions. Diff check, claims 349/0, projections and full brain validation 0/0 pass; native telemetry tests pending. Preserved prior successful setup-view checks and corrected Xcode build with their distinct commits. Quality continuation remains active and no pack/profile is qualified.
 
+## [2026-10-05 02:36] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Extended existing real activation and native memory-view checks for Engine observation, rollback speed-evidence invalidation, unload cleanup and production before/after-load status. Diff, shell syntax, claims 349/0, projections and full brain validation 0/0 pass; new native checks pending. Preserved completed prior Mac correction and observation foundation CI results without attributing them to new code.
+

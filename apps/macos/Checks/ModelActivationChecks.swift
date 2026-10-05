@@ -512,6 +512,12 @@ func realActivationCheckIfRequested() async throws -> Bool {
             configuration?.executionPolicyIdentity?.count == 64 &&
             initial.lastGood?.selection.startupPolicyID == configuration?.startupPolicyID,
             "the real response and durable activation bind the applied startup recipe")
+        let observed = inference!.performanceTelemetry?.loadedStartupCandidate
+        try check(observed?.candidate.packID == configuration?.packID
+            && observed?.candidate.manifestDigest == configuration?.manifestDigest
+            && observed?.candidate.simulated == false
+            && observed?.candidate.configurationDigest.count == 64,
+            "default execution exposes an Engine-observed complete configuration after healthy activation; run this acceptance check without runtime tuning overrides")
         let firstStats = await inference!.lastStats
         try check(!firstStats.isEmpty && firstStats.allSatisfy { stats in
             guard let maximum = stats.prefillChunkLimit, (256...4096).contains(maximum) else { return false }
@@ -532,6 +538,9 @@ func realActivationCheckIfRequested() async throws -> Bool {
             "rollback reloads the prior configuration under its own ceiling")
         try check(telemetry.loaded && telemetry.state == "Model change failed" && telemetry.preferences == requested,
             "rollback is visible without replacing saved settings")
+        try check(telemetry.selectionEvidence == .unknown && telemetry.measuredDecodeLowerBound == nil
+            && !telemetry.meetsMeasuredSpeedTarget,
+            "a restored load cannot inherit speed evidence from the failed selection")
         try check(failed.lastGood?.generation != initial.lastGood?.generation,
             "rollback is a fresh runtime, never two resident engines")
         do { _ = try await run(); throw SevraError.refused("CHECK FAILED: failed-selection work ran against rollback") }
@@ -542,7 +551,10 @@ func realActivationCheckIfRequested() async throws -> Bool {
         try check(retried.text.trimmingCharacters(in: .whitespacesAndNewlines) == "OK", "explicit retry completes")
         try check(try state().lastGood?.selection.preferences == requested, "explicit retry commits its requested settings")
         let committed = try state().lastGood?.generation
-        await inference!.unload(); inference = nil
+        await inference!.unload()
+        try check(inference!.performanceTelemetry?.loadedStartupCandidate == nil,
+            "unload clears observed startup metadata")
+        inference = nil
         inference = LocalInference(model: model, preferences: requested, activationDirectory: root,
             activationWriteFault: activationFault)
         let restarted = try await run()

@@ -1170,6 +1170,12 @@ The registry can confirm only the same proposed automatic profile against that o
 
 Synthetic invalidation and presentation fixtures are prepared and the diff check passes. Native execution of this application source and actual loaded proof remain pending. The preceding setup-view checks passed all twelve Light/Dark/System states, and four representative renders were manually inspected. The separate Xcode access correction also passed its native Xcode build. Those results do not qualify this new telemetry source, a model pack, physical activation or a speed promise; the complete study and remaining physical gates are still open.
 
+### Existing native acceptance extended for loaded evidence, October 4
+
+[[sources/runs/2026/10/2026-10-04-native-loaded-evidence-acceptance-preparation]] preserves the extended original activation check and native memory-view fixtures. The actual loaded observation is retained as package-only diagnostic metadata and cleared on unload. Physical activation will assert a complete Engine observation under ordinary runtime defaults, unknown speed evidence after failed replacement/rollback, and cleared metadata after release. The existing view checks now render the production selection explanation, including unverified loaded speed and an unloaded automatic state. Diff and shell syntax checks pass; these extended native assertions remain unexecuted.
+
+The preceding Xcode correction now has a fully successful Mac workflow. The Engine observation foundation has successful public-library and coverage jobs, with its full static job still running at capture. No such result substitutes for the pending application telemetry, physical quality/performance, artifact or final integration gates.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
