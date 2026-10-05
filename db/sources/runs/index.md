@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T07:52:08.303251Z
+updated: 2026-10-05T08:38:51.756120Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-grader-recovery-complete-ci]] — Corrected full Engine CI, context contracts and docs pass; resumed quality jobs complete without replacement
 - [[sources/runs/2026/10/2026-10-05-grader-recovery-harness-and-launch]] — Recovery continues without answer replacement; static harness registration fixed and future attempt marker sync hardened
 - [[sources/runs/2026/10/2026-10-05-heldout-instruction-worker-recovery]] — Unchanged held-out answers, diagnosed Python ABI mismatch, synthetic grader checks and frozen unanswered-only recovery
 - [[sources/runs/2026/10/2026-10-05-saved-memory-limit-native-acceptance]] — Complete native acceptance and direct visual review of exact saved ceilings, plus completed compiler-mode Engine acceptance
@@ -506,9 +507,8 @@ updated: 2026-10-05T07:52:08.303251Z
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-native-counterexample]] — Full native qualification rejects the bounded MTP tail while ordinary and recovery pass
 - [[sources/runs/2026/09/2026-09-08-optimization-long-decoding-guarded-executor]] — Long decoding executor preserves fixed workloads and rejects stale qualification
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-complete-static]] — New combined binary passes the complete static acceptance suite
-- [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-external-consumer]] — New combined source passes external public-library and planner contracts
 
 ## More
 
-This folder has 835 files. The 500 most recent are listed above.
+This folder has 836 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

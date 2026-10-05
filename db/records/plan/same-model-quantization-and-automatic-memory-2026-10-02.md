@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T07:52:09.474545+00:00
+updated: 2026-10-05T08:39:24.400531+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -27,7 +27,7 @@ This table supersedes the progress summary below without changing its historical
 | Original behavior and controls | Default Auto, independent saved ceiling and live adjustment, exact saved-limit editing and response details, persistence, deferred application and response-generation binding pass | Repeat affected original and app acceptance on the final integrated build |
 | Pack-owned startup and selection | CI validates startup recipe/range/context matching, installation-journal recovery, metadata evidence guards and public compilation boundaries | Real updated Engine observations, the actual standalone loader, profile-aware CLI Auto and alternative-pack activation after qualification |
 | Candidate execution and resources | The same-parent grouped affine-three-bit control passes Engine/HTTP, separate streamed drafts, staged 32K context, memory/disk prefix reuse, live governor, cancellation and owned vision functional checks | Complete candidate app workflows and the prospectively frozen image and long-conversation outcome campaigns |
-| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The earlier continuation stopped at its first instruction grade due to a reproduced Python ABI mismatch; a separately frozen recovery preserves every complete job and the one ungraded answer, with final analysis still pending |
+| Quality selection | The unconstrained affine refit lost its complete proxy screen; minmax remains the sole admitted affine research candidate | The separately frozen grader recovery is running; the recovered paired job and following job are complete with previous answers preserved, and full-study analysis remains pending |
 | Complete performance | Actual-plan pilots preserve timing exclusions; standalone and Desktop-aware V2 instruments compile and pass their weights-free fixtures | Actual integrated V2 execution and standalone startup, an eligible paired pilot/final and safe lower-budget matrix; qualify profiles against the stated speed and latency gates |
 | Resource loading | Bounded parallel file authentication passes corrected optimized and instrumented catalogues, complete static/transport CI, external-library and Mac runtime/Xcode checks | Actual startup/resource measurements and cancellation during a long read |
 | Distribution and recovery | Original-pack durable activation, bounded health check, serial rollback/retry and failed-selection queue gates pass; lossless three-bit transport planning passes full CI | Authenticate and retire only the planned reproducible copies, produce the standalone artifact, prove native identity/parity, complete independent public pull and integrated multiple-pack transactions |
@@ -1183,3 +1183,7 @@ The preceding compiler-mode Engine workflow also passes in full: optimized safet
 [[sources/runs/2026/10/2026-10-05-grader-recovery-harness-and-launch]] records actual memory/storage admission, import of the complete prefix and the first grade of the preserved answer without regeneration. The frozen recovery is now running; partial outcomes remain uninspected. Its interpreter, native image, limits, tasks and analysis remain pinned.
 
 The initial main CI weights-free job exposed missing registrations in its isolated harness fixture tree. Both suites now occupy the same checked sequence in the real gate and fixture list; all thirty-four entry-point checks pass on both local Python runtimes. A separate future-owner correction synchronizes the exclusive grading marker and directory before worker invocation, with both sync-failure refusals covered. The running frozen owner is unchanged, and no power-loss recovery is claimed. Complete corrected CI and every final quality/product gate remain pending.
+
+### Complete grader-recovery CI, October 5
+
+[[sources/runs/2026/10/2026-10-05-grader-recovery-complete-ci]] closes the preceding native CI requirement at the corrected source commit. The complete optimized safety suite, native catalogue, public-library consumer, coverage and tested-artifact comparison pass, alongside context contracts and documentation. The prior failed CI remains preserved. The recovered paired job and the following paired job also complete under the frozen local continuation without replacing a generated answer. No partial outcomes are inspected, and complete quality analysis, standalone delivery, product workflows and performance gates remain open.
