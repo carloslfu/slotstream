@@ -68,6 +68,19 @@ extension Planner {
         mtpAvailable: Bool = false, visionAvailable: Bool = false,
         visionResidentReserved: Bool = false, runtimePolicy: RuntimeAllocationPolicy? = nil,
         qualification: Bool = false, decodeLookahead: DecodeLookaheadPlanning = .automatic) -> ContextFeasibility {
+        contextFeasibility(resources: .original, request, on: device,
+            mtpAvailable: mtpAvailable, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, runtimePolicy: runtimePolicy,
+            qualification: qualification, decodeLookahead: decodeLookahead)
+    }
+
+    /// The same feasibility search for an authenticated pack's allocation
+    /// contract. Research geometry cannot inherit the original context limit.
+    package static func contextFeasibility(resources: PackMemoryProfile,
+        _ request: PlanRequest, on device: Machine,
+        mtpAvailable: Bool = false, visionAvailable: Bool = false,
+        visionResidentReserved: Bool = false, runtimePolicy: RuntimeAllocationPolicy? = nil,
+        qualification: Bool = false, decodeLookahead: DecodeLookaheadPlanning = .automatic) -> ContextFeasibility {
         // Freeze a nil real reading once; it must not drift during search.
         guard let availability = device.availableGB ?? (device.isSimulated ? .infinity : deviceAvailableGB()) else {
             return ContextFeasibility(requestedWindow: request.maxContextTokens,
@@ -77,7 +90,7 @@ extension Planner {
         }
         var requestedLedger: ContextMemoryLedger?
         func candidate(_ cap: Int) throws -> MemoryPlan {
-            let value = try plan(expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
+            let value = try plan(resources: resources, expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
                 memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                 availableGB: availability, ramPercent: request.maxRAMPercent,
                 mtp: request.mtp, mtpAvailable: mtpAvailable, vision: request.vision,
@@ -93,14 +106,17 @@ extension Planner {
         let refusal: String?
         do { resolved = try candidate(request.maxContextTokens); refusal = nil }
         catch { resolved = nil; refusal = String(describing: error) }
-        let limit = qualification ? ContextPolicy.modelLimit : ContextPolicy.implementationLimit
+        let globalLimit = qualification ? ContextPolicy.modelLimit : ContextPolicy.implementationLimit
+        let limit = min(resources.maximumContext, globalLimit)
         var maximum: MemoryPlan?
         for cap in stride(from: limit, through: 1, by: -1) {
             if let value = try? candidate(cap) { maximum = value; break }
         }
         return ContextFeasibility(requestedWindow: request.maxContextTokens,
             maximumFeasibleWindow: maximum?.maxContextTokens ?? 0,
-            limitingResource: maximum?.maxContextTokens == limit ? (qualification ? "model_limit" : "implementation_limit") : "memory_or_required_components",
+            limitingResource: maximum?.maxContextTokens == limit
+                ? (limit < globalLimit ? "pack_limit" : (qualification ? "model_limit" : "implementation_limit"))
+                : "memory_or_required_components",
             requestedPlan: resolved, requestedLedger: requestedLedger,
             maximumPlan: maximum, refusal: refusal)
     }

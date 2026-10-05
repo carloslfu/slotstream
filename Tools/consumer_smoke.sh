@@ -94,7 +94,15 @@ let plan = try Planner.plan(PlanRequest(memoryGB: 16), on: Machine.simulated(ram
 precondition(plan.slots > 0, "a 16 GB plan should size a pool")
 precondition(plan.simulated, "a simulated machine must mark its plan")
 let maintained = ModelPackRegistry.baseline
+let legacyFeasibility: (PlanRequest, Machine, Bool, Bool, Bool, RuntimeAllocationPolicy?, Bool, DecodeLookaheadPlanning) -> ContextFeasibility = Planner.contextFeasibility
+let legacyAutomaticWindow: (PlanRequest, Machine, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning) -> AutomaticContextWindow = Planner.automaticContextWindow
+let legacyResolveWindow: (ContextWindowChoice, PlanRequest, Machine, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning) throws -> (plan: MemoryPlan, automatic: AutomaticContextWindow?) = Planner.resolveContextWindow
+let ownedFeasibility: (PlanRequest, Machine, Bool, Bool, Bool, RuntimeAllocationPolicy?, DecodeLookaheadPlanning) -> ContextFeasibility = maintained.contextFeasibility
+_ = (legacyFeasibility, legacyAutomaticWindow, legacyResolveWindow, ownedFeasibility)
 let startupMachine = Machine.simulated(ramGB: 48, availableGB: 40)
+let ownedWindow = try maintained.resolveContextWindow(.tokens(8192),
+    request: PlanRequest(memoryLimitGB: 10, mtp: .off, vision: .off), on: startupMachine)
+precondition(ownedWindow.plan.simulated && ownedWindow.plan.maxContextTokens == 8192 && ownedWindow.automatic == nil)
 let ownedPlan = try maintained.startupPlan(customMemoryGB: 10, on: startupMachine)
 precondition(ownedPlan.simulated && ownedPlan.memoryLimitGB == 10)
 precondition(ownedPlan.maxContextTokens == maintained.startupDefaults.contextTokens)

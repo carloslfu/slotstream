@@ -72,6 +72,10 @@ public struct AutomaticContextWindow {
 
     /// The startup line under the plan banner.
     public func announcement(served: Int) -> String {
+        if let plan = candidates.first?.plan, !plan.resources.usesBaselineSpeedEvidence {
+            return "  window: automatic, \(served) tokens; this pack has no calibrated context-speed tradeoff. "
+                + "--max-context N selects a supported window up to \(plan.resources.maximumContext) tokens."
+        }
         let windows = ContextPolicy.automaticWindows.map(String.init).joined(separator: ", ")
         let percent = Int((ContextPolicy.automaticRequestTimeTolerance * 100).rounded())
         return "  window: automatic for this Mac, \(served) tokens: the largest of \(windows) that keeps "
@@ -81,6 +85,11 @@ public struct AutomaticContextWindow {
 
     /// The doctor section: each candidate and why auto took or declined it.
     public func report(served: Int) -> String {
+        if let plan = candidates.first?.plan, !plan.resources.usesBaselineSpeedEvidence {
+            return "\ncontext window: automatic, \(served) tokens. The pack's memory contract sets its supported limit; "
+                + "no context-speed estimate is available. Use --max-context N to choose another supported window "
+                + "up to \(plan.resources.maximumContext) tokens. Every choice still needs current memory admission."
+        }
         func pad(_ s: String, _ width: Int) -> String {
             s.count >= width ? s : String(repeating: " ", count: width - s.count) + s
         }
@@ -131,6 +140,9 @@ extension Planner {
     /// Shared by hardware-tier selection and live startup. A busy start must
     /// obey the same performance policy, not merely find any plan that fits.
     package static func automaticWindowRefusal(_ candidate: MemoryPlan, from baseline: MemoryPlan) -> String? {
+        guard candidate.resources == baseline.resources, baseline.resources.usesBaselineSpeedEvidence else {
+            return "the pack has no calibrated context-speed tradeoff"
+        }
         if baseline.mtpEnabled && !candidate.mtpEnabled { return "turns speculative decoding off" }
         // The estimate leaves speculative decoding out because this rule holds
         // it fixed, and a streamed head is not the resident head: it reads its
@@ -155,9 +167,11 @@ extension Planner {
     /// plan (a tuningPromptTokens prompt and a tuningReplyTokens reply): the
     /// score that already sizes the prefill pass. It is built from measured
     /// anchors but remains an estimate, and it leaves out speculative decoding,
-    /// which the automatic window rule holds fixed instead.
+    /// which the automatic window rule holds fixed instead. Infinity means
+    /// this pack has no applicable timing anchors, as in MemoryPlan's estimates.
     public static func estimatedRequestSeconds(_ plan: MemoryPlan) -> Double {
-        tuningPromptTokens / estPrefillTokS(chunk: plan.prefillChunk)
+        guard plan.resources.usesBaselineSpeedEvidence else { return .infinity }
+        return tuningPromptTokens / estPrefillTokS(chunk: plan.prefillChunk)
             + tuningReplyTokens / estWarmTokS(expertsPerLayer: plan.expertsPerLayerCached)
     }
 
@@ -169,12 +183,25 @@ extension Planner {
         runtimePolicy: RuntimeAllocationPolicy? = nil,
         decodeLookahead: DecodeLookaheadPlanning = .automatic
     ) -> AutomaticContextWindow {
+        automaticContextWindow(resources: .original, request, on: device,
+            mtpAvailable: mtpAvailable, visionAvailable: visionAvailable,
+            runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
+    }
+
+    /// Without timing anchors for this arithmetic, keep the conservative
+    /// default window. More RAM alone cannot establish a free context increase.
+    package static func automaticContextWindow(
+        resources: PackMemoryProfile, _ request: PlanRequest, on device: Machine,
+        mtpAvailable: Bool = false, visionAvailable: Bool = false,
+        runtimePolicy: RuntimeAllocationPolicy? = nil,
+        decodeLookahead: DecodeLookaheadPlanning = .automatic
+    ) -> AutomaticContextWindow {
         typealias Candidate = AutomaticContextWindow.Candidate
-        let base = ContextPolicy.defaultTokens
+        let base = min(ContextPolicy.defaultTokens, resources.maximumContext)
         func evaluate(_ window: Int) -> (MemoryPlan?, String?) {
             do {
                 // The machine's tier decides, not how busy it is right now.
-                let value = try plan(expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
+                let value = try plan(resources: resources, expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
                     memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                     availableGB: .infinity, ramPercent: request.maxRAMPercent,
                     mtp: request.mtp, mtpAvailable: mtpAvailable,
@@ -194,13 +221,25 @@ extension Planner {
                 window: base, plan: nil, refusal: baseRefusal, requestSeconds: nil, relativeRequestCost: nil,
                 accepted: true, reason: "default window; no plan on this machine to compare against")])
         }
+        guard resources.usesBaselineSpeedEvidence else {
+            var candidates = [Candidate(window: base, plan: basePlan, refusal: nil,
+                requestSeconds: nil, relativeRequestCost: nil, accepted: true,
+                reason: "default window; this pack has no calibrated context-speed tradeoff")]
+            for window in ContextPolicy.automaticWindows where window > base {
+                candidates.append(Candidate(window: window, plan: nil, refusal: nil,
+                    requestSeconds: nil, relativeRequestCost: nil, accepted: false,
+                    reason: window > resources.maximumContext ? "above this pack's supported limit"
+                        : "this pack has no calibrated context-speed tradeoff"))
+            }
+            return AutomaticContextWindow(window: base, candidates: candidates)
+        }
         let baseSeconds = estimatedRequestSeconds(basePlan)
         var chosen = base
         var candidates = [Candidate(window: base, plan: basePlan, refusal: nil, requestSeconds: baseSeconds,
             relativeRequestCost: 0, accepted: true, reason: "default window")]
         let fixedCache = request.expertsPerLayer != nil || request.poolGB != nil
         for window in ContextPolicy.automaticWindows where window > base {
-            if window > ContextPolicy.implementationLimit || fixedCache {
+            if window > min(ContextPolicy.implementationLimit, resources.maximumContext) || fixedCache {
                 candidates.append(Candidate(window: window, plan: nil, refusal: nil, requestSeconds: nil,
                     relativeRequestCost: nil, accepted: false,
                     reason: fixedCache ? "a fixed cache size keeps the default window" : "above the supported limit"))
@@ -236,8 +275,19 @@ extension Planner {
         runtimePolicy: RuntimeAllocationPolicy? = nil,
         decodeLookahead: DecodeLookaheadPlanning = .automatic
     ) throws -> (plan: MemoryPlan, automatic: AutomaticContextWindow?) {
+        try resolveContextWindow(resources: .original, choice, request: request, on: device,
+            mtpAvailable: mtpAvailable, visionAvailable: visionAvailable,
+            runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
+    }
+
+    package static func resolveContextWindow(
+        resources: PackMemoryProfile, _ choice: ContextWindowChoice, request: PlanRequest, on device: Machine,
+        mtpAvailable: Bool = false, visionAvailable: Bool = false,
+        runtimePolicy: RuntimeAllocationPolicy? = nil,
+        decodeLookahead: DecodeLookaheadPlanning = .automatic
+    ) throws -> (plan: MemoryPlan, automatic: AutomaticContextWindow?) {
         func live(_ window: Int, _ retention: ContextRetention) throws -> MemoryPlan {
-            try plan(expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
+            try plan(resources: resources, expertsPerLayer: request.expertsPerLayer, poolGB: request.poolGB,
                 memoryGB: request.memoryGB, memoryLimitGB: request.memoryLimitGB, ramGB: device.ramGB, workingSetGB: device.workingSetGB,
                 availableGB: device.availableGB, ramPercent: request.maxRAMPercent,
                 mtp: request.mtp, mtpAvailable: mtpAvailable,
@@ -250,9 +300,9 @@ extension Planner {
         case .tokens(let tokens):
             return (try live(tokens, .automatic), nil)
         case .automatic:
-            let automatic = automaticContextWindow(request, on: device, mtpAvailable: mtpAvailable,
+            let automatic = automaticContextWindow(resources: resources, request, on: device, mtpAvailable: mtpAvailable,
                 visionAvailable: visionAvailable, runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
-            let base = ContextPolicy.defaultTokens
+            let base = min(ContextPolicy.defaultTokens, resources.maximumContext)
             // A startup plan fixes the draft head for the life of the process
             // (the governor never loads or unloads it), so a busy start must
             // not trade speculative decoding for the larger window.

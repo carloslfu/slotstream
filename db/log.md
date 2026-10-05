@@ -336,3 +336,6 @@ Extended existing real activation and native memory-view checks for Engine obser
 ## [2026-10-05 02:57] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Prepared pack-owned CLI pull/verify with preserved original defaults, native selection-only gate, explicit-pack transport fixture and bounded failure cleanup. All 34 lightweight entry checks pass; syntax, claims 349/0, projections, llms projection and full brain validation 0/0 pass. Native CLI and physical full transport remain pending. Documented remaining alternate serving/doctor/product loader integration and aligned app ceiling byte rounding.
 
+## [2026-10-05 03:20] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared pack-owned context feasibility/window APIs with original public compatibility, real pack capability bounds and unknown timing for uncalibrated arithmetic. Diff, consumer shell syntax, claims 349/0, projections and full brain validation 0/0 pass; new native execution pending. Captured successful preceding telemetry and extended-view Mac workflows with three inspected renders. Physical quality, loaded observation, performance, standalone distribution and final integration remain open.
+

@@ -12,6 +12,40 @@ public struct ModelPackMemoryRange: Equatable, Sendable {
 }
 
 public extension ModelPack {
+    /// Context diagnostics use the selected pack's complete allocation
+    /// contract, including its own supported context and component limits.
+    func contextFeasibility(_ request: PlanRequest, on machine: Machine,
+                            mtpAvailable: Bool = false, visionAvailable: Bool = false,
+                            visionResidentReserved: Bool = false,
+                            runtimePolicy: RuntimeAllocationPolicy? = nil,
+                            decodeLookahead: DecodeLookaheadPlanning = .automatic) -> ContextFeasibility {
+        Planner.contextFeasibility(resources: memoryProfile, request, on: machine,
+            mtpAvailable: mtpAvailable, visionAvailable: visionAvailable,
+            visionResidentReserved: visionResidentReserved, runtimePolicy: runtimePolicy,
+            decodeLookahead: decodeLookahead)
+    }
+
+    func automaticContextWindow(_ request: PlanRequest, on machine: Machine,
+                                mtpAvailable: Bool = false, visionAvailable: Bool = false,
+                                runtimePolicy: RuntimeAllocationPolicy? = nil,
+                                decodeLookahead: DecodeLookaheadPlanning = .automatic) -> AutomaticContextWindow {
+        Planner.automaticContextWindow(resources: memoryProfile, request, on: machine,
+            mtpAvailable: mtpAvailable, visionAvailable: visionAvailable,
+            runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
+    }
+
+    /// Explicit context stays explicit. Auto never applies original-pack speed
+    /// curves to a different representation without its own timing evidence.
+    func resolveContextWindow(_ choice: ContextWindowChoice, request: PlanRequest, on machine: Machine,
+                              mtpAvailable: Bool = false, visionAvailable: Bool = false,
+                              runtimePolicy: RuntimeAllocationPolicy? = nil,
+                              decodeLookahead: DecodeLookaheadPlanning = .automatic)
+        throws -> (plan: MemoryPlan, automatic: AutomaticContextWindow?) {
+        try Planner.resolveContextWindow(resources: memoryProfile, choice, request: request, on: machine,
+            mtpAvailable: mtpAvailable, visionAvailable: visionAvailable,
+            runtimePolicy: runtimePolicy, decodeLookahead: decodeLookahead)
+    }
+
     /// The pack owns its resource arithmetic. Optional components keep their
     /// independent availability and required/automatic choices; a plan never
     /// reinterprets a newly registered pack using the original byte geometry.

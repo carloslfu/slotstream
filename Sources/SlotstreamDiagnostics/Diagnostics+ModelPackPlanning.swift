@@ -95,6 +95,57 @@ extension Diagnostics {
         let standard = try pack.memoryRange(for: request, on: roomy)
         c.expect("coarser accessible display cannot lower the admitted minimum", standard.minimumBytes >= fine.minimumBytes)
         c.expect("coarser display never exceeds the hardware maximum", standard.hardwareMaximumBytes <= fine.hardwareMaximumBytes)
+
+        // These paths feed serving and doctor. Compare the complete original
+        // decision, not just a slot count, to preserve the independent API.
+        let contextRequest = PlanRequest(memoryLimitGB: 20, mtp: .off, vision: .off)
+        for choice: ContextWindowChoice in [.automatic, .tokens(8192)] {
+            let owned = try pack.resolveContextWindow(choice, request: contextRequest, on: roomy)
+            let legacy = try Planner.resolveContextWindow(choice, request: contextRequest, on: roomy)
+            c.equal("pack context selection preserves original plan/\(choice)", try bytes(owned.plan), try bytes(legacy.plan))
+            let ownedJSON = owned.automatic?.json ?? [:]
+            let legacyJSON = legacy.automatic?.json ?? [:]
+            c.equal("pack context selection preserves original explanation/\(choice)",
+                try JSONSerialization.data(withJSONObject: ownedJSON, options: [.sortedKeys]),
+                try JSONSerialization.data(withJSONObject: legacyJSON, options: [.sortedKeys]))
+        }
+
+        // Exercise genuinely different geometry without registering a research
+        // pack or loading weights. Its explicit upper bound prevents a costly
+        // search through windows the format cannot serve.
+        let resources = PackMemoryProfile.affine3GroupedVisionControl
+        let candidateMachine = Machine.simulated(ramGB: 48, availableGB: 40)
+        var candidateRequest = PlanRequest(memoryLimitGB: 14, mtp: .on, vision: .off)
+        candidateRequest.mtpExperts = .streamed
+        let automatic = try Planner.resolveContextWindow(resources: resources, .automatic,
+            request: candidateRequest, on: candidateMachine, mtpAvailable: true)
+        c.expect("uncalibrated pack keeps its supported default and complete geometry",
+            automatic.plan.resources == resources && automatic.plan.maxContextTokens == 32768 &&
+            automatic.plan.mtpEnabled && automatic.plan.mtpStreamedExperts && automatic.plan.simulated)
+        c.expect("uncalibrated pack does not inherit original request estimates",
+            !Planner.estimatedRequestSeconds(automatic.plan).isFinite &&
+            automatic.automatic?.candidates.allSatisfy { $0.requestSeconds == nil && $0.relativeRequestCost == nil } == true)
+        c.expect("uncalibrated context explanation does not imply a measured tradeoff",
+            automatic.automatic?.announcement(served: 32768).contains("no calibrated") == true &&
+            automatic.automatic?.report(served: 32768).contains("no context-speed estimate") == true)
+        try Planner.validateMemoryBudget(automatic.plan, availableGB: candidateMachine.availableGB)
+        let explicit = try Planner.resolveContextWindow(resources: resources, .tokens(8192),
+            request: candidateRequest, on: candidateMachine, mtpAvailable: true)
+        c.expect("explicit candidate context retains its selected allocation contract",
+            explicit.plan.resources == resources && explicit.plan.maxContextTokens == 8192 && explicit.automatic == nil)
+        candidateRequest.maxContextTokens = 65536
+        let refusal = Planner.contextFeasibility(resources: resources, candidateRequest,
+            on: candidateMachine, mtpAvailable: true)
+        c.expect("candidate context diagnostics refuse the unsupported window and name the real limit",
+            refusal.requestedPlan == nil && refusal.refusal != nil &&
+            refusal.maximumFeasibleWindow == resources.maximumContext && refusal.limitingResource == "pack_limit" &&
+            refusal.maximumPlan?.resources == resources)
+        // Qualification bypasses a global rollout limit, never an unsupported
+        // pack layout. More simulated RAM must not authorize another context.
+        let qualified = Planner.contextFeasibility(resources: resources, candidateRequest,
+            on: candidateMachine, mtpAvailable: true, qualification: true)
+        c.expect("qualification cannot bypass the selected pack's context limit",
+            qualified.requestedPlan == nil && qualified.maximumFeasibleWindow == resources.maximumContext)
         return c.report()
     }
 }

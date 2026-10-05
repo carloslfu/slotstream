@@ -1182,6 +1182,13 @@ The preceding Xcode correction now has a fully successful Mac workflow. The Engi
 
 The same change aligns app profile-confirmation ceiling conversion with downward whole-byte accounting and documents the download and loaded-evidence boundaries. The registry still contains only the original pack. CLI run/serve, doctor and the product loader must be connected to the actual qualified standalone entry and validated before alternate promotion; this generic download adapter does not close those gates.
 
+
+### Pack-owned context diagnostics and completed Mac telemetry checks, October 4
+
+[[sources/runs/2026/10/2026-10-04-pack-owned-context-planning-preparation]] preserves additive pack-owned context feasibility and automatic-window methods. The existing public Planner signatures keep their original behavior. Distinct pack geometry and capability limits now reach the complete ledger and discrete feasibility search; qualification cannot bypass a pack layout limit. Uncalibrated arithmetic keeps its supported default automatic context and receives no original-pack timing estimate. Explicit contexts remain subject to the same memory and component checks. Native original-equivalence, alternative-geometry and public-consumer fixtures are prepared. Diff, shell syntax and claims checks pass; native execution of this source remains pending.
+
+Complete Mac workflow receipts now confirm the preceding loaded-evidence application and extended native view/check stages, including their Xcode builds. Three representative loaded, unloaded and failed-pending Light/Dark/System renders were manually inspected without clipping. The actual physical loaded-observation acceptance remains pending, and those synthetic displays confer no speed or hardware evidence. Quality, actual standalone distribution, performance and final product integration remain open.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
