@@ -35,6 +35,12 @@ public struct PerformancePreferences: Codable, Equatable, Sendable {
         return value
     }
 
+    /// Readiness and an inactive custom value do not change the loaded model.
+    package func matchesConfiguration(_ other: Self) -> Bool {
+        quantization == other.quantization && budget == other.budget && liveMemory == other.liveMemory
+            && (budget != .custom || customGB == other.customGB)
+    }
+
     public func selectingBudget(_ choice: Budget, currentGB: Double?, maximumGB: Double) -> Self {
         selectingBudget(choice, currentGB: currentGB, minimumGB: PerformancePolicy.minimumGB, maximumGB: maximumGB)
     }
@@ -215,6 +221,38 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var configuration: AppliedModelConfiguration? = nil
     public var minimumGB: Double = PerformancePolicy.minimumGB
     public var memoryRangeAvailable = true
+    public var selectionEvidence: ModelPackSelectionEvidence = .unknown
+    public var measuredDecodeLowerBound: Double? = nil
+    public var meetsMeasuredSpeedTarget = false
+}
+
+/// Metadata-only comparison against an already confirmed loaded runtime. It
+/// cannot grant evidence or activation authority. The telemetry owner creates
+/// it only from Engine's observation after health and durable activation.
+package struct PerformanceProfileBinding: Sendable {
+    package let generation: UUID
+    package let pack: ModelPack
+    package let candidate: ModelPackCandidate
+    package let hardware: ModelPackHardware
+    package let preferences: PerformancePreferences
+
+    package init(generation: UUID, pack: ModelPack, candidate: ModelPackCandidate,
+                 hardware: ModelPackHardware, preferences: PerformancePreferences) {
+        self.generation = generation; self.pack = pack; self.candidate = candidate
+        self.hardware = hardware; self.preferences = preferences
+    }
+
+    package func matches(plan: MemoryPlan?, generation: UUID?, hardware: ModelPackHardware,
+                         preferences: PerformancePreferences, pressure: Bool) -> Bool {
+        guard !pressure, self.generation == generation, self.hardware == hardware,
+              self.preferences.matchesConfiguration(preferences), !candidate.simulated,
+              let plan, !plan.simulated,
+              let current = try? ModelPackCandidate(pack: pack, plan: plan,
+                executionPolicyID: candidate.executionPolicyID,
+                tools: candidate.features.contains(.tools), prefixReuse: pack.startupDefaults.prefixCacheEnabled,
+                hardware: hardware) else { return false }
+        return current.configurationDigest == candidate.configurationDigest
+    }
 }
 
 /// Metadata has its own lock and never waits for the inference actor or the
@@ -231,6 +269,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
     private var activationFailure: String?
     private var activationRecoveryAvailable = false
     private var selectedConfiguration: (decision: ModelPackDecision, preferences: PerformancePreferences)?
+    private var confirmedProfile: (decision: ModelPackDecision, binding: PerformanceProfileBinding)?
     private struct RangeKey: Equatable {
         let manifest: String
         let startupPolicy: String
@@ -260,8 +299,19 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         self.state = state; self.detail = detail; self.engine = engine
     }
     func prepared(in seconds: Double) { lock.lock(); preparationSeconds = max(preparationSeconds, seconds); lock.unlock() }
-    func applied(_ configuration: AppliedModelConfiguration?) {
-        lock.lock(); self.configuration = configuration; lock.unlock()
+    func applied(_ configuration: AppliedModelConfiguration?, confirmed: ModelPackDecision? = nil,
+                 observed: LoadedModelPackCandidate? = nil, preferences: PerformancePreferences? = nil) {
+        lock.lock(); defer { lock.unlock() }
+        self.configuration = configuration
+        confirmedProfile = nil
+        guard let configuration, let confirmed, let observed, let preferences,
+              confirmed.evidence != .unknown,
+              configuration.packID == confirmed.pack.id,
+              configuration.manifestDigest == confirmed.pack.manifestDigest,
+              configuration.liveMemory == preferences.liveMemory,
+              confirmed.configurationDigest == observed.candidate.configurationDigest else { return }
+        confirmedProfile = (confirmed, PerformanceProfileBinding(generation: configuration.generation,
+            pack: confirmed.pack, candidate: observed.candidate, hardware: observed.hardware, preferences: preferences))
     }
     func selected(_ decision: ModelPackDecision, preferences: PerformancePreferences) {
         lock.lock(); selectedConfiguration = (decision, preferences); lock.unlock()
@@ -276,7 +326,7 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         let current = engine, state = self.state, detail = self.detail, seconds = preparationSeconds, pressure = self.pressure,
             configuration = self.configuration, activationFailure = self.activationFailure,
             activationRecoveryAvailable = self.activationRecoveryAvailable,
-            selectedConfiguration = self.selectedConfiguration
+            selectedConfiguration = self.selectedConfiguration, confirmedProfile = self.confirmedProfile
         lock.unlock()
         let machine = Machine.current()
         // Credit only Sevra's physical footprint, never RSS plus GPU memory.
@@ -290,11 +340,21 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         // live availability. Price only when this key changes, outside the
         // telemetry lock; polling and governor updates reuse that result.
         let selected = selectedConfiguration.flatMap { value -> ModelPackDecision? in
-            let previous = value.preferences
-            return previous.quantization == preferences.quantization && previous.budget == preferences.budget
-                && previous.liveMemory == preferences.liveMemory
-                && (previous.budget != .custom || previous.customGB == preferences.customGB) ? value.decision : nil
+            value.preferences.matchesConfiguration(preferences) ? value.decision : nil
         }
+        // No generation lock, model-file verification or lazy tensor load is
+        // allowed here. Live resizing changes currentPlan's complete digest.
+        // A different power/thermal/storage observation also withholds proof.
+        let confirmed: ModelPackDecision?
+        if !pending, activationFailure == nil, let current, let confirmedProfile,
+           configuration?.packID == confirmedProfile.binding.pack.id,
+           confirmedProfile.binding.matches(plan: plan, generation: configuration?.generation,
+            hardware: .current(modelDirectory: current.modelDir), preferences: preferences, pressure: pressure) {
+            confirmed = confirmedProfile.decision
+        } else { confirmed = nil }
+        let reason = Self.selectionReason(selection: preferences.quantization, proposed: selected,
+            confirmed: confirmed?.reason, loaded: current != nil, pending: pending,
+            activationFailed: activationFailure != nil)
         let rangeChoice: ModelPackSelection
         if preferences.quantization == .automatic, let packID = configuration?.packID {
             rangeChoice = .pack(packID)
@@ -332,10 +392,27 @@ public final class PerformanceTelemetry: @unchecked Sendable {
             activationFailure: activationFailure,
             activationRecoveryAvailable: activationRecoveryAvailable,
             activePack: current == nil ? nil : configuration?.packID,
-            selectionReason: selected?.reason ?? (try? ModelPackRegistry.resolve(preferences.quantization))?.reason,
+            selectionReason: reason,
             configuration: current == nil ? nil : configuration,
             minimumGB: range?.minimumGB ?? PerformancePolicy.minimumGB,
-            memoryRangeAvailable: range != nil)
+            memoryRangeAvailable: range != nil,
+            selectionEvidence: confirmed?.evidence ?? .unknown,
+            measuredDecodeLowerBound: confirmed?.measuredDecodeLowerBound,
+            meetsMeasuredSpeedTarget: confirmed?.meetsMeasuredSpeedTarget ?? false)
+    }
+
+    package static func selectionReason(selection: ModelPackSelection, proposed: ModelPackDecision?,
+                                        confirmed: String?, loaded: Bool, pending: Bool, activationFailed: Bool) -> String? {
+        if pending { return "Your selection will be checked when the new settings apply." }
+        if activationFailed { return "Your requested settings did not activate. Any restored model keeps its previous configuration." }
+        if case .pack = selection { return (try? ModelPackRegistry.resolve(selection))?.reason }
+        if loaded {
+            return confirmed ?? "Automatic selection is active. Speed is not verified for the current configuration and conditions."
+        }
+        if proposed?.automaticProfileID != nil {
+            return "An automatic configuration is selected. Its files and actual settings will be checked when the model loads."
+        }
+        return "Automatic selection will check the supported configurations when the model loads."
     }
 }
 

@@ -49,6 +49,7 @@ private func eventually(_ predicate: () async -> Bool) async throws {
     throw SevraError.refused("CHECK FAILED: lifecycle did not settle")
 }
 func performanceChecks(root: URL, dbmd: URL) async throws {
+    try performanceProfileBindingChecks()
     try modelVerificationChecks(root: root)
     try await modelActivationChecks(root: root, dbmd: dbmd)
     var plans = 0, refused = 0
@@ -325,6 +326,74 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
     try verifyPerformance(await contextRuntime.snapshot().home.threads[0].messages.first?.text == oversized, "oversized input remains available")
     try await contextRuntime.shutdown()
     print("PASS: context overflow preserves messages and refuses instead of silently trimming history")
+}
+
+/// Synthetic metadata exercises invalidation without allocating a model or
+/// granting a registry profile. The real loaded proof has no public initializer.
+private func performanceProfileBindingChecks() throws {
+    let pack = ModelPackRegistry.baseline, generation = UUID()
+    let preferences = PerformancePreferences(budget: .custom, customGB: 14)
+    let machine = Machine(ramGB: 48, workingSetGB: 36, availableGB: 40, isSimulated: false)
+    func hardware(thermal: String? = "nominal", lowPower: Bool? = false, volume: String? = "fixture-volume") -> ModelPackHardware {
+        ModelPackHardware(model: "fixture-model", chip: "fixture-chip", osBuild: "fixture-os", nativeARM64: true,
+            storage: .internalLocal, volumeID: volume, thermalState: thermal, lowPowerModeEnabled: lowPower)
+    }
+    let originalHardware = hardware()
+    let plan = try pack.startupPlan(customMemoryGB: 14, on: machine, mtpAvailable: true)
+    let observation = ModelPackStartupObservation(pack: pack, hardware: originalHardware, mtpAvailable: true)
+    guard let candidate = try pack.startupCandidate(plan: plan, liveMemory: .automatic, observation: observation) else {
+        throw SevraError.refused("CHECK FAILED: fixture needs a complete startup proposal")
+    }
+    let binding = PerformanceProfileBinding(generation: generation, pack: pack, candidate: candidate,
+        hardware: originalHardware, preferences: preferences)
+    func matches(_ proposedPlan: MemoryPlan? = nil, id: UUID? = nil, hw: ModelPackHardware? = nil,
+                 prefs: PerformancePreferences? = nil, pressure: Bool = false) -> Bool {
+        binding.matches(plan: proposedPlan ?? plan, generation: id ?? generation,
+            hardware: hw ?? originalHardware, preferences: prefs ?? preferences, pressure: pressure)
+    }
+    try verifyPerformance(matches(), "the confirmed complete configuration retains its binding")
+    try verifyPerformance(!matches(id: UUID()), "a reload or rollback cannot borrow another generation's evidence")
+    try verifyPerformance(!binding.matches(plan: nil, generation: generation, hardware: originalHardware,
+        preferences: preferences, pressure: false), "an unloaded runtime has no active evidence")
+    try verifyPerformance(!matches(pressure: true), "OS memory pressure withholds the speed label")
+    for hw in [hardware(thermal: "serious"), hardware(thermal: nil), hardware(lowPower: true),
+               hardware(lowPower: nil), hardware(volume: "another-volume"), hardware(volume: nil)] {
+        try verifyPerformance(!matches(hw: hw), "changed or unreadable operating/storage conditions withhold evidence")
+    }
+    var simulated = plan; simulated.simulated = true
+    try verifyPerformance(!matches(simulated), "a simulated plan cannot inherit loaded evidence")
+    let smaller = try pack.startupPlan(customMemoryGB: 12, on: machine, mtpAvailable: true)
+    try verifyPerformance(!matches(smaller), "a changed runtime allocation cannot keep the original speed label")
+    var constrained = machine; constrained.availableGB = 14
+    let pressurePlan = try pack.startupPlan(customMemoryGB: 14, on: constrained, mtpAvailable: true)
+    try verifyPerformance(pressurePlan.memoryLimitGB == plan.memoryLimitGB && !matches(pressurePlan),
+        "a smaller current allocation invalidates evidence while preserving the user ceiling")
+    var altered = preferences; altered.liveMemory = .fixed
+    try verifyPerformance(!matches(prefs: altered), "changing live memory management requires its own evidence")
+    altered = preferences; altered.quantization = .pack(pack.id)
+    try verifyPerformance(!matches(prefs: altered), "explicit pack selection does not borrow an automatic decision")
+    altered = preferences; altered.customGB = 13
+    try verifyPerformance(!matches(prefs: altered), "a different custom ceiling withholds the old label")
+    altered = preferences; altered.readiness = .keepReady
+    try verifyPerformance(matches(prefs: altered), "readiness alone preserves the loaded configuration")
+    let automatic = PerformancePreferences()
+    var unusedCustom = automatic; unusedCustom.customGB = 42
+    try verifyPerformance(automatic.matchesConfiguration(unusedCustom), "an inactive custom value has no execution effect")
+    let decision = try ModelPackRegistry.resolve(.automatic)
+    let verifiedReason = "fixture confirmed profile"
+    func reason(loaded: Bool, pending: Bool = false, failed: Bool = false, confirmed: String? = "fixture confirmed profile") -> String? {
+        PerformanceTelemetry.selectionReason(selection: .automatic, proposed: decision, confirmed: confirmed,
+            loaded: loaded, pending: pending, activationFailed: failed)
+    }
+    try verifyPerformance(reason(loaded: true) == verifiedReason, "only a current confirmed load displays its evidence")
+    for value in [reason(loaded: false), reason(loaded: true, pending: true), reason(loaded: true, failed: true),
+                  reason(loaded: true, confirmed: nil)] {
+        try verifyPerformance(value != verifiedReason, "unloaded, pending, restored and unconfirmed states cannot show a speed claim")
+    }
+    let idle = PerformanceTelemetry().snapshot(preferences: preferences, pending: false, busy: false)
+    try verifyPerformance(idle.selectionEvidence == .unknown && idle.measuredDecodeLowerBound == nil
+        && !idle.meetsMeasuredSpeedTarget, "a proposal alone has no measured telemetry")
+    print("PASS: loaded profile generation, allocation, preferences and operating conditions govern speed evidence")
 }
 
 /// Explicit, bounded real-model check. No availability override or memory hog.

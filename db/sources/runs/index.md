@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T02:06:54.452152Z
+updated: 2026-10-05T02:23:39.811803Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-04-loaded-profile-telemetry-preparation]] — Bind application speed evidence to the healthy loaded generation and invalidate it when configuration or conditions change
 - [[sources/runs/2026/10/2026-10-04-loaded-model-profile-observation-preparation]] — Prepare Engine-owned loaded observations and conservative confirmation of a frozen automatic profile
 - [[sources/runs/2026/10/2026-10-04-model-setup-xcode-access-correction]] — Preserve passing setup/recovery checks and fix the Xcode app's access to setup recipe metadata
 - [[sources/runs/2026/10/2026-10-04-model-setup-view-checks-preparation]] — Prepare production setup-view rendering checks for reviewed, stale, verified and unavailable selections
@@ -506,9 +507,8 @@ updated: 2026-10-05T02:06:54.452152Z
 - [[sources/runs/2026/09/2026-09-08-optimization-mtp-cache-carryover-preparation]] — Prospective MTP cache-carryover comparison preserves the original failed cohort
 - [[sources/runs/2026/09/2026-09-08-optimization-original-fixed-mtp-serving]] — Original MTP cohorts preserved; sampled guard passes after exact reporting correction
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-cache-candidate-integration]] — Qualified compact cache added to the explicit integration candidate
-- [[sources/runs/2026/09/2026-09-08-optimization-failure-footprint-observer]] — Owned physical-footprint failure observer preserves the original memory guard
 
 ## More
 
-This folder has 822 files. The 500 most recent are listed above.
+This folder has 823 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

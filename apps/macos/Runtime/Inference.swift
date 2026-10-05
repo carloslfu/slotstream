@@ -197,6 +197,7 @@ public actor LocalInference: Inference {
     private let activationWriteFault: ((ModelActivationJournal.WritePoint) throws -> Void)?
     private var activationJournal: ModelActivationJournal?
     private var activationAttempt: UUID?
+    private var startupDecision: (selection: ModelActivationJournal.Selection, decision: ModelPackDecision)?
     private var activationRecoveryAvailable = false
     private var activationFailure: String? {
         didSet { performanceTelemetry?.activationFailed(activationFailure, recoveryAvailable: activationRecoveryAvailable) }
@@ -405,6 +406,7 @@ public actor LocalInference: Inference {
             performanceTelemetry?.update(state: "Model not loaded", detail: "Your new budget applies to the next message.")
         }
         self.preferences = preferences
+        startupDecision = (requested, decision)
         performanceTelemetry?.selected(decision, preferences: preferences)
         activationFailure = nil
         activationRetryRequested = true
@@ -427,6 +429,7 @@ public actor LocalInference: Inference {
         let attempt = try journal.begin(selection)
         activationJournal = journal; activationAttempt = attempt
         self.preferences = preferences
+        startupDecision = nil
         activationRecoveryAvailable = false; activationFailure = nil
         activationRetryRequested = true
         performanceTelemetry?.update(state: "Model not loaded",
@@ -594,9 +597,18 @@ public actor LocalInference: Inference {
     private static let activationRecoveryMessage = "The requested model configuration did not activate. Your settings are preserved. Retry settings or choose the previous configuration."
     private static let activationRecordRecoveryMessage = "The requested model configuration did not activate because its setup record is unreadable. Repair model setup to preserve that record and verify the model again."
 
+    private struct LoadedCandidate {
+        let engine: Engine
+        let identity: AppliedModelConfiguration
+        let healthTokens: Int
+        let observed: LoadedModelPackCandidate?
+        let admissionMachine: Machine
+    }
+
     private func loadForTurn(cancellation: Cancellation, buffer: TurnBuffer) async throws {
         let journal = try openActivationJournal()
         let selection: ModelActivationJournal.Selection
+        let proposed: ModelPackDecision?
         if let id = activationAttempt {
             guard let pending = activationJournal?.state.attempt, pending.id == id,
                   pending.phase == .requested, pending.selection.matchesRequestedConfiguration(preferences) else {
@@ -604,9 +616,11 @@ public actor LocalInference: Inference {
             }
             try pending.selection.validate()
             selection = pending.selection
+            proposed = startupDecision.flatMap { $0.selection == selection ? $0.decision : nil }
         } else {
             let decision = try resolveStartup(preferences, on: .current())
             selection = try ModelActivationJournal.Selection(preferences, pack: decision.pack)
+            proposed = decision
             performanceTelemetry?.selected(decision, preferences: preferences)
         }
         if let attempt = journal?.state.attempt, attempt.phase == .failed, attempt.failure != "cancelled",
@@ -620,7 +634,7 @@ public actor LocalInference: Inference {
         let attempt = activationAttempt
         activationRetryRequested = false
         let previous = journal?.state.lastGood
-        var loaded: (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int)?
+        var loaded: LoadedCandidate?
         do {
             loaded = try await loadCandidate(selection, cancellation: cancellation, buffer: buffer,
                 journal: journal, attempt: attempt, healthCheck: journal != nil)
@@ -632,8 +646,9 @@ public actor LocalInference: Inference {
             }
             try cancellation.check()
             // The health check and durable commit both precede publication.
-            publish(loaded!.engine, identity: loaded!.identity, liveMemory: preferences.liveMemory)
+            publish(loaded!, preferences: preferences, proposed: proposed)
             loaded = nil; activationAttempt = nil
+            startupDecision = nil
         } catch {
             let original = error
             // Drop the unpublished runtime before cleanup or rollback. A
@@ -645,6 +660,7 @@ public actor LocalInference: Inference {
                 releasedAt = ProcessInfo.processInfo.systemUptime
             }
             activationAttempt = nil
+            startupDecision = nil
             if journal != nil, !cancellation.isCancelled { activationFailure = Self.activationRecoveryMessage }
             if let journal, let attempt { try journal.fail(attempt, cancelled: cancellation.isCancelled) }
             // Cancellation returns promptly and does not start another model.
@@ -661,8 +677,9 @@ public actor LocalInference: Inference {
                             generation: loaded!.identity.generation, arithmeticIdentity: loaded!.identity.identity,
                             healthTokens: loaded!.healthTokens))
                     }
-                    publish(loaded!.engine, identity: loaded!.identity,
-                        liveMemory: previous.selection.preferences.liveMemory)
+                    // Restoring the old load does not confirm the failed new
+                    // selection's speed evidence or change saved preferences.
+                    publish(loaded!, preferences: previous.selection.preferences, proposed: nil)
                     loaded = nil
                 } catch {
                     let hadRollback = loaded != nil
@@ -680,7 +697,7 @@ public actor LocalInference: Inference {
     private func loadCandidate(_ selection: ModelActivationJournal.Selection, cancellation: Cancellation,
                                buffer: TurnBuffer, journal: ModelActivationJournal? = nil,
                                attempt: UUID? = nil, healthCheck: Bool) async throws
-        -> (engine: Engine, identity: AppliedModelConfiguration, healthTokens: Int) {
+        -> LoadedCandidate {
         let pack = try selection.validatedPack()
         let model = try modelDirectory(for: pack)
         let preference = selection.preferences
@@ -714,8 +731,10 @@ public actor LocalInference: Inference {
             if remaining > 0 { try await Task.sleep(nanoseconds: UInt64(remaining * 1e9)) }
             try cancellation.check()
         }
-        let plan = try PerformancePolicy.plan(preference, pack: pack, on: .current(), mtpAvailable: MTPWeights.present(modelDir: model),
-            decodeLookahead: .environment(modelDirectory: model))
+        let observation = ModelPackStartupObservation.current(pack: pack, modelDirectory: model)
+        let admissionMachine = Machine.current()
+        let plan = try PerformancePolicy.plan(preference, pack: pack, on: admissionMachine,
+            mtpAvailable: observation.mtpAvailable, decodeLookahead: observation.originalLookahead)
         if let journal, let attempt { try journal.advance(attempt, to: .loading) }
         buffer.stage("Loading the local model")
         do {
@@ -729,7 +748,13 @@ public actor LocalInference: Inference {
                 buffer.stage("Checking the local model")
                 healthTokens = try Self.checkHealth(candidate, cancellation: cancellation)
             } else { healthTokens = 0 }
-            return (candidate, identity, healthTokens)
+            // Confirmation failure withholds speed evidence; it does not turn
+            // a healthy supported model into an activation failure. This read
+            // occurs before publication and before the live governor starts.
+            let observed = healthCheck ? (try? candidate.startupCandidate(pack: pack,
+                liveMemory: preference.liveMemory, observation: observation)) : nil
+            return LoadedCandidate(engine: candidate, identity: identity, healthTokens: healthTokens,
+                observed: observed, admissionMachine: admissionMachine)
         } catch {
             Engine.releaseUnusedMemory()
             releasedAt = ProcessInfo.processInfo.systemUptime
@@ -759,11 +784,18 @@ public actor LocalInference: Inference {
         return result.ids.count
     }
 
-    private func publish(_ candidate: Engine, identity: AppliedModelConfiguration, liveMemory: LiveMemoryManagement) {
+    private func publish(_ loaded: LoadedCandidate, preferences: PerformancePreferences, proposed: ModelPackDecision?) {
+        let candidate = loaded.engine, identity = loaded.identity
+        let ceilingBytes: Int64
+        if let gb = identity.memoryCeilingGB, gb.isFinite, gb > 0, gb * 1e9 < Double(Int64.max) {
+            ceilingBytes = Int64((gb * 1e9).rounded())
+        } else { ceilingBytes = 0 }
+        let confirmed = proposed.flatMap { ModelPackRegistry.confirm($0, candidate: loaded.observed,
+            admissionMachine: loaded.admissionMachine, ceilingBytes: ceilingBytes, requiredFeatures: [.text, .tools]) }
         engine = candidate; appliedConfiguration = identity
-        performanceTelemetry?.applied(identity)
+        performanceTelemetry?.applied(identity, confirmed: confirmed, observed: loaded.observed, preferences: preferences)
         configurePersistentCache()
-        governor = MemoryGovernor(engine: candidate, management: liveMemory)
+        governor = MemoryGovernor(engine: candidate, management: preferences.liveMemory)
         governor?.start()
     }
 
@@ -827,6 +859,7 @@ public actor LocalInference: Inference {
         autoreleasepool {
             engine?.dropPrefixCache(); engine = nil
             appliedConfiguration = nil
+            startupDecision = nil
             performanceTelemetry?.applied(nil)
             persistentCacheActive = false
             privateWorkingState = false
