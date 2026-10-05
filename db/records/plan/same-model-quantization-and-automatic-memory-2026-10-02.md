@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T21:29:18.949185+00:00
+updated: 2026-10-05T22:39:26.669280+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -32,7 +32,9 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-bounded-swapin-pilot-policy]] preserves the stopped cooled attempt: four whole-host swap-ins (64 KiB) with zero swap-outs excluded its first completed run despite nominal temperature and no sustained CPU contention. The prospective pilot now allows at most 1 MiB of aggregate swap-ins per process, reports the bytes and still excludes any swap-out or larger delta. It retains the same cooling, pressure, footprint, headroom, CPU and storage guards. All twenty-two tests pass, including exact byte limits, aggregate accounting, new-policy child cleanup and unchanged historical strict verdicts. The frozen fresh comparison is prepared; no partial throughput outcome informed this policy.
 
-Next: execute the prepared bounded-paging comparison before promotion. Public redistribution permission, actual alternative setup/download/activation, qualified selection rows and the final release remain open. Preserve default original behavior until those gates are supported; no universal throughput promise is authorized by these observations.
+[[sources/runs/2026/10/2026-10-05-practical-complete-comparison]] closes the practical comparison: all twelve processes are eligible under the frozen bounded-paging pilot, within their physical ceilings, with completed natural answers. The smaller pack generally generates more slowly and starts the longer-context answer faster. Neither pack reaches the twenty-token target on these workloads. The earlier Photos-contention stop remains separate; the completed retry records its temporary host controls and their restoration. All exact-head engine CI jobs also pass.
+
+Next: test the existing plain attention predictor in the candidate, whose current older boundary forecast wastes substantially more reads. This is a configuration hypothesis, not proof of a cause or inherited qualification. Keep the original supported default. Public redistribution permission, actual alternative setup/download/activation, useful selection rows and final release remain open. No universal throughput promise follows.
 
 ### Practical performance findings, October 5
 

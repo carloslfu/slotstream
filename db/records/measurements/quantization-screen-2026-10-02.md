@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T21:29:18.969151+00:00
+updated: 2026-10-05T22:39:26.649008+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,25 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Complete practical comparison, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-complete-comparison]] preserves all twelve fresh processes, the frozen complete analysis, the earlier incomplete attempt and host restoration. Three interleaved rounds at each real 14/22-GB ceiling pass physical budgets, natural completion and every prospective pilot timing rule. One process has 851,968 bytes of whole-host swap-ins and none has swap-outs; the declared one-MiB allowance is not a zero-paging claim. Two-minute quiet/nominal admission and a temporary, automatically restored Photos analysis pause make this a controlled interactive-burst comparison on one 48-GB M5 Pro, not sustained-session or other-Mac performance. Filesystem caching remains uncontrolled.
+
+The smaller pack generally decodes slower. It improves the longer prompt's first-text and full-request latency, but neither pack reaches the twenty-token target on these workloads. No automatic promotion follows. Rates below are three-run medians of committed output tokens minus one divided by the complete decode timer; paired ratios are medians of candidate/original rates within each round.
+
+| Actual ceiling and work | Original tok/s | Three-bit tok/s | Paired ratio | Original first text, s | Three-bit first text, s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 14 GB, short-256 | 12.60 | 10.99 | 0.872 | 1.661 | 1.801 |
+| 14 GB, context-256 | 15.02 | 14.29 | 0.947 | 9.497 | 7.571 |
+| 14 GB, coding-answer | 14.53 | 12.96 | 0.892 | 2.479 | 2.584 |
+| 22 GB, short-256 | 15.80 | 15.40 | 0.976 | 1.778 | 1.829 |
+| 22 GB, context-256 | 17.71 | 16.85 | 0.954 | 7.802 | 5.488 |
+| 22 GB, coding-answer | 17.61 | 17.61 | 0.985 | 2.512 | 2.457 |
+
+The natural coding task emits the same complete 81-token answer in both arms. This single answer does not supersede the separate focused quality limitations. The analysis correctly leaves statistical qualification false; three pilot rounds do not provide its registered lower bound. Startup is also slower for the candidate. The prior excluded attempts remain excluded and do not contribute to these medians.
+
+A concrete optimization lead appears in the preserved prefetch diagnostics. The original uses the corrected attention forecast; the candidate still uses the older boundary tap and wastes more reads. These overlapping counters cannot isolate causality. Reuse the already implemented plain attention tap in an explicit bounded candidate probe before considering retraining or new kernels. The original correction's measured benefit does not transfer automatically to altered expert weights.
+
 ### Tiny swap-in diagnostics and preserved strict attempt, October 5
 
 [[sources/runs/2026/10/2026-10-05-bounded-swapin-pilot-policy]] records one completed cooled run excluded for four 16-KiB whole-host swap-ins and zero swap-outs. Its second process is interrupted and drained; the attempt remains incomplete and timing-discarded. A separate prospective pilot permits at most 1 MiB of aggregate swap-ins per process, records all bytes, and still excludes any swap-out or larger delta. Twenty-two tests pass, including strict historical replay and byte boundaries. The same two-minute cooling and all physical/pressure/thermal/CPU guards remain. Fresh measurement is prepared and unexecuted; no zero-paging, speed or promotion claim follows.
