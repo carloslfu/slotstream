@@ -135,6 +135,25 @@ func performanceChecks(root: URL, dbmd: URL) async throws {
     try verifyPerformance(PerformancePolicy.ceilingGB(.init(), on: .simulated(ramGB: 16, availableGB: 15)) <=
         PerformancePolicy.maximumGB(on: .simulated(ramGB: 16)), "automatic ceiling fits the stable hardware range")
     try verifyPerformance(PerformancePreferences.restore(try JSONEncoder().encode(custom)) == custom, "large limit survives restart")
+    for locale in [Locale(identifier: "en_US"), Locale(identifier: "es_CO"), Locale(identifier: "de_DE")] {
+        for value in [9.99, 12.345, 33.0001, 0.000001, 1e20, Double.greatestFiniteMagnitude] {
+            let shown = MemoryLimitText.number(value, locale: locale)
+            try verifyPerformance(MemoryLimitText.parse(shown, locale: locale) == value,
+                "saved limits round-trip exactly, including values outside this Mac's range")
+        }
+        for invalid in ["", "not a number", "nan", "inf", "-1", "0"] {
+            try verifyPerformance(MemoryLimitText.parse(invalid, locale: locale) == nil,
+                "invalid limits cannot enter preferences")
+        }
+    }
+    try verifyPerformance(MemoryLimitText.number(9.99, locale: Locale(identifier: "es_CO")) == "9,99"
+        && MemoryLimitText.parse(" 9,99 ", locale: Locale(identifier: "es_CO")) == 9.99,
+        "the editable limit honors the decimal separator")
+    let precise = PerformancePreferences(budget: .custom, customGB: 9.99)
+    var recommitted = PerformancePreferences.restore(try JSONEncoder().encode(precise))
+    recommitted.customGB = MemoryLimitText.parse(MemoryLimitText.number(recommitted.customGB))!
+    try verifyPerformance(recommitted == precise && recommitted.matchesConfiguration(precise),
+        "opening and committing an unchanged fractional limit cannot change the load configuration")
     let legacy = PerformancePreferences.restore(Data("{\"budget\":\"automatic\",\"customGB\":10,\"readiness\":\"automatic\"}".utf8))
     try verifyPerformance(legacy.quantization == .automatic && legacy.liveMemory == .automatic,
         "old preferences gain independent automatic defaults")

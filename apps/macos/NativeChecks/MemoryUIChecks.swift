@@ -20,7 +20,7 @@ import Vision
         window.setFrameOrigin(NSPoint(x: -30000, y: -30000))
         defer { window.orderOut(nil) }
         for appearance in ["light", "dark", "system"] {
-            for mode in ["automatic", "unloaded-automatic", "custom", "saved-above-range", "saved-below-range", "unavailable-range", "failed-settings", "failed-activation", "corrupt-activation", "corrupt-pending-settings", "fixed", "unavailable-pack"] {
+            for mode in ["automatic", "unloaded-automatic", "custom", "saved-fractional", "saved-above-range", "saved-below-range", "unavailable-range", "failed-settings", "failed-activation", "corrupt-activation", "corrupt-pending-settings", "fixed", "unavailable-pack"] {
                 let custom = mode != "automatic" && mode != "unloaded-automatic"
                 let overRange = mode == "saved-above-range"
                 let belowRange = mode == "saved-below-range"
@@ -30,7 +30,8 @@ import Vision
                 let activationFailed = mode == "failed-activation" || corrupt
                 let loaded = !corrupt && mode != "unloaded-automatic"
                 let pending = failedPending || (custom && !activationFailed)
-                var preferences = custom ? PerformancePreferences(budget: .custom, customGB: belowRange ? 10 : 48) : .init()
+                let savedLimit = belowRange ? 10.0 : mode == "saved-fractional" ? 9.99 : 48.0
+                var preferences = custom ? PerformancePreferences(budget: .custom, customGB: savedLimit) : .init()
                 if mode == "fixed" { preferences.liveMemory = .fixed }
                 if mode == "unavailable-pack" { preferences.quantization = .pack("removed-pack") }
                 model.performancePreferences = preferences
@@ -42,7 +43,7 @@ import Vision
                     detail: corrupt ? "Model setup needs repair."
                         : mode == "failed-activation" ? "The previous configuration is loaded."
                         : loaded ? "Responding on your Mac." : "Loads when you send a message.", idleMinutes: 10,
-                    physicalGB: 64 * 1.073741824, ceilingGB: custom ? 48 : 33, appliedCeilingGB: loaded ? 33 : nil,
+                    physicalGB: 64 * 1.073741824, ceilingGB: custom ? savedLimit : 33, appliedCeilingGB: loaded ? 33 : nil,
                     failure: failedPending ? "The retained model setup record is unreadable."
                         : mode == "failed-settings" ? "Choose a supported memory limit." : nil,
                     activationFailure: activationFailed ? "Your requested settings are preserved." : nil,
@@ -72,7 +73,7 @@ import Vision
                 let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
                 let labels = ["Quantization", "While running", "Memory budget", "Keep model ready"]
                     + (loaded ? ["Budget available now", "14.5 GB"] : [])
-                    + (custom ? ["Custom limit", belowRange ? "10" : "48", "Your limit stays saved"]
+                    + (custom ? ["Custom limit", MemoryLimitText.number(savedLimit), "Your limit stays saved"]
                         + (rangeAvailable ? [overRange ? "37 GB" : "49.5 GB"] : []) : ["Automatic", "Recommended now"])
                     + (mode == "failed-settings" || activationFailed ? ["Settings could not be applied", "Queued work waits", "Retry settings"] : custom ? ["Applies after"] : [])
                     + (corrupt ? ["Repair model setup"] : [])
@@ -85,6 +86,9 @@ import Vision
                     + (mode == "unloaded-automatic" ? ["when the model loads"] : [])
                 for label in labels where !text.localizedCaseInsensitiveContains(label) {
                     throw NSError(domain: "MemoryUI", code: 2, userInfo: [NSLocalizedDescriptionKey: "\(name) missing rendered label: \(label)\n\(text)"])
+                }
+                if custom && model.performancePreferences.customGB != savedLimit {
+                    throw NSError(domain: "MemoryUI", code: 9, userInfo: [NSLocalizedDescriptionKey: "\(name) changed the saved limit merely by rendering the controls"])
                 }
                 if corrupt && model.performanceState.snapshot?.canRepairActivation != true {
                     throw NSError(domain: "MemoryUI", code: 5, userInfo: [NSLocalizedDescriptionKey: "\(name) must offer enabled repair after the settings failure"])
@@ -124,7 +128,7 @@ import Vision
             // Render the production response-details view at its actual width:
             // the saved ceiling must remain readable beside a smaller budget.
             var metrics = ResponseMetrics()
-            metrics.budgetGB = 14.5; metrics.memoryLimitGB = 48; metrics.customBudget = true
+            metrics.budgetGB = 14.5; metrics.memoryLimitGB = 48.125; metrics.customBudget = true
             var run = Run(id: "memory-receipt", nonce: "ui", inputDigest: "ui", state: .completed, status: "Done")
             run.metrics = metrics
             model.snapshot?.home.threads[0].run = run
@@ -142,7 +146,7 @@ import Vision
             let request = VNRecognizeTextRequest(); request.recognitionLevel = .accurate
             try VNImageRequestHandler(cgImage: rep.cgImage!, options: [:]).perform([request])
             let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
-            for label in ["Memory budget", "14.5 GB", "48.0 GB limit"] where !text.contains(label) {
+            for label in ["Memory budget", "14.5 GB", "48.125 GB limit"] where !text.contains(label) {
                 throw NSError(domain: "MemoryUI", code: 3, userInfo: [NSLocalizedDescriptionKey: "\(name) missing \(label): \(text)"])
             }
             print("PASS: \(name), reduced budget and saved ceiling remain readable")

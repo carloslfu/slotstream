@@ -853,7 +853,7 @@ struct PerformanceSettings: View {
         // A saved limit can exceed this Mac's range after moving preferences
         // to another device. Show that actual value and let the person fix it;
         // displaying a silently clamped number would conceal the refusal.
-        limitText = saved.formatted(.number.precision(.fractionLength(0...1)))
+        limitText = MemoryLimitText.number(saved)
         limitError = rangeAvailable && model.performancePreferences.budget == .custom
             && (saved < minimum || saved > maximum)
             ? "Choose between \(gb(minimum)) and \(gb(maximum))." : nil
@@ -862,9 +862,7 @@ struct PerformanceSettings: View {
         guard rangeAvailable else {
             limitError = "A supported memory range is unavailable. Your saved limit is unchanged."; return
         }
-        let normalized = limitText.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: Locale.current.decimalSeparator ?? ".", with: ".")
-        guard let value = Double(normalized), value.isFinite,
+        guard let value = MemoryLimitText.parse(limitText),
               value >= minimum, value <= maximum else {
             limitError = "Choose between \(gb(minimum)) and \(gb(maximum))."; return
         }
@@ -903,11 +901,11 @@ struct PerformanceSettings: View {
                         Slider(value: $limitGB, in: minimum...maximum, step: 0.5,
                                onEditingChanged: { editing in
                             if !editing {
-                                limitText = limitGB.formatted(.number.precision(.fractionLength(0...1)))
+                                limitText = MemoryLimitText.number(limitGB)
                                 commitLimit()
                             }
                         }) { Text("Maximum memory") }
-                            .accessibilityValue(gb(limitGB)).help("Set the maximum memory budget; Sevra can use less when needed")
+                            .accessibilityValue(MemoryLimitText.number(limitGB) + " GB").help("Set the maximum memory budget; Sevra can use less when needed")
                         TextField("Limit", text: $limitText).labelsHidden()
                             .textFieldStyle(.roundedBorder).frame(width: 64).multilineTextAlignment(.trailing)
                             .focused($editingNumber).onSubmit(commitLimit)
@@ -993,10 +991,10 @@ struct PerformanceSettings: View {
                         LabeledContent("Physical memory", value: gb(physical)).monospacedDigit()
                     }
                     if let ceiling = status.ceilingGB {
-                        LabeledContent("Saved memory ceiling", value: gb(ceiling)).monospacedDigit()
+                        LabeledContent("Saved memory ceiling", value: MemoryLimitText.number(ceiling) + " GB").monospacedDigit()
                     }
                     if status.pending, let applied = status.appliedCeilingGB {
-                        LabeledContent("Applied memory ceiling", value: gb(applied)).monospacedDigit()
+                        LabeledContent("Applied memory ceiling", value: MemoryLimitText.number(applied) + " GB").monospacedDigit()
                     }
                     if let used = status.usedGB {
                         LabeledContent("App memory", value: gb(used)).monospacedDigit()

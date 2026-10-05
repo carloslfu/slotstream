@@ -354,3 +354,6 @@ Prepared the shared maintained-pack Engine loader for Desktop and opt-in CLI, pr
 ## [2026-10-05 04:30] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Bound complete startup execution identity to the compiler assertion configuration and withheld loaded speed evidence for debug, unchecked and unknown modes. Preserved runtime-environment refusal and added mode/default checks for optimized and instrumented CI. Inspected the installed standard-library implementation. Diff, claims 349/0, projections and full brain validation 0/0 pass; native checks pending. No version, installed pack, qualified profile or frozen quality change.
 
+## [2026-10-05 05:19] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Prepared exact saved-memory text round trips, locale/persistence checks and fractional Settings/response-detail rendering. Diff, claims 349/0, projections and full dbmd validation 0/0 pass; new native execution and visual review remain pending. Captured complete successful context-refusal and shared-loader Engine/Mac workflows plus the preceding compiler-mode Mac workflow at their own commits. Frozen quality and final physical qualification remain open.
+

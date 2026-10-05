@@ -120,7 +120,8 @@ public enum ResponseMetricsFormat {
     /// A response's resolved budget and, when recorded, the separate saved ceiling.
     public static func budgetText(_ gb: Double, custom: Bool, limitGB: Double? = nil) -> String {
         if custom, let limitGB {
-            return String(format: "about %.1f GB, within your %.1f GB limit", gb, limitGB)
+            let limit = MemoryLimitText.number(limitGB, locale: Locale(identifier: "en_US_POSIX"))
+            return String(format: "about %.1f GB, within your %@ GB limit", gb, limit)
         }
         return String(format: "about %.1f GB, %@", gb, custom ? "custom setting" : "automatic")
     }

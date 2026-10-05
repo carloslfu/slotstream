@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T04:29:24.977918Z
+updated: 2026-10-05T05:18:07.135614Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-saved-memory-limit-precision-preparation]] — Preserve fractional saved memory limits through editing and response details; capture completed preceding native workflows
 - [[sources/runs/2026/10/2026-10-04-pack-build-evidence-preparation]] — Bind startup performance proposals to actual compiler assertion mode and withhold loaded speed evidence for nonrelease builds
 - [[sources/runs/2026/10/2026-10-04-pack-owned-loader-preparation]] — Shared selected-pack Engine loading boundary and owned CLI server size, with source checks and preceding CI receipts
 - [[sources/runs/2026/10/2026-10-04-payload-retirement-protocol-freeze]] — Freeze and validate the exact existing retirement helper closure without scanning or retiring tensor payloads
@@ -506,9 +507,8 @@ updated: 2026-10-05T04:29:24.977918Z
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-activation-preparation]] — Current-source activation patch prepared without applying it
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-metadata-pass]] — New combined binary passes all pure Swift and CLI metadata contracts
 - [[sources/runs/2026/09/2026-09-08-optimization-compact-tail-validation-controls]] — New combined validation controls and long-throughput drafts preserve original workload criteria
-- [[sources/runs/2026/09/2026-09-08-optimization-native-headroom-comparison]] — Native pressure stop compared with the prior successful launch
 
 ## More
 
-This folder has 831 files. The 500 most recent are listed above.
+This folder has 832 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

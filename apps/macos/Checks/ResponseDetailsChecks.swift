@@ -26,7 +26,9 @@ func responseDetailsChecks(root: URL, dbmd: URL) async throws {
     try require(line == "12.5 tok/s · 250 tokens · 2.5 s to first token · model loaded in 18 s", "the line under a reply: \(line ?? "none")")
     try require(ResponseMetricsFormat.line(ResponseMetrics()) == nil, "no line without numbers")
     let report = ResponseMetricsFormat.report(total, thinking: nil)
-    try require(report.contains("Writing: 250 tokens in 20 s, 12.5 tok/s") && report.contains("Expert cache hits while writing: 75%") && report.contains("Memory budget: about 9.0 GB, within your 48.0 GB limit") && ResponseMetricsFormat.budgetText(20.14, custom: false) == "about 20.1 GB, automatic", "copied details state every number:\n\(report)")
+    try require(report.contains("Writing: 250 tokens in 20 s, 12.5 tok/s") && report.contains("Expert cache hits while writing: 75%") && report.contains("Memory budget: about 9.0 GB, within your 48 GB limit") && ResponseMetricsFormat.budgetText(20.14, custom: false) == "about 20.1 GB, automatic", "copied details state every number:\n\(report)")
+    try require(ResponseMetricsFormat.budgetText(9, custom: true, limitGB: 9.99)
+        == "about 9.0 GB, within your 9.99 GB limit", "response details preserve the exact saved ceiling")
     try require(total.memoryLimitGB == 48, "multiple rounds preserve the saved ceiling separately from the current budget")
     var recovered = second; recovered.budgetGB = 20; recovered.customBudget = true; recovered.memoryLimitGB = 48
     let afterRecovery = total.adding(recovered)

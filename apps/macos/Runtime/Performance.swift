@@ -61,6 +61,23 @@ public struct PerformancePreferences: Codable, Equatable, Sendable {
     }
 }
 
+/// An editable saved ceiling must round-trip without changing the preference.
+/// Approximate live-memory displays may round; the user's limit may not.
+public enum MemoryLimitText {
+    public static func number(_ value: Double, locale: Locale = .current) -> String {
+        let exact = String(value)
+        let compact = exact.hasSuffix(".0") ? String(exact.dropLast(2)) : exact
+        return compact.replacingOccurrences(of: ".", with: locale.decimalSeparator ?? ".")
+    }
+
+    public static func parse(_ text: String, locale: Locale = .current) -> Double? {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: locale.decimalSeparator ?? ".", with: ".")
+        guard let value = Double(normalized), value.isFinite, value > 0 else { return nil }
+        return value
+    }
+}
+
 /// Product policy for the currently supported text model. It reuses the
 /// engine's adaptive ceiling and preserves its independent CLI.
 public enum PerformancePolicy {

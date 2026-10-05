@@ -1467,7 +1467,8 @@ supported range. Its minimum prices the selected pack and requested context;
 its maximum comes from this Mac's hardware. Current headroom is checked again
 when loading. It retains automatic pressure protection. Switching to Custom starts
 at the current budget; returning to it restores your last chosen limit. The
-saved limit stays stable when available memory changes. Settings distinguish
+saved limit stays stable when available memory changes. Typed fractional limits
+retain their exact value in Settings and response details. Settings distinguish
 the app’s physical memory use from the budget available now. Unified
 CPU/GPU memory is counted once.
 **While running → Fixed cache capacity** keeps the cache size chosen at load

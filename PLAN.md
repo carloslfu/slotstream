@@ -1216,6 +1216,13 @@ The native CLI fixture now covers missing run/serve selections, retained unrelat
 
 [[sources/runs/2026/10/2026-10-04-pack-build-evidence-preparation]] records the actual compiler-mode binding in proposed execution identities and loaded evidence. Debug, unchecked and unknown modes cannot inherit checked optimized speed measurements. The environment guard still withholds evidence for runtime experiments. The existing native checks now cover all modes and their real compiled default. Diff, claims and documentation regeneration pass; optimized and instrumented native validation remain pending. No automatic profile exists yet, and the frozen quality protocol and installation remain unchanged. Exact-binary final performance and release provenance remain required.
 
+
+### Exact saved memory limits, October 5
+
+[[sources/runs/2026/10/2026-10-05-saved-memory-limit-precision-preparation]] records a precision correction: the editable saved limit previously rounded to one decimal place, allowing an unchanged field commit to replace the requested value. Settings and response details now preserve the exact saved ceiling while live usage remains approximate. Locale and persistence fixtures, plus fractional-limit rendering in every appearance, are prepared. New native checks and visual inspection remain pending; no local model execution was added.
+
+The same source preserves complete successful context-refusal and shared-loader Engine/Mac workflows at their respective commits, and the preceding compiler-mode Mac workflow. These are prior-change results, not acceptance of the new precision checks. Frozen quality, full candidate performance, standalone transport, alternative activation and final qualification remain open.
+
 ## 0. Status tracker (living)
 Measured data lives in **[MEASUREMENTS.md](MEASUREMENTS.md)**; this file keeps the
 design and the estimates it replaces.
