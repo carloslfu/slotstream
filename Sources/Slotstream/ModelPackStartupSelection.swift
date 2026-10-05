@@ -102,12 +102,29 @@ public extension ModelPack {
                 return nil
             }
         }
-        let object: [String: Any] = ["schema": 1,
-            "recipe": startupDefaults.executionIdentity(liveMemory: liveMemory), "forecast": forecast]
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let optimizations = startupOptimizations(plan: plan, hardware: observation.hardware)
+        let object: [String: Any] = ["schema": 2,
+            "recipe": startupDefaults.executionIdentity(liveMemory: liveMemory), "forecast": forecast,
+            "runtime_version": SlotstreamBuild.version, "compatibility": compatibility,
+            "optimizations": String(decoding: try encoder.encode(optimizations), as: UTF8.self),
+            "context_arithmetic": PromptCheckpointKey.currentContextArithmetic]
         let bytes = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
         let identity = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
         return try ModelPackCandidate(pack: self, plan: plan, executionPolicyID: identity,
             tools: true, prefixReuse: startupDefaults.prefixCacheEnabled, hardware: observation.hardware)
+    }
+}
+
+extension ModelPack {
+    /// Pure platform policy, so reviewing a proposal never initializes Metal.
+    /// Actual loaded controls are checked separately before attaching evidence.
+    package func startupOptimizations(plan: MemoryPlan, hardware: ModelPackHardware) -> InferenceOptimizations {
+        let platform = OptimizationPlatform(machineModel: hardware.model, chip: hardware.chip,
+            osBuild: hardware.osBuild, nativeARM64: hardware.nativeARM64)
+        var value = InferenceOptimizations.deploymentCandidate(on: platform)
+        if plan.decodeLookahead { value.cachedRouterWeights = true }
+        return value
     }
 }
 

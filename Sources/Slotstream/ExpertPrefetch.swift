@@ -808,6 +808,8 @@ package final class ExpertPrefetchScheduler {
 
     /// The corrected attention tap's factors (`ExpertPrefetchConfiguration.correctionPath`),
     /// loaded once; the reserve must hold the staging cap and the factors.
+    /// Observed without forcing the lazy tensor load when checking evidence.
+    package private(set) var loadedTapCorrectionIdentity: String?
     package private(set) lazy var tapCorrection: RouterTapCorrection? = {
         guard let path = configuration.correctionPath else { return nil }
         let correction: RouterTapCorrection
@@ -820,6 +822,7 @@ package final class ExpertPrefetchScheduler {
             fatalError("expert lookahead needs \(accounting.capBytes + correction.residentBytes) bytes (staging cap plus tap correction) "
                 + "but only \(configuration.reserveBytes) are reserved; raise SLOTSTREAM_EXPERT_LOOKAHEAD_RESERVE_MIB")
         }
+        loadedTapCorrectionIdentity = correction.identity
         return correction
     }()
 

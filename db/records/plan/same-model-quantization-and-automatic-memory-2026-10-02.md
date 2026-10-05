@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T02:03:32.723194+00:00
+updated: 2026-10-05T02:12:02.610955+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -1096,3 +1096,9 @@ The source includes native fixtures for prospective component pricing, storage a
 #### Native setup checks and Xcode metadata boundary
 
 [[sources/runs/2026/10/2026-10-04-model-setup-xcode-access-correction]] records the complete scripted Mac job passing for the reviewed-setup and failed-settings-repair stage. It confirms the earlier corrupt-history fixture correction and current-choice repair behavior, including the no-Metal repeat and memory-control rendering. The separate Xcode job exposes package-scoped recipe access from the application target. A public read-only recipe identity now replaces that access without exposing the pack owner. The Xcode failure is preserved; the corrected build and the newer setup-view renders still require confirmation. Physical qualification remains unchanged and pending.
+
+### Engine-owned loaded-profile observations, October 4
+
+[[sources/runs/2026/10/2026-10-04-loaded-model-profile-observation-preparation]] preserves the observation foundation. Proposal identity now binds runtime version, compatibility, platform-resolved optimization defaults and context arithmetic. A separate observation type can be created only by Engine after checking the actual real plan, hardware, GPU, draft, recipe, execution controls and forecast under its generation gate. An active correction must already have its authenticated identity observed; metadata inspection does not force a lazy tensor load. Explicit or unknown runtime tuning withholds default-profile evidence without changing the selected pack or memory rules.
+
+The registry can confirm only the same proposed automatic profile against that observed candidate and the real admission snapshot. Missing or mismatched proof produces no confirmation and grants no activation authority. Pure and external-consumer fixtures are prepared; thirty-two static entry tests, shell syntax and the diff check pass. Native execution, physical observation and application telemetry wiring remain required. The registry still has no alternate pack or qualified profile, and no public speed claim changes.

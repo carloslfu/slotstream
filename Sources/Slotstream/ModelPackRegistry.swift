@@ -100,6 +100,29 @@ public enum ModelPackRegistry {
         try resolve(selection, selectionContext: context)
     }
 
+    /// Revalidate the frozen profile against an observed loaded candidate.
+    /// The machine is the real admission observation taken before allocation;
+    /// hardware and candidate controls are observed after the startup check.
+    /// This confirms evidence only and never selects another pack or allocates.
+    public static func confirm(_ proposed: ModelPackDecision, candidate loaded: LoadedModelPackCandidate?,
+                               admissionMachine: Machine,
+                               ceilingBytes: Int64, requiredFeatures: Set<ModelPackFeature>) -> ModelPackDecision? {
+        guard proposed.automatic, let profileID = proposed.automaticProfileID, let loaded,
+              !admissionMachine.isSimulated, admissionMachine.ramGB == loaded.physicalRAMGB else { return nil }
+        let candidate = loaded.candidate
+        guard
+              candidate.packID == proposed.pack.id, candidate.manifestDigest == proposed.pack.manifestDigest else { return nil }
+        let context = ModelPackSelectionContext(machine: admissionMachine, hardware: loaded.hardware,
+            ceilingBytes: ceilingBytes, contextTokens: candidate.contextTokens,
+            requiredFeatures: requiredFeatures,
+            acceptedInstalledManifests: [candidate.packID: candidate.manifestDigest],
+            candidates: [candidate], incumbentPackID: candidate.packID)
+        guard let confirmed = try? resolve(.automatic, context: context),
+              confirmed.pack.id == proposed.pack.id, confirmed.automaticProfileID == profileID,
+              confirmed.evidence != .unknown else { return nil }
+        return confirmed
+    }
+
     private static func resolve(_ selection: ModelPackSelection,
                                 selectionContext: ModelPackSelectionContext?) throws -> ModelPackDecision {
         switch selection {

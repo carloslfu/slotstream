@@ -85,6 +85,26 @@ extension Diagnostics {
         let selected = try ModelPackRegistry.resolve(.automatic, context: automatic)
         c.expect("production remains an unqualified supported fallback",
             selected.pack.id == pack.id && selected.automaticProfileID == nil && !selected.meetsMeasuredSpeedTarget)
+        c.expect("a proposed configuration cannot confirm itself without a loaded observation",
+            ModelPackRegistry.confirm(selected, candidate: nil, admissionMachine: machine,
+                ceilingBytes: automatic.ceilingBytes, requiredFeatures: [.text, .tools]) == nil)
+        let fusedHardware = ModelPackHardware(model: "Mac17,9", chip: "Apple M5 Pro", osBuild: "25G83",
+            nativeARM64: true, storage: .internalLocal, volumeID: "fixture-disk",
+            thermalState: "nominal", lowPowerModeEnabled: false)
+        let fusedObservation = ModelPackStartupObservation(pack: pack, hardware: fusedHardware, mtpAvailable: true)
+        let fusedProposal = try pack.startupCandidate(plan: originalPlan, liveMemory: .automatic, observation: fusedObservation)
+        c.expect("resolved platform execution defaults change the complete policy identity",
+            fusedProposal?.executionPolicyID != proposal.executionPolicyID)
+        for environment in [[:], ["PATH": "/fixture", "SEVRA_MODEL": "/fixture/model"],
+                            ["SLOTSTREAM_TEST_BINARY": "/fixture/cli", "SLOTSTREAM_METALLIB_MACOS": "26"]] {
+            c.expect("ordinary paths and build-tool selectors do not change loaded execution evidence",
+                Engine.admitsStartupEvidence(environment: environment))
+        }
+        for environment in [["SLOTSTREAM_OPT_ROUTER_WEIGHTS": "1"], ["SLOTSTREAM_FUTURE_OVERRIDE": "fixture"],
+                            ["MLX_FIXTURE_OPTION": "fixture"]] {
+            c.expect("explicit or unknown runtime tuning cannot inherit default measurements",
+                !Engine.admitsStartupEvidence(environment: environment))
+        }
         let overridden = try ModelPackRegistry.resolve(.pack(pack.id), context: try input(installed: [:]))
         c.expect("explicit choice remains exact without granting installation or allocation",
             overridden.pack.id == pack.id && !overridden.automatic && overridden.evidence == .unknown)

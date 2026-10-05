@@ -65,7 +65,8 @@ func legacyEngineMethods(_ engine: Engine) {
     let tower: () throws -> VisionTower = engine.ensureVisionTower
     let configurePack: (ModelPack) throws -> Void = engine.configureStartupDefaults
     let applied: (ModelPack, LiveMemoryManagement) throws -> AppliedModelConfiguration = engine.appliedConfiguration
-    _ = (generate, images, typedImages, tower, configurePack, applied)
+    let observed: (ModelPack, LiveMemoryManagement, ModelPackStartupObservation) throws -> LoadedModelPackCandidate? = engine.startupCandidate
+    _ = (generate, images, typedImages, tower, configurePack, applied, observed)
 }
 let oldPlanner: (PlanRequest, Machine, Bool, Bool) throws -> MemoryPlan = Planner.plan
 let loosePlanner: (Int?, Double?, Double?, Double?, Double?, Double?, Double?, Planner.MTPMode, Bool, Planner.VisionMode, Bool, Bool, Int, Bool) throws -> MemoryPlan = Planner.plan
@@ -110,6 +111,8 @@ let startupContext = try ModelPackRegistry.startupContext(on: startupMachine, ha
 precondition(startupContext.candidates.count == 1 && startupContext.ceilingBytes == 10_000_000_000)
 let startupDecision = try ModelPackRegistry.resolve(.automatic, context: startupContext)
 precondition(startupDecision.evidence == .unknown)
+precondition(ModelPackRegistry.confirm(startupDecision, candidate: nil, admissionMachine: startupMachine,
+    ceilingBytes: startupContext.ceilingBytes, requiredFeatures: [.text, .tools]) == nil)
 let legacyCandidate: (ModelPack, MemoryPlan, String, Bool, Bool) throws -> ModelPackCandidate = ModelPackCandidate.init
 _ = try legacyCandidate(maintained, ownedPlan, "compatibility-only", true, true)
 
