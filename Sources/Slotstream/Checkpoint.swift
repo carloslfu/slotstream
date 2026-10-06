@@ -90,17 +90,6 @@ public struct ModelConfig {
         return copy
     }
 
-    package func withAffineExpertControl(artifact: AffineExpertControl.Artifact = .minmax) throws -> ModelConfig {
-        var copy = self
-        for layer in 0..<numLayers {
-            for projection in ["gate_proj", "up_proj", "down_proj"] {
-                copy.quantizationOverrides["model.layers.\(layer).mlp.switch_mlp.\(projection)"] =
-                    try AffineQuantization(bits: artifact.bits(for: projection), groupSize: 64)
-            }
-        }
-        copy.admittedExpertRecordBytes = artifact.expertRecordBytes
-        return copy
-    }
 
     public var rotaryDim: Int { Int(Float(headDim) * partialRotaryFactor) }
     public var pleLayerIndices: [Int] { pleLayerIds.map { $0 - 1 } }

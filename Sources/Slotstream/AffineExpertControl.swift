@@ -192,3 +192,18 @@ package enum AffineExpertControl {
             files: owners, tensors: tensors, affineExpertArtifact: artifact)
     }
 }
+
+// Keep the research adapter outside the independently compiled model-config policy.
+extension ModelConfig {
+    package func withAffineExpertControl(artifact: AffineExpertControl.Artifact = .minmax) throws -> ModelConfig {
+        var copy = self
+        for layer in 0..<numLayers {
+            for projection in ["gate_proj", "up_proj", "down_proj"] {
+                copy.quantizationOverrides["model.layers.\(layer).mlp.switch_mlp.\(projection)"] =
+                    try AffineQuantization(bits: artifact.bits(for: projection), groupSize: 64)
+            }
+        }
+        copy.admittedExpertRecordBytes = artifact.expertRecordBytes
+        return copy
+    }
+}
