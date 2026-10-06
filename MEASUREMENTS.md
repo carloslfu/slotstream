@@ -7810,3 +7810,31 @@ The complete screen finishes in 29.286 seconds at a 618,316,592-byte lifetime ph
 Two-bit relative weight MSE is about three and a half times three-bit; the nonlinear output probes also worsen. Advance only the two-bit gate/up, three-bit down lead to a small full-model distribution screen before any export. Preserve the original and current candidate. Do not advance all-two-bit or the two-bit-down mixture merely because they use fewer bytes. Different group sizes, calibration or VQ remain separate untested hypotheses.
 
 The first prefill/cache attempt launched no model; the retry completed only its automatic arm, then failed the unchanged quiet-start admission for the capped arm. Both restore their temporary host controls. There is no complete paired timing result and no selected partial benefit. The native diagnostic changes pass 24 Python runner tests and 88 native protocol assertions. Further quiet-host retries are deferred while the cheaper quality lead is tested.
+
+
+### Focused lower-bit mixture quality screens, October 5
+
+[[sources/runs/2026/10/2026-10-05-focused-lowbit-quality]] preserves two complete prospective screens. Each reproduces an existing coding control's complete vocabulary bytes before evaluating the fixed coding, tool and multilingual contexts. No new model payload or raw logits are saved. The reference remains quantized, and these are calibration positions rather than completed tasks.
+
+| Mixture | Comparator on the same three contexts | Comparator/candidate mean KL | Comparator/candidate top-choice agreement | Physical lifetime peak | Screen outcome |
+| --- | --- | --- | --- | --- | --- |
+| Affine two-bit gate/up, three-bit down; original non-experts | Prior all-three-bit control | 0.591234 / 0.666165 | 0.729167 / 0.687500 | 2,167,408,008 bytes | Passes the frozen loose screening limits; coding agreement loses two positions |
+| VQ2.1 experts/PLE/norms with original four-bit dense projections | Original pack | 0.491535 / 0.531509 | 0.791667 / 0.750000 | 2,387,675,560 bytes | Passes its frozen screen; coding ties, tool and multilingual each lose one position |
+
+The affine control checks every converted three-bit tensor against the earlier authenticated export and reproduces the coding vocabulary hash exactly. Its four forwards finish in 251.402 seconds. The VQ control reproduces the prior VQ3.2/dense4 coding vocabulary hash; the new target's own file/runtime identities and all destination shapes are explicit. Its four forwards finish in 105.222 seconds. Both stay below ten GB and retain actual headroom checks. These functional durations are not performance comparisons.
+
+Advance VQ2.1/dense4 to native parity, representative completed tasks and bounded cost measurement first because its existing artifact and kernels avoid another large export. The affine mixture remains a separate positive lead needing completed tasks. Neither is qualified for Auto, public installation, similar task quality or the twenty-token claim. Full VQ2.1's earlier adverse screen and all original evidence remain unchanged. The new VQ mixture has its own complete pinned metadata identity; native implementation and acceptance are subsequent work.
+
+### Lower-bit VQ dense mixture native parity, October 5
+
+[[sources/runs/2026/10/2026-10-05-vq21-dense-native-screen]] captures the source-bound research implementation, independent reference and native prefill/greedy checks. The exact mixture retains its own authenticated inventory, manifest and arithmetic identity. Native prefill and sixteen self-fed steps pass without tolerance changes. Physical supervision stays within ten GB. Unsupported flags stopped the first prefill invocation before allocation; a receipt-nesting error stopped the next driver after its successful prefill. The final continuation performs only the remaining greedy operations. These failures do not erase successful checks, and the results establish neither similar completed-task quality nor throughput. Existing original-pack behavior and public choices are unchanged.
+
+### Lower-bit VQ speculative reduction correction, October 5
+
+[[sources/runs/2026/10/2026-10-05-vq21-draft-reduction-repair]] records the initial 682 failed assertions among 2,071, then all 2,071 passing after the focused D8 correction. Depth one matched ordinary greedy generation while depth two and four changed answers: the D8 kernel switched numerical reduction above twenty routed pairs. Row-invariant verification now retains the single-token SIMD reduction through fifty pairs, with unchanged ordinary reference dispatch. Nonconstant component tests prove batch/one-row equality at one, two, three and five rows. The corrected run peaks at 8,376,964,832 physical bytes, below the existing ten-GB bound, and exercises 44 accepted drafts. Failed and corrected observations are both preserved. This is correctness evidence, not a throughput or completed-task-quality result.
+
+### Lower-bit VQ mixed completed-task rejection, October 5
+
+[[sources/runs/2026/10/2026-10-05-vq21-mixed-completed-tasks]] preserves every answer, grade and the unchanged frozen task protocol. The original scores fifteen of sixteen and VQ2.1/dense4 fourteen. Both fail sort-records. The mixture additionally fails filter-unique, returning `[2, -3, 0, -8, 4, -1]` where the original correctly returns `[-3, -8, -1]`. The tested coding, tool, multilingual and retrieval outcomes remain passing. The process peaks at 8,379,012,952 physical bytes within ten GB. Functional task time is not an eligible throughput comparison.
+
+The mixture misses the prospectively fixed fifteen-pass minimum. Reject advancement to a speed pilot or product integration without loosening the gate. This focused adverse result does not estimate broad quality loss or prove every lower-bit mixture unsuitable. The separate affine two-bit gate/up, three-bit down lead remains open. The complete existing static suite, all 104 native T0/T1 catalogue groups and Python overlay checks pass on the source-bound corrected binary. Their success preserves the numerical repair, not a quality qualification for this mixture.

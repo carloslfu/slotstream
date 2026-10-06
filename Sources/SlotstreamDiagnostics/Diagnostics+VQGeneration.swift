@@ -62,9 +62,8 @@ extension Diagnostics {
         let parent: Manifest.Artifact
         if denseOverlayBaseline != nil {
             guard manifest.artifact == nil, let bound = manifest.vq_parent,
-                  bound.inventory_sha256 == VQDenseOverlay.parentInventorySHA256,
-                  manifest.composite_sha256 == VQDenseOverlay.identitySHA256,
-                  manifest.policy == "vq32-experts-ple-with-pinned-affine4-dense-v1" else {
+                  VQDenseOverlay.Profile.matches(identity: manifest.composite_sha256,
+                    inventory: bound.inventory_sha256, policy: manifest.policy) else {
                 throw ModelError("dense composite requires its own generated fixture identity")
             }
             parent = bound

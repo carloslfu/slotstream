@@ -128,7 +128,15 @@ package struct VQExpert {
         guard (n...4096).contains(wholePairs) else {
             throw ModelError("VQ partition dispatch must cover its rows within the fused reference bound")
         }
-        let simd = layout.dimensions == 8 && wholePairs <= 20 && layout.columns / 64 >= 32
+        // A recorded verify pass contains up to five tokens, each routed to
+        // ten experts. D8 must retain the single-token SIMD reduction across
+        // that pass: switching to the scalar reduction at the third token
+        // changes BF16 outputs and can change the target's accepted answer.
+        // Ordinary reference/prefill dispatch remains unchanged. Use the
+        // whole operation's pair count, never the storage partition's size.
+        let invariantVerify = RowInvariantMatmul.enabled && wholePairs <= 50
+        let simd = layout.dimensions == 8 && (wholePairs <= 20 || invariantVerify)
+            && layout.columns / 64 >= 32
         let kernel = simd ? simdKernel! : rowKernel
         let dims = MLXArray([Int32(outputRows), Int32(layout.columns), Int32(layout.dimensions), Int32(64), Int32(n), Int32(layout.codebookEntries)])
         let group = min(256, outputRows)

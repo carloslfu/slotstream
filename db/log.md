@@ -411,3 +411,6 @@ Capture complete actual Desktop-ceiling comparison, exact CI artifact and host r
 ## [2026-10-06 01:04] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Restore the full same-checkpoint similar-quality twenty-token goal across recommended 16–64 GB configurations; explicitly reopen two-bit, lower-bit VQ, mixed and runtime experiments with bounded advance/stop criteria. Preserve two incomplete prefill admission attempts and a complete real-expert low-bit component screen. Only mixed two-bit gate/up and three-bit down advances to a no-export quality screen. Both automatic systems and winner integration remain required. Full validation 0 errors/0 warnings, claims 349/0, projections and diff pass.
 
+## [2026-10-06 01:53] experiment | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture both mixed low-bit proxy screens, native VQ2.1/dense4 parity, failed and repaired D8 draft reduction, and frozen completed-task rejection (14/16 versus original 15/16). Static suite and 104 native groups pass; retain the full target and advance only the screened affine223 lead.
+

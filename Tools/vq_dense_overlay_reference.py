@@ -12,8 +12,8 @@ import threading
 import time
 
 import vq_model_reference as ref
-from vq_dense_overlay import Overlay, POLICY, IDENTITY_SHA, canonical_sha, sha
-from vq_execution_profile import select_runtime, recheck_runtime
+from vq_dense_overlay import Overlay, POLICY, IDENTITY_SHA, PROFILES, canonical_sha, sha
+from vq_execution_profile import select_runtime, recheck_runtime, add_runtime_argument
 from vq_fused_reference import bounded
 from quantization_inventory import unique_json
 from context_qualification import verification_lock, quiet_preflight
@@ -30,8 +30,9 @@ def instrument_identity():
     return dict(record, sha256=canonical_sha(record))
 
 
-def check_proof(proof, instrument, execution):
-    if (proof.get('policy') != POLICY or proof.get('composite_sha256') != IDENTITY_SHA
+def check_proof(proof, instrument, execution, profile=None):
+    profile = PROFILES['3.2'] if profile is None else profile
+    if (proof.get('policy') != profile['policy'] or proof.get('composite_sha256') != profile['identity']
             or proof.get('instrument', {}).get('sha256') != instrument['sha256']
             or proof.get('execution_profile') != execution
             or proof.get('architecture_sha256') != ref.ARCH_SHA256
@@ -50,6 +51,8 @@ def main():
         parser.add_argument('--' + key, type=Path, required=True)
     parser.add_argument('--prove-order', action='store_true')
     parser.add_argument('--order-proof', type=Path)
+    parser.add_argument('--dense-overlay-variant', choices=tuple(PROFILES), default='3.2')
+    add_runtime_argument(parser)
     args = parser.parse_args()
     raw = bounded(args.tokens, 32_000); tokens = unique_json(raw)
     if (not isinstance(tokens, list) or not 1 <= len(tokens) <= 2048
@@ -57,16 +60,16 @@ def main():
         raise ValueError('bounded frozen pilot tokens required')
     if args.prove_order and (len(tokens) != 513 or args.order_proof is not None):
         raise ValueError('composite traversal proof requires exactly 513 tokens and no prior proof')
-    execution_path, execution = select_runtime(args.model, None)
+    execution_path, execution = select_runtime(args.model, args.runtime)
     identity = instrument_identity()
     proof_sha = None
     if not args.prove_order:
         if args.order_proof is None:
             raise ValueError('a successful composite traversal proof is required')
         proof_raw = bounded(args.order_proof, 4_000_000)
-        check_proof(unique_json(proof_raw), identity, execution)
+        check_proof(unique_json(proof_raw), identity, execution, PROFILES[args.dense_overlay_variant])
         proof_sha = hashlib.sha256(proof_raw).hexdigest()
-    overlay = Overlay(args.baseline, args.model, args.inventory)
+    overlay = Overlay(args.baseline, args.model, args.inventory, variant=args.dense_overlay_variant)
     before = quiet_preflight(13)
     with verification_lock():
         args.out.mkdir(parents=True, exist_ok=False)
@@ -120,11 +123,11 @@ def main():
                 for name, observed in provenance['stamps'].items():
                     if stamp((args.model / name).stat()) != observed:
                         raise ValueError('VQ parent changed during composite execution')
-                recheck_runtime(args.model, None, execution)
+                recheck_runtime(args.model, args.runtime, execution)
                 if instrument_identity()['sha256'] != identity['sha256']:
                     raise ValueError('composite instrument changed during execution')
                 receipt = {'schema': 1, 'scope': 'composite screening only; no native parity or qualification',
-                    'policy': POLICY, 'composite_sha256': IDENTITY_SHA, 'composite': overlay.identity,
+                    'policy': overlay.profile['policy'], 'composite_sha256': overlay.profile['identity'], 'composite': overlay.identity,
                     'overlay_verification': authenticated_overlay, 'overlay_application': applied,
                     'architecture_sha256': ref.ARCH_SHA256, 'runtime_sha256': ref.RUNTIME_SHA256,
                     'execution_profile': execution, 'normalization': ref.NORMALIZATION, 'instrument': identity,
@@ -138,7 +141,7 @@ def main():
                 if max(receipt['process_memory'].values()) > ref.PROCESS_LIMIT:
                     raise ValueError('composite footprint exceeded its bound')
                 (args.out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
-                print(json.dumps({'complete': True, 'policy': POLICY, 'result': result, 'memory': receipt['process_memory']}), flush=True)
+                print(json.dumps({'complete': True, 'policy': overlay.profile['policy'], 'result': result, 'memory': receipt['process_memory']}), flush=True)
         finally:
             stop.set(); thread.join(timeout=4)
             if thread.is_alive():

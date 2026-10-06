@@ -51,6 +51,27 @@ extension Diagnostics {
         let small = "4f63194dec2e4c3bec31289d6503cc7c886685e16e7c4aac58116d4cf0c7f037"
         let larger = ["098c79fea05981b86145109a76cfcba5a22c51d4738cd3e9f00c23ae6d8531fe",
                       "a30ded4e88270d33dfcca8e9b6c414a69cf82f0ad27d20bb3fe71b2b1c14ccac"]
+        let overlays = [VQDenseOverlay.Profile.vq32, .vq21]
+        for profile in overlays {
+            c.equal("dense mixture exact parent and manifest admitted",
+                try VQDenseOverlay.Profile.select(manifest: profile.manifest, inventory: profile.inventory), profile)
+            c.expect("dense mixture fixture binds its own complete identity",
+                VQDenseOverlay.Profile.matches(identity: profile.identity, inventory: profile.inventory, policy: profile.policy))
+            for other in overlays where other != profile {
+                do {
+                    _ = try VQDenseOverlay.Profile.select(manifest: profile.manifest, inventory: other.inventory)
+                    c.expect("cross-parent dense mixture refused", false)
+                } catch { c.expect("cross-parent dense mixture refused", true) }
+                c.expect("foreign mixture cannot inherit fixture evidence",
+                    !VQDenseOverlay.Profile.matches(identity: other.identity, inventory: profile.inventory, policy: profile.policy))
+            }
+        }
+        do {
+            _ = try VQDenseOverlay.Profile.select(manifest: String(repeating: "0", count: 64), inventory: small)
+            c.expect("unregistered mixture refused", false)
+        } catch { c.expect("unregistered mixture refused", true) }
+        c.expect("missing mixture identity refused",
+            !VQDenseOverlay.Profile.matches(identity: nil, inventory: small, policy: VQDenseOverlay.Profile.vq21.policy))
         func execution(_ fields: [String: Any]) throws -> VQReferenceExecution {
             try JSONDecoder().decode(VQReferenceExecution.self, from: JSONSerialization.data(withJSONObject: fields))
         }
@@ -280,6 +301,30 @@ extension Diagnostics {
                         let result = try projection.call(x, indices: indices)
                         c.expect("fused d\(dim)/k\(entries) columns\(columns) pairs\(tokens * 10) exact constant dot",
                             all(result .== Float(columns / 64)).item(Bool.self))
+                    }
+                    if dim == 8 && columns == 2560 {
+                        // Nonconstant values exercise the differing reduction
+                        // orders that constant-dot fixtures cannot distinguish.
+                        let variedBook = sin(MLXArray(0..<(entries * dim)).asType(.float32) / 37)
+                            .reshaped([entries, dim]).asType(.float16)
+                        let variedCodes = (MLXArray(0..<codes.size).asType(.uint32) * UInt32(7919))
+                            .reshaped(codes.shape)
+                        let varied = try VQExpert(codes: variedCodes, codebook: variedBook,
+                            scales: scales, layout: layout)
+                        let old = RowInvariantMatmul.enabled
+                        defer { RowInvariantMatmul.enabled = old }
+                        RowInvariantMatmul.enabled = true
+                        for tokens in [1, 2, 3, 5] {
+                            let x = sin(MLXArray(0..<(tokens * columns)).asType(.float32) / 101)
+                                .reshaped([tokens, columns]).asType(.bfloat16)
+                            let routes = MLXArray.zeros([tokens, 10], dtype: .uint32)
+                            let batch = try varied.call(x, indices: routes)
+                            let singles = try (0..<tokens).map { row in
+                                try varied.call(x[row..<(row + 1)], indices: routes[row..<(row + 1)])
+                            }
+                            c.expect("D8 verification \(tokens) rows equal single-token reduction bits",
+                                all(batch.view(dtype: .uint16) .== concatenated(singles, axis: 0).view(dtype: .uint16)).item(Bool.self))
+                        }
                     }
                     do {
                         _ = try projection.call(MLXArray.ones([1, columns], dtype: .bfloat16),

@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T01:01:49.376863Z
+updated: 2026-10-06T01:52:15.157077Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-vq21-mixed-completed-tasks]] — Lower-bit VQ dense mixture misses the frozen completed-task gate; numerical repair and acceptance retained
+- [[sources/runs/2026/10/2026-10-05-vq21-draft-reduction-repair]] — Lower-bit VQ draft verification repaired without relaxing exact generation, state or recovery checks
+- [[sources/runs/2026/10/2026-10-05-vq21-dense-native-screen]] — Lower-bit VQ and original dense weights pass bounded native parity, preserving both instrument failures
+- [[sources/runs/2026/10/2026-10-05-focused-lowbit-quality]] — Two-bit affine mix and lower-bit VQ dense mix pass bounded proxy screens; native and task qualification remain open
 - [[sources/runs/2026/10/2026-10-05-focused-lowbit-screen]] — Preserve incomplete prefill comparison and real-expert two-bit/mixed kernel screen under the restored full target
 - [[sources/runs/2026/10/2026-10-05-practical-desktop-ceiling]] — Complete six-process 33-GB comparison puts original medians above twenty tokens per second on three local workloads; smaller pack remains a mixed tradeoff
 - [[sources/runs/2026/10/2026-10-05-practical-attention-comparison]] — Complete twelve-process attention comparison stays within physical and timing bounds; longer-prompt latency improves but no general generation advantage or twenty-token result
@@ -503,12 +507,8 @@ updated: 2026-10-06T01:01:49.376863Z
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-query-capacity-pass]] — Original seven-cell vision-query capacity study qualifies the10GB target
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-startup-swapin-policy]] — Prospective startup swap-in pair exclusion with stronger live swap-out stop
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-startup-swap-stop]] — Original large-image mechanism study stops on startup swap-ins
-- [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-photo-pass]] — Original full-photo vision-query serving profile passes all25 assertions
-- [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-pass]] — Both complete original vision-query integrations pass after memory is freed
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-resource-resume-preparation]] — Original complete scope serving study prepared after user-freed memory
-- [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-activation-preparation]] — Exact current V360 activation patch is prepared and remains unapplied
 
 ## More
 
-This folder has 854 files. The 500 most recent are listed above.
+This folder has 858 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

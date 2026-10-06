@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from vq_dense_overlay import Overlay, POLICY, IDENTITY_SHA, geometry, read_json, recipe
+from vq_dense_overlay import Overlay, POLICY, IDENTITY_SHA, PROFILES, geometry, read_json, recipe
 from vq_dense_overlay_reference import check_proof
 from vq_dense_overlay_cost_pilot import ARMS, PROFILE_SHA, VQ_INVENTORY, validate_receipt
 import vq_model_reference as ref
@@ -84,6 +84,16 @@ class OverlayChecks(unittest.TestCase):
             'traversal_proof': {'traversal_equal_bits': True, 'layers': 4, 'tokens': 513},
             'overlay_application': {'modules': 498}, 'overlay_verification': {'complete': True}}
         check_proof(proof, identity, execution)
+        # Explicit research profiles cannot trade their quality/parity evidence.
+        with self.assertRaises(ValueError):
+            check_proof(proof, identity, execution, PROFILES['2.1'])
+        small = copy.deepcopy(proof)
+        small.update(policy=PROFILES['2.1']['policy'], composite_sha256=PROFILES['2.1']['identity'])
+        check_proof(small, identity, execution, PROFILES['2.1'])
+        with self.assertRaises(ValueError):
+            check_proof(small, identity, execution)
+        with self.assertRaises(ValueError):
+            Overlay(Path('/unused'), Path('/unused'), Path('/unused'), variant='unknown')
         for field, wrong in [('policy', 'ordinary-vq'), ('composite_sha256', '0'*64), ('instrument', {}),
                              ('normalization', 'raw'), ('overlay_verification', {'complete': False}),
                              ('traversal_proof', {'traversal_equal_bits': True, 'layers': 4, 'tokens': 512}),

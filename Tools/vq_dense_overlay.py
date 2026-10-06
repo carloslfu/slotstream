@@ -23,6 +23,18 @@ POLICY = 'vq32-experts-ple-with-pinned-affine4-dense-v1'
 IDENTITY_SHA = 'f31f100d47f062c415251d92a4c14956b2328e393294a9680eb2ba9c1664f645'
 VQ_INVENTORY = '098c79fea05981b86145109a76cfcba5a22c51d4738cd3e9f00c23ae6d8531fe'
 
+# Separate, fixed research identities. The default preserves every historical
+# VQ3.2 fixture; an explicit lower-bit mixture cannot inherit that evidence.
+PROFILES = {
+    '3.2': {'revision': VQ_REVISION, 'config': VQ_CONFIG, 'inventory': VQ_INVENTORY,
+            'policy': POLICY, 'identity': IDENTITY_SHA},
+    '2.1': {'revision': '8684640a3956b01c47f5d47f9b999e2ab8b985f1',
+            'config': '4299e87dc3b2d11e53c683d4f17f1196ccf95b75399ddd77d470e148aae1d929',
+            'inventory': '4f63194dec2e4c3bec31289d6503cc7c886685e16e7c4aac58116d4cf0c7f037',
+            'policy': 'vq21-experts-ple-with-pinned-affine4-dense-v1',
+            'identity': 'bf922f0a087a0e357d527f9c31cd645aa1e96bb4ce5acc34973baed2e36752dd'},
+}
+
 
 def sha(path):
     h = hashlib.sha256()
@@ -69,14 +81,17 @@ def recipe(config, name):
 
 
 class Overlay:
-    def __init__(self, baseline, vq, inventory):
+    def __init__(self, baseline, vq, inventory, *, variant='3.2'):
         self.baseline, self.vq = baseline, vq
-        inv = read_json(inventory, VQ_INVENTORY)
-        if inv['revision'] != VQ_REVISION:
-            raise ValueError('dense overlay is restricted to its pinned VQ 3.2 parent')
+        if variant not in PROFILES:
+            raise ValueError('dense overlay variant is not a compiled research profile')
+        self.profile = dict(PROFILES[variant])
+        inv = read_json(inventory, self.profile['inventory'])
+        if inv['revision'] != self.profile['revision']:
+            raise ValueError('dense overlay is restricted to its pinned VQ parent')
         self.config = read_json(baseline / 'config.json', BASE_CONFIG)
         self.index = read_json(baseline / 'model.safetensors.index.json', BASE_INDEX)['weight_map']
-        cfg = read_json(vq / 'config.json', VQ_CONFIG)
+        cfg = read_json(vq / 'config.json', self.profile['config'])
         vindex = read_json(vq / 'model.safetensors.index.json', inv['files']['model.safetensors.index.json']['sha256'])['weight_map']
         self.files = {f['path']: f for f in pins()}
         headers, header_receipts = {}, []
@@ -130,13 +145,13 @@ class Overlay:
         new_bytes = sum(cost(m['new']) for m in self.modules)
         if (old_bytes, new_bytes) != (5_152_768_000, 2_727_936_000):
             raise ValueError('overlay byte ledger differs from inspected geometry')
-        self.identity = {'policy': POLICY, 'baseline_revision': BASE_REVISION, 'baseline_config_sha256': BASE_CONFIG,
-            'baseline_index_sha256': BASE_INDEX, 'vq_revision': VQ_REVISION, 'vq_config_sha256': VQ_CONFIG,
+        self.identity = {'policy': self.profile['policy'], 'baseline_revision': BASE_REVISION, 'baseline_config_sha256': BASE_CONFIG,
+            'baseline_index_sha256': BASE_INDEX, 'vq_revision': self.profile['revision'], 'vq_config_sha256': self.profile['config'],
             'vq_inventory_sha256': sha(inventory), 'modules': self.modules, 'preserved_unmatched': unmatched,
             'source_files': list(self.required.values()), 'headers': header_receipts,
             'replaced_bytes': old_bytes, 'replacement_bytes': new_bytes}
         self.identity['sha256'] = canonical_sha(self.identity)
-        if self.identity['sha256'] != IDENTITY_SHA:
+        if self.identity['sha256'] != self.profile['identity']:
             raise ValueError('overlay metadata does not match its frozen composite identity')
         self.stamps = None
 

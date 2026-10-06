@@ -71,7 +71,7 @@ package final class VQCheckpoint {
     private let expertShardNames: Set<String>
     package var expertReadPolicy: String { uncachedExpertReads ? "uncached-random-shards-v1" : "buffered-v1" }
     package var uncachedExpertFileCount: Int { files.values.filter(\.uncachedRandomReads).count }
-    package var compositeSHA256: String? { denseOverlay == nil ? nil : VQDenseOverlay.identitySHA256 }
+    package var compositeSHA256: String? { denseOverlay?.profile.identity }
     package var residentTextPayloadBytes: Int { denseOverlay == nil ? 5_318_309_400 : VQDenseOverlay.residentPayloadBytes }
     package var largestDenseLoadCopyBytes: Int { denseOverlay?.largestLoadCopyBytes ?? 635_699_200 }
     package var residentHeadPayloadBytes: Int { denseOverlay == nil ? 682_414_080 : 361_287_680 }

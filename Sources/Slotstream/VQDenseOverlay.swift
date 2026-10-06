@@ -12,6 +12,32 @@ package final class VQDenseOverlay {
     package static let parentInventorySHA256 = "098c79fea05981b86145109a76cfcba5a22c51d4738cd3e9f00c23ae6d8531fe"
     package static let manifestSHA256 = "4cdae0e9c26b9a0dd07659cd9d71dd025ed110b49161c152df09d5a7f75ac28b"
     package static let residentPayloadBytes = 2_893_477_400
+    /// Each research mixture binds its own VQ parent and complete tensor map.
+    /// The original constants remain the historical 3.2 identity. In particular,
+    /// admitting this 2.1 screen must not inherit the 3.2 timing or cache recipe.
+    package struct Profile: Equatable, Sendable {
+        package let manifest: String, identity: String, inventory: String, policy: String
+        package static let vq32 = Self(manifest: VQDenseOverlay.manifestSHA256,
+            identity: VQDenseOverlay.identitySHA256, inventory: VQDenseOverlay.parentInventorySHA256,
+            policy: "vq32-experts-ple-with-pinned-affine4-dense-v1")
+        package static let vq21 = Self(
+            manifest: "e63df59b442df3fddb8b2fbaf68f9d1fb76e90f245fdeedddd450ad5a2697fae",
+            identity: "bf922f0a087a0e357d527f9c31cd645aa1e96bb4ce5acc34973baed2e36752dd",
+            inventory: "4f63194dec2e4c3bec31289d6503cc7c886685e16e7c4aac58116d4cf0c7f037",
+            policy: "vq21-experts-ple-with-pinned-affine4-dense-v1")
+
+        package static func select(manifest: String, inventory: String) throws -> Self {
+            guard let profile = [vq32, vq21].first(where: {
+                $0.manifest == manifest && $0.inventory == inventory
+            }) else { throw ModelError("dense composite requires its exact manifest and VQ parent") }
+            return profile
+        }
+
+        package static func matches(identity: String?, inventory: String, policy: String?) -> Bool {
+            [vq32, vq21].contains { $0.identity == identity && $0.inventory == inventory && $0.policy == policy }
+        }
+    }
+    package let profile: Profile
     private struct Tensor: Decodable {
         let dtype: String, shape: [Int], data_offsets: [Int]
         var bytes: Int { data_offsets[1] - data_offsets[0] }
@@ -50,17 +76,18 @@ package final class VQDenseOverlay {
         var status = stat()
         guard fstat(fd, &status) == 0, status.st_mode & S_IFMT == S_IFREG,
               (1...4_000_000).contains(status.st_size),
-              let raw = try handle.read(upToCount: 4_000_001), raw.count == Int(status.st_size),
-              Self.digest(raw) == Self.manifestSHA256,
-              var object = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
-              object.removeValue(forKey: "sha256") as? String == Self.identitySHA256,
-              inventorySHA256 == Self.parentInventorySHA256 else {
+              let raw = try handle.read(upToCount: 4_000_001), raw.count == Int(status.st_size) else {
             throw ModelError("dense composite requires its exact manifest and VQ parent")
         }
+        let selected = try Profile.select(manifest: Self.digest(raw), inventory: inventorySHA256)
+        guard var object = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
+              object.removeValue(forKey: "sha256") as? String == selected.identity else {
+            throw ModelError("dense composite identity changed")
+        }
         let canonical = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
-        guard Self.digest(canonical) == Self.identitySHA256 else { throw ModelError("dense composite tensor map changed") }
+        guard Self.digest(canonical) == selected.identity else { throw ModelError("dense composite tensor map changed") }
         let spec = try JSONDecoder().decode(Manifest.self, from: raw)
-        guard spec.policy == "vq32-experts-ple-with-pinned-affine4-dense-v1", spec.sha256 == Self.identitySHA256,
+        guard spec.policy == selected.policy, spec.sha256 == selected.identity,
               spec.vq_inventory_sha256 == inventorySHA256, spec.modules.count == 498,
               spec.replaced_bytes == 5_152_768_000, spec.replacement_bytes == 2_727_936_000 else {
             throw ModelError("dense composite identity or byte ledger differs")
@@ -102,7 +129,7 @@ package final class VQDenseOverlay {
         guard Set(sourceMap.keys) == Set(entries.values.map(\.shard)), Set(headerMap.keys) == Set(sourceMap.keys),
               sourceMap.count == 9 else { throw ModelError("dense composite source coverage differs") }
         directory = baseline.resolvingSymlinksInPath(); bindings = entries; sources = sourceMap; headers = headerMap
-        recipes = overrides; largestLoadCopyBytes = largest
+        recipes = overrides; largestLoadCopyBytes = largest; profile = selected
     }
 
     package func bytes(for name: String) -> Int? { bindings[name]?.tensor.bytes }

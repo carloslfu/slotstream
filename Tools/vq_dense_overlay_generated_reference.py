@@ -17,7 +17,7 @@ from vq_fused_reference import bounded
 from vq_model_reference import (ARCH_SHA256, NORMALIZATION,
     load_model, physical, references, recheck_owned_headroom, verify_files)
 from vq_ple_stream import Archive
-from vq_dense_overlay import Overlay, IDENTITY_SHA, POLICY
+from vq_dense_overlay import Overlay, IDENTITY_SHA, POLICY, PROFILES
 from vq_dense_overlay_reference import instrument_identity, check_proof
 
 
@@ -33,10 +33,10 @@ def run(options):
     if any(type(t) is not int or not 0 <= t < 248320 for t in profile['prompt']):
         raise ValueError('invalid fixed prompt token')
     runtime_path, execution_profile = select_runtime(options.model, getattr(options, 'runtime', None))
-    overlay = Overlay(options.baseline, options.model, options.inventory)
+    overlay = Overlay(options.baseline, options.model, options.inventory, variant=getattr(options, 'dense_overlay_variant', '3.2'))
     instrument = instrument_identity()
     proof_raw = bounded(options.order_proof, 4_000_000)
-    check_proof(json.loads(proof_raw), instrument, execution_profile)
+    check_proof(json.loads(proof_raw), instrument, execution_profile, overlay.profile)
     own = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     before = quiet_preflight(13)
     with verification_lock():
@@ -115,7 +115,7 @@ def run(options):
             result = {'schema': 1, 'profile': profile, 'profile_sha256': hashlib.sha256(profile_raw).hexdigest(),
                 'architecture_sha256': ARCH_SHA256, 'normalization': NORMALIZATION,
                 'runtime_sha256': execution_profile['runtime_sha256'], 'execution_profile': execution_profile,
-                'vq_parent': provenance, 'composite_sha256': IDENTITY_SHA, 'policy': POLICY,
+                'vq_parent': provenance, 'composite_sha256': overlay.profile['identity'], 'policy': overlay.profile['policy'],
                 'composite': overlay.identity, 'overlay_verification': overlay_verification,
                 'overlay_application': applied, 'order_proof_sha256': hashlib.sha256(proof_raw).hexdigest(), 'instrument': instrument, 'producer_sha256': own, 'before': before,
                 'generated': generated, 'steps': steps, 'consumed_tokens': len(profile['prompt']) + len(generated) - 1,
@@ -132,5 +132,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('model', 'baseline', 'inventory', 'architecture', 'profile', 'order-proof', 'out'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--dense-overlay-variant', choices=tuple(PROFILES), default='3.2')
     add_runtime_argument(parser)
     run(parser.parse_args())

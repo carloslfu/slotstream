@@ -18,7 +18,7 @@ from vq_model_reference import (ARCH_SHA256, NORMALIZATION,
     load_model, physical, references, recheck_owned_headroom, verify_files)
 from vq_ple_stream import Archive
 from vq_fused_reference import bounded
-from vq_dense_overlay import Overlay, IDENTITY_SHA, POLICY
+from vq_dense_overlay import Overlay, IDENTITY_SHA, POLICY, PROFILES
 from vq_dense_overlay_reference import instrument_identity, check_proof
 
 PROMPT = [100 + (i * 37) % 10000 for i in range(512)]
@@ -36,10 +36,10 @@ def run(options):
         passes = [prompt[i:i+512] for i in range(0, 2053, 512)] + [[101]]
         profile = 'sparse2053-decode1-v1'
     runtime_path, execution_profile = select_runtime(options.model, getattr(options, 'runtime', None))
-    overlay = Overlay(options.baseline, options.model, options.inventory)
+    overlay = Overlay(options.baseline, options.model, options.inventory, variant=getattr(options, 'dense_overlay_variant', '3.2'))
     instrument = instrument_identity()
     proof_raw = bounded(options.order_proof, 4_000_000)
-    check_proof(json.loads(proof_raw), instrument, execution_profile)
+    check_proof(json.loads(proof_raw), instrument, execution_profile, overlay.profile)
     own = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     before = quiet_preflight(13)
     with verification_lock():
@@ -130,7 +130,7 @@ def run(options):
             receipt = {'schema': 1, 'profile': profile, 'architecture_sha256': ARCH_SHA256,
                        'runtime_sha256': execution_profile['runtime_sha256'], 'execution_profile': execution_profile,
                        'normalization': NORMALIZATION, 'vq_parent': provenance, 'instrument': instrument,
-                       'composite_sha256': IDENTITY_SHA, 'policy': POLICY, 'composite': overlay.identity,
+                       'composite_sha256': overlay.profile['identity'], 'policy': overlay.profile['policy'], 'composite': overlay.identity,
                        'overlay_verification': overlay_verification, 'overlay_application': applied,
                        'order_proof_sha256': hashlib.sha256(proof_raw).hexdigest(),
                        'producer_sha256': own, 'passes': passes, 'boundaries': boundaries, 'sparse_calls': sparse_calls,
@@ -150,5 +150,6 @@ if __name__ == '__main__':
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--save-layer', type=int, choices=range(-1, 49))
     parser.add_argument('--sparse', action='store_true', help='Fixed 2053-token prefill plus continuation; includes sparse masks')
+    parser.add_argument('--dense-overlay-variant', choices=tuple(PROFILES), default='3.2')
     add_runtime_argument(parser)
     run(parser.parse_args())
