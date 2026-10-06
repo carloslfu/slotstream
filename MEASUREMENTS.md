@@ -7882,3 +7882,6 @@ The mechanism restores cache reuse, but the complete recipe loses the fixed usef
 ### Final pure-policy factory acceptance, October 5
 
 [[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] preserves the isolated-source compiler failure, the subsequent private-setter failure in full-module CI, and the final typed pure-factory repair. Private setters remain private; only artifact-independent descriptors cross into ModelConfig construction. The full release build, all 104 native catalogue groups and all 965,028 isolated-policy assertions pass on the corrected source. Earlier full static acceptance is reused in its unchanged scope. New-head CI is tracked separately, and the helper separation is not reported as a new model-performance measurement.
+
+
+[[sources/runs/2026/10/2026-10-05-final-quantization-source-ci]] closes all remote source workflows for `20cdda3`, including engine static/runtime safety, native catalogue, goldens, public-library, coverage, Mac scripted/snapshot/Xcode and context checks. Experiment-documentation commit `9be7f49` separately passes its documentation gate. No new model timing or quality result follows from CI acceptance.

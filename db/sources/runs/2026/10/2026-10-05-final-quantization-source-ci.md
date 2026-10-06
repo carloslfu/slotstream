@@ -1,0 +1,79 @@
+---
+type: run
+id: 01m47nmfd5yz881d3tysbxenym
+created: 2026-10-06T03:55:34.693031+00:00
+updated: 2026-10-06T03:55:35.305317+00:00
+summary: All final source CI workflows and the completed experiment documentation checks pass; performance target remains unmet
+binary: source 20cdda3b69c0adcd76c865e0125f33f5deb67fa9; each CI job builds and verifies its own preserved candidate
+captured_at: 2026-10-05
+command: gh run view 37408100663, 37408100637, 37408100700 and 37408840648 --json databaseId,headSha,status,conclusion,jobs,url (one command per run)
+discarded: 'false'
+machines: '[[records/machines/macbook-pro-m5-pro-48gb]]'
+title: Final same-model experiment source and documentation CI acceptance
+tool: GitHub Actions status and complete job receipts
+---
+All three source workflows for 20cdda3b69c0adcd76c865e0125f33f5deb67fa9 complete successfully: context software contracts, Mac scripted/snapshot and Xcode checks, and engine release/runtime, public-library and instrumented-coverage checks. The engine job includes static safety, sampler/governor goldens, the native catalogue and verification that tested bytes match its preserved candidate. Documentation-only commit 9be7f4945133a96c3f0c1bc3dca60cb29c061cc0 also passes its documentation workflow.
+
+These are remote GitHub runner checks. The linked development machine is the local research context, not the claimed CI hardware. Model performance and quality retain their original frozen binary identities. Successful software acceptance does not qualify a new quantization, establish other-Mac performance or complete the unmet twenty-token target. Earlier failed revisions remain preserved in [[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]].
+
+### .build/quantization-research/final-quantization-ci-37408100663.json
+
+Bytes: 1487. SHA-256: `e5f41813b471145588eae18e1ece58797fe212c73d274c285dcf1b39c280efb9`.
+
+````zlib-base64
+eNq1lMFu2zAMhu97CkFnZ5al2I59atHTgA0Y1h2GDjvIEl17cyxDopICRd99TJZgwbDGQbBdfKDpn99P0nzmxo1miKF3I695iMZA
+CDzhVqNudIB3lteqXIpVJkRRqIR3oO19pylZCmOtVk1RGaGtsWVhVkUOIpN5q1SbW2iKstUVqX13TeD112eqtp4GQLC3uFeQxSIT
+C1F8FqrOyjrPHyj7AqQsk6ISoqrypUz4qNewS3UtbrWHBQmg1wZ3XwXU/pV6eS2zh18pGInvN90+CNMFzKQhzzAfyO4BWZwYtWEX
+i+sGPHm4Fu4lmYEqanEB1Kc4MmoSvQ2p6cD8cBFvNuUJoZwjlNcS0qizecI7miM8IQsuegNMj5bRXMcwOY9s8u6ph5CwbY8dobMP
+778w59kW+sduP/qjDXXWxrFZV9qQl9uATW9hPBix0IL3YNmosd8AM7TZp9DLs9DH/l0JreahP7qAbH5FVnOY8v9i3h0k/vi3qjks
+9RrWt4RHP1CsQ5xCnaaPtF6xeUspqdF+cGFoYxoGhwE96HV67I+P9Dg5lSkRpad3aq/911vzbwrylzc/Ac5gzTI=
+````
+
+### .build/quantization-research/final-quantization-ci-37408100637.json
+
+Bytes: 3155. SHA-256: `d8162838fe96f22493e2c188a92890b1af2bbdb522a1c0466bd77cc2d1182563`.
+
+````zlib-base64
+eNq91b1u2zAQAOC9T0FoVipSv5amFp06FCiaDkWLDhR5MpVQpCBScYsg717KTQwhSExbjr14kM/Hjyff3X3AtGJyNK1WQRWYkTEw
+JggDTi2tqYHPPKiSIsUrgnGeFGEggPJrQV1wjBnnNKnzkmHKGS9ytsozwCTOmiRpMg51XjS0dNludG2C6te9O63rJVjgH+02Q5xf
+EXyF8+84qdK0IvFPF30AiZAYlxiXJSmzMFC0AxfKBLDbKdJYOrx8BsmqeHuGC7GjmX70JNo+hN7vnHKke5yPmmuwaOyRu/r0bOxq
+GJzbh0tewT2EXlSa+FHfRoUos+5bE23LpUf74a6YCWOfMD2v0GotmaCtmpkSjyk9pWoHvMq+VQo44nXHZ6r0XCrXCPgAlWFD27sM
+6P//PkRKo05zkGgD7VpYM7NmPmt6grXwW3XTOC6AQnctbJBRtDdCW4eWExVR5cpLh9sZOd9H3pVoIXnlJ3/VxiJ/v5DY5yyWOwn2
+Oz89png+aRKfa/Wa63cYjIN0z4S1vamiaN1aMdbvXUjE6CC1kc0YGenenx2AdtFThYbRfcy2ReRI0XxUe+8cZxXJj90BaUZ21fjD
+XAdcZAUk51oB8QnDLL/ICkjOK1y0AvITTOVRK2A7rL6ApdINr3qgw98QbUTLBLICEO17VI+KS0CuV4YWzDErY+ktpr4h/lv8mLoD
+9YO+AWYds5U8RJQjoRky7VoBP2ZnlCdg47cbwHifc1eYhc50+QAmPld84QHs5uQ294uD720ODB7e/QOoRcUS
+````
+
+### .build/quantization-research/final-quantization-ci-37408100700.json
+
+Bytes: 6114. SHA-256: `e38c0bbd801118b579e2b0fd25a657e86438b22955c1127cf7dfabce1899df91`.
+
+````zlib-base64
+eNq9mE2PozgQhu/7KyxOPVJnAhgIcJrVnvaw0mpmT7MajYwpgneMiWyTUTSa/74F+Wh61B3TpOlLhBzHPFVUvW+FHx5vFZedEa3y
+cs90nIMx3r1XMssKZuDP0svpJvLTwPc3vn/v1cDKTzXDzaHPy5LRIsm4z0pebhKeJjH4QRhXlFZxCUWyqViGp/3XFsbL//2Bd2t2
+EiyUv9vhhDBZBf7KT/7xaU7DPEg+4+4JSEEQ+pmPTDREJsUawK283YNmW8C9xjL99F2CNPfDz8cttjPDz05MwyLs3KT9GdEV0hPP
+J7Ck2xEMvl/rmgI0krvg6DNwP++dUNEEqI+dIoxb/NaseQ38W9vZD/vNiDB0EUbLEtq2lbxmQo2YqIMpuoUpcTPthFJQkr/AMkmk
+KDTThxFetBRe3xO+G08oY3XXgMJTyPBUDWEKL08dgRdSwvDUR9SxizpZlvqBrmZqC4bcsXIvTKsP70aUyTXKy51mUoYvoNSwa7Ud
+kW2WJKNusr9bY4m7n4PIxRnewBm7Of84HfGrEsYurmel8Mu912mJa7W1O5Ov11th6654j1vWnGnZGll1ayNbi30BrFmfM6Q7/Bj5
+2RqR1mMzccYcR3lIX+pSURRfsvEdxLa2ZlVpcDhVnIfBrU6FZ4SLONUVOKfmxpM091anOoc+hzDJowkCVjOtcIGg7uoD2bVCWRSx
+AqpWA7E1EMWs2AMpOiHLd5PtLJ6vvBPBn7LY6x52PncmE73ZYuOl8CjN/Qkp0yAB2/r4LKfa0yX0mVxTJhMNBvT+WG8cTV+gAiHm
+qQjBWKG2k03rnIuZvNnLurrbyZaVK6QRFa592Ecj0NQFOns6iXI6JbGSYUFqMkCgOA7zVC9DQ5+TLWYZm71iQhJAy3k0s2Qu9mxh
+9mMvlUVTkru+MLCbhDox47AoSujjsoJ/Hdbem5oowF8IOw4j8K/GcWaZEUcc5tGEyeHIOKQenduKBrFZBfZwDGWMGiyGSk9/GB2o
+rD9CD6zbfmRUrcYLWYJ6xHnVsy5pmcMZXf/7fB5n+xJGoUCVbbcdkDtA1sOxsklxIP22RzVw1asuyZkJnE7wqvooY1idxaGvX1Q0
+KUnDLK8fi97kmfeSqpnU2avN5mHq4kznc06Z/J6ZzcPMxZW98WyOI7Qz5hDbJ3vxbB5nD7rZFVLw1cP0sfx0TpeazsP503m8eZPp
+nN5AmC7xHukc+QymvvToNDE7VRcRaMVN/0qBFRJIpduGYA4Hb+637Rj/dnyZOW1CPydlJnz0app2VdIueZqJmc6WtMyFFb21osXZ
+cPaTAvI6N/R+/vY/O49VfQ==
+````
+
+### .build/quantization-research/final-quantization-ci-37408840648.json
+
+Bytes: 1576. SHA-256: `51a69780a5b81df087ed7fd7f4de325f7fad0a2898741f0e10e7e76ed8ffab40`.
+
+````zlib-base64
+eNrF1E1vnDAQBuB7f4XlMxv8tSxwatVTb1XTU6oe7MEstAYjf1SVovz3TtJdFVVJiKKueuEwvJp5GMC3FPwMLsfRz7SlMQPYGGlB
+O5200dF+6GgrD4rVtWKVqgs6WN1dDxrDjbGHXjVqz6XUTQWyZ8ANyA50xcCIBljFARh2++ZNpO2XW5w2Lc4m271L2EEwUe0427Hq
+M5Ot2LesvsH0C0icC9YIpeqDkgWd9WQx2nm4z8WkwxMTVKvEze9Iyij643ko2uUFSuwhn1GeLNc2kbwQfPD7Wp6MDajewskncHfF
+9ur4NupTnomGhHdjCYOF7z6ntz8OK6H4z0Lnprjrs3NX6WciYyTBHu1sg8aupA9+Immw5PSiz2j5LPo8+JVosY1exnlGXmembqVS
+l1RV2yoT9DiTI25uvav9lkpcVvXRx0S2v0POtpzVZZ3vTy3+/oP5q11fC5qDw9qQ0hLbsjyOacjmCiMl6OB8dH0uo/MppmD1VJ43
+FDJeVmdwiaRyfQA+9H70SPs3A+ndm1867+H9
+````

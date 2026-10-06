@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-06T03:19:39.537122+00:00
+updated: 2026-10-06T03:55:58.270468+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -69,7 +69,7 @@ A focused quality promotion gate reuses the fixed representative tasks and deter
 
 [[sources/runs/2026/10/2026-10-05-native-threebit-plain-planning]] freezes the counter-driven ordinary-decode follow-up, including its preserved pre-allocation input refusal and model-free refinement. [[sources/runs/2026/10/2026-10-05-native-threebit-plain-screen]] closes the single scored process with all physical/timing conditions passing and exact coding-answer IDs. Holding the prior 256-row prefill allowance gives 893 slots. Cache reuse returns and demanded reads fall, but rates are 9.83/9.37/8.75 tokens/s against original 9.34/10.16/9.04: only the short case improves. Context/coding regress, so this recipe misses the fixed all-workload useful-gain gate. Close the lead without a draft-depth grid, repeated confirmation or production integration. The original remains preferred.
 
-[[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] preserves both source-isolation compiler failures and the final repair. A pure typed recipe factory remains inside ModelConfig, retaining its private setters; the artifact-specific adapter delegates to it. The final full release build, all 104 native groups and all 965,028 isolated-policy assertions pass. Timing and quality evidence stays attached to its actual earlier frozen binary. Exact-source remote CI is tracked separately.
+[[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] preserves both source-isolation compiler failures and the final repair. A pure typed recipe factory remains inside ModelConfig, retaining its private setters; the artifact-specific adapter delegates to it. The final full release build, all 104 native groups and all 965,028 isolated-policy assertions pass. Timing and quality evidence stays attached to its actual earlier frozen binary. [[sources/runs/2026/10/2026-10-05-final-quantization-source-ci]] closes all final source workflows at `20cdda3`: engine static/runtime/catalogue/goldens, public-library, coverage, Mac scripted/snapshot/Xcode and context checks all pass. The completed experiment documentation at `9be7f49` also passes. This is software acceptance, not pack promotion or completion of the speed goal.
 
 #### Current feasibility and options
 

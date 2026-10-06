@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T03:17:29.527932Z
+updated: 2026-10-06T03:55:35.305317Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-final-quantization-source-ci]] — All final source CI workflows and the completed experiment documentation checks pass; performance target remains unmet
 - [[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] — Preserve both compiler failures and repair pure policy construction without widening private setters; final full build, 104 native groups and policy checks pass
 - [[sources/runs/2026/10/2026-10-05-native-threebit-plain-screen]] — Plain native-three-bit low-budget decoding restores cache reuse but fails the complete useful-gain gate; original retained
 - [[sources/runs/2026/10/2026-10-05-native-threebit-plain-planning]] — Freeze one cache-pressure-driven native-three-bit plain-decode trial; preserve plan-only refusal and allocation refinement
@@ -506,9 +507,8 @@ updated: 2026-10-06T03:17:29.527932Z
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-thermal-settling-preparation]] — Full vision mechanism successor preserves acceptance and adds bounded prelaunch thermal settling
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-buffer-cache-correction-build]] — Scope workspace frees disposable MLX buffers and restores caller cache policy; exact candidate build passes
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-thermal-stop]] — Amended maximum-image mechanism cohort stops at its unchanged thermal gate
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-capacity-failure]] — Complete scope serving cohort preserves exact outputs but fails the original physical cap
 
 ## More
 
-This folder has 865 files. The 500 most recent are listed above.
+This folder has 866 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
