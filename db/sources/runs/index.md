@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T05:12:23.143571Z
+updated: 2026-10-06T05:38:27.006728Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] — GSQ all-two-bit component fails, but original-down mixed scalar recipe earns a bounded quality lead without new kernels
 - [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] — Larger two-draft VQ cache restores hits but misses its useful speed gate at nearly the full ten-GB physical limit; reverted
 - [[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] — Current VQ3.2 two-draft coding screen completes cleanly but misses original throughput and request-latency gate
 - [[sources/runs/2026/10/2026-10-06-fixed-row-native-and-performance-screen]] — Fixed-row native correctness passes but clean complete-response pilot misses useful speed gate; recipe reverted
@@ -506,9 +507,8 @@ updated: 2026-10-06T05:12:23.143571Z
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-allocation-refusal-native-preparation]] — Scope allocation refusal native checks prepared; compilation and execution pending
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-headroom-resumption-preparation]] — Fresh full24-cell V413vision identity preserves both stopped cohorts;9model-free checks pass
 - [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-integration-pass-and-serving-freeze]] — V402 all1135ordinary/MTP/recovery assertions pass; corrected full32-cell scope cohort frozen
-- [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-native-family-pass]] — V402 all four scope cases pass2949assertions; ordinary integration passes286
 
 ## More
 
-This folder has 874 files. The 500 most recent are listed above.
+This folder has 875 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

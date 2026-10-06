@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T05:13:48.873168+00:00
+updated: 2026-10-06T05:40:03.257785+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,26 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Calibrated GSQ scalar compatibility and mixed component lead, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] preserves thirty raw metadata, protocol, code, refusal and numerical artifacts. Immutable GSQ model revision `ed59f92082b1e93c0e96d60a8b11aab089b52f09` declares Qwen Flash Next as its base. The actual bounded GGUF header has 144 routed projections, all Q2_0 with group size 64 and 18 bytes per block. Their source payload totals 33,973,862,400 bytes. The complete first shard is declared as 37,623,740,192 bytes with SHA-256 `69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720`; that whole-file digest has **not** been verified. Only immutable-revision HTTP ranges, extents and local range digests are checked. This is not installation authentication or proof of the exact original BF16 producer revision.
+
+Three declared layers (0, 23, 47), their first ten experts and all three projections supply 41,472,000 sample bytes. Independent scalar decoding and native FP16 affine reconstruction agree numerically for every sampled weight. The scalar grid is `(code - 1) * scale`; native repacking adds a bias equal to minus the scale. Two-bit weights with FP16 scales and BF16 inputs promote the native gathered operation to FP32, as confirmed by the returned dtype. Explicit FP16 execution avoids promotion, but its three-row combined gate/up/down cost is 1.2350/1.2093/1.1866 times original four-bit. One-row ratios are near one. It fails the frozen all-cell 1.05 cost ceiling. The process peaks at 802,440,272 bytes. Two early consecutive metadata-service CPU observations and one later isolated observation remain visible; none meets the frozen three-consecutive-sample exclusion. Thermal/power remain nominal, with no whole-host paging.
+
+The pre-allocation first invocation refuses stale helper hashes before output creation, MLX import or numerical execution. A separately frozen mechanical correction binds the already accepted current helpers, retaining identical samples, hypothesis and limits. The refusal is not a timing result or a scored retry.
+
+Existing minmax component data isolates the two-bit down projection as the three-row regression. A separately frozen follow-up therefore retains the original four-bit down matrix and uses calibrated GSQ two-bit gate/up with explicitly BF16-rounded scales and biases. No custom kernel is introduced. Five alternating rounds of forty iterations per cell give the following combined expert-operation costs; activations are deterministic synthetic probes, not a quality corpus.
+
+| Layer | One-row original / mixed, ms | Mixed/original | Three-row original / mixed, ms | Mixed/original |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 0.267236 / 0.260401 | 0.974422 | 0.379119 / 0.386411 | 1.019236 |
+| 23 | 0.262146 / 0.257251 | 0.981328 | 0.374168 / 0.382136 | 1.021297 |
+| 47 | 0.261270 / 0.260629 | 0.997548 | 0.371209 / 0.374944 | 1.010060 |
+
+Every mixed output is finite BF16. Maximum retained scale-rounding relative weight MSE is 0.00000294297024, below the frozen 0.00001 bound. About seven eighths of FP16 scales change under BF16 rounding, so this mixture is explicitly a new arithmetic/quantization recipe, not lossless FP16 scalar conversion. Its expert record is 1,945,600 bytes against original 2,764,800, a ratio of 0.703704. The run peaks at 801,637,336 physical bytes, with nominal thermal/power, no paging and no competing-CPU observations. All cells pass the frozen at-most-five-percent component-cost regression gate.
+
+This is a positive storage/kernel lead for one calibrated mixture only. It does not establish whole-model throughput, acceptable task quality or a lower-memory Mac recommendation. It cannot inherit the published full GSQ pack's quality: down matrices and non-expert components come from the original, while the retained GSQ scales are rounded. Source authentication/provenance and the existing bounded reference/task path are next. No weights are activated, no production code is changed, and the original remains preferred.
+
 ### Current two-draft VQ and larger-cache rejection, October 6
 
 [[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] preserves the current two-draft VQ3.2/original-dense cost screen. [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] preserves its prospectively frozen cache follow-up, complete source patch/build identity, catalogue, physical supervision and restoration. Both use the exact existing 125-token coding prompt, 81 output tokens, 32,768-token configured context, original draft head and ten-GB physical ceiling. Both accept 52 of 58 drafts and produce the same complete answer as the preserved original coding case. No new payload or format is created.
