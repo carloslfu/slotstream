@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T05:40:03.257785+00:00
+updated: 2026-10-06T07:22:29.526098+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,12 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### GSQ224 source admission and frozen quality follow-up, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-admission-preparation]] preserves the closed retirement scope, exact reconstruction sources, seven passing retirement checks, complete deletion receipt, failed first transfer, successful range connectivity recheck, repaired acquisition protocol, base-lineage recheck and unexecuted quality protocols. All forty-eight minmax223 files were authenticated before any deletion; 42,781,961,312 file bytes were retired with a 40,157,184-byte observed physical peak. Allocated staging immediately afterward was 366,837,399,552 bytes. The supported original model and the prior negative quality evidence remain unchanged.
+
+The first full-shard Hub attempt failed after a read timeout and DNS error, before authentication. It is an acquisition failure, not a GSQ numerical result. Bounded range acquisition is in progress at this checkpoint; no complete-source authentication or full-model quality is claimed. The next single screen uses the existing fixed contexts, control and proxy thresholds, with the same ten-GB physical cap and no exported weights or new raw logits. Base repository history still has one published non-README payload map, supporting a declared-lineage inference rather than an independently reproduced calibration/conversion. The active plan names the exact advance and stop conditions.
+
 ### Calibrated GSQ scalar compatibility and mixed component lead, October 6
 
 [[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] preserves thirty raw metadata, protocol, code, refusal and numerical artifacts. Immutable GSQ model revision `ed59f92082b1e93c0e96d60a8b11aab089b52f09` declares Qwen Flash Next as its base. The actual bounded GGUF header has 144 routed projections, all Q2_0 with group size 64 and 18 bytes per block. Their source payload totals 33,973,862,400 bytes. The complete first shard is declared as 37,623,740,192 bytes with SHA-256 `69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720`; that whole-file digest has **not** been verified. Only immutable-revision HTTP ranges, extents and local range digests are checked. This is not installation authentication or proof of the exact original BF16 producer revision.

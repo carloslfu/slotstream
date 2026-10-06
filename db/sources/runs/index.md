@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T05:38:27.006728Z
+updated: 2026-10-06T07:21:51.006802Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-gsq224-admission-preparation]] — Retired authenticated rejected affine223 payload, retained failed transfer, repaired source admission and froze GSQ224 proxy quality screen
 - [[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] — GSQ all-two-bit component fails, but original-down mixed scalar recipe earns a bounded quality lead without new kernels
 - [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] — Larger two-draft VQ cache restores hits but misses its useful speed gate at nearly the full ten-GB physical limit; reverted
 - [[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] — Current VQ3.2 two-draft coding screen completes cleanly but misses original throughput and request-latency gate
@@ -506,9 +507,8 @@ updated: 2026-10-06T05:38:27.006728Z
 - [[sources/runs/2026/09/2026-09-08-optimization-atomic-workspace-fallback-preparation]] — Atomic preferred-or-fallback workspace reservation implemented in an isolated draft; qualification pending
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-allocation-refusal-native-preparation]] — Scope allocation refusal native checks prepared; compilation and execution pending
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-headroom-resumption-preparation]] — Fresh full24-cell V413vision identity preserves both stopped cohorts;9model-free checks pass
-- [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-integration-pass-and-serving-freeze]] — V402 all1135ordinary/MTP/recovery assertions pass; corrected full32-cell scope cohort frozen
 
 ## More
 
-This folder has 875 files. The 500 most recent are listed above.
+This folder has 876 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

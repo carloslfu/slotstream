@@ -432,3 +432,6 @@ Capture current two-draft VQ3.2 cost and the distinct larger-cache experiment wi
 ## [2026-10-06 05:41] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Inspect pinned GSQ/RCO scalar headers and retain thirty exact raw artifacts. All-two-bit FP16 repacking preserves sampled scalar values but fails the three-row kernel cost gate. A distinct calibrated gate/up plus original four-bit down mixture passes every declared component cost and scale-rounding gate at about thirty percent fewer expert bytes, with clean operating observations. Advance only to full-file authentication/provenance and bounded quality, preserving all pending whole-model, product and twenty-token gates. No production source or active model changed. Brain validation has zero errors/warnings and all 349 claim checks pass.
 
+## [2026-10-06 07:22] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Retired authenticated rejected mixed223 research payload; recovered source transfer after a preserved timeout/DNS failure; froze single GSQ224 quality handoff without claiming source or quality completion
+
