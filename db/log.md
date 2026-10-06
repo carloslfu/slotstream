@@ -423,3 +423,6 @@ Preserve 95 raw artifacts for original low-budget/allocation, native-three-bit d
 ## [2026-10-06 03:56] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Capture and link all successful final source CI jobs for 20cdda3 and documentation CI for 9be7f49. Engine runtime/static/catalogue/goldens, coverage, external library, Mac scripted/snapshot/Xcode and context checks pass. Preserve original binary identities for all model evidence and keep the full performance target explicitly unmet. Full validation 0 errors/0 warnings, claims 349/0, projections and diff pass.
 
+## [2026-10-06 04:45] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Captured fused, rowwise and fixed-row screens; unchanged native equality rejects ordinary batching; fixed-row lifecycle passes but clean fourteen-GB complete-response pilot misses the gain gate. Experimental sources and executable reverted; original and full target retained.
+

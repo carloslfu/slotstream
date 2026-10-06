@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T03:55:58.290775+00:00
+updated: 2026-10-06T04:44:38.145842+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,54 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Fixed-row native complete-response screen, October 6
+
+[[sources/runs/2026/10/2026-10-06-fixed-row-native-and-performance-screen]] closes the component lead. All 104 catalogue groups and all 86 existing native Engine lifecycle assertions pass, including exact plain/speculative outputs, cancellation, memory/prefix recovery and bounded resizing. Nine added assertions check the fixed-row implementation's one-through-eight-row equality, padding cropping, wide-prefill fallback and disabled-mode fallback. The lifecycle process peaks at 7,971,526,944 bytes inside its ten-GB watchdog. The separately versioned recipe retains the old exact attention, plain matmul and draft fusion.
+
+The subsequent single fourteen-GB pilot passes every frozen physical/timing condition and completes all three unchanged workloads. It compares against the completed three-round original medians; no original run is repeated. The natural coding text is identical. This is a directional engineering screen with uncontrolled filesystem caching on the owned 48-GB M5 Pro, not a statistical comparison or another-Mac estimate.
+
+| Work | Original median tok/s | Fixed-row pilot tok/s | Pilot/original generation | Pilot/original request time |
+| --- | ---: | ---: | ---: | ---: |
+| Short | 12.752474 | 12.885401 | 1.010424 | 0.996379 |
+| Context | 15.375956 | 15.496890 | 1.007865 | 0.944842 |
+| Coding | 14.968441 | 14.562017 | 0.972848 | 1.047671 |
+
+The pilot misses both the all-workload five-percent advancement criterion and the twenty-token alternative. Its successful component arithmetic and correctness checks do not overcome this complete-response result. Reject the exact recipe, with no paired repetition, larger quality campaign, Auto admission or supported-default change. The source is reverted and the prior fully accepted binary/source identity is restored; the complete experimental patch and receipts remain reproducible. The original remains preferred, and the full low-budget speed goal stays unmet.
+
+### Native dispatch rejection and fixed-row follow-up, October 6
+
+[[sources/runs/2026/10/2026-10-06-native-batched-invariance-failure]] records the full release build and all 104 catalogue groups passing, followed by a real failure of the unchanged native plain/speculative target-ID assertion. The first mismatch is the eighth generated token. This session stops the process and preserves its incomplete later checks; physical peak is 7,942,314,296 bytes. No speed pilot follows, no tolerance changes, and ordinary batched arithmetic is reverted.
+
+[[sources/runs/2026/10/2026-10-06-fixed-row-projection-screen]] is an incomplete follow-up with two isolated competing-CPU observations and an omitted direct candidate self-invariance comparison. Its timing is excluded. The separately frozen single retry in [[sources/runs/2026/10/2026-10-06-fixed-row-projection-clean-screen]] retains the exact shapes, rounds and advancement criteria, adds the omitted observation and avoids concurrent database/output work. It passes every timing/physical condition with zero paging or competing CPU and nominal temperature. All six candidate three-row outputs exactly match concatenated separately padded single-row projections.
+
+| Shape | Fixed/rowwise cost at three rows | Fixed/rowwise cost for two singles plus one triple |
+| --- | ---: | ---: |
+| QKV | 0.771 | 0.922 |
+| Output projection | 0.790 | 0.937 |
+| Hyper-connection up | 0.911 | 0.983 |
+| Hyper-connection down | 0.877 | 1.020 |
+| Shared-expert gate | 0.989 | 1.011 |
+| Vocabulary head | 0.467 | 0.732 |
+
+The three primary shapes all pass the predeclared gain criteria; none of the six blend costs regresses more than ten percent. Physical peak is 1,905,526,800 bytes. The synchronous component timings include common host/gather/tanh overhead and a rotating weight bank. The projection blend is not a measured draft/target wall-time model. This is a lead for a narrow native implementation retaining exact attention, plain matmul and draft fusion, with fixed groups of three quantized projection rows and padding cropped before return. Native lifecycle, full-response speed and focused quality are still required; no product/default promotion follows.
+
+### Three-row resident projection screens, October 6 continuation
+
+[[sources/runs/2026/10/2026-10-05-fused-qmm-component-screen]] captures the pinned upstream fused four-bit QMM implementation at commit `187370a64fa11264880024b1dc227a7a767b5ba3` and its negative local screen. Six authenticated original dense shapes at one, three and four rows use rotating independent weight banks, five alternating rounds and forty dependent iterations per round. At the deployed three-row verification size, fused/ordinary cost ratios range from 0.9813 to 1.0247; none reaches the frozen ten-percent gain. All timing/physical gates pass. The process peaks at 1,938,769,936 bytes. No custom kernel is integrated.
+
+[[sources/runs/2026/10/2026-10-05-native-rowwise-projection-screen]] separately compares ordinary batched MLX with the actual reference-mode construction of three one-row MLX operations concatenated before evaluation. All six shapes improve in this component screen; the three predeclared large shapes exceed the ten-percent lead criterion. Five alternating rounds of forty dependent iterations use authenticated resident weights, rotating banks and equal host/gather/tanh work. All timing gates pass with zero paging/contention and nominal temperature; physical peak is 1,900,480,480 bytes.
+
+| Resident projection, three rows | Batched ms | Rowwise ms | Batched/rowwise cost |
+| --- | ---: | ---: | ---: |
+| Layer-zero QKV | 0.242285 | 0.321564 | 0.7535 |
+| Layer-zero output | 0.221211 | 0.275754 | 0.8022 |
+| Hyper-connection up | 0.186599 | 0.237910 | 0.7843 |
+| Hyper-connection down | 0.209330 | 0.238134 | 0.8790 |
+| Shared-expert gate | 0.174259 | 0.194274 | 0.8970 |
+| Vocabulary head | 1.481147 | 3.227148 | 0.4590 |
+
+These are synchronous dependent-chain component costs, including common non-QMM work, not isolated GPU timestamps or full-model throughput. Relative RMS output differences of about 0.0123–0.0227 make the proposed native recipe arithmetically distinct. The positive screen authorizes only the separately versioned native recipe's unchanged lifecycle/equality checks followed, if successful, by one full-response pilot. Reference arithmetic remains untouched. Neither source qualifies a pack or changes the supported original default.
+
 ### Actual Desktop ceiling, October 5
 
 [[sources/runs/2026/10/2026-10-05-practical-desktop-ceiling]] captures three complete paired rounds at the original Desktop's existing 33-decimal-GB automatic ceiling. Both packs receive the same full ceiling on the 48-GB M5 Pro with at least 36 GB actual reclaimable memory at admission. All six physical, natural-completion and frozen timing checks pass, and every whole-host swap-in/out delta is zero. Exact-source engine, Mac and context CI pass. Temporary host controls are restored.

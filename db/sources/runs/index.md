@@ -2,11 +2,17 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T03:55:35.305317Z
+updated: 2026-10-06T04:44:38.095308Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-fixed-row-native-and-performance-screen]] — Fixed-row native correctness passes but clean complete-response pilot misses useful speed gate; recipe reverted
+- [[sources/runs/2026/10/2026-10-06-fixed-row-projection-screen]] — Incomplete fixed-row projection screen with CPU-contaminated timing; one unchanged-criteria retry follows
+- [[sources/runs/2026/10/2026-10-06-fixed-row-projection-clean-screen]] — Clean fixed-row projection retry passes unchanged arithmetic and cost lead gates
+- [[sources/runs/2026/10/2026-10-06-native-batched-invariance-failure]] — Batched native recipe fails unchanged plain/speculative IDs; no performance pilot or promotion
+- [[sources/runs/2026/10/2026-10-05-native-rowwise-projection-screen]] — Original batched MLX projections beat the native candidates inherited reference-only row splitting in a bounded component screen; versioned native pilot remains unqualified
+- [[sources/runs/2026/10/2026-10-05-fused-qmm-component-screen]] — Pinned upstream fused four-bit kernel receives a bounded real-weight three-row component screen; no production adoption
 - [[sources/runs/2026/10/2026-10-05-final-quantization-source-ci]] — All final source CI workflows and the completed experiment documentation checks pass; performance target remains unmet
 - [[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] — Preserve both compiler failures and repair pure policy construction without widening private setters; final full build, 104 native groups and policy checks pass
 - [[sources/runs/2026/10/2026-10-05-native-threebit-plain-screen]] — Plain native-three-bit low-budget decoding restores cache reuse but fails the complete useful-gain gate; original retained
@@ -501,14 +507,8 @@ updated: 2026-10-06T03:55:35.305317Z
 - [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-native-family-pass]] — V402 all four scope cases pass2949assertions; ordinary integration passes286
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-settling-headroom-stop]] — V395 stops during prelaunch settling below original18GBadmission; no model or measured request
 - [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-allocation-build-and-pure-pass]] — V402 explicit scope allocation guard builds with exact restoration;22,363pure and116CLI assertions pass
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-cache-correctness-and-memory-status]] — V392 scope-family2051 and pure/CLI pass; remaining native admission refused; idle Colima stopped
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-cache-recovery-native-pass]] — Corrected workspace-cache candidate completes all original read-recovery assertions
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-cache-native-progress-and-policy-binding]] — Corrected candidate ordinary and MTP native checks pass; unrun scope guards corrected to original family
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-thermal-settling-preparation]] — Full vision mechanism successor preserves acceptance and adds bounded prelaunch thermal settling
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-buffer-cache-correction-build]] — Scope workspace frees disposable MLX buffers and restores caller cache policy; exact candidate build passes
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-thermal-stop]] — Amended maximum-image mechanism cohort stops at its unchanged thermal gate
 
 ## More
 
-This folder has 866 files. The 500 most recent are listed above.
+This folder has 872 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
