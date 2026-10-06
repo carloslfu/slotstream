@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T00:03:05.806844+00:00
+updated: 2026-10-06T00:29:02.314592+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,22 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Actual Desktop ceiling, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-desktop-ceiling]] captures three complete paired rounds at the original Desktop's existing 33-decimal-GB automatic ceiling. Both packs receive the same full ceiling on the 48-GB M5 Pro with at least 36 GB actual reclaimable memory at admission. All six physical, natural-completion and frozen timing checks pass, and every whole-host swap-in/out delta is zero. Exact-source engine, Mac and context CI pass. Temporary host controls are restored.
+
+| Work | Original tok/s | Three-bit attention tok/s | Paired ratio | Original request, s | Three-bit request, s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| short-256 | 20.91 | 19.95 | 0.956 | 14.102 | 14.553 |
+| context-256 | 23.69 | 21.11 | 0.889 | 17.705 | 17.123 |
+| coding-answer | 21.59 | 21.93 | 1.014 | 6.197 | 5.605 |
+
+The original's three workload medians and each of its individual repetitions exceed twenty committed tokens per second here. The candidate's short-workload median is 19.954682 and all three repetitions stay below twenty; do not round that into a passed target. Rates subtract the first output token from the numerator and use the complete decode timer. These controlled interactive bursts, uncontrolled filesystem cache and three-round pilot provide no conservative confidence bound, sustained-session guarantee or other-Mac result. The original remains the supported default.
+
+The candidate's first-text medians are 1.775, 5.043 and 1.961 seconds versus 1.906, 6.980 and 2.502 seconds for the original. It improves longer-prompt and coding latency, but loads in 10.854 versus 8.944 seconds. Every natural coding output has identical text and all 81 token IDs. Maximum supervised footprints are 28,943,666,616 bytes for the original and 26,128,172,288 for the candidate, both within the same 33-GB watchdog.
+
+The allocation plans expose a concrete tradeoff: the original reserves a 2,048-row prefill chunk and 7,509 expert slots; the candidate reserves 4,096 rows and 8,800 slots. Its larger prefill allowance costs 5,324,800,000 bytes, versus 2,662,400,000 for the original, although these prompts fit within 2,048 rows. A separate prospective check can use the existing explicit prefill allocation policy to trade workspace for cache, retaining the full process budget and acknowledging longer-prompt costs. This is a lead, not a measured improvement or permission to erase an allowance.
+
 ### Complete repeated attention comparison, October 5
 
 [[sources/runs/2026/10/2026-10-05-practical-attention-comparison]] preserves the complete twelve-process comparison, the separate stopped prefix and restored host controls. Three paired rounds at each real ceiling pass physical budgets, natural completion and every frozen timing rule. Two whole-host swap-in deltas are 262,144 and 524,288 bytes, with no swap-outs in any process. The original supported pack remains unchanged.

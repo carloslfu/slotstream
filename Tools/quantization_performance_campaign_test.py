@@ -228,6 +228,42 @@ class PerformanceCampaignChecks(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, 'outside the priced scope'):
                             m.validate(changed, root)
 
+    def test_explicit_prefill_allocation_is_priced_bounded_and_pilot_only(self):
+        for version, scope, artifact, maximum in [(1, 'pilot', 'affine3', None),
+                (2, 'held-out', 'affine3', None), (2, 'pilot', 'affine3', 512),
+                (2, 'pilot', 'affine3-native', 4096)]:
+            with self.subTest(version=version, scope=scope, artifact=artifact), tempfile.TemporaryDirectory() as directory:
+                root, protocol = self.fixture(directory, version=version, scope=scope,
+                    artifact=artifact, deployment='standalone', repetitions=8)
+                path = protocol['profiles'][0]['arms']['candidate']; frozen = m.read(root / path)
+                for chunk in [255, 256, 512, 2048, 4096, 4097, True, None, 2048.5]:
+                    native = {**frozen, 'prefill_chunk_override': chunk}
+                    m.write(root / path, native); changed = copy.deepcopy(protocol)
+                    changed['files'][path] = m.digest(root / path)
+                    if maximum is not None and type(chunk) is int and 256 <= chunk <= maximum:
+                        m.validate(changed, root)
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'prefill allocation'):
+                            m.validate(changed, root)
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2, deployment='standalone', artifact='affine3-native')
+            native = m.validate(protocol, root)['profile-0']['candidate']
+            native['prefill_chunk_override'] = 2048
+            receipt = self.receipt(native, '1' * 64, 'candidate')
+            receipt['prefill_chunk_override'] = 2048
+            receipt['plan']['prefill_chunk'] = 2048
+            for row in receipt['cases']:
+                row['plan_before']['prefill_chunk'] = 2048
+                row['plan_after']['prefill_chunk'] = 2048
+            m.validate_native(receipt, native, '1' * 64, 'candidate')
+            for where in ['plan', 'plan_before', 'plan_after', 'receipt']:
+                changed = copy.deepcopy(receipt)
+                if where == 'receipt': changed['prefill_chunk_override'] = 4096
+                elif where == 'plan': changed['plan']['prefill_chunk'] = 4096
+                else: changed['cases'][0][where]['prefill_chunk'] = 4096
+                with self.assertRaisesRegex(ValueError, 'prefill allocation'):
+                    m.validate_native(changed, native, '1' * 64, 'candidate')
+
     def test_v2_refuses_substituted_deployment_manifest_prefill_and_prior_pilot(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol = self.fixture(directory, version=2, deployment='standalone')

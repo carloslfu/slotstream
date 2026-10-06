@@ -40,6 +40,9 @@ private struct QuantizationPerformanceProtocol: Decodable {
     let standaloneManifestSha256: String?
     let shortPromptTokens: Int?
     let shortPromptChunk: Int?
+    /// Optional prospective pilot control, priced by the existing allocation
+    /// policy. Omitting it preserves every previously frozen protocol.
+    let prefillChunkOverride: Int?
 
     static func decode(_ data: Data) throws -> Self {
         var keys: Set<String> = ["schema", "kind", "scope", "artifact", "memory_bytes", "memory_mode",
@@ -53,12 +56,19 @@ private struct QuantizationPerformanceProtocol: Decodable {
         }
         let extended = object["kind"] as? String == "same-model-engine-performance-v2"
         if extended { keys.formUnion(["deployment", "standalone_manifest_sha256", "short_prompt_tokens", "short_prompt_chunk"]) }
+        if extended && object.keys.contains("prefill_chunk_override") { keys.insert("prefill_chunk_override") }
         guard Set(object.keys) == keys, let rows = object["cases"] as? [[String: Any]],
               rows.allSatisfy({ Set($0.keys) == caseKeys }) else {
             throw ModelError("performance protocol has unknown, missing or oversized input fields")
         }
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
+        if object.keys.contains("prefill_chunk_override") {
+            guard extended, value.scope == "pilot", let chunk = value.prefillChunkOverride,
+                  (256...value.resources.maximumPrefill).contains(chunk) else {
+                throw ModelError("explicit prefill allocation requires a bounded prospective pilot")
+            }
+        }
         // The practical Desktop pilot may measure its existing 33-GB default.
         // This is only a watchdog ceiling: real headroom, OS pressure and the
         // planner still gate every allocation. Retain historical study bounds.
@@ -224,6 +234,20 @@ extension Diagnostics {
         var native = standalone; native["artifact"] = "affine3-native"
         c.equal("native trial binds its own allocation and arithmetic contract",
             try parse(native).resources, .affine3Native)
+        var capped = native; capped["prefill_chunk_override"] = 2048
+        c.equal("pilot prefill override binds the existing allocation policy",
+            try parse(capped).prefillChunkOverride, 2048)
+        c.expect("omitted prefill override retains historical planning", try parse(native).prefillChunkOverride == nil)
+        for bad: Any in [255, 4097, true, NSNull(), 2048.5] {
+            var changed = capped; changed["prefill_chunk_override"] = bad
+            do { _ = try parse(changed); c.expect("invalid pilot prefill override is refused/\(bad)", false) }
+            catch { c.expect("invalid pilot prefill override is refused/\(bad)", true) }
+        }
+        for retained in [original, desktop.merging(["scope": "held-out"]) { _, new in new }, standalone] {
+            var changed = retained; changed["prefill_chunk_override"] = 2048
+            do { _ = try parse(changed); c.expect("override cannot widen a retained protocol or pack capacity", false) }
+            catch { c.expect("override cannot widen a retained protocol or pack capacity", true) }
+        }
         var attention = native; attention["lookahead"] = "attention"
         c.equal("plain attention is an explicit native standalone experiment",
             try parse(attention).resources, .affine3Native)
@@ -313,7 +337,8 @@ extension Diagnostics {
             memoryLimitGB: specification.memoryMode == "ceiling" ? memoryGB : nil,
             mtp: Planner.MTPMode(rawValue: specification.draftMode)!, mtpAvailable: specification.draftDepth > 0,
             vision: .off, maxContextTokens: specification.contextLimit, qualification: false,
-            runtimePolicy: RuntimeAllocationPolicy(prefixCacheEnabled: specification.prefixCache),
+            runtimePolicy: RuntimeAllocationPolicy(prefillChunkOverride: specification.prefillChunkOverride,
+                prefixCacheEnabled: specification.prefixCache),
             decodeLookahead: lookahead, mtpExperts: specification.placement)
         guard plan.expectedPeakGB <= memoryGB, (plan.targetGB ?? .infinity) <= memoryGB,
               plan.maxContextTokens == specification.contextLimit else { throw ModelError("performance plan exceeded its frozen ceiling") }
@@ -334,6 +359,7 @@ extension Diagnostics {
             record["numerical_manifest_sha256"] = artifact?.manifestSHA256 ?? ModelPackRegistry.baseline.manifestDigest
             record["short_prompt_tokens"] = specification.shortPromptTokens
             record["short_prompt_chunk"] = specification.shortPromptChunk
+            if let chunk = specification.prefillChunkOverride { record["prefill_chunk_override"] = chunk }
         }
         func json<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) }
         func save() throws -> Data {

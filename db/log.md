@@ -405,3 +405,6 @@ Preserve 45 files for the native attention mechanism probe, both plan-only propo
 ## [2026-10-06 00:03] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Preserve complete attention comparison and stopped prefix; record limited latency benefit, unchanged original support and separate actual Desktop-ceiling check.
 
+## [2026-10-06 00:29] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture complete actual Desktop-ceiling comparison, exact CI artifact and host restoration; retain original default and separate the prefill/cache tradeoff lead.
+

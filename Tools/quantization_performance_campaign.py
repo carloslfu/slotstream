@@ -183,6 +183,11 @@ def validate(protocol, root):
                     or native['request_seconds'] > native['maximum_seconds']
                     or native['context_limit'] not in (8192, 32768)):
                 raise ValueError('native performance configuration is outside the priced scope')
+            if 'prefill_chunk_override' in native:
+                maximum_prefill = 4096 if native['artifact'] in ('original', 'affine3-native') else 512
+                if (not extended or protocol['scope'] != 'pilot'
+                        or not integer(native['prefill_chunk_override'], 256, maximum_prefill)):
+                    raise ValueError('explicit prefill allocation requires a bounded prospective pilot')
             if extended:
                 expected_deployment = 'original' if arm == 'original' else protocol['candidate_deployment']
                 if (native.get('deployment') != expected_deployment
@@ -274,6 +279,9 @@ def validate_plan(plan, native, resource_identity):
             or native['memory_mode'] == 'ceiling' and plan.get('memory_limit_gb') != native['memory_bytes'] / 1e9
             or native['memory_mode'] == 'target' and plan['target_gb'] != native['memory_bytes'] / 1e9):
         raise ValueError('applied native plan differs from its complete user envelope')
+    if ('prefill_chunk_override' in native
+            and plan.get('prefill_chunk') != native['prefill_chunk_override']):
+        raise ValueError('applied prefill allocation differs from its frozen override')
     if (native['draft_mode'] in ('on', 'off') and plan.get('mtp') is not (native['draft_mode'] == 'on')
             or native['lookahead'] in ('off', 'uncorrected', 'attention') and plan.get('decode_lookahead') is not (native['lookahead'] != 'off')
             or plan.get('mtp') is True and native['draft_placement'] in ('streamed', 'resident')
@@ -306,6 +314,10 @@ def validate_native(receipt, native, protocol_sha, arm):
             or any(type(receipt.get(key)) is not int for key in ('short_prompt_tokens', 'short_prompt_chunk'))
             or receipt.get('numerical_manifest_sha256') != MANIFESTS[arm]):
         raise ValueError('native V2 deployment, numerical identity or prefill policy differs from the protocol')
+    if ('prefill_chunk_override' in native
+            and (type(receipt.get('prefill_chunk_override')) is not int
+                 or receipt['prefill_chunk_override'] != native['prefill_chunk_override'])):
+        raise ValueError('native receipt changed its explicit prefill allocation')
     validate_plan(receipt['plan'], native, resource)
     rows = receipt['cases']
     if type(rows) is not list or [row['id'] for row in rows] != [row['id'] for row in native['cases']]:
