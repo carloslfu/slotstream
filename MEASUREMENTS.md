@@ -6921,6 +6921,10 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### Corrected-prefetch continuation remains unmeasured, October 6
+
+[[sources/runs/2026/10/2026-10-06-focused-continuation-host-refusal]] preserves the single bounded host admission wait. Neither arm launched because real reclaimable memory stayed below the prospective requirement. No timing result, candidate rejection or qualification follows. The earlier exact-output and physical-bound functional pass in [[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] remains valid. A quiet, safely admitted pair is still needed to answer the speed question.
+
 ### Matched runtime control, October 6
 
 [[sources/runs/2026/10/2026-10-06-matched-runtime-control-preparation]] freezes the diagnostic; [[sources/runs/2026/10/2026-10-06-matched-runtime-control-results]] preserves the completed clean pass and earlier preflight-refused attempt. One pass on the owned 48 GB Mac at a 14 GB ceiling gives:

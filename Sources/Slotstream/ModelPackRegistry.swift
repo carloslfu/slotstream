@@ -78,7 +78,9 @@ public enum ModelPackRegistry {
         conversionRevision: PinnedModel.revision, deployment: .original, memoryProfile: .original, startupDefaults: .original,
         directoryName: PinnedModel.dirName, layout: "affine-4-group64-ple-group32",
         compatibility: "slotstream-affine-v1",
-        supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md"],
+        supportEvidence: ["db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md",
+            "db/sources/runs/2026/10/2026-10-05-practical-attention-comparison.md",
+            "db/sources/runs/2026/10/2026-10-05-practical-desktop-ceiling.md"],
         qualifiedAutomaticProfiles: [], decodeForecastFiles: TapCorrectionSidecar.files)
 
     /// Research VQ exports intentionally do not appear here. A smaller bit
@@ -166,12 +168,16 @@ public enum ModelPackRegistry {
                 supported.first { $0.id == context.incumbentPackID &&
                     context.acceptedInstalledManifests[$0.id] == $0.manifestDigest }
             }
-            return ModelPackDecision(pack: retained ?? baseline,
-                reason: selectionContext == nil
-                    ? "Uses the original pack while alternative quantizations are being qualified."
-                    : retained == nil
-                        ? "Uses the supported original pack; no qualified installed profile matches this configuration."
-                        : "Keeps your installed pack; no qualified profile matches this configuration.",
+            let chosen = retained ?? baseline
+            // The practical comparisons support keeping the original, but
+            // their descriptive medians are not a decode lower bound for an
+            // exact loaded profile. Preserve unknown evidence and no target
+            // claim. Do not manufacture configuration or hardware identities
+            // that the historical receipts did not record.
+            return ModelPackDecision(pack: chosen,
+                reason: chosen.id == baseline.id
+                    ? "Recommends Original 4-bit: tested alternatives have not improved both speed and quality. Speed is not verified for your current configuration."
+                    : "Keeps your installed pack; no qualified profile matches this configuration.",
                 automatic: true)
         case .pack(let id):
             guard let pack = supported.first(where: { $0.id == id }) else {

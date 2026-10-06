@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T14:54:20.299583+00:00
+updated: 2026-10-06T21:53:11.076097+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,10 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Corrected-prefetch continuation remains unmeasured, October 6
+
+[[sources/runs/2026/10/2026-10-06-focused-continuation-host-refusal]] preserves the single bounded host admission wait. Neither arm launched because real reclaimable memory stayed below the prospective requirement. No timing result, candidate rejection or qualification follows. The earlier exact-output and physical-bound functional pass in [[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] remains valid. A quiet, safely admitted pair is still needed to answer the speed question.
+
 ### Matched runtime control, October 6
 
 [[sources/runs/2026/10/2026-10-06-matched-runtime-control-preparation]] freezes the diagnostic; [[sources/runs/2026/10/2026-10-06-matched-runtime-control-results]] preserves the completed clean pass and earlier preflight-refused attempt. One pass on the owned 48 GB Mac at a 14 GB ceiling gives:

@@ -465,3 +465,6 @@ Complete clean matched-runtime screen; preserve refused comparison and discarded
 ## [2026-10-06 21:36] update | records/claims/development-original-33gb-workload-range.md
 Publish the existing October 5 original-four-bit 33 GB workload medians in README, hardware guide and llms summary. Preserve historical release benchmarks, distinguish Desktop and CLI policies, retain measurement limits and unchanged hardware estimates. Documentation gates pass with zero brain errors/warnings and 358 claim checks.
 
+## [2026-10-06 21:53] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Freeze and attempt one bounded corrected-prefetch continuation; preserve no-launch headroom refusal. Explain the original-pack Auto fallback and expose existing performance evidence without inventing qualified profiles. Brain and claim gates pass; final source CI pending.
+

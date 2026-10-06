@@ -437,7 +437,8 @@ public final class PerformanceTelemetry: @unchecked Sendable {
         if proposed?.automaticProfileID != nil {
             return "An automatic configuration is selected. Its files and actual settings will be checked when the model loads."
         }
-        return "Automatic selection will check the supported configurations when the model loads."
+        let reason = proposed?.reason ?? (try? ModelPackRegistry.resolve(.automatic))?.reason
+        return reason.map { $0 + " Files and settings are checked when the model loads." }
     }
 }
 

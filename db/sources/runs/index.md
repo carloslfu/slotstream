@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T15:08:09.963615Z
+updated: 2026-10-06T21:53:10.978025Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-focused-continuation-host-refusal]] — Corrected-prefetch pair remains unmeasured after bounded real-memory admission refusal; original recommendation remains honest
+- [[sources/runs/2026/10/2026-10-06-candidate-correction-quiet-continuation]] — One bounded corrected-prefetch pair, preserving functional evidence and unchanged performance gates
 - [[sources/runs/2026/10/2026-10-06-matched-runtime-final-acceptance]] — Final matched-runtime source passes complete static gates, 104 native groups and 36 focused Python tests; no candidate speed promotion
 - [[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] — Corrected-prefetch transfer preserves exact output and bounded memory after reserve repair; all timings discarded and original default retained
 - [[sources/runs/2026/10/2026-10-06-matched-runtime-control-results]] — Clean three-arm screen finds candidate runtime overhead and a 6–17 percent matched quantization/deployment benefit; full speed target still unmet
@@ -505,10 +507,8 @@ updated: 2026-10-06T15:08:09.963615Z
 - [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]] — Hermes local endpoint proxy exclusions
 - [[sources/runs/2026/09/2026-09-08-hermes-final-config-regression]] — Final Hermes configuration regression and cleanup verification
 - [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]] — OpenAI tool protocol regression for the Hermes configuration correction
-- [[sources/runs/2026/09/2026-09-08-hermes-cli-hardening]] — Hermes reported and latest CLI acceptance
-- [[sources/runs/2026/09/2026-09-08-hermes-live-hardening]] — Hermes real-model output budget, tools and compression acceptance
 
 ## More
 
-This folder has 893 files. The 500 most recent are listed above.
+This folder has 895 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

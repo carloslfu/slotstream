@@ -887,6 +887,9 @@ struct PerformanceSettings: View {
             if let reason = status?.selectionReason {
                 Text(reason).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            Link("Performance measurements and hardware estimates",
+                 destination: URL(string: "https://github.com/carloslfu/slotstream/blob/main/docs/HARDWARE.md")!)
+                .font(.callout)
             Picker("Memory budget", selection: Binding(get: { model.performancePreferences.budget }, set: { choice in
                 let next = model.performancePreferences.selectingBudget(choice,
                     currentGB: status?.budgetGB ?? status?.recommendationGB, minimumGB: minimum, maximumGB: maximum)
