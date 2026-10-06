@@ -2,11 +2,16 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T02:35:31.551580Z
+updated: 2026-10-06T03:17:29.527932Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] — Preserve both compiler failures and repair pure policy construction without widening private setters; final full build, 104 native groups and policy checks pass
+- [[sources/runs/2026/10/2026-10-05-native-threebit-plain-screen]] — Plain native-three-bit low-budget decoding restores cache reuse but fails the complete useful-gain gate; original retained
+- [[sources/runs/2026/10/2026-10-05-native-threebit-plain-planning]] — Freeze one cache-pressure-driven native-three-bit plain-decode trial; preserve plan-only refusal and allocation refinement
+- [[sources/runs/2026/10/2026-10-05-native-threebit-lowbudget-screen]] — Clean native-three-bit ten-GB draft recipe loses its gain criterion; counters motivate one plain-decode screen; isolated policy compilation repaired
+- [[sources/runs/2026/10/2026-10-05-original-lowbudget-allocation-screen]] — Clean original ten-GB baseline and fourteen-GB prefill/cache comparison complete; cap loses its practical advancement gate
 - [[sources/runs/2026/10/2026-10-05-affine223-acceptance-and-lowbudget-preflight]] — All existing static and 104 native groups pass; low-budget speed attempt launches no model; bounded follow-up protocols retained
 - [[sources/runs/2026/10/2026-10-05-affine223-completed-screen]] — Pinned mixed two/three-bit affine export passes numerical parity but loses three previously passing tasks and is held
 - [[sources/runs/2026/10/2026-10-05-vq21-mixed-completed-tasks]] — Lower-bit VQ dense mixture misses the frozen completed-task gate; numerical repair and acceptance retained
@@ -502,13 +507,8 @@ updated: 2026-10-06T02:35:31.551580Z
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-buffer-cache-correction-build]] — Scope workspace frees disposable MLX buffers and restores caller cache policy; exact candidate build passes
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-thermal-stop]] — Amended maximum-image mechanism cohort stops at its unchanged thermal gate
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-capacity-failure]] — Complete scope serving cohort preserves exact outputs but fails the original physical cap
-- [[sources/runs/2026/09/2026-09-08-optimization-thermally-settled-scope-executor-preparation]] — Full fixed scope successor executor preserves acceptance and prices thermal waits
-- [[sources/runs/2026/09/2026-09-08-optimization-prelaunch-thermal-settling-preparation]] — Bounded nominal-condition settling prepared for future benchmark cohorts
-- [[sources/runs/2026/09/2026-09-08-optimization-final-resource-client-binding-preparation]] — Model-free final candidate binding for original resource and real-client gates
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-driver-delivery-correction]] — Preserved pre-model driver failure and qualified fixed-cohort delivery correction
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-query-capacity-pass]] — Original seven-cell vision-query capacity study qualifies the10GB target
 
 ## More
 
-This folder has 860 files. The 500 most recent are listed above.
+This folder has 865 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T02:19:27.370855+00:00
+updated: 2026-10-06T03:19:39.558950+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -939,3 +939,38 @@ The mixture misses the prospectively fixed fifteen-pass minimum. Reject advancem
 All seven sequential reference/native operations complete within the frozen bounds. Traversal order is exact for four layers and 513 tokens. All forty-nine native prefill points have zero relative error through cold, reuse, grow and shrink cache histories. Sixteen self-fed greedy steps match across four cache histories; speculative target/state/recovery checks pass with seventy-six accepted drafts. The bounded numerical-reference addition is 28,682,240 bytes, with a prospectively declared 2.1-GB total raw-reference ceiling. Task process peak is 8,897,173,288 physical bytes within ten GB. These are functional checks, not eligible throughput measurements.
 
 Original scores fifteen of sixteen tasks; mixed affine223 scores twelve. Both fail sort-records. Only the mixture fails contradictory-source and spanish-structured by fencing JSON despite bare-JSON instructions, and hindi-structured by returning total sixteen instead of seventeen. Tested coding and tool cases still pass. The mixture misses the fixed fifteen-pass minimum; hold it without a speed pilot or product promotion. The earlier proxy screen is not a substitute for completed-task quality. Preserve the original and continue the separately frozen low-budget allocation probe. The exact mixed identity remains available only to the bounded research adapter, outside Engine memory recipes and Auto.
+
+
+### Original ten-GB baseline and fourteen-GB allocation screen, October 5
+
+[[sources/runs/2026/10/2026-10-05-original-lowbudget-allocation-screen]] captures the complete single retry following the preserved no-model admission failure. All three native processes pass their physical ceilings, natural completion and frozen timing eligibility; no failed sample is replaced or incorporated. These are single-process directional observations on the 48-GB M5 Pro, with uncontrolled OS file cache. The smaller process ceiling does not simulate another Mac's total RAM, SSD, chip or thermal design.
+
+| Actual recipe | Short / context / coding generation tokens/s | Short / context / coding request seconds | Long request seconds | Lifetime physical peak bytes |
+| --- | --- | --- | ---: | ---: |
+| Original, ten-GB ceiling, Auto ordinary decode | 9.343 / 10.156 / 9.035 | 28.994 / 39.011 / 11.361 | Not included | 7,750,505,344 |
+| Original, fourteen-GB ceiling, automatic 1,024-row prefill | 12.656 / 15.043 / 14.573 | 21.778 / 26.901 / 7.883 | 45.692 | 11,558,608,000 |
+| Same fourteen-GB ceiling, 512-row prefill cap | 13.022 / 14.747 / 15.037 | 21.266 / 31.463 / 7.770 | 55.007 | 12,283,747,840 |
+
+The fourteen-GB pool increases from 1,635 to 1,875 slots. Short/coding generation gains roughly three percent; context generation declines about two percent. Context and long-request wall time increase about seventeen and twenty percent. Both 8,356-token long lookups answer exactly `code-0853`, and short/coding IDs match the earlier original result and each other. The long answer has too few generated tokens to stand in for full-request utility. This fails the prospectively requested roughly five-percent generation gain across standard workloads without material request regression. Retain existing allocation, with no paired confirmation or new adaptive controller justified by this result. The full low-budget target remains unmet.
+
+
+### Native-three-bit ten-GB draft recipe misses its gain gate, October 5
+
+[[sources/runs/2026/10/2026-10-05-native-threebit-lowbudget-screen]] records one complete timing-eligible candidate process, compared with the separately frozen original ten-GB baseline. Candidate short/context/coding generation is 8.199/9.760/9.235 tokens/s against original 9.343/10.156/9.035. Candidate request wall time is 32.815/38.798/11.311 seconds against 28.994/39.011/11.361. Its coding answer's committed IDs match exactly. Candidate lifetime physical peak is 7,188,959,960 bytes and observed loading is 11.168 seconds; these are process observations with uncontrolled filesystem cache, not cold-SSD or other-Mac qualification. The candidate misses its declared useful-gain gate, so its unchanged draft-enabled recipe receives no repeated comparison or product promotion.
+
+In the short case, the 731-slot candidate has zero pool hit rate while original's 821 slots retain a 0.39098039215686275 hit rate. Candidate accepts 140 of 230 drafts and reduces target forwards from 255 to 115, but demanded expert reads rise from 69,310,771,200 to 77,947,699,200 bytes. Issued forecast bytes rise from 154,707,148,800 to 207,782,400,000. Decode read timers are 9.065 and 14.304 seconds. These overlapping counters are not additive causal wall time or physical SSD traffic. They motivate one different low-budget plain-decode/caching experiment, not a blind draft-depth grid or a claim that every three-bit recipe loses.
+
+The same source also preserves the isolated-policy CI compiler failure and its exact helper-relocation fix. The existing local model-free proxy passes all 965,028 assertions. Model arithmetic is unchanged; full earlier static/native results remain scoped to their original frozen build, and new-head CI is tracked separately.
+
+
+### Native-three-bit ten-GB plain-decode follow-up also misses, October 5
+
+[[sources/runs/2026/10/2026-10-05-native-threebit-plain-planning]] preserves the prospectively frozen input sequence: an off/depth-two inconsistency is refused before allocation, the corrected model-free Auto plan increases prefill, and the scored input retains the previous ten-GB arms' 256-row maximum so freed draft memory reaches the cache. No scored output informs these setup refinements.
+
+[[sources/runs/2026/10/2026-10-05-native-threebit-plain-screen]] captures the single complete run, with all physical and timing conditions passing and the original coding-answer IDs preserved. The 893-slot plain recipe reaches 9.826/9.371/8.750 tokens/s in short/context/coding order. Ratios against original are 1.0516046/0.9226965/0.9684619, and request-wall ratios are 0.9575561/1.0160672/1.0375347. Short-case cache hit rate rises from the draft recipe's zero to 0.4081209150326797 and demanded bytes fall to 57,275,904,000. Lifetime physical peak is 7,341,396,816 bytes. These are one-pilot process observations, with overlapping read counters and uncontrolled OS file cache.
+
+The mechanism restores cache reuse, but the complete recipe loses the fixed useful-gain gate because context and coding generation slow. Do not repeat or promote it. Combined with the separately captured allocation and lower-bit quality failures, the current evidence does not support the full low-memory twenty-token target. [[records/decisions/same-model-lowbudget-target-remains-unmet]] records the scope, stopping decision and explicit options without asserting universal impossibility or completion.
+
+### Final pure-policy factory acceptance, October 5
+
+[[sources/runs/2026/10/2026-10-05-affine-research-policy-factory-repair]] preserves the isolated-source compiler failure, the subsequent private-setter failure in full-module CI, and the final typed pure-factory repair. Private setters remain private; only artifact-independent descriptors cross into ModelConfig construction. The full release build, all 104 native catalogue groups and all 965,028 isolated-policy assertions pass on the corrected source. Earlier full static acceptance is reused in its unchanged scope. New-head CI is tracked separately, and the helper separation is not reported as a new model-performance measurement.

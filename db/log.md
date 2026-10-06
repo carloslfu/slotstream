@@ -417,3 +417,6 @@ Capture both mixed low-bit proxy screens, native VQ2.1/dense4 parity, failed and
 ## [2026-10-06 02:36] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Complete the frozen mixed-affine export and native checks; hold its 12/16 task outcome against original 15/16. Preserve source, coalescing failure and 104-group/static acceptance. Keep full target open with bounded original allocation and native-three-bit low-budget hypotheses.
 
+## [2026-10-06 03:24] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserve 95 raw artifacts for original low-budget/allocation, native-three-bit draft/plain and final source-factory acceptance. All completed pilots satisfy physical and timing conditions, but no recipe earns promotion: the original remains preferred and the full low-budget twenty-token target is unmet. Close losing recipes without relaxing quality, repeat campaigns or changing the checkpoint constraint. Retain both automatic controls and all override/transaction contracts; alternative recommendation and winner-release work stay incomplete. Declare the historical experiment log kind without rewriting its bytes. Full validation is 0 errors/0 warnings, claims 349/0, projections and diff pass. Source CI for 20cdda3 is still running separately.
+

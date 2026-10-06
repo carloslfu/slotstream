@@ -1,6 +1,6 @@
 ---
 type: db-md
-updated: 2026-09-11T17:03:43.067101+00:00
+updated: 2026-10-06T03:23:33.371285+00:00
 owner: Carlos Galarza
 scope: engineering
 ---
@@ -103,9 +103,10 @@ moment they finish.
 
 ### Validation log kinds
 
-One entry, from September 5, 2026, uses `change` where the standard kind is `update`.
+Preserve historical log bytes. One September 5, 2026 entry uses `change` for an update, and one October 6, 2026 entry uses `experiment` for a completed research update. New entries use standard kinds.
 
 - change
+- experiment
 
 ## Folders
 
