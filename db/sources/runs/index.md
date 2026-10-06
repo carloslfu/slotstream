@@ -2,11 +2,16 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T07:21:51.006802Z
+updated: 2026-10-06T09:07:36.105504Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot]] — GSQ224 grouped Engine passes component and speculative checks, then improves the same correct coding response at ten GB while still missing twenty tokens per second
+- [[sources/runs/2026/10/2026-10-06-original-streamed-draft-control]] — Original two-draft ten-GB control passes but retains lower coding throughput than the GSQ224 configuration; lookahead difference remains explicit
+- [[sources/runs/2026/10/2026-10-06-gsq224-native-quality]] — Exact GSQ224 overlay passes native parity and the same fifteen of sixteen completed tasks as original
+- [[sources/runs/2026/10/2026-10-06-gsq224-changed-projection-export]] — Authenticated bounded export of only GSQ224 gate/up projections, retaining original down and nonexpert weights
+- [[sources/runs/2026/10/2026-10-06-gsq224-source-and-quality]] — Authenticated GSQ source admission and bounded mixed224 quality screen, with preserved failed acquisition and safe losing-payload retirement
 - [[sources/runs/2026/10/2026-10-06-gsq224-admission-preparation]] — Retired authenticated rejected affine223 payload, retained failed transfer, repaired source admission and froze GSQ224 proxy quality screen
 - [[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] — GSQ all-two-bit component fails, but original-down mixed scalar recipe earns a bounded quality lead without new kernels
 - [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] — Larger two-draft VQ cache restores hits but misses its useful speed gate at nearly the full ten-GB physical limit; reverted
@@ -502,13 +507,8 @@ updated: 2026-10-06T07:21:51.006802Z
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-build-pure-and-native-preparation]] — Automatic scheduler V436 compiles and passes 22840 pure assertions plus116 CLI checks; expanded native gates frozen
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-native-footprint-build-preparation]] — Corrected automatic scope source and exact guarded build preparation; unsigned Mach footprint fails closed on overflow
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-pressure-stop]] — Full vision mechanism V413 stopped at macOS pressure warning; all seven completed responses preserved, no qualification
-- [[sources/runs/2026/09/2026-09-08-optimization-corrected-scope-serving-headroom-stop]] — Corrected scope study stops before round11 scope launch; 42 completed responses preserved, cohort incomplete
-- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-integration-preparation]] — Automatic scope scheduling, local execution controls and atomic memory fallback joined in an isolated draft
-- [[sources/runs/2026/09/2026-09-08-optimization-atomic-workspace-fallback-preparation]] — Atomic preferred-or-fallback workspace reservation implemented in an isolated draft; qualification pending
-- [[sources/runs/2026/09/2026-09-08-optimization-scope-allocation-refusal-native-preparation]] — Scope allocation refusal native checks prepared; compilation and execution pending
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-headroom-resumption-preparation]] — Fresh full24-cell V413vision identity preserves both stopped cohorts;9model-free checks pass
 
 ## More
 
-This folder has 876 files. The 500 most recent are listed above.
+This folder has 881 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T05:40:03.278611+00:00
+updated: 2026-10-06T08:56:35.658131+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -33,3 +33,12 @@ The implementation and feasibility gap remains explicit: original-pack automatic
 The subsequent current VQ3.2 two-draft cost screen in [[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] and its distinct larger-cache follow-up in [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] also fail their frozen useful-gain gates. Restoring substantial cache reuse gives only a small generation change while consuming almost the entire ten-GB physical allowance. Both preserve the exact coding answer and pass their timing/physical observations. The expanded-cache patch is reverted. Different original/VQ process histories limit request-latency comparisons; these results reject the tested recipes without proving universal infeasibility. No currently measured winner justifies alternative production admission. Keep the same-checkpoint target, the independent automatic systems and the explicit options above.
 
 [[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] changes the next research action without reversing the original-default decision. Straight GSQ two-bit native execution fails its three-row component gate, but the separately frozen calibrated gate/up plus original four-bit down mixture passes its storage/kernel screen. It earns bounded full-file authentication and quality evaluation, not production admission or a speed claim. Preserve its FP16-to-BF16 rounding and upstream provenance limits explicitly. Do not say that all current leads are exhausted while this concrete qualification step remains available.
+
+
+The follow-up in [[sources/runs/2026/10/2026-10-06-gsq224-source-and-quality]] authenticates the complete source and passes the unchanged bounded distribution screen, including exact reproduction of the prior control. [[sources/runs/2026/10/2026-10-06-gsq224-changed-projection-export]] prepares only the changed gate/up tensors and preserves original down/nonexpert values. This is a concrete route to the existing native correctness and completed-task gates, followed conditionally by useful performance. It remains outside production Auto; a positive proxy or smaller export does not close the full target.
+
+
+[[sources/runs/2026/10/2026-10-06-gsq224-native-quality]] passes native numerical and speculative-state checks and matches the original fifteen of sixteen completed tasks without new failures. This earns one correctly priced full Engine cost pilot at the unmet ten-GB budget. The reference probe is not deployed performance; no automatic selection or twenty-token claim follows.
+
+
+[[sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot]] provides the first useful GSQ224 complete Engine coding gain at ten GB: 14.237665 committed tokens/s versus original Auto 9.035368, with the identical correct answer. [[sources/runs/2026/10/2026-10-06-original-streamed-draft-control]] tests the draft-mode confound: original with streamed drafting reaches 9.519358, with automatic lookahead disabled. The mixed configuration still leads, but explicit lookahead is a remaining difference and both miss twenty. Continue narrow configuration controls and evidence-backed optimization, then representative confirmation and winner-specific product work. Keep the original default, independent overrides and full sixteen-to-sixty-four-GB goal.

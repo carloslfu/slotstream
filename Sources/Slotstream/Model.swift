@@ -38,7 +38,8 @@ public final class Qwen4ExpModel {
         guard affineControlReferenceArithmetic, tokens > 0,
               ContextBytes.product(tokens, cfg.topK) >= 64 else { return 0 }
         if affineGroupedExperts {
-            return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: tokens, slots: pool.slots, admits: admits)
+            return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: tokens, slots: pool.slots, admits: admits,
+                recordBytes: pool.recordBytes, largestPieceBytes: pool.largestPoolPieceBytes / pool.slots)
         }
         return ContextWorkspace.expertWorkspaceBytes(tokens: tokens, tile: 512,
             experts: cfg.numExperts, topK: cfg.topK, hidden: cfg.hiddenSize,
@@ -270,7 +271,8 @@ public final class Qwen4ExpModel {
         guard !affineGroupedExperts || affinePiecewiseAllocation else {
             throw ModelError("grouped affine experts require the explicit sequential allocation contract")
         }
-        guard !affinePiecewiseAllocation || (affineControlReferenceArithmetic && index.affineExpertArtifact == .minmax) else {
+        guard !affinePiecewiseAllocation || (affineControlReferenceArithmetic
+            && (index.affineExpertArtifact == .minmax || (index.affineExpertArtifact == .gsq224 && affineGroupedExperts))) else {
             throw ModelError("piecewise affine allocation requires the authenticated reference profile")
         }
         guard !affineControlReferenceArithmetic || (index.hasAuthenticatedFiles

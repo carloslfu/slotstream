@@ -435,3 +435,9 @@ Inspect pinned GSQ/RCO scalar headers and retain thirty exact raw artifacts. All
 ## [2026-10-06 07:22] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Retired authenticated rejected mixed223 research payload; recovered source transfer after a preserved timeout/DNS failure; froze single GSQ224 quality handoff without claiming source or quality completion
 
+## [2026-10-06 08:56] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Authenticate and screen GSQ224; integrate exact research memory/grouped execution; preserve failures; record useful ten-GB cost pilot and original drafting control; retain unmet target and focused next controls.
+
+## [2026-10-06 09:07] update | sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot.md
+Capture final static, memory-override and installer acceptance; reauthenticate the final frozen source and executable.
+

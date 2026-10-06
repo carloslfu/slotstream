@@ -34,6 +34,15 @@ from vq_ple_stream import stamp
 
 MIXED_POLICY = 'pinned-affine4-to-affine223-group64-experts-only-v1'
 MIXED_BITS = {'gate_proj': 2, 'up_proj': 2, 'down_proj': 3}
+GSQ_POLICY = 'gsq-q2-gateup-bf16-original-down4-v1'
+GSQ_BITS = {'gate_proj': 2, 'up_proj': 2, 'down_proj': 4}
+GSQ_SOURCE_SHA256 = '69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720'
+
+
+def control_bits(manifest, family):
+    if manifest['policy'] == GSQ_POLICY:
+        return GSQ_BITS[family]
+    return MIXED_BITS[family] if manifest['policy'] == MIXED_POLICY else 3
 
 NORMALIZATION = 'original-already-folded-bf16-unchanged-v1'
 PROCESS_LIMIT = 10_000_000_000
@@ -59,7 +68,7 @@ def architecture(path):
 
 
 def validate_control_manifest(manifest):
-    """Only the two explicit same-parent affine research recipes are admitted.
+    """Only the explicit original-parent research recipes are admitted.
 
     The caller separately pins the complete manifest digest, authenticates
     every payload and verifies all tensor geometry. Admitting a recipe here
@@ -68,17 +77,26 @@ def validate_control_manifest(manifest):
     if (not isinstance(manifest, dict) or type(manifest.get('schema')) is not int
             or manifest['schema'] != 1 or manifest.get('complete') is not True
             or manifest.get('qualification') is not False
-            or manifest.get('policy') not in (POLICY, REFIT_POLICY, MIXED_POLICY)
+            or manifest.get('policy') not in (POLICY, REFIT_POLICY, MIXED_POLICY, GSQ_POLICY)
             or manifest.get('parent_revision') != BASE_REVISION
             or manifest.get('baseline_config_sha256') != BASE_CONFIG
             or manifest.get('baseline_index_sha256') != BASE_INDEX
             or manifest.get('layers') != list(range(48))
             or type(manifest.get('expected_output_bytes')) is not int
-            or manifest['expected_output_bytes'] != (42_781_961_312 if manifest.get('policy') == MIXED_POLICY else 52_848_290_992)
+            or manifest['expected_output_bytes'] != (25_165_864_240 if manifest.get('policy') == GSQ_POLICY
+                else 42_781_961_312 if manifest.get('policy') == MIXED_POLICY else 52_848_290_992)
             or not isinstance(manifest.get('files'), list) or len(manifest['files']) != 48):
         raise ValueError('requires a complete explicit same-parent expert control')
     if manifest['policy'] == MIXED_POLICY and manifest.get('expert_projection_bits') != MIXED_BITS:
         raise ValueError('mixed control projection recipe changed')
+    if manifest['policy'] == GSQ_POLICY:
+        source = manifest.get('gsq_source', {})
+        if (not isinstance(source, dict) or manifest.get('expert_projection_bits') != GSQ_BITS
+                or manifest.get('stored_projections') != ['gate_proj', 'up_proj']
+                or source.get('revision') != 'ed59f92082b1e93c0e96d60a8b11aab089b52f09'
+                or source.get('sha256') != GSQ_SOURCE_SHA256
+                or type(source.get('bytes')) is not int or source['bytes'] != 37_623_740_192):
+            raise ValueError('GSQ gate/up overlay source or retained-down recipe changed')
     if manifest['policy'] == REFIT_POLICY:
         if (manifest.get('refitted') is not True
                 or manifest.get('refit_component_receipt_sha256') != REFIT_COMPONENT_SHA256):
@@ -124,7 +142,9 @@ class Archive:
                         module = f'language_model.model.layers.{layer}.mlp.switch_mlp.{family}'
                         if recipe(self.config, module.removeprefix('language_model.')) != {'bits': 4, 'group_size': 64}:
                             raise ValueError('expert source recipe changed')
-                        for suffix, expected in metadata(rows, columns, MIXED_BITS[family] if manifest['policy'] == MIXED_POLICY else 3).items():
+                        if manifest['policy'] == GSQ_POLICY and family == 'down_proj':
+                            continue  # Keep the authenticated original mapping, without duplicating its bytes.
+                        for suffix, expected in metadata(rows, columns, control_bits(manifest, family)).items():
                             key = module + '.' + suffix; expected_keys.add(key)
                             info = self.sources[source_id].header[key]
                             if (info['dtype'], info['shape']) != (expected['dtype'], expected['shape']):
@@ -277,8 +297,7 @@ def load_model(archive, arch, *, prove_ple=False):
         if not hasattr(module, 'to_quantized') or name + '.scales' not in weights:
             return False
         if archive.control is not None and '.mlp.switch_mlp.' in name:
-            return {'bits': MIXED_BITS[name.rsplit('.', 1)[-1]]
-                    if archive.control_manifest['policy'] == MIXED_POLICY else 3, 'group_size': 64}
+            return {'bits': control_bits(archive.control_manifest, name.rsplit('.', 1)[-1]), 'group_size': 64}
         return recipe(archive.config, name)
     nn.quantize(model, bits=4, group_size=64, class_predicate=predicate)
     model.load_weights(list(weights.items()), strict=True)

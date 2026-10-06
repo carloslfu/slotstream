@@ -6921,6 +6921,47 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### GSQ224 complete Engine cost and original drafting control, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot]] records the exact grouped Engine memory contract, preserved intermediate refusals, successful grouped component/admission checks and streamed speculative state/recovery. [[sources/runs/2026/10/2026-10-06-original-streamed-draft-control]] adds one cheap original control rather than attributing every configuration difference to quantization.
+
+These are single complete coding pilots on the owned 48 GB Mac at the same ten-GB process ceiling and same prompt. Every answer passes the unchanged three pure-function and input-preservation tests. GSQ224's answer also exactly matches the original Auto answer's 81 tokens. All timing eligibility checks pass. The older original Auto observation is reused; these are not interleaved paired confirmations.
+
+| Configuration | Committed generation tokens/s | First text seconds | Complete request seconds |
+| --- | --- | --- | --- |
+| Original Auto, no draft, automatic lookahead | 9.035368 | 2.507262 | 11.361321 |
+| Original forced two streamed drafts, automatic lookahead off | 9.519358 | 2.950460 | 11.353834 |
+| GSQ224, two streamed drafts, explicit boundary lookahead | 14.237665 | 2.232687 | 7.851238 |
+
+GSQ224 remains about 49.6% faster than the explicit original draft configuration, but lookahead settings still differ. It uses 640 slots versus original forced-draft 834. It accepts 53 of 56 draft tokens and takes 28 target passes instead of original Auto's 81. Target expert read counters remain about 32.94 versus 32.91 GB because cache/routing behavior differs; smaller records alone do not explain the result. Forecast evaluation records 1.924225 seconds within 5.618899 decode seconds, a concrete further optimization candidate. Those counters overlap and cannot be added into a wall-time decomposition.
+
+The mixed Engine lifetime physical peak is 5,924,508,184 bytes, within its full ten-GB planned ceiling. The preceding grouped component and streamed speculative checks pass without numerical tolerance changes. All 104 T0/T1 catalogue checks and 25 affected benchmark tests pass on the final source before full static/CI acceptance. This earns cheap explicit-lookahead controls and limited representative confirmation. It remains below twenty tokens/s, outside production Auto and unmeasured on other Macs. No new raw logits, weights or paid compute were used for these cost checks.
+
+### GSQ224 native parity and completed tasks, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-native-quality]] preserves the mechanical preparation refusal, native exact-artifact admission failure and corrected continuation. Reusing the completed traversal and full-layer reference, the candidate passes native layer comparisons, sixteen self-fed target steps across cache histories, and speculative verification/state/recovery. Tolerances, prompts and graders are unchanged.
+
+Original and GSQ224 both pass fifteen of sixteen complete tasks, with the identical pass/fail set. All four coding, four tool, multilingual and retrieval cases pass. Both fail sort-records by returning records instead of names. The frozen advance condition passes with no newly lost original success. This is a small useful-quality screen, not a general equivalence claim.
+
+The candidate task path is the existing fixed 640-slot reference probe, not a full Engine performance configuration. The complete corrected pipeline takes 588.534375 seconds; speculation peaks at 8,169,084,592 physical bytes. Functional durations do not establish serving throughput. The retained new numerical fixtures add 28,682,240 bytes within the declared 2.13-GB total raw allowance. Full Engine accounting, grouped execution parity, complete-response speed and product qualification remain distinct work. The original remains preferred until an eligible useful improvement is measured.
+
+### GSQ224 authenticated source and positive proxy, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-source-and-quality]] completes the previously pending source admission and bounded quality experiment. The exact first GGUF shard passes its 37,623,740,192-byte full SHA256 after the preserved first-transfer failure. The original source, complete GSQ file, header prefix and reference fixtures are independently reauthenticated for the quality run. The three-bit coding control exactly reproduces its converted tensor bytes and previous full-vocabulary hash.
+
+The following fixed-context scores compare sixteen selected positions per context against the existing VQ4.4 full-vocabulary reference, using original tokenizer IDs. Top-choice agreement is a distribution diagnostic, not completed-task accuracy or BF16 ground truth.
+
+| Context | Original four-bit agreement / KL | Prior333 agreement / KL | GSQ224 agreement / KL |
+| --- | --- | --- | --- |
+| Coding | 0.7500 / 0.366843 | 0.8750 / 0.475493 | 0.7500 / 0.416326 |
+| Tool result | 0.7500 / 0.764051 | 0.6250 / 0.918598 | 0.8125 / 0.442250 |
+| Multilingual | 0.8750 / 0.343711 | 0.6875 / 0.379610 | 0.8750 / 0.385272 |
+| Macro | 0.791667 / 0.491535 | 0.729167 / 0.591234 | 0.812500 / 0.414616 |
+
+The candidate passes the unchanged per-case and macro proxy criteria. All four forwards complete in 159.032416 seconds with a 2,186,544,568-byte lifetime physical peak, under the ten-GB bound. Functional duration is not serving throughput. No new raw logits or model payload are saved by this screen. It earns completed-task evaluation; it does not establish similar useful quality across tasks or the twenty-token target.
+
+[[sources/runs/2026/10/2026-10-06-gsq224-changed-projection-export]] then exports only the changed gate/up projections. Forty-eight files total 25,165,864,240 bytes, with exact manifest `dda8570d568459acb44dfbcf356dea437f12630fa461d9b0eef8c3185b523011`. Original down and nonexpert values remain in their authenticated parent. Every tensor is read back and every output file hashed before publication. The producer finishes in 55.238872 seconds with a 242,844,440-byte physical peak; these are conversion resource results, not inference results. The runtime record still includes original down and costs 1,945,600 bytes. Native parity, completed-task quality and useful complete-configuration speed remain required before product admission.
+
 ### GSQ224 source admission and frozen quality follow-up, October 6
 
 [[sources/runs/2026/10/2026-10-06-gsq224-admission-preparation]] preserves the closed retirement scope, exact reconstruction sources, seven passing retirement checks, complete deletion receipt, failed first transfer, successful range connectivity recheck, repaired acquisition protocol, base-lineage recheck and unexecuted quality protocols. All forty-eight minmax223 files were authenticated before any deletion; 42,781,961,312 file bytes were retired with a 40,157,184-byte observed physical peak. Allocated staging immediately afterward was 366,837,399,552 bytes. The supported original model and the prior negative quality evidence remain unchanged.
@@ -6929,7 +6970,7 @@ The first full-shard Hub attempt failed after a read timeout and DNS error, befo
 
 ### Calibrated GSQ scalar compatibility and mixed component lead, October 6
 
-[[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] preserves thirty raw metadata, protocol, code, refusal and numerical artifacts. Immutable GSQ model revision `ed59f92082b1e93c0e96d60a8b11aab089b52f09` declares Qwen Flash Next as its base. The actual bounded GGUF header has 144 routed projections, all Q2_0 with group size 64 and 18 bytes per block. Their source payload totals 33,973,862,400 bytes. The complete first shard is declared as 37,623,740,192 bytes with SHA-256 `69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720`; that whole-file digest has **not** been verified. Only immutable-revision HTTP ranges, extents and local range digests are checked. This is not installation authentication or proof of the exact original BF16 producer revision.
+[[sources/runs/2026/10/2026-10-06-gsq-native-format-and-mixed-screen]] preserves thirty raw metadata, protocol, code, refusal and numerical artifacts. Immutable GSQ model revision `ed59f92082b1e93c0e96d60a8b11aab089b52f09` declares Qwen Flash Next as its base. The actual bounded GGUF header has 144 routed projections, all Q2_0 with group size 64 and 18 bytes per block. Their source payload totals 33,973,862,400 bytes. The complete first shard is declared as 37,623,740,192 bytes with SHA-256 `69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720`; that whole-file digest had **not** been verified at the format-screen checkpoint; the later full authentication is recorded above. Only immutable-revision HTTP ranges, extents and local range digests are checked. This is not installation authentication or proof of the exact original BF16 producer revision.
 
 Three declared layers (0, 23, 47), their first ten experts and all three projections supply 41,472,000 sample bytes. Independent scalar decoding and native FP16 affine reconstruction agree numerically for every sampled weight. The scalar grid is `(code - 1) * scale`; native repacking adds a bias equal to minus the scale. Two-bit weights with FP16 scales and BF16 inputs promote the native gathered operation to FP32, as confirmed by the returned dtype. Explicit FP16 execution avoids promotion, but its three-row combined gate/up/down cost is 1.2350/1.2093/1.1866 times original four-bit. One-row ratios are near one. It fails the frozen all-cell 1.05 cost ceiling. The process peaks at 802,440,272 bytes. Two early consecutive metadata-service CPU observations and one later isolated observation remain visible; none meets the frozen three-consecutive-sample exclusion. Thermal/power remain nominal, with no whole-host paging.
 

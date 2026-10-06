@@ -192,6 +192,27 @@ class PerformanceCampaignChecks(unittest.TestCase):
                     self.fixture(directory, version=2, deployment=deployment, scope=scope,
                                  repetitions=8, artifact='affine3-native')
 
+    def test_gsq224_receipt_cannot_borrow_three_bit_identity_or_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2)
+            native = m.validate(protocol, root)['profile-0']['candidate']
+            native['artifact'] = 'gsq224'
+            receipt = self.receipt(native, '1' * 64, 'candidate')
+            receipt['artifact_manifest_sha256'] = receipt['numerical_manifest_sha256'] = m.GSQ224_MANIFEST
+            receipt['resource_identity'] = 'gsq224-grouped-memory-v1'
+            for plan in [receipt['plan']] + [p for row in receipt['cases'] for p in (row['plan_before'], row['plan_after'])]:
+                plan['resource_profile'] = receipt['resource_identity']
+            m.validate_native(receipt, native, '1' * 64, 'candidate')
+            for key, value in [('artifact_manifest_sha256', m.MANIFESTS['candidate']),
+                               ('numerical_manifest_sha256', m.MANIFESTS['candidate']),
+                               ('resource_identity', 'affine3-grouped-memory-v1')]:
+                changed = copy.deepcopy(receipt); changed[key] = value
+                with self.assertRaises(ValueError): m.validate_native(changed, native, '1' * 64, 'candidate')
+            for key, value in [('scope', 'held-out'), ('deployment', 'standalone')]:
+                changed = copy.deepcopy(native); changed[key] = value
+                with self.assertRaisesRegex(ValueError, 'exact composite research pilot'):
+                    m.validate_native(receipt, changed, '1' * 64, 'candidate')
+
     def test_v2_requires_actual_per_request_prefill_including_boundary_and_stock_policy(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol = self.fixture(directory, version=2, deployment='standalone')

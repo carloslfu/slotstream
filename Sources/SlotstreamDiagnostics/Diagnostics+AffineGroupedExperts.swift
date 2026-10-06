@@ -128,7 +128,7 @@ extension Diagnostics {
                     c.equal(name + " exact weighted reduction", weightedHash, hash((expected * weights).sum(axis: 2)))
                     c.equal(name + " reference dispatch family", o.groupedKernel, count * 10 >= 2048)
                     c.expect(name + " bounded rows", o.maximumRows <= 287)
-                    c.equal(name + " bounded weight bank", o.maximumWeightBytes, 32 * 2_150_400)
+                    c.equal(name + " bounded weight bank", o.maximumWeightBytes, 32 * artifact.expertRecordBytes)
                     if pass == 0 { coldHashes[key] = expectedHash }
                     c.equal(name + " exact cold/warm/resize bytes", actualHash, coldHashes[key])
                     checkClock(clock, name)

@@ -18,10 +18,21 @@ class ReferenceTests(unittest.TestCase):
   mixed={**original,'policy':m.MIXED_POLICY,'expected_output_bytes':42_781_961_312,
          'expert_projection_bits':m.MIXED_BITS,'refitted':False}
   m.validate_control_manifest(mixed)
+  gsq={**original,'policy':m.GSQ_POLICY,'expected_output_bytes':25_165_864_240,
+       'expert_projection_bits':m.GSQ_BITS,'stored_projections':['gate_proj','up_proj'],
+       'gsq_source':{'sha256':m.GSQ_SOURCE_SHA256,'bytes':37_623_740_192,
+                     'revision':'ed59f92082b1e93c0e96d60a8b11aab089b52f09'}}
+  m.validate_control_manifest(gsq)
+  for key,value in [('expert_projection_bits',m.MIXED_BITS),('stored_projections',['gate_proj','up_proj','down_proj']),
+                    ('gsq_source',None),('gsq_source',{}),('expected_output_bytes',42_781_961_312)]:
+   with self.subTest(key=key),self.assertRaises(ValueError):m.validate_control_manifest({**gsq,key:value})
+  for key,value in [('sha256','0'*64),('bytes',True),('bytes',37_623_740_191),('revision','changed')]:
+   with self.subTest(key=key),self.assertRaises(ValueError):
+    m.validate_control_manifest({**gsq,'gsq_source':{**gsq['gsq_source'],key:value}})
   for bad in [{**mixed,'expert_projection_bits':{'gate_proj':2,'up_proj':3,'down_proj':3}},
               {**mixed,'expected_output_bytes':52_848_290_992},{**mixed,'refitted':True}]:
    with self.assertRaises(ValueError):m.validate_control_manifest(bad)
-  for manifest in (original,refitted,mixed):
+  for manifest in (original,refitted,mixed,gsq):
    for key,value in [('schema',True),('complete',False),('qualification',True),('policy','unreviewed-recipe'),
                      ('parent_revision','changed'),('baseline_config_sha256','0'*64),('baseline_index_sha256','0'*64),
                      ('layers',list(range(47))),('expected_output_bytes',52_848_290_991),('files',[]),('files',{})]:

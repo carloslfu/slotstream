@@ -272,7 +272,7 @@ extension Diagnostics {
                 c.expect("sequential admission writes actually finish", model.pool.admissionPieceWriteCompletions > 0)
                 c.equal("actual intrinsic reservation matches the explicit profile",
                     model.intrinsicExpertWorkspaceBytes(tokens: 512, admits: true),
-                    (groupedExperts ? PackMemoryProfile.affine3GroupedControl : .affine3PiecewiseControl)
+                    (groupedExperts ? (artifact == .gsq224 ? PackMemoryProfile.gsq224GroupedControl : .affine3GroupedControl) : .affine3PiecewiseControl)
                         .workspaceBytes(slots: 640))
             }
             try index.verifyAuthenticatedFilesUnchanged(); try guardResources()

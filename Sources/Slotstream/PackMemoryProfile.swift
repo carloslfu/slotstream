@@ -126,6 +126,19 @@ package struct PackMemoryProfile: Equatable, Sendable {
         largestReplacementPieceBytes: 614_400, groupedWorkspace: true,
         supportsDecodeLookahead: true)
 
+    /// Exact GSQ224 research overlay. The original down weight is the largest
+    /// replacement piece despite the smaller total record. Keep all resident,
+    /// staging, allocator and grouped ownership allowances; no speed or Auto
+    /// qualification follows from the byte saving. Text-only, explicit pilots.
+    package static let gsq224GroupedControl = Self(identity: "gsq224-grouped-memory-v1",
+        expertRecordBytes: 1_945_600, residentReserveBytes: 357_580_800 + 67_108_864,
+        expertWorkspaceBytes: ContextWorkspace.affineGroupedWorkspaceBytes(tokens: 512,
+            slots: Geometry.floorSlots, admits: true, recordBytes: 1_945_600, largestPieceBytes: 819_200),
+        maximumPrefill: 512, maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
+        largestReplacementPieceBytes: 819_200, groupedWorkspace: true,
+        supportsDecodeLookahead: true)
+
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)
     }
@@ -135,7 +148,8 @@ package struct PackMemoryProfile: Equatable, Sendable {
     package func workspaceBytes(slots: Int) -> Int {
         guard expertWorkspaceBytes > 0 else { return 0 }
         if groupedWorkspace {
-            return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: maximumPrefill, slots: slots, admits: true)
+            return ContextWorkspace.affineGroupedWorkspaceBytes(tokens: maximumPrefill, slots: slots, admits: true,
+                recordBytes: expertRecordBytes, largestPieceBytes: largestReplacementPieceBytes!)
         }
         return ContextWorkspace.expertWorkspaceBytes(tokens: maximumPrefill, tile: 512,
             experts: 512, topK: 10, hidden: 2560, intermediate: 640,

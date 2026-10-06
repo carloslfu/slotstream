@@ -177,6 +177,21 @@ extension Diagnostics {
         }
         c.equal("mixed control retains original dense recipe", try mixedControl.affineQuantization(for: "lm_head"), four)
         c.equal("mixed control retains original PLE recipe", try mixedControl.affineQuantization(for: "ngram_embedding.shard_0").groupSize, 32)
+        let gsqControl = try baselineConfig.withAffineExpertControl(artifact: .gsq224)
+        try Geometry.check(against: gsqControl, recordBytes: 1_945_600)
+        c.equal("GSQ record includes original four-bit down", gsqControl.admittedExpertRecordBytes, 1_945_600)
+        for layer in [0, 47] {
+            for projection in ["gate_proj", "up_proj", "down_proj"] {
+                c.equal("GSQ projection recipe", try gsqControl.affineQuantization(
+                    for: "model.layers.\(layer).mlp.switch_mlp.\(projection)").bits,
+                    projection == "down_proj" ? 4 : 2)
+            }
+        }
+        c.equal("GSQ retains original dense recipe", try gsqControl.affineQuantization(for: "lm_head"), four)
+        c.equal("GSQ retains original PLE recipe", try gsqControl.affineQuantization(for: "ngram_embedding.shard_0").groupSize, 32)
+        c.expect("GSQ arithmetic cannot share mixed223 identity", AffineExpertControl.Artifact.gsq224.arithmeticIdentity(
+            rotarySHA256: nil, piecewise: false, grouped: false) != AffineExpertControl.Artifact.mixed223.arithmeticIdentity(
+            rotarySHA256: nil, piecewise: false, grouped: false))
         c.equal("3-bit rows do not truncate fractional packing", try three.packedWords(columns: 2560), 240)
         let wide = try VQLayout(columns: 2560, dimensions: 8, codebookEntries: 16384, groupSize: 64, packing: .words32)
         let down = try VQLayout(columns: 640, dimensions: 4, codebookEntries: 256, groupSize: 64, packing: .words32)

@@ -346,8 +346,10 @@ public enum ContextWorkspace {
     /// its output. These are allocation facts of the pinned backend, not a
     /// deduction from a low observed peak. Keep the full admission replacement
     /// until a different write contract proves it unnecessary.
-    package static func affineGroupedWorkspaceBytes(tokens: Int, slots: Int, admits: Bool) -> Int {
-        guard (1...512).contains(tokens), (Geometry.floorSlots...Geometry.totalRecords).contains(slots) else {
+    package static func affineGroupedWorkspaceBytes(tokens: Int, slots: Int, admits: Bool,
+        recordBytes: Int = 2_150_400, largestPieceBytes: Int = 614_400) -> Int {
+        guard (1...512).contains(tokens), (Geometry.floorSlots...Geometry.totalRecords).contains(slots),
+              (1...2_764_800).contains(recordBytes), (1...recordBytes).contains(largestPieceBytes) else {
             return Int.max
         }
         let rows = ContextBytes.product(tokens, 10)
@@ -358,10 +360,10 @@ public enum ContextWorkspace {
         let outputs = ContextBytes.product(tiles, 287, 2560, 4)
         let common = ContextBytes.sum(ContextBytes.product(tokens, 2560, 8),
             ContextBytes.product(tokens, 512, 8), ContextBytes.product(rows, 128), 512 * 128)
-        let hot = admits ? ContextBytes.product(min(512, max(1, slots / 48)), 2_150_400) : 0
+        let hot = admits ? ContextBytes.product(min(512, max(1, slots / 48)), recordBytes) : 0
         // Raw staging, uploaded/gathered data and padding can overlap. Charge
         // three complete groups plus alignment, even for a no-copy upload.
-        let weights = ContextBytes.sum(3 * 32 * 2_150_400, 9 * 16_384)
+        let weights = ContextBytes.sum(3 * 32 * recordBytes, 9 * 16_384)
         let compute = ContextBytes.sum(weights, hot, outputs,
             287 * (5 * 2560 + 4 * 640) * 4, 287 * 64)
         let restore = ContextBytes.sum(outputs, ContextBytes.product(rows, 2560, 8), hot)
@@ -369,7 +371,7 @@ public enum ContextWorkspace {
         // subsequent picked rows can coexist with the staged hot set and one
         // complete destination piece. Retained tile outputs remain live too.
         let admission = ContextBytes.sum(outputs, ContextBytes.product(rows, 2560, 4),
-            ContextBytes.product(hot, 2), admits ? ContextBytes.product(slots, 614_400) : 0)
+            ContextBytes.product(hot, 2), admits ? ContextBytes.product(slots, largestPieceBytes) : 0)
         let reduction = ContextBytes.sum(ContextBytes.product(rows, 2560, 12),
             ContextBytes.product(tokens, 2560, 8))
         return ContextBytes.sum(common, max(compute, restore, admission, reduction))

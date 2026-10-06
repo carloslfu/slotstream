@@ -1186,7 +1186,7 @@ public enum Planner {
                 throw PlanError("experimental affine lookahead requires its exact explicit full reserve")
             }
         }
-        if resources == .affine3Native, retainedLookahead == true,
+        if resources == .affine3Native || resources == .gsq224GroupedControl, retainedLookahead == true,
            fixedLookaheadBytes != DecodeLookahead.reserveBytes {
             throw PlanError("native affine lookahead requires its exact explicit full reserve")
         }

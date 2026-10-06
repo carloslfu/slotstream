@@ -74,8 +74,9 @@ private struct QuantizationPerformanceProtocol: Decodable {
         // planner still gate every allocation. Retain historical study bounds.
         let maximumMemoryBytes = extended && value.scope == "pilot" ? 33_000_000_000 : 24_000_000_000
         guard value.schema == (extended ? 2 : 1), value.kind == (extended ? "same-model-engine-performance-v2" : "same-model-engine-performance-v1"),
-              ["pilot", "held-out"].contains(value.scope), ["original", "affine3", "affine3-native"].contains(value.artifact),
+              ["pilot", "held-out"].contains(value.scope), ["original", "affine3", "affine3-native", "gsq224"].contains(value.artifact),
               value.artifact != "affine3-native" || (extended && value.deployment == "standalone" && value.scope == "pilot"),
+              value.artifact != "gsq224" || (extended && value.deployment == "composite" && value.scope == "pilot"),
               (8_100_000_000...maximumMemoryBytes).contains(value.memoryBytes), value.memoryBytes.isMultiple(of: 100_000_000),
               ["ceiling", "target"].contains(value.memoryMode), [8192, 32768].contains(value.contextLimit),
               ["off", "on", "auto"].contains(value.draftMode), (0...4).contains(value.draftDepth),
@@ -123,7 +124,8 @@ private struct QuantizationPerformanceProtocol: Decodable {
     }
 
     var resources: PackMemoryProfile {
-        artifact == "original" ? .original : (artifact == "affine3-native" ? .affine3Native
+        if artifact == "gsq224" { return .gsq224GroupedControl }
+        return artifact == "original" ? .original : (artifact == "affine3-native" ? .affine3Native
             : (lookahead == "uncorrected" ? .affine3GroupedLookaheadControl : .affine3GroupedControl))
     }
     var placement: Planner.MTPExpertPlacement {
@@ -206,6 +208,16 @@ extension Diagnostics {
         desktop["deployment"] = "original"; desktop["standalone_manifest_sha256"] = NSNull()
         desktop["short_prompt_tokens"] = 1536; desktop["short_prompt_chunk"] = 512
         let desktopOriginal = try parse(desktop)
+        var mixed = desktop; mixed["artifact"] = "gsq224"; mixed["deployment"] = "composite"
+        mixed["lookahead"] = "uncorrected"
+        c.equal("GSQ224 binds its own complete memory contract", try parse(mixed).resources, .gsq224GroupedControl)
+        try parse(mixed).validateLoader(hasControl: true, hasTable: true)
+        for (key, value): (String, Any) in [("scope", "held-out"), ("deployment", "standalone"),
+            ("lookahead", "automatic"), ("lookahead", "attention"), ("prefill_chunk_override", 1024)] {
+            var changed = mixed; changed[key] = value
+            do { _ = try parse(changed); c.expect("GSQ224 cannot widen the exact pilot scope/\(key)", false) }
+            catch { c.expect("GSQ224 cannot widen the exact pilot scope/\(key)", true) }
+        }
         try desktopOriginal.validateLoader(hasControl: false, hasTable: false)
         var defaultCeiling = desktop; defaultCeiling["memory_bytes"] = 33_000_000_000
         c.equal("the practical pilot can price the existing Desktop ceiling",
@@ -315,7 +327,9 @@ extension Diagnostics {
         } else {
             standalone = nil; artifact = try control.map { try AffineExpertControl.identify(control: $0) }
         }
-        guard artifact == nil || artifact == AffineExpertControl.Artifact.minmax else { throw ModelError("performance candidate is not the admitted minmax artifact") }
+        let expectedArtifact: AffineExpertControl.Artifact? = specification.artifact == "original" ? nil
+            : (specification.artifact == "gsq224" ? .gsq224 : .minmax)
+        guard artifact == expectedArtifact else { throw ModelError("performance candidate differs from its exact protocol artifact") }
         let located = specification.lookahead == "automatic"
             ? RouterTapCorrection.shipped(modelDirectory: baseline, env: [:]).located : nil
         if specification.lookahead == "automatic", located == nil,
@@ -425,7 +439,7 @@ extension Diagnostics {
                 }
             } else if let control, let table {
                 loaded = try await Engine(modelDir: baseline,
-                    affineSource: AffineEngineSource(control: control, coefficients: table,
+                    affineSource: AffineEngineSource(control: control, artifact: artifact!, coefficients: table,
                         piecewiseAllocation: true, groupedExperts: true, decodeLookahead: specification.lookahead == "uncorrected"), plan: plan)
             } else {
                 try WeightStore.verify(at: baseline); try check(force: true)

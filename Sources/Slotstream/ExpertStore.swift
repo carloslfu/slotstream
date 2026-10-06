@@ -195,8 +195,10 @@ public final class ExpertStore {
         let affine = try cfg.affineQuantization(for: "model.layers.0.mlp.switch_mlp.gate_proj")
         self.quantization = affine
         let down = try cfg.affineQuantization(for: "model.layers.0.mlp.switch_mlp.down_proj")
-        guard down == affine || (index.affineExpertArtifact == .mixed223
-            && affine.bits == 2 && affine.groupSize == 64 && down.bits == 3 && down.groupSize == 64) else {
+        let admittedMixed = (index.affineExpertArtifact == .mixed223 && down.bits == 3)
+            || (index.affineExpertArtifact == .gsq224 && down.bits == 4)
+        guard down == affine || (admittedMixed
+            && affine.bits == 2 && affine.groupSize == 64 && down.groupSize == 64) else {
             throw ModelError("mixed expert projections require the exact admitted research artifact")
         }
         self.downQuantization = down

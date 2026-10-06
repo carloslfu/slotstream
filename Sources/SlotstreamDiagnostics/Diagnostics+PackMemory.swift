@@ -18,6 +18,25 @@ extension Diagnostics {
                 runtimePolicy: policy, decodeLookahead: lookahead, mtpExperts: placement)
         }
         let original = try plan(.original)
+        let mixed = PackMemoryProfile.gsq224GroupedControl
+        for slots in [640, 1000, 7000, Geometry.totalRecords] {
+            c.equal("GSQ224 record counts retained four-bit down/\(slots)", mixed.poolBytes(slots), slots * 1_945_600)
+            c.expect("GSQ224 admission prices the larger down replacement/\(slots)",
+                mixed.workspaceBytes(slots: slots) >= slots * 819_200 + 2 * min(512, slots / 48) * 1_945_600)
+        }
+        for target in [10.0, 14, 22] {
+            let p = try plan(mixed, target: target, mtp: .on, context: 32768, placement: .streamed,
+                lookahead: .retained(enabled: true, bytes: DecodeLookahead.reserveBytes))
+            c.expect("GSQ224 complete plan honors ceiling and features/\(target)",
+                p.expectedPeakGB <= target && p.mtpStreamedExperts && p.decodeLookahead)
+            c.expect("GSQ224 speed remains unknown/\(target)", p.json()["est_warm_tok_s"] is NSNull)
+        }
+        c.expect("GSQ224 has no automatic feature qualification", !mixed.automaticOptimizations)
+        c.equal("GSQ224 workspace floor is charged once", mixed.workspaceBytes(slots: 640), mixed.expertWorkspaceBytes)
+        for (record, piece) in [(0, 1), (1, 0), (1, 2), (Int.max, 1), (1, Int.max)] {
+            c.equal("invalid grouped record or piece is refused", ContextWorkspace.affineGroupedWorkspaceBytes(
+                tokens: 512, slots: 640, admits: true, recordBytes: record, largestPieceBytes: piece), Int.max)
+        }
         let legacy = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: 14,
             ramGB: 48, workingSetGB: 36, availableGB: 40, mtp: .off, mtpAvailable: true,
             vision: .off, visionAvailable: true, maxContextTokens: 8192,

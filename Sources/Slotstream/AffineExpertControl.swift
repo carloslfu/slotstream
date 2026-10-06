@@ -17,16 +17,20 @@ package enum AffineExpertControl {
         package let modelName: String
         package let refitComponentSHA256: String?
         package let gateUpBits: Int
+        package let retainsOriginalDown: Bool
         package let expertRecordBytes: Int
         package let outputBytes: Int
-        package var arithmeticTag: String { gateUpBits == 2 ? "affine223" : "affine3" }
-        package func bits(for projection: String) -> Int { projection == "down_proj" ? 3 : gateUpBits }
+        package var arithmeticTag: String { retainsOriginalDown ? "gsq224" : gateUpBits == 2 ? "affine223" : "affine3" }
+        package func bits(for projection: String) -> Int {
+            projection == "down_proj" ? (retainsOriginalDown ? 4 : 3) : gateUpBits
+        }
         private init(manifestSHA256: String, policy: String, modelName: String,
-                     refitComponentSHA256: String? = nil, gateUpBits: Int = 3,
+                     refitComponentSHA256: String? = nil, gateUpBits: Int = 3, retainsOriginalDown: Bool = false,
                      expertRecordBytes: Int = 2_150_400, outputBytes: Int = 52_848_290_992) {
             self.manifestSHA256 = manifestSHA256; self.policy = policy
             self.modelName = modelName; self.refitComponentSHA256 = refitComponentSHA256
             self.gateUpBits = gateUpBits; self.expertRecordBytes = expertRecordBytes; self.outputBytes = outputBytes
+            self.retainsOriginalDown = retainsOriginalDown
         }
         package static let minmax = Artifact(manifestSHA256: AffineExpertControl.manifestSHA256,
             policy: AffineExpertControl.policy, modelName: "qwen3.8-flash-next:affine3-control")
@@ -42,9 +46,17 @@ package enum AffineExpertControl {
             policy: "pinned-affine4-to-affine223-group64-experts-only-v1",
             modelName: "qwen3.8-flash-next:affine223-control", gateUpBits: 2,
             expertRecordBytes: 1_740_800, outputBytes: 42_781_961_312)
+        // The calibrated scalar proxy passed. Admit only its exact gate/up
+        // export for native parity and completed-task screening. Original down
+        // stays in its authenticated parent file; product Auto is unchanged.
+        package static let gsq224 = Artifact(
+            manifestSHA256: "dda8570d568459acb44dfbcf356dea437f12630fa461d9b0eef8c3185b523011",
+            policy: "gsq-q2-gateup-bf16-original-down4-v1",
+            modelName: "qwen3.8-flash-next:gsq224-control", gateUpBits: 2, retainsOriginalDown: true,
+            expertRecordBytes: 1_945_600, outputBytes: 25_165_864_240)
         // The full refit screen lost to minmax on both proxy metrics. Retain
         // its identity for explicit rejection and provenance, not loading.
-        package static let admitted: [Artifact] = [.minmax, .mixed223]
+        package static let admitted: [Artifact] = [.minmax, .mixed223, .gsq224]
 
         package func arithmeticIdentity(rotarySHA256: String?, piecewise: Bool, grouped: Bool,
                                         storageSHA256: String? = nil) -> String {
@@ -173,6 +185,7 @@ package enum AffineExpertControl {
                 guard try config.affineQuantization(for: module) == AffineQuantization(bits: 4, groupSize: 64) else {
                     throw ModelError("controlled expert parent descriptor changed")
                 }
+                if artifact.retainsOriginalDown && projection == "down_proj" { continue }
                 for suffix in ["weight", "scales", "biases"] {
                     let key = "language_model." + module + "." + suffix
                     let shape = [512, rows, suffix == "weight" ? columns * artifact.bits(for: projection) / 32 : columns / 64]

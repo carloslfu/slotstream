@@ -19,9 +19,15 @@ package enum AffineGroupedExperts {
     private static func validate(_ x: MLXArray, ids: [Int32], layer: Int, pool: SlotPool,
                                  allowAdmissions: Bool) throws {
         let cfg = pool.expertStore.index.config
+        let store = pool.expertStore
+        let uniform = store.quantization.bits == 3 && store.downQuantization == store.quantization
+            && pool.recordBytes == 2_150_400
+        let mixed = store.index.affineExpertArtifact == .gsq224
+            && store.quantization.bits == 2 && store.downQuantization.bits == 4
+            && pool.recordBytes == 1_945_600
         guard pool.expertStore.index.hasAuthenticatedFiles,
-              pool.expertStore.quantization.bits == 3, pool.expertStore.quantization.groupSize == 64,
-              pool.recordBytes == 2_150_400, cfg.numExperts == 512, cfg.topK == 10,
+              uniform || mixed, store.quantization.groupSize == 64, store.downQuantization.groupSize == 64,
+              cfg.numExperts == 512, cfg.topK == 10,
               cfg.hiddenSize == 2560, cfg.moeIntermediate == 640,
               x.ndim == 3, x.dim(0) == 1, (1...512).contains(x.dim(1)),
               x.dim(2) == cfg.hiddenSize, x.dtype == .bfloat16,
@@ -45,11 +51,11 @@ package enum AffineGroupedExperts {
         let input = x.reshaped([x.dim(1), 1, 2560])[floorDivide(order, Int32(10))]
         let w = try pool.layerWorkspaceChecked(layer: layer, experts: Array(Set(ids.map(Int.init))).sorted())
         let up = gatherQuantizedMM(input, w[3], scales: w[4], biases: w[5], rhsIndices: sorted,
-            transpose: true, groupSize: 64, bits: 3, sortedIndices: true)
+            transpose: true, groupSize: 64, bits: pool.expertStore.quantization.bits, sortedIndices: true)
         let gate = gatherQuantizedMM(input, w[0], scales: w[1], biases: w[2], rhsIndices: sorted,
-            transpose: true, groupSize: 64, bits: 3, sortedIndices: true)
+            transpose: true, groupSize: 64, bits: pool.expertStore.quantization.bits, sortedIndices: true)
         let down = gatherQuantizedMM(MLXNN.silu(gate) * up, w[6], scales: w[7], biases: w[8], rhsIndices: sorted,
-            transpose: true, groupSize: 64, bits: 3, sortedIndices: true)
+            transpose: true, groupSize: 64, bits: pool.expertStore.downQuantization.bits, sortedIndices: true)
         let result = down[inverse].reshaped([1, x.dim(1), 10, 2560])
         eval(result)
         if pool.admitOnSweep, SlotPool.sweepAdmitEnabled {
@@ -117,11 +123,11 @@ package enum AffineGroupedExperts {
                     let input = flat[MLXArray(rowIDs.map { $0 / 10 })].expandedDimensions(axis: 1)
                     let indices = MLXArray(rhs)
                     let up = gatherQuantizedMM(input, w[3], scales: w[4], biases: w[5], rhsIndices: indices,
-                        transpose: true, groupSize: 64, bits: 3, sortedIndices: grouped)
+                        transpose: true, groupSize: 64, bits: pool.expertStore.quantization.bits, sortedIndices: grouped)
                     let gate = gatherQuantizedMM(input, w[0], scales: w[1], biases: w[2], rhsIndices: indices,
-                        transpose: true, groupSize: 64, bits: 3, sortedIndices: grouped)
+                        transpose: true, groupSize: 64, bits: pool.expertStore.quantization.bits, sortedIndices: grouped)
                     let down = gatherQuantizedMM(MLXNN.silu(gate) * up, w[6], scales: w[7], biases: w[8], rhsIndices: indices,
-                        transpose: true, groupSize: 64, bits: 3, sortedIndices: grouped)
+                        transpose: true, groupSize: 64, bits: pool.expertStore.downQuantization.bits, sortedIndices: grouped)
                     let complete = down[0..<chosen.count]
                     // This explicit first probe holds no unevaluated group
                     // reader when the next group is loaded or released.

@@ -42,6 +42,7 @@ REVISION = 'aa7c790e804bbf9d491ddb109c3d61bc4a555f7c'
 MANIFESTS = {'original': '8e10fef2cfa5c6d8590494f5dbed440a7617a404fa17ce169cf55fb99b71e082',
              'candidate': 'af31bd191fbd82dc998fe29cae230c7f3e6977bd355c827bf42e643b7680f182'}
 ROTARY = 'f077c4de8473b644afae5b9f939ddb2e70dcdfd876ad3e04d79f05018f133d9a'
+GSQ224_MANIFEST = 'dda8570d568459acb44dfbcf356dea437f12630fa461d9b0eef8c3185b523011'
 # Percentage of one CPU core in ps's recent average. This is a prospective
 # clean-timing exclusion, not a safety limit or proof that lesser activity is
 # harmless. A different threshold requires a new protocol before collection.
@@ -291,8 +292,13 @@ def validate_plan(plan, native, resource_identity):
 
 def validate_native(receipt, native, protocol_sha, arm):
     extended = native['kind'] == 'same-model-engine-performance-v2'
-    physical_manifest = native['standalone_manifest_sha256'] if extended and native['deployment'] == 'standalone' else MANIFESTS[arm]
+    mixed = native['artifact'] == 'gsq224'
+    if mixed and not (arm == 'candidate' and extended and native['deployment'] == 'composite' and native['scope'] == 'pilot'):
+        raise ValueError('GSQ224 is only an exact composite research pilot')
+    numerical_manifest = GSQ224_MANIFEST if mixed else MANIFESTS[arm]
+    physical_manifest = native['standalone_manifest_sha256'] if extended and native['deployment'] == 'standalone' else numerical_manifest
     resource = ('original-affine4-memory-v1' if arm == 'original' else
+                'gsq224-grouped-memory-v1' if mixed else
                 'affine3-native-memory-v1' if native['artifact'] == 'affine3-native' else
                 'affine3-grouped-lookahead-memory-v1' if native['lookahead'] == 'uncorrected' else 'affine3-grouped-memory-v1')
     if (type(receipt.get('schema')) is not int or receipt['schema'] != (2 if extended else 1)
@@ -312,7 +318,7 @@ def validate_native(receipt, native, protocol_sha, arm):
     if extended and (any(key not in receipt or receipt[key] != native[key]
                          for key in ('deployment', 'standalone_manifest_sha256', 'short_prompt_tokens', 'short_prompt_chunk'))
             or any(type(receipt.get(key)) is not int for key in ('short_prompt_tokens', 'short_prompt_chunk'))
-            or receipt.get('numerical_manifest_sha256') != MANIFESTS[arm]):
+            or receipt.get('numerical_manifest_sha256') != numerical_manifest):
         raise ValueError('native V2 deployment, numerical identity or prefill policy differs from the protocol')
     if ('prefill_chunk_override' in native
             and (type(receipt.get('prefill_chunk_override')) is not int

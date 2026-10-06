@@ -163,7 +163,8 @@ extension Diagnostics {
         do {
             if enginePlan {
                 let resources: PackMemoryProfile = affineControl == nil ? .original
-                    : (groupedExperts ? .affine3GroupedControl : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control))
+                    : (affineArtifact == .gsq224 ? .gsq224GroupedControl
+                        : (groupedExperts ? .affine3GroupedControl : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)))
                 let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
                     memoryGB: Double(memoryBytes) / 1e9,
                     mtp: draftDepth > 0 ? .on : .off, mtpAvailable: draftDepth > 0,
