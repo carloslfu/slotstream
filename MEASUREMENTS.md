@@ -6921,6 +6921,22 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### Corrected-prefetch lower-budget result, October 6
+
+[[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-result]] closes one clean pair at a ten-GB process ceiling on the owned Mac. Preparation is in [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-preparation]]. Both arms retain the same native three-bit weights, full context allowance and two streamed drafts; the corrected arm charges its additional forecast bytes and uses fewer cache slots.
+
+| Workload | Uncorrected committed tok/s | Corrected committed tok/s | Ratio |
+| --- | ---: | ---: | ---: |
+| Short | 8.353488 | 8.603241 | 1.029898 |
+| Context | 9.841657 | 10.336926 | 1.050324 |
+| Completed coding answer | 9.400903 | 10.251414 | 1.090471 |
+
+All committed token IDs and text match. The coding request-wall ratio is 0.934698. Peak physical footprints are 7,274,517,256 and 7,269,077,840 bytes, below the ten-GB ceiling; plans use 731 and 715 slots. All timing exclusions are empty. These are one pair of observations with uncontrolled OS file cache, not medians, a sustained guarantee, a contemporaneous original-pack comparison or proof for another budget/Mac.
+
+The frozen useful-gain criterion requires at least 1.05 on both fixed workloads and no material coding latency loss. Short fails, so the transfer recipe does not earn confirmation or promotion. Prefetch counters show fewer wasted requested bytes and demand misses, while forecast evaluation takes slightly longer. They explain the direction of the small observed gain but overlap and do not provide an additive wall-time decomposition. This does not provide a route from these rates to twenty.
+
+The frozen collector retains an older resource-identity mapping and stops after both model runs complete. The existing current validator, committed before the experiment, differs by exactly the branch recognizing the already implemented corrected-native profile. A separately pinned mechanical replay validates the immutable receipts against that exact identity with every threshold unchanged. The failed coordinator is retained; no model cell is replaced. The fourteen-GB pair remains unmeasured. Stop this practical transfer screen; further work needs a materially stronger evidence-backed lead, not another budget sweep.
+
 ### Corrected-prefetch continuation remains unmeasured, October 6
 
 [[sources/runs/2026/10/2026-10-06-focused-continuation-host-refusal]] preserves the single bounded host admission wait. Neither arm launched because real reclaimable memory stayed below the prospective requirement. No timing result, candidate rejection or qualification follows. The earlier exact-output and physical-bound functional pass in [[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] remains valid. A quiet, safely admitted pair is still needed to answer the speed question.

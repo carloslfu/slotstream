@@ -2,7 +2,7 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-06T14:54:20.343573Z
+updated: 2026-10-06T22:36:24.753279Z
 ---
 
 # records/decisions

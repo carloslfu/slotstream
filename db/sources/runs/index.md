@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T21:53:10.978025Z
+updated: 2026-10-06T22:51:07.084050Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-focused-continuation-acceptance]] — Final engine, app, coverage and context CI pass; local selection and rendered controls pass; practical speed target remains unmet
+- [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-result]] — Clean corrected-prefetch pair preserves outputs and budgets but fails its practical speed-gain gate; immutable receipts replayed after stale collector mapping
+- [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-preparation]] — Prospective ten-GB corrected-prefetch pair after the fourteen-GB host refused without native execution
 - [[sources/runs/2026/10/2026-10-06-focused-continuation-host-refusal]] — Corrected-prefetch pair remains unmeasured after bounded real-memory admission refusal; original recommendation remains honest
 - [[sources/runs/2026/10/2026-10-06-candidate-correction-quiet-continuation]] — One bounded corrected-prefetch pair, preserving functional evidence and unchanged performance gates
 - [[sources/runs/2026/10/2026-10-06-matched-runtime-final-acceptance]] — Final matched-runtime source passes complete static gates, 104 native groups and 36 focused Python tests; no candidate speed promotion
@@ -504,11 +507,8 @@ updated: 2026-10-06T21:53:10.978025Z
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-resource-resumption-preparation]] — Full vision mechanism successor frozen after verified memory recovery
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-ordinary-mtp-native-pass]] — Current automatic-scope candidate passes original ordinary and MTP integrations
 - [[sources/runs/2026/09/2026-09-08-optimization-resource-resumption-native-preparation]] — Optimization native tests resume after verified memory recovery
-- [[sources/runs/2026/09/2026-09-08-hermes-proxy-exclusions]] — Hermes local endpoint proxy exclusions
-- [[sources/runs/2026/09/2026-09-08-hermes-final-config-regression]] — Final Hermes configuration regression and cleanup verification
-- [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]] — OpenAI tool protocol regression for the Hermes configuration correction
 
 ## More
 
-This folder has 895 files. The 500 most recent are listed above.
+This folder has 898 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T14:54:20.343573+00:00
+updated: 2026-10-06T22:36:24.753279+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -11,6 +11,8 @@ title: Preserve the original while the low-budget performance target remains unm
 status: standing
 ---
 ## Current disposition, October 6
+
+The corrected-prefetch transfer in [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-result]] is a clean completed lower-budget screen. It preserves exact outputs and bounded physical memory, and improves the observed rates modestly, but fails its prospective useful-gain criterion. Do not promote the three-bit pack or widen the test into another budget campaign. Preserve the small gain, the unmeasured fourteen-GB scope and the transparent mechanical replay of immutable receipts after a stale collector mapping. Reopen only for a materially stronger, evidence-backed route toward the missing speed with the required quality. The supported original and independent automatic controls remain unchanged.
 
 The later source-backed independent GSQ/RCO mixture in [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] does not reopen production qualification. Its bounded dominant-layout prototype passes numerical and row-invariance checks but loses the clean component cost criterion at both row counts. Preserve the excluded first timing run and unchanged clean repeat. Close this specific Q3_K implementation before full format, model or quality work; a different kernel would need independent evidence and a new prospective cheap test. This is not a quality verdict on the publisher's full model or a proof that all Q3_K execution is too slow. The original remains supported and the full speed target remains unmet.
 

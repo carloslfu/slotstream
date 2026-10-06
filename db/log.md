@@ -468,3 +468,6 @@ Publish the existing October 5 original-four-bit 33 GB workload medians in READM
 ## [2026-10-06 21:53] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Freeze and attempt one bounded corrected-prefetch continuation; preserve no-launch headroom refusal. Explain the original-pack Auto fallback and expose existing performance evidence without inventing qualified profiles. Brain and claim gates pass; final source CI pending.
 
+## [2026-10-06 22:51] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Complete the bounded 10 GB corrected-prefetch comparison, preserve the earlier 14 GB no-launch refusal and stale collector replay, and reject promotion under the frozen gain criterion. Record passing exact-source engine/app/coverage/context CI and local controls/UI checks. Explain both automatic systems in public hardware guidance. Full 16–64 GB speed goal remains unmet.
+
