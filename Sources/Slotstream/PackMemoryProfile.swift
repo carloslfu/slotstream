@@ -17,6 +17,9 @@ package struct PackMemoryProfile: Equatable, Sendable {
     /// Explicit capability is separate from measured automatic activation.
     package let supportsDecodeLookahead: Bool
     package let automaticOptimizations: Bool
+    /// An explicit research forecast must retain its exact charge through
+    /// initial planning and later governor replans.
+    package let explicitLookaheadReserveBytes: Int?
     /// Maximum per-record destination piece for an explicitly sequential
     /// assembly/admission contract. Nil retains full replacement accounting.
     private let largestReplacementPieceBytes: Int?
@@ -27,7 +30,7 @@ package struct PackMemoryProfile: Equatable, Sendable {
                  maximumContext: Int, usesBaselineSpeedEvidence: Bool,
                  supportsStreamedDraft: Bool, supportsVision: Bool, automaticOptimizations: Bool,
                  largestReplacementPieceBytes: Int? = nil, groupedWorkspace: Bool = false,
-                 supportsDecodeLookahead: Bool = false) {
+                 supportsDecodeLookahead: Bool = false, explicitLookaheadReserveBytes: Int? = nil) {
         self.identity = identity
         self.expertRecordBytes = expertRecordBytes
         self.residentReserveBytes = residentReserveBytes
@@ -39,6 +42,7 @@ package struct PackMemoryProfile: Equatable, Sendable {
         self.supportsVision = supportsVision
         self.supportsDecodeLookahead = supportsDecodeLookahead
         self.automaticOptimizations = automaticOptimizations
+        self.explicitLookaheadReserveBytes = explicitLookaheadReserveBytes
         self.largestReplacementPieceBytes = largestReplacementPieceBytes
         self.groupedWorkspace = groupedWorkspace
     }
@@ -59,6 +63,26 @@ package struct PackMemoryProfile: Equatable, Sendable {
         maximumPrefill: 4096, maximumContext: 32_768, usesBaselineSpeedEvidence: false,
         supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
         supportsDecodeLookahead: true)
+
+    /// Diagnostic control: original expert bytes under the native candidate's
+    /// conservative allocation policy. This is not a selectable product pack.
+    package static let originalCandidateControl = Self(identity: "original-candidate-control-memory-v1",
+        expertRecordBytes: original.expertRecordBytes,
+        residentReserveBytes: affine3Native.residentReserveBytes,
+        maximumPrefill: affine3Native.maximumPrefill, maximumContext: affine3Native.maximumContext,
+        usesBaselineSpeedEvidence: false, supportsStreamedDraft: true,
+        supportsVision: false, automaticOptimizations: false, supportsDecodeLookahead: true)
+
+    /// Correction bytes come from the authenticated header, not a new speed
+    /// estimate. Keep this distinct from every frozen uncorrected recipe.
+    package static func affine3NativeCorrected(correctionBytes: Int) -> Self {
+        Self(identity: "affine3-native-corrected-memory-v1", expertRecordBytes: affine3Native.expertRecordBytes,
+            residentReserveBytes: affine3Native.residentReserveBytes, maximumPrefill: affine3Native.maximumPrefill,
+            maximumContext: affine3Native.maximumContext, usesBaselineSpeedEvidence: false,
+            supportsStreamedDraft: true, supportsVision: false, automaticOptimizations: false,
+            supportsDecodeLookahead: true,
+            explicitLookaheadReserveBytes: DecodeLookahead.reserveBytes(correctionBytes: correctionBytes))
+    }
 
     /// Conservative research envelope, not a published supported pack. Keep
     /// the original fixed allowance and independently priced four-bit head.

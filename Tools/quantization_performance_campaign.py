@@ -284,7 +284,7 @@ def validate_plan(plan, native, resource_identity):
             and plan.get('prefill_chunk') != native['prefill_chunk_override']):
         raise ValueError('applied prefill allocation differs from its frozen override')
     if (native['draft_mode'] in ('on', 'off') and plan.get('mtp') is not (native['draft_mode'] == 'on')
-            or native['lookahead'] in ('off', 'uncorrected', 'attention', 'enabled') and plan.get('decode_lookahead') is not (native['lookahead'] != 'off')
+            or native['lookahead'] in ('off', 'uncorrected', 'attention', 'attention-corrected', 'enabled') and plan.get('decode_lookahead') is not (native['lookahead'] != 'off')
             or plan.get('mtp') is True and native['draft_placement'] in ('streamed', 'resident')
                 and plan.get('mtp_streamed_experts') is not (native['draft_placement'] == 'streamed')):
         raise ValueError('applied native features differ from explicit performance overrides')
@@ -292,13 +292,22 @@ def validate_plan(plan, native, resource_identity):
 
 def validate_native(receipt, native, protocol_sha, arm):
     extended = native['kind'] == 'same-model-engine-performance-v2'
+    matched = native.get('original_candidate_control') is True
+    if 'original_candidate_control' in native:
+        if not (matched and extended and arm == 'original' and native['artifact'] == 'original'
+                and native['scope'] == 'pilot' and native['lookahead'] == 'attention'
+                and native['draft_mode'] == 'on' and native['draft_depth'] == 2
+                and native['draft_placement'] == 'streamed' and native['original_correction_sha256'] is None
+                and receipt.get('original_candidate_control') is True):
+            raise ValueError('matched original control differs from its explicit pilot recipe')
     mixed = native['artifact'] == 'gsq224'
     if mixed and not (arm == 'candidate' and extended and native['deployment'] == 'composite' and native['scope'] == 'pilot'):
         raise ValueError('GSQ224 is only an exact composite research pilot')
     numerical_manifest = GSQ224_MANIFEST if mixed else MANIFESTS[arm]
     physical_manifest = native['standalone_manifest_sha256'] if extended and native['deployment'] == 'standalone' else numerical_manifest
-    resource = ('original-affine4-memory-v1' if arm == 'original' else
+    resource = ('original-candidate-control-memory-v1' if matched else 'original-affine4-memory-v1' if arm == 'original' else
                 'gsq224-grouped-memory-v1' if mixed else
+                'affine3-native-corrected-memory-v1' if native['artifact'] == 'affine3-native' and native['lookahead'] == 'attention-corrected' else
                 'affine3-native-memory-v1' if native['artifact'] == 'affine3-native' else
                 'affine3-grouped-lookahead-memory-v1' if native['lookahead'] == 'uncorrected' else 'affine3-grouped-memory-v1')
     if (type(receipt.get('schema')) is not int or receipt['schema'] != (2 if extended else 1)

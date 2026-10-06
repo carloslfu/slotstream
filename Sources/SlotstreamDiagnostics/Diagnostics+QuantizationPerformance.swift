@@ -43,6 +43,7 @@ private struct QuantizationPerformanceProtocol: Decodable {
     /// Optional prospective pilot control, priced by the existing allocation
     /// policy. Omitting it preserves every previously frozen protocol.
     let prefillChunkOverride: Int?
+    let originalCandidateControl: Bool?
 
     static func decode(_ data: Data) throws -> Self {
         var keys: Set<String> = ["schema", "kind", "scope", "artifact", "memory_bytes", "memory_mode",
@@ -57,12 +58,28 @@ private struct QuantizationPerformanceProtocol: Decodable {
         let extended = object["kind"] as? String == "same-model-engine-performance-v2"
         if extended { keys.formUnion(["deployment", "standalone_manifest_sha256", "short_prompt_tokens", "short_prompt_chunk"]) }
         if extended && object.keys.contains("prefill_chunk_override") { keys.insert("prefill_chunk_override") }
+        if extended && object.keys.contains("original_candidate_control") { keys.insert("original_candidate_control") }
         guard Set(object.keys) == keys, let rows = object["cases"] as? [[String: Any]],
               rows.allSatisfy({ Set($0.keys) == caseKeys }) else {
             throw ModelError("performance protocol has unknown, missing or oversized input fields")
         }
         let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
         let value = try decoder.decode(Self.self, from: data)
+        if value.lookahead == "attention-corrected" {
+            guard extended, value.scope == "pilot", value.artifact == "affine3-native",
+                  value.deployment == "standalone", value.draftMode == "on", value.draftPlacement == "streamed",
+                  value.originalCorrectionSha256 == RouterTapCorrection.shippedSHA256 else {
+                throw ModelError("candidate correction is an explicit pinned native pilot only")
+            }
+        }
+        if object.keys.contains("original_candidate_control") {
+            guard extended, value.scope == "pilot", value.artifact == "original",
+                  value.originalCandidateControl == true, value.lookahead == "attention",
+                  value.draftMode == "on", value.draftDepth == 2, value.draftPlacement == "streamed",
+                  value.originalCorrectionSha256 == nil, value.contextLimit == 32768 else {
+                throw ModelError("original candidate control requires its explicit matched pilot recipe")
+            }
+        }
         if object.keys.contains("prefill_chunk_override") {
             guard extended, value.scope == "pilot", let chunk = value.prefillChunkOverride,
                   (256...value.resources.maximumPrefill).contains(chunk) else {
@@ -83,10 +100,11 @@ private struct QuantizationPerformanceProtocol: Decodable {
               ["off", "on", "auto"].contains(value.draftMode), (0...4).contains(value.draftDepth),
               (value.draftMode == "off") == (value.draftDepth == 0),
               ["automatic", "streamed", "resident"].contains(value.draftPlacement),
-              (value.artifact == "original" ? ["off", "automatic", "enabled"]
-                : (["affine3-native", "gsq224"].contains(value.artifact) ? ["off", "uncorrected", "attention"]
+              (value.artifact == "original" ? (value.originalCandidateControl == true ? ["attention"] : ["off", "automatic", "enabled"])
+                : (["affine3-native", "gsq224"].contains(value.artifact) ? ["off", "uncorrected", "attention", "attention-corrected"]
                     : ["off", "uncorrected"])).contains(value.lookahead),
-              value.originalCorrectionSha256 == nil || (value.artifact == "original" && ["automatic", "enabled"].contains(value.lookahead)
+              value.originalCorrectionSha256 == nil || ((value.artifact == "original" && ["automatic", "enabled"].contains(value.lookahead)
+                || value.artifact == "affine3-native" && value.lookahead == "attention-corrected")
                 && value.originalCorrectionSha256 == RouterTapCorrection.shippedSHA256),
               ["automatic", "fixed"].contains(value.liveMemory), ["auto", "on", "off"].contains(value.gpuKeepAlive),
               value.liveMemory != "automatic" || value.memoryMode == "ceiling",
@@ -125,6 +143,7 @@ private struct QuantizationPerformanceProtocol: Decodable {
     }
 
     var resources: PackMemoryProfile {
+        if originalCandidateControl == true { return .originalCandidateControl }
         if artifact == "gsq224" { return .gsq224GroupedControl }
         return artifact == "original" ? .original : (artifact == "affine3-native" ? .affine3Native
             : (lookahead == "uncorrected" ? .affine3GroupedLookaheadControl : .affine3GroupedControl))
@@ -209,6 +228,22 @@ extension Diagnostics {
         desktop["deployment"] = "original"; desktop["standalone_manifest_sha256"] = NSNull()
         desktop["short_prompt_tokens"] = 1536; desktop["short_prompt_chunk"] = 512
         let desktopOriginal = try parse(desktop)
+        var matched = desktop
+        matched["context_limit"] = 32768
+        matched["original_candidate_control"] = true; matched["lookahead"] = "attention"
+        matched["draft_mode"] = "on"; matched["draft_placement"] = "streamed"
+        c.equal("matched original receives candidate allocation policy", try parse(matched).resources, .originalCandidateControl)
+        c.equal("matched original keeps original record width", try parse(matched).resources.expertRecordBytes,
+            PackMemoryProfile.original.expertRecordBytes)
+        for (key, invalid) in [("scope", "held-out"), ("artifact", "affine3-native"), ("lookahead", "automatic"),
+                               ("draft_mode", "auto"), ("draft_placement", "resident")] {
+            var bad = matched; bad[key] = invalid
+            do { _ = try parse(bad); c.expect("matched control rejects incompatible recipe/\(key)", false) }
+            catch { c.expect("matched control rejects incompatible recipe/\(key)", true) }
+        }
+        var falseControl = matched; falseControl["original_candidate_control"] = false
+        do { _ = try parse(falseControl); c.expect("present matched control must explicitly enable it", false) }
+        catch { c.expect("present matched control must explicitly enable it", true) }
         var originalAhead = desktop; originalAhead["lookahead"] = "enabled"
         originalAhead["draft_mode"] = "on"; originalAhead["draft_placement"] = "streamed"
         c.equal("explicit original lookahead retains the original resource contract",
@@ -283,6 +318,16 @@ extension Diagnostics {
         var attention = native; attention["lookahead"] = "attention"
         c.equal("plain attention is an explicit native standalone experiment",
             try parse(attention).resources, .affine3Native)
+        var corrected = attention; corrected["lookahead"] = "attention-corrected"
+        corrected["draft_mode"] = "on"; corrected["draft_placement"] = "streamed"
+        corrected["original_correction_sha256"] = RouterTapCorrection.shippedSHA256
+        c.equal("corrected attention retains native resource ownership", try parse(corrected).resources, .affine3Native)
+        for (key, value): (String, Any) in [("scope", "held-out"), ("artifact", "gsq224"),
+            ("original_correction_sha256", NSNull()), ("draft_mode", "auto"), ("deployment", "composite")] {
+            var bad = corrected; bad[key] = value
+            do { _ = try parse(bad); c.expect("corrected native probe requires its pinned pilot/\(key)", false) }
+            catch { c.expect("corrected native probe requires its pinned pilot/\(key)", true) }
+        }
         for artifact in ["original", "affine3"] {
             var changed = attention; changed["artifact"] = artifact
             do { _ = try parse(changed); c.expect("attention cannot change a retained recipe/\(artifact)", false) }
@@ -354,6 +399,8 @@ extension Diagnostics {
         // that the Engine discovers during loading. Its complete rounded reserve
         // belongs in the same frozen ceiling; never silently omit it.
         let inspectOriginalCorrection = specification.artifact == "original" && specification.lookahead != "off"
+            && specification.originalCandidateControl != true
+            || specification.lookahead == "attention-corrected"
         let located = inspectOriginalCorrection
             ? RouterTapCorrection.shipped(modelDirectory: baseline, env: [:]).located : nil
         if inspectOriginalCorrection, located == nil,
@@ -366,13 +413,15 @@ extension Diagnostics {
         let lookahead: DecodeLookaheadPlanning
         switch specification.lookahead {
         case "uncorrected", "attention": lookahead = .retained(enabled: true, bytes: DecodeLookahead.reserveBytes)
-        case "enabled": lookahead = .retained(enabled: true,
+        case "enabled", "attention-corrected": lookahead = .retained(enabled: true,
             bytes: DecodeLookahead.reserveBytes(correctionBytes: located?.header.fileBytes ?? 0))
         case "automatic": lookahead = located.map { .automaticCorrected(bytes: $0.header.fileBytes) } ?? .automatic
         default: lookahead = .off
         }
         let memoryGB = Double(specification.memoryBytes) / 1e9
-        let plan = try Planner.plan(resources: specification.resources, expertsPerLayer: nil, poolGB: nil,
+        let resources: PackMemoryProfile = specification.lookahead == "attention-corrected"
+            ? .affine3NativeCorrected(correctionBytes: located!.header.fileBytes) : specification.resources
+        let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
             memoryGB: specification.memoryMode == "target" ? memoryGB : nil,
             memoryLimitGB: specification.memoryMode == "ceiling" ? memoryGB : nil,
             mtp: Planner.MTPMode(rawValue: specification.draftMode)!, mtpAvailable: specification.draftDepth > 0,
@@ -388,7 +437,7 @@ extension Diagnostics {
         let started = ProcessInfo.processInfo.systemUptime
         var record: [String: Any] = ["schema": specification.schema, "complete": false, "qualification": false,
             "protocol_sha256": protocolSHA256, "scope": specification.scope, "artifact": specification.artifact,
-            "plan_only": planOnly, "loaded": false, "plan": plan.json(), "resource_identity": specification.resources.identity,
+            "plan_only": planOnly, "loaded": false, "plan": plan.json(), "resource_identity": resources.identity,
             "memory_ceiling_bytes": specification.memoryBytes, "required_preflight_bytes": specification.memoryBytes + 3_000_000_000,
             "baseline_revision": PinnedModel.revision, "cases": []]
         record["original_correction_sha256"] = located?.sha256
@@ -400,6 +449,7 @@ extension Diagnostics {
             record["short_prompt_tokens"] = specification.shortPromptTokens
             record["short_prompt_chunk"] = specification.shortPromptChunk
             if let chunk = specification.prefillChunkOverride { record["prefill_chunk_override"] = chunk }
+            if let control = specification.originalCandidateControl { record["original_candidate_control"] = control }
         }
         func json<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) }
         func save() throws -> Data {
@@ -451,10 +501,11 @@ extension Diagnostics {
             let loadStarted = ProcessInfo.processInfo.systemUptime
             let loaded: Engine
             if let standalone {
-                if specification.lookahead == "attention" {
+                if ["attention", "attention-corrected"].contains(specification.lookahead) {
                     loaded = try await Engine(modelDir: standalone.directory,
                         affineSource: AffineEngineSource(standalone: standalone, decodeLookahead: true,
-                            nativeArithmetic: true, decodeLookaheadTap: .attention), plan: plan)
+                            nativeArithmetic: true, decodeLookaheadTap: .attention,
+                            decodeLookaheadCorrection: specification.lookahead == "attention-corrected" ? located : nil), plan: plan)
                 } else if specification.artifact == "affine3-native" {
                     loaded = try await Engine(modelDir: standalone.directory,
                         pack: ModelPackRegistry.researchStandalone, plan: plan)
@@ -471,7 +522,9 @@ extension Diagnostics {
                         decodeLookaheadTap: specification.lookahead == "attention" ? .attention : .boundary), plan: plan)
             } else {
                 try WeightStore.verify(at: baseline); try check(force: true)
-                loaded = try await Engine(modelDir: baseline, plan: plan)
+                loaded = try await specification.originalCandidateControl == true
+                    ? Engine(originalCandidateControl: baseline, plan: plan)
+                    : Engine(modelDir: baseline, plan: plan)
             }
             loaded.gpuKeepAlive = GPUKeepAlive.Policy(rawValue: specification.gpuKeepAlive)!
             loaded.generator.draftDepth = max(1, specification.draftDepth)
@@ -486,15 +539,23 @@ extension Diagnostics {
                   !plan.decodeLookahead || loaded.model.lookahead?.prefetch?.tapCorrection?.identity == specification.originalCorrectionSha256 else {
                 throw ModelError("loaded performance features differ from the complete plan")
             }
-            if specification.artifact != "original", plan.decodeLookahead {
-                let expected: ExpertPrefetchConfiguration = specification.lookahead == "attention"
-                    ? .experimentalAffineAttention : .qualifiedDecode
+            if specification.artifact != "original" || specification.originalCandidateControl == true, plan.decodeLookahead {
+                let expected: ExpertPrefetchConfiguration = specification.lookahead == "attention-corrected"
+                    ? .qualifiedDecode(correction: located) : (specification.lookahead == "attention"
+                        ? .experimentalAffineAttention : .qualifiedDecode)
                 guard loaded.model.lookahead?.prefetch?.configuration == expected else {
                     throw ModelError("loaded candidate forecast differs from its explicit protocol")
                 }
             }
             record["load_seconds"] = ProcessInfo.processInfo.systemUptime - loadStarted
             record["loaded"] = true; record["arithmetic_identity"] = loaded.model.authenticatedArtifactIdentity ?? "native-deployed-defaults"
+            record["execution_controls"] = [
+                "row_invariant_projection": loaded.model.optimizations.rowInvariantProjection == true,
+                "row_invariant_fusion": loaded.model.mtpHead?.rowInvariantFusion == true,
+                "split_attention": loaded.model.optimizations.verifySplitAttention.map { $0 as Any } ?? NSNull(),
+                "split_min_context": loaded.model.optimizations.verifySplitMinContext.map { $0 as Any } ?? NSNull(),
+                "cached_router_weights": loaded.model.optimizations.cachedRouterWeights,
+                "decode_barrier_layers": loaded.model.decodeBarrierLayers]
             let owner = MemoryGovernor(engine: loaded, management: LiveMemoryManagement(rawValue: specification.liveMemory)!)
             governor = owner; owner.start()
             try check(force: true); _ = try save()

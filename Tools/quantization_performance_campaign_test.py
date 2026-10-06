@@ -129,6 +129,24 @@ class PerformanceCampaignChecks(unittest.TestCase):
         return {'complete': True, 'exit_code': 0, 'samples': 10, 'peak_model_bytes': 9_000_000_000,
                 'before': dict(VM), 'after': dict(VM), 'timing_exclusions': []}
 
+    def test_matched_original_receipt_cannot_borrow_default_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, _ = self.fixture(directory, version=2)
+            native = m.read(root / 'profile-0-original.json')
+            native.update(original_candidate_control=True, lookahead='attention')
+            receipt = self.receipt(native, 'matched-protocol', 'original')
+            with self.assertRaises(ValueError):
+                m.validate_native(receipt, native, 'matched-protocol', 'original')
+            receipt['original_candidate_control'] = True
+            receipt['resource_identity'] = 'original-candidate-control-memory-v1'
+            for plan in [receipt['plan']] + [row[key] for row in receipt['cases'] for key in ('plan_before', 'plan_after')]:
+                plan['resource_profile'] = receipt['resource_identity']; plan['decode_lookahead'] = True
+            m.validate_native(receipt, native, 'matched-protocol', 'original')
+            for key, value in [('original_candidate_control', False), ('scope', 'held-out'), ('draft_placement', 'resident')]:
+                altered = {**native, key: value}
+                with self.assertRaises(ValueError):
+                    m.validate_native(receipt, altered, 'matched-protocol', 'original')
+
     def execute(self, root, protocol, *, mutation=None, failure=None):
         path = root / 'protocol.json'; m.write(path, protocol); sha = m.digest(path); trace = []
         def cell(command, destination, native, protocol, *args):

@@ -23,6 +23,9 @@ package struct AffineEngineSource {
     /// Explicit diagnostic tap; the retained boundary recipe stays unchanged.
     /// Attention is admitted only for the native standalone or exact GSQ224 experiment.
     package let decodeLookaheadTap: RouterForecastTap
+    /// Explicit native pilot only. Reusing a forecast correction does not
+    /// qualify it for this quantization or change any model logits.
+    package let decodeLookaheadCorrection: RouterTapCorrection.Located?
     /// Reuse the deployed trunk and expert kernels for the exact standalone
     /// affine pack. Reference probes keep their existing arithmetic.
     package let nativeArithmetic: Bool
@@ -30,7 +33,9 @@ package struct AffineEngineSource {
     package var parentLayout: PinnedParentLayout { standalone == nil ? .original : .standalone }
     package var resources: PackMemoryProfile {
         if artifact == .gsq224 { return vision ? .gsq224GroupedVisionControl : .gsq224GroupedControl }
-        if nativeArithmetic { return .affine3Native }
+        if nativeArithmetic {
+            return decodeLookaheadCorrection.map { .affine3NativeCorrected(correctionBytes: $0.header.fileBytes) } ?? .affine3Native
+        }
         return decodeLookahead ? .affine3GroupedLookaheadControl : (vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
             : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)))
     }
@@ -46,18 +51,21 @@ package struct AffineEngineSource {
         self.vision = vision
         self.decodeLookahead = decodeLookahead
         self.decodeLookaheadTap = decodeLookaheadTap
+        self.decodeLookaheadCorrection = nil
         self.nativeArithmetic = false
         self.standalone = nil
     }
 
     package init(standalone: AffineStandalonePack, vision: Bool = false, decodeLookahead: Bool = false,
-                 nativeArithmetic: Bool = false, decodeLookaheadTap: RouterForecastTap = .boundary) {
+                 nativeArithmetic: Bool = false, decodeLookaheadTap: RouterForecastTap = .boundary,
+                 decodeLookaheadCorrection: RouterTapCorrection.Located? = nil) {
         self.control = standalone.directory
         self.artifact = .minmax
         self.coefficients = standalone.directory.appendingPathComponent("angles-f32le.bin")
         self.piecewiseAllocation = !nativeArithmetic; self.groupedExperts = !nativeArithmetic; self.vision = vision
         self.decodeLookahead = decodeLookahead
         self.decodeLookaheadTap = decodeLookaheadTap
+        self.decodeLookaheadCorrection = decodeLookaheadCorrection
         self.nativeArithmetic = nativeArithmetic
         self.standalone = standalone
     }

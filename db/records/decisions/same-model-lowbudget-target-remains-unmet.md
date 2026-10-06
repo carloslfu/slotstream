@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T12:40:28.621733+00:00
+updated: 2026-10-06T14:54:20.343573+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -56,3 +56,4 @@ The follow-up in [[sources/runs/2026/10/2026-10-06-gsq224-source-and-quality]] a
 
 
 [[sources/runs/2026/10/2026-10-06-gsq224-attention-cost]] passes the complete Engine lifecycle and improves coding generation to 15.259394 tokens/s with unchanged output. [[sources/runs/2026/10/2026-10-06-gsq224-four-draft-cost]] then reaches 16.989207 with the same correct answer, reusing the existing depth-four state proof. Both pass their narrow prospective gates. These results justify limited interleaved representative confirmation; they do not reach twenty or change the original default, two-draft adoption, same-checkpoint constraint or independent control contracts.
+The matched-runtime screen in [[sources/runs/2026/10/2026-10-06-matched-runtime-control-results]] finds a real screening lead: candidate runtime settings consume much of the quantization/deployment benefit. [[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] validates the corrected forecast transfer only functionally; its timings are discarded. Keep the original default and full unmet target. A clean prospective paired speed result is required before treating this transfer as an optimization winner.

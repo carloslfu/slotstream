@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T12:39:31.770022Z
+updated: 2026-10-06T15:08:09.963615Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-matched-runtime-final-acceptance]] — Final matched-runtime source passes complete static gates, 104 native groups and 36 focused Python tests; no candidate speed promotion
+- [[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] — Corrected-prefetch transfer preserves exact output and bounded memory after reserve repair; all timings discarded and original default retained
+- [[sources/runs/2026/10/2026-10-06-matched-runtime-control-results]] — Clean three-arm screen finds candidate runtime overhead and a 6–17 percent matched quantization/deployment benefit; full speed target still unmet
+- [[sources/runs/2026/10/2026-10-06-matched-runtime-control-preparation]] — Frozen three-arm 14 GB diagnostic separates candidate runtime settings from expert quantization; no timing collected
 - [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] — Distinct mixed Q3_K component passes numerical checks but loses clean cost screen; preserve original and unmet target
 - [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-timing-excluded]] — Mixed Q3_K component first timing excluded for CPU contention
 - [[sources/runs/2026/10/2026-10-06-gsq224-vision-and-context]] — GSQ224 passes owned vision and full 32768-token state/recovery within the fixed physical bounds; exact one-row batch component hypothesis frozen
@@ -503,12 +507,8 @@ updated: 2026-10-06T12:39:31.770022Z
 - [[sources/runs/2026/09/2026-09-08-hermes-protocol-regression]] — OpenAI tool protocol regression for the Hermes configuration correction
 - [[sources/runs/2026/09/2026-09-08-hermes-cli-hardening]] — Hermes reported and latest CLI acceptance
 - [[sources/runs/2026/09/2026-09-08-hermes-live-hardening]] — Hermes real-model output budget, tools and compression acceptance
-- [[sources/runs/2026/09/2026-09-08-hermes-long-output-fixture-discarded]] — Discarded tool-enabled long-output fixture
-- [[sources/runs/2026/09/2026-09-08-hermes-config-reported-version]] — Hermes reported-version configuration regression gate
-- [[sources/runs/2026/09/2026-09-08-hermes-config-latest]] — Hermes latest configuration regression gate
-- [[sources/runs/2026/09/2026-09-08-optimization-resource-impasse-audit]] — Optimization resource impasse after current-source delivery qualification
 
 ## More
 
-This folder has 889 files. The 500 most recent are listed above.
+This folder has 893 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

@@ -70,6 +70,27 @@ extension Diagnostics {
             c.expect("native affine does not inherit an original speed estimate/\(target)",
                 native.json()["est_warm_tok_s"] is NSNull)
         }
+        let corrected = PackMemoryProfile.affine3NativeCorrected(correctionBytes: 37_000_001)
+        let charge = DecodeLookahead.reserveBytes(correctionBytes: 37_000_001)
+        for target in [10.0, 14, 22] {
+            let p = try plan(corrected, target: target, mtp: .on, context: 32768, placement: .streamed,
+                lookahead: .retained(enabled: true, bytes: charge))
+            c.expect("corrected candidate charges header bytes within ceiling/\(target)",
+                p.lookaheadReserveBytes == charge && p.expectedPeakGB <= target && p.resources == corrected)
+            let replanned = try plan(p.resources, target: target, mtp: .on, context: 32768, placement: .streamed,
+                lookahead: .retained(enabled: p.decodeLookahead, bytes: p.lookaheadReserveBytes))
+            c.equal("corrected resource survives replanning/\(target)", try json(p), try json(replanned))
+        }
+        for ahead: DecodeLookaheadPlanning in [.off, .automatic,
+            .retained(enabled: true, bytes: charge - 1), .retained(enabled: true, bytes: charge + 1)] {
+            do { _ = try plan(corrected, mtp: .on, placement: .streamed, lookahead: ahead)
+                c.expect("corrected candidate rejects a changed or implicit forecast reserve", false)
+            } catch { c.expect("corrected candidate rejects a changed or implicit forecast reserve", true) }
+        }
+        do { _ = try plan(.affine3Native, mtp: .on, placement: .streamed,
+            lookahead: .retained(enabled: true, bytes: charge))
+            c.expect("historical native profile cannot borrow corrected reserve", false)
+        } catch { c.expect("historical native profile cannot borrow corrected reserve", true) }
         for slots in [640, 1000, 7000, Geometry.totalRecords] {
             let bytes = profile.poolBytes(slots)
             c.equal("three-bit complete-record byte cost \(slots)", bytes, slots * 2_150_400)

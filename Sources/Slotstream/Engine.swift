@@ -100,7 +100,7 @@ public final class Engine {
         if resources == .gsq224GroupedControl || resources == .gsq224GroupedVisionControl {
             return "2bit gate/up / original 4bit down, dense and PLE"
         }
-        return resources == .original ? "4bit" : "3bit experts / original dense and PLE"
+        return resources == .original || resources == .originalCandidateControl ? "4bit" : "3bit experts / original dense and PLE"
     }
     package var modelDigest: String {
         guard let identity = model.authenticatedArtifactIdentity else {
@@ -436,13 +436,29 @@ public final class Engine {
         try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan, affineSource: affineSource)
     }
 
-    private init(modelDir: URL, poolSlots: Int, plan: MemoryPlan?, affineSource: AffineEngineSource?) async throws {
+    /// Package-only experimental control. Explicit protocol admission belongs
+    /// to Diagnostics; no public pack, startup default or environment enables it.
+    package convenience init(originalCandidateControl modelDir: URL, plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan,
+            affineSource: nil, originalCandidateControl: true)
+    }
+
+    private init(modelDir: URL, poolSlots: Int, plan: MemoryPlan?, affineSource: AffineEngineSource?,
+                 originalCandidateControl: Bool = false) async throws {
         // A plan made for a simulated machine may be printed and compared,
         // never loaded. Simulating memory the machine does not have still
         // allocates for real: on 2026-08-30 a simulated 60 GB drove a 25.4 GB
         // allocation and 39 GB of swap. The flag travels on the plan so this
         // cannot be forgotten at a call site.
         if plan?.simulated == true { throw SlotstreamError.simulatedDeviceCannotLoad }
+        if originalCandidateControl {
+            guard affineSource == nil, let plan, plan.resources == .originalCandidateControl,
+                  plan.mtpEnabled, plan.mtpStreamedExperts, !plan.visionEnabled,
+                  plan.decodeLookahead, plan.lookaheadReserveBytes == DecodeLookahead.reserveBytes,
+                  !ProcessInfo.processInfo.environment.keys.contains(where: {
+                      $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
+                  }) else { throw SlotstreamError.invalidPlan("original candidate control requires its complete explicit research plan") }
+        }
         guard affineSource?.nativeArithmetic != true || (affineSource?.standalone != nil
             && affineSource?.vision == false) else {
             throw SlotstreamError.invalidPlan("native affine arithmetic requires the owned text-only standalone pack")
@@ -464,11 +480,20 @@ public final class Engine {
         if affineSource?.decodeLookahead == true {
             guard affineSource?.groupedExperts == true || affineSource?.nativeArithmetic == true,
                   affineSource?.vision == false,
-                  plan?.decodeLookahead == true, plan?.lookaheadReserveBytes == DecodeLookahead.reserveBytes,
+                  plan?.decodeLookahead == true, plan?.lookaheadReserveBytes == DecodeLookahead.reserveBytes(
+                    correctionBytes: affineSource?.decodeLookaheadCorrection?.header.fileBytes ?? 0),
                   !ProcessInfo.processInfo.environment.keys.contains(where: {
                       $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG")
                   }) else {
                 throw SlotstreamError.invalidPlan("experimental affine lookahead requires grouped text, its complete reserve and no ambient overrides")
+            }
+        }
+        if let correction = affineSource?.decodeLookaheadCorrection {
+            guard affineSource?.nativeArithmetic == true, affineSource?.decodeLookahead == true,
+                  affineSource?.decodeLookaheadTap == .attention,
+                  correction.sha256 == RouterTapCorrection.shippedSHA256,
+                  correction.header.tap == .attention else {
+                throw SlotstreamError.invalidPlan("candidate correction requires the pinned native attention pilot")
             }
         }
         if let standalone = affineSource?.standalone {
@@ -476,7 +501,7 @@ public final class Engine {
                 throw ModelError("standalone component metadata and tensor owners require the same directory")
             }
         }
-        let resources: PackMemoryProfile = affineSource?.resources ?? .original
+        let resources: PackMemoryProfile = originalCandidateControl ? .originalCandidateControl : (affineSource?.resources ?? .original)
         guard plan?.resources == resources || (plan == nil && affineSource == nil) else {
             throw SlotstreamError.invalidPlan("the loader and memory plan must describe the same pack")
         }
@@ -567,15 +592,18 @@ public final class Engine {
             && !ExpertPrefetchConfiguration.explicitlyConfigured(processEnvironment)
         // The qualified default carries the checkpoint's shipped tap correction
         // when one is located next to the weights (measured file only).
-        let shippedCorrection = qualifiedLookahead && affineSource == nil
+        let shippedCorrection = qualifiedLookahead && affineSource == nil && !originalCandidateControl
             ? RouterTapCorrection.shipped(modelDirectory: modelDir, env: processEnvironment)
             : (located: nil, reason: affineSource?.decodeLookahead == true
                 ? "explicit affine \(affineSource!.decodeLookaheadTap.rawValue) research configuration; no inherited speed qualification" : "")
         var prefetchConfiguration = qualifiedLookahead
             ? ExpertPrefetchConfiguration.qualifiedDecode(correction: shippedCorrection.located)
             : try ExpertPrefetchConfiguration.environment(optimizations: InferenceOptimizations.environment())
-        if affineSource?.decodeLookaheadTap == .attention {
+        if affineSource?.decodeLookaheadTap == .attention || originalCandidateControl {
             prefetchConfiguration = .experimentalAffineAttention
+        }
+        if let correction = affineSource?.decodeLookaheadCorrection {
+            prefetchConfiguration = .qualifiedDecode(correction: correction)
         }
         guard affineSource == nil || !prefetchConfiguration.active || affineSource?.decodeLookahead == true else {
             throw SlotstreamError.invalidPlan("expert lookahead is not admitted for the affine control")
@@ -618,6 +646,12 @@ public final class Engine {
                     maximumProcessBytes: candidateProcessBudget!, parentLayout: affineSource.parentLayout)
             }
             else { try model.enableMTP(modelDir: modelDir, streamedExperts: plan.mtpStreamedExperts) }
+        }
+        if originalCandidateControl {
+            model.mtpHead?.rowInvariantFusion = true
+            model.optimizations.rowInvariantProjection = true
+            model.optimizations.verifySplitAttention = true
+            model.optimizations.verifySplitMinContext = 0
         }
         self.generator = Generator(model: model)
         if prefetchConfiguration.active {

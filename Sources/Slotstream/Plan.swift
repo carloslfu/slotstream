@@ -1190,6 +1190,11 @@ public enum Planner {
            fixedLookaheadBytes != DecodeLookahead.reserveBytes {
             throw PlanError("native affine lookahead requires its exact explicit full reserve")
         }
+        if let required = resources.explicitLookaheadReserveBytes {
+            guard retainedLookahead == true, fixedLookaheadBytes == required else {
+                throw PlanError("corrected native affine lookahead requires its authenticated explicit reserve")
+            }
+        }
         guard fixedLookaheadBytes >= 0, fixedLookaheadBytes <= (4096 << 20) else {
             throw PlanError("expert lookahead reserve must be between 0 and 4096 MiB")
         }

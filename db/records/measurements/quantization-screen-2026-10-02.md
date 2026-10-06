@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T12:40:28.600608+00:00
+updated: 2026-10-06T14:54:20.299583+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,22 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Matched runtime control, October 6
+
+[[sources/runs/2026/10/2026-10-06-matched-runtime-control-preparation]] freezes the diagnostic; [[sources/runs/2026/10/2026-10-06-matched-runtime-control-results]] preserves the completed clean pass and earlier preflight-refused attempt. One pass on the owned 48 GB Mac at a 14 GB ceiling gives:
+
+| Configuration | Short committed tok/s | Context committed tok/s | Coding committed tok/s |
+| --- | ---: | ---: | ---: |
+| Original default settings | 12.0401 | 14.8364 | 14.2470 |
+| Original with candidate verification, prefetch and allocation policy | 11.1519 | 13.3109 | 13.3980 |
+| Native three-bit with that same policy | 12.6323 | 15.5806 | 14.2376 |
+
+These are single screening observations, not new medians or hardware-tier promises. The matched original is 6.0–10.3% slower; three-bit beats that control by 6.3–17.1%. Against ordinary original settings, three-bit gains about 5% on both fixed workloads and ties the coding answer. All three produce the identical correct coding text. Peak physical footprints are 11.274, 10.879 and 11.139 GB. Plans keep 32K context and 1024-row maximum prefill, shortened to 512 for short prompts. Original/matched/candidate cache counts are 1635/1509/1941.
+
+The frozen runtime-overhead lead passes. Verification takes 19.837/16.114/5.344 seconds in the original versus 21.501/18.003/5.706 in the matched control. That phase includes compute, expert loading and synchronization; its increase is not proof that row-invariant projection alone causes the loss. The matched uncorrected forecast also wastes more speculative-read bytes than the original correction. Both matched arms preserve their own loaders and quantized routing/output, so the isolated comparison is the runtime recipe versus complete quantization/deployment benefit, not bit width alone.
+
+One tightly scoped next test will transfer the pinned forecast correction to the native candidate, charge its memory and require exact output plus a material complete-response gain. All product defaults and prior failed quality decisions remain unchanged. No observed configuration here reaches twenty tokens/s.
+
 ### Distinct mixed Q3_K component cost rejection, October 6
 
 [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] captures the prospective format audit, bounded source ranges, scripts, exact receipts and clean repeat. The independent GSQ/RCO release is pinned to revision df4f5bbd0a93e5f6a37a377d5d0cf67d89ff0f6e, whose API last-modified date is September 23. Its header contains 72 Q3_K, ten Q2_K and 62 Q2_0 expert tensors, with 43,332,403,200 packed expert bytes. That is 9.375% below the GSQ224 native expert payload, not a measured native-memory saving. Hierarchical scale layouts require different execution. Only a 12-MiB header prefix and 18,688,000 bytes of layer-zero expert samples are acquired; the complete shard hash and full useful quality remain unverified.
@@ -1168,3 +1184,8 @@ The mechanism restores cache reuse, but the complete recipe loses the fixed usef
 
 
 [[sources/runs/2026/10/2026-10-05-final-quantization-source-ci]] closes all remote source workflows for `20cdda3`, including engine static/runtime safety, native catalogue, goldens, public-library, coverage, Mac scripted/snapshot/Xcode and context checks. Experiment-documentation commit `9be7f49` separately passes its documentation gate. No new model timing or quality result follows from CI acceptance.
+### Corrected forecast transfer, October 6
+
+[[sources/runs/2026/10/2026-10-06-candidate-correction-functional-only]] preserves the next narrow test. The speed pair is discarded: the first arm has system-wide paging and the second is refused before launch after the quiet-admission deadline. It supplies no speed verdict. A separate functional-only run passes exact token/text equality on all three workloads and the same completed coding answer. Physical peak is 11,211,529,128 bytes inside fourteen GB. The correction has its own resource identity, with an authenticated-header memory charge carried through replanning; the old native profile still refuses that changed charge. All native T0/T1 checks and the existing Python performance tests pass after a complete project-module rebuild resolved a stale incremental consumer crash.
+
+Keep the explicit research path available without changing original defaults, supported packs, Auto or user overrides. The only remaining question in this follow-up is a clean paired speed measurement. Neither the functional result nor the discarded timings establishes twenty tokens/s or a useful prefetch gain.
