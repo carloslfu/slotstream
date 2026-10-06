@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T11:21:09.922734Z
+updated: 2026-10-06T12:39:31.770022Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] — Distinct mixed Q3_K component passes numerical checks but loses clean cost screen; preserve original and unmet target
+- [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-timing-excluded]] — Mixed Q3_K component first timing excluded for CPU contention
 - [[sources/runs/2026/10/2026-10-06-gsq224-vision-and-context]] — GSQ224 passes owned vision and full 32768-token state/recovery within the fixed physical bounds; exact one-row batch component hypothesis frozen
 - [[sources/runs/2026/10/2026-10-06-gsq224-image-and-qmv-rejections]] — GSQ224 fails image response-format quality, 4/8 versus original 8/8; exact batched one-row projections fail the frozen cost gate
 - [[sources/runs/2026/10/2026-10-06-gsq224-confirmation-host-stops]] — Five valid GSQ224/original confirmation cells retained; remaining candidate refused before allocation by quiet-start deadline
@@ -505,10 +507,8 @@ updated: 2026-10-06T11:21:09.922734Z
 - [[sources/runs/2026/09/2026-09-08-hermes-config-reported-version]] — Hermes reported-version configuration regression gate
 - [[sources/runs/2026/09/2026-09-08-hermes-config-latest]] — Hermes latest configuration regression gate
 - [[sources/runs/2026/09/2026-09-08-optimization-resource-impasse-audit]] — Optimization resource impasse after current-source delivery qualification
-- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-exact-source-static-pass]] — Complete static suite passes on V436 binary and all150 exact sources, with tested16-file restoration
-- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-external-consumer-pass]] — Exact V436 external package passes all original API/planner/diagnostic checks and new automatic-control round trips
 
 ## More
 
-This folder has 887 files. The 500 most recent are listed above.
+This folder has 889 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

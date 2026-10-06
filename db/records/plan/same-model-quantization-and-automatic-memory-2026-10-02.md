@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-06T11:07:26.374887+00:00
+updated: 2026-10-06T12:40:28.578640+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -25,6 +25,8 @@ No tested alternative passes both the practical speed and full-product quality r
 [[sources/runs/2026/10/2026-10-06-gsq224-image-and-qmv-rejections]] records the decisive result. Both packs complete all eight existing image cases and twenty-four turns. Original passes all eight cases and all turns; GSQ224 passes four cases and twenty turns. The four semantic answers are correct, but the candidate emits bare values instead of the required JSON object. These are instruction/format regressions, not mistaken visual recognition. Keep the original grader and no-new-turn-failure criterion; do not add output repair, change prompts or retune against these fixtures to declare the failed screen passed.
 
 The same record closes the separate exact one-row batch kernel experiment. All eighteen component cells are bit-exact, but the large vocabulary projection is 22–30% slower and the frozen cost criterion fails. No native implementation follows. The existing ordinary batching invariance failure also remains binding. There is currently no positive, untested mechanism in this scoped queue that justifies another full experiment or a new default. Reopen only for a materially different, specific mechanism with source/counter evidence and a cheap prospective test, not because the target remains unmet.
+
+The later distinct mixed-format screen in [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] tests one concrete alternative allocation before any full-pack work. Its dominant Q3_K gate/up plus Q2_0 down prototype passes numerical and row-invariance checks, but the clean component costs 1.47 times original at one row and 2.36 times at three rows. The preliminary timing is separately discarded for CPU contention. The clean unchanged repeat closes this prototype under its prospective criterion; do not implement the remaining format, download the full shard or start a quality campaign for it. This result does not reject every possible Q3_K implementation. The current source audit found only an idle-residency fix, an M1-specific dispatch adjustment and unchanged previously tested fused QMM source; none provides evidence of a new sustained-decode gain for this M5 recipe. The full target stays open, with no current positive untested lead in this scoped queue.
 
 #### Reused evidence and performance limits
 
@@ -54,6 +56,7 @@ Detailed methods, raw sources, source identities and failed attempts remain in [
 | Lower-bit VQ2.1 with original dense | Fourteen of sixteen versus fifteen, including a missing negative-value filter; reject this mixture |
 | VQ3.2 with original dense | Matches fifteen of sixteen, but current drafting and larger-bank cost pilots fail; close those recipes |
 | Calibrated GSQ2 gate/up, original four-bit down/dense/PLE | Same fifteen of sixteen text tasks and useful text-speed pilots, but the completed image-format gate fails; reject full-product admission |
+| Independent GSQ/RCO hierarchical Q3_K gate/up, Q2_0 down | Bounded dominant-layout numerical screen passes, but clean component costs 1.47 and 2.36 times original at one/three rows; close this prototype before full-loader or quality work |
 | All-two-bit FP16 GSQ component | Three-row cost regresses; no full implementation |
 | Lossless repack, fixed-row projections, fused QMM, expanded VQ cache | Completed practical screens show no useful win; preserve original behavior |
 | Ordinary variable-row batching | Native output invariant fails; rejected without relaxed equality |

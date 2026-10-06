@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T11:07:26.417180+00:00
+updated: 2026-10-06T12:40:28.621733+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -11,6 +11,8 @@ title: Preserve the original while the low-budget performance target remains unm
 status: standing
 ---
 ## Current disposition, October 6
+
+The later source-backed independent GSQ/RCO mixture in [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] does not reopen production qualification. Its bounded dominant-layout prototype passes numerical and row-invariance checks but loses the clean component cost criterion at both row counts. Preserve the excluded first timing run and unchanged clean repeat. Close this specific Q3_K implementation before full format, model or quality work; a different kernel would need independent evidence and a new prospective cheap test. This is not a quality verdict on the publisher's full model or a proof that all Q3_K execution is too slow. The original remains supported and the full speed target remains unmet.
 
 [[sources/runs/2026/10/2026-10-06-gsq224-image-and-qmv-rejections]] closes the latest GSQ224 full-product lead. Original passes every fixed image turn, while GSQ224 introduces four required-JSON format failures despite correct semantic values. The exact mixture fails the prospective no-new-turn-regression criterion. Do not promote it through Auto, continue its prepared fourteen-GB pilot, repeat its completed speed cells, or tune against the exposed image fixtures. Preserve its useful text results and native functional evidence. The final representative speed verdict remains absent; quality failure, not the host preflight, now decides product rejection.
 

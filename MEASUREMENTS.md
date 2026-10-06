@@ -6921,6 +6921,23 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### Distinct mixed Q3_K component cost rejection, October 6
+
+[[sources/runs/2026/10/2026-10-06-mixed-q3k-component-cost-rejection]] captures the prospective format audit, bounded source ranges, scripts, exact receipts and clean repeat. The independent GSQ/RCO release is pinned to revision df4f5bbd0a93e5f6a37a377d5d0cf67d89ff0f6e, whose API last-modified date is September 23. Its header contains 72 Q3_K, ten Q2_K and 62 Q2_0 expert tensors, with 43,332,403,200 packed expert bytes. That is 9.375% below the GSQ224 native expert payload, not a measured native-memory saving. Hierarchical scale layouts require different execution. Only a 12-MiB header prefix and 18,688,000 bytes of layer-zero expert samples are acquired; the complete shard hash and full useful quality remain unverified.
+
+The cheap component tests actual layer-zero experts zero through nine, using the dominant Q3_K gate/up and Q2_0 down recipe. Direct Q3_K Metal reductions compare against the independent pinned gguf decoder and float32 matmul. All four numerical cases meet the 0.02 maximum-relative bound; the largest observed error is 0.000874126. Batched versus individual custom reductions are exact. The Q2_0 down path reuses the existing affine representation with explicit BF16 rounding. These results do not transfer the publisher's quality from another runtime/embedding precision.
+
+Five alternating rounds of forty dependent synchronous iterations use separate rotating banks of at least 256 MiB per recipe. Frozen success requires both row counts to cost at most 0.90 times original and 1.05 times GSQ224. The first run's timing is excluded for CPU contention in [[sources/runs/2026/10/2026-10-06-mixed-q3k-component-timing-excluded]]. One separately frozen unchanged repeat passes timing eligibility and fails cost at both row counts:
+
+| Token rows per expert | Original median ms | GSQ224 median ms | Mixed Q3_K median ms | Mixed/original | Mixed/GSQ224 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0.342198 | 0.285511 | 0.502665 | 1.468929 | 1.760576 |
+| 3 | 0.418998 | 0.417626 | 0.990269 | 2.363422 | 2.371185 |
+
+The clean repeat takes 133.682419 seconds including the retained 120-second quiet preflight. Physical lifetime peak is 1,715,259,096 bytes under the four-GB limit; nominal thermal state, real headroom and unchanged swap counters are retained. There is no full-model throughput claim. Close this prototype without Q2_K implementation, full loader/download, quality campaign or promotion. The negative component result is not universal format infeasibility.
+
+The same record preserves all four successful CI workflows for unchanged runtime source 0d85d9d50567e936d69e10b2abf8290ade92be1f. A current upstream check finds an idle GPU-residency fix and an M1-specific dispatch change, neither demonstrated to improve this sustained M5 workload; the prior fused-QMM source is unchanged. No product code, pack registry or Auto policy changes in this continuation. Native Python MLX hashes were captured after the runs and retain that limitation.
+
 ### GSQ224 image instruction loss and one-row batch rejection, October 6
 
 [[sources/runs/2026/10/2026-10-06-gsq224-image-and-qmv-rejections]] completes both frozen screens. The image comparison reuses eight existing cases and twenty-four turns per arm, with no new prompts or relaxed graders. Original passes 8/8 cases and 24/24 turns; GSQ224 passes 4/8 and 20/24. The four new failures are bare values where an answer-key JSON object was required. All values are semantically correct: three bar counts of 3 and the color green. This is a structured instruction-following regression, not visual misrecognition. Both complete under 14.5 GB physical: original peaks at 12,246,179,544 bytes and candidate at 9,104,103,904 bytes. No clean timing claim follows.

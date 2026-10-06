@@ -456,3 +456,6 @@ Reject GSQ224 full-product admission for four image JSON-format regressions; clo
 ## [2026-10-06 11:21] update | sources/runs/2026/10/2026-10-06-gsq224-vision-and-context.md
 Capture final complete static acceptance and unchanged source/binary identity; preserve GSQ product rejection and cancellation of dependent speed tests.
 
+## [2026-10-06 12:40] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture independent mixed Q3_K format audit and numerical pass; preserve excluded first timing and clean component cost rejection; close this prototype, keep original and full unmet target.
+
