@@ -169,6 +169,7 @@ public enum ModelPackRegistry {
                     context.acceptedInstalledManifests[$0.id] == $0.manifestDigest }
             }
             let chosen = retained ?? baseline
+            let originalAction = retained == nil ? "Recommends Original 4-bit" : "Keeps your installed Original 4-bit"
             // The practical comparisons support keeping the original, but
             // their descriptive medians are not a decode lower bound for an
             // exact loaded profile. Preserve unknown evidence and no target
@@ -176,7 +177,7 @@ public enum ModelPackRegistry {
             // that the historical receipts did not record.
             return ModelPackDecision(pack: chosen,
                 reason: chosen.id == baseline.id
-                    ? "Recommends Original 4-bit: tested alternatives have not improved both speed and quality. Speed is not verified for your current configuration."
+                    ? "\(originalAction): tested alternatives have not improved both speed and quality. Speed is not verified for your current configuration."
                     : "Keeps your installed pack; no qualified profile matches this configuration.",
                 automatic: true)
         case .pack(let id):
