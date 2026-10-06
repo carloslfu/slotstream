@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T04:44:38.095308Z
+updated: 2026-10-06T05:12:23.143571Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] — Larger two-draft VQ cache restores hits but misses its useful speed gate at nearly the full ten-GB physical limit; reverted
+- [[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] — Current VQ3.2 two-draft coding screen completes cleanly but misses original throughput and request-latency gate
 - [[sources/runs/2026/10/2026-10-06-fixed-row-native-and-performance-screen]] — Fixed-row native correctness passes but clean complete-response pilot misses useful speed gate; recipe reverted
 - [[sources/runs/2026/10/2026-10-06-fixed-row-projection-screen]] — Incomplete fixed-row projection screen with CPU-contaminated timing; one unchanged-criteria retry follows
 - [[sources/runs/2026/10/2026-10-06-fixed-row-projection-clean-screen]] — Clean fixed-row projection retry passes unchanged arithmetic and cost lead gates
@@ -505,10 +507,8 @@ updated: 2026-10-06T04:44:38.095308Z
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-headroom-resumption-preparation]] — Fresh full24-cell V413vision identity preserves both stopped cohorts;9model-free checks pass
 - [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-integration-pass-and-serving-freeze]] — V402 all1135ordinary/MTP/recovery assertions pass; corrected full32-cell scope cohort frozen
 - [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-native-family-pass]] — V402 all four scope cases pass2949assertions; ordinary integration passes286
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-settling-headroom-stop]] — V395 stops during prelaunch settling below original18GBadmission; no model or measured request
-- [[sources/runs/2026/09/2026-09-08-optimization-explicit-scope-allocation-build-and-pure-pass]] — V402 explicit scope allocation guard builds with exact restoration;22,363pure and116CLI assertions pass
 
 ## More
 
-This folder has 872 files. The 500 most recent are listed above.
+This folder has 874 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

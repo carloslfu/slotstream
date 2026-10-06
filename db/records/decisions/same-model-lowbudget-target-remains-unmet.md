@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T04:44:38.167024+00:00
+updated: 2026-10-06T05:13:48.894248+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -29,3 +29,5 @@ Only the owned forty-eight-GB Mac is required for validation. Reduced process bu
 The October 6 mechanism round is also closed. The upstream fused QMM screen in [[sources/runs/2026/10/2026-10-05-fused-qmm-component-screen]] gives no useful gain over ordinary batched MLX at the deployed three rows. Ordinary batching removes reference overhead but fails the unchanged native plain/speculative output invariant in [[sources/runs/2026/10/2026-10-06-native-batched-invariance-failure]]. The narrower fixed-row alternative passes its clean component criterion and every native lifecycle assertion, but its complete fourteen-GB pilot in [[sources/runs/2026/10/2026-10-06-fixed-row-native-and-performance-screen]] is only about one percent faster on short/context and slower on coding than the original medians. It misses the frozen gain criterion and is reverted. Preserve all failures, the timing-excluded preliminary component run and the clean retry. Do not loosen quality, equality or timing gates, repeat these unchanged recipes or promote an empty recommendation set.
 
 The implementation and feasibility gap remains explicit: original-pack automatic selection, independent saved ceilings, runtime adjustment and transactional lifecycle are implemented and tested, but a useful alternative recommendation and winner-specific installation/release cannot be finished by admitting a losing pack. Current tested options do not support the full speed promise. Keep the same-checkpoint goal open, with the options above, and start further implementation only after a materially new evidence-backed mechanism earns a bounded experiment.
+
+The subsequent current VQ3.2 two-draft cost screen in [[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] and its distinct larger-cache follow-up in [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] also fail their frozen useful-gain gates. Restoring substantial cache reuse gives only a small generation change while consuming almost the entire ten-GB physical allowance. Both preserve the exact coding answer and pass their timing/physical observations. The expanded-cache patch is reverted. Different original/VQ process histories limit request-latency comparisons; these results reject the tested recipes without proving universal infeasibility. No currently measured winner justifies alternative production admission. Keep the same-checkpoint target, the independent automatic systems and the explicit options above.

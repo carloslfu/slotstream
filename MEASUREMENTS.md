@@ -6921,6 +6921,23 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### Current two-draft VQ and larger-cache rejection, October 6
+
+[[sources/runs/2026/10/2026-10-06-vq32-current-two-draft-cost]] preserves the current two-draft VQ3.2/original-dense cost screen. [[sources/runs/2026/10/2026-10-06-vq32-two-draft-cache-screen]] preserves its prospectively frozen cache follow-up, complete source patch/build identity, catalogue, physical supervision and restoration. Both use the exact existing 125-token coding prompt, 81 output tokens, 32,768-token configured context, original draft head and ten-GB physical ceiling. Both accept 52 of 58 drafts and produce the same complete answer as the preserved original coding case. No new payload or format is created.
+
+| Current VQ configuration | Conservative committed tokens/s | Full request, s | First emission, s | Physical peak, bytes | Cache hits | Cache loads |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 608 records | 8.535129 | 21.125272 | 11.752244 | 7,484,364,464 | 0 | 42,128 |
+| 1,824 records | 8.734737 | 20.975328 | 11.816495 | 9,861,766,488 | 11,636 | 30,492 |
+
+The conservative rate counts output tokens minus the first, divided by complete request time after the first emission; it includes the short return/teardown tail after the last emission. Both runs start fresh and pass nominal thermal/power, no sustained competing CPU, zero global paging, exact output and physical-bound checks. They are one observation each with uncontrolled OS file caching, not repeated paired qualification or another Mac's performance.
+
+The reused original ten-GB coding reference is 9.035368 tokens/s and 11.361321 seconds for its full request, but it follows earlier requests in its process and uses its native complete decode timer. Preserve that instrument/history difference; the VQ request-time ratio does not establish a causal prefill slowdown. The first screen fails its original-referenced five-percent generation and ten-percent request gates.
+
+The larger bank is a distinct cache-working-set hypothesis from the older non-speculative trial. It reserves 3,583,180,800 bytes instead of 1,194,393,600, restores reuse, exercises slots 1,535 and 287 in the two classes, and returns with zero pins. All 104 native catalogue groups pass. Its generation ratio against the fresh-process small bank is only 1.023387 and request ratio 0.992902; its generation ratio against original is 0.966727. It misses the prospective twenty-percent mechanism gain and original-referenced usefulness gates. Reject this exact expansion and restore the prior accepted source/executable. No promotion, repeated confirmation or broader quality work follows.
+
+The code's short-prompt path yields no parallel-prefill batches on this prompt; the existing segmented path starts above 409 rows. Cache statistics and this dispatch fact are observations, not a causal wall-time breakdown. They do not support another implementation without a materially new measured mechanism. The earlier sixteen-task VQ3.2/original-dense quality result stays intact, but neither current cache configuration earns the complete speed or product recommendation gates.
+
 ### Fixed-row native complete-response screen, October 6
 
 [[sources/runs/2026/10/2026-10-06-fixed-row-native-and-performance-screen]] closes the component lead. All 104 catalogue groups and all 86 existing native Engine lifecycle assertions pass, including exact plain/speculative outputs, cancellation, memory/prefix recovery and bounded resizing. Nine added assertions check the fixed-row implementation's one-through-eight-row equality, padding cropping, wide-prefill fallback and disabled-mode fallback. The lifecycle process peaks at 7,971,526,944 bytes inside its ten-GB watchdog. The separately versioned recipe retains the old exact attention, plain matmul and draft fusion.

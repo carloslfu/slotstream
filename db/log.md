@@ -426,3 +426,6 @@ Capture and link all successful final source CI jobs for 20cdda3 and documentati
 ## [2026-10-06 04:45] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Captured fused, rowwise and fixed-row screens; unchanged native equality rejects ordinary batching; fixed-row lifecycle passes but clean fourteen-GB complete-response pilot misses the gain gate. Experimental sources and executable reverted; original and full target retained.
 
+## [2026-10-06 05:14] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture current two-draft VQ3.2 cost and the distinct larger-cache experiment with 33 exact raw artifacts. Both complete with exact coding output and clean physical/timing conditions but miss their frozen advancement gates. Larger banks restore cache hits with only 2.34 percent generation gain near the ten-GB ceiling. Revert the isolated diagnostic source and restore the accepted executable. Update active plan, measurements and feasibility decision; retain the full target, original default and independent automatic controls. All 104 native catalogue groups pass; brain validation has zero errors/warnings, projections and all 349 claim checks pass.
+
