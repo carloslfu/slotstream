@@ -29,7 +29,7 @@ package struct AffineEngineSource {
     package let standalone: AffineStandalonePack?
     package var parentLayout: PinnedParentLayout { standalone == nil ? .original : .standalone }
     package var resources: PackMemoryProfile {
-        if artifact == .gsq224 { return .gsq224GroupedControl }
+        if artifact == .gsq224 { return vision ? .gsq224GroupedVisionControl : .gsq224GroupedControl }
         if nativeArithmetic { return .affine3Native }
         return decodeLookahead ? .affine3GroupedLookaheadControl : (vision ? .affine3GroupedVisionControl : (groupedExperts ? .affine3GroupedControl
             : (piecewiseAllocation ? .affine3PiecewiseControl : .affine3Control)))

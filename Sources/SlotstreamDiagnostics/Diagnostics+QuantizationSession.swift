@@ -112,7 +112,7 @@ extension Diagnostics {
         if standalone != nil { artifact = .minmax }
         else { artifact = try control.map { try AffineExpertControl.identify(control: $0) } }
         let resources: PackMemoryProfile = nativeArithmetic ? .affine3Native : (artifact == nil ? .original
-            : (artifact == .gsq224 ? .gsq224GroupedControl
+            : (artifact == .gsq224 ? (specification.vision ? .gsq224GroupedVisionControl : .gsq224GroupedControl)
                 : (specification.vision ? .affine3GroupedVisionControl : .affine3GroupedControl)))
         let plan = try Planner.plan(resources: resources, expertsPerLayer: nil, poolGB: nil,
             memoryGB: Double(specification.memoryBytes) / 1e9,

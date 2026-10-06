@@ -9,6 +9,8 @@ extension Diagnostics {
     /// image answer quality is a separate gate. One model is ever allocated.
     public static func affineVision(baseline: URL, control: URL, table: URL, output: URL) async throws -> Data {
         let artifact = try AffineExpertControl.identify(control: control)
+        let source = AffineEngineSource(control: control, artifact: artifact, coefficients: table,
+            piecewiseAllocation: true, groupedExperts: true, vision: true)
         guard !FileManager.default.fileExists(atPath: output.path),
               !ProcessInfo.processInfo.environment.keys.contains(where: {
                   $0.hasPrefix("SLOTSTREAM_") || $0.hasPrefix("SS_DEBUG") || $0.hasPrefix("VQ_") || $0.hasPrefix("VQLAB_")
@@ -35,7 +37,7 @@ extension Diagnostics {
                 "scope": "Owned original vision component and candidate functional integration, not image quality or speed",
                 "control_manifest_sha256": artifact.manifestSHA256,
                 "rotary_sha256": VQRotaryCoefficients.sha256,
-                "resource_identity": PackMemoryProfile.affine3GroupedVisionControl.identity,
+                "resource_identity": source.resources.identity,
                 "vision_configuration_sha256": PinnedModel.files.first { $0.path == "config.json" }!.sha256!,
                 "processor_sha256": PinnedModel.files.first { $0.path == "preprocessor_config.json" }!.sha256!,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(), "maximum_process_bytes": 10_000_000_000,
@@ -58,8 +60,6 @@ extension Diagnostics {
             do { _ = try PinnedVisionMetadata(directory: temporary); c.expect("corrupt processor refused before allocation", false) }
             catch { c.expect("corrupt processor refused before allocation", true) }
             try FileManager.default.removeItem(at: temporary)
-            let source = AffineEngineSource(control: control, artifact: artifact, coefficients: table,
-                piecewiseAllocation: true, groupedExperts: true, vision: true)
             let plan = MemoryPlan(source: .memoryGB, slots: 640, targetGB: 14,
                 ramGB: Planner.deviceRAMGB(), workingSetGB: Planner.deviceWorkingSetGB(),
                 ramPercent: Planner.defaultRAMPercent, availableGB: Planner.deviceAvailableGB(), clamped: false,

@@ -444,3 +444,15 @@ Capture final static, memory-override and installer acceptance; reauthenticate t
 ## [2026-10-06 09:51] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Capture original corrected control, GSQ attention lifecycle and four-draft gains; freeze bounded paired confirmation while retaining the full unmet target
 
+## [2026-10-06 10:41] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Preserve five completed comparison cells and two preflight refusals; retain missing-cell confirmation, bounded fourteen-GB question and independent required-feature work.
+
+## [2026-10-06 10:57] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture GSQ224 owned vision and full-context acceptance; retain missing speed confirmation and freeze an exact one-row batch component hypothesis.
+
+## [2026-10-06 11:07] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Reject GSQ224 full-product admission for four image JSON-format regressions; close exact one-row batch cost route; cancel dependent performance work, preserve original, and state the full unmet target and options.
+
+## [2026-10-06 11:21] update | sources/runs/2026/10/2026-10-06-gsq224-vision-and-context.md
+Capture final complete static acceptance and unchanged source/binary identity; preserve GSQ product rejection and cancellation of dependent speed tests.
+

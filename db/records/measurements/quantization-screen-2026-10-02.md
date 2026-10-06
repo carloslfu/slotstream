@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T09:51:25.230969+00:00
+updated: 2026-10-06T11:07:26.395626+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,22 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### GSQ224 image instruction loss and one-row batch rejection, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-image-and-qmv-rejections]] completes both frozen screens. The image comparison reuses eight existing cases and twenty-four turns per arm, with no new prompts or relaxed graders. Original passes 8/8 cases and 24/24 turns; GSQ224 passes 4/8 and 20/24. The four new failures are bare values where an answer-key JSON object was required. All values are semantically correct: three bar counts of 3 and the color green. This is a structured instruction-following regression, not visual misrecognition. Both complete under 14.5 GB physical: original peaks at 12,246,179,544 bytes and candidate at 9,104,103,904 bytes. No clean timing claim follows.
+
+Two preserved preparation failures launch no model: a missing helper API and historical double-counting of verified hardlinks. The successful preparation uses the existing current physical allocation method and unchanged 430-GB staging cap. Reject the exact GSQ224 full-product recommendation under its frozen quality rule. Retain its text-speed and functional results within scope; cancel the unlaunched higher-budget pilot and remaining confirmation cell. Five completed speed cells are preserved without a final median.
+
+The independent one-row batch component preserves finite exact values in all eighteen shape/row cells and passes timing eligibility. However, lm_head costs 1.225 times the row-wise implementation at three rows and 1.301 times at five. Smaller-shape gains do not satisfy the frozen primary-shape/no-regression gate. The 21.302-second run earns no native implementation or speed claim. Ordinary batching's prior invariant failure remains separate and unchanged. These are specific closed routes, not universal impossibility evidence.
+
+### GSQ224 owned vision and full-context functionality, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-vision-and-context]] records the exact source and complete raw outputs. The existing catalogue passes all 104 groups. Explicit GSQ224 vision passes all 49 ownership, corruption, cancellation, bounded allocation, component equality, drafted/plain output, prefix and HTTP assertions. Its physical peak is 6,785,160,232 bytes. The same original vision tower and preprocessing bytes are retained.
+
+The existing full-context diagnostic consumes 32,768 tokens and passes all 1,445 assertions, with a 7,671,123,808-byte physical peak. Every recorded prefix, state restoration, continuation and over-cap refusal passes. This direct-model fixture uses 640 slots and a 128-MB allocator cache, with a ten-GB watchdog and real headroom. It is not a complete Engine speed measurement, an image-answer accuracy score or evidence that the fixed full-context allowance can simply be cut. GSQ image/lookahead combination and public Auto remain unadmitted.
+
+[[sources/runs/2026/10/2026-10-06-gsq224-confirmation-host-stops]] preserves five clean representative comparison cells and two pre-allocation quiet-start refusals. The remaining candidate cell has no result and the six-cell comparison is incomplete. No partial median is promoted. All four CI workflows for the measured predecessor a53ca0c39ee9288d67de273f5303dfbbb5916903 pass; final source acceptance remains separate.
+
 ### GSQ224 explicit four-draft pilot, October 6
 
 [[sources/runs/2026/10/2026-10-06-gsq224-four-draft-cost]] changes only explicit depth to four, reusing the exact grouped depth-four state/recovery proof, full attention lifecycle, binary, weights, reserve and honest ten-GB planner. The same 81-token coding answer remains exact and passes all unchanged functional tests.

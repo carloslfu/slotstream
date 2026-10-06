@@ -202,7 +202,7 @@ struct AffineGenerationCheck: ParsableCommand {
 
 struct AffineContextCheck: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "affine-context-check",
-        abstract: "Check a staged affine-three-bit context and exact target/draft recovery")
+        abstract: "Check a staged authenticated affine context and exact target/draft recovery")
     @Option(name: .long) var baseline: String
     @Option(name: .long) var control: String
     @Option(name: .long) var table: String

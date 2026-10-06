@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T09:51:25.252232+00:00
+updated: 2026-10-06T11:07:26.417180+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -10,6 +10,12 @@ reversible_if: A new frozen mechanism screen and complete comparisons show usefu
 title: Preserve the original while the low-budget performance target remains unmet
 status: standing
 ---
+## Current disposition, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-image-and-qmv-rejections]] closes the latest GSQ224 full-product lead. Original passes every fixed image turn, while GSQ224 introduces four required-JSON format failures despite correct semantic values. The exact mixture fails the prospective no-new-turn-regression criterion. Do not promote it through Auto, continue its prepared fourteen-GB pilot, repeat its completed speed cells, or tune against the exposed image fixtures. Preserve its useful text results and native functional evidence. The final representative speed verdict remains absent; quality failure, not the host preflight, now decides product rejection.
+
+The separately frozen one-row batch QMV construction preserves exact component outputs but loses the cost gate, notably on the large vocabulary projection. No native implementation follows. The current scoped queue has no remaining positive untested lead; further work needs a materially new, evidence-backed mechanism and prospective small test. The original remains the only supported pack. The same-checkpoint twenty-token goal and a qualified alternative recommendation set remain incomplete. This is a conclusion about tested practical options, not all future methods. The latest active plan controls; the dated prospective steps below are retained history, not authorization to revive closed experiments.
+
 Keep the original pack and existing allocation as the supported defaults. Do not advertise twenty committed generation tokens per second across the full sixteen-to-sixty-four-GB Mac range from the current evidence. The full goal stays open; this is a practical result for tested recipes, not a proof that every possible quantization or future kernel is impossible.
 
 The active plan and [[records/measurements/quantization-screen-2026-10-02]] preserve the complete comparisons. Original at the Desktop ceiling clears the target on the three declared workloads on the owned Mac. Both original and native-three-bit miss at fourteen and twenty-two GB. The clean ten-GB original pilot is around nine to ten tokens/s; neither the native-three-bit draft nor plain recipe gives the required useful improvement across the existing workloads. A smaller prefill reservation at fourteen GB adds cache but materially slows longer requests. Lower-bit mixed affine and mixed VQ miss their separately frozen completed-task gates. Fewer stored or requested bytes and restored cache hits have not reliably produced better complete requests.

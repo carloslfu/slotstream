@@ -139,6 +139,18 @@ package struct PackMemoryProfile: Equatable, Sendable {
         largestReplacementPieceBytes: 819_200, groupedWorkspace: true,
         supportsDecodeLookahead: true)
 
+    /// Explicit image qualification for the exact GSQ224 overlay, with the
+    /// unchanged owned vision tower. Its residency and workspace are charged
+    /// separately by the context ledger. The text-only timing recipe remains
+    /// unchanged; this profile does not admit combined image/lookahead work.
+    package static let gsq224GroupedVisionControl = Self(identity: "gsq224-grouped-vision-memory-v1",
+        expertRecordBytes: gsq224GroupedControl.expertRecordBytes,
+        residentReserveBytes: gsq224GroupedControl.residentReserveBytes,
+        expertWorkspaceBytes: gsq224GroupedControl.expertWorkspaceBytes,
+        maximumPrefill: 512, maximumContext: 32_768, usesBaselineSpeedEvidence: false,
+        supportsStreamedDraft: true, supportsVision: true, automaticOptimizations: false,
+        largestReplacementPieceBytes: 819_200, groupedWorkspace: true)
+
     package var fixedAllowanceBytes: Int {
         ContextBytes.sum(PlannerCostModel.fixedBytes, residentReserveBytes, expertWorkspaceBytes)
     }

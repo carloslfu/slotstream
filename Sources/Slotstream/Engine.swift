@@ -97,7 +97,9 @@ public final class Engine {
     /// Metadata follows the authenticated loaded artifact, independent of
     /// mutable memory settings. Preserve existing identities for legacy clients.
     package var modelQuantization: String {
-        if resources == .gsq224GroupedControl { return "2bit gate/up / original 4bit down, dense and PLE" }
+        if resources == .gsq224GroupedControl || resources == .gsq224GroupedVisionControl {
+            return "2bit gate/up / original 4bit down, dense and PLE"
+        }
         return resources == .original ? "4bit" : "3bit experts / original dense and PLE"
     }
     package var modelDigest: String {
@@ -428,7 +430,7 @@ public final class Engine {
     package convenience init(modelDir: URL, affineSource: AffineEngineSource, plan: MemoryPlan) async throws {
         guard affineSource.artifact == .minmax || (affineSource.artifact == .gsq224
             && affineSource.groupedExperts && affineSource.piecewiseAllocation
-            && !affineSource.nativeArithmetic && !affineSource.vision) else {
+            && !affineSource.nativeArithmetic) else {
             throw SlotstreamError.invalidPlan("the mixed affine screen has no admitted Engine memory recipe")
         }
         try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan, affineSource: affineSource)

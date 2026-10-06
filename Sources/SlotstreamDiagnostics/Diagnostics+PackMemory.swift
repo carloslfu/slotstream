@@ -33,6 +33,21 @@ extension Diagnostics {
         }
         c.expect("GSQ224 has no automatic feature qualification", !mixed.automaticOptimizations)
         c.equal("GSQ224 workspace floor is charged once", mixed.workspaceBytes(slots: 640), mixed.expertWorkspaceBytes)
+        let mixedVision = PackMemoryProfile.gsq224GroupedVisionControl
+        let mixedImagePlan = try plan(mixedVision, mtp: .on, context: 32768,
+            vision: .on, placement: .streamed, lookahead: .off)
+        let mixedLoadedImagePlan = try Planner.loadingVision(mixedImagePlan)
+        c.expect("GSQ224 image admission remains explicit and independently bounded",
+            mixedVision != mixed && mixedVision.supportsVision && !mixed.supportsVision
+                && !mixedVision.supportsDecodeLookahead && !mixedVision.automaticOptimizations)
+        c.equal("GSQ224 image loading retains expert ownership charges",
+            mixedVision.workspaceBytes(slots: 1000), mixed.workspaceBytes(slots: 1000))
+        c.expect("GSQ224 image loading prices the tower inside the saved ceiling",
+            mixedLoadedImagePlan.visionResidentReserved && mixedLoadedImagePlan.expectedPeakGB <= 14
+                && mixedLoadedImagePlan.targetGB == mixedImagePlan.targetGB
+                && mixedLoadedImagePlan.slots <= mixedImagePlan.slots)
+        c.expect("GSQ224 image plan does not claim original speed",
+            mixedLoadedImagePlan.json()["est_warm_tok_s"] is NSNull)
         for (record, piece) in [(0, 1), (1, 0), (1, 2), (Int.max, 1), (1, Int.max)] {
             c.equal("invalid grouped record or piece is refused", ContextWorkspace.affineGroupedWorkspaceBytes(
                 tokens: 512, slots: 640, admits: true, recordBytes: record, largestPieceBytes: piece), Int.max)
