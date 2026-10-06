@@ -290,6 +290,21 @@ public struct ModelConfig {
             try bad("eos_token_id is outside the vocabulary")
         }
     }
+    /// Pure configuration construction; artifact authentication remains with
+    /// the adapter. Keep private setters and model-I/O dependencies separate.
+    package func withExpertQuantizations(gateUp: AffineQuantization, down: AffineQuantization,
+                                         recordBytes: Int) -> ModelConfig {
+        var copy = self
+        for layer in 0..<numLayers {
+            for projection in ["gate_proj", "up_proj", "down_proj"] {
+                copy.quantizationOverrides["model.layers.\(layer).mlp.switch_mlp.\(projection)"] =
+                    projection == "down_proj" ? down : gateUp
+            }
+        }
+        copy.admittedExpertRecordBytes = recordBytes
+        return copy
+    }
+
 }
 
 // MARK: - Safetensors header parsing
