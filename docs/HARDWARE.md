@@ -30,8 +30,9 @@ slotstream doctor
 ## Understanding speed
 
 A **token** is a small piece of text, often part of a word. `tok/s` means
-tokens per second. The speeds below describe a reply after the model's
-cache has warmed up. Prompt-processing measurements appear separately below.
+tokens per second. Historical warm-decode results describe replies after the
+model's cache has warmed up. The development tests below have their own
+request protocol. Prompt-processing measurements appear separately below.
 The first reply also needs time to load the model and
 process your question. Long conversations take longer to process.
 
@@ -43,12 +44,13 @@ isn't enough to predict it.
 ## Results
 
 These reply-generation results were measured on real Macs, using different
-releases and settings. The leading result remains the latest qualified warm
-decode benchmark. The [0.2.23 calibration attempt](../db/records/measurements/release-speed-calibration-2026-09-22.md)
-has not yet qualified a replacement full-answer baseline:
+releases and settings. The newest development tests and the older release
+benchmarks are listed separately; they do not establish a release-to-release
+speedup at identical settings.
 
 | Mac | Memory | Reply speed |
 |---|---|---|
+| **MacBook Pro, M5 Pro (our development Mac), October 5 development tests at a 33 GB budget** | **48 GB** | **20.91–23.69 tok/s** |
 | **MacBook Pro, M5 Pro (our development Mac), 0.2.19 at a 22 GB target** | **48 GB** | **15.86 tok/s** |
 | Same M5 Pro, 0.2.16 configuration at a 20 GB target | 48 GB | 13.47 tok/s |
 | Same M5 Pro, historical 0.2.3 result | 48 GB | ~12 tok/s |
@@ -63,7 +65,7 @@ has not yet qualified a replacement full-answer baseline:
 | Same M5 Max, 0.2.3, 48 GB target | 128 GB | ~26.9 tok/s |
 | Same M5 Max, 0.2.3, 73 GB target | 128 GB | ~31.5 tok/s |
 
-The historical leading M5 Pro result is the 0.2.19 release benchmark of the
+The historical M5 Pro release result is the 0.2.19 benchmark of the
 shipping forecast against the 0.2.18 forecast (1.10x faster, 14.38 to 15.86 tok/s,
 identical output). Both arms used smaller prompt passes and disabled prefix
 caching, so more of the same budget held experts. These are controlled
@@ -74,6 +76,36 @@ the model fits in memory on that Mac, and engines that keep it resident
 report faster replies there.
 The 18 GB size still needs reports, and 8 GB Macs don't run the
 model. Open the details below for versions, settings, and credits.
+
+### October 5 development tests
+
+On October 5, 2026, the original 4-bit model ran on the same 48 GB M5 Pro
+with a 33 GB total memory ceiling, using the Desktop startup recipe. Source commit
+`754426d7915d26f007fed2c5ec53d633d0664596` and its exact CI-built executable
+are pinned in the [complete run record](../db/sources/runs/2026/10/2026-10-05-practical-desktop-ceiling.md).
+The recipe retains its full context allowance, prefix cache, two-token
+speculation and corrected expert forecast. Each workload ran three times:
+
+| Workload | Median generation speed |
+|---|---:|
+| Short prompt | 20.91 tok/s |
+| Longer context | 23.69 tok/s |
+| Completed coding answer | 21.59 tok/s |
+
+Rates count committed output tokens after the first, divided by the complete
+generation timer. The first two workloads use fixed-length replies; the
+coding answer runs to completion. All repetitions pass the process-memory
+and timing checks with no system swap-ins or swap-outs. The filesystem cache
+is uncontrolled. These short tests do not establish sustained-session speed,
+a minimum across prompts, or performance on another Mac.
+
+The larger budget holds more experts in RAM and reduces generation reads.
+This result uses the original quantization; it does not qualify a smaller
+pack or establish a speedup over the historical release benchmark. The
+[measurement summary](../db/records/measurements/quantization-screen-2026-10-02.md#actual-desktop-ceiling-october-5)
+also compares the research three-bit pack and preserves the lower-budget
+results. Desktop's total ceiling is distinct from the independent CLI's
+automatic model-ceiling policy; this row does not measure a default CLI run.
 
 <details>
 <summary>Full results and test conditions</summary>
@@ -246,7 +278,7 @@ confidence intervals. Endpoints are rounded outward to whole tok/s.
 |---|---|---|
 | 16–<24 GB | ~1–6 tok/s | The M2 mini reported 1.41 tok/s; the M5 Pro-based 16/18 GB simulations estimate about 3.5 to 5 tok/s before the decode lookahead's gain. The upper end has not been measured on a real Mac in this band. |
 | 24–<48 GB | ~5–16 tok/s | The 24 GB M4 Pro reported 5.41 tok/s on 0.2.25, rounded outward to 5; the M5 Pro measured 15.86 tok/s on 0.2.19 at a 22 GB process target, rounded outward to 16. That benchmark used different prompt-workspace and cache settings from today's automatic plan, and the upper end assumes a comparable chip and SSD. The 36 GB M4 Max reported 8.41 tok/s on 0.2.22 and the 32 GB M5 Air 6.22 tok/s on 0.2.11. The M4 Pro's first report, 3.57 tok/s on 0.2.24, ran before 0.2.25 turned on its draft head and decode lookahead; its SSD read cold experts through the engine at 3.7 GB/s, about a third of the development Mac's rate, and other apps held memory during both runs. |
-| 48–<96 GB | ~15–27 tok/s | The lower reference rounds down from the 48 GB M5 Pro's 15.86 tok/s on 0.2.19 at a 22 GB target, below its own 33.6 GB automatic target, whose larger cache has not been timed; the 0.2.16 result at a 20 GB target was 13.47 tok/s, and the older ~12 tok/s result remains historical evidence. A 64 GB M4 Max reported 15.93 tok/s on 0.2.22. A 64 GB M3 Max reported 12.38 tok/s on 0.2.18, below this range; a rerun on the current release is pending. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
+| 48–<96 GB | ~15–27 tok/s | The lower reference rounds down from the 48 GB M5 Pro's 15.86 tok/s on 0.2.19 at a 22 GB target, below the CLI's 33.6 GB automatic target; the newer Desktop-recipe measurement above uses a distinct 33 GB total ceiling and does not re-anchor this estimated band; the 0.2.16 result at a 20 GB target was 13.47 tok/s, and the older ~12 tok/s result remains historical evidence. A 64 GB M4 Max reported 15.93 tok/s on 0.2.22. A 64 GB M3 Max reported 12.38 tok/s on 0.2.18, below this range; a rerun on the current release is pending. The upper end transfers the M5 Max's 26.9 tok/s at a 48 GB process target to a comparable Mac with enough available memory. That run used a 128 GB Mac; it was not a measurement of a 48 GB Mac. |
 | 96 GB+ | ~20–32 tok/s | The 128 GB M5 Max reported about 21 to 22 tok/s in auto and 31.5 tok/s at a 73 GB process target. Applying this range to other Macs in the band is an estimate. This row is outside Slotstream's target range: the model fits in memory from 96 GB. |
 
 The 96 GB+ row's lower endpoint allows for the same reporter's roughly 20 tok/s

@@ -8,8 +8,9 @@
 Slotstream runs [Qwen3.8-Flash-Next](https://huggingface.co/pipenetwork/Qwen3.8-Flash-Next-MLX-4bit),
 a 125-billion-parameter open model, on Macs with 16 to 64 GB of memory. It
 keeps most of the model on the SSD and loads the parts it needs as it writes.
-Our 48 GB M5 Pro measured 15.86 tokens per second at a 22 GB memory target
-([how it was measured](#speed)).
+Our 48 GB M5 Pro measured **20.91–23.69 tok/s** across three workloads in
+development tests at a 33 GB memory budget, using the original 4-bit model
+([results and test conditions](#speed)).
 
 Chat with it, ask it about pictures, or code with it: `slotstream launch claude`
 starts Claude Code on the local model, and Codex, Pi, opencode and Hermes work
@@ -54,18 +55,41 @@ Windows, Linux and Intel Macs are not supported. The
 ## Speed
 
 `tok/s` means tokens per second; a token is a small piece of text, often part
-of a word. Reply speeds below describe generation after the model has warmed up.
+of a word. These speeds describe reply generation; loading the model and
+processing the prompt take additional time.
 
-**Our development Mac, a 48 GB M5 Pro, measured 15.86 tok/s with 0.2.19 at a
-22 GB memory target**, in a controlled benchmark on eight prompts the engine
-was never tuned on. The engine predicts which experts the
-next layers will need and reads them from the SSD before they are asked for,
+**On October 5, 2026, our 48 GB M5 Pro measured 20.91–23.69 tok/s with the
+original 4-bit model at a 33 GB memory budget.** The development build used the Sevra
+Desktop startup settings and its existing automatic memory ceiling:
+
+| Workload | Median generation speed |
+|---|---:|
+| Short prompt | 20.91 tok/s |
+| Longer context | 23.69 tok/s |
+| Completed coding answer | 21.59 tok/s |
+
+Each workload ran three times without swapping during the measured runs.
+The first two used fixed-length replies; the coding task ran to completion.
+These are short controlled tests with an uncontrolled filesystem cache,
+not a sustained-session guarantee or a measurement of other Macs. The
+[hardware guide](docs/HARDWARE.md#october-5-development-tests) gives the
+build, configuration and recorded evidence.
+
+The larger budget keeps more experts in RAM, reducing weight reads during
+generation. No new quantization was needed for these results. They do not
+establish a speedup over an older release at identical settings.
+
+The earlier **0.2.19 release benchmark measured 15.86 tok/s at a 22 GB memory
+target**, on eight prompts the engine was never tuned on. The engine predicts
+which experts the next layers will need and reads them from the SSD before they are asked for,
 which changes speed and never the output. The
 [expert lookahead guide](docs/EXPERT-LOOKAHEAD.md) has the measurements behind
 each release. This historical test used smaller prompt passes and disabled
 prefix caching, leaving more memory for experts. It is not a measurement of
-today's automatic configuration. A qualified full-answer baseline on 0.2.23
-[is still pending](db/records/measurements/release-speed-calibration-2026-09-22.md).
+today's automatic configuration. The
+[0.2.23 calibration attempt](db/records/measurements/release-speed-calibration-2026-09-22.md)
+did not qualify a replacement release benchmark; the newer development tests
+above use a different budget, workload set and method.
 
 <a id="speed-by-memory"></a>
 <a id="speed-by-mac-memory"></a>

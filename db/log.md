@@ -462,3 +462,6 @@ Capture independent mixed Q3_K format audit and numerical pass; preserve exclude
 ## [2026-10-06 14:55] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Complete clean matched-runtime screen; preserve refused comparison and discarded correction timings; implement and functionally verify explicitly charged correction research path; retain original default and full unmet target.
 
+## [2026-10-06 21:36] update | records/claims/development-original-33gb-workload-range.md
+Publish the existing October 5 original-four-bit 33 GB workload medians in README, hardware guide and llms summary. Preserve historical release benchmarks, distinguish Desktop and CLI policies, retain measurement limits and unchanged hardware estimates. Documentation gates pass with zero brain errors/warnings and 358 claim checks.
+

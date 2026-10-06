@@ -2,11 +2,15 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-09-27T05:04:20.963807Z
+updated: 2026-10-06T21:35:13.587702Z
 ---
 
 # records/claims
 
+- [[records/claims/development-original-33gb-coding]] — Original four-bit completed-coding median is 21.59 tok/s at a 33 GB budget
+- [[records/claims/development-original-33gb-context]] — Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
+- [[records/claims/development-original-33gb-short]] — Original four-bit short-workload median is 20.91 tok/s at a 33 GB budget
+- [[records/claims/development-original-33gb-workload-range]] — Original four-bit generation spans 20.91–23.69 tok/s across three development-workload medians at 33 GB
 - [[records/claims/warm-decode-m4-pro-24gb-0-2-25-rerun-community]] — M4 Pro 24 GB community re-run on 0.2.25: 5.41 tok/s
 - [[records/claims/persistent-prefix-default-minimum-tokens]] — The persistent prefix cache writes states of 1024 tokens or more by default
 - [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
