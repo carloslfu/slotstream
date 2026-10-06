@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T00:27:53.456539Z
+updated: 2026-10-06T01:01:49.376863Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-focused-lowbit-screen]] — Preserve incomplete prefill comparison and real-expert two-bit/mixed kernel screen under the restored full target
 - [[sources/runs/2026/10/2026-10-05-practical-desktop-ceiling]] — Complete six-process 33-GB comparison puts original medians above twenty tokens per second on three local workloads; smaller pack remains a mixed tradeoff
 - [[sources/runs/2026/10/2026-10-05-practical-attention-comparison]] — Complete twelve-process attention comparison stays within physical and timing bounds; longer-prompt latency improves but no general generation advantage or twenty-token result
 - [[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] — Single bounded predictor pair preserves exact outputs and improves generation in all three workloads; repeated product comparison remains required
@@ -506,9 +507,8 @@ updated: 2026-10-06T00:27:53.456539Z
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-vision-native-pass]] — Both complete original vision-query integrations pass after memory is freed
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-resource-resume-preparation]] — Original complete scope serving study prepared after user-freed memory
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-activation-preparation]] — Exact current V360 activation patch is prepared and remains unapplied
-- [[sources/runs/2026/09/2026-09-08-optimization-unique-image-serving-pressure-stop]] — Original unique-image guard stops at OS memory pressure before a measured request
 
 ## More
 
-This folder has 853 files. The 500 most recent are listed above.
+This folder has 854 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

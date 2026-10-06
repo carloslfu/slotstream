@@ -408,3 +408,6 @@ Preserve complete attention comparison and stopped prefix; record limited latenc
 ## [2026-10-06 00:29] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Capture complete actual Desktop-ceiling comparison, exact CI artifact and host restoration; retain original default and separate the prefill/cache tradeoff lead.
 
+## [2026-10-06 01:04] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Restore the full same-checkpoint similar-quality twenty-token goal across recommended 16–64 GB configurations; explicitly reopen two-bit, lower-bit VQ, mixed and runtime experiments with bounded advance/stop criteria. Preserve two incomplete prefill admission attempts and a complete real-expert low-bit component screen. Only mixed two-bit gate/up and three-bit down advances to a no-export quality screen. Both automatic systems and winner integration remain required. Full validation 0 errors/0 warnings, claims 349/0, projections and diff pass.
+

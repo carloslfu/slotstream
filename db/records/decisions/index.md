@@ -2,19 +2,19 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-05T14:42:11.281805Z
+updated: 2026-10-06T01:04:08.538873Z
 ---
 
 # records/decisions
 
-- [[records/decisions/practical-quantization-release-scope]] — Finish one useful quantization and default Auto with focused product acceptance; preserve and defer the broad statistical campaign
+- [[records/decisions/vq-2.1-held-after-distribution-screen]] — Hold VQ 2.1 out of promotion after the matched quality screen; retain evidence and focus engineering on VQ 3.2.
+- [[records/decisions/practical-quantization-release-scope]] — Focused experiments toward the full same-model performance target; huge statistical campaign remains deferred
 - [[records/decisions/heldout-instruction-worker-recovery]] — Preserve the ungraded answer and correct only the instruction worker interpreter in a new frozen continuation
 - [[records/decisions/heldout-unanswered-startup-continuation]] — Preserve all completed quality evidence in an explicit unanswered-only continuation
 - [[records/decisions/final-paired-task-quality-protocol]] — Freeze the final paired task-quality gate before answers
 - [[records/decisions/hold-unconstrained-affine-refit]] — Hold the unconstrained affine-three-bit refit
 - [[records/decisions/same-model-automatic-quantization-with-overrides]] — Default to automatic same-model quantization selection while preserving independent user pack and memory-ceiling overrides.
 - [[records/decisions/single-mac-quantization-validation]] — Complete quantization and Auto work with the available 48 GB Mac; other-Mac physical validation is not a completion requirement.
-- [[records/decisions/vq-2.1-held-after-distribution-screen]] — Hold VQ 2.1 out of promotion after the matched quality screen; retain evidence and focus engineering on VQ 3.2.
 - [[records/decisions/vq-weights-behind-qualification-gates]] — Support the VQ builds of the same model as a second weight format, behind qualification gates
 - [[records/decisions/automatic-context-window-per-machine]] — Auto picks the largest of 32,768, 65,536, 131,072 and 262,144 tokens that keeps speculative decoding, retains one conversation and adds at most 10% to a typical request
 - [[records/decisions/decode-lookahead-default-with-the-draft-head]] — Router-reuse prefetch, FP32 router weights and a four-layer GPU barrier run wherever the draft head does, charged 373 MiB; held out at 1.114 with identical output

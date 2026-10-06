@@ -7799,3 +7799,14 @@ All twelve processes complete their fixed workloads and natural-answer completio
 | 22 GB | Original | 22 | 3531 | 18.040 |
 
 Five timing cells are excluded for sustained background CPU or global paging. The complete frozen analysis has `all_timings_eligible: false` and `qualification: false`, and emits no clean medians. Individually eligible runs are not selected into a replacement comparison. This timing attempt is discarded. The original remains the only supported/public pack; a quiet-host repeat, alternative product activation/distribution and redistribution clearance remain open.
+
+
+### Focused real-expert two-bit and mixed screen, October 5
+
+[[sources/runs/2026/10/2026-10-05-focused-lowbit-screen]] preserves the frozen component protocol, complete results and both incomplete prefill/cache admission attempts. Ten declared experts from each of three original layers are fully authenticated before transient conversion. Five alternating-order rounds compare all-four-bit, all-three-bit, all-two-bit, two-bit gate/up with three-bit down, and three-bit gate/up with two-bit down. Activations are deterministic synthetic probes; the gathered RHS bank contains ten experts. These are component costs and reconstruction errors, not whole-model quality or throughput.
+
+The complete screen finishes in 29.286 seconds at a 618,316,592-byte lifetime physical peak, with nominal thermal observations, zero swap deltas and one isolated renderer CPU spike that does not meet the frozen sustained-contention exclusion. Three-row median gate/up/down kernel times for the promising mixed recipe are 0.379/0.366/0.370 ms across the declared layers, against 0.396/0.394/0.392 ms for all-three-bit. All-two-bit and the two-bit-down mix are slower on those rows. The mixed recipe reduces a complete expert record from 2,150,400 to 1,740,800 bytes relative to three-bit. That storage reduction does not itself predict generation speed.
+
+Two-bit relative weight MSE is about three and a half times three-bit; the nonlinear output probes also worsen. Advance only the two-bit gate/up, three-bit down lead to a small full-model distribution screen before any export. Preserve the original and current candidate. Do not advance all-two-bit or the two-bit-down mixture merely because they use fewer bytes. Different group sizes, calibration or VQ remain separate untested hypotheses.
+
+The first prefill/cache attempt launched no model; the retry completed only its automatic arm, then failed the unchanged quiet-start admission for the capped arm. Both restore their temporary host controls. There is no complete paired timing result and no selected partial benefit. The native diagnostic changes pass 24 Python runner tests and 88 native protocol assertions. Further quiet-host retries are deferred while the cheaper quality lead is tested.

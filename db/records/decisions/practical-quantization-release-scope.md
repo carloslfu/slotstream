@@ -2,14 +2,18 @@
 type: decision
 id: 01m4687qphayfw93kjye9dfah4
 created: 2026-10-05T14:42:11.281805+00:00
-updated: 2026-10-05T14:42:11.281805+00:00
-summary: Finish one useful quantization and default Auto with focused product acceptance; preserve and defer the broad statistical campaign
+updated: 2026-10-06T00:56:20.317251+00:00
+summary: Focused experiments toward the full same-model performance target; huge statistical campaign remains deferred
 decided_on: 2026-10-05
 evidence: '[[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]]'
-reversible_if: The owner explicitly commissions broader statistical qualification or another candidate after practical product evidence warrants it.
+reversible_if: The owner changes the target or authorizes a broader evaluation program; candidate sequencing changes only with recorded evidence.
 title: Practical completion scope for the same-model quantization release
 status: standing
 ---
+### October 5 clarification: full target, bounded experiments
+
+The owner's latest instruction explicitly reopens two-bit, lower-bit VQ, mixed quantization and kernel/streaming/allocation work until the same-model, similar-quality twenty-token target is addressed across recommended 16–64 GB configurations. The earlier one-candidate restriction and three-bit-only sequencing are superseded. The active experiment order, concrete stop criteria and two independent automatic systems are in [[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]]. This is not authorization to restart the huge statistical campaign or implement every format. Preserve the original wherever it wins, screen cheaply, integrate useful winners, and report evidence/options explicitly if the target proves infeasible without claiming completion. The original decision text below remains historical context.
+
 The owner accepted the narrower approach on October 5 after identifying the implementation effort as impractical and over-engineered. Finish one useful smaller representation of the same Qwen checkpoint, default automatic selection with user overrides, and independent runtime memory management. Preserve the engineering already implemented and its existing safety gates.
 
 The complete 138-job paired statistical campaign and additional generic research infrastructure are no longer prerequisites for this product slice. The stopped study remains incomplete and unchanged; do not restart it, substitute a subset into its frozen analysis, or claim noninferiority from its partial results. Its collected outputs remain available as historical evidence. This decision changes the product completion scope, not the old experiment's rules. The prior execution-recovery decisions remain historical authority for the attempts already made.
