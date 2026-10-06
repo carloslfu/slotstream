@@ -447,8 +447,10 @@ public final class Engine {
         }
         if let affineSource, affineSource.decodeLookaheadTap != .boundary {
             guard affineSource.decodeLookaheadTap == .attention,
-                  affineSource.nativeArithmetic, affineSource.decodeLookahead else {
-                throw SlotstreamError.invalidPlan("the affine attention probe requires native standalone lookahead")
+                  (affineSource.nativeArithmetic || (affineSource.artifact == .gsq224
+                    && affineSource.groupedExperts && affineSource.piecewiseAllocation)),
+                  affineSource.decodeLookahead else {
+                throw SlotstreamError.invalidPlan("the affine attention probe requires native standalone or exact grouped GSQ224 lookahead")
             }
         }
         guard affineSource?.groupedExperts != true || affineSource?.piecewiseAllocation == true else {

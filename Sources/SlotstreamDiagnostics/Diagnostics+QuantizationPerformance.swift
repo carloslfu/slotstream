@@ -77,15 +77,16 @@ private struct QuantizationPerformanceProtocol: Decodable {
               ["pilot", "held-out"].contains(value.scope), ["original", "affine3", "affine3-native", "gsq224"].contains(value.artifact),
               value.artifact != "affine3-native" || (extended && value.deployment == "standalone" && value.scope == "pilot"),
               value.artifact != "gsq224" || (extended && value.deployment == "composite" && value.scope == "pilot"),
+              value.artifact != "original" || value.lookahead != "enabled" || (extended && value.scope == "pilot"),
               (8_100_000_000...maximumMemoryBytes).contains(value.memoryBytes), value.memoryBytes.isMultiple(of: 100_000_000),
               ["ceiling", "target"].contains(value.memoryMode), [8192, 32768].contains(value.contextLimit),
               ["off", "on", "auto"].contains(value.draftMode), (0...4).contains(value.draftDepth),
               (value.draftMode == "off") == (value.draftDepth == 0),
               ["automatic", "streamed", "resident"].contains(value.draftPlacement),
-              (value.artifact == "original" ? ["off", "automatic"]
-                : (value.artifact == "affine3-native" ? ["off", "uncorrected", "attention"]
+              (value.artifact == "original" ? ["off", "automatic", "enabled"]
+                : (["affine3-native", "gsq224"].contains(value.artifact) ? ["off", "uncorrected", "attention"]
                     : ["off", "uncorrected"])).contains(value.lookahead),
-              value.originalCorrectionSha256 == nil || (value.artifact == "original" && value.lookahead == "automatic"
+              value.originalCorrectionSha256 == nil || (value.artifact == "original" && ["automatic", "enabled"].contains(value.lookahead)
                 && value.originalCorrectionSha256 == RouterTapCorrection.shippedSHA256),
               ["automatic", "fixed"].contains(value.liveMemory), ["auto", "on", "off"].contains(value.gpuKeepAlive),
               value.liveMemory != "automatic" || value.memoryMode == "ceiling",
@@ -208,12 +209,31 @@ extension Diagnostics {
         desktop["deployment"] = "original"; desktop["standalone_manifest_sha256"] = NSNull()
         desktop["short_prompt_tokens"] = 1536; desktop["short_prompt_chunk"] = 512
         let desktopOriginal = try parse(desktop)
+        var originalAhead = desktop; originalAhead["lookahead"] = "enabled"
+        originalAhead["draft_mode"] = "on"; originalAhead["draft_placement"] = "streamed"
+        c.equal("explicit original lookahead retains the original resource contract",
+            try parse(originalAhead).resources, .original)
+        var heldOutAhead = originalAhead; heldOutAhead["scope"] = "held-out"
+        do { _ = try parse(heldOutAhead); c.expect("explicit original lookahead stays in prospective pilots", false) }
+        catch { c.expect("explicit original lookahead stays in prospective pilots", true) }
+        originalAhead["original_correction_sha256"] = RouterTapCorrection.shippedSHA256
+        c.equal("explicit original lookahead pins its installed correction",
+            try parse(originalAhead).originalCorrectionSha256, RouterTapCorrection.shippedSHA256)
+        originalAhead["original_correction_sha256"] = String(repeating: "0", count: 64)
+        do { _ = try parse(originalAhead); c.expect("explicit original refuses unknown correction", false) }
+        catch { c.expect("explicit original refuses unknown correction", true) }
+        var historicalAhead = original; historicalAhead["lookahead"] = "enabled"
+        do { _ = try parse(historicalAhead); c.expect("explicit original leaves historical protocols unchanged", false) }
+        catch { c.expect("explicit original leaves historical protocols unchanged", true) }
         var mixed = desktop; mixed["artifact"] = "gsq224"; mixed["deployment"] = "composite"
         mixed["lookahead"] = "uncorrected"
         c.equal("GSQ224 binds its own complete memory contract", try parse(mixed).resources, .gsq224GroupedControl)
         try parse(mixed).validateLoader(hasControl: true, hasTable: true)
+        var mixedAttention = mixed; mixedAttention["lookahead"] = "attention"
+        c.equal("GSQ224 attention retains the same complete reserve contract",
+            try parse(mixedAttention).resources, .gsq224GroupedControl)
         for (key, value): (String, Any) in [("scope", "held-out"), ("deployment", "standalone"),
-            ("lookahead", "automatic"), ("lookahead", "attention"), ("prefill_chunk_override", 1024)] {
+            ("lookahead", "automatic"), ("prefill_chunk_override", 1024)] {
             var changed = mixed; changed[key] = value
             do { _ = try parse(changed); c.expect("GSQ224 cannot widen the exact pilot scope/\(key)", false) }
             catch { c.expect("GSQ224 cannot widen the exact pilot scope/\(key)", true) }
@@ -330,9 +350,13 @@ extension Diagnostics {
         let expectedArtifact: AffineExpertControl.Artifact? = specification.artifact == "original" ? nil
             : (specification.artifact == "gsq224" ? .gsq224 : .minmax)
         guard artifact == expectedArtifact else { throw ModelError("performance candidate differs from its exact protocol artifact") }
-        let located = specification.lookahead == "automatic"
+        // Explicit and automatic original pilots authenticate the correction
+        // that the Engine discovers during loading. Its complete rounded reserve
+        // belongs in the same frozen ceiling; never silently omit it.
+        let inspectOriginalCorrection = specification.artifact == "original" && specification.lookahead != "off"
+        let located = inspectOriginalCorrection
             ? RouterTapCorrection.shipped(modelDirectory: baseline, env: [:]).located : nil
-        if specification.lookahead == "automatic", located == nil,
+        if inspectOriginalCorrection, located == nil,
            FileManager.default.fileExists(atPath: baseline.appendingPathComponent(RouterTapCorrection.shippedRelativePath).path) {
             throw ModelError("a present but unrecognized original lookahead correction cannot enter a frozen performance configuration")
         }
@@ -342,6 +366,8 @@ extension Diagnostics {
         let lookahead: DecodeLookaheadPlanning
         switch specification.lookahead {
         case "uncorrected", "attention": lookahead = .retained(enabled: true, bytes: DecodeLookahead.reserveBytes)
+        case "enabled": lookahead = .retained(enabled: true,
+            bytes: DecodeLookahead.reserveBytes(correctionBytes: located?.header.fileBytes ?? 0))
         case "automatic": lookahead = located.map { .automaticCorrected(bytes: $0.header.fileBytes) } ?? .automatic
         default: lookahead = .off
         }
@@ -440,7 +466,9 @@ extension Diagnostics {
             } else if let control, let table {
                 loaded = try await Engine(modelDir: baseline,
                     affineSource: AffineEngineSource(control: control, artifact: artifact!, coefficients: table,
-                        piecewiseAllocation: true, groupedExperts: true, decodeLookahead: specification.lookahead == "uncorrected"), plan: plan)
+                        piecewiseAllocation: true, groupedExperts: true,
+                        decodeLookahead: ["uncorrected", "attention"].contains(specification.lookahead),
+                        decodeLookaheadTap: specification.lookahead == "attention" ? .attention : .boundary), plan: plan)
             } else {
                 try WeightStore.verify(at: baseline); try check(force: true)
                 loaded = try await Engine(modelDir: baseline, plan: plan)

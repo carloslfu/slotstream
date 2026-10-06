@@ -192,6 +192,18 @@ class PerformanceCampaignChecks(unittest.TestCase):
                     self.fixture(directory, version=2, deployment=deployment, scope=scope,
                                  repetitions=8, artifact='affine3-native')
 
+    def test_explicit_original_lookahead_must_be_applied(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, protocol = self.fixture(directory, version=2)
+            native = m.validate(protocol, root)['profile-0']['original']
+            native['lookahead'] = 'enabled'
+            plan = self.receipt(native, '1' * 64, 'original')['plan']
+            plan['decode_lookahead'] = True
+            m.validate_plan(plan, native, 'original-affine4-memory-v1')
+            plan['decode_lookahead'] = False
+            with self.assertRaisesRegex(ValueError, 'features differ'):
+                m.validate_plan(plan, native, 'original-affine4-memory-v1')
+
     def test_gsq224_receipt_cannot_borrow_three_bit_identity_or_scope(self):
         with tempfile.TemporaryDirectory() as directory:
             root, protocol = self.fixture(directory, version=2)

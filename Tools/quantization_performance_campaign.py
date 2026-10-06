@@ -284,7 +284,7 @@ def validate_plan(plan, native, resource_identity):
             and plan.get('prefill_chunk') != native['prefill_chunk_override']):
         raise ValueError('applied prefill allocation differs from its frozen override')
     if (native['draft_mode'] in ('on', 'off') and plan.get('mtp') is not (native['draft_mode'] == 'on')
-            or native['lookahead'] in ('off', 'uncorrected', 'attention') and plan.get('decode_lookahead') is not (native['lookahead'] != 'off')
+            or native['lookahead'] in ('off', 'uncorrected', 'attention', 'enabled') and plan.get('decode_lookahead') is not (native['lookahead'] != 'off')
             or plan.get('mtp') is True and native['draft_placement'] in ('streamed', 'resident')
                 and plan.get('mtp_streamed_experts') is not (native['draft_placement'] == 'streamed')):
         raise ValueError('applied native features differ from explicit performance overrides')

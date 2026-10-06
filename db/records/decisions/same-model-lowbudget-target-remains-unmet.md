@@ -2,7 +2,7 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T08:56:35.658131+00:00
+updated: 2026-10-06T09:51:25.252232+00:00
 summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
@@ -42,3 +42,9 @@ The follow-up in [[sources/runs/2026/10/2026-10-06-gsq224-source-and-quality]] a
 
 
 [[sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot]] provides the first useful GSQ224 complete Engine coding gain at ten GB: 14.237665 committed tokens/s versus original Auto 9.035368, with the identical correct answer. [[sources/runs/2026/10/2026-10-06-original-streamed-draft-control]] tests the draft-mode confound: original with streamed drafting reaches 9.519358, with automatic lookahead disabled. The mixed configuration still leads, but explicit lookahead is a remaining difference and both miss twenty. Continue narrow configuration controls and evidence-backed optimization, then representative confirmation and winner-specific product work. Keep the original default, independent overrides and full sixteen-to-sixty-four-GB goal.
+
+
+[[sources/runs/2026/10/2026-10-06-original-corrected-lookahead-control]] completes the remaining original configuration control without altering Auto: explicit fully charged corrected lookahead and two streamed drafts reach 10.004366 committed tokens/s. The GSQ224 pilot retains a useful lead and both remain below twenty. Proceed with the narrowly scoped attention mechanism trial and unchanged essential lifecycle gates in the active plan. Neither this control nor the completed task screen admits a production alternative.
+
+
+[[sources/runs/2026/10/2026-10-06-gsq224-attention-cost]] passes the complete Engine lifecycle and improves coding generation to 15.259394 tokens/s with unchanged output. [[sources/runs/2026/10/2026-10-06-gsq224-four-draft-cost]] then reaches 16.989207 with the same correct answer, reusing the existing depth-four state proof. Both pass their narrow prospective gates. These results justify limited interleaved representative confirmation; they do not reach twenty or change the original default, two-draft adoption, same-checkpoint constraint or independent control contracts.

@@ -133,7 +133,9 @@ struct AffineEngineCheck: ParsableCommand {
     @Flag(name: .long) var groupedExperts = false
     @Flag(name: .long, help: "Explicit bounded uncorrected lookahead experiment; requires grouped or native experts") var decodeLookahead = false
     @Flag(name: .long, help: "Check the pinned standalone pack with the deployed arithmetic and allocation") var nativeArithmetic = false
+    @Flag(name: .long, help: "Test the exact GSQ224 attention tap with unchanged lifecycle gates") var attentionLookahead = false
     func validate() throws {
+        guard !attentionLookahead || (decodeLookahead && groupedExperts) else { throw ValidationError("--attention-lookahead requires grouped experts and --decode-lookahead") }
         guard !streamedDraft || draft else { throw ValidationError("--streamed-draft requires --draft") }
         guard !groupedExperts || piecewiseAllocation else { throw ValidationError("--grouped-experts requires --piecewise-allocation") }
         guard !decodeLookahead || groupedExperts || nativeArithmetic else { throw ValidationError("--decode-lookahead requires an explicit affine execution path") }
@@ -154,7 +156,7 @@ struct AffineEngineCheck: ParsableCommand {
                     profile: URL(fileURLWithPath: generationProfile), mtp: draft, output: URL(fileURLWithPath: output),
                     streamedDraft: streamedDraft, piecewiseAllocation: piecewiseAllocation, groupedExperts: groupedExperts,
                     standaloneManifestSHA256: standaloneManifestSha256, decodeLookahead: decodeLookahead,
-                    nativeArithmetic: nativeArithmetic)
+                    nativeArithmetic: nativeArithmetic, attentionLookahead: attentionLookahead)
             } catch { failure = error }
             semaphore.signal()
         }

@@ -12,11 +12,20 @@ extension Diagnostics {
                                     profile: URL, mtp: Bool, output: URL, streamedDraft: Bool = false,
                                     piecewiseAllocation: Bool = false, groupedExperts: Bool = false,
                                     standaloneManifestSHA256: String? = nil,
-                                    decodeLookahead: Bool = false, nativeArithmetic: Bool = false) async throws -> Data {
+                                    decodeLookahead: Bool = false, nativeArithmetic: Bool = false,
+                                    attentionLookahead: Bool = false) async throws -> Data {
         guard !streamedDraft || mtp else { throw ModelError("streamed draft requires drafting") }
         guard !groupedExperts || piecewiseAllocation else { throw ModelError("grouped experts require piecewise allocation") }
         guard !decodeLookahead || groupedExperts || nativeArithmetic else { throw ModelError("experimental lookahead requires an admitted allocation contract") }
         let standalone = try standaloneManifestSHA256.map { try AffineStandalonePack(directory: control, manifestSHA256: $0) }
+        let artifact: AffineExpertControl.Artifact = try standalone == nil
+            ? AffineExpertControl.identify(control: control) : .minmax
+        guard !attentionLookahead || (artifact == .gsq224 && decodeLookahead && groupedExperts) else {
+            throw ModelError("this attention lifecycle probe requires exact grouped GSQ224 lookahead")
+        }
+        guard artifact == .minmax || (artifact == .gsq224 && groupedExperts && piecewiseAllocation) else {
+            throw ModelError("this Engine lifecycle probe requires an admitted exact artifact")
+        }
         guard !nativeArithmetic || (standalone != nil && !groupedExperts && !piecewiseAllocation) else {
             throw ModelError("native arithmetic requires the exact standalone pack and deployed allocation")
         }
@@ -50,8 +59,9 @@ extension Diagnostics {
         }
         let source = standalone.map { AffineEngineSource(standalone: $0,
             decodeLookahead: decodeLookahead, nativeArithmetic: nativeArithmetic) }
-            ?? AffineEngineSource(control: control, coefficients: table, piecewiseAllocation: piecewiseAllocation,
-                groupedExperts: groupedExperts, decodeLookahead: decodeLookahead)
+            ?? AffineEngineSource(control: control, artifact: artifact, coefficients: table, piecewiseAllocation: piecewiseAllocation,
+                groupedExperts: groupedExperts, decodeLookahead: decodeLookahead,
+                decodeLookaheadTap: attentionLookahead ? .attention : .boundary)
         let engineDirectory = standalone?.directory ?? baseline
         let resource = source.resources
         let target = mtp ? 14.0 : 12.0
@@ -71,13 +81,13 @@ extension Diagnostics {
         var observations: [[String: Any]] = [], complete = false
         func save(_ failure: String? = nil) throws -> Data {
             var result: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
-                "control_manifest_sha256": AffineExpertControl.manifestSHA256,
+                "control_manifest_sha256": artifact.manifestSHA256,
                 "rotary_sha256": VQRotaryCoefficients.sha256, "profile_sha256": profileSHA,
                 "resource_identity": resource.identity, "mtp": mtp, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation, "initial_plan": plan(800).json(),
                 "grouped_experts": groupedExperts,
                 "native_arithmetic": nativeArithmetic,
-                "decode_lookahead": decodeLookahead,
+                "decode_lookahead": decodeLookahead, "attention_lookahead": attentionLookahead,
                 "maximum_physical_process_bytes": 10_000_000_000, "observations": observations,
                 "peak_process_bytes": ProcessMemory.peakResidentBytes(),
                 "seconds": ProcessInfo.processInfo.systemUptime - started,
@@ -124,9 +134,9 @@ extension Diagnostics {
             engine.generator.draftDepth = 2
             func fixturePrompt(_ count: Int) -> [Int] {
                 guard count != prompt.count else { return prompt }
-                guard nativeArithmetic else { return (0..<count).map { 100 + ($0 * 17 % 1000) } }
-                // The reference's unframed synthetic 260-token input emits
-                // EOS immediately under deployed arithmetic. Keep the same
+                guard nativeArithmetic || artifact == .gsq224 else { return (0..<count).map { 100 + ($0 * 17 % 1000) } }
+                // The unframed synthetic 260-token input emits EOS immediately
+                // under deployed arithmetic and GSQ224 (in both demand/tap arms). Keep the same
                 // pass lengths, but frame a real question so the equality
                 // assertions exercise nonempty decode and continuation.
                 let padding = engine.tokenizer.encode(text:
@@ -136,7 +146,7 @@ extension Diagnostics {
                     + (0..<(count - prompt.count)).map { padding[$0 % padding.count] }
                     + Array(prompt.dropFirst(3))
             }
-            c.equal("actual cache bytes use the alternate record", engine.poolSnapshot().poolBytes, 800 * 2_150_400)
+            c.equal("actual cache bytes use the alternate record", engine.poolSnapshot().poolBytes, 800 * resource.expertRecordBytes)
             c.equal("context metadata uses admitted candidate limit", engine.contextPolicyJSON["implementation_limit"] as? Int, 32768)
             c.expect("unsupported image capability is absent", !engine.visionAvailable && !engine.visionAllowed)
             if nativeArithmetic {
@@ -148,8 +158,10 @@ extension Diagnostics {
             }
             c.equal("lookahead scheduler matches the explicit request", engine.model.lookahead?.prefetch != nil, decodeLookahead)
             if decodeLookahead {
+                c.equal("lookahead tap follows the explicit recipe", engine.model.lookahead?.prefetch?.configuration.tap,
+                    attentionLookahead ? .attention : .boundary)
                 c.equal("experimental lookahead uses candidate record bytes",
-                    engine.model.lookahead?.prefetch?.accounting.capBytes, 32 * 2_150_400)
+                    engine.model.lookahead?.prefetch?.accounting.capBytes, 32 * resource.expertRecordBytes)
                 c.expect("experimental lookahead never loads the original correction",
                     engine.model.lookahead?.prefetch?.configuration.correctionPath == nil)
                 c.expect("full router cache is explicitly reserved", engine.model.optimizations.cachedRouterWeights)
@@ -214,8 +226,12 @@ extension Diagnostics {
             if let plainNativeIDs {
                 c.equal("native drafted execution preserves plain target IDs", first.ids, plainNativeIDs)
             } else {
+                // GSQ224 golden comes from the completed independent reference
+                // and native sixteen-step comparison, before this tap trial.
                 c.equal("Engine matches independently checked greedy tokens", first.ids,
-                    [760, 1156, 369, 9859, 883, 264, 10597, 8282, 5265, 310, 2136, 14791, 14, 2581, 42903, 11])
+                    artifact == .gsq224
+                        ? [760, 1156, 369, 9859, 883, 264, 10597, 8282, 25, 1204, 264, 2136, 20340, 8404, 17830, 15089]
+                        : [760, 1156, 369, 9859, 883, 264, 10597, 8282, 5265, 310, 2136, 14791, 14, 2581, 42903, 11])
             }
             c.expect("candidate does not inherit baseline prefill ETA", request.estimatedPrefillSeconds == nil)
             c.expect("initial request completes successfully", first.stats.requestFailure == nil && first.stats.runtimeError == nil)
@@ -272,7 +288,7 @@ extension Diagnostics {
 
             let disk = try engine.enablePersistentPrefixCache(.init(directory: temporary.appendingPathComponent("prefix"),
                 maxBytes: 700_000_000, minimumTokens: 16))
-            c.expect("persistent identity includes alternate manifest", disk.identity.components["weights"]?.contains(AffineExpertControl.manifestSHA256) == true)
+            c.expect("persistent identity includes alternate manifest", disk.identity.components["weights"]?.contains(artifact.manifestSHA256) == true)
             if nativeArithmetic {
                 c.expect("persistent identity distinguishes deployed arithmetic",
                     disk.identity.components["weights"]?.contains("native-affine3-v1") == true)
@@ -289,7 +305,7 @@ extension Diagnostics {
             // Extend the native assistant turn with a token it actually
             // emitted. The reference's arbitrary byte token ends the native
             // reply immediately, which cannot exercise continued decoding.
-            let suffix = nativeArithmetic ? Array(primed.ids.prefix(1)) : [123]
+            let suffix = nativeArithmetic || artifact == .gsq224 ? Array(primed.ids.prefix(1)) : [123]
             guard suffix.count == 1 else { throw ModelError("prefix fixture produced no continuation token") }
             let continuation = longPrompt + suffix
             let memory = engine.generate(promptIds: continuation, params: short)
@@ -358,7 +374,7 @@ extension Diagnostics {
             }
             let grown = engine.generate(promptIds: prompt, params: params)
             c.equal("warm resize preserves exact output", grown.ids, first.ids)
-            c.equal("warm resize reports actual byte geometry", engine.poolSnapshot().poolBytes, 800 * 2_150_400)
+            c.equal("warm resize reports actual byte geometry", engine.poolSnapshot().poolBytes, 800 * resource.expertRecordBytes)
             observations.append(["case": "governor", "recovered_ids": recovered.ids, "grown_ids": grown.ids,
                 "growth_transient_bytes": transient, "saved_ceiling_gb": target])
             try guardResources(); _ = try save()
@@ -399,8 +415,8 @@ extension Diagnostics {
                     c.equal("grouped Engine creates no complete RHS workspace", engine.model.pool.workspacePieceWriteCompletions, 0)
                 } else { c.expect("real Engine completes sequential workspace copies", engine.model.pool.workspacePieceWriteCompletions > 0) }
                 c.expect("real Engine completes sequential admission copies", engine.model.pool.admissionPieceWriteCompletions > 0)
-                c.equal("authenticated workspace largest piece matches the ledger", engine.model.pool.largestWorkspacePieceBytes, 512 * 614_400)
-                c.equal("resized pool largest piece matches the ledger", engine.model.pool.largestPoolPieceBytes, engine.model.pool.slots * 614_400)
+                c.equal("authenticated workspace largest piece matches the ledger", engine.model.pool.largestWorkspacePieceBytes, 512 * (artifact == .gsq224 ? 819_200 : 614_400))
+                c.equal("resized pool largest piece matches the ledger", engine.model.pool.largestPoolPieceBytes, engine.model.pool.slots * (artifact == .gsq224 ? 819_200 : 614_400))
                 // A small real-record arena isolates copy semantics from the
                 // model. Both arms exercise CLOCK eviction, materialized
                 // bytes, repeated resident admissions and post-resize writes.

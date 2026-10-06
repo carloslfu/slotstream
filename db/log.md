@@ -441,3 +441,6 @@ Authenticate and screen GSQ224; integrate exact research memory/grouped executio
 ## [2026-10-06 09:07] update | sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot.md
 Capture final static, memory-override and installer acceptance; reauthenticate the final frozen source and executable.
 
+## [2026-10-06 09:51] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Capture original corrected control, GSQ attention lifecycle and four-draft gains; freeze bounded paired confirmation while retaining the full unmet target
+

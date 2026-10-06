@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T09:07:36.105504Z
+updated: 2026-10-06T10:01:52.073607Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-06-gsq224-attention-cost]] — GSQ224 passes full Engine lifecycle and a prospective attention cost screen; exact answer and useful gain, still below target
+- [[sources/runs/2026/10/2026-10-06-gsq224-four-draft-cost]] — GSQ224 four-draft pilot preserves exact coding work and improves rate, still below twenty; representative confirmation remains
+- [[sources/runs/2026/10/2026-10-06-original-corrected-lookahead-control]] — Original fully charged corrected-lookahead and streamed-draft control completes; GSQ mixed configuration retains a useful pilot gain
 - [[sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot]] — GSQ224 grouped Engine passes component and speculative checks, then improves the same correct coding response at ten GB while still missing twenty tokens per second
 - [[sources/runs/2026/10/2026-10-06-original-streamed-draft-control]] — Original two-draft ten-GB control passes but retains lower coding throughput than the GSQ224 configuration; lookahead difference remains explicit
 - [[sources/runs/2026/10/2026-10-06-gsq224-native-quality]] — Exact GSQ224 overlay passes native parity and the same fifteen of sixteen completed tasks as original
@@ -504,11 +507,8 @@ updated: 2026-10-06T09:07:36.105504Z
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-mtp-pressure-stop]] — Expanded automatic MTP native stops at macOS pressure level2 with no report; all processes drained
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-family-pass-and-integration-preparation]] — V436 passes both original scope geometry families with1634 assertions; three ordinary integration cases rebound exactly
 - [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-lifecycle-pressure-stop]] — Expanded V439 lifecycle stops before report at macOS pressure warning; exact failure footprint and binary locations preserved
-- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-build-pure-and-native-preparation]] — Automatic scheduler V436 compiles and passes 22840 pure assertions plus116 CLI checks; expanded native gates frozen
-- [[sources/runs/2026/09/2026-09-08-optimization-automatic-scope-native-footprint-build-preparation]] — Corrected automatic scope source and exact guarded build preparation; unsigned Mach footprint fails closed on overflow
-- [[sources/runs/2026/09/2026-09-08-optimization-vision-mechanism-pressure-stop]] — Full vision mechanism V413 stopped at macOS pressure warning; all seven completed responses preserved, no qualification
 
 ## More
 
-This folder has 881 files. The 500 most recent are listed above.
+This folder has 884 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

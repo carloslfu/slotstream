@@ -21,7 +21,7 @@ package struct AffineEngineSource {
     package let vision: Bool
     package let decodeLookahead: Bool
     /// Explicit diagnostic tap; the retained boundary recipe stays unchanged.
-    /// Attention is admitted only for the native standalone experiment.
+    /// Attention is admitted only for the native standalone or exact GSQ224 experiment.
     package let decodeLookaheadTap: RouterForecastTap
     /// Reuse the deployed trunk and expert kernels for the exact standalone
     /// affine pack. Reference probes keep their existing arithmetic.
@@ -36,7 +36,8 @@ package struct AffineEngineSource {
     }
     package init(control: URL, artifact: AffineExpertControl.Artifact = .minmax,
                  coefficients: URL, piecewiseAllocation: Bool = false,
-                 groupedExperts: Bool = false, vision: Bool = false, decodeLookahead: Bool = false) {
+                 groupedExperts: Bool = false, vision: Bool = false, decodeLookahead: Bool = false,
+                 decodeLookaheadTap: RouterForecastTap = .boundary) {
         self.control = control
         self.artifact = artifact
         self.coefficients = coefficients
@@ -44,7 +45,7 @@ package struct AffineEngineSource {
         self.groupedExperts = groupedExperts
         self.vision = vision
         self.decodeLookahead = decodeLookahead
-        self.decodeLookaheadTap = .boundary
+        self.decodeLookaheadTap = decodeLookaheadTap
         self.nativeArithmetic = false
         self.standalone = nil
     }

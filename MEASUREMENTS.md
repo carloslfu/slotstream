@@ -6921,6 +6921,32 @@ A local build of the release commit also passed the same 35 gates before the can
 These are functional acceptance results, not speed claims.
 
 ## Initial quantization screen and bounded native decoding
+### GSQ224 explicit four-draft pilot, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-four-draft-cost]] changes only explicit depth to four, reusing the exact grouped depth-four state/recovery proof, full attention lifecycle, binary, weights, reserve and honest ten-GB planner. The same 81-token coding answer remains exact and passes all unchanged functional tests.
+
+Committed generation reaches 16.989207 tokens/s, 11.336% above the two-draft attention pilot. First text is 2.308700 seconds and total request 7.017247 seconds. Verification passes fall from 28 to 18; 63 of 72 proposals are accepted. Lifetime physical peak is 6,150,443,664 bytes, and timing exclusions are empty. The quiet-host preflight restarted once for observed unrelated CPU activity before a clean measured interval. It is not a failed timing retry.
+
+The frozen useful-gain and latency criteria pass. This is a single completed coding pilot and remains below twenty tokens/s. It earns the small interleaved representative comparison in the active plan, not production promotion or a global depth-four default. No new raw numerical corpus, model weights or build is added.
+
+### GSQ224 attention lifecycle and coding improvement, October 6
+
+[[sources/runs/2026/10/2026-10-06-gsq224-attention-cost]] preserves the initial empty-synthetic-fixture failure and the prospectively corrected continuation. The correction reuses the existing framed lifecycle fixture at identical lengths and its generated continuation token. All original equality, complete-work, memory and timing conditions remain. No token golden is regenerated.
+
+All 104 full Engine assertions pass, including the independent GSQ token golden, demand-versus-attention equality at 44/260/2054 tokens, persistent prefix restore, cancellation, live shrink/recovery under the saved ceiling, HTTP and exact byte ownership. The lifecycle peak is 7,213,700,592 bytes within its ten-GB physical watchdog. Its small fixed arenas and conservative planning allowance remain distinct from actual deployment planning.
+
+The subsequent honest ten-GB cost configuration reaches 15.259394 committed tokens/s, against the reused boundary pilot's 14.237665, a 7.176% gain. Its unchanged 81-token answer passes the same three pure-function/input-preservation tests. First text is 2.266354 seconds; complete request is 7.508721 seconds. Lifetime physical peak is 5,922,214,400 bytes. Timing exclusions are empty. It accepts 53 of 56 draft tokens in 28 verification passes. Forecast evaluation falls from 1.924225 to 1.262845 seconds and decode I/O from 2.068297 to 1.595937 seconds; overlapping counters do not provide additive causal attribution.
+
+This passes the frozen pilot gate and retains attention as the leading explicit GSQ research recipe. It is not paired confirmation, quality equivalence, another-Mac validation, production Auto admission or achievement of twenty tokens/s. Exact grouped depth-four state/recovery is already covered by the earlier speculation proof, so a separate prospective one-response depth study can test the high-acceptance workload without repeating numerical export or changing the adopted default.
+
+### Original corrected-lookahead configuration control, October 6
+
+[[sources/runs/2026/10/2026-10-06-original-corrected-lookahead-control]] records a prospective original configuration with two streamed drafts and explicit corrected lookahead. Two preparation failures precede the completed run: one protocol test protected historical admission, then a requested uncorrected mode conflicted with the installed correction identity. Both stopped before model allocation and are not memory-feasibility results.
+
+The corrected plan prices 428,867,584 lookahead bytes, keeps 694 slots and fits the ten-GB ceiling. It completes the unchanged coding task at 10.004366 committed tokens/s, first text 2.658422 seconds and whole request 10.654401 seconds. All three pure-function/input-preservation checks pass, with 81 tokens and no timing exclusions. It accepts 53 of 56 drafts, the same counts as the GSQ224 boundary pilot. GSQ224 remains 1.423145 times as fast in these single pilots. This configuration control supports further mixed-recipe optimization, not a causal quantization-only claim or paired qualification. The original automatic defaults remain unchanged.
+
+The explicit enabled original mode authenticates the installed correction, retains its complete rounded charge and is limited to V2 pilots. Affected protocol and applied-feature tests pass; unknown corrections, off/disabled execution under an explicit-on request, historical protocol widening and held-out widening remain refused.
+
 ### GSQ224 complete Engine cost and original drafting control, October 6
 
 [[sources/runs/2026/10/2026-10-06-gsq224-engine-cost-pilot]] records the exact grouped Engine memory contract, preserved intermediate refusals, successful grouped component/admission checks and streamed speculative state/recovery. [[sources/runs/2026/10/2026-10-06-original-streamed-draft-control]] adds one cheap original control rather than attributing every configuration difference to quantization.
