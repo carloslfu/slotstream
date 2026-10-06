@@ -1521,12 +1521,13 @@ final class MoELayer {
         let active = Array(Set(expertIds.map(Int.init))).sorted()
         let w = try pool.layerWorkspaceChecked(layer: layer, experts: active)
         let descriptor = pool.expertStore.quantization
+        let downDescriptor = pool.expertStore.downQuantization
         let up = gatherQuantizedMM(input, w[3], scales: w[4], biases: w[5], rhsIndices: sorted,
             transpose: true, groupSize: descriptor.groupSize, bits: descriptor.bits, sortedIndices: true)
         let gate = gatherQuantizedMM(input, w[0], scales: w[1], biases: w[2], rhsIndices: sorted,
             transpose: true, groupSize: descriptor.groupSize, bits: descriptor.bits, sortedIndices: true)
         let down = gatherQuantizedMM(MLXNN.silu(gate) * up, w[6], scales: w[7], biases: w[8], rhsIndices: sorted,
-            transpose: true, groupSize: descriptor.groupSize, bits: descriptor.bits, sortedIndices: true)
+            transpose: true, groupSize: downDescriptor.groupSize, bits: downDescriptor.bits, sortedIndices: true)
         let canonical = down[inverse].reshaped([B, S, K, H])
         let result = (canonical * weights.expandedDimensions(axis: -1)).sum(axis: -2).asType(x.dtype)
         // Complete all workspace readers before optional admission changes
@@ -1613,7 +1614,7 @@ final class MoELayer {
             let u = gatherQuantizedMM(gathered, w[3], scales: w[4], biases: w[5], rhsIndices: indices,
                 transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
             let d = gatherQuantizedMM(MLXNN.silu(g) * u, w[6], scales: w[7], biases: w[8], rhsIndices: indices,
-                transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
+                transpose: true, groupSize: pool.expertStore.downQuantization.groupSize, bits: pool.expertStore.downQuantization.bits, sortedIndices: true)
             let canonical = d[0 ..< rows].squeezed(axis: 1)[MLXArray(inverse)].reshaped([n, K, H])
             let reduced = (canonical * routeWeights[lo ..< hi].expandedDimensions(axis: -1))
                 .sum(axis: -2).asType(x.dtype)
@@ -1654,7 +1655,7 @@ final class MoELayer {
             let hidden = MLXNN.silu(g) * u
             return gatherQuantizedMM(
                 hidden, pool.pools[6], scales: pool.pools[7], biases: pool.pools[8],
-                rhsIndices: slotIdx, transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits)
+                rhsIndices: slotIdx, transpose: true, groupSize: pool.expertStore.downQuantization.groupSize, bits: pool.expertStore.downQuantization.bits)
                 .squeezed(axis: -2)
         }
         var readyRanks: [Int] = []
@@ -1802,7 +1803,7 @@ final class MoELayer {
                         groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
                     let dAll = gatherQuantizedMM(
                         MLXNN.silu(g) * u, w[6], scales: w[7], biases: w[8], rhsIndices: ridx,
-                        transpose: true, groupSize: pool.expertStore.quantization.groupSize, bits: pool.expertStore.quantization.bits, sortedIndices: true)
+                        transpose: true, groupSize: pool.expertStore.downQuantization.groupSize, bits: pool.expertStore.downQuantization.bits, sortedIndices: true)
                     let d = pad > 0 ? dAll[0 ..< n] : dAll
                     let completed: MLXArray
                     if let output = orderedOutput {

@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-06T01:52:43.480479+00:00
+updated: 2026-10-06T02:19:27.370855+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -930,3 +930,12 @@ Advance VQ2.1/dense4 to native parity, representative completed tasks and bounde
 [[sources/runs/2026/10/2026-10-05-vq21-mixed-completed-tasks]] preserves every answer, grade and the unchanged frozen task protocol. The original scores fifteen of sixteen and VQ2.1/dense4 fourteen. Both fail sort-records. The mixture additionally fails filter-unique, returning `[2, -3, 0, -8, 4, -1]` where the original correctly returns `[-3, -8, -1]`. The tested coding, tool, multilingual and retrieval outcomes remain passing. The process peaks at 8,379,012,952 physical bytes within ten GB. Functional task time is not an eligible throughput comparison.
 
 The mixture misses the prospectively fixed fifteen-pass minimum. Reject advancement to a speed pilot or product integration without loosening the gate. This focused adverse result does not estimate broad quality loss or prove every lower-bit mixture unsuitable. The separate affine two-bit gate/up, three-bit down lead remains open. The complete existing static suite, all 104 native T0/T1 catalogue groups and Python overlay checks pass on the source-bound corrected binary. Their success preserves the numerical repair, not a quality qualification for this mixture.
+
+
+### Mixed affine two/three-bit export and task rejection, October 5
+
+[[sources/runs/2026/10/2026-10-05-affine223-completed-screen]] preserves the frozen duplicate-coalescing attempts, export, exact implementation identity, complete numerical checks and all sixteen answers. The first coalescing attempt stopped before changing any path because of Python-version compatibility; the corrected frozen attempt reverified all payloads and retained both names as hard links. The complete original installation and every unique weight remain intact. Allocated staging after coalescing is 364,793,344,000 bytes. The expert-only two-bit gate/up, three-bit down export writes 42,781,961,312 bytes in 141.133 seconds, peaking at 259,719,984 physical bytes. Its complete manifest is `1edbd2d7b01a1f15a185b3c4107feefb195c4e027c654c7f00dbdc981b4ad1c3`.
+
+All seven sequential reference/native operations complete within the frozen bounds. Traversal order is exact for four layers and 513 tokens. All forty-nine native prefill points have zero relative error through cold, reuse, grow and shrink cache histories. Sixteen self-fed greedy steps match across four cache histories; speculative target/state/recovery checks pass with seventy-six accepted drafts. The bounded numerical-reference addition is 28,682,240 bytes, with a prospectively declared 2.1-GB total raw-reference ceiling. Task process peak is 8,897,173,288 physical bytes within ten GB. These are functional checks, not eligible throughput measurements.
+
+Original scores fifteen of sixteen tasks; mixed affine223 scores twelve. Both fail sort-records. Only the mixture fails contradictory-source and spanish-structured by fencing JSON despite bare-JSON instructions, and hindi-structured by returning total sixteen instead of seventeen. Tested coding and tool cases still pass. The mixture misses the fixed fifteen-pass minimum; hold it without a speed pilot or product promotion. The earlier proxy screen is not a substitute for completed-task quality. Preserve the original and continue the separately frozen low-budget allocation probe. The exact mixed identity remains available only to the bounded research adapter, outside Engine memory recipes and Auto.

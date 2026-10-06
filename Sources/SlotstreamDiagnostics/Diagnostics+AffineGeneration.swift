@@ -78,7 +78,7 @@ extension Diagnostics {
         }
         var result: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
             "control_manifest_sha256": artifact.manifestSHA256, "reference_sha256": referenceSHA256,
-            "arithmetic": "pr1788-affine3-explicit-v1", "relative_maximum_bound": 0.02,
+            "arithmetic": "pr1788-\(artifact.arithmeticTag)-explicit-v1", "relative_maximum_bound": 0.02,
             "slots": [640, 640, 800, 640], "saved_raw_f32_bytes": 0]
         var passes: [[String: Any]] = []
         func save() throws -> Data {

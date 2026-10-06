@@ -414,3 +414,6 @@ Restore the full same-checkpoint similar-quality twenty-token goal across recomm
 ## [2026-10-06 01:53] experiment | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Capture both mixed low-bit proxy screens, native VQ2.1/dense4 parity, failed and repaired D8 draft reduction, and frozen completed-task rejection (14/16 versus original 15/16). Static suite and 104 native groups pass; retain the full target and advance only the screened affine223 lead.
 
+## [2026-10-06 02:36] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Complete the frozen mixed-affine export and native checks; hold its 12/16 task outcome against original 15/16. Preserve source, coalescing failure and 104-group/static acceptance. Keep full target open with bounded original allocation and native-three-bit low-budget hypotheses.
+

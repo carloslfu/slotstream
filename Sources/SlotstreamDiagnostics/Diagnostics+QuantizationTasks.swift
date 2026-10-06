@@ -184,7 +184,7 @@ extension Diagnostics {
                     identity["control_manifest_sha256"] = affineArtifact.manifestSHA256
                     identity["control_policy"] = affineArtifact.policy
                     identity["rotary_sha256"] = VQRotaryCoefficients.sha256
-                    identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"
+                    identity["arithmetic"] = draftDepth > 0 ? "pr1788-\(affineArtifact.arithmeticTag)-row-invariant-verification-v1" : "pr1788-\(affineArtifact.arithmeticTag)-explicit-v1"
                 } else {
                     try WeightStore.verify(at: baseline)
                     engine = try await Engine(modelDir: baseline, plan: plan)
@@ -221,7 +221,7 @@ extension Diagnostics {
                 affineGenerator = generator; affineIndex = index
                 identity["control_manifest_sha256"] = affineArtifact.manifestSHA256
                 identity["control_policy"] = affineArtifact.policy
-                identity["arithmetic"] = draftDepth > 0 ? "pr1788-affine3-row-invariant-verification-v1" : "pr1788-affine3-explicit-v1"
+                identity["arithmetic"] = draftDepth > 0 ? "pr1788-\(affineArtifact.arithmeticTag)-row-invariant-verification-v1" : "pr1788-\(affineArtifact.arithmeticTag)-explicit-v1"
                 identity["rotary_sha256"] = VQRotaryCoefficients.sha256
                 identity["slots"] = 640; identity["record_bytes"] = model.pool.recordBytes
                 identity["allocation_scope"] = "Fixed small research pool with the original dense and PLE values; not a qualified automatic profile."

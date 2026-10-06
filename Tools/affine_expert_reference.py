@@ -32,6 +32,9 @@ from vq_fused_reference import bounded
 from vq_model_reference import ARCH_SHA256, checked_source, physical, instrument_identity as parent_identity
 from vq_ple_stream import stamp
 
+MIXED_POLICY = 'pinned-affine4-to-affine223-group64-experts-only-v1'
+MIXED_BITS = {'gate_proj': 2, 'up_proj': 2, 'down_proj': 3}
+
 NORMALIZATION = 'original-already-folded-bf16-unchanged-v1'
 PROCESS_LIMIT = 10_000_000_000
 MAX_ROWS = 8192
@@ -65,15 +68,17 @@ def validate_control_manifest(manifest):
     if (not isinstance(manifest, dict) or type(manifest.get('schema')) is not int
             or manifest['schema'] != 1 or manifest.get('complete') is not True
             or manifest.get('qualification') is not False
-            or manifest.get('policy') not in (POLICY, REFIT_POLICY)
+            or manifest.get('policy') not in (POLICY, REFIT_POLICY, MIXED_POLICY)
             or manifest.get('parent_revision') != BASE_REVISION
             or manifest.get('baseline_config_sha256') != BASE_CONFIG
             or manifest.get('baseline_index_sha256') != BASE_INDEX
             or manifest.get('layers') != list(range(48))
             or type(manifest.get('expected_output_bytes')) is not int
-            or manifest['expected_output_bytes'] != 52_848_290_992
+            or manifest['expected_output_bytes'] != (42_781_961_312 if manifest.get('policy') == MIXED_POLICY else 52_848_290_992)
             or not isinstance(manifest.get('files'), list) or len(manifest['files']) != 48):
         raise ValueError('requires a complete explicit same-parent expert control')
+    if manifest['policy'] == MIXED_POLICY and manifest.get('expert_projection_bits') != MIXED_BITS:
+        raise ValueError('mixed control projection recipe changed')
     if manifest['policy'] == REFIT_POLICY:
         if (manifest.get('refitted') is not True
                 or manifest.get('refit_component_receipt_sha256') != REFIT_COMPONENT_SHA256):
@@ -119,7 +124,7 @@ class Archive:
                         module = f'language_model.model.layers.{layer}.mlp.switch_mlp.{family}'
                         if recipe(self.config, module.removeprefix('language_model.')) != {'bits': 4, 'group_size': 64}:
                             raise ValueError('expert source recipe changed')
-                        for suffix, expected in metadata(rows, columns, 3).items():
+                        for suffix, expected in metadata(rows, columns, MIXED_BITS[family] if manifest['policy'] == MIXED_POLICY else 3).items():
                             key = module + '.' + suffix; expected_keys.add(key)
                             info = self.sources[source_id].header[key]
                             if (info['dtype'], info['shape']) != (expected['dtype'], expected['shape']):
@@ -272,7 +277,8 @@ def load_model(archive, arch, *, prove_ple=False):
         if not hasattr(module, 'to_quantized') or name + '.scales' not in weights:
             return False
         if archive.control is not None and '.mlp.switch_mlp.' in name:
-            return {'bits': 3, 'group_size': 64}
+            return {'bits': MIXED_BITS[name.rsplit('.', 1)[-1]]
+                    if archive.control_manifest['policy'] == MIXED_POLICY else 3, 'group_size': 64}
         return recipe(archive.config, name)
     nn.quantize(model, bits=4, group_size=64, class_predicate=predicate)
     model.load_weights(list(weights.items()), strict=True)

@@ -41,7 +41,7 @@ extension Diagnostics {
         func save(_ failure: String? = nil) throws -> Data {
             var result: [String: Any] = ["schema": 1, "complete": complete, "qualification": false,
                 "control_manifest_sha256": artifact.manifestSHA256,
-                "arithmetic": "pr1788-affine3-row-invariant-verification-v1",
+                "arithmetic": "pr1788-\(artifact.arithmeticTag)-row-invariant-verification-v1",
                 "draft_sha256": VQDraftWeights.fileSHA256, "slots": 640, "streamed_draft": streamedDraft,
                 "piecewise_allocation": piecewiseAllocation,
                 "grouped_experts": groupedExperts,

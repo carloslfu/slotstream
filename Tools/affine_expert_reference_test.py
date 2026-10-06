@@ -15,7 +15,13 @@ class ReferenceTests(unittest.TestCase):
   refitted={**original,'policy':m.REFIT_POLICY,'refitted':True,
             'refit_component_receipt_sha256':m.REFIT_COMPONENT_SHA256}
   m.validate_control_manifest(refitted)
-  for manifest in (original,refitted):
+  mixed={**original,'policy':m.MIXED_POLICY,'expected_output_bytes':42_781_961_312,
+         'expert_projection_bits':m.MIXED_BITS,'refitted':False}
+  m.validate_control_manifest(mixed)
+  for bad in [{**mixed,'expert_projection_bits':{'gate_proj':2,'up_proj':3,'down_proj':3}},
+              {**mixed,'expected_output_bytes':52_848_290_992},{**mixed,'refitted':True}]:
+   with self.assertRaises(ValueError):m.validate_control_manifest(bad)
+  for manifest in (original,refitted,mixed):
    for key,value in [('schema',True),('complete',False),('qualification',True),('policy','unreviewed-recipe'),
                      ('parent_revision','changed'),('baseline_config_sha256','0'*64),('baseline_index_sha256','0'*64),
                      ('layers',list(range(47))),('expected_output_bytes',52_848_290_991),('files',[]),('files',{})]:

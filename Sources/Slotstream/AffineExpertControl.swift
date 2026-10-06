@@ -2,7 +2,7 @@ import CryptoKit
 import Darwin
 import Foundation
 
-/// Explicit research adapter for the reproducible four-to-three-bit expert
+/// Explicit research adapter for the reproducible same-parent affine expert
 /// control. It does not register, install, activate or qualify a product pack.
 /// All non-expert tensors stay in the exact original checkpoint.
 package enum AffineExpertControl {
@@ -16,10 +16,17 @@ package enum AffineExpertControl {
         package let policy: String
         package let modelName: String
         package let refitComponentSHA256: String?
+        package let gateUpBits: Int
+        package let expertRecordBytes: Int
+        package let outputBytes: Int
+        package var arithmeticTag: String { gateUpBits == 2 ? "affine223" : "affine3" }
+        package func bits(for projection: String) -> Int { projection == "down_proj" ? 3 : gateUpBits }
         private init(manifestSHA256: String, policy: String, modelName: String,
-                     refitComponentSHA256: String? = nil) {
+                     refitComponentSHA256: String? = nil, gateUpBits: Int = 3,
+                     expertRecordBytes: Int = 2_150_400, outputBytes: Int = 52_848_290_992) {
             self.manifestSHA256 = manifestSHA256; self.policy = policy
             self.modelName = modelName; self.refitComponentSHA256 = refitComponentSHA256
+            self.gateUpBits = gateUpBits; self.expertRecordBytes = expertRecordBytes; self.outputBytes = outputBytes
         }
         package static let minmax = Artifact(manifestSHA256: AffineExpertControl.manifestSHA256,
             policy: AffineExpertControl.policy, modelName: "qwen3.8-flash-next:affine3-control")
@@ -28,14 +35,21 @@ package enum AffineExpertControl {
             policy: "pinned-affine4-to-affine3-group64-refit-experts-only-v1",
             modelName: "qwen3.8-flash-next:affine3-refit",
             refitComponentSHA256: "a7e650d81a0dc384157bd9729dbf3541054817cd315027764e6737dde8994f70")
+        // Only this prospectively screened mixed recipe enters the bounded
+        // reference adapter. It has no Engine plan, product install or Auto row.
+        package static let mixed223 = Artifact(
+            manifestSHA256: "1edbd2d7b01a1f15a185b3c4107feefb195c4e027c654c7f00dbdc981b4ad1c3",
+            policy: "pinned-affine4-to-affine223-group64-experts-only-v1",
+            modelName: "qwen3.8-flash-next:affine223-control", gateUpBits: 2,
+            expertRecordBytes: 1_740_800, outputBytes: 42_781_961_312)
         // The full refit screen lost to minmax on both proxy metrics. Retain
         // its identity for explicit rejection and provenance, not loading.
-        package static let admitted: [Artifact] = [.minmax]
+        package static let admitted: [Artifact] = [.minmax, .mixed223]
 
         package func arithmeticIdentity(rotarySHA256: String?, piecewise: Bool, grouped: Bool,
                                         storageSHA256: String? = nil) -> String {
             let base = [policy, manifestSHA256, rotarySHA256 ?? "embedded-reference-coefficients-v1",
-                PinnedModel.revision, "pr1788-affine3-v1"].joined(separator: ":")
+                PinnedModel.revision, "pr1788-\(arithmeticTag)-v1"].joined(separator: ":")
             let allocated = piecewise ? base + ":piecewise-allocation-v1" : base
             let arithmetic = grouped ? allocated + ":grouped-experts-v1" : allocated
             return storageSHA256.map { arithmetic + ":standalone:" + $0 } ?? arithmetic
@@ -108,7 +122,7 @@ package enum AffineExpertControl {
               manifest.parent_revision == PinnedModel.revision,
               manifest.baseline_config_sha256 == digest(configData), manifest.baseline_index_sha256 == digest(indexData),
               manifest.layers == Array(0..<48), manifest.files.count == 48,
-              manifest.expected_output_bytes == 52_848_290_992 else {
+              manifest.expected_output_bytes == artifact.outputBytes else {
             throw ModelError("requires the complete pinned expert-only affine control")
         }
         let original = try JSONDecoder().decode(Index.self, from: indexData).weight_map
@@ -161,7 +175,7 @@ package enum AffineExpertControl {
                 }
                 for suffix in ["weight", "scales", "biases"] {
                     let key = "language_model." + module + "." + suffix
-                    let shape = [512, rows, suffix == "weight" ? columns * 3 / 32 : columns / 64]
+                    let shape = [512, rows, suffix == "weight" ? columns * artifact.bits(for: projection) / 32 : columns / 64]
                     guard let ref = owner.tensors[key], ref.shape == shape,
                           ref.dtype == (suffix == "weight" ? "U32" : "BF16"), tensors[module + "." + suffix] != nil else {
                         throw ModelError("controlled affine tensor geometry changed")
@@ -174,7 +188,7 @@ package enum AffineExpertControl {
         }
         guard total == manifest.expected_output_bytes, shouldContinue() else { throw ModelError("incomplete affine control") }
         for owner in owners.values { try owner.verifyUnchanged() }
-        return try CheckpointIndex(authenticatedDirectory: baseline, config: config.withAffineExpertControl(),
+        return try CheckpointIndex(authenticatedDirectory: baseline, config: config.withAffineExpertControl(artifact: artifact),
             files: owners, tensors: tensors, affineExpertArtifact: artifact)
     }
 }

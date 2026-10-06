@@ -35,6 +35,7 @@ public enum SlotPoolError: Error, CustomStringConvertible {
 public final class ExpertStore {
     public let index: CheckpointIndex
     package let quantization: AffineQuantization
+    package let downQuantization: AffineQuantization
     private let cfg: ModelConfig
     // per (layer, piece) tensor refs; pieces ordered gw,gs,gb,uw,us,ub,dw,ds,db
     static let pieces = [
@@ -193,9 +194,15 @@ public final class ExpertStore {
         let ff = cfg.moeIntermediate
         let affine = try cfg.affineQuantization(for: "model.layers.0.mlp.switch_mlp.gate_proj")
         self.quantization = affine
+        let down = try cfg.affineQuantization(for: "model.layers.0.mlp.switch_mlp.down_proj")
+        guard down == affine || (index.affineExpertArtifact == .mixed223
+            && affine.bits == 2 && affine.groupSize == 64 && down.bits == 3 && down.groupSize == 64) else {
+            throw ModelError("mixed expert projections require the exact admitted research artifact")
+        }
+        self.downQuantization = down
         let g = affine.groupSize
         let hiddenWords = try affine.packedWords(columns: h)
-        let intermediateWords = try affine.packedWords(columns: ff)
+        let intermediateWords = try down.packedWords(columns: ff)
         let expected: [(shape: [Int], dtype: String)] = [
             ([cfg.numExperts, ff, hiddenWords], "U32"),
             ([cfg.numExperts, ff, h / g], "BF16"),
@@ -204,14 +211,14 @@ public final class ExpertStore {
             ([cfg.numExperts, ff, h / g], "BF16"),
             ([cfg.numExperts, ff, h / g], "BF16"),
             ([cfg.numExperts, h, intermediateWords], "U32"),
-            ([cfg.numExperts, h, ff / g], "BF16"),
-            ([cfg.numExperts, h, ff / g], "BF16"),
+            ([cfg.numExperts, h, ff / down.groupSize], "BF16"),
+            ([cfg.numExperts, h, ff / down.groupSize], "BF16"),
         ]
         for l in 0 ..< cfg.numLayers {
             let base = "model.layers.\(l).mlp.switch_mlp."
             for projection in ["gate_proj", "up_proj", "down_proj"] {
-                guard try cfg.affineQuantization(for: base + projection) == affine else {
-                    throw ModelError("the affine expert pool requires one uniform validated descriptor")
+                guard try cfg.affineQuantization(for: base + projection) == (projection == "down_proj" ? down : affine) else {
+                    throw ModelError("the affine expert pool requires one validated descriptor per projection across layers")
                 }
             }
             let layer = Self.pieces.map { index.ref(base + $0) }

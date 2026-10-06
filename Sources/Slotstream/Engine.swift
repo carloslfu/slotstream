@@ -425,6 +425,9 @@ public final class Engine {
     }
 
     package convenience init(modelDir: URL, affineSource: AffineEngineSource, plan: MemoryPlan) async throws {
+        guard affineSource.artifact == .minmax else {
+            throw SlotstreamError.invalidPlan("the mixed affine screen has no admitted Engine memory recipe")
+        }
         try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan, affineSource: affineSource)
     }
 

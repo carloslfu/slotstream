@@ -46,7 +46,7 @@ def digest(path):
 
 
 def metadata(rows, columns, bits, experts=EXPERTS):
-    if (rows, columns) not in ((640, 2560), (2560, 640)) or bits not in (3, 4) or type(experts) is not int or not 1 <= experts <= EXPERTS:
+    if (rows, columns) not in ((640, 2560), (2560, 640)) or bits not in (2, 3, 4) or type(experts) is not int or not 1 <= experts <= EXPERTS:
         raise ValueError('uninspected expert geometry')
     if columns % GROUP or columns * bits % 32:
         raise ValueError('fractional affine row packing')

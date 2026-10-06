@@ -40,7 +40,8 @@ class ControlTests(unittest.TestCase):
   self.assertEqual(total,52848230400)
   self.assertEqual(m.metadata(640,2560,3)['weight']['shape'],[512,640,240])
   self.assertEqual(m.metadata(2560,640,3)['weight']['shape'],[512,2560,60])
-  for args in [(640,2559,3),(640,2560,2),(640,2560,3,True),(640,2560,3,0),(640,2560,3,513)]:
+  self.assertEqual(m.metadata(640,2560,2)['weight']['shape'],[512,640,160])
+  for args in [(640,2559,3),(640,2560,1),(640,2560,3,True),(640,2560,3,0),(640,2560,3,513)]:
    with self.assertRaises(ValueError):m.metadata(*args)
   for layer in [-1,48,True]:
    with self.assertRaises(ValueError):m.sized_header(layer)

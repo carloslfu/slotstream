@@ -70,12 +70,12 @@ extension Diagnostics {
         let model = try Qwen4ExpModel(index: index, poolSlots: 640, embeddingRowCache: nil,
             affineControlReferenceArithmetic: referenceArithmetic)
         try model.validate()
-        guard model.pool.recordBytes == 2_150_400 else { throw ModelError("native control record size differs") }
+        guard model.pool.recordBytes == artifact.expertRecordBytes else { throw ModelError("native control record size differs") }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         var result: [String: Any] = ["schema": 1, "complete": false, "qualification": false,
             "control_manifest_sha256": artifact.manifestSHA256, "reference_manifest_sha256": referenceSHA256,
             "relative_maximum_bound": fixture.relative_maximum_bound, "record_bytes": model.pool.recordBytes,
-            "arithmetic": referenceArithmetic ? "pr1788-affine3-explicit-v1" : "native-deployed-defaults",
+            "arithmetic": referenceArithmetic ? "pr1788-\(artifact.arithmeticTag)-explicit-v1" : "native-deployed-defaults",
             "slots": [640, 640, 800, 640], "saved_raw_f32_bytes": 0,
             "allocation_scope": "Fixed small slot counts. Public planner remains conservatively priced at the original four-bit geometry."]
         func save() throws -> Data {

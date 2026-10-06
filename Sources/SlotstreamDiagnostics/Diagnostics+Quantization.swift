@@ -165,6 +165,18 @@ extension Diagnostics {
             do { try Geometry.check(against: config, recordBytes: bytes); c.expect("artifact-specific geometry mismatch refused", false) }
             catch { c.expect("artifact-specific geometry mismatch refused", true) }
         }
+        let mixedControl = try baselineConfig.withAffineExpertControl(artifact: .mixed223)
+        c.equal("mixed control record accounts for both two-bit projections", mixedControl.admittedExpertRecordBytes, 1_740_800)
+        try Geometry.check(against: mixedControl, recordBytes: 1_740_800)
+        for layer in 0..<48 {
+            for projection in ["gate_proj", "up_proj", "down_proj"] {
+                c.equal("mixed projection recipe", try mixedControl.affineQuantization(
+                    for: "model.layers.\(layer).mlp.switch_mlp.\(projection)").bits,
+                    projection == "down_proj" ? 3 : 2)
+            }
+        }
+        c.equal("mixed control retains original dense recipe", try mixedControl.affineQuantization(for: "lm_head"), four)
+        c.equal("mixed control retains original PLE recipe", try mixedControl.affineQuantization(for: "ngram_embedding.shard_0").groupSize, 32)
         c.equal("3-bit rows do not truncate fractional packing", try three.packedWords(columns: 2560), 240)
         let wide = try VQLayout(columns: 2560, dimensions: 8, codebookEntries: 16384, groupSize: 64, packing: .words32)
         let down = try VQLayout(columns: 640, dimensions: 4, codebookEntries: 256, groupSize: 64, packing: .words32)

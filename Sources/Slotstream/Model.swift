@@ -270,11 +270,11 @@ public final class Qwen4ExpModel {
         guard !affineGroupedExperts || affinePiecewiseAllocation else {
             throw ModelError("grouped affine experts require the explicit sequential allocation contract")
         }
-        guard !affinePiecewiseAllocation || affineControlReferenceArithmetic else {
+        guard !affinePiecewiseAllocation || (affineControlReferenceArithmetic && index.affineExpertArtifact == .minmax) else {
             throw ModelError("piecewise affine allocation requires the authenticated reference profile")
         }
         guard !affineControlReferenceArithmetic || (index.hasAuthenticatedFiles
-            && index.affineExpertArtifact != nil && index.config.admittedExpertRecordBytes == 2_150_400) else {
+            && index.affineExpertArtifact != nil && index.config.admittedExpertRecordBytes == index.affineExpertArtifact?.expertRecordBytes) else {
             throw ModelError("the affine reference profile requires the authenticated expert control")
         }
         guard affineControlCoefficients == nil || affineControlReferenceArithmetic,
