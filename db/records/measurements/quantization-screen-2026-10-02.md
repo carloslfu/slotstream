@@ -2,7 +2,7 @@
 type: measurement
 id: 01m3z6rmfcxgpkn96hyh2n903j
 created: 2026-10-02T21:01:46.859947+00:00
-updated: 2026-10-05T22:57:06.106064+00:00
+updated: 2026-10-06T00:03:05.806844+00:00
 summary: Pinned VQ inventories, authenticated native artifact reads and exact bounded complete-stack parity; no alternative pack or speed profile is qualified.
 date: 2026-10-02
 doc: measurements
@@ -13,6 +13,23 @@ runs: '[[sources/runs/2026/10/2026-10-02-quantization-native-screen]]'
 title: Initial quantization screen and bounded native decoding
 status: measured
 ---
+### Complete repeated attention comparison, October 5
+
+[[sources/runs/2026/10/2026-10-05-practical-attention-comparison]] preserves the complete twelve-process comparison, the separate stopped prefix and restored host controls. Three paired rounds at each real ceiling pass physical budgets, natural completion and every frozen timing rule. Two whole-host swap-in deltas are 262,144 and 524,288 bytes, with no swap-outs in any process. The original supported pack remains unchanged.
+
+The smaller pack uses plain attention; the original retains its corrected predictor. The candidate now approaches original generation speed at 22 GB and reduces the longer-prompt request latency at both ceilings. It still decodes more slowly in all 14-GB cases, loads more slowly at both ceilings, and neither pack reaches twenty committed tokens per second. These controlled interactive-burst medians do not establish sustained-session, other-Mac or statistical qualification. Filesystem caching is uncontrolled. Rates use committed tokens minus one divided by the complete decode timer; ratios pair the original and candidate within each round.
+
+| Ceiling and work | Original tok/s | Three-bit tok/s | Paired ratio | Original request, s | Three-bit request, s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 14 GB, short-256 | 12.75 | 12.55 | 0.984 | 21.647 | 22.033 |
+| 14 GB, context-256 | 15.38 | 15.11 | 0.982 | 25.831 | 24.955 |
+| 14 GB, coding-answer | 14.97 | 14.21 | 0.942 | 7.769 | 8.230 |
+| 22 GB, short-256 | 16.17 | 16.22 | 1.002 | 17.522 | 17.551 |
+| 22 GB, context-256 | 18.10 | 17.84 | 0.985 | 21.145 | 19.342 |
+| 22 GB, coding-answer | 18.23 | 18.62 | 1.021 | 6.880 | 6.732 |
+
+The natural coding answer has exactly equal text and all 81 token IDs across every process. The candidate's longer-prompt first text arrives at medians of 7.288 versus 9.206 seconds at 14 GB and 5.046 versus 7.056 seconds at 22 GB. Load medians are 10.967 versus 8.532 seconds and 11.050 versus 8.777 seconds. Peak physical footprints stay below 11.34 GB at the 14-GB ceiling and 17.93 GB at the 22-GB ceiling. The current evidence supports a limited prompt-latency benefit, not automatic promotion or a universal speed promise. Exact-head engine, Mac and context CI for the attention implementation pass. The existing original Desktop automatic ceiling is 33 decimal GB on this Mac; the reduced-budget measurements do not answer that default case, which is separately prepared with actual headroom admission.
+
 ### Native attention predictor probe, October 5
 
 [[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] captures one prospectively frozen boundary/attention pair at a real 14-GB ceiling. The same three-bit bytes, two streamed drafts, 1,941 expert slots and complete workloads run through the common native Engine. All three outputs match exactly, both physical watchdogs pass and both cells are timing-eligible under the existing pilot policy.

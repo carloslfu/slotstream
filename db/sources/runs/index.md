@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-05T22:54:57.727759Z
+updated: 2026-10-06T00:02:25.110733Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-05-practical-attention-comparison]] — Complete twelve-process attention comparison stays within physical and timing bounds; longer-prompt latency improves but no general generation advantage or twenty-token result
 - [[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] — Single bounded predictor pair preserves exact outputs and improves generation in all three workloads; repeated product comparison remains required
 - [[sources/runs/2026/10/2026-10-05-practical-complete-comparison]] — Complete twelve-process pilot: all memory and timing eligibility checks pass; smaller pack generally decodes slower and improves long-prompt latency
 - [[sources/runs/2026/10/2026-10-05-bounded-swapin-pilot-policy]] — Preserve a cooled run excluded for 64 KiB of swap-ins; freeze a bounded pilot policy with explicit paging diagnostics and twenty-two passing tests
@@ -506,9 +507,8 @@ updated: 2026-10-05T22:54:57.727759Z
 - [[sources/runs/2026/09/2026-09-08-optimization-fixed-mtp-activation-preparation]] — Exact current V360 activation patch is prepared and remains unapplied
 - [[sources/runs/2026/09/2026-09-08-optimization-unique-image-serving-pressure-stop]] — Original unique-image guard stops at OS memory pressure before a measured request
 - [[sources/runs/2026/09/2026-09-08-optimization-scope-serving-pressure-stop]] — Original scope serving study preserves exact output pairs but stops at OS memory pressure
-- [[sources/runs/2026/09/2026-09-08-optimization-duplicate-image-serving-rejected]] — Original duplicate-image study completes with exact outputs but fails the speed gate
 
 ## More
 
-This folder has 851 files. The 500 most recent are listed above.
+This folder has 852 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

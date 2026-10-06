@@ -3,7 +3,7 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-05T22:57:06.126575+00:00
+updated: 2026-10-06T00:03:05.830267+00:00
 summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 date: 2026-10-02
 doc: plan
@@ -36,7 +36,9 @@ The smaller standalone bundle now reuses the production affine kernels, bounded 
 
 [[sources/runs/2026/10/2026-10-05-native-affine-attention-probe]] closes the bounded predictor probe. One boundary/attention pair at 14 GB produces exactly matching outputs for all three workloads and passes physical and timing eligibility. The plain attention tap improves generation in each case, a lead for repetition rather than promotion evidence. Twenty-two runner tests and ten native groups pass; the change is internal and the original supported default stays intact.
 
-Next: complete the frozen three-round original/attention-candidate comparison at the same 14/22-GB ceilings, with all original workloads and safety/eligibility rules retained. Do not select a favorable subset or infer other-Mac speed from reduced ceilings here. Public redistribution permission, actual alternative setup/download/activation, useful selection rows and final release remain open. No universal throughput promise follows.
+[[sources/runs/2026/10/2026-10-05-practical-attention-comparison]] closes all twelve original/attention-candidate runs. All physical, natural-completion and frozen timing rules pass. The candidate approaches original generation at 22 GB and improves longer-prompt latency, but remains slower at 14 GB and loads more slowly. Neither pack reaches the twenty-token target. The separate stopped first attempt contributes no outcomes. Exact-head engine, Mac and context CI pass, and temporary host controls are restored.
+
+Next: measure the existing original Desktop automatic ceiling of 33 decimal GB with the same complete workloads and paired order, requiring 36 GB actual reclaimable memory. The reduced 14/22-GB budgets do not establish this default case. The explicit pilot bound is extended only to the existing product ceiling; legacy and held-out protocol bounds stay unchanged, and the product's memory policy is unchanged. Public redistribution permission, actual alternative setup/download/activation, useful selection rows and final release remain open. Do not infer other-Mac speed or a universal promise.
 
 ### Practical performance findings, October 5
 
