@@ -474,3 +474,6 @@ Complete the bounded 10 GB corrected-prefetch comparison, preserve the earlier 1
 ## [2026-10-07 18:32] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Close the implementation and research effort with the full same-checkpoint speed target explicitly unmet. Retain original four-bit, accepted automatic controls and lifecycle work, measured Desktop-ceiling results, and all rejected or unmeasured evidence. Update the ordered queue and integration record to prevent automatic revival. Brain validation passes with zero errors/warnings; projections, 358 claim checks and llms-full check pass.
 
+## [2026-10-07 19:35] update | records/measurements/release-0-2-28-published-2026-10-07.md
+Publish v0.2.28 from the accepted exact-source CI archive. Preserve complete native acceptance (35 gates, no failures or skips), public checksum and provenance verification, and isolated public-installer acceptance (31 checks, owned server reaped). Retain original four-bit as the only supported pack, experimental formats as research, and the broader speed target as unmet. Brain validation, projections, 358 claim checks and llms-full check pass.
+

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-06T22:51:07.084050Z
+updated: 2026-10-07T19:33:55.748779Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/10/2026-10-07-release-0-2-28-published-and-installed]] — v0.2.28 published and accepted through an isolated public installation
 - [[sources/runs/2026/10/2026-10-06-focused-continuation-acceptance]] — Final engine, app, coverage and context CI pass; local selection and rendered controls pass; practical speed target remains unmet
 - [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-result]] — Clean corrected-prefetch pair preserves outputs and budgets but fails its practical speed-gain gate; immutable receipts replayed after stale collector mapping
 - [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-preparation]] — Prospective ten-GB corrected-prefetch pair after the fourteen-GB host refused without native execution
@@ -506,9 +507,8 @@ updated: 2026-10-06T22:51:07.084050Z
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-recovery-and-scope-preparation]] — Current recovery integration passes and complete explicit-scope successor is prepared
 - [[sources/runs/2026/09/2026-09-08-optimization-vision-resource-resumption-preparation]] — Full vision mechanism successor frozen after verified memory recovery
 - [[sources/runs/2026/09/2026-09-08-optimization-resumed-ordinary-mtp-native-pass]] — Current automatic-scope candidate passes original ordinary and MTP integrations
-- [[sources/runs/2026/09/2026-09-08-optimization-resource-resumption-native-preparation]] — Optimization native tests resume after verified memory recovery
 
 ## More
 
-This folder has 898 files. The 500 most recent are listed above.
+This folder has 899 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
