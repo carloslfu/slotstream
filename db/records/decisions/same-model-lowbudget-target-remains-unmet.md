@@ -2,15 +2,23 @@
 type: decision
 id: 01m47kgsqnpvafw92gkky7zbd6
 created: 2026-10-06T03:18:37.044991+00:00
-updated: 2026-10-06T22:36:24.753279+00:00
-summary: Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
+updated: 2026-10-07T18:31:40.717468+00:00
+summary: Close this implementation and research effort; retain original four-bit and independent automatic controls, with the full speed target unmet.
 decided_on: 2026-10-05
 evidence: '[[records/measurements/quantization-screen-2026-10-02]]'
 reversible_if: A new frozen mechanism screen and complete comparisons show useful progress toward the unmet budgets with acceptable focused quality and essential safety, or the owner explicitly changes the target or model constraint.
 title: Preserve the original while the low-budget performance target remains unmet
 status: standing
 ---
-## Current disposition, October 6
+## Closure decision, October 7
+
+Close the implementation and research plan while retaining the original four-bit pack, both automatic systems, independent user overrides and all accepted safety/lifecycle work. The local Desktop-ceiling results are useful, but no tested alternative satisfies the combined speed and quality requirements at the unmet budgets. The full same-checkpoint twenty-token performance target remains unachieved. Closure is not a universal infeasibility claim, a change of model scope or admission of a failed candidate.
+
+The operational closure and retained outcomes are in [[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]]. Final implementation acceptance is [[sources/runs/2026/10/2026-10-06-focused-continuation-acceptance]]; the final correction screen is [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-result]]. Existing measurements, failed gates and unmeasured scopes remain available. No further format sweep, repeated speed cells or hardware purchase is required to close this effort.
+
+Reopen only when a materially new, source/counter-backed mechanism earns a bounded prospective experiment, or the owner explicitly changes the model or performance requirement. Any future winner must still pass quality, safety and product qualification. The historical references below to an open goal or active plan preserve the research sequence; they do not leave this effort running.
+
+## Historical disposition, October 6
 
 The corrected-prefetch transfer in [[sources/runs/2026/10/2026-10-06-candidate-correction-lowbudget-result]] is a clean completed lower-budget screen. It preserves exact outputs and bounded physical memory, and improves the observed rates modestly, but fails its prospective useful-gain criterion. Do not promote the three-bit pack or widen the test into another budget campaign. Preserve the small gain, the unmeasured fourteen-GB scope and the transparent mechanical replay of immutable receipts after a stale collector mapping. Reopen only for a materially stronger, evidence-backed route toward the missing speed with the required quality. The supported original and independent automatic controls remain unchanged.
 

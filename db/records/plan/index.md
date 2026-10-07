@@ -2,13 +2,13 @@
 type: index
 scope: type-folder
 folder: records/plan
-updated: 2026-10-06T22:51:07.154829Z
+updated: 2026-10-07T18:31:40.780416Z
 ---
 
 # records/plan
 
-- [[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]] — Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
 - [[records/plan/8-1-next-the-ordered-queue-post-0-1-5]] — 8.1 Next — the ordered queue (post-0.1.5)
+- [[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]] — Closed October 7: automatic controls and research delivered; retain original four-bit, with the full 16–64 GB speed target unmet.
 - [[records/plan/decode-forecast-taps-2026-09-14]] — A more accurate expert forecast at the same lead time: attention taps, a learned correction and three closed levers, each registered and gated; the corrected tap ships in 0.2.19
 - [[records/plan/deprioritized-decision-2026-08-29]] — Deprioritized (decision 2026-08-29)
 - [[records/plan/configurable-context-window-2026-09-06]] — Configurable context through the model limit: shared byte accounting, request guards, bounded prefill and staged qualification

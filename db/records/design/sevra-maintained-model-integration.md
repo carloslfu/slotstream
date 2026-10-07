@@ -2,7 +2,7 @@
 type: design
 id: 01m21xw595ac9n303q61m8kvtq
 created: 2026-09-09T01:52:44.837037+00:00
-updated: 2026-10-02T18:46:22.299521+00:00
+updated: 2026-10-07T18:31:40.813251+00:00
 summary: 'Sevra integration: versioned hardware/model profiles, full-stack qualification, maintained updates and documentation tied to implementation.'
 date: 2026-09-08
 doc: plan
@@ -65,4 +65,4 @@ release date or performance result is established by this wording change.
 
 ## Same model quantization workstream October 2 2026
 
-[[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]] details the current Mac workstream: keep Flash Next, qualify a few representations, default to automatic selection and retain independent supported-pack and memory-ceiling overrides. A separate live governor adapts allocations without changing the chosen pack. This narrows the current optimization program without reversing the broader maintained-model architecture. The control decision is [[records/decisions/same-model-automatic-quantization-with-overrides]]. The plan is not implementation or new hardware-performance evidence.
+[[records/plan/same-model-quantization-and-automatic-memory-2026-10-02]] records the Mac implementation and research effort closed on October 7. Initial Auto selection and independent supported-pack, memory-ceiling and live-memory controls are implemented and tested; the separate governor adapts allocations without changing the chosen pack. Original four-bit remains the only supported pack, and the full same-checkpoint speed target across the intended hardware range remains unmet. The closed plan links the accepted implementation and scoped measurements; it does not qualify an alternative pack or unmeasured hardware. The control decision is [[records/decisions/same-model-automatic-quantization-with-overrides]], and the broader maintained-model architecture remains unchanged.

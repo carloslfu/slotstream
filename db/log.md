@@ -471,3 +471,6 @@ Freeze and attempt one bounded corrected-prefetch continuation; preserve no-laun
 ## [2026-10-06 22:51] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
 Complete the bounded 10 GB corrected-prefetch comparison, preserve the earlier 14 GB no-launch refusal and stale collector replay, and reject promotion under the frozen gain criterion. Record passing exact-source engine/app/coverage/context CI and local controls/UI checks. Explain both automatic systems in public hardware guidance. Full 16–64 GB speed goal remains unmet.
 
+## [2026-10-07 18:32] update | records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md
+Close the implementation and research effort with the full same-checkpoint speed target explicitly unmet. Retain original four-bit, accepted automatic controls and lifecycle work, measured Desktop-ceiling results, and all rejected or unmeasured evidence. Update the ordered queue and integration record to prevent automatic revival. Brain validation passes with zero errors/warnings; projections, 358 claim checks and llms-full check pass.
+

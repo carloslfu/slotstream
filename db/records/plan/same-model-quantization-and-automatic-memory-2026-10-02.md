@@ -3,16 +3,33 @@ type: plan
 meta-type: operational
 id: 01m3yz0p8fprhjdshs3m6f82gy
 created: 2026-10-02T18:46:22.223253+00:00
-updated: 2026-10-06T22:51:07.154829+00:00
-summary: Same Flash Next checkpoint, automatic selection with independent overrides, local validation on the available 48 GB Mac and conservative estimates for other configurations.
+updated: 2026-10-07T18:31:40.530556+00:00
+summary: 'Closed October 7: automatic controls and research delivered; retain original four-bit, with the full 16–64 GB speed target unmet.'
+closed_on: 2026-10-07
 date: 2026-10-02
 doc: plan
 kind: milestone
 level: '2'
 order: '6'
 title: Flash Next quantization and automatic memory implementation
+status: closed
 ---
-### Active goal and evidence-led plan, October 6
+### Closed October 7, 2026: implementation retained, full speed target unmet
+
+This plan is closed as a completed implementation and research effort with a partially met performance objective. It has no active experiment or delivery queue. The original goal of at least twenty committed generation tokens per second across recommended configurations for 16–64 GB Macs remains unmet. Closing this plan does not certify that promise or prove it impossible.
+
+The useful outcomes are retained:
+
+- Original four-bit reaches the target on the three tested workloads on the owned 48 GB Mac at the 33 GB process ceiling. The complete method and limits remain in [[sources/runs/2026/10/2026-10-05-practical-desktop-ceiling]]. The larger cache explains the measured benefit; this is not a newly faster quantization or a guarantee for every prompt.
+- Initial Auto selection, independent saved ceilings and runtime adjustment, user overrides, verified installation, activation and rollback are implemented and tested. Keep the existing original-pack lifecycle evidence in [[sources/runs/2026/10/2026-10-05-real-app-activation-and-memory-controls]] and the final source/UI/CI acceptance in [[sources/runs/2026/10/2026-10-06-focused-continuation-acceptance]].
+- The quantization, kernel, streaming and allocation screens identify recipes that do not justify product promotion. Preserve their implementations and evidence in [[records/measurements/quantization-screen-2026-10-02]]. Original remains the only supported pack; no alternative or speed-qualified Auto profile is admitted merely to fill the selection list.
+- README, hardware guidance and engineering records distinguish measured development-Mac speeds from reduced-budget tests and estimates for other Macs. The remaining lower-budget gap stays explicit.
+
+Further work is conditional, outside this closed plan. A materially new, evidence-backed mechanism with a cheap prospective test can justify reopening research; changing the checkpoint or performance requirement requires an explicit owner decision. Winner-specific qualification, installation and release apply only if a future candidate passes. The unrun fourteen-GB correction pair and cancelled follow-ups remain unmeasured, not pending obligations. No new model choice, hardware-validation requirement or performance promise is adopted. [[records/decisions/same-model-lowbudget-target-remains-unmet]] records the closure rationale and reopening condition.
+
+### Historical objective and evidence-led plan, October 6
+
+The dated sections below preserve the original objective, experiment decisions and implementation history. Their references to active, open, pending or prospective work describe that point in the research. The October 7 closure above controls the current state.
 
 Deliver the same Qwen3.8 Flash Next checkpoint with similar useful quality, targeting at least twenty committed generation tokens per second in recommended configurations across 16–64 GB Macs. Auto selects quantization and initial budget by default; pack choice, saved ceiling and runtime memory adjustment remain independent controls. Never change quantization during a response. Preserve the original wherever it is the best qualified option. Shipping a three-bit pack or an empty alternative recommendation list does not complete this goal.
 

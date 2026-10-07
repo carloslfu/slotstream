@@ -2,12 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-06T22:36:24.753279Z
+updated: 2026-10-07T18:31:40.717468Z
 ---
 
 # records/decisions
 
-- [[records/decisions/same-model-lowbudget-target-remains-unmet]] — Preserve the original and both automatic controls; current tested recipes do not satisfy the full low-memory speed target
+- [[records/decisions/same-model-lowbudget-target-remains-unmet]] — Close this implementation and research effort; retain original four-bit and independent automatic controls, with the full speed target unmet.
 - [[records/decisions/vq-2.1-held-after-distribution-screen]] — Hold full VQ2.1 and the tested original-dense mixture after adverse screens; preserve evidence and require a separately qualified recipe before promotion.
 - [[records/decisions/affine223-held-after-completed-task-screen]] — Hold the exact mixed two/three-bit affine recipe after three newly failed completed tasks
 - [[records/decisions/practical-quantization-release-scope]] — Focused experiments toward the full same-model performance target; huge statistical campaign remains deferred
