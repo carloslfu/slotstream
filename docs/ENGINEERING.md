@@ -26,7 +26,7 @@ For AI agents, [llms.txt](../llms.txt) is the index and
 ## Candidate quantization research
 
 The [same-model implementation plan](../db/records/plan/same-model-quantization-and-automatic-memory-2026-10-02.md)
-tracks qualification separately from format support. The installed engine still
+records the closed research effort and keeps qualification separate from format support. The installed engine still
 admits its pinned affine pack. Experimental descriptors and decoders do not
 enable a candidate model or change the automatic recommendation.
 
@@ -348,7 +348,7 @@ slotstream serve --memory-gb 16
 default text context; larger windows and resident components need more room.
 An explicit target disables automatic cache resizing, while loading and
 request-memory safeguards remain active. Preview it before starting.
-The development version also offers `--memory-limit-gb`: an upper process
+`--memory-limit-gb` sets an upper process
 budget with automatic cache resizing. It can exceed the default model ceiling
 while remaining bounded by supported GPU/system headroom and live memory.
 The chosen limit is retained across shrink and recovery. Diagnostics and

@@ -44,6 +44,28 @@ show the observed variation, prompt-reuse behavior and measurement limits.
 
 ## Everyday commands
 
+### `slotstream model-packs`
+
+List the supported model packs and the current Auto recommendation without
+loading or downloading weights. Available starting in Slotstream 0.2.28.
+
+```sh
+slotstream model-packs
+slotstream model-packs --json
+slotstream doctor --quantization auto
+```
+
+`--selection <id>` inspects a supported pack explicitly. On `doctor`, `run`
+and `serve`, `--quantization auto` uses the maintained pack selection and
+memory planner; `--quantization <id>` selects a supported pack by the immutable
+ID shown in the list. Omitting the option preserves existing custom-model
+behavior. Pack choice, the memory ceiling and runtime cache resizing remain
+independent controls. See [memory options](#memory-options).
+
+Original 4-bit is currently the only supported pack. Research formats do not
+appear as supported choices. The list explains the recommendation and reports
+available evidence; it does not certify a speed for your current configuration.
+
 ### `slotstream run`
 
 Generate once from a prompt, with no server.
@@ -114,7 +136,7 @@ the second waits for the first to finish starting, then uses its server.
 |---|---|
 | `--port <n>` | The port the server listens on (default 11434). |
 | `--memory-gb <gb>` | Memory target for a server this command starts, as in `serve`. Default: automatic. When a server with another target is already running, it is left as it is and a note names its target. |
-| `--memory-limit-gb <gb>` | Adaptive ceiling for a server this command starts (development version). Cannot be combined with `--memory-gb`. An existing server keeps its settings; a note explains when the requested limit does not apply. |
+| `--memory-limit-gb <gb>` | Adaptive ceiling for a server this command starts. Cannot be combined with `--memory-gb`. An existing server keeps its settings; a note explains when the requested limit does not apply. |
 | `--idle-exit <minutes>` | How long a server this command starts keeps running after its last agent exits (default 30, at most 10080); `0` keeps it running until `slotstream stop`. |
 | `--no-start` | Use a running server only; never start or restart one. |
 | `--dry-run` | Print the server it would start, the command, the variables it sets or removes, the files it would write, and notes; start, download and write nothing. Keys and tokens in the output are hidden, and for Pi only the `slotstream` entry of its models file is shown. |
@@ -256,7 +278,7 @@ With no sizing override, auto sizes the process to the machine (see
 | Flag | Meaning |
 |---|---|
 | `--model <name or dir>` | Model name (resolves to `~/.slotstream/models`, or a dev checkout's `models/`) or a directory path. |
-| `--memory-limit-gb <gb>` | Adaptive total process ceiling, in decimal GB (development version). Can exceed the default model ceiling. The cache shrinks when other apps need memory and can grow back when it is available, within the saved limit and the Mac's supported budget. Cannot be combined with the fixed memory/cache options below. |
+| `--memory-limit-gb <gb>` | Adaptive total process ceiling, in decimal GB. Can exceed the default model ceiling. The cache shrinks when other apps need memory and can grow back when it is available, within the saved limit and the Mac's supported budget. Cannot be combined with the fixed memory/cache options below. |
 | `--memory-gb <gb>` | Total process memory budget, in decimal GB. The cache gets what remains after runtime, context, workspace and a nominal 1 GB margin. Near the minimum cache size, the plan can use part of that margin; `doctor` shows the actual planned headroom. Minimum 8.1 for the 32,768-token window; larger windows raise the minimum. This is a planning allowance, not an instruction to fill RAM. Conversation state and workspace use memory as needed, so measured usage can be lower. Auto picks the context window inside this target and preserves cache whose loss it cannot price; `--max-context N` chooses the context tradeoff explicitly. |
 | `--experts-per-layer <n>` | Expert cache size directly, 1…512. Each of the 48 layers has 512 experts of 2.76 MB and the cache holds `n × 48` of them, so the pool is `n × 0.133 GB`: 30/layer is 4 GB, 181 is 24 GB, 226 is 30 GB. The pool is one global cache; hot layers borrow slots from cold ones. |
 | `--pool-gb <gb>` | Raw expert-pool size (1 GB is about 7.5 experts per layer). |

@@ -6,12 +6,14 @@ Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
 
-## Unreleased
+## 0.2.28 - 2026-10-07
 
 - The development Mac app separates quantization, memory ceiling and live
   memory adjustment. Each defaults to Automatic and can be overridden
   independently. Changes wait for the current response to finish. The original
-  pack remains the only supported choice while the smaller pack is evaluated.
+  pack remains the only supported choice; the evaluated smaller packs remain
+  research-only. These app changes are available in source, not a Desktop
+  installer in this engine release.
 - Model activation checks the selected files and a short response before
   making a new configuration active. A failed change can restore the previous
   working configuration while preserving the requested setting for an explicit
@@ -22,6 +24,11 @@ determines which version the installer downloads.
   the option is omitted.
 - Returned expert-lookahead slots are released when a request finishes, after
   its readers have joined, instead of waiting for the next demand read.
+- Runtime memory planning bounds its reclaimable-memory credit by the
+  process's observed footprint. Fixed caches must fit their complete current
+  allocation, including context and enabled components, before another request.
+- Quantization research and measured hardware guidance are documented. No
+  alternative pack or universal speed guarantee is introduced by this release.
 
 ## 0.2.27 - 2026-09-30
 

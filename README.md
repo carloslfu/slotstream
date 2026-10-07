@@ -306,8 +306,7 @@ slotstream doctor --memory-gb 40
 ```
 
 If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget
-with a fixed cache. In the current development version, use
-`--memory-limit-gb` instead to choose an upper limit while the cache adapts
+with a fixed cache. Use `--memory-limit-gb` instead to choose an upper limit while the cache adapts
 to other apps. Custom limits can exceed the automatic default; the Mac's
 supported budget and available memory still bound actual use.
 Auto keeps expert cache when a larger automatic context would trade it away
