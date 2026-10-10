@@ -83,6 +83,7 @@ public struct ChatMessage {
 
 public final class Engine {
     public let modelDir: URL
+    private let mirrorDirs: [URL]
     public let model: Qwen4ExpModel
     public let generator: Generator
     public let tokenizer: any Tokenizers.Tokenizer
@@ -397,24 +398,27 @@ public final class Engine {
         poolSnapshotLock.unlock()
     }
 
-    public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
-        try await self.init(modelDir: modelDir, poolSlots: plan.slots, plan: plan)
+    public convenience init(modelDir: URL, mirrors: [URL] = [], plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, mirrors: mirrors, poolSlots: plan.slots, plan: plan)
     }
 
     /// Load a compiled maintained deployment with its own complete memory
     /// plan. The owner authenticates the selected WeightStore first. This
     /// does not apply product tuning or confer a measured performance profile;
     /// those remain explicit steps before publishing a healthy runtime.
-    public convenience init(modelDir: URL, pack: ModelPack, plan: MemoryPlan) async throws {
+    public convenience init(modelDir: URL, mirrors: [URL] = [], pack: ModelPack, plan: MemoryPlan) async throws {
         try pack.validateLoadPlan(plan)
         if pack.id == PinnedAffineStandalone.id {
+            guard mirrors.isEmpty else {
+                throw ModelError("authenticated affine packs cannot be combined with checkpoint mirrors")
+            }
             let bundle = try AffineStandalonePack(directory: modelDir,
                 manifestSHA256: PinnedAffineStandalone.manifestSHA256)
             try await self.init(modelDir: bundle.directory,
                 affineSource: AffineEngineSource(standalone: bundle,
                     decodeLookahead: plan.decodeLookahead, nativeArithmetic: true), plan: plan)
         } else {
-            try await self.init(modelDir: modelDir, plan: plan)
+            try await self.init(modelDir: modelDir, mirrors: mirrors, plan: plan)
         }
     }
 
@@ -423,8 +427,8 @@ public final class Engine {
     /// CLI validates its own flag.
     public var gpuKeepAlive: GPUKeepAlive.Policy = (try? GPUKeepAlive.environmentPolicy()) ?? .auto
 
-    public convenience init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
-        try await self.init(modelDir: modelDir, poolSlots: poolSlots, plan: plan, affineSource: nil)
+    public convenience init(modelDir: URL, mirrors: [URL] = [], poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+        try await self.init(modelDir: modelDir, mirrors: mirrors, poolSlots: poolSlots, plan: plan, affineSource: nil)
     }
 
     package convenience init(modelDir: URL, affineSource: AffineEngineSource, plan: MemoryPlan) async throws {
@@ -443,7 +447,7 @@ public final class Engine {
             affineSource: nil, originalCandidateControl: true)
     }
 
-    private init(modelDir: URL, poolSlots: Int, plan: MemoryPlan?, affineSource: AffineEngineSource?,
+    private init(modelDir: URL, mirrors: [URL] = [], poolSlots: Int, plan: MemoryPlan?, affineSource: AffineEngineSource?,
                  originalCandidateControl: Bool = false) async throws {
         // A plan made for a simulated machine may be printed and compared,
         // never loaded. Simulating memory the machine does not have still
@@ -545,6 +549,7 @@ public final class Engine {
         self.configuredContextTokens = context.maxContextTokens
         self.resources = resources
         self.modelDir = modelDir
+        self.mirrorDirs = mirrors
         self._plan = plan
         // Sized from the same budget as the pool; SLOTSTREAM_PREFIX_CACHE=0
         // (or --no-prefix-cache) pins it off for parity work.
@@ -581,7 +586,7 @@ public final class Engine {
                     artifact: affineSource.artifact,
                     shouldContinue: { (try? initial.check(phase: "authenticated model loading")) != nil })
             }
-        } else { index = try CheckpointIndex(dir: modelDir) }
+        } else { index = try CheckpointIndex(dir: modelDir, mirrors: mirrors) }
         // Expert Lookahead: an explicitly requested pack is validated against
         // the checkpoint geometry before the model allocates anything. A plan
         // made without the reserve cannot load a prefetch-enabled engine. With
@@ -1036,7 +1041,7 @@ public final class Engine {
             }
             try request?.check(nextAllocationBytes: workspaceBytes, phase: "vision workspace admission")
             if let vt = visionTower { return vt }
-            let idx = try authenticatedVisionMetadata != nil ? model.pool.expertStore.index : CheckpointIndex(dir: modelDir)
+            let idx = try authenticatedVisionMetadata != nil ? model.pool.expertStore.index : CheckpointIndex(dir: modelDir, mirrors: mirrorDirs)
             guard VisionTower.present(index: idx) else {
                 throw SlotstreamError.vision(
                     "this checkpoint has no vision tower — it is a text-only model")
