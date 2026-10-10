@@ -139,13 +139,16 @@ public enum GatewayDialect {
         guard let promptRaw = json["prompt"] as? [[String: Any]] else {
             return .failure(Failure("invalid_prompt", "`prompt` must be an array of messages"))
         }
-        if let rf = json["responseFormat"] as? [String: Any],
-            let t = rf["type"] as? String, t != "text"
-        {
-            return .failure(
-                Failure(
-                    "response_format_unsupported",
-                    "this model serves text only; `responseFormat.type` must be \"text\""))
+        if let value = json["responseFormat"] {
+            guard let rf = value as? [String: Any], let type = rf["type"] as? String else {
+                return .failure(Failure("invalid_request", "`responseFormat` needs a string `type`"))
+            }
+            if type != "text" {
+                return .failure(
+                    Failure(
+                        "response_format_unsupported",
+                        "this model serves text only; `responseFormat.type` must be \"text\""))
+            }
         }
         for key in ["seed", "topK", "maxOutputTokens"] where json[key] != nil {
             guard int(json[key]) != nil else {
@@ -171,15 +174,32 @@ public enum GatewayDialect {
         }
 
         var tools: [ToolDefinition] = []
-        if let raw = json["tools"] as? [[String: Any]] {
+        var toolNames = Set<String>()
+        if let value = json["tools"] {
+            guard let raw = value as? [[String: Any]] else {
+                return .failure(Failure("invalid_tool", "`tools` must be an array of tool objects"))
+            }
             for t in raw {
+                if let value = t["type"], !(value is String) {
+                    return .failure(Failure("invalid_tool", "a tool's `type` must be a string"))
+                }
                 // Provider-executed tools are dropped before rendering: the
                 // model cannot run them, and showing it a tool nothing will
                 // execute invites a call that can only fail.
                 let kind = t["type"] as? String ?? "function"
-                guard kind == "function" else { continue }
-                guard let name = t["name"] as? String else {
-                    return .failure(Failure("invalid_tool", "every function tool needs a `name`"))
+                if kind == "provider" { continue }
+                guard kind == "function" else {
+                    return .failure(Failure("invalid_tool", "unknown tool type '\(kind)'"))
+                }
+                guard let name = t["name"] as? String, !name.isEmpty,
+                      toolNames.insert(name).inserted else {
+                    return .failure(Failure("invalid_tool", "function tools need nonempty, unique names"))
+                }
+                if let value = t["description"], !(value is NSNull), !(value is String) {
+                    return .failure(Failure("invalid_tool", "a function tool's `description` must be text"))
+                }
+                if let value = t["inputSchema"], !(value is [String: Any]) {
+                    return .failure(Failure("invalid_tool", "a function tool's `inputSchema` must be an object"))
                 }
                 let params = t["inputSchema"].map { JSONValue.from($0) } ?? .object([:])
                 tools.append(
@@ -190,9 +210,12 @@ public enum GatewayDialect {
         }
 
         var choice = ToolChoice.auto
-        if let tc = json["toolChoice"] as? [String: Any] {
-            switch tc["type"] as? String {
-            case "auto", nil: choice = .auto
+        if let value = json["toolChoice"] {
+            guard let tc = value as? [String: Any], let type = tc["type"] as? String else {
+                return .failure(Failure("invalid_tool_choice", "`toolChoice` needs a string `type`"))
+            }
+            switch type {
+            case "auto": choice = .auto
             case "none": choice = .disabled
             case "required": choice = .required
             case "tool":
@@ -201,9 +224,9 @@ public enum GatewayDialect {
                         Failure("invalid_tool_choice", "`toolChoice.type: tool` needs `toolName`"))
                 }
                 choice = .tool(n)
-            case .some(let other):
+            default:
                 return .failure(
-                    Failure("invalid_tool_choice", "unknown toolChoice type '\(other)'"))
+                    Failure("invalid_tool_choice", "unknown toolChoice type '\(type)'"))
             }
         }
 
@@ -215,7 +238,12 @@ public enum GatewayDialect {
         }
 
         var stops: [String] = []
-        if let s = json["stopSequences"] as? [String] { stops = s }
+        if let value = json["stopSequences"] {
+            guard let sequences = value as? [String] else {
+                return .failure(Failure("invalid_request", "`stopSequences` must be an array of text"))
+            }
+            stops = sequences
+        }
 
         return .success(
             Request(
@@ -336,8 +364,9 @@ public enum GatewayDialect {
                             return .failure(Failure("invalid_tool_call",
                                 "prompt[\(i)]: tool calls need nonempty IDs and names, and IDs unique among pending calls"))
                         }
-                        // `input` is a JSON string in the specification, but fx
-                        // sends the object; both are accepted.
+                        // Native calls need object arguments. Legacy JSON
+                        // object strings remain accepted; other inputs must
+                        // not silently become an empty argument object.
                         var args: [String: JSONValue] = [:]
                         var order: [String] = []
                         if let s = p["input"] as? String, case .object(let o)? = JSONValue.parse(s)
@@ -347,6 +376,9 @@ public enum GatewayDialect {
                         } else if let o = p["input"] as? [String: Any] {
                             args = o.mapValues { JSONValue.from($0) }
                             order = args.keys.sorted()
+                        } else {
+                            return .failure(Failure("invalid_tool_call",
+                                "prompt[\(i)]: tool call `input` must be an object or a JSON object string"))
                         }
                         calls.append(
                             ParsedToolCall(id: id, name: name, arguments: args, order: order))
@@ -423,17 +455,31 @@ public enum GatewayDialect {
 
     /// One tool result's output, as the text the template will render.
     static func toolResultText(_ output: Any?) -> Result<String, Failure> {
-        guard let o = output as? [String: Any] else { return .success("") }
-        switch o["type"] as? String {
+        guard let o = output as? [String: Any], let type = o["type"] as? String else {
+            return .failure(Failure("invalid_tool_result", "tool result `output` needs a string `type`"))
+        }
+        switch type {
         case "text", "error-text":
-            return .success(o["value"] as? String ?? "")
+            guard let value = o["value"] as? String else {
+                return .failure(Failure("invalid_tool_result", "tool result '\(type)' needs a text `value`"))
+            }
+            return .success(value)
         case "json", "error-json":
-            return .success(JSONValue.from(o["value"] ?? NSNull()).jsonText)
+            guard let value = o["value"] else {
+                return .failure(Failure("invalid_tool_result", "tool result '\(type)' needs a `value`"))
+            }
+            return .success(JSONValue.from(value).jsonText)
         case "execution-denied":
+            if let reason = o["reason"], !(reason is NSNull), !(reason is String) {
+                return .failure(Failure("invalid_tool_result", "a tool denial's `reason` must be text"))
+            }
             return .success("Denied: " + (o["reason"] as? String ?? "no reason given"))
         case "content":
+            guard let content = o["value"] as? [[String: Any]] else {
+                return .failure(Failure("invalid_tool_result", "tool result content needs an array `value`"))
+            }
             var parts: [String] = []
-            for item in (o["value"] as? [[String: Any]] ?? []) {
+            for item in content {
                 guard item["type"] as? String == "text" else {
                     return .failure(
                         Failure(
@@ -441,14 +487,15 @@ public enum GatewayDialect {
                             "a tool result may not carry media; send the picture as a user "
                                 + "`file` part instead"))
                 }
-                parts.append(item["text"] as? String ?? "")
+                guard let text = item["text"] as? String else {
+                    return .failure(Failure("invalid_tool_result", "tool result text content needs `text`"))
+                }
+                parts.append(text)
             }
             return .success(parts.joined(separator: "\n"))
-        case .some(let other):
+        default:
             return .failure(
-                Failure("unsupported_tool_output", "unsupported tool result output '\(other)'"))
-        case nil:
-            return .success("")
+                Failure("unsupported_tool_output", "unsupported tool result output '\(type)'"))
         }
     }
 
