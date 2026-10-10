@@ -1,0 +1,6045 @@
+{
+  "model": "TheDrainFlorist/Qwen3.8-Flash-Next-VQ-2.1bpw",
+  "modules": [
+    {
+      "dim": 2,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.0.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 2,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.0.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 2,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.0.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 2,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.1.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 2,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.1.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 2,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.1.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.10.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.10.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.10.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.11.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.11.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.11.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.12.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.12.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.12.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.13.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.13.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.13.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.14.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.14.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.14.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.15.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.15.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.15.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.16.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.16.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.16.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.17.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.17.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.17.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.18.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.18.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.18.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.19.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.19.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.19.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.2.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.2.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.2.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.20.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.20.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.20.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.21.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.21.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.21.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.22.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.22.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.22.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.23.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.23.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.23.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.24.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.24.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.24.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.25.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.25.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.25.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.26.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.26.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.26.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.27.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.27.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.27.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.28.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.28.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.28.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.29.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.29.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.29.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.3.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.3.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.3.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.30.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.30.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.30.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.31.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.31.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.31.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.32.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.32.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.32.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.33.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.33.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.33.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.34.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.34.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.34.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.35.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.35.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.35.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.36.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.36.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.36.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.37.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.37.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.37.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.38.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.38.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.38.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.39.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.39.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.39.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.4.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.4.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.4.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.40.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.40.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.40.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.41.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.41.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.41.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.42.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.42.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.42.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.43.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.43.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.43.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.44.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.44.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.44.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.45.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.45.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.45.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.46.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.46.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.46.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.47.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.47.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 256,
+      "name": "model.layers.47.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.5.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.5.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.5.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.6.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.6.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.6.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.7.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.7.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.7.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.8.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.8.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.8.mlp.switch_mlp.up_proj",
+      "output": 640
+    },
+    {
+      "dim": 4,
+      "experts": 512,
+      "group": 64,
+      "input": 640,
+      "k": 256,
+      "name": "model.layers.9.mlp.switch_mlp.down_proj",
+      "output": 2560
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.9.mlp.switch_mlp.gate_proj",
+      "output": 640
+    },
+    {
+      "dim": 8,
+      "experts": 512,
+      "group": 64,
+      "input": 2560,
+      "k": 16384,
+      "name": "model.layers.9.mlp.switch_mlp.up_proj",
+      "output": 640
+    }
+  ],
+  "revision": "8684640a3956b01c47f5d47f9b999e2ab8b985f1",
+  "schema": 1,
+  "source": {
+    "candidateReceiptSHA256": "3fae529d9b264fed388c42a9265d4cae87dae28abf30484160414c5470f9a341",
+    "configSHA256": "4299e87dc3b2d11e53c683d4f17f1196ccf95b75399ddd77d470e148aae1d929",
+    "headers": [
+      {
+        "file": "model-00001.safetensors",
+        "sha256": "99906a7f92bf2cd9e71478581c05a69b86894c99a8c2d6c980d4fef915f80528"
+      },
+      {
+        "file": "model-00012.safetensors",
+        "sha256": "bfd18ce5181df0df90b3bc44551768e9ea0720111b5cc4b8029fdb5b9a37d463"
+      },
+      {
+        "file": "model-00013.safetensors",
+        "sha256": "0274d7a2fad35c55344552e511ce6c63f145afcbf783b195217215a8b3ac8428"
+      },
+      {
+        "file": "model-00014.safetensors",
+        "sha256": "b2f9e7821d7dc9d98eb64bf33dc4e7a626c15661d069a461cf525bbf96a572c1"
+      },
+      {
+        "file": "model-00015.safetensors",
+        "sha256": "30afe775c829246457d1f7cd6e3c4ffa184564e2a94fa8da025771ecca0d8764"
+      },
+      {
+        "file": "model-00016.safetensors",
+        "sha256": "8da96df7941bc43ca1bd3b9cd31f8c4f73d2d48de6eca60eb097dfbaa1c00bf8"
+      },
+      {
+        "file": "model-00017.safetensors",
+        "sha256": "bb76c703cede6ec7dd8f5b8e7eb7b5a16acdd3df64185817dc14e278079938f5"
+      },
+      {
+        "file": "model-00018.safetensors",
+        "sha256": "39d940841ff4fbc0e82fba447a2361c303a22ca3a76617b03624414b8f0829e3"
+      },
+      {
+        "file": "model-00019.safetensors",
+        "sha256": "df49047e423634f265d08a15d0eac8689cba346ce80875254a99ea94583aad22"
+      },
+      {
+        "file": "model-ple-0000.safetensors",
+        "sha256": "f9f5a5304e0c688ee3e5b7ec027187df5c4bb4bb176adcb443f672400ba5e5b8"
+      },
+      {
+        "file": "model-ple-0001.safetensors",
+        "sha256": "6881209d101497dc3c709fbba5fe3915ce2f05b53f08590335c3ab79b5cd1c51"
+      },
+      {
+        "file": "model-ple-0002.safetensors",
+        "sha256": "3e0845b041867569571abff23cdf3bddf7bee6f24aad9af452ea048fbbebb4bb"
+      },
+      {
+        "file": "model-ple-0003.safetensors",
+        "sha256": "1821295a2764e28c444520afeef2a1a9bc57bf68b13a7ee63f1647d26d8ec131"
+      },
+      {
+        "file": "model-ple-0004.safetensors",
+        "sha256": "1b10b8d3c0cc4ed6035d136ac3d6f503bb2f4d070db13fcc51d8c9b29d7e10e2"
+      },
+      {
+        "file": "model-ple-0005.safetensors",
+        "sha256": "ec97575e8629d8c633fd69b4cdbc7873384fcc5d17c644aebce85307f9fa07ac"
+      },
+      {
+        "file": "model-ple-0006.safetensors",
+        "sha256": "16690819bcdd0013feeaa1dd0839e0a948c594f4c424ff387553d6bd7df6ce57"
+      },
+      {
+        "file": "model-ple-0007.safetensors",
+        "sha256": "eebaae27289b8d706bfe8f6f81c55cae9ef929c0ac8d2b4bf3e4d52acffb9a4c"
+      },
+      {
+        "file": "model-ple-0008.safetensors",
+        "sha256": "dedc259ef4da85137c925e60a9b4c0b641a6cf6fbd76ba855798279cf6e335e3"
+      },
+      {
+        "file": "model-ple-0009.safetensors",
+        "sha256": "b97bf31f4a4916ccef0da2373822646058dc81bad97a0e6b3185b1f0f19f929e"
+      },
+      {
+        "file": "model-ple-0010.safetensors",
+        "sha256": "6af6885c00c767353fd5b2d28ca98a636d1a2ed1b755d64b7ffa7e03bf5ec349"
+      },
+      {
+        "file": "model-ple-0011.safetensors",
+        "sha256": "3043302965238c60d20e84616797eb18f7d90e430ddbbaa57ce50722b1dde6d7"
+      },
+      {
+        "file": "model-ple-0012.safetensors",
+        "sha256": "3061859f457c53aa31c804f1b0a8fd926891d7e7bbd84676c86c62662a5819c9"
+      },
+      {
+        "file": "model-ple-0013.safetensors",
+        "sha256": "ee6ba9a5c7d50af370c0bb48225fa54fe3af392600d6a55b0ac84fadd6f5dbf3"
+      },
+      {
+        "file": "model-ple-0014.safetensors",
+        "sha256": "d21fa547c0abe1c0c463337bbf3f9ffa50c6904b824ea7678df1985a2ef51737"
+      },
+      {
+        "file": "model-ple-0015.safetensors",
+        "sha256": "e574cc2aa206ca5fa356d6aae4a3a6b4ec8b1fc9c95e9917cfc200311ac92fa9"
+      },
+      {
+        "file": "model-ple-0016.safetensors",
+        "sha256": "e4ff9bffc92eb20d18f91fa07277392a0efe43469e8e9cd5ee4087f437391029"
+      },
+      {
+        "file": "model-ple-0017.safetensors",
+        "sha256": "fcb1699be3a8928c6ab812f188deff5d04c395be42042b467296f5b733e7a564"
+      },
+      {
+        "file": "model-ple-0018.safetensors",
+        "sha256": "f0c768d511931d16f8defdb5c219da98ad970efd5f4b5364ad3c2b69c170b305"
+      },
+      {
+        "file": "model-ple-0019.safetensors",
+        "sha256": "3152c6725bbfe0997833e53c1bd206ce1a96e0636a968da74a72a00e205d2906"
+      },
+      {
+        "file": "model-ple-0020.safetensors",
+        "sha256": "42713f4ed33259d1999474b3b470f901781bf9fd985fffc49ba8367e7792b068"
+      },
+      {
+        "file": "model-ple-0021.safetensors",
+        "sha256": "bba0270ad89f7d4e44fc1f90b338ea0a93501ec22ecbab4afd0060d2260973b3"
+      },
+      {
+        "file": "model-ple-0022.safetensors",
+        "sha256": "cc4ff645d60ebb7677deec985eb5ad055a11f3914094f22d356d3faa0472aaf9"
+      },
+      {
+        "file": "model-ple-0023.safetensors",
+        "sha256": "73ed1d8966f30def64b5ca9750f750775f6a3dda40d2f498db22c00ff9644b90"
+      },
+      {
+        "file": "model-ple-0024.safetensors",
+        "sha256": "62834d77831023da85ad2986189f0efddd4ab503c1a158fcb41f1ce6bb253f3e"
+      },
+      {
+        "file": "model-ple-0025.safetensors",
+        "sha256": "901d84d21e60187eaad354ede26805042ac2123de13c3ae67065670705cec573"
+      },
+      {
+        "file": "model-ple-0026.safetensors",
+        "sha256": "4b05d3a6522dab3f6a37908b24c07cbf158e2209c582faae16a6f178392c3369"
+      },
+      {
+        "file": "model-ple-0027.safetensors",
+        "sha256": "94b112d7b56805dc0abca6e8709164d925e501cd1236c3f95bbd2395979cc0fd"
+      },
+      {
+        "file": "model-ple-0028.safetensors",
+        "sha256": "8e032f80d5bf24e3b4278999299ed499c7d062a338a5d1532cf0cdda32c272cb"
+      },
+      {
+        "file": "model-ple-0029.safetensors",
+        "sha256": "1676ac77e7dd688828c2ab0072c3651ea9a2482a383b8e419ba6ce2f715bf918"
+      },
+      {
+        "file": "model-ple-0030.safetensors",
+        "sha256": "aeee2e191dab7476802b7d6c7d7d9cea0ff05b04eec40346910e39653aa69843"
+      },
+      {
+        "file": "model-ple-0031.safetensors",
+        "sha256": "d4cb2575dac8d717c7411f88db3d02c3b142b66fde865c7395dbe7d55ffe76c6"
+      },
+      {
+        "file": "model-ple-0032.safetensors",
+        "sha256": "e7cc85263c28e758829988b21786b9382722b43771681dcebfec641b56185fbd"
+      },
+      {
+        "file": "model-ple-0033.safetensors",
+        "sha256": "4748f3230c6f456283f830625e24fdf36439521d8e0ce0f880fe8c6f714ff54e"
+      },
+      {
+        "file": "model-ple-0034.safetensors",
+        "sha256": "547501155b1d1e101e0980c2dd6eae09456eefe14b2a294f9c62da0fa4d9d913"
+      },
+      {
+        "file": "model-ple-0035.safetensors",
+        "sha256": "e6d551eed9baf5a7ea11ceb261d859fa8b5e04510eca7d169e8126947a13e063"
+      },
+      {
+        "file": "model-ple-0036.safetensors",
+        "sha256": "098f72599b6582acadae5ff0a22727288db5135c3c09544dec589f16514d0458"
+      },
+      {
+        "file": "model-ple-0037.safetensors",
+        "sha256": "34abaef865ff1645647de4371c251a09a9a268cf2adbd79cbff2bf7da1e2ae52"
+      },
+      {
+        "file": "model-ple-0038.safetensors",
+        "sha256": "b365a95da87a4559b9087366fdab5151c7e36e93b5564c5a8c4d3627ad9252ad"
+      },
+      {
+        "file": "model-ple-0039.safetensors",
+        "sha256": "b1dbd6a188f48ff513d965a3accbc0c4721cfe96bc652f820a6ce8dd8914cee7"
+      },
+      {
+        "file": "model-ple-0040.safetensors",
+        "sha256": "068b0703431c6ee86088949e5554b4e2a7dd46b198580a5459e19ce0d1251f56"
+      },
+      {
+        "file": "model-ple-0041.safetensors",
+        "sha256": "264208607f1ec5b9847ba7cc778a52587fede36f70f1eca0d20456adec001cba"
+      },
+      {
+        "file": "model-ple-0042.safetensors",
+        "sha256": "4910d88c25c43214e8ccafaf67ff273f1adcf78ffb0a6c58a13d5debbf6e9f39"
+      },
+      {
+        "file": "model-ple-0043.safetensors",
+        "sha256": "0e039659afe9e074a50a8254364f8017753a76e9c284296cd81ab6ccfdc79895"
+      },
+      {
+        "file": "model-ple-0044.safetensors",
+        "sha256": "8170744825fd19a247fdbf058e7f5cbbe9b93708322ca51dd9bd72f9f2220c5a"
+      },
+      {
+        "file": "model-ple-0045.safetensors",
+        "sha256": "0ecb42ecd37fc8e2c0dd08a593c83cde6057683ca1f19cf0a69f5cd697c58ec9"
+      },
+      {
+        "file": "model-ple-0046.safetensors",
+        "sha256": "20d058cb2275baf41961145a587d8c0ec83198c5a67c3a7bec441b6f9bb18130"
+      },
+      {
+        "file": "model-ple-0047.safetensors",
+        "sha256": "ddafd67a591c0fc452e28e7bd15e437c3694c33d7a2f81e338f85f4f8a9ae5dd"
+      },
+      {
+        "file": "model-ple-0048.safetensors",
+        "sha256": "eefa382c2a4b2c386a52cddfc27186ecf4be3a2be770384027ab59a8b1149370"
+      },
+      {
+        "file": "model-ple-0049.safetensors",
+        "sha256": "5634fcd68a552c29c2fa2875b7ce903145e8804ead20252971e1b8727b3f378d"
+      },
+      {
+        "file": "model-ple-0050.safetensors",
+        "sha256": "3619189464ee22a22ebce5b5c96bd16b19dadc53d90743e14bbad4da70fa4233"
+      },
+      {
+        "file": "model-ple-0051.safetensors",
+        "sha256": "d593cfd4d22e73dda17e12f6eb8a9d352cfcae7e7623d2b5ca0fdc5e6e8a9bd9"
+      },
+      {
+        "file": "model-ple-0052.safetensors",
+        "sha256": "573fced2f015cfd62040cdeadb058607706822906f256c5cf7f5b9f12aa2f41d"
+      },
+      {
+        "file": "model-ple-0053.safetensors",
+        "sha256": "4eae8c3f89973e76ec7693aa10e11e112d7576e726a4102163cc21c7ea480803"
+      },
+      {
+        "file": "model-ple-0054.safetensors",
+        "sha256": "956592e6ab5002075a3e11998e83a054b8e84c43b2b07fc4d4ae81452577932e"
+      },
+      {
+        "file": "model-ple-0055.safetensors",
+        "sha256": "f8d346eb92c8acb4eee53c6295e0d06a8c69562911d4d9a5a7c00b1a023158b0"
+      },
+      {
+        "file": "model-ple-0056.safetensors",
+        "sha256": "513fa0f760e04230ba6dcba27aef27f02aed47958a39abcde89ef5c703a25c37"
+      },
+      {
+        "file": "model-ple-0057.safetensors",
+        "sha256": "2a77a8538abcaf618e39f62ca61077093649f11d8f27b075b59d6302a53c466d"
+      },
+      {
+        "file": "model-ple-0058.safetensors",
+        "sha256": "8ad3d1dff6765133a6603811afab797afc479ba8e1368b1d99ba59f4567052c9"
+      },
+      {
+        "file": "model-ple-0059.safetensors",
+        "sha256": "be85a34f830452423b0526e329a9eac113477d9dcfe7e3aaf915d072ff6ad5e2"
+      },
+      {
+        "file": "model-ple-0060.safetensors",
+        "sha256": "4f8724a7f443b2b080e9617f341a266941bfdb56259ba0adf11a6cce23fa03a7"
+      },
+      {
+        "file": "model-ple-0061.safetensors",
+        "sha256": "b0d27cf7e07caa6ba902555ad22d8149f0cf92b4d4b59bc6c70c6e218a0771df"
+      },
+      {
+        "file": "model-ple-0062.safetensors",
+        "sha256": "9bd0a57348ceb4dfd6863c4769e6a902725c90a0b71fce6852f5c428fedb0687"
+      },
+      {
+        "file": "model-ple-0063.safetensors",
+        "sha256": "c3289a891a87c3720813a9ef5f5b13449008c76f9824a0c7b96cea851cdde28e"
+      },
+      {
+        "file": "model-ple-0064.safetensors",
+        "sha256": "157c3de82c31e96488eae224e9c3a3b03b19232864257a1bd1e05acc61902cb5"
+      },
+      {
+        "file": "model-ple-0065.safetensors",
+        "sha256": "6c1804405fe9549b3b7acfe10c54db1a21596caad44959f948da97dd693ad2e4"
+      },
+      {
+        "file": "model-ple-0066.safetensors",
+        "sha256": "ac5a750f039af2841a624f060669ce667f12834014725bbb897a4983ebf9232f"
+      },
+      {
+        "file": "model-ple-0067.safetensors",
+        "sha256": "26efae511a5f88894bdc600182273542d59956a0c074f15b39ca8339edec0130"
+      },
+      {
+        "file": "model-ple-0068.safetensors",
+        "sha256": "2bbf7de2da390244582ff19882c4edc2edfa1f17a2c4e91007fbdd0d76a5dcdb"
+      },
+      {
+        "file": "model-ple-0069.safetensors",
+        "sha256": "67108f4178afe5deb312e54ea024873bab22d21da184921febe0d85abd9a4055"
+      },
+      {
+        "file": "model-ple-0070.safetensors",
+        "sha256": "61bb1bd6375bc5bba5f7d1199ba8a0868bab98b19ecbde49aed0b06b26928921"
+      },
+      {
+        "file": "model-ple-0071.safetensors",
+        "sha256": "4b76d4c7a5ff59c12bb99073d8099be028e1f714961e23a19daf67bc4f41dd5f"
+      },
+      {
+        "file": "model-ple-0072.safetensors",
+        "sha256": "38504063160c2a8296a1754b561e5fd7ae267cafb7bbad697f61d119272b92b0"
+      },
+      {
+        "file": "model-ple-0073.safetensors",
+        "sha256": "c53e7a42aafa21cda6faab45bf6ef61f3113abf870c43fdeff257b40b67e191c"
+      },
+      {
+        "file": "model-ple-0074.safetensors",
+        "sha256": "634d09bbfe0042abca3a3e56b7998c8fe3fdcbdd1ce39556272287587f00feb0"
+      },
+      {
+        "file": "model-ple-0075.safetensors",
+        "sha256": "b3d9e2885084063e4893ad9241ca8792a0887a2d3b56adc298fd48fe409b1d1c"
+      },
+      {
+        "file": "model-ple-0076.safetensors",
+        "sha256": "c5c180bc6975775d84c209416a273ccfcc3d19eb37a7937e3a54b31459141511"
+      },
+      {
+        "file": "model-ple-0077.safetensors",
+        "sha256": "89aa55c15adea1e034cd14eec698c687af80d2e29444db5b65c88807d7cabf4b"
+      },
+      {
+        "file": "model-ple-0078.safetensors",
+        "sha256": "f64554de31ba7d0fc78fb2f0bbd97be0c4a0c66b69381f178e06deb863fc6312"
+      },
+      {
+        "file": "model-ple-0079.safetensors",
+        "sha256": "5936fa2b963cc1050f178a1a2b164b34f0b3fd63bcfdea8ae15bae2b8dc76639"
+      },
+      {
+        "file": "model-ple-0080.safetensors",
+        "sha256": "7d7ea8ab19bf01f05eadc3c74c62c3b5a0f4bbc6bf2733d1fe9e015e404940ef"
+      },
+      {
+        "file": "model-ple-0081.safetensors",
+        "sha256": "cc3106de5b62518e8d92374ce49cf5c8b54aff39f9c34517ded5a9bc62b5b942"
+      },
+      {
+        "file": "model-ple-0082.safetensors",
+        "sha256": "0fe49cf6b1a2bb46dea76fd6a0900ab4f830acb94a86a6ead12a242eea716139"
+      },
+      {
+        "file": "model-ple-0083.safetensors",
+        "sha256": "96f52e87a92656734c7be784f5711e571744962665367cd44a798c07aa790de6"
+      },
+      {
+        "file": "model-ple-0084.safetensors",
+        "sha256": "f25215cd744c0f5421db191f55aba7e5a6b33d19a081360b5058d78b7f6652ae"
+      },
+      {
+        "file": "model-ple-0085.safetensors",
+        "sha256": "fb1986a8a7e7c985f50af40939675b7ad226ae8de318b3fabd762bd8054200a0"
+      },
+      {
+        "file": "model-ple-0086.safetensors",
+        "sha256": "5347899532c802b0d40380ee2222125ee37f76181d6a000f8047dbe5d9c2e09a"
+      },
+      {
+        "file": "model-ple-0087.safetensors",
+        "sha256": "9f337b82a2564695f69f22ccf91a8cdfcaf17909d95edb3eb9f74621d429f153"
+      },
+      {
+        "file": "model-ple-0088.safetensors",
+        "sha256": "59387536dd932ca7c7cdf859f1d3d87830b3826943499ea1879230828339a321"
+      },
+      {
+        "file": "model-ple-0089.safetensors",
+        "sha256": "06519280d655687241570497280b2687e2d577deb6ef585dab49ef5c89ae8e30"
+      },
+      {
+        "file": "model-ple-0090.safetensors",
+        "sha256": "a246801140d00ca2192506f7a70e18f56f57fb34b52f5d2cdbdbf53db8d1dc7b"
+      },
+      {
+        "file": "model-ple-0091.safetensors",
+        "sha256": "8546c280b5d2592ec9c42ccbf532fbcc2d5e1bc2c91447c2cab06cd1f6e3ac80"
+      },
+      {
+        "file": "model-ple-0092.safetensors",
+        "sha256": "292dadc4e644490a2c457a957cc629cc6b2860804d34170fbb8c5d98b761ca25"
+      },
+      {
+        "file": "model-ple-0093.safetensors",
+        "sha256": "c4800c5a9d2cd7cacaee2a4812c454d1e7ce006a5b945e787c7227270accdfb8"
+      },
+      {
+        "file": "model-ple-0094.safetensors",
+        "sha256": "31402a65a7856c2b12f3d3153e051a71369d5f954ee25cabb02cc75ca0585060"
+      },
+      {
+        "file": "model-ple-0095.safetensors",
+        "sha256": "c30a0fadf81a0438b212cd0d136767b325bdf76db9617546d2bcebc736d00c57"
+      },
+      {
+        "file": "model-ple-0096.safetensors",
+        "sha256": "b06332bc0de7e7d1dfd7a24ba60c4bf7b6cda2e60eb1688f8cf49f7de38dbebf"
+      },
+      {
+        "file": "model-ple-0097.safetensors",
+        "sha256": "76e08fedfe1a82a39251eb15e24f89459e72248958fc53107d7404c2be0eac12"
+      },
+      {
+        "file": "model-ple-0098.safetensors",
+        "sha256": "20967dc61b7066161abfb53675541247a3603f5a5ed325ce10d76ff6334c8155"
+      },
+      {
+        "file": "model-ple-0099.safetensors",
+        "sha256": "7ede34ebccfe9bc63dd8f7fee52df4378a3ff5a9a34c23bc941cc5575b1d3179"
+      },
+      {
+        "file": "model-ple-0100.safetensors",
+        "sha256": "6f2e4df9a100947b424468a4d9b8cce1f38fca52395c97a6ec071dc36dfd42a5"
+      },
+      {
+        "file": "model-ple-0101.safetensors",
+        "sha256": "43a080173d4f14d439934b6529d6c5c23ed29605d96fd57e6c70309ce3a0b20d"
+      },
+      {
+        "file": "model-ple-0102.safetensors",
+        "sha256": "5b5e4a96aad7e16c5e9dcaf06e72a58ace47c4c48c8d8fb3fedde12006088e44"
+      },
+      {
+        "file": "model-ple-0103.safetensors",
+        "sha256": "d6882670d893347257b93b8dc71540ab09c8c6fa30c00e3991bce4ae77ad90c0"
+      },
+      {
+        "file": "model-ple-0104.safetensors",
+        "sha256": "ba51288d59e5de9251f8a171aafd7f17e7211758799e5031dfc60051f7063622"
+      },
+      {
+        "file": "model-ple-0105.safetensors",
+        "sha256": "7f31fa849888f57827d7e68d1d4a6260e8e5c8d9bc9d1804f9416fd078999b32"
+      },
+      {
+        "file": "model-ple-0106.safetensors",
+        "sha256": "a7eeb2fb634fdb7c46f2d9450677224ac281ea766fd64fd633ce526cb1e3eca2"
+      },
+      {
+        "file": "model-ple-0107.safetensors",
+        "sha256": "6e6daa92beb065a960c9a32101edb80ecbb92bb5f19b31f8fa602e86e0b00215"
+      },
+      {
+        "file": "model-ple-0108.safetensors",
+        "sha256": "ca1af8aa6bf85a171247f4a3a19a5fbdd7ed4b44c594ec76cf5eda5e1156d1cc"
+      },
+      {
+        "file": "model-ple-0109.safetensors",
+        "sha256": "ecd6c8296dde0585b4583d3dd50dbd5bf28d4fb8a769b51b49c131dd2b5dc07f"
+      },
+      {
+        "file": "model-ple-0110.safetensors",
+        "sha256": "7b23efb5c2060a067e376c79fa096aa7af22725ef0663acc3c174b97b8010b4a"
+      },
+      {
+        "file": "model-ple-0111.safetensors",
+        "sha256": "165a43eaa36241b0448824fccad264f236c179eb58eaf6ff2246d670be3a4a32"
+      },
+      {
+        "file": "model-ple-0112.safetensors",
+        "sha256": "3eb6471754dfd90abc22a324ff9b9fad071128af3ce6158478a00c4431769e41"
+      },
+      {
+        "file": "model-ple-0113.safetensors",
+        "sha256": "3e5226cb443e5cbfca4b3ab887e7047a952a177ac3217a6594d348b779003f89"
+      },
+      {
+        "file": "model-ple-0114.safetensors",
+        "sha256": "a587260d6151c0e0188e60c29485fa890414125212e3fd11549632e3d071071a"
+      },
+      {
+        "file": "model-ple-0115.safetensors",
+        "sha256": "afa408af932f8684ff2e07b9a992c28a32bec78c2f222b0e96c16cbcff5f0a85"
+      },
+      {
+        "file": "model-ple-0116.safetensors",
+        "sha256": "1da1409b450f69ce46d0ee773406ca4d0d399aa4d12a0cbb4bbb9cd212871005"
+      },
+      {
+        "file": "model-ple-0117.safetensors",
+        "sha256": "96f7d8655d477e9affa42aa0625ed80dc2e3071b881ea97d40361102774b820d"
+      },
+      {
+        "file": "model-ple-0118.safetensors",
+        "sha256": "dda3ed103ea42adf4abda85b59d8efa6faa84e64ad7754148ad76df814729891"
+      },
+      {
+        "file": "model-ple-0119.safetensors",
+        "sha256": "b3f031f7b2a436ee980153cfeb77036032dad4db295b5b23590555066cd91bd1"
+      },
+      {
+        "file": "model-ple-0120.safetensors",
+        "sha256": "f80b20a320978a848fe06da28a58bf95ec4bae90f51a254f10486aa5845cdcb8"
+      },
+      {
+        "file": "model-ple-0121.safetensors",
+        "sha256": "1de3bf33ff2a2775d93c5494632056bea70c740cf5396e13681a46d13414db95"
+      },
+      {
+        "file": "model-ple-0122.safetensors",
+        "sha256": "ead46ee58eb555f08844aa9d64e085f456a0c139f974f6fcf43e756c78dce44c"
+      },
+      {
+        "file": "model-ple-0123.safetensors",
+        "sha256": "2aff1acc0552d89a3a18bdabb232c19dbb347c15857815359f2ff28f90799c49"
+      },
+      {
+        "file": "model-ple-0124.safetensors",
+        "sha256": "c8b5288b88f55ec2f831509a16d1c109283b46e6dd1cf8a5e5b14a4ba676944e"
+      },
+      {
+        "file": "model-ple-0125.safetensors",
+        "sha256": "825858ccb104217b9dc899b041a7f8e3c321ca0ae42839acd5d20f5006be78eb"
+      },
+      {
+        "file": "model-ple-0126.safetensors",
+        "sha256": "7e799a0d3d464ff148632015b74ee350034023680ef7d54278e1a3ce64561623"
+      },
+      {
+        "file": "model-ple-0127.safetensors",
+        "sha256": "90e8a84b9c6aa50b21e5d19a434b81bd7d27d80047eab62aadb7abdb714975e4"
+      },
+      {
+        "file": "model-vision-graft.safetensors",
+        "sha256": "d8af3732673896e8db1e6b86c4de86aed9f2251773ef695cfe7ca1be2a1ce538"
+      },
+      {
+        "file": "mtp-head-q6.safetensors",
+        "sha256": "cc5db5d7fa361f525ef12becf58c0bff116262e366956c3771685964ab6c3383"
+      }
+    ],
+    "headersReceiptSHA256": "00dfd2ae6cecb1e3e9bbcddf8812fcbfc74173e02a92cf05205efdea0ad546d5",
+    "indexSHA256": "35f2f37dd0eda19f81cae8436d0c102c9e1ad13c4381bd8dea72a0d4a6ef25eb"
+  },
+  "tensors": [
+    {
+      "byteCount": 1024,
+      "dtype": "F16",
+      "name": "model.layers.0.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        2
+      ]
+    },
+    {
+      "byteCount": 419430400,
+      "dtype": "U8",
+      "name": "model.layers.0.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        320
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.0.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 1024,
+      "dtype": "F16",
+      "name": "model.layers.0.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        2
+      ]
+    },
+    {
+      "byteCount": 419430400,
+      "dtype": "U8",
+      "name": "model.layers.0.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        1280
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.0.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 1024,
+      "dtype": "F16",
+      "name": "model.layers.0.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        2
+      ]
+    },
+    {
+      "byteCount": 419430400,
+      "dtype": "U8",
+      "name": "model.layers.0.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        1280
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.0.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 1024,
+      "dtype": "F16",
+      "name": "model.layers.1.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        2
+      ]
+    },
+    {
+      "byteCount": 419430400,
+      "dtype": "U8",
+      "name": "model.layers.1.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        320
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.1.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 1024,
+      "dtype": "F16",
+      "name": "model.layers.1.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        2
+      ]
+    },
+    {
+      "byteCount": 419430400,
+      "dtype": "U8",
+      "name": "model.layers.1.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        1280
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.1.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 1024,
+      "dtype": "F16",
+      "name": "model.layers.1.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        2
+      ]
+    },
+    {
+      "byteCount": 419430400,
+      "dtype": "U8",
+      "name": "model.layers.1.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        1280
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.1.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.10.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.10.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.10.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.10.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.10.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.10.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.10.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.10.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.10.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.11.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.11.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.11.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.11.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.11.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.11.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.11.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.11.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.11.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.12.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.12.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.12.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.12.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.12.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.12.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.12.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.12.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.12.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.13.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.13.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.13.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.13.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.13.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.13.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.13.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.13.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.13.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.14.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.14.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.14.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.14.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.14.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.14.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.14.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.14.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.14.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.15.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.15.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.15.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.15.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.15.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.15.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.15.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.15.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.15.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.16.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.16.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.16.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.16.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.16.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.16.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.16.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.16.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.16.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.17.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.17.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.17.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.17.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.17.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.17.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.17.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.17.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.17.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.18.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.18.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.18.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.18.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.18.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.18.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.18.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.18.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.18.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.19.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.19.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.19.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.19.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.19.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.19.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.19.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.19.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.19.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.2.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.2.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.2.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.2.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.2.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.2.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.2.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.2.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.2.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.20.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.20.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.20.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.20.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.20.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.20.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.20.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.20.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.20.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.21.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.21.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.21.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.21.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.21.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.21.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.21.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.21.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.21.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.22.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.22.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.22.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.22.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.22.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.22.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.22.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.22.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.22.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.23.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.23.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.23.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.23.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.23.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.23.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.23.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.23.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.23.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.24.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.24.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.24.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.24.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.24.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.24.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.24.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.24.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.24.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.25.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.25.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.25.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.25.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.25.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.25.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.25.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.25.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.25.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.26.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.26.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.26.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.26.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.26.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.26.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.26.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.26.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.26.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.27.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.27.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.27.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.27.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.27.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.27.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.27.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.27.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.27.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.28.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.28.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.28.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.28.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.28.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.28.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.28.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.28.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.28.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.29.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.29.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.29.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.29.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.29.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.29.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.29.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.29.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.29.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.3.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.3.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.3.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.3.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.3.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.3.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.3.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.3.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.3.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.30.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.30.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.30.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.30.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.30.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.30.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.30.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.30.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.30.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.31.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.31.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.31.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.31.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.31.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.31.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.31.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.31.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.31.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.32.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.32.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.32.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.32.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.32.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.32.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.32.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.32.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.32.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.33.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.33.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.33.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.33.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.33.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.33.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.33.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.33.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.33.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.34.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.34.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.34.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.34.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.34.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.34.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.34.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.34.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.34.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.35.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.35.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.35.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.35.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.35.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.35.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.35.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.35.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.35.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.36.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.36.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.36.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.36.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.36.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.36.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.36.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.36.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.36.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.37.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.37.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.37.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.37.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.37.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.37.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.37.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.37.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.37.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.38.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.38.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.38.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.38.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.38.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.38.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.38.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.38.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.38.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.39.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.39.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.39.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.39.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.39.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.39.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.39.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.39.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.39.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.4.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.4.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.4.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.4.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.4.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.4.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.4.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.4.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.4.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.40.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.40.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.40.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.40.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.40.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.40.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.40.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.40.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.40.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.41.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.41.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.41.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.41.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.41.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.41.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.41.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.41.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.41.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.42.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.42.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.42.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.42.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.42.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.42.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.42.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.42.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.42.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.43.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.43.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.43.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.43.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.43.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.43.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.43.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.43.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.43.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.44.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.44.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.44.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.44.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.44.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.44.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.44.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.44.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.44.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.45.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.45.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.45.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.45.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.45.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.45.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.45.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.45.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.45.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.46.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.46.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.46.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.46.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.46.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.46.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.46.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.46.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.46.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.47.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.47.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.47.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.47.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.47.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.47.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.47.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.47.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        160
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.47.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.5.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.5.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.5.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.5.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.5.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.5.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.5.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.5.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.5.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.6.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.6.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.6.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.6.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.6.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.6.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.6.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.6.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.6.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.7.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.7.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.7.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.7.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.7.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.7.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.7.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.7.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.7.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.8.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.8.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.8.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.8.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.8.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.8.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.8.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.8.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.8.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 2048,
+      "dtype": "F16",
+      "name": "model.layers.9.mlp.switch_mlp.down_proj.codebook",
+      "shape": [
+        256,
+        4
+      ]
+    },
+    {
+      "byteCount": 209715200,
+      "dtype": "U32",
+      "name": "model.layers.9.mlp.switch_mlp.down_proj.codes",
+      "shape": [
+        512,
+        2560,
+        40
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.9.mlp.switch_mlp.down_proj.vq_scales",
+      "shape": [
+        512,
+        2560,
+        10
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.9.mlp.switch_mlp.gate_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.9.mlp.switch_mlp.gate_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.9.mlp.switch_mlp.gate_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    },
+    {
+      "byteCount": 262144,
+      "dtype": "F16",
+      "name": "model.layers.9.mlp.switch_mlp.up_proj.codebook",
+      "shape": [
+        16384,
+        8
+      ]
+    },
+    {
+      "byteCount": 183500800,
+      "dtype": "U32",
+      "name": "model.layers.9.mlp.switch_mlp.up_proj.codes",
+      "shape": [
+        512,
+        640,
+        140
+      ]
+    },
+    {
+      "byteCount": 26214400,
+      "dtype": "F16",
+      "name": "model.layers.9.mlp.switch_mlp.up_proj.vq_scales",
+      "shape": [
+        512,
+        640,
+        40
+      ]
+    }
+  ]
+}

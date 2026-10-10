@@ -61,12 +61,18 @@ def build(root, output, *, required_gb=13, snapshot=vm_snapshot, run=subprocess.
             if result.returncode != 0: raise RuntimeError(f'make failed with exit code {result.returncode}; no candidate frozen')
             release = root/'.build/release'
             verified_build(release/'slotstream')
+            checker_bundle = release/'slotstream_SlotstreamTestKit.bundle'
+            checker_fixture = checker_bundle/'vq-record-profile-v1.json'
+            if not checker_fixture.is_file():
+                raise RuntimeError('missing checker resource fixture; no candidate frozen')
             candidate = output/'candidate'
             candidate.mkdir()
             for name in ['slotstream','slotstream-checks','mlx.metallib','build-identity.json','build-source.tar.gz']:
                 shutil.copy2(release/name, candidate/name)
+            shutil.copytree(checker_bundle, candidate/checker_bundle.name)
             record['frozen'] = verified_build(candidate/'slotstream')
             record['checks_sha256'] = digest(candidate/'slotstream-checks')
+            record['checks_resource_sha256'] = digest(candidate/checker_bundle.name/checker_fixture.name)
             record['passed'] = True
     except Exception as error:
         record['error'] = f'{type(error).__name__}: {error}'
