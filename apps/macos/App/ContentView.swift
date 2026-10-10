@@ -6,6 +6,10 @@ import Slotstream
 
 struct ContentView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject private var homes: HomeNavigation
+    init(model: AppModel, onContentLeadingChanged: @escaping (CGFloat) -> Void = { _ in }) {
+        self.model = model; homes = model.homes; self.onContentLeadingChanged = onContentLeadingChanged
+    }
     var onContentLeadingChanged: (CGFloat) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
@@ -95,6 +99,11 @@ struct ContentView: View {
                         .onAppear { navigationFocused = false; DispatchQueue.main.async { navigationFocused = true } }
                 }
             }.background(canvas)
+                .disabled(homes.switching)
+                .onReceive(NotificationCenter.default.publisher(for: .sevraShowHomes)) { _ in
+                    if wide && !split { rail = true } else { overlayRail = true }
+                    DispatchQueue.main.async { homes.showing = true }
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .sevraToggleSidebar)) { _ in
                     if !wide || split {
                         if overlayRail { dismissNavigation() }

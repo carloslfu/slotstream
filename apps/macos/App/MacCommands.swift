@@ -6,6 +6,8 @@ struct MacCommand {
     var modifiers: NSEvent.ModifierFlags = .command
     var shortcut: String
     static let owned: [MacCommand] = [
+        .init(title: "Switch Home…", key: "h", modifiers: [.command, .shift], shortcut: "⌘⇧H"),
+        .init(title: "Open Home…", key: "o", modifiers: [.command, .shift], shortcut: "⌘⇧O"),
         .init(title: "New Thread", key: "n", shortcut: "⌘N"),
         .init(title: "New Incognito Thread", key: "n", modifiers: [.command, .shift], shortcut: "⌘⇧N"),
         .init(title: "Search Home…", key: "k", shortcut: "⌘K"),

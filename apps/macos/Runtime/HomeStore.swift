@@ -121,7 +121,12 @@ public final class HomeStore {
             restoreReview = try decoded(HomeRestoreReview.self, Data(contentsOf: restoration))
         }
     }
-    deinit { if lockFD >= 0 { flock(lockFD, LOCK_UN); close(lockFD) } }
+    deinit { releaseOwnership() }
+    /// Called by the serialized writer only after all writes have drained.
+    /// Old UI references may still exist while the next Home opens.
+    func releaseOwnership() {
+        if lockFD >= 0 { flock(lockFD, LOCK_UN); close(lockFD); lockFD = -1 }
+    }
 
     public func load() throws -> HomeState {
         try verifyForLoading()
@@ -678,6 +683,7 @@ public final class HomeStore {
         throw SevraError.unavailable("Unexpected db.md response for a record body.")
     }
     @discardableResult private func command(_ arguments: [String]) throws -> Data {
+        guard lockFD >= 0 else { throw SevraError.refused("This Home is closed.") }
         let p = Process(); p.executableURL = dbmd; p.arguments = arguments; p.currentDirectoryURL = root.appendingPathComponent("db")
         p.environment = ["HOME": NSHomeDirectory(), "PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"]
         let output = Pipe(); p.standardOutput = output; p.standardError = output

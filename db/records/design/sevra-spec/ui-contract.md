@@ -3,7 +3,7 @@ type: native-spec
 meta-type: operational
 id: 01m2gb63b06sdk41zzcbfevt7c
 created: 2026-09-14T16:14:44.064879+00:00
-updated: 2026-09-24T07:21:55.795938+00:00
+updated: 2026-10-10T12:26:40.438221+00:00
 summary: Mac UI geometry, native text, appearance and review requirements
 ---
 # Mac native UI contract
@@ -79,3 +79,17 @@ The offscreen check `Tools/check_sevra_apps_ui.sh` renders the production views 
 
 ## Memory controls
 Automatic remains the default. Custom allows the hardware-supported range rather than stopping at the automatic recommendation. First use adopts the current budget or current recommendation; subsequent switches restore the last custom value. The selected limit stays saved while other applications change available memory. Settings show “Budget available now” beside the recommendation, with measured “App memory” in the details. Budget changes during a response remain pending until it finishes. Light and Dark use the same native controls. See [[records/decisions/adaptive-memory-limits]].
+
+## Home navigation
+
+The Current Home control belongs above the sidebar's conversation navigation, because it changes the scope of everything below it. It shows the Home's folder name at all times; the chooser shows full paths with middle truncation and path help so identical names are distinguishable. The window title/subtitle also names the active Home. File > Switch Home (⇧⌘H) reveals the chooser when navigation is hidden. File > Open Home uses ⇧⌘O. New Home uses a native name/location picker; Open Home chooses an existing complete Sevra Home. A standalone db.md folder is attached to a conversation rather than converted by this picker.
+
+The initial Home is `~/Sevra/Home`; subsequent launches reopen the last successfully opened location. The recent list is a device-local navigation convenience, capped at twelve to keep it short. Older Homes remain reachable through Open Home; removing a recent entry removes only its shortcut. Revisit this presentation cap if ordinary use needs more frequent Home navigation. Explicit development launches through `SEVRA_HOME` do not change the person's remembered startup selection.
+
+A switch stays in one window, flushes both draft editors and verifies the destination before closing the current session. Failed saves and invalid or already-owned destinations leave the existing workspace usable. A missing Home or disconnected drive is reported, not replaced with an empty Home. Running/queued work and Incognito show an explicit Switch Home / Stay Here choice. Pending reviews remain saved in their original Home. The next session starts with fresh sources, mini-app views, inference and UI state. Controls are unavailable during the handoff. Homes must be separate folders, with no nested Home or symbolic-link boundary.
+
+The production offscreen Home suite and exact acceptance scope are recorded in [[sources/runs/2026/10/2026-10-10-sevra-home-switcher]]. A complete live keyboard and assistive-technology pass remains pending.
+
+### Database inspection direction, not implemented
+
+A future Data panel should belong to the selected Home and expose db.md records, schemas, filters/queries and history through Sevra's native interface. Record inspection should make the canonical files and their location understandable. Editing must use the existing owner, validation and review boundaries. SQL is a separate product choice: the current store does not provide a SQL engine, so a literal SQL editor would require a query layer with defined schema and write semantics. This Home-switcher change adds neither that engine nor a database inspector.

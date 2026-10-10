@@ -3,7 +3,7 @@ type: native-spec
 meta-type: operational
 id: 01m2gb63bjf3kzznf6ta8jp920
 created: 2026-09-14T16:14:44.082480+00:00
-updated: 2026-09-21T17:07:30.935279+00:00
+updated: 2026-10-10T12:26:40.414373+00:00
 summary: Mac application implementation progress and unpassed release gates
 ---
 # Mac implementation status
@@ -251,3 +251,13 @@ Still open:
 - The memory budget row reads the plan's total process budget. Another session's uncommitted adaptive memory limit may give a person's limit a field of its own, which the row would then have to follow.
 
 Evidence: [[sources/runs/2026/09/2026-09-20-sevra-response-details]].
+
+## Home switching (October 10, 2026)
+
+The development Mac app now has a persistent Current Home control above sidebar navigation, a chooser with recent locations and paths, New Home and Open Home, and native File menu commands. The title/subtitle keeps the Home name visible with collapsed navigation. The last selected Home is remembered; explicit `SEVRA_HOME` development launches do not replace that startup selection. The initial default remains `~/Sevra/Home`.
+
+Switching saves conversation and journal drafts, reserves and validates the destination, stops the old runtime, releases its storage ownership and creates a fresh application session in the same window. Active or queued work and Incognito require confirmation. Cancellation, destination refusal and draft conflicts preserve the current Home. Missing paths are never silently recreated; occupied new destinations, nested Homes, symlinks and locked destinations are refused. Pending reviews remain in their original Home, and restored backups use the same switcher. A closed writer releases its lock even when an old UI/runtime reference is retained, and rejects subsequent writes.
+
+`Tools/check_sevra_mac.sh` now includes the production Home UI check. The complete script and final ad-hoc bundle build passed with real dbmd and scripted inference. Home checks exercise draft round trips, separate identities, stale-write refusal, path refusals, owned destinations, real draft conflicts, Incognito and active-work confirmation/cancellation, remembered selection, and a click on the actual rendered recent-Home row. Light/dark chooser and sidebar views were inspected. Source and final binary identity: [[sources/runs/2026/10/2026-10-10-sevra-home-switcher]].
+
+This does not qualify a public Desktop release, real-model switching under load, full keyboard/VoiceOver behavior or other platforms. SQL and a general database inspector are not implemented by this change.

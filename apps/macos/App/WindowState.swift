@@ -124,6 +124,7 @@ struct SidebarView: View {
                 ObserverMark().fill(.primary).frame(width: 32, height: 32).accessibilityHidden(true)
                 Text("sevra").font(.custom("Poppins-Medium", size: 26)).tracking(-0.65)
             }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 8).accessibilityLabel("Sevra")
+            HomeSwitcher(homes: model.homes).padding(.horizontal, 4).padding(.bottom, 6)
             railButton("Home", symbol: "house", selected: state.selectedID == "home" && state.panel.isEmpty) { model.navigate("home") }
             Button { model.panel = "Needs you" } label: {
                 HStack { navigationLabel("Needs you", symbol: "tray"); Spacer(); if state.needsYou > 0 { Text("\(state.needsYou)").monospacedDigit().font(.caption.weight(.semibold)) } }

@@ -250,6 +250,7 @@ actor HomeWriter {
     let queue: SaveQueue
     private var loop: Task<Void, Never>?
     private var grantsVersion = 0
+    private var finished = false
 
     init(store: HomeStore, queue: SaveQueue) {
         self.store = store; self.queue = queue
@@ -279,10 +280,14 @@ actor HomeWriter {
         }
     }
     /// Runs a store operation in turn with saves.
-    func perform<T>(_ operation: (HomeStore) throws -> T) rethrows -> T { try operation(store) }
+    func perform<T>(_ operation: (HomeStore) throws -> T) throws -> T {
+        guard !finished else { throw SevraError.refused("This Home is closed.") }
+        return try operation(store)
+    }
     /// Saves device grants. Callers change their cache first and number each
     /// change, so a save that arrives late never replaces a newer one.
     func saveGrants(_ grants: [String: AppGrant], version: Int) throws {
+        guard !finished else { throw SevraError.refused("This Home is closed.") }
         guard version > grantsVersion else { return }
         try store.saveGrants(grants)
         grantsVersion = version
@@ -291,5 +296,7 @@ actor HomeWriter {
     func finish() async {
         queue.close()
         await loop?.value
+        finished = true
+        store.releaseOwnership()
     }
 }

@@ -477,3 +477,6 @@ Close the implementation and research effort with the full same-checkpoint speed
 ## [2026-10-07 19:35] update | records/measurements/release-0-2-28-published-2026-10-07.md
 Publish v0.2.28 from the accepted exact-source CI archive. Preserve complete native acceptance (35 gates, no failures or skips), public checksum and provenance verification, and isolated public-installer acceptance (31 checks, owned server reaped). Retain original four-bit as the only supported pack, experimental formats as research, and the broader speed target as unmet. Brain validation, projections, 358 claim checks and llms-full check pass.
 
+## [2026-10-10 12:27] update | records/design/sevra-spec/implementation-status.md
+Implement visible native Home switching with recent/new/open actions, remembered selection, separate runtime sessions, draft persistence and active-work/Incognito confirmation. Full Mac checks and final development bundle pass using scripted inference and real dbmd. Record exact acceptance, update the UI contract and user guide, and keep SQL/database inspection explicitly unimplemented. Brain validation has zero errors/warnings; projections, 358 claim checks and llms-full check pass.
+

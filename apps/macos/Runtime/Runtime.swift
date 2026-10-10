@@ -156,7 +156,7 @@ public actor SevraRuntime {
     public func acknowledgeRestore(archiveDigest: String) async throws {
         try requireOpen()
         try await writer.perform { try $0.acknowledgeRestore(archiveDigest: archiveDigest) }
-        restoreReview = await writer.perform { $0.restoreReview }
+        restoreReview = try await writer.perform { $0.restoreReview }
     }
     /// Queues the current state for saving. Never waits for disk.
     func submitSave(artifacts: [ArtifactProposal] = [], documents: [HomeStore.Document] = [], files: [HomeStore.OwnedFile] = []) {

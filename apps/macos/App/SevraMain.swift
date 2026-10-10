@@ -14,7 +14,7 @@ import SevraRuntime
     }
 }
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation, NSToolbarDelegate, NSMenuDelegate {
-    let model = AppModel()
+    var model = AppModel()
     var window: NSWindow!
     private var modelChanges: AnyCancellable?
     private let actionsMenu = NSMenu(title: "More")
@@ -52,21 +52,40 @@ import SevraRuntime
         NotificationCenter.default.addObserver(self, selector: #selector(find(_:)), name: .sevraFind, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep(_:)), name: NSWorkspace.willSleepNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake(_:)), name: NSWorkspace.didWakeNotification, object: nil)
+        model.homes.didOpen = { [weak self] next in self?.showHome(next) }
         model.start()
+    }
+    private func showHome(_ next: AppModel) {
+        modelChanges = nil
+        model = next
+        window.contentView = NSHostingView(rootView: ContentView(model: next, onContentLeadingChanged: { [weak self] leading in
+            guard let self, self.detailLeadingInset != leading else { return }
+            self.detailLeadingInset = leading; self.scheduleToolbarAlignment()
+        }))
+        modelChanges = next.objectWillChange.receive(on: RunLoop.main).sink { [weak self] in self?.updateToolbar() }
+        next.start()
+        updateToolbar()
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         window.makeKeyAndOrderFront(nil); return true
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard !model.homes.switching else { return false }
         Task { if await model.closeWindow() { sender.orderOut(nil) } }; return false
     }
     func windowDidResize(_ notification: Notification) { updateToolbar(); scheduleToolbarAlignment() }
     func windowDidUpdate(_ notification: Notification) { scheduleToolbarAlignment() }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !model.homes.switching else { return .terminateCancel }
         Task { sender.reply(toApplicationShouldTerminate: await model.quit()) }
         return .terminateLater
     }
+    @objc func switchHome(_ sender: Any?) {
+        NotificationCenter.default.post(name: .sevraShowHomes, object: nil)
+    }
+    @objc func newHome(_ sender: Any?) { model.homes.chooseNew() }
+    @objc func openHome(_ sender: Any?) { model.homes.chooseExisting() }
     @objc func newThread(_ sender: Any?) { model.newThread() }
     @objc func incognito(_ sender: Any?) { model.newThread(.incognito) }
     @objc func search(_ sender: Any?) { model.panel = "Search" }
@@ -89,6 +108,7 @@ import SevraRuntime
     @objc func attachSources(_ sender: Any?) { model.panel = ""; model.attach() }
     @objc func appsAndSkills(_ sender: Any?) { model.panel = "Apps" }
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if model.homes.switching { return false }
         if menuItem.action == #selector(send(_:)) { return model.composer.canSend && !model.busy && !model.submitting && !model.attaching && !model.aiPaused && !model.composer.transitioning }
         if menuItem.action == #selector(stop(_:)) { return model.busy && model.thread?.run?.state != .stopping }
         if menuItem.action == #selector(attachSources(_:)) { return model.composer.ready && !model.working && !model.attaching && !model.aiPaused }
@@ -126,6 +146,10 @@ import SevraRuntime
         add(app, "Show All", #selector(NSApplication.unhideAllApplications(_:)))
         app.addItem(.separator()); add(app, "Quit Sevra", #selector(NSApplication.terminate(_:)), "q")
         let file = menu("File")
+        add(file, "Switch Home…", #selector(switchHome(_:)), "h", [.command, .shift], target: self)
+        add(file, "New Home…", #selector(newHome(_:)), "", target: self)
+        add(file, "Open Home…", #selector(openHome(_:)), "o", [.command, .shift], target: self)
+        file.addItem(.separator())
         add(file, "New Thread", #selector(newThread(_:)), "n", target: self)
         add(file, "New Incognito Thread", #selector(incognito(_:)), "n", [.command, .shift], target: self)
         add(file, "Attach Files…", #selector(attachSources(_:)), "a", [.command, .shift], target: self)
@@ -250,7 +274,9 @@ import SevraRuntime
             }
             subtitle += " · " + lifecycle
         }
-        if window.title != title { window.title = title }
+        subtitle = model.homeURL.lastPathComponent + (subtitle.isEmpty ? "" : " · " + subtitle)
+        let windowTitle = title + " · " + model.homeURL.lastPathComponent
+        if window.title != windowTitle { window.title = windowTitle }
         if window.subtitle != subtitle { window.subtitle = subtitle }
         // Reserve space for the native traffic lights, navigation, named Search
         // and More controls. Long titles truncate instead of going to overflow.

@@ -44,8 +44,33 @@ ad-hoc signs it. Developer ID signing, notarization, the installed updater and
 clean-machine qualification are separate work. A successful ad-hoc build does
 not establish a trusted public distribution.
 
-By default the app opens `~/Sevra/Home`. For disposable development data, launch
-the executable directly with a dedicated Home:
+### Homes
+
+The **Current Home** control at the top of the sidebar shows where you are.
+Open it to switch between recent Homes, create a **New Home…**, or **Open Home…**
+from another folder. Each entry shows its path so identically named folders are
+recognizable. **File → Switch Home…** (⇧⌘H) also reaches the control when the
+sidebar is hidden; **File → Open Home…** uses ⇧⌘O.
+
+Sevra first opens `~/Sevra/Home`, then remembers the last successfully opened
+Home. Switching replaces the current workspace in the same window. Conversation
+and journal drafts save before leaving; conflicting or failed saves keep you in
+the current Home. Running work and Incognito require an explicit choice to stop
+and switch. Pending reviews stay in their original Home. Mini-app views and
+source access close with that session, and the next Home gets fresh UI and
+inference state. The destination is verified and reserved before the current
+Home closes, so an invalid or already-open destination leaves the current
+workspace available.
+
+A Home needs its own folder. New Home refuses nonempty folders and locations
+inside another Home. Open Home requires an existing Sevra Home; missing paths
+and disconnected drives are reported instead of recreated. **Remove from Recent
+Homes**, in an entry's context menu, removes only the shortcut. It never deletes
+the Home. Ordinary db.md databases are attached to conversations, not converted
+into Homes by this picker.
+
+For disposable development data, launch the executable directly with a dedicated
+Home. This override does not replace the remembered startup Home:
 
 ```bash
 SEVRA_HOME="$HOME/Sevra/DevelopmentHome" .build/Sevra.app/Contents/MacOS/Sevra
@@ -273,7 +298,7 @@ source grants and Incognito content are excluded.
 
 **Restore backup…** creates a new Home beside the backup or in another folder.
 It refuses an existing destination and verifies the declared files before
-publishing the restored copy. Opening that copy keeps AI paused for a dated
+publishing the restored copy. Opening that copy uses the Home switcher in the same window and keeps AI paused for a dated
 privacy review. Inspect Knowledge first. Known newer Forget decisions from the
 current Home are retained; a backup restored without that current state may be
 missing later privacy choices. Enabling AI does not restart old jobs, reattach

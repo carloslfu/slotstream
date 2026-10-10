@@ -2,18 +2,18 @@
 type: index
 scope: type-folder
 folder: records/design
-updated: 2026-10-07T18:31:40.813251Z
+updated: 2026-10-10T12:26:40.438221Z
 ---
 
 # records/design
 
+- [[records/design/sevra-spec/ui-contract]] — Mac UI geometry, native text, appearance and review requirements
+- [[records/design/sevra-spec/implementation-status]] — Mac application implementation progress and unpassed release gates
 - [[records/design/sevra-maintained-model-integration]] — Sevra integration: versioned hardware/model profiles, full-stack qualification, maintained updates and documentation tied to implementation.
 - [[records/design/measured-operating-policies]] — Measured operating policies and revision criteria
-- [[records/design/sevra-spec/ui-contract]] — Mac UI geometry, native text, appearance and review requirements
 - [[records/design/sevra-spec/mac-platform]] — Mac native implementation baseline and dependency qualification
 - [[records/design/sevra-spec/runtime-contract]] — Native Home, inference, sources and documents, reviewed changes, knowledge bases, skills, mini-apps and exact commits
 - [[records/design/4-2-slot-pool-mechanics]] — 4.2 Slot pool mechanics
-- [[records/design/sevra-spec/implementation-status]] — Mac application implementation progress and unpassed release gates
 - [[records/design/sevra-spec/overview]] — Sevra native product specification entry point
 - [[records/design/presets-v1-est-columns-to-be-replaced-by-m8-measurements]] — Presets v1 (est. columns to be replaced by M8 measurements)
 - [[records/design/slotstream-qwen3-8-flash-next-on-every-apple-silicon-mac]] — slotstream — Qwen3.8-Flash-Next on every Apple Silicon Mac

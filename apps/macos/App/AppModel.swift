@@ -7,6 +7,15 @@ import UniformTypeIdentifiers
 import Combine
 
 @MainActor final class AppModel: ObservableObject {
+    let homes: HomeNavigation
+    private let openedHomeURL: URL
+    @Published private(set) var openingHome = false
+    init(homeURL: URL? = nil, homes: HomeNavigation? = nil) {
+        let navigation = homes ?? HomeNavigation()
+        self.homes = navigation
+        openedHomeURL = homeURL ?? navigation.current
+        navigation.model = self
+    }
     @Published var snapshot: RuntimeSnapshot? { didSet { snapshotVersion &+= 1 } }
     /// Counts snapshot changes, so views can reuse what they derive from one.
     private var snapshotVersion = 0
@@ -64,7 +73,6 @@ import Combine
     @Published var restoredHomeURL: URL?
     @Published var backupURL: URL?
     @Published var homeTransferMessage = ""
-    private var openedHomes: [Process] = []
     var restoreNeedsReview: Bool { snapshot?.restoreReview.map { !$0.reviewed } ?? false }
     var aiPaused: Bool { restoreNeedsReview || snapshot?.storageNeedsReview == true }
     var submitting: Bool { composer.sending }
@@ -259,10 +267,7 @@ import Combine
         contextRunID = runID
         panel = "Context"
     }
-    var homeURL: URL {
-        if let path = ProcessInfo.processInfo.environment["SEVRA_HOME"] { return URL(fileURLWithPath: path) }
-        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Sevra/Home")
-    }
+    var homeURL: URL { openedHomeURL }
     @Published var externalChanges: [ExternalHomeChange] = []
     @Published var reviewingChanges = false
     func inspectHomeChanges() {
@@ -331,16 +336,8 @@ import Combine
         }
     }
     func openRestoredHome() {
-        guard let url = restoredHomeURL, let executable = Bundle.main.executableURL else { return }
-        if let existing = openedHomes.first(where: { $0.isRunning && $0.environment?["SEVRA_HOME"] == url.path }) {
-            NSRunningApplication(processIdentifier: existing.processIdentifier)?.activate(options: [])
-            return
-        }
-        let child = Process(); child.executableURL = executable
-        child.environment = ["HOME": NSHomeDirectory(), "PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8", "SEVRA_HOME": url.path]
-        child.standardOutput = FileHandle.nullDevice; child.standardError = FileHandle.nullDevice
-        do { try child.run(); openedHomes.removeAll { !$0.isRunning }; openedHomes.append(child) }
-        catch { self.error = error.localizedDescription }
+        guard let url = restoredHomeURL else { return }
+        homes.request(url)
     }
     func reviewRestoredHome() {
         guard let review = snapshot?.restoreReview, !review.reviewed, let runtime else { return }
@@ -351,21 +348,27 @@ import Combine
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         Task { do { try await runtime.acknowledgeRestore(archiveDigest: review.archiveDigest); await refresh() } catch { self.error = error.localizedDescription } }
     }
-    func start() {
-        observeComposers()
-        setAppearance(appearance)
-        let root = homeURL
+    func makeHomeRuntime(at root: URL) async throws -> SevraRuntime {
         let dbmd = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/dbmd")
         let modelPath = ProcessInfo.processInfo.environment["SEVRA_MODEL"]
         let preferences = performancePreferences
+        return try await Task.detached(priority: .userInitiated) {
+            let model = modelPath.map { URL(fileURLWithPath: $0) } ?? WeightStore.default.modelDirectory
+            let engine = LocalInference(model: model, preferences: preferences,
+                activationDirectory: LocalInference.defaultActivationDirectory(model: model))
+            return try SevraRuntime(homeURL: root, dbmd: dbmd, inference: engine, performancePreferences: preferences)
+        }.value
+    }
+    func start() {
+        observeComposers()
+        setAppearance(appearance)
+        openingHome = true
         poll = Task {
             do {
-                runtime = try await Task.detached(priority: .userInitiated) {
-                    let model = modelPath.map { URL(fileURLWithPath: $0) } ?? WeightStore.default.modelDirectory
-                    let engine = LocalInference(model: model, preferences: preferences,
-                        activationDirectory: LocalInference.defaultActivationDirectory(model: model))
-                    return try SevraRuntime(homeURL: root, dbmd: dbmd, inference: engine, performancePreferences: preferences)
-                }.value
+                if runtime == nil {
+                    let root = try HomeLocation.validate(homeURL, intent: homes.initialIntent)
+                    runtime = try await makeHomeRuntime(at: root)
+                }
                 if let runtime { endpoint = try await Task.detached { try LocalEndpoint(runtime: runtime) }.value }
                 await runtime?.maintainPerformance(userPresent: hasForegroundWindow)
                 await refreshModelSetup()
@@ -384,7 +387,9 @@ import Combine
                 let id = snapshot?.home.threads.first { $0.id == remembered && $0.mode != .incognito }?.id ?? "home"
                 try await composer.open(id); focusRevision += 1
                 try await journalComposer.open("journal")
-            } catch { self.error = error.localizedDescription; return }
+                homes.opened(homeURL)
+                openingHome = false
+            } catch { openingHome = false; self.error = error.localizedDescription; return }
             while !Task.isCancelled {
                 await refresh()
                 try? await Task.sleep(nanoseconds: 150_000_000)
@@ -758,6 +763,21 @@ import Combine
         while (composer.sending || composer.transitioning || journalComposer.sending), waits < 250 {
             try? await Task.sleep(nanoseconds: 20_000_000); waits += 1
         }
+    }
+    /// Flush both editors without closing Incognito before the destination is verified.
+    func prepareHomeSwitch() async -> Bool {
+        await settleComposer()
+        if journalComposer.ready, !(await journalComposer.prepareToClose()) { panel = "Journal"; return false }
+        if !composer.ready { return true }
+        return await composer.prepareToClose()
+    }
+    func releaseHomeSession() {
+        searching?.cancellation.cancel(); searching?.task.cancel(); searching = nil
+        poll?.cancel(); poll = nil; performancePoll?.cancel(); performancePoll = nil
+        endpoint?.stop(); endpoint = nil
+        composer.finish(); journalComposer.finish()
+        composerChanges = nil; selectionChanges = nil
+        runtime = nil
     }
     func closeWindow() async -> Bool {
         guard composer.ready else { return true }

@@ -6,6 +6,15 @@ Version headings can be prepared before publication. The
 [Releases page](https://github.com/carloslfu/slotstream/releases/latest)
 determines which version the installer downloads.
 
+## Unreleased
+
+- The development Mac app has a visible Home switcher above its sidebar
+  navigation, with recent locations, new/open actions and native menu commands.
+  It remembers the selected Home and switches in the same window after saving
+  drafts. Destination checks, explicit active-work/Incognito handling and fresh
+  session state preserve the separation between Homes. Restored backups use the
+  same switcher. This remains a development app, not a public Desktop release.
+
 ## 0.2.28 - 2026-10-07
 
 - The development Mac app separates quantization, memory ceiling and live
