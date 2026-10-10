@@ -15,6 +15,10 @@ determines which version the installer downloads.
   session state preserve the separation between Homes. Restored backups use the
   same switcher. This remains a development app, not a public Desktop release.
 
+- Add repeatable `--mirror <dir>` to route checkpoint reads across identical
+  copies on different disks, with per-copy byte reporting. Verify every copy
+  before use; packed expert layouts and authenticated affine packs reject mirrors.
+
 ## 0.2.28 - 2026-10-07
 
 - The development Mac app separates quantization, memory ceiling and live

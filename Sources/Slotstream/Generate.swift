@@ -269,6 +269,9 @@ public struct GenStats: Codable {
     public var decodeIOSeconds = 0.0
     public var decodeScatterSeconds = 0.0
     public var decodeRecords = 0
+    /// Cumulative bytes served per checkpoint replica, including model loading
+    /// and previous requests. Empty when no mirrors are configured.
+    public var mirrorBytes: [Int] = []
     /// "stop" (EOS or stop sequence), "length", "error", or a low-level
     /// caller's explicit "cancelled" checkpoint yield.
     public var finishReason = "stop"
@@ -1350,6 +1353,8 @@ public final class Generator {
         stats.decodeIOSeconds = model.pool.ioSeconds
         stats.decodeScatterSeconds = model.pool.scatterSeconds
         stats.decodeRecords = model.pool.recordsFetched
+        let served = model.pool.expertStore.index.mirror.servedBytes()
+        stats.mirrorBytes = served.count > 1 ? served : []
         stats.decodeLocalVictims = model.pool.floorLocalVictims
         stats.decodeSlotSliceBatches = model.pool.slotSliceBatches
         stats.decodeSlotSliceRuns = model.pool.slotSliceRuns
