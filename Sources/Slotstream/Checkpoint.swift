@@ -409,10 +409,14 @@ public final class CheckpointIndex {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
+    public convenience init(dir: URL) throws {
+        try self.init(dir: dir, mirrors: [])
+    }
+
     /// `mirrors` are directories holding byte-identical copies of the same
     /// checkpoint, on other disks. Reads are then spread across all of them by
     /// `MirrorRouter`.
-    public init(dir: URL, mirrors: [URL] = []) throws {
+    public init(dir: URL, mirrors: [URL]) throws {
         self.authenticatedFiles = [:]
         self.affineExpertArtifact = nil
         self.authenticatedStorageIdentity = nil

@@ -398,7 +398,11 @@ public final class Engine {
         poolSnapshotLock.unlock()
     }
 
-    public convenience init(modelDir: URL, mirrors: [URL] = [], plan: MemoryPlan) async throws {
+    public convenience init(modelDir: URL, plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, mirrors: [], plan: plan)
+    }
+
+    public convenience init(modelDir: URL, mirrors: [URL], plan: MemoryPlan) async throws {
         try await self.init(modelDir: modelDir, mirrors: mirrors, poolSlots: plan.slots, plan: plan)
     }
 
@@ -406,7 +410,11 @@ public final class Engine {
     /// plan. The owner authenticates the selected WeightStore first. This
     /// does not apply product tuning or confer a measured performance profile;
     /// those remain explicit steps before publishing a healthy runtime.
-    public convenience init(modelDir: URL, mirrors: [URL] = [], pack: ModelPack, plan: MemoryPlan) async throws {
+    public convenience init(modelDir: URL, pack: ModelPack, plan: MemoryPlan) async throws {
+        try await self.init(modelDir: modelDir, mirrors: [], pack: pack, plan: plan)
+    }
+
+    public convenience init(modelDir: URL, mirrors: [URL], pack: ModelPack, plan: MemoryPlan) async throws {
         try pack.validateLoadPlan(plan)
         if pack.id == PinnedAffineStandalone.id {
             guard mirrors.isEmpty else {
@@ -427,7 +435,11 @@ public final class Engine {
     /// CLI validates its own flag.
     public var gpuKeepAlive: GPUKeepAlive.Policy = (try? GPUKeepAlive.environmentPolicy()) ?? .auto
 
-    public convenience init(modelDir: URL, mirrors: [URL] = [], poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+    public convenience init(modelDir: URL, poolSlots: Int, plan: MemoryPlan? = nil) async throws {
+        try await self.init(modelDir: modelDir, mirrors: [], poolSlots: poolSlots, plan: plan)
+    }
+
+    public convenience init(modelDir: URL, mirrors: [URL], poolSlots: Int, plan: MemoryPlan? = nil) async throws {
         try await self.init(modelDir: modelDir, mirrors: mirrors, poolSlots: poolSlots, plan: plan, affineSource: nil)
     }
 
