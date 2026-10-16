@@ -44,6 +44,7 @@ BIN=${BIN:-.build/release/slotstream}
 "$BIN" doctor --json
 ''')
         for path in ['Tools/static_gates_binary_test.py', 'Tools/coverage_ratchet_test.py',
+                     'Tools/openai_tools_gate_test.py',
                      'Tools/process_cleanup_checks.py', 'Tools/context_qualification_checks.py',
                      'Tools/installer_gates_binary_test.py',
                      'Tools/verify_binary_test.py',
