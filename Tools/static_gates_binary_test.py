@@ -64,6 +64,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/memory_override_gate.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN']]\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MEMORY_OVERRIDES') == '1' else 0)\n")
         self.write('Tools/mtp_process_guard_gate.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN']]\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DRAFT_LOCK') == '1' else 0)\n")
         self.write('Tools/slotpack/cli_checks.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN'], '--selection-only', '--receipt', '.build/model-pack-selection.json']\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PACK_SELECTION') == '1' else 0)\n")
+        self.write('Tools/token_usage_proxy_test.py', '# Pure usage-parser dependency fixture.\n')
         for suite in OPTIMIZATION_SUITES:
             self.write(f'Tools/{suite}_test.py', f'''import json, os
 with open(os.environ['SLOTSTREAM_SUITE_TRACE'], 'a') as output:

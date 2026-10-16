@@ -10,6 +10,7 @@ for f in install.sh Tools/*.sh .githooks/*; do
 done
 sh -n install.sh
 python3 -m py_compile Tools/*.py Tools/reference/*.py Tools/slotpack/*.py
+python3 Tools/token_usage_proxy_test.py
 python3 Tools/static_gates_binary_test.py
 python3 Tools/installer_gates_binary_test.py
 python3 Tools/installer_metal_test.py
