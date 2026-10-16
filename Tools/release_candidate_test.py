@@ -1,14 +1,17 @@
 """Release reuses only an exact source-bound, checksummed CI artifact."""
 import hashlib
+import gzip
 import io
 import json
 from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from build_identity import source_files, sha
-from release_candidate import verify_and_unpack
+import release_candidate
+from release_candidate import contents, verify_and_unpack
 
 
 def archive_bytes(files, extra=None):
@@ -19,6 +22,74 @@ def archive_bytes(files, extra=None):
             archive.addfile(entry, io.BytesIO(data))
         if extra is not None: archive.addfile(extra)
     return output.getvalue()
+
+
+class ReadTrace(io.BytesIO):
+    def __init__(self, raw):
+        super().__init__(raw)
+        self.furthest_requested = 0
+
+    def seek(self, offset, whence=0):
+        position = super().seek(offset, whence)
+        self.furthest_requested = max(self.furthest_requested, position)
+        return position
+
+    def read(self, size=-1):
+        position = self.tell()
+        data = super().read(size)
+        self.furthest_requested = max(self.furthest_requested, position + (size if size >= 0 else len(data)))
+        return data
+
+
+class MemberBoundTests(unittest.TestCase):
+    def reject_at_header(self, entry, expected, prefix=b'', limit=None):
+        # A real header without its declared payload: no large fixture is
+        # allocated. Reject it before TarFile seeks to the next header.
+        raw = prefix + entry.tobuf(format=tarfile.USTAR_FORMAT)
+        stream = ReadTrace(raw)
+        with tarfile.open(fileobj=stream, mode='r:') as archive, \
+                patch.object(release_candidate, 'MAX_BYTES', release_candidate.MAX_BYTES if limit is None else limit), \
+                patch.object(archive, 'extractfile', wraps=archive.extractfile) as extract:
+            with self.assertRaises(ValueError): contents(archive, expected)
+            extract.assert_not_called()
+        self.assertLessEqual(stream.furthest_requested, len(raw))
+
+    def test_oversized_member_is_refused_before_payload_traversal(self):
+        entry = tarfile.TarInfo('slotstream'); entry.size = release_candidate.MAX_BYTES + 1
+        self.reject_at_header(entry, {'slotstream'})
+
+    def test_unknown_or_duplicate_member_is_refused_before_payload_traversal(self):
+        entry = tarfile.TarInfo('unexpected'); entry.size = release_candidate.MAX_BYTES
+        with self.subTest(kind='unknown'):
+            self.reject_at_header(entry, {'slotstream'})
+        first = tarfile.TarInfo('slotstream'); first.size = 1
+        prefix = first.tobuf(format=tarfile.USTAR_FORMAT) + b'x' + bytes(511)
+        entry.name = 'slotstream'
+        with self.subTest(kind='duplicate'):
+            self.reject_at_header(entry, {'slotstream', 'mlx.metallib'}, prefix)
+
+    def test_cumulative_bound_is_checked_before_the_next_payload(self):
+        first = tarfile.TarInfo('slotstream'); first.size = 5
+        prefix = first.tobuf(format=tarfile.USTAR_FORMAT) + b'first' + bytes(507)
+        second = tarfile.TarInfo('mlx.metallib'); second.size = 5
+        self.reject_at_header(second, {'slotstream', 'mlx.metallib'}, prefix, limit=8)
+
+    def test_unsupported_type_is_refused_without_reading_another_header(self):
+        entry = tarfile.TarInfo('slotstream'); entry.type = tarfile.SYMTYPE; entry.linkname = 'target'
+        self.reject_at_header(entry, {'slotstream'})
+
+    def test_exact_bound_is_accepted_and_all_metadata_precedes_extraction(self):
+        files = {'slotstream': b'abc', 'mlx.metallib': b'12345'}
+        raw = archive_bytes(files)
+        for mode, data in [('r:gz', raw), ('r:', gzip.decompress(raw))]:
+            with self.subTest(mode=mode), tarfile.open(fileobj=io.BytesIO(data), mode=mode) as archive, \
+                    patch.object(release_candidate, 'MAX_BYTES', 8):
+                self.assertEqual(contents(archive, files), files)
+        raw = archive_bytes(files | {'unexpected': b''})
+        with tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz') as archive, \
+                patch.object(archive, 'extractfile', wraps=archive.extractfile) as extract:
+            with self.assertRaises(ValueError): contents(archive, files)
+            extract.assert_not_called()
 
 
 class ReleaseCandidateTests(unittest.TestCase):
