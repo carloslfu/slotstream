@@ -665,7 +665,7 @@ package enum CodingToolLaunch {
             ? "Created \(path) with the `slotstream` provider."
             : "Set the `slotstream` provider in \(path); other providers are unchanged."
         let entry = OrderedJSON.parse(contents)?["providers"]?["slotstream"] ?? .null
-        let preview = OrderedJSON.object([("providers", .object([("slotstream", entry)]))]).text()
+        let preview = redacted(OrderedJSON.object([("providers", .object([("slotstream", entry)]))]).text())
             + "\n(Everything else in the file stays as it is.)\n"
         return Plan(tool: .pi, arguments: arguments, environment: [:], removedEnvironment: [],
                     files: [FileWrite(path: path, contents: contents, note: note, preview: preview)],
