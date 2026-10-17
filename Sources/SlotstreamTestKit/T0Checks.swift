@@ -48,6 +48,7 @@ extension Catalogue {
             Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
             Check("machine-planning", tier: .t0) { try Diagnostics.machinePlanning() },
             Check("http-framing", tier: .t0) { Diagnostics.httpFraming() },
+            Check("http-expectations", tier: .t0) { try httpExpectations() },
             Check("http-routing", tier: .t0) { Diagnostics.httpRouting() },
             Check("bounded-output", tier: .t0) { try Diagnostics.optimizationOutput() },
             Check("expert-lookahead-lane-budget", tier: .t0) { try Diagnostics.expertLookaheadLaneBudget() },
