@@ -94,7 +94,8 @@ JSON
     FX_GATEWAY_CHAT_URL="http://127.0.0.1:$PORT/v3/ai/language-model" \
     AI_GATEWAY_API_KEY=local-dummy-key FX_DISABLE_KEYCHAIN=1 \
     fx ask --no-save "Read hello.txt and tell me exactly what it says." 2>&1)
-  if printf '%s' "$OUT" | grep -qi "hello from slotstream"; then
+  FX_RC=$?
+  if [ "$FX_RC" -eq 0 ] && printf '%s' "$OUT" | grep -qi "hello from slotstream"; then
     echo "PASS  fx completes a read_file loop against the local model"
   else
     echo "FAIL  fx did not complete the loop"
