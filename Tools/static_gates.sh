@@ -22,6 +22,7 @@ python3 Tools/api_generation_test.py
 python3 Tools/consumer_smoke_test.py
 python3 Tools/e2e_release_test.py
 python3 Tools/coverage_ratchet_test.py
+python3 Tools/claims_gate_test.py
 python3 Tools/context_qualification_checks.py
 python3 Tools/process_cleanup_checks.py
 python3 Tools/launch_request_deadline_test.py
