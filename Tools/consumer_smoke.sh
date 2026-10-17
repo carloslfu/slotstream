@@ -36,6 +36,12 @@ import Foundation
 import Slotstream
 import SlotstreamDiagnostics
 
+let legacyCheckpoint: (URL) throws -> CheckpointIndex = CheckpointIndex.init(dir:)
+let legacyEnginePlan: (URL, MemoryPlan) async throws -> Engine = Engine.init(modelDir:plan:)
+let legacyEnginePack: (URL, ModelPack, MemoryPlan) async throws -> Engine = Engine.init(modelDir:pack:plan:)
+let legacyEngineSlots: (URL, Int, MemoryPlan?) async throws -> Engine = Engine.init(modelDir:poolSlots:plan:)
+_ = (legacyCheckpoint, legacyEnginePlan, legacyEnginePack, legacyEngineSlots)
+
 // Existing callers may forward nonescaping logs and hold the original API
 // as function values. Compile these without starting any download.
 func forwardInstance(_ store: WeightStore, log: WeightStore.Log) throws {
