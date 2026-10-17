@@ -54,6 +54,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
         self.write('Tools/parity_comparison_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PARITY') == '1' else 0)\n")
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
+        self.write('Tools/llms_full_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LLMS_FULL') == '1' else 0)\n")
         self.write('Tools/planner_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PLANNER') == '1' else 0)\n")
         self.write('Tools/api_generation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_API_GENERATION') == '1' else 0)\n")
         self.write('Tools/consumer_smoke_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CONSUMER') == '1' else 0)\n")
@@ -120,6 +121,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_planner_fixture_stops_before_native_checks(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_PLANNER': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_documentation_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_LLMS_FULL': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_documentation_regression_stops_acceptance(self):
+        (self.root/'Tools/llms_full_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
         self.assertEqual(rows, [])
 
     def test_failed_parity_comparison_stops_before_native_checks(self):
