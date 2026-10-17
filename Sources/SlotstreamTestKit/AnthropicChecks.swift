@@ -16,6 +16,7 @@ extension Catalogue {
     static var anthropicChecks: [Check] {
         [
             Check("anthropic-request", tier: .t0) { anthropicRequest() },
+            Check("anthropic-attribution", tier: .t0) { try anthropicAttribution() },
             Check("anthropic-logical-turns", tier: .t0) { anthropicLogicalTurns() },
             Check("anthropic-events", tier: .t0) { anthropicEvents() },
             Check("think-split-stream", tier: .t0) { thinkSplitStream() },
