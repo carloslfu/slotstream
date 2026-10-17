@@ -14,7 +14,7 @@ OPTIMIZATION_SUITES = [
     'build_identity', 'optimization_build', 'optimization_serial_build', 'optimization_readiness',
     'thermal_readiness', 'prefill_bench', 'expert_layout_probe',
     'ngram_cache_probe', 'indexer_score_probe', 'vision_capacity_gate', 'vision_qualification',
-    'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results',
+    'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results', 'public_probe',
     'quantization_inventory', 'quantization_baseline', 'quantization_quality', 'quantization_paired', 'quantization_code_sandbox', 'quantization_bfcl', 'quantization_outcomes', 'quantization_long_context', 'quantization_image_outcomes', 'quantization_product_campaign', 'quantization_outcome_campaign', 'quantization_outcome_continuation', 'quantization_grader_source_audit', 'quantization_grader_continuation', 'quantization_tasks', 'quantization_performance_metrics', 'quantization_performance_campaign', 'quantization_logit_pilot',
     'affine_expert_control', 'affine_expert_reference', 'affine_standalone_metadata', 'affine_standalone_export', 'affine_standalone_run', 'research_payload_retirement', 'standalone_bundle', 'tensor_subset', 'vq_kernel_sources',
     'vq_ple_stream', 'vq_model_reference', 'vq_execution_profile', 'vq_draft_inventory', 'vq_dense_overlay', 'vq_dense_reinvestment', 'vq_uncached_expert', 'vq_contiguous_expert', 'vq_record_repack', 'vq_pilot_admission', 'vq_model_fetch', 'vq_rotary_table_source',
@@ -248,11 +248,14 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.assertEqual(rows, [])
 
     def test_failed_optimization_suite_stops_before_native_checks(self):
-        p, rows = self.run_entry({'SLOTSTREAM_FAIL_SUITE': 'optimization_prerequisites'})
-        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
-        self.assertEqual(rows, [])
-        suites = [json.loads(line) for line in self.suite_trace.read_text().splitlines()]
-        self.assertEqual(suites, OPTIMIZATION_SUITES[:OPTIMIZATION_SUITES.index('optimization_prerequisites') + 1])
+        for suite in ('optimization_prerequisites', 'public_probe'):
+            with self.subTest(suite=suite):
+                self.suite_trace.unlink(missing_ok=True)
+                p, rows = self.run_entry({'SLOTSTREAM_FAIL_SUITE': suite})
+                self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+                self.assertEqual(rows, [])
+                suites = [json.loads(line) for line in self.suite_trace.read_text().splitlines()]
+                self.assertEqual(suites, OPTIMIZATION_SUITES[:OPTIMIZATION_SUITES.index(suite) + 1])
 
     def test_campaign_failure_stops_before_native_checks(self):
         p, rows = self.run_entry({'SLOTSTREAM_FAIL_SUITE': 'optimization_campaign'})
@@ -292,10 +295,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.assertEqual(rows, [])
 
     def test_missing_optimization_suite_is_a_failure(self):
-        (self.root/'Tools/optimization_prerequisites_test.py').unlink()
-        p, rows = self.run_entry({})
-        self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
-        self.assertEqual(rows, [])
+        for suite in ('optimization_prerequisites', 'public_probe'):
+            with self.subTest(suite=suite):
+                path = self.root/f'Tools/{suite}_test.py'
+                original = path.read_text()
+                path.unlink()
+                try:
+                    p, rows = self.run_entry({})
+                finally:
+                    self.write(f'Tools/{suite}_test.py', original)
+                self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
+                self.assertEqual(rows, [])
 
 
 if __name__ == '__main__':
