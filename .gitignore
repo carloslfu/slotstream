@@ -19,6 +19,7 @@ Tools/diskbench
 bench/parity*/
 /tmp/
 Tools/lib/*.metallib
+Tools/lib/*.metallib.cache-identity
 .venv31/
 *.bin
 
