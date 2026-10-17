@@ -85,5 +85,78 @@ class CheckpointRejectionGate(unittest.TestCase):
                                            creates_destination=True), 0)
 
 
+class InfinityRejectionGate(unittest.TestCase):
+    FLAGS = ("--memory-gb", "--pool-gb", "--sim-ram", "--sim-working-set", "--sim-available")
+
+    def check_gate(self, status, output):
+        # Run the real setup, selected check invocations, and final aggregation.
+        # The other planner checks require a real native binary and stay out.
+        source = SCRIPT.read_text()
+        first_command = re.search(r"^run_binary doctor ", source, re.M)
+        self.assertIsNotNone(first_command)
+        checks = re.findall(r'^check "(--[a-z-]+) inf is a clean error"[^\n]*$',
+                            source, re.M)
+        self.assertEqual(tuple(checks), self.FLAGS)
+        invocations = re.findall(r'^check "--[a-z-]+ inf is a clean error"[^\n]*$',
+                                 source, re.M)
+        summary = re.search(r'^echo "planner: passed \$PASS, failed \$FAIL"\n'
+                            r'\[ \$FAIL -eq 0 \]\n?\Z', source, re.M)
+        self.assertIsNotNone(summary)
+        selected = (source[:first_command.start()] + "\n".join(invocations)
+                    + "\n" + source[summary.start():])
+        with tempfile.TemporaryDirectory(prefix="planner infinity '") as directory:
+            root = Path(directory).resolve()
+            (root / "Tools").mkdir()
+            (root / "tmp").mkdir()
+            (root / "home").mkdir()
+            script = root / "Tools/planner_gates.sh"
+            script.write_text(selected)
+            binary = root / "selected 'binary' $literal"
+            log = root / "invocations.jsonl"
+            binary.write_text("#!/usr/bin/env python3\n" + "\n".join([
+                "import json, pathlib, sys",
+                f"log = pathlib.Path({str(log)!r})",
+                "with log.open('a') as fh: fh.write(json.dumps(sys.argv[1:]) + '\\n')",
+                f"print({output!r}, file=sys.stderr)",
+                f"raise SystemExit({status!r})",
+            ]) + "\n")
+            binary.chmod(0o755)
+            result = subprocess.run(["bash", str(script)],
+                env={**os.environ, "SLOTSTREAM_TEST_BINARY": str(binary),
+                     "BIN": str(root / "unused binary"), "TMPDIR": str(root / "tmp"),
+                     "HOME": str(root / "home")},
+                cwd=root, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
+            self.assertEqual([json.loads(line) for line in log.read_text().splitlines()],
+                             [["doctor", flag, "inf"] for flag in self.FLAGS])
+            self.assertEqual(list((root / "tmp").iterdir()), [], "gate cleanup must remove its files")
+            return result
+
+    def test_clean_nonzero_refusals_pass(self):
+        for status in (1, 64, 127):
+            with self.subTest(status=status):
+                result = self.check_gate(status, "Error: a finite value is required")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("planner: passed 5, failed 0", result.stdout)
+                self.assertEqual(result.stdout.count("PASS  "), 5)
+
+    def test_successful_infinity_input_is_not_a_clean_refusal(self):
+        result = self.check_gate(0, "target: 33.0 GB")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("planner: passed 0, failed 5", result.stdout)
+        self.assertEqual(result.stdout.count("FAIL  "), 5)
+
+    def test_fatal_error_is_not_a_clean_refusal(self):
+        result = self.check_gate(1, "Fatal error: cannot convert infinity to integer")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("planner: passed 0, failed 5", result.stdout)
+        self.assertEqual(result.stdout.count("FAIL  "), 5)
+
+    def test_signal_style_exit_is_not_a_clean_refusal(self):
+        result = self.check_gate(137, "")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("planner: passed 0, failed 5", result.stdout)
+        self.assertEqual(result.stdout.count("FAIL  "), 5)
+
+
 if __name__ == "__main__":
     unittest.main()

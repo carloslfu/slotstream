@@ -22,6 +22,17 @@ check() {
 }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 
+# A clean rejection must fail normally, not merely omit Swift crash text.
+clean_rejection() {
+  local status
+  run_binary "$@" > "$T/rejection-output" 2>&1
+  status=$?
+  printf 'exit=%s\n' "$status"
+  cat "$T/rejection-output"
+  [ "$status" -ne 0 ] && [ "$status" -lt 128 ] || return 1
+  ! grep -q 'Fatal error' "$T/rejection-output"
+}
+
 # Parsing a deliberately tiny invalid fixture must not depend on the host
 # being able to fit an inference process. The existing packed-artifact verifier
 # constructs the same CheckpointIndex before payload verification, pool/model
@@ -93,17 +104,17 @@ check "explicit total target cannot authorize unavailable memory" "grep -q 'insu
 check "--experts-per-layer 0 refused"                  "! run_binary doctor --experts-per-layer 0"
 check "--pool-gb 0 refused"                            "! run_binary doctor --pool-gb 0"
 check "--memory-gb below minimum refused"              "! run_binary doctor --memory-gb 3"
-check "--memory-gb inf is a clean error"               "! run_binary doctor --memory-gb inf 2>&1 | grep -q 'Fatal error'"
-check "--pool-gb inf is a clean error"                 "! run_binary doctor --pool-gb inf 2>&1 | grep -q 'Fatal error'"
+check "--memory-gb inf is a clean error"               "clean_rejection doctor --memory-gb inf"
+check "--pool-gb inf is a clean error"                 "clean_rejection doctor --pool-gb inf"
 check "--pool-gb 1e300 saturates safely instead of trapping" \
       "run_binary doctor --pool-gb 1e300 2>&1 | grep -q 'all 512 experts per layer resident'"
 check "--memory-gb 1e300 refuses physical overcommit without trapping" \
       "run_binary doctor --memory-gb 1e300 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"error\"][\"code\"]==\"insufficient_memory\" and d[\"context_feasibility\"][\"maximum_feasible_window\"]==0'"
 check "huge finite memory plan remains valid JSON" \
       "run_binary doctor --memory-gb 1e300 --json | python3 -m json.tool >/dev/null"
-check "--sim-ram inf is a clean error"                 "! run_binary doctor --sim-ram inf 2>&1 | grep -q 'Fatal error'"
-check "--sim-working-set inf is a clean error"         "! run_binary doctor --sim-working-set inf 2>&1 | grep -q 'Fatal error'"
-check "--sim-available inf is a clean error"           "! run_binary doctor --sim-available inf 2>&1 | grep -q 'Fatal error'"
+check "--sim-ram inf is a clean error"                 "clean_rejection doctor --sim-ram inf"
+check "--sim-working-set inf is a clean error"         "clean_rejection doctor --sim-working-set inf"
+check "--sim-available inf is a clean error"           "clean_rejection doctor --sim-available inf"
 run_binary doctor --pool-gb 0.5 > "$T/floor" 2>&1
 check "tiny pool raised to the floor, consistently"    "grep -q '~13 of 512' $T/floor && grep -q '(~13/layer)' $T/floor"
 run_binary doctor --experts-per-layer 40 --pool-gb 10 --memory-gb 20 > "$T/prec" 2>&1
