@@ -118,7 +118,9 @@ def main():
         handle.write("\n")
     print(f"wrote {args.output}: model {model}, {context}-token window, base prompt from {source}")
     print("\nAdd to ~/.codex/config.toml, above any [table] header:\n")
-    print(f'model_catalog_json = "{os.path.abspath(args.output)}"')
+    # TOML rejects surrogate escapes and an unescaped DEL character.
+    catalog_path = json.dumps(os.path.abspath(args.output), ensure_ascii=False).replace("\x7f", "\\u007f")
+    print(f'model_catalog_json = {catalog_path}')
     return 0
 
 
