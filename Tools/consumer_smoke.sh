@@ -18,12 +18,13 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/Sources/Consumer"
 
-cat > "$WORK/Package.swift" <<SWIFT
+cat > "$WORK/Package.swift" <<'SWIFT'
 // swift-tools-version: 6.0
 import PackageDescription
+import Foundation
 let package = Package(
     name: "Consumer", platforms: [.macOS(.v14)],
-    dependencies: [.package(name: "slotstream", path: "$REPO")],
+    dependencies: [.package(name: "slotstream", path: ProcessInfo.processInfo.environment["SLOTSTREAM_CONSUMER_REPO"]!)],
     targets: [.executableTarget(name: "Consumer", dependencies: [
         .product(name: "Slotstream", package: "slotstream"),
         .product(name: "SlotstreamDiagnostics", package: "slotstream"),
@@ -172,7 +173,7 @@ cd "$WORK"
 # Only a compiler diagnostic fails this ("path:line:col: error: ..."); SwiftPM's
 # own cache chatter can contain the word too ("skipping cache due to an
 # error: ...") and took a green build down once.
-if ! swift build -j "$JOBS" > "$WORK/build.log" 2>&1; then
+if ! SLOTSTREAM_CONSUMER_REPO="$REPO" swift build -j "$JOBS" > "$WORK/build.log" 2>&1; then
   cat "$WORK/build.log" >&2
   exit 1
 fi
