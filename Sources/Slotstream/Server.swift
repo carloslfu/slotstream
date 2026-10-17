@@ -196,6 +196,9 @@ public final class Server {
         package var headers: [String: String] = [:]
     }
 
+    /// HTTP optional whitespace is SP / HTAB, not Unicode whitespace.
+    private static let httpOWS = CharacterSet(charactersIn: " \t")
+
     /// Largest request body accepted. Text prompts are tiny, but vision inputs
     /// (base64-encoded images) commonly reach several MB and must be served.
     /// The cap still exists to keep the read bounded against an unbounded
@@ -275,7 +278,8 @@ public final class Server {
             }
         }
         let headData = buf[..<headerEnd!.lowerBound]
-        let head = String(data: headData, encoding: .utf8) ?? ""
+        // Preserve opaque field-value octets without requiring UTF-8.
+        let head = String(decoding: headData.map { UInt16($0) }, as: UTF16.self)
         let req: Request
         let contentLength: Int
         switch Self.parseHead(head) {
@@ -283,9 +287,9 @@ public final class Server {
             if status.hasPrefix("413"), let declared = head.split(separator: "\r\n").lazy
                 .compactMap({ line -> Int? in
                     let kv = line.split(separator: ":", maxSplits: 1)
-                    guard kv.count == 2, kv[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length"
+                    guard kv.count == 2, kv[0].trimmingCharacters(in: Self.httpOWS).lowercased() == "content-length"
                     else { return nil }
-                    return Int(kv[1].trimmingCharacters(in: .whitespaces))
+                    return Int(kv[1].trimmingCharacters(in: Self.httpOWS))
                 }).first {
                 let left = min(declared, Self.maxDrainBytes) - (buf.count - headerEnd!.upperBound)
                 if left > 0 {
@@ -336,8 +340,8 @@ public final class Server {
         for l in lines.dropFirst() {
             let kv = l.split(separator: ":", maxSplits: 1)
             if kv.count == 2 {
-                let key = kv[0].trimmingCharacters(in: .whitespaces).lowercased()
-                let value = kv[1].trimmingCharacters(in: .whitespaces)
+                let key = kv[0].trimmingCharacters(in: Self.httpOWS).lowercased()
+                let value = kv[1].trimmingCharacters(in: Self.httpOWS)
                 if key == "content-length" {
                     if sawContentLength {
                         return .fail(status: "400 Bad Request", message: "Content-Length appears more than once")
@@ -365,7 +369,7 @@ public final class Server {
         if let te = req.headers["transfer-encoding"] {
             // A chunked body carries no Content-Length, so it used to be read
             // as zero bytes and failed further in as "messages must be an array".
-            if te.lowercased().split(separator: ",").last?.trimmingCharacters(in: .whitespaces) == "chunked" {
+            if te.lowercased().split(separator: ",").last?.trimmingCharacters(in: Self.httpOWS) == "chunked" {
                 return .fail(
                     status: "411 Length Required",
                     message: "chunked request bodies are not supported; send Content-Length")

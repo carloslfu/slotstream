@@ -56,6 +56,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
         self.write('Tools/planner_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PLANNER') == '1' else 0)\n")
         self.write('Tools/api_generation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_API_GENERATION') == '1' else 0)\n")
+        self.write('Tools/http_request_octets_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_OCTETS') == '1' else 0)\n")
         self.write('Tools/consumer_smoke_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CONSUMER') == '1' else 0)\n")
         self.write('Tools/process_memory_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_NATIVE_MEMORY') == '1' else 0)\n")
         self.write('Tools/launch_request_deadline_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_DEADLINE') == '1' else 0)\n")
@@ -226,6 +227,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         (self.root/'Tools/api_generation_test.py').unlink()
         p, rows = self.run_entry({})
         self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_request_octets_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_OCTETS': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
         self.assertEqual(rows, [])
 
     def test_every_optimization_suite_runs_before_native_checks(self):
