@@ -20,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import expert_lookahead as xla  # noqa: E402
 from expert_lookahead_bench import run_arm, rule_of, PAGEIN_RULE  # noqa: E402
+from decode_summary import compare_outputs  # noqa: E402
 
 
 def cell_metrics(record):
@@ -148,9 +149,7 @@ def report(cells_path, configs, reference, out):
     summary = {}
     for name, rs in by_cfg.items():
         cleans = [r for r in rs if r["clean"] and r["metrics"]]
-        mismatches = [r["request_id"] for r in cleans
-                      if r["request_id"] in ref_outputs
-                      and r["metrics"]["output_ids"] != ref_outputs[r["request_id"]]]
+        comparison = compare_outputs(rs, ref_outputs)
         tps = sorted(r["metrics"]["tps"] for r in cleans)
         def med(key):
             vals = sorted(r["metrics"][key] for r in cleans if r["metrics"].get(key) is not None)
@@ -161,7 +160,8 @@ def report(cells_path, configs, reference, out):
         passes = sum(r["metrics"]["verify_passes"] for r in cleans)
         summary[name] = dict(
             cells=len(rs), clean=len(cleans), excluded=len(rs) - len(cleans),
-            exact=not mismatches, mismatched_requests=sorted(set(mismatches)),
+            exact=comparison['exact'], mismatched_requests=comparison['mismatched'],
+            compared_cells=comparison['compared_cells'], uncompared_requests=comparison['uncompared_requests'],
             median_tps=(statistics.median(tps) if tps else None),
             min_tps=(tps[0] if tps else None), max_tps=(tps[-1] if tps else None),
             median_decode_seconds=med("decode_seconds"),
@@ -201,8 +201,8 @@ def report(cells_path, configs, reference, out):
         s = summary[name]
         print(f"{name.ljust(width)}  {s['median_tps'] or 0:7.2f} {s['ratio_to_reference'] or 0:7.3f} "
               f"{s['clean']:>3}/{s['cells']:<2} {s['acceptance'] or 0:7.3f} {s['tokens_per_verify_pass'] or 0:8.2f} "
-              f"{s['median_records'] or 0:9.0f} {'yes' if s['exact'] else 'NO':>6}")
-    bad = [n for n, s in summary.items() if not s["exact"]]
+              f"{s['median_records'] or 0:9.0f} {'yes' if s['exact'] else 'NO' if s['exact'] is False else '-':>6}")
+    bad = [n for n, s in summary.items() if s["exact"] is False]
     if bad:
         print(f"\nEXACTNESS FAILURES (not a tolerance question): {', '.join(bad)}")
 

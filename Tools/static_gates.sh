@@ -61,4 +61,6 @@ Tools/planner_gates.sh
 python3 Tools/memory_override_gate.py --binary "$BIN"
 Tools/installer_gates.sh
 
+python3 Tools/decode_summary_test.py
+
 echo "STATIC GATES PASS"
