@@ -37,6 +37,13 @@ codesign --force --sign - "$BUNDLE/Contents/Helpers/slotstream-extract"
 codesign --force --sign - "$BUNDLE/Contents/MacOS/mlx.metallib"
 codesign --force --sign - "$BUNDLE"
 codesign --verify --deep --strict "$BUNDLE"
+# Copying helpers/resources and signing are part of the stable-input interval.
+# Refuse a changed input before replacing either existing bundle.
+python3 Tools/mac_build_inputs.py "$DBMD" > "$STAGE/final.json"
+if ! cmp -s "$STAGE/before.json" "$STAGE/final.json"; then
+  echo "Bundle inputs changed during assembly. Repeat the build with stable sources." >&2
+  exit 1
+fi
 if [ -d "$APP" ]; then
   rm -rf "$PWD/.build/Slotstream.previous.app"
   mv "$APP" "$PWD/.build/Slotstream.previous.app"
