@@ -23,7 +23,10 @@ outputs=(llms-full.txt MEASUREMENTS.md PLAN.md)
 [ -n "$(git diff --cached --name-only -- "${inputs[@]}" "${outputs[@]}")" ] || exit 0
 
 partial=$(git diff --name-only -- "${inputs[@]}" "${outputs[@]}")
-if [ -z "$partial" ]; then
+# Generators also read untracked records, including ignored files. Do not use
+# ignore exclusions here: withheld prose must not enter a staged projection.
+untracked=$(git ls-files --others -- "${inputs[@]}" "${outputs[@]}")
+if [ -z "$partial" ] && [ -z "$untracked" ]; then
   # The working tree is what is being committed, so regenerating here and
   # staging the result commits exactly the projection of the staged sources.
   Tools/llms_full.sh >/dev/null
@@ -47,13 +50,19 @@ if [ -z "$partial" ]; then
 fi
 
 # Something is staged partially (git add -p, or an edit made after `git add`),
-# so the working tree is not what is being committed and regenerating from it
-# would commit prose that was deliberately held back. Check the commit itself
-# instead: materialize the staged blobs into a scratch tree and run the
+# or untracked inputs/outputs exist, so the working tree is not what is being
+# committed and regenerating from it would commit prose deliberately held back.
+# Check the commit itself instead: materialize the staged blobs into a scratch
+# tree and run the
 # generators there, so the question asked is exactly "do the staged sources
 # generate the staged projections?".
-echo "pre-commit: staged partially, so checking the commit instead of regenerating:" >&2
-echo "$partial" | sed 's/^/  worktree differs from index: /' >&2
+echo "pre-commit: unstaged or untracked inputs/outputs, so checking the commit instead of regenerating:" >&2
+if [ -n "$partial" ]; then
+  echo "$partial" | sed 's/^/  worktree differs from index: /' >&2
+fi
+if [ -n "$untracked" ]; then
+  echo "$untracked" | sed 's/^/  untracked: /' >&2
+fi
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 git ls-files -- Tools db/records docs README.md CHANGELOG.md \
