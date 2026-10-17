@@ -402,28 +402,6 @@ struct ModelOptions: ParsableArguments {
     }
 }
 
-/// Ask on the controlling terminal. Returns nil when there is no terminal
-/// (piped stdin and no /dev/tty), so callers can fail with instructions
-/// instead of hanging.
-func askYesNo(_ prompt: String) -> Bool? {
-    func parse(_ s: String) -> Bool {
-        let t = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return t.isEmpty || t == "y" || t == "yes"
-    }
-    if isatty(0) == 1 {
-        print(prompt, terminator: "")
-        guard let line = readLine() else { return false }
-        return parse(line)
-    }
-    guard let tty = fopen("/dev/tty", "r") else { return nil }
-    defer { fclose(tty) }
-    print(prompt, terminator: "")
-    fflush(stdout)
-    var buf = [CChar](repeating: 0, count: 64)
-    guard fgets(&buf, 64, tty) != nil else { return false }
-    return parse(String(cString: buf))
-}
-
 /// `--max-context auto` (the default) or a token count.
 enum ContextWindowArgument: ExpressibleByArgument, Equatable {
     case automatic
