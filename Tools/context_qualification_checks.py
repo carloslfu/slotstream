@@ -2,8 +2,11 @@
 """Weight-free rejection tests for the capacity evidence boundary."""
 import copy
 import fcntl
+import hashlib
+import io
 import json
 from pathlib import Path
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -226,6 +229,176 @@ class QuietPreflightChecks(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'process observation failed'):
                 gate.quiet_preflight(13)
             memory.assert_not_called()
+
+
+class CapacityPagingDriverChecks(unittest.TestCase):
+    def run_ladder(self, *, paging=(), generator_paging=False, failure=None):
+        with tempfile.TemporaryDirectory(prefix="capacity paging '") as directory:
+            root = Path(directory).resolve()
+            candidate = root / 'candidate'; candidate.mkdir()
+            model = root / 'model'; model.mkdir()
+            (model / 'config.json').write_text('{}')
+            binary = candidate / 'inert selected binary'
+            binary.write_bytes(b'inert executable; must never execute')
+            (candidate / 'mlx.metallib').write_bytes(b'inert metal')
+            pinned = b'public static let revision = "abcdef"\nFile(path: "config.json"\n'
+            with tarfile.open(candidate / 'build-source.tar.gz', 'w:gz') as archive:
+                member = tarfile.TarInfo('Sources/Slotstream/PinnedModel.swift')
+                member.size = len(pinned)
+                archive.addfile(member, io.BytesIO(pinned))
+            identity = {key: gate.digest(path) for path, key in [
+                (binary, 'binary_sha256'), (candidate / 'mlx.metallib', 'metallib_sha256'),
+                (candidate / 'build-source.tar.gz', 'source_archive_sha256')]}
+            (candidate / 'build-identity.json').write_text(json.dumps(identity))
+            protocol = {**identity, **copy.deepcopy(CapacityEvidence.protocol),
+                'schema': 1, 'kind': 'configurable-context-capacity', 'mtp': 'off', 'vision': 'off',
+                'prefix_cache': False, 'max_prefill_wait_minutes': 0,
+                'binary': str(binary), 'model_dir': str(model), 'model_revision': 'abcdef',
+                'model_manifest_sha256': hashlib.sha256(pinned).hexdigest(),
+                'model_identity': gate.observed_model(model),
+                'driver_sources': {name: gate.digest(gate.ROOT / name) for name in gate.DRIVERS},
+                'prompt_tokens': [16, 32], 'wall_seconds': 30}
+            if failure == 'identity':
+                binary.write_bytes(b'changed executable')
+            host = {'reclaimable_bytes': 20_000_000_000, 'swapins': 3, 'swapouts': 4}
+            calls = []
+            lock = root / 'private-model.lock'
+
+            def quiet(needed):
+                self.assertEqual(needed, protocol['memory_gb'] + 3)
+                if failure == 'preflight' and calls:
+                    raise RuntimeError('OS pressure is not normal; fixture refuses capacity launch')
+                return copy.deepcopy(host)
+
+            def child(command, env, cell, timeout):
+                self.assertEqual(command[0], str(binary))
+                self.assertEqual(env['SLOTSTREAM_PREFIX_CACHE'], '0')
+                if command[1] == 'pull':
+                    self.assertEqual(calls, [])
+                    self.assertEqual(command, [str(binary), 'pull', '--verify', '--dir', str(model)])
+                    self.assertEqual(timeout, 600)
+                    with lock.open('a') as competitor, self.assertRaises(BlockingIOError):
+                        fcntl.flock(competitor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    calls.append('verify')
+                    (cell / 'stdout.txt').write_text('inert verification fixture\n')
+                    (cell / 'stderr.txt').write_text('')
+                    return 0
+                n = protocol['prompt_tokens'][len(calls) - 1]
+                expected = [str(binary), 'context-check', '--tokens', str(n), '--reply-tokens', '16',
+                    '--memory-gb', '8.1', '--mtp', 'off', '--vision', 'off', '--model', str(model),
+                    '--max-prefill-wait', '0', '--wall-seconds', '30', '--sample-footprint', '--json']
+                self.assertEqual(command, expected)
+                self.assertEqual(timeout, 150)
+                calls.append(n)
+                result = delivery()
+                result.update(prompt_ids=list(range(n)), configured_context=n + 16,
+                              model_revision='abcdef', compute_passes=[n],
+                              compute_key_extents=[n], compute_query_rows=[n])
+                result['stats'].update(promptTokens=n, prefillTokens=n)
+                if generator_paging:
+                    result['stats']['generatorVMAfter'].update(swapins=4, swapouts=5)
+                if n == 16:
+                    for key in paging:
+                        host[key] += 1
+                    if failure == 'physical':
+                        result['stats']['sampledFootprint']['peakBytes'] = 8_000_000_001
+                    elif failure == 'missing':
+                        del result['stats']['sampledFootprint']
+                    elif failure == 'incomplete':
+                        result['output_ids'].pop()
+                    elif failure == 'pressure':
+                        result['stats']['memoryPressureCancelled'] = True
+                (cell / 'stdout.txt').write_text(json.dumps(result))
+                (cell / 'stderr.txt').write_text('')
+                return 1 if n == 16 and failure == 'child' else 0
+
+            out = root / 'run'
+            with patch.object(gate, 'MODEL_LOCK', lock), \
+                    patch.object(gate, 'quiet_preflight', side_effect=quiet), \
+                    patch.object(gate, 'vm_snapshot', side_effect=lambda: copy.deepcopy(host)), \
+                    patch.object(gate, 'run_child', side_effect=child), \
+                    patch.object(gate, 'preflight', side_effect=AssertionError('real admission forbidden')) as admission, \
+                    patch.object(gate.subprocess, 'Popen', side_effect=AssertionError('process forbidden')) as launch, \
+                    patch.object(gate.subprocess, 'run', side_effect=AssertionError('command forbidden')) as run, \
+                    patch.object(gate.subprocess, 'check_output', side_effect=AssertionError('VM/ps/sysctl forbidden')) as observe:
+                if failure == 'identity':
+                    with self.assertRaisesRegex(ValueError, 'protocol identity mismatch'):
+                        gate.run(protocol, out)
+                    self.assertFalse(out.exists())
+                    self.assertEqual(calls, [])
+                    for forbidden in (admission, launch, run, observe):
+                        forbidden.assert_not_called()
+                    return None
+                code = gate.run(protocol, out)
+                for forbidden in (admission, launch, run, observe):
+                    forbidden.assert_not_called()
+            with lock.open('a') as successor:
+                fcntl.flock(successor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.assertEqual((out / 'protocol.sha256').read_text().strip(), gate.digest(out / 'protocol.json'))
+            summary = json.loads((out / 'manifest.json').read_text())
+            self.assertFalse(summary['completed_full_model_window'])
+            for row in summary['results']:
+                cell = out / str(row['prompt_tokens'])
+                self.assertEqual(json.loads((cell / 'manifest.json').read_text()), row)
+                if row.get('command'):
+                    self.assertTrue((cell / 'stdout.txt').is_file())
+            return code, summary, calls
+
+    def assert_completed(self, *, paging=(), generator_paging=False):
+        code, summary, calls = self.run_ladder(paging=paging, generator_paging=generator_paging)
+        self.assertEqual((code, calls, summary['passed']), (0, ['verify', 16, 32], True), summary)
+        self.assertEqual([row['prompt_tokens'] for row in summary['results']], [16, 32])
+        self.assertTrue(all(row['passed'] and row['memory']['passed'] for row in summary['results']))
+        first = summary['results'][0]
+        self.assertEqual(first.get('swap_activity', False), bool(paging))
+        for key in ('swapins', 'swapouts'):
+            self.assertEqual(first['after'][key] - first['before'][key], int(key in paging))
+        if generator_paging:
+            for row in summary['results']:
+                self.assertEqual(row['memory']['global_swap_deltas']['generator'], {'swapins': 1, 'swapouts': 1})
+
+    def assert_stopped(self, failure):
+        code, summary, calls = self.run_ladder(paging=('swapins', 'swapouts'), failure=failure)
+        self.assertEqual((code, calls), (1, ['verify'] if failure == 'preflight' else ['verify', 16]))
+        self.assertFalse(summary['passed'])
+        self.assertEqual([row['prompt_tokens'] for row in summary['results']], [16])
+        self.assertFalse(summary['results'][0]['passed'])
+        self.assertIn('error', summary['results'][0])
+
+    def test_stable_host_completes_both_rungs(self):
+        self.assert_completed()
+
+    def test_generator_paging_is_diagnostic_through_driver(self):
+        self.assert_completed(generator_paging=True)
+
+    def test_process_memory_failures_still_stop_with_paging(self):
+        for failure in ('physical', 'missing'):
+            with self.subTest(failure=failure):
+                self.assert_stopped(failure)
+
+    def test_incomplete_delivery_still_stops_with_paging(self):
+        self.assert_stopped('incomplete')
+
+    def test_failed_child_still_stops_with_paging(self):
+        self.assert_stopped('child')
+
+    def test_pressure_cancellation_still_stops_with_paging(self):
+        self.assert_stopped('pressure')
+
+    def test_quiet_preflight_refusal_still_stops_before_rung(self):
+        self.assert_stopped('preflight')
+
+    def test_changed_artifact_refuses_before_admission(self):
+        self.run_ladder(failure='identity')
+
+    def test_host_swapins_are_diagnostic_through_driver(self):
+        self.assert_completed(paging=('swapins',))
+
+    def test_host_swapouts_are_diagnostic_through_driver(self):
+        self.assert_completed(paging=('swapouts',))
+
+    def test_host_both_swap_counters_are_diagnostic_through_driver(self):
+        self.assert_completed(paging=('swapins', 'swapouts'))
 
 
 if __name__ == '__main__': unittest.main()
