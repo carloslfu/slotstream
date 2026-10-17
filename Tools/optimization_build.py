@@ -72,7 +72,12 @@ def build(root, output, *, required_gb=13, snapshot=vm_snapshot, run=subprocess.
         record['error'] = f'{type(error).__name__}: {error}'
     finally:
         record['elapsed_seconds'] = time.monotonic()-started
-        record['after'] = snapshot()
+        try:
+            record['after'] = snapshot()
+        except Exception as error:
+            record['after_error'] = f'{type(error).__name__}: {error}'
+            record.setdefault('error', 'final resource observation failed: ' + record['after_error'])
+            record['passed'] = False
         (output/'manifest.json').write_text(json.dumps(record, indent=2)+'\n')
     return record
 
