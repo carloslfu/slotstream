@@ -13,6 +13,7 @@ python3 -m py_compile Tools/*.py Tools/reference/*.py Tools/slotpack/*.py
 python3 Tools/static_gates_binary_test.py
 python3 Tools/installer_gates_binary_test.py
 python3 Tools/installer_metal_test.py
+python3 Tools/installer_profile_test.py
 python3 Tools/verify_binary_test.py
 python3 Tools/adaptive_memory_e2e_test.py
 python3 Tools/parity_comparison_test.py
