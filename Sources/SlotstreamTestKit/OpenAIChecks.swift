@@ -5,6 +5,7 @@ import SlotstreamDiagnostics
 extension Catalogue {
     static var openAIChecks: [Check] {
         [Check("openai-conversation", tier: .t0) { try openAIConversation() },
+         Check("openai-parameter-validation", tier: .t0) { try openAIParameterValidation() },
          Check("openai-tool-output", tier: .t0) { try openAIToolOutput() },
          Check("prefill-progress", tier: .t0) { prefillProgress() },
          Check("openai-context-budget", tier: .t0) { try openAIContextBudget() }]
