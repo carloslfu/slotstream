@@ -548,7 +548,8 @@ public struct ToolDefinition: Sendable {
 
     /// The parameter types, including a single non-null type expressed through
     /// `type: ["string", "null"]` or `anyOf`, and same-document JSON Pointer
-    /// references. Genuine unions and unsupported references stay `.unknown`.
+    /// references. Enum-only string leaves are also kept as strings. Genuine
+    /// unions and unsupported references stay `.unknown`.
     /// The original schema remains intact for the prompt.
     public var schema: ToolSchema {
         var params: [String: ToolParamKind] = [:]
@@ -559,7 +560,7 @@ public struct ToolDefinition: Sendable {
                 // A shared definition used by another property is not a cycle.
                 var fieldInference = SchemaInference(document: parameters)
                 let types = fieldInference.types(value, referencesAllowed: referencesAllowed) ?? []
-                let concrete = types.filter { $0 != "null" }
+                let concrete = Array(Set(types.filter { $0 != "null" }))
                 params[key] = concrete.count == 1
                     ? ToolParamKind(rawValue: concrete[0]) ?? .unknown : .unknown
             }
@@ -571,9 +572,10 @@ public struct ToolDefinition: Sendable {
     /// rebasing. A nested `$id` can change what `#` means, so it is not traversed.
     private struct SchemaInference {
         let document: JSONValue
-        // Bound schema visits AND pointer steps per property, including branching
-        // anyOf/ref graphs. Exhaustion keeps the existing unknown-type fallback;
-        // this is a defensive work limit, not a supported schema-depth promise.
+        // Bound schema visits, pointer steps and enum members per property,
+        // including branching anyOf/ref graphs. Exhaustion keeps the existing
+        // unknown-type fallback; this is a defensive work limit, not a supported
+        // schema-depth promise.
         var remaining = 128
         private static let refSiblings: Set<String> = [
             "$ref", "$defs", "definitions", "$schema", "$id", "$comment", "$anchor",
@@ -651,13 +653,23 @@ public struct ToolDefinition: Sendable {
                 let names = options.compactMap { if case .string(let name) = $0 { return name }; return nil }
                 return names.count == options.count ? names : nil
             }
-            guard case .array(let options)? = field["anyOf"], !options.isEmpty else { return nil }
-            var names: [String] = []
-            for option in options {
-                guard let branch = types(option, visited: path, referencesAllowed: canReference) else { return nil }
-                names += branch
+            if let anyOf = field["anyOf"] {
+                guard case .array(let options) = anyOf, !options.isEmpty else { return nil }
+                var names: [String] = []
+                for option in options {
+                    guard let branch = types(option, visited: path, referencesAllowed: canReference) else { return nil }
+                    names += branch
+                }
+                return names
             }
-            return names
+            // Do not infer from a constraint beside an unresolved $ref: older
+            // schema drafts ignore those siblings instead of merging them.
+            guard field["$ref"] == nil, case .array(let values)? = field["enum"], !values.isEmpty else { return nil }
+            for value in values {
+                guard remaining > 0, case .string = value else { return nil }
+                remaining -= 1
+            }
+            return ["string"]
         }
     }
 

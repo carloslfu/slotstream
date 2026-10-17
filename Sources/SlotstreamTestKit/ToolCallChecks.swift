@@ -53,6 +53,7 @@ extension Catalogue {
             Check("toolcall-coercion", tier: .t0) { toolCallCoercion() },
             Check("tool-schema-refs", tier: .t0) { toolSchemaRefs() },
             Check("tool-schema-ref-output", tier: .t0) { toolSchemaRefOutput() },
+            Check("tool-schema-string-enum", tier: .t0) { toolSchemaStringEnum() },
             Check("tool-schema-ref-dialects", tier: .t0) { try toolSchemaRefDialects() },
         ]
     }
@@ -351,8 +352,14 @@ extension Catalogue {
         c.equal("mixed anyOf remains ambiguous", kind(.object([
             "anyOf": .array([ref("#/$defs/Text"), .object(["type": .string("number")])]),
         ]), definitions: defs), .unknown)
-        c.equal("repeated union branches do not become a single type", kind(.object([
+        c.equal("repeated union branches retain their single type", kind(.object([
             "anyOf": .array([ref("#/$defs/Text"), ref("#/$defs/Text")]),
+        ]), definitions: defs), .string)
+        c.equal("an unresolved branch keeps a repeated-type union unknown", kind(.object([
+            "anyOf": .array([string, string, ref("#/$defs/Missing")]),
+        ]), definitions: defs), .unknown)
+        c.equal("repetition does not hide a distinct concrete type", kind(.object([
+            "anyOf": .array([string, string, .object(["type": .string("number")])]),
         ]), definitions: defs), .unknown)
         c.equal("ref annotations do not hide its type", kind(.object([
             "$ref": .string("#/$defs/Text"), "description": .string("Text"), "default": .null,
@@ -467,6 +474,16 @@ extension Catalogue {
         ]
         for (type, raw, expected) in cases {
             let scalar: JSONValue = .object(["type": .string(type.rawValue)])
+            let alternate: JSONValue
+            switch type {
+            case .string: alternate = .string("other")
+            case .integer: alternate = .int(43)
+            case .number: alternate = .double(2.75)
+            case .boolean: alternate = .bool(true)
+            case .object: alternate = .object(["other": .bool(true)])
+            case .array: alternate = .array([.int(2)])
+            case .unknown: alternate = .null
+            }
             let direct = ToolDefinition(name: "echo", description: "", parameters: .object([
                 "properties": .object(["value": scalar]),
             ]))
@@ -476,25 +493,158 @@ extension Catalogue {
                         .object(["type": .string("null")])])]),
                 ]),
             ]))
-            c.equal("\(type): referenced type is retained", referenced.schema.params["value"], type)
+            let variants: [(String, ToolDefinition)] = [
+                ("referenced", referenced),
+                ("same-type anyOf", ToolDefinition(name: "echo", description: "", parameters: .object([
+                    "properties": .object(["value": .object(["anyOf": .array([scalar, scalar])])]),
+                ]))),
+                ("same-type enums", ToolDefinition(name: "echo", description: "", parameters: .object([
+                    "properties": .object(["value": .object(["anyOf": .array([
+                        .object(["type": .string(type.rawValue), "enum": .array([expected])]),
+                        .object(["type": .string(type.rawValue), "enum": .array([alternate])]),
+                    ])])]),
+                ]))),
+                ("nested nullable anyOf", ToolDefinition(name: "echo", description: "", parameters: .object([
+                    "$defs": .object(["Value": scalar]), "properties": .object(["value": .object([
+                        "anyOf": .array([
+                            .object(["anyOf": .array([scalar, .object(["type": .string("null")])])]),
+                            .object(["$ref": .string("#/$defs/Value")]),
+                        ]),
+                    ])]),
+                ]))),
+            ]
             let xml = "<tool_call>\n<function=echo>\n<parameter=value>\n\(raw)\n</parameter>\n</function>\n</tool_call>"
             let whole = ToolCallSplitter.parseAll(xml, tools: [direct.schema], idFactory: countingIDs())
             let chars = Array(xml)
-            var mismatches = 0
-            for cut in 0...chars.count {
-                let parser = ToolCallSplitter(tools: [referenced.schema], idFactory: countingIDs())
-                let events = parser.push(String(chars[..<cut])) + parser.push(String(chars[cut...])) + parser.flush()
-                if normalize(events) != normalize(whole) { mismatches += 1 }
+            for (label, definition) in variants {
+                let label = "\(type)/\(raw)/\(label)"
+                c.equal("\(label): declared type is retained", definition.schema.params["value"], type)
+                var mismatches = 0
+                for cut in 0...chars.count {
+                    let parser = ToolCallSplitter(tools: [definition.schema], idFactory: countingIDs())
+                    let events = parser.push(String(chars[..<cut])) + parser.push(String(chars[cut...])) + parser.flush()
+                    if normalize(events) != normalize(whole) { mismatches += 1 }
+                }
+                c.equal("\(label): every split matches direct type", mismatches, 0)
+                let parser = ToolCallSplitter(tools: [definition.schema], idFactory: countingIDs())
+                let events = chars.flatMap { parser.push(String($0)) } + parser.flush()
+                c.equal("\(label): character stream matches direct type", normalize(events), normalize(whole))
+                let call = events.compactMap { if case .toolCall(let call) = $0 { return call }; return nil }.first
+                c.equal("\(label): value retains JSON type and contents", call?.arguments["value"], expected)
+                let deltas = events.compactMap { if case .toolInputDelta(_, let delta) = $0 { return delta }; return nil }.joined()
+                c.equal("\(label): streamed JSON equals final input", call?.inputJSON, deltas)
             }
-            c.equal("\(type)/\(raw): every split matches direct type", mismatches, 0)
-            let parser = ToolCallSplitter(tools: [referenced.schema], idFactory: countingIDs())
-            let events = chars.flatMap { parser.push(String($0)) } + parser.flush()
-            c.equal("\(type)/\(raw): character stream matches direct type", normalize(events), normalize(whole))
-            let call = events.compactMap { if case .toolCall(let call) = $0 { return call }; return nil }.first
-            c.equal("\(type)/\(raw): value retains JSON type and contents", call?.arguments["value"], expected)
-            let deltas = events.compactMap { if case .toolInputDelta(_, let delta) = $0 { return delta }; return nil }.joined()
-            c.equal("\(type)/\(raw): streamed JSON equals final input", call?.inputJSON, deltas)
         }
+        return c.report()
+    }
+
+    static func toolSchemaStringEnum() -> CheckReport {
+        var c = CheckBuilder("tool-schema-string-enum")
+        func definition(_ field: JSONValue, definitions: [String: JSONValue] = [:],
+                        draft: String? = nil) -> ToolDefinition {
+            var root: [String: JSONValue] = [
+                "type": .string("object"), "properties": .object(["value": field]),
+                "required": .array([.string("value")]), "additionalProperties": .bool(false),
+                "definitions": .object(definitions),
+            ]
+            if let draft { root["$schema"] = .string(draft) }
+            return ToolDefinition(name: "echo", description: "", parameters: .object(root))
+        }
+        let cases: [(String, String)] = [
+            ("0", #"{"value":"0"}"#),
+            ("00123", #"{"value":"00123"}"#),
+            ("false", #"{"value":"false"}"#),
+            (#"{"key":1}"#, #"{"value":"{\"key\":1}"}"#),
+            ("[1]", #"{"value":"[1]"}"#),
+            (" \t雪🙂\nnext\n", #"{"value":" \t雪🙂\nnext\n"}"#),
+        ]
+        for (raw, expectedJSON) in cases {
+            let values = [JSONValue.string(raw), .string("other")]
+            let leaf: JSONValue = .object(["enum": .array(values)])
+            let branches: [JSONValue] = [
+                .object(["enum": .array([.string(raw)])]),
+                .object(["enum": .array([.string("other")])]),
+            ]
+            let variants: [(String, ToolDefinition)] = [
+                ("typed control", definition(.object(["type": .string("string"), "enum": .array(values)]))),
+                ("direct enum", definition(leaf)),
+                ("reversed enum", definition(.object(["enum": .array(Array(values.reversed()))]))),
+                ("referenced enum", definition(.object(["$ref": .string("#/definitions/Value")]),
+                                               definitions: ["Value": leaf])),
+                ("enum anyOf", definition(.object(["anyOf": .array(branches)]))),
+                ("reversed enum anyOf", definition(.object(["anyOf": .array(Array(branches.reversed()))]))),
+            ]
+            let xml = "<tool_call>\n<function=echo>\n<parameter=value>\n\(raw)\n</parameter>\n</function>\n</tool_call>"
+            let expectedEvents = ["start:echo", "delta:" + expectedJSON, "end", "call:echo:" + expectedJSON]
+            let chars = Array(xml)
+            for (name, tool) in variants {
+                let label = "\(name)/\(raw)"
+                c.equal("\(label): string inferred", tool.schema.params["value"], .string)
+                let whole = ToolCallSplitter.parseAll(xml, tools: [tool.schema], idFactory: countingIDs())
+                c.equal("\(label): whole text has literal JSON", normalize(whole), expectedEvents)
+                let call = whole.compactMap { if case .toolCall(let call) = $0 { return call }; return nil }.first
+                c.equal("\(label): value retains string bytes", call?.arguments["value"], .string(raw))
+                c.equal("\(label): final JSON matches literal", call?.inputJSON, expectedJSON)
+                var mismatches = 0
+                for cut in 0...chars.count {
+                    let parser = ToolCallSplitter(tools: [tool.schema], idFactory: countingIDs())
+                    let events = parser.push(String(chars[..<cut])) + parser.push(String(chars[cut...])) + parser.flush()
+                    if normalize(events) != expectedEvents { mismatches += 1 }
+                }
+                c.equal("\(label): every split has literal JSON", mismatches, 0)
+                let parser = ToolCallSplitter(tools: [tool.schema], idFactory: countingIDs())
+                let streamed = chars.flatMap { parser.push(String($0)) } + parser.flush()
+                c.equal("\(label): character stream has literal JSON", normalize(streamed), expectedEvents)
+                let deltas = streamed.compactMap { if case .toolInputDelta(_, let delta) = $0 { return delta }; return nil }.joined()
+                c.equal("\(label): deltas match literal JSON", deltas, expectedJSON)
+                let template = tool.templateValue["function"] as? [String: any Sendable]
+                let supplied = try? JSONSerialization.data(withJSONObject: tool.parameters.any, options: [.sortedKeys])
+                let rendered = template?["parameters"]
+                    .flatMap { try? JSONSerialization.data(withJSONObject: $0, options: [.sortedKeys]) }
+                c.expect("\(label): source schema serializes", supplied != nil)
+                c.equal("\(label): prompt schema unchanged", rendered, supplied)
+            }
+        }
+
+        let strings: JSONValue = .array([.string("0"), .string("1")])
+        let controls: [(String, JSONValue)] = [
+            ("mixed enum", .object(["enum": .array([.string("0"), .int(0)])])),
+            ("nullable enum", .object(["enum": .array([.string("0"), .null])])),
+            ("integer enum", .object(["enum": .array([.int(0), .int(1)])])),
+            ("boolean enum", .object(["enum": .array([.bool(false), .bool(true)])])),
+            ("no type or enum", .object([:])),
+            ("empty enum", .object(["enum": .array([])])),
+            ("malformed enum", .object(["enum": .string("0")])),
+            ("explicit union retains priority", .object([
+                "type": .array([.string("string"), .string("integer")]), "enum": strings,
+            ])),
+            ("anyOf retains priority", .object([
+                "anyOf": .array([.object(["type": .string("string")]), .object(["type": .string("integer")])]),
+                "enum": strings,
+            ])),
+            ("unresolved union remains unknown", .object([
+                "anyOf": .array([.object(["enum": strings]), .object(["$ref": .string("#/definitions/Missing")])]),
+                "enum": strings,
+            ])),
+            ("enum proof stops at work bound", .object([
+                "enum": .array((0..<200).map { .string(String($0)) }),
+            ])),
+        ]
+        for (name, field) in controls {
+            c.equal("\(name): conservative unknown", definition(field).schema.params["value"], .unknown)
+        }
+        // Draft-07 ignores enum siblings of a reference. Do not newly infer
+        // a string from a field the resolver deliberately left unresolved.
+        let sibling = definition(.object(["$ref": .string("#/definitions/N"), "enum": strings]),
+            definitions: ["N": .object(["type": .string("integer")])],
+            draft: "http://json-schema.org/draft-07/schema#")
+        c.equal("ref sibling retains unknown", sibling.schema.params["value"], .unknown)
+        let events = ToolCallSplitter.parseAll(
+            "<tool_call>\n<function=echo>\n<parameter=value>\n0\n</parameter>\n</function>\n</tool_call>",
+            tools: [sibling.schema], idFactory: countingIDs())
+        let call = events.compactMap { if case .toolCall(let call) = $0 { return call }; return nil }.first
+        c.equal("draft-07 ref sibling preserves integer", call?.arguments["value"], .int(0))
+        c.equal("draft-07 ref sibling final JSON", call?.inputJSON, #"{"value":0}"#)
         return c.report()
     }
 
