@@ -246,8 +246,13 @@ R=$(post /api/chat '{"model":"qwen3.8-flash-next:4bit","messages":[]}')
 case "$R" in *'"done_reason":"load"'*) ok "/api/chat with no messages is the Ollama load request, acknowledged" ;;
   *) bad "/api/chat rejects the empty-messages load request" "$(printf %.90s "$R")" ;; esac
 
-L=$(curl -s -I --max-time 20 "http://127.0.0.1:$PORT/api/tags" | tr -d '\r' | awk -F': ' '/^Content-Length/{print $2}')
-[ "${L:-x}" = "0" ] && ok "HEAD returns no body" || bad "HEAD returned a body" "Content-Length=$L"
+# HEAD's Content-Length, if present, describes GET. Inspect raw bytes through
+# EOF instead of treating length metadata (or curl's HEAD handling) as a body.
+if python3 Tools/http_head_probe.py "$PORT" >/dev/null; then
+  ok "HEAD returns no body"
+else
+  bad "HEAD framing/body probe failed"
+fi
 
 C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST "http://127.0.0.1:$PORT/api/chat" -d '{not json')
 [ "$C" = "400" ] && ok "malformed JSON returns 400" || bad "malformed JSON returned $C"
