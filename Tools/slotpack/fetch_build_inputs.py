@@ -5,10 +5,24 @@ import argparse,concurrent.futures,json,os,threading,time,urllib.request
 from pathlib import Path
 import pack
 
+def save_progress(state,done):
+ tmp=state.with_suffix('.tmp');tmp.write_text(json.dumps(sorted(done)));os.replace(tmp,state)
+
 def main():
  a=argparse.ArgumentParser(description=__doc__);a.add_argument('--destination',required=True);a.add_argument('--base',required=True);a.add_argument('--fallback');args=a.parse_args()
  dest=Path(args.destination);dest.mkdir(parents=True,exist_ok=True);files=pack.pins();jobs=[];fds=[];urls={};lock=threading.Lock();chunk=64*1024**2
  state=dest/'.producer-resume.json';done=set(json.loads(state.read_text())) if state.exists() else set();start=time.monotonic()
+ # Persist invalidation before creation/resizing, so an interrupted startup
+ # cannot make an empty, expected-size file look like completed progress.
+ stale=[]
+ for i,f in enumerate(files):
+  try:size=(dest/f['path']).stat().st_size
+  except FileNotFoundError:stale.append(f'{i}:')
+  else:
+   if size!=f['size']:stale.append(f'{i}:')
+ remaining={key for key in done if not key.startswith(tuple(stale))}
+ if remaining!=done:
+  save_progress(state,remaining);done=remaining
  for i,f in enumerate(files):
   path=dest/f['path'];fd=os.open(path,os.O_WRONLY|os.O_CREAT,0o600);os.ftruncate(fd,f['size']);fds.append(fd)
   # The mirror has its own model card; text metadata comes from the pinned upstream.
@@ -33,7 +47,7 @@ def main():
     if attempt==5:raise
     time.sleep(min(16,2**attempt))
   with lock:
-   done.add(key);tmp=state.with_suffix('.tmp');tmp.write_text(json.dumps(sorted(done)));os.replace(tmp,state)
+   done.add(key);save_progress(state,done)
    if len(done)%20==0:print(json.dumps(dict(chunks=len(done),elapsed=round(time.monotonic()-start,1))),flush=True)
  try:
   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
