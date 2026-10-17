@@ -299,5 +299,226 @@ run_binary() { printf '%s\\n' "$FIXTURE_OUTPUT"; return "$FIXTURE_STATUS"; }
             self.assertIn('FAIL  historical draft-head diagnostic could not complete', result.stdout)
 
 
+class QualityProbeStatus(unittest.TestCase):
+    """Run the complete probe with finite transport and real JSON stages."""
+
+    # These ordinary answers are independent of the probe's matching logic.
+    ITEMS = [
+        ('What is the capital of France? One word.', 'Paris', 'capital of France'),
+        ('Who wrote the play Hamlet? Just the name.', 'Shakespeare', 'author of Hamlet'),
+        ('What is the chemical symbol for gold? Just the symbol.', 'Au', 'symbol for gold'),
+        ('How many continents are there? Just the number.', '7', 'continent count'),
+        ('What is 17 times 23? Just the number.', '391', '17x23'),
+        ('If a train leaves at 2pm and arrives 3 hours 30 minutes later, what time does it arrive? Just the time.', '5:30', 'elapsed time'),
+        ('A shop sells pens for 3 dollars each. How much do 7 pens cost? Just the number.', '21', 'multi-step arithmetic'),
+        ('Sort these numbers ascending, comma separated, nothing else: 12, 3, 47, 8', '3, 8, 12, 47', 'sorting'),
+        ('Which is larger, 9.11 or 9.9? Answer with just the number.', '9.9', 'decimal comparison'),
+        ('Reply with exactly the word BANANA and nothing else.', 'BANANA', 'exact-word obedience'),
+        ('List three primary colors, comma separated, no other words.', 'red, blue, yellow', 'list format'),
+        ('Answer only YES or NO: is the sky blue on a clear day?', 'YES', 'yes/no obedience'),
+        ('Translate to Spanish, nothing else: The house is big.', 'La casa es grande.', 'translation'),
+        ('Write a Python one-liner that returns the sum of a list named xs. Code only.', 'sum(xs)', 'python one-liner'),
+        ('Complete: The mitochondria is the ___ of the cell. One word.', 'powerhouse', 'cloze completion'),
+    ]
+    SERIALIZER = '\nimport json,sys; print(json.dumps({"model":"qwen3.8-flash-next:4bit",\n "messages":[{"role":"user","content":sys.argv[1]}],"stream":False,\n "options":{"temperature":0,"num_predict":60}}))'
+    PARSER = 'import json,sys; print(json.load(sys.stdin)["message"]["content"])'
+    SHIM = r'''import json, os, subprocess, sys
+from pathlib import Path
+root = Path(__file__).resolve().parent
+config = json.loads((root/'config.json').read_text())
+trace = root/'trace.jsonl'
+mode, args = sys.argv[1], sys.argv[2:]
+
+def record(row):
+    row.update(pid=os.getpid(), ppid=os.getppid(), sid=os.getsid(0), pgid=os.getpgrp())
+    fd = os.open(trace, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        data = (json.dumps(row, sort_keys=True)+'\n').encode()
+        if os.write(fd, data) != len(data):
+            raise RuntimeError('short trace write')
+    finally:
+        os.close(fd)
+
+def refuse(reason):
+    record({'stage':'unknown', 'mode':mode, 'args':args, 'reason':reason})
+    raise SystemExit(97)
+
+def payload(index):
+    return {'model':'qwen3.8-flash-next:4bit',
+            'messages':[{'role':'user', 'content':config['items'][index][0]}],
+            'stream':False, 'options':{'temperature':0, 'num_predict':60}}
+
+def response(index):
+    if index == 0 and config['case'] == 'malformed':
+        return b'{invalid JSON\n'
+    answer = 'London' if index == 0 and config['case'] == 'wrong' else config['items'][index][1]
+    return (json.dumps({'message':{'content':answer}, '_fixture_index':index})+'\n').encode()
+
+if mode == 'curl':
+    if len(args) != 6 or args[:5] != ['-s','--max-time','600',config['url'],'-d']:
+        refuse('curl flags/URL/arity')
+    try:
+        request = json.loads(args[5])
+        prompt = request['messages'][0]['content']
+        index = [item[0] for item in config['items']].index(prompt)
+    except (ValueError, KeyError, TypeError, IndexError):
+        refuse('unknown request JSON/prompt')
+    if args[5] != json.dumps(payload(index)):
+        refuse('request differs from real serializer output')
+    prior = [json.loads(line) for line in trace.read_text().splitlines()]
+    if any(row['stage'] == 'curl' and row['index'] == index for row in prior):
+        refuse('duplicate request')
+    out = response(index)
+    status = int(config['case'][4:]) if index == 0 and config['case'] in ('curl18','curl28') else 0
+    record({'stage':'curl', 'index':index, 'args':args, 'stdout':out.decode(), 'status':status})
+    sys.stdout.buffer.write(out)
+    raise SystemExit(status)
+elif mode == 'python':
+    if len(args) == 3 and args[:2] == ['-c', config['serializer']]:
+        matches = [i for i,item in enumerate(config['items']) if item[0] == args[2]]
+        if len(matches) != 1:
+            refuse('unknown serialization prompt')
+        index = matches[0]
+        data = None
+        stage = 'serialize'
+    elif args == ['-c', config['parser']]:
+        data = sys.stdin.buffer.read()
+        curls = [json.loads(line) for line in trace.read_text().splitlines()
+                 if json.loads(line)['stage'] == 'curl']
+        if not curls:
+            refuse('parser without recorded curl')
+        index = curls[-1]['index']
+        if data != response(index):
+            refuse('parser input differs from finite response')
+        stage = 'parse'
+    else:
+        refuse('unknown Python command')
+    command = [config['python'], '-I', '-S', '-B'] + args
+    child = subprocess.Popen(command, stdin=subprocess.PIPE if data is not None else subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    record({'stage':'real-python-start', 'kind':stage, 'index':index, 'argv':command, 'child_pid':child.pid,
+            'child_sid':os.getsid(child.pid), 'child_pgid':os.getpgid(child.pid)})
+    out, err = child.communicate(data, timeout=10)
+    status = 23 if index == 0 and config['case'] == stage+'23' else child.returncode
+    record({'stage':stage, 'index':index, 'stdin':None if data is None else data.decode(),
+            'stdout':out.decode(), 'stderr':err.decode(), 'real_status':child.returncode,
+            'status':status, 'child_pid':child.pid})
+    sys.stdout.buffer.write(out)
+    sys.stderr.buffer.write(err)
+    raise SystemExit(status)
+else:
+    refuse('unknown shim mode')
+'''
+
+    def run_case(self, case):
+        import hashlib
+        import shlex
+        import shutil
+        import sys
+
+        with tempfile.TemporaryDirectory(prefix='quality-probe-status-') as temp:
+            root = Path(temp)
+            bin_dir = root/'bin'
+            bin_dir.mkdir()
+            python = str(Path(sys.executable).resolve())
+            script = Path(__file__).with_name('quality_probe.sh').resolve()
+            config = dict(items=self.ITEMS, case=case, python=python,
+                          serializer=self.SERIALIZER, parser=self.PARSER,
+                          url='http://127.0.0.1:49193/api/chat')
+            (root/'config.json').write_text(json.dumps(config, sort_keys=True))
+            (root/'shim.py').write_text(self.SHIM)
+            for name, mode in [('curl', 'curl'), ('python3', 'python')]:
+                shim = bin_dir/name
+                shim.write_text('#!/bin/sh\nexec '+shlex.quote(python)+' -I -S -B '+
+                                shlex.quote(str(root/'shim.py'))+' '+mode+' "$@"\n')
+                shim.chmod(0o755)
+            # No PATH fallback: the probe can reach only these exact tools.
+            for name in ['grep', 'tr', 'cut']:
+                (bin_dir/name).symlink_to('/usr/bin/'+name)
+            env = {'PATH':str(bin_dir), 'HOME':os.environ['HOME'], 'LC_ALL':'C'}
+            command = ['/bin/bash', str(script), '49193']
+            (root/'quality_probe.sh').write_bytes(script.read_bytes())
+            inputs = [script, Path(python), root/'shim.py', root/'config.json', *bin_dir.iterdir()]
+            (root/'source-inputs.json').write_text(json.dumps({str(path):
+                hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}, sort_keys=True))
+            (root/'command.json').write_text(json.dumps(dict(argv=command, cwd=str(root), env=env)))
+            try:
+                process = subprocess.run(command, cwd=root, env=env, text=True,
+                                         capture_output=True, timeout=20)
+                (root/'stdout').write_text(process.stdout)
+                (root/'stderr').write_text(process.stderr)
+                (root/'status').write_text(str(process.returncode))
+                rows = [json.loads(line) for line in (root/'trace.jsonl').read_text().splitlines()]
+            finally:
+                # The private phase recorder preserves artifacts even on assertion/timeout.
+                if getattr(self, 'ARTIFACTS', None):
+                    shutil.copytree(root, Path(self.ARTIFACTS)/case, symlinks=True)
+            self.assertEqual([row for row in rows if row['stage'] == 'unknown'], [])
+            self.assertEqual(process.stderr, '')
+            failure = case != 'success'
+            lines = process.stdout.splitlines()
+            # Check the product outcome first, so original regressions are failures,
+            # with all actual request/stage evidence retained for independent inspection.
+            self.assertEqual(process.returncode, int(failure), process.stdout)
+            self.assertEqual(lines[-1], 'quality probe: passed %d, failed %d' %
+                             (14 if failure else 15, int(failure)))
+            first = 'capital of France'
+            self.assertEqual([line for line in lines if line.startswith('FAIL  ')],
+                             [('FAIL  '+first+' -> '+('London' if case == 'wrong' else
+                               'Paris' if case in ('curl18', 'curl28', 'parse23') else ''))] if failure else [])
+            self.assertEqual([line for line in lines if line.startswith('PASS  ')],
+                             ['PASS  '+label for _, _, label in self.ITEMS[int(failure):]])
+            expected_curls = list(range(1 if case == 'serialize23' else 0, 15))
+            curls = [row for row in rows if row['stage'] == 'curl']
+            self.assertEqual([row['index'] for row in curls], expected_curls)
+            expected_stages = []
+            for index in range(15):
+                expected_stages += [('real-python-start', index), ('serialize', index)]
+                if index in expected_curls:
+                    expected_stages += [('curl', index), ('real-python-start', index), ('parse', index)]
+            self.assertEqual([(row['stage'], row['index']) for row in rows], expected_stages)
+            for row in rows:
+                self.assertEqual((row['sid'], row['pgid']), (os.getsid(0), os.getpgrp()))
+                index, stage = row['index'], row['stage']
+                if stage == 'real-python-start':
+                    self.assertEqual((row['child_sid'], row['child_pgid']), (os.getsid(0), os.getpgrp()))
+                if stage == 'serialize':
+                    expected = {'model':'qwen3.8-flash-next:4bit',
+                                'messages':[{'role':'user','content':self.ITEMS[index][0]}],
+                                'stream':False,'options':{'temperature':0,'num_predict':60}}
+                    self.assertEqual(row['stdout'], json.dumps(expected)+'\n')
+                    self.assertEqual(row['real_status'], 0)
+                    self.assertEqual(row['status'], 23 if index == 0 and case == 'serialize23' else 0)
+                if stage == 'parse':
+                    malformed = index == 0 and case == 'malformed'
+                    answer = 'London' if index == 0 and case == 'wrong' else self.ITEMS[index][1]
+                    self.assertEqual(row['stdout'], '' if malformed else answer+'\n')
+                    self.assertEqual(row['real_status'], 1 if malformed else 0)
+                    self.assertEqual(row['status'], 23 if index == 0 and case == 'parse23' else row['real_status'])
+                if stage == 'curl':
+                    self.assertEqual(row['status'], int(case[4:]) if index == 0 and case.startswith('curl') else 0)
+
+    def test_all_success_control(self):
+        self.run_case('success')
+
+    def test_curl_18_with_correct_stdout_fails_first_item(self):
+        self.run_case('curl18')
+
+    def test_curl_28_with_correct_stdout_fails_first_item(self):
+        self.run_case('curl28')
+
+    def test_wrong_answer_control(self):
+        self.run_case('wrong')
+
+    def test_malformed_json_control(self):
+        self.run_case('malformed')
+
+    def test_serializer_23_with_valid_stdout_prevents_first_request(self):
+        self.run_case('serialize23')
+
+    def test_parser_23_with_correct_stdout_fails_first_item(self):
+        self.run_case('parse23')
+
+
 if __name__ == '__main__':
     unittest.main()
