@@ -42,7 +42,9 @@ def bind(root, stage, directory):
         return
     if json.loads((out/"build-source-before.json").read_text()) != source:
         raise ValueError("source changed during build; binary provenance is unverified, rebuild")
-    with tarfile.open(out/"build-source.tar.gz", "w:gz") as tar:
+    # The release verifier requires regular members for every source path,
+    # including paths that share an inode. Symlinks are refused by source_files.
+    with tarfile.open(out/"build-source.tar.gz", "w:gz", dereference=True) as tar:
         for p in files:
             name = str(p.relative_to(root))
             data = p.read_bytes()
