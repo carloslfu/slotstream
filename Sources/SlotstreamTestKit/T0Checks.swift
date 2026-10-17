@@ -47,6 +47,7 @@ extension Catalogue {
             Check("governor-check", tier: .t0) { Diagnostics.governorPolicy() },
             Check("pull-check", tier: .t0) { try Diagnostics.pullIntegrity() },
             Check("machine-planning", tier: .t0) { try Diagnostics.machinePlanning() },
+            Check("responses-history-integrity", tier: .t0) { try responsesHistoryIntegrity() },
             Check("http-framing", tier: .t0) { Diagnostics.httpFraming() },
             Check("http-routing", tier: .t0) { Diagnostics.httpRouting() },
             Check("bounded-output", tier: .t0) { try Diagnostics.optimizationOutput() },
