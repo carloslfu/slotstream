@@ -9,10 +9,15 @@ convenience: a prefill pass of 256 tokens or more takes the sweep, which never
 reads or writes the slot pool, so its routing is not cache traffic. Simulating
 it would report a hit rate for accesses the pool never sees. `--all` keeps
 everything for anyone measuring routing itself rather than the cache.
+Each token becomes one output step. A pass with unequal per-layer shapes
+(for example, terminal-prefill pruning) cannot fit the dense output format
+and is rejected rather than copying or discarding routing decisions.
 
 usage: trace_convert.py <trace.bin> <out.npz> [--all] [--name decode]
 """
+import argparse
 import sys
+import zipfile
 import numpy as np
 
 N_LAYERS = 48
@@ -33,13 +38,13 @@ def read_stream(path):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    keep_all = "--all" in sys.argv
-    name = "decode"
-    for a in sys.argv[1:]:
-        if a.startswith("--name"):
-            name = a.split("=", 1)[1] if "=" in a else name
-    src, dst = args[0], args[1]
+    parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    parser.add_argument('source', help='binary RouterTrace input')
+    parser.add_argument('destination', help='output npz archive')
+    parser.add_argument('--all', action='store_true', help='include multi-token passes')
+    parser.add_argument('--name', default='decode', help='array name in the archive (default: %(default)s)')
+    args = parser.parse_args()
+    src, dst, keep_all, name = args.source, args.destination, args.all, args.name
 
     calls = read_stream(src)
     kept = [c for c in calls if keep_all or c[1] == 1]
@@ -48,7 +53,7 @@ def main():
         sys.exit(1)
     topk = kept[0][2]
 
-    # Group into steps: a step is one visit to every layer, in layer order.
+    # Group into passes: one visit to every layer, in layer order.
     steps, cur = [], {}
     for layer, tokens, _k, ids in kept:
         if layer in cur:
@@ -60,14 +65,24 @@ def main():
 
     complete = [s for s in steps if len(s) == N_LAYERS]
     dropped = len(steps) - len(complete)
-    arr = np.zeros((len(complete), N_LAYERS, topk), dtype=np.int16)
-    for i, s in enumerate(complete):
+    for s in complete:
+        if any(ids.shape != (s[0].shape[0], topk) for ids in s.values()):
+            raise ValueError('dense routing passes require the same token count and topK at every layer')
+    arr = np.zeros((sum(s[0].shape[0] for s in complete), N_LAYERS, topk), dtype=np.int16)
+    offset = 0
+    for s in complete:
+        tokens = s[0].shape[0]
         for layer, ids in s.items():
-            arr[i, layer] = ids[0] if ids.shape[0] == 1 else ids[0]
+            arr[offset:offset + tokens, layer] = ids
+        offset += tokens
 
-    np.savez_compressed(dst, **{name: arr})
-    print(f"{len(calls)} calls -> {len(complete)} complete steps x {N_LAYERS} layers x {topk}"
-          f"{f' ({dropped} partial step(s) dropped)' if dropped else ''} -> {dst}")
+    # Keep array labels separate from NumPy's function parameter names.
+    archive_path = dst if dst.endswith('.npz') else dst + '.npz'
+    with zipfile.ZipFile(archive_path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        with archive.open(name + '.npy', 'w', force_zip64=True) as output:
+            np.save(output, arr, allow_pickle=False)
+    print(f"{len(calls)} calls -> {len(arr)} complete steps x {N_LAYERS} layers x {topk}"
+          f"{f' ({dropped} partial pass(es) dropped)' if dropped else ''} -> {dst}")
 
 
 if __name__ == "__main__":
