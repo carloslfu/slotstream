@@ -28,7 +28,7 @@ import json, os, sys
 with open(os.environ['VERIFY_FIXTURE_TRACE'], 'a') as output:
     output.write(json.dumps({'binary': __file__, 'arguments': sys.argv[1:]})+'\\n')
 if sys.argv[1:] == ['template-check']:
-    print('248045,8678,198,2523,513,10631,13,248046,198,248045,846,198,12675,1017,248046,198,248045,74455,198,248068,271,248069,271')
+    print(os.environ.get('VERIFY_FIXTURE_TEMPLATE_TEXT', '248045,8678,198,2523,513,10631,13,248046,198,248045,846,198,12675,1017,248046,198,248045,74455,198,248068,271,248069,271'))
 raise SystemExit(int(os.environ.get('VERIFY_FIXTURE_EXIT', '0')))
 ''')
             path.chmod(0o755)
@@ -109,6 +109,41 @@ safety_before() {
         p, rows = self.run_check({'SLOTSTREAM_TEST_BINARY': str(self.paths['legacy']), 'VERIFY_FIXTURE_PREFLIGHT_EXIT': '2'})
         self.assertEqual(p.returncode, 2)
         self.assertEqual(rows, [])
+
+    def test_template_failure_with_expected_tokens_fails_gate(self):
+        for status in (1, 23, 137):
+            with self.subTest(status=status):
+                self.trace.unlink(missing_ok=True)
+                p, rows = self.run_check({'SLOTSTREAM_TEST_BINARY': str(self.paths['frozen']),
+                                          'VERIFY_FIXTURE_EXIT': str(status)}, template=True)
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(Path(rows[0]['binary']).resolve(), self.paths['frozen'].resolve())
+                self.assertEqual(rows[0]['arguments'], ['template-check'])
+                self.assertEqual(p.returncode, 1, p.stdout+p.stderr)
+                self.assertIn('FAIL  chat template == transformers', p.stdout)
+                self.assertNotIn('PASS  chat template == transformers', p.stdout)
+
+    def test_template_success_with_wrong_tokens_fails_gate(self):
+        p, rows = self.run_check({'SLOTSTREAM_TEST_BINARY': str(self.paths['frozen']),
+                                  'VERIFY_FIXTURE_EXIT': '0',
+                                  'VERIFY_FIXTURE_TEMPLATE_TEXT': 'not-the-template-token-ids'}, template=True)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(Path(rows[0]['binary']).resolve(), self.paths['frozen'].resolve())
+        self.assertEqual(rows[0]['arguments'], ['template-check'])
+        self.assertEqual(p.returncode, 1, p.stdout+p.stderr)
+        self.assertIn('FAIL  chat template == transformers', p.stdout)
+        self.assertNotIn('PASS  chat template == transformers', p.stdout)
+
+    def test_template_success_with_empty_tokens_fails_gate(self):
+        p, rows = self.run_check({'SLOTSTREAM_TEST_BINARY': str(self.paths['frozen']),
+                                  'VERIFY_FIXTURE_EXIT': '0',
+                                  'VERIFY_FIXTURE_TEMPLATE_TEXT': ''}, template=True)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(Path(rows[0]['binary']).resolve(), self.paths['frozen'].resolve())
+        self.assertEqual(rows[0]['arguments'], ['template-check'])
+        self.assertEqual(p.returncode, 1, p.stdout+p.stderr)
+        self.assertIn('FAIL  chat template == transformers', p.stdout)
+        self.assertNotIn('PASS  chat template == transformers', p.stdout)
 
 
 class VerifyContextStatus(unittest.TestCase):
@@ -297,6 +332,166 @@ run_binary() { printf '%s\\n' "$FIXTURE_OUTPUT"; return "$FIXTURE_STATUS"; }
             result = self.run_status(code, output)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('FAIL  historical draft-head diagnostic could not complete', result.stdout)
+
+
+def _verify_result_fixture(kind, output, status, optimized):
+    """Run only a real result branch, using owned ASCII files and a finite CLI."""
+    if kind not in ('mtp', 'context'):
+        raise ValueError('unknown result fixture')
+    with tempfile.TemporaryDirectory(prefix='slotstream-verify-results-', dir='/tmp') as directory:
+        root = Path(directory)
+        if not str(root).isascii():
+            raise RuntimeError('result fixture requires an ASCII temporary path')
+        results, trace, safety = root/'results', root/'trace.jsonl', root/'safety.txt'
+        fixture = root/"selected binary's; $(touch injected)"
+        args = (['mtp-check', '--memory-gb', '12', '--mtp', 'on', '--vision', 'on',
+                 '--image', 'Tools/assets/vision_test/secret1.jpg'] if kind == 'mtp' else
+                ['context-check', '--tokens', '2048', '--memory-gb', '10', '--sample-footprint', '--json'])
+        fixture.write_text('''#!/usr/bin/env python3
+import json, os, sys
+with open(os.environ['VERIFY_RESULT_TRACE'], 'a') as trace:
+    trace.write(json.dumps({'binary': __file__, 'arguments': sys.argv[1:],
+                            'optimized': sys.flags.optimize})+'\\n')
+if sys.argv[1:] != json.loads(os.environ['VERIFY_RESULT_ARGV']):
+    raise SystemExit('unexpected finite diagnostic arguments')
+sys.stdout.write(os.environ['VERIFY_RESULT_TEXT'])
+if sys.argv[1] == 'context-check':
+    sys.stderr.write('finite result diagnostic\\n')
+raise SystemExit(int(os.environ['VERIFY_RESULT_EXIT']))
+''')
+        fixture.chmod(0o755)
+        header = SCRIPT[SCRIPT.index('BIN='):SCRIPT.index('QPID=""')]
+        if kind == 'mtp':
+            begin = SCRIPT.index('  safety_before 15\n  if "$BIN" mtp-check')
+            end = SCRIPT.index('  # In the exact mode', begin)
+            block = SCRIPT[begin:end]
+            log = results/'mtp.txt'
+        else:
+            begin = SCRIPT.index('CONTEXT_STATUS=0')
+            end = SCRIPT.index('echo "== serving robustness', begin)
+            block = SCRIPT[begin:end]
+            context = root/'context.json'
+            block = block.replace('/tmp/ssv_ctx.json', str(context))
+            memory_source = Path(__file__).with_name('memory_gate.py').read_bytes()
+            memory = root/'memory_gate.py'
+            memory.write_bytes(memory_source)
+            if memory.read_bytes() != memory_source:
+                raise RuntimeError('copied memory checker differs')
+            block = block.replace('Tools/memory_gate.py', str(memory))
+            log = context
+        if '/tmp/ssv_ctx.json' in block:
+            raise RuntimeError('global context path was not redirected')
+        script = 'set -eo pipefail\n'+header+'''
+safety_before() { printf '%s\\n' "$1" >> "$VERIFY_RESULT_SAFETY"; return 0; }
+BIG_MEMORY=10
+'''+block+'''
+printf 'AFTER_RESULT\\nCOUNTS %s %s\\n' "$PASS" "$FAIL"
+[ "$FAIL" -eq 0 ]
+'''
+        env = {k: v for k, v in os.environ.items()
+               if k not in ('BIN', 'BASH_ENV', 'ENV', 'CDPATH')
+               and not k.startswith(('SLOTSTREAM_', 'SS_DEBUG', 'VERIFY_', 'PYTHON'))}
+        env.update(SLOTSTREAM_TEST_BINARY=str(fixture), SLOTSTREAM_VERIFY_OUT=str(results),
+                   VERIFY_RESULT_TRACE=str(trace), VERIFY_RESULT_SAFETY=str(safety),
+                   VERIFY_RESULT_ARGV=json.dumps(args), VERIFY_RESULT_TEXT=output,
+                   VERIFY_RESULT_EXIT=str(status), PYTHONDONTWRITEBYTECODE='1')
+        if optimized:
+            env['PYTHONOPTIMIZE'] = '1'
+        process = subprocess.run(['bash', '-c', script], cwd=root, env=env,
+                                 text=True, capture_output=True, timeout=10)
+        rows = [json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
+        return {'process': process, 'rows': rows, 'arguments': args,
+                'selected': str(fixture.resolve()), 'text': log.read_text(),
+                'safety': safety.read_text(), 'injected': (root/'injected').exists(),
+                'context_status': (results/'context-check.exit-status.txt').read_text()
+                                  if kind == 'context' else None}
+
+
+class _VerifyResultStatusChecks:
+    def check_modes(self, kind, label, output, *, status=0, passed=0, failed=1):
+        for optimized in (False, True):
+            with self.subTest(case=label, optimized=optimized):
+                result = _verify_result_fixture(kind, output, status, optimized)
+                process = result['process']
+                self.assertFalse(result['injected'])
+                self.assertEqual(len(result['rows']), 1)
+                row = result['rows'][0]
+                self.assertEqual(str(Path(row['binary']).resolve()), result['selected'])
+                self.assertEqual(row['arguments'], result['arguments'])
+                self.assertEqual(row['optimized'], int(optimized))
+                self.assertEqual(result['text'], output)
+                self.assertEqual(result['safety'], '15\n' if kind == 'mtp' else '13\n')
+                if kind == 'context':
+                    self.assertEqual(result['context_status'], str(status)+'\n')
+                self.assertIn('AFTER_RESULT', process.stdout, process.stdout+process.stderr)
+                self.assertEqual(process.returncode, int(failed != 0), process.stdout+process.stderr)
+                self.assertIn(f'COUNTS {passed} {failed}', process.stdout)
+
+
+class VerifyMTPResultStatus(_VerifyResultStatusChecks, unittest.TestCase):
+    valid = ('PASS  vision speculation deterministic (2 tokens)\n'
+             'PASS  vision speculation ran\n'
+             'MTP CHECK MEMORY {"memory_validated": true}\n'
+             'MTP CHECK PASS\n')
+
+    def test_complete_result_passes_in_both_modes(self):
+        self.check_modes('mtp', 'valid', self.valid, passed=1, failed=0)
+
+    def test_missing_result_markers_fail_in_both_modes(self):
+        for marker in ['PASS  vision speculation deterministic (2 tokens)\n',
+                       'PASS  vision speculation ran\n', 'MTP CHECK PASS\n']:
+            self.check_modes('mtp', 'missing '+marker.strip(), self.valid.replace(marker, ''))
+        self.check_modes('mtp', 'empty log', '')
+
+    def test_skipped_result_fails_in_both_modes(self):
+        self.check_modes('mtp', 'skip', self.valid+'SKIP  required observation\n')
+
+    def test_memory_failure_or_missing_proof_fails_in_both_modes(self):
+        cases = [('false', self.valid.replace('"memory_validated": true', '"memory_validated": false')),
+                 ('missing key', self.valid.replace('{"memory_validated": true}', '{}')),
+                 ('no row', self.valid.replace('MTP CHECK MEMORY {"memory_validated": true}\n', '')),
+                 ('duplicate', self.valid+'MTP CHECK MEMORY {"memory_validated": true}\n')]
+        for label, output in cases:
+            self.check_modes('mtp', label, output)
+
+    def test_malformed_memory_record_fails_in_both_modes(self):
+        self.check_modes('mtp', 'malformed memory JSON',
+                         self.valid.replace('{"memory_validated": true}', '{broken'))
+
+    def test_nonzero_diagnostic_fails_in_both_modes(self):
+        self.check_modes('mtp', 'nonzero command', self.valid, status=23)
+
+
+class VerifyContextResultStatus(_VerifyResultStatusChecks, unittest.TestCase):
+    def valid(self):
+        return {'fits': True, 'aborted': None, 'prefill_tokens': 2048,
+                'stats': {'sampledFootprint': {'peakBytes': 8_000_000_000, 'samples': 10,
+                                              'intervalMilliseconds': 50},
+                          'lifetimeRSSPeakBytes': 8_000_000_000,
+                          'physicalFootprintEndBytes': 7_000_000_000,
+                          'generatorVMBefore': {'swapins': 10, 'swapouts': 20},
+                          'generatorVMAfter': {'swapins': 10, 'swapouts': 20}}}
+
+    def test_complete_result_passes_in_both_modes(self):
+        self.check_modes('context', 'valid', json.dumps(self.valid()), passed=2, failed=0)
+
+    def test_incomplete_context_fails_in_both_modes(self):
+        for field, value in [('fits', False), ('aborted', 'cancelled'), ('prefill_tokens', 2047)]:
+            payload = self.valid()
+            payload[field] = value
+            self.check_modes('context', 'wrong '+field, json.dumps(payload), passed=1)
+
+    def test_missing_context_fields_fail_in_both_modes(self):
+        for field in ['fits', 'aborted', 'prefill_tokens']:
+            payload = self.valid()
+            del payload[field]
+            self.check_modes('context', 'missing '+field, json.dumps(payload), passed=1)
+
+    def test_malformed_json_fails_in_both_modes(self):
+        self.check_modes('context', 'malformed JSON', '{broken', failed=2)
+
+    def test_nonzero_context_fails_in_both_modes(self):
+        self.check_modes('context', 'nonzero command', json.dumps(self.valid()), status=23, passed=1)
 
 
 if __name__ == '__main__':

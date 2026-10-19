@@ -86,7 +86,7 @@ fi
 echo "== goldens (need bench/parity31 from Tools/parity_ref.py under mlx==0.31.1) =="
 run_model "$BIN" ngram-golden --tokens "9707,11,1246,525,498,30" 2>/dev/null | sed 's/^pos[0-9]*: //' > /tmp/ssv_ngram.txt
 check "ngram row ids == python reference"  "diff /tmp/ssv_ngram.txt bench/parity31/ngram_ids.txt"
-check "chat template == transformers"      "[ \"\$(run_binary template-check 2>/dev/null)\" = '248045,8678,198,2523,513,10631,13,248046,198,248045,846,198,12675,1017,248046,198,248045,74455,198,248068,271,248069,271' ]"
+check "chat template == transformers"      "template_ids=\$(run_binary template-check 2>/dev/null) && [ \"\$template_ids\" = '248045,8678,198,2523,513,10631,13,248046,198,248045,846,198,12675,1017,248046,198,248045,74455,198,248068,271,248069,271' ]"
 check "layer parity (historical reference, one-row projections)"  "run_binary parity --tokens '9707,11,1246,525,498,30' --layers 2 --compare bench/parity31 --row-invariant"
 
 # The historical fixtures remain immutable. A backend upgrade also needs a
@@ -207,11 +207,15 @@ if [ -f "$MTPFILE" ]; then
 import json,sys
 from pathlib import Path
 text=Path(sys.argv[1]).read_text()
-assert 'PASS  vision speculation deterministic' in text
-assert 'PASS  vision speculation ran' in text
-assert 'SKIP' not in text and 'MTP CHECK PASS' in text
+if 'PASS  vision speculation deterministic' not in text:
+    raise SystemExit('missing vision speculation determinism pass')
+if 'PASS  vision speculation ran' not in text:
+    raise SystemExit('missing vision speculation execution pass')
+if not ('SKIP' not in text and 'MTP CHECK PASS' in text):
+    raise SystemExit('MTP check did not complete without skips')
 rows=[json.loads(line.removeprefix('MTP CHECK MEMORY ')) for line in text.splitlines() if line.startswith('MTP CHECK MEMORY ')]
-assert len(rows)==1 and rows[0]['memory_validated'] is True
+if not (len(rows)==1 and rows[0]['memory_validated'] is True):
+    raise SystemExit('MTP check did not validate memory')
 PYMTP
   then
     echo "PASS  speculative decode gates (determinism, state integrity, accept sanity)"; PASS=$((PASS+1))
@@ -267,7 +271,7 @@ run_model "$BIN" context-check --tokens 2048 --memory-gb $BIG_MEMORY --sample-fo
   2>"$VERIFY_OUT/context-check.stderr.txt" > /tmp/ssv_ctx.json || CONTEXT_STATUS=$?
 printf '%s\n' "$CONTEXT_STATUS" > "$VERIFY_OUT/context-check.exit-status.txt"
 check "context-check: 2k rung reads inside the plan and reports it" \
-      "[ \"\$CONTEXT_STATUS\" -eq 0 ] && python3 -c 'import json; d=json.loads(open(\"/tmp/ssv_ctx.json\").read().strip().splitlines()[-1]); assert d[\"fits\"] and d[\"aborted\"] is None and d[\"prefill_tokens\"]==2048, d'"
+      "[ \"\$CONTEXT_STATUS\" -eq 0 ] && python3 -c 'import json,sys; d=json.loads(open(\"/tmp/ssv_ctx.json\").read().strip().splitlines()[-1]); sys.exit(0 if d[\"fits\"] and d[\"aborted\"] is None and d[\"prefill_tokens\"]==2048 else str(d))'"
 
 check "context-check: process memory remains under target" \
       "python3 Tools/memory_gate.py /tmp/ssv_ctx.json --limit-gb $BIG_MEMORY"
