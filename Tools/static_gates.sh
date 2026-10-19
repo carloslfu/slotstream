@@ -11,6 +11,7 @@ done
 sh -n install.sh
 python3 -m py_compile Tools/*.py Tools/reference/*.py Tools/slotpack/*.py
 python3 Tools/static_gates_binary_test.py
+python3 Tools/pre_commit_test.py
 python3 Tools/installer_gates_binary_test.py
 python3 Tools/installer_metal_test.py
 python3 Tools/verify_binary_test.py
