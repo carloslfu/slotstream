@@ -85,6 +85,7 @@ def validate_metrics(d, *, allow_complete_prompt=False):
     for k in ("prefillSeconds", "decodeSeconds", "requestSeconds", "imageEncodeSeconds"):
         if type(s.get(k)) not in (int, float) or not math.isfinite(s[k]) or s[k] < 0:
             raise ValueError(f"invalid {k}")
+    if s["requestSeconds"] <= 0: raise ValueError("invalid requestSeconds")
     for k in ("prefillRecords", "decodeRecords", "prefillTokens", "decodeTokens", "lifetimeRSSPeakBytes"):
         if type(s.get(k)) is not int or s[k] < 0: raise ValueError(f"invalid {k}")
     if s["prefillTokens"] == 0:
