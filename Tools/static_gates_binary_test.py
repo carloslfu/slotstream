@@ -56,6 +56,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
         self.write('Tools/planner_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PLANNER') == '1' else 0)\n")
         self.write('Tools/api_generation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_API_GENERATION') == '1' else 0)\n")
+        self.write('Tools/prefix_startup_cleanup_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFIX_STARTUP') == '1' else 0)\n")
         self.write('Tools/consumer_smoke_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CONSUMER') == '1' else 0)\n")
         self.write('Tools/process_memory_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_NATIVE_MEMORY') == '1' else 0)\n")
         self.write('Tools/checkpoint_mirror_thread_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MIRROR_THREAD') == '1' else 0)\n")
@@ -250,6 +251,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_api_generation_fixture_stops_before_native_checks(self):
         p, rows = self.run_entry({'SLOTSTREAM_FAIL_API_GENERATION': '1'})
         self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_prefix_startup_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_PREFIX_STARTUP': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_prefix_startup_fixture_stops_before_native_checks(self):
+        (self.root/'Tools/prefix_startup_cleanup_test.py').unlink()
+        p, rows = self.run_entry({})
+        self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
         self.assertEqual(rows, [])
 
     def test_missing_api_generation_fixture_is_a_failure(self):
