@@ -20,6 +20,7 @@ python3 Tools/parity_comparison_test.py
 python3 Tools/sampler_gates_test.py
 python3 Tools/planner_gates_test.py
 python3 Tools/api_generation_test.py
+python3 Tools/prefix_token_evidence_test.py
 python3 Tools/consumer_smoke_test.py
 python3 Tools/e2e_release_test.py
 python3 Tools/coverage_ratchet_test.py
