@@ -721,8 +721,10 @@ public final class Server {
                 "/coding-agent/v1/models", "/coding-agent/v1/credits", "/slotstream/status",
             ]
             let status = known.contains(path) ? "200 OK" : "404 Not Found"
+            // Content-Length on HEAD would describe the GET representation,
+            // not the absent body. Omit it rather than inventing a zero length.
             let head = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\n" + cors
-                + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+                + "Connection: close\r\n\r\n"
             _ = send(fd, Data(head.utf8))
         case ("GET", "/"):
             respondJSON(fd, ["status": "ok", "engine": "slotstream"], cors: cors)
