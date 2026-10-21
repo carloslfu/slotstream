@@ -276,6 +276,40 @@ extension Catalogue {
             c.expect("a dry run does not show other providers",
                      try L.plan(.pi, existing).files.first?.preview?.contains("ollama") == false)
 
+            var privatePi = inputs()
+            privatePi.piModels = #"{"providers":{"slotstream":{"apiKey":"pi-fixture-key","headers":{"Authorization":"Bearer pi-fixture-auth","Cookie":"session=pi-fixture-cookie","X-Visible":"kept"},"custom":{"password":"pi-fixture-password","label":"visible"}},"other":{"apiKey":"pi-other-provider"}}}"#
+            let privateFile = try L.plan(.pi, privatePi).files.first
+            let privatePreview = privateFile?.preview ?? ""
+            let shownProviders = object(privatePreview.components(separatedBy: "\n(Everything else").first)["providers"] as? [String: Any] ?? [:]
+            let shown = shownProviders["slotstream"] as? [String: Any] ?? [:]
+            let shownHeaders = shown["headers"] as? [String: Any] ?? [:]
+            let shownCustom = shown["custom"] as? [String: Any] ?? [:]
+            c.expect("Pi preview contains no synthetic private sentinel",
+                     ["pi-fixture-key", "pi-fixture-auth", "pi-fixture-cookie", "pi-fixture-password"].allSatisfy {
+                         !privatePreview.contains($0)
+                     })
+            c.equal("Pi preview hides the retained API key", shown["apiKey"] as? String, "<hidden>")
+            c.equal("Pi preview hides authorization", shownHeaders["Authorization"] as? String, "<hidden>")
+            c.equal("Pi preview hides cookies", shownHeaders["Cookie"] as? String, "<hidden>")
+            c.equal("Pi preview hides nested passwords", shownCustom["password"] as? String, "<hidden>")
+            let savedProviders = object(privateFile?.contents)["providers"] as? [String: Any] ?? [:]
+            let saved = savedProviders["slotstream"] as? [String: Any] ?? [:]
+            let savedHeaders = saved["headers"] as? [String: Any] ?? [:]
+            c.equal("actual Pi settings retain the user's API key", saved["apiKey"] as? String, "pi-fixture-key")
+            c.equal("actual Pi settings retain authorization", savedHeaders["Authorization"] as? String, "Bearer pi-fixture-auth")
+            c.equal("actual Pi settings retain cookies", savedHeaders["Cookie"] as? String, "session=pi-fixture-cookie")
+            c.equal("actual Pi settings retain nested passwords",
+                    (saved["custom"] as? [String: Any])?["password"] as? String, "pi-fixture-password")
+            c.equal("Pi preview keeps ordinary headers", shownHeaders["X-Visible"] as? String, "kept")
+            c.equal("Pi preview keeps ordinary nested labels", shownCustom["label"] as? String, "visible")
+            c.expect("Pi preview still shows the launcher's placeholder key",
+                     fresh.files.first?.preview?.contains("slotstream-local") == true)
+            c.expect("Pi preview keeps its explanatory footer",
+                     privatePreview.hasSuffix("\n(Everything else in the file stays as it is.)\n"))
+            c.expect("Pi preview still omits another provider's key", !privatePreview.contains("pi-other-provider"))
+            c.equal("actual Pi settings retain another provider",
+                    (savedProviders["other"] as? [String: Any])?["apiKey"] as? String, "pi-other-provider")
+
             // The file is the user's: its order, its numbers and its own
             // settings for this provider survive the edit.
             var written = inputs()
