@@ -1607,7 +1607,7 @@ public final class Server {
         let thinkSplitter = request.reasoning.thinking ? ThinkSplitter() : nil
         let toolSplitter = ToolCallSplitter(tools: renderTools.map { $0.schema })
         let gatewayOutput = GatewayOutput(tools: renderTools, choice: request.toolChoice)
-        var reasoningOpen = false
+        var reasoningOutput = GatewayReasoningOutput()
         var reasoningTokens = 0
         var lastKeepalive = RuntimeClock.now()
         var produced = false
@@ -1625,20 +1625,9 @@ public final class Server {
             var body = delta
             if let ts = thinkSplitter {
                 let (think, content) = ts.push(delta)
-                if !think.isEmpty {
-                    reasoningTokens += 1
-                    if !reasoningOpen {
-                        emit(GatewayDialect.frame(["type": "reasoning-start", "id": "r0"]))
-                        reasoningOpen = true
-                    }
-                    emit(
-                        GatewayDialect.frame([
-                            "type": "reasoning-delta", "id": "r0", "delta": think,
-                        ]))
-                }
-                if reasoningOpen, !content.isEmpty {
-                    emit(GatewayDialect.frame(["type": "reasoning-end", "id": "r0"]))
-                    reasoningOpen = false
+                if !think.isEmpty { reasoningTokens += 1 }
+                for part in reasoningOutput.push(thinking: think, content: content) {
+                    emit(GatewayDialect.frame(part))
                 }
                 body = content
             }
@@ -1690,15 +1679,8 @@ public final class Server {
         }
         if let ts = thinkSplitter {
             let (think, content) = ts.flush()
-            if !think.isEmpty, reasoningOpen {
-                emit(
-                    GatewayDialect.frame([
-                        "type": "reasoning-delta", "id": "r0", "delta": think,
-                    ]))
-            }
-            if reasoningOpen {
-                emit(GatewayDialect.frame(["type": "reasoning-end", "id": "r0"]))
-                reasoningOpen = false
+            for part in reasoningOutput.finish(thinking: think) {
+                emit(GatewayDialect.frame(part))
             }
             if !content.isEmpty {
                 flushEvents(gatewayOutput.acceptsToolCalls ? toolSplitter.push(content) : [.text(content)])
