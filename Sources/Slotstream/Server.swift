@@ -194,6 +194,7 @@ public final class Server {
         package var path = ""
         package var body = Data()
         package var headers: [String: String] = [:]
+        package var expectsContinue = false
     }
 
     /// Largest request body accepted. Text prompts are tiny, but vision inputs
@@ -255,6 +256,46 @@ public final class Server {
         return first.count >= 2 ? String(first[1]) : nil
     }
 
+    private enum BodyExpectation: Equatable { case none, continueUpload, unsupported }
+
+    /// Expect is a list across all field lines, not a last-field-wins value.
+    /// HTTP/1.0 ignores it; empty list members carry no expectation.
+    private static func bodyExpectation(_ head: String) -> BodyExpectation {
+        let lines = head.split(separator: "\r\n")
+        let parts = lines.first?.split(separator: " ") ?? []
+        guard parts.count >= 3, parts[2] == "HTTP/1.1" else { return .none }
+        var sawContinue = false
+        for line in lines.dropFirst() {
+            let kv = line.split(separator: ":", maxSplits: 1)
+            guard kv.count == 2,
+                  kv[0].trimmingCharacters(in: .whitespaces).lowercased() == "expect" else { continue }
+            for member in kv[1].split(separator: ",") {
+                let value = member.trimmingCharacters(in: .whitespaces)
+                if value.isEmpty { continue }
+                guard value.lowercased() == "100-continue" else { return .unsupported }
+                sawContinue = true
+            }
+        }
+        return sawContinue ? .continueUpload : .none
+    }
+
+    private static func sendContinue(_ fd: Int32) -> Bool {
+        // Direct package callers need the same peer-close protection as run().
+        // Accepted sockets already carry the server's bounded send deadline.
+        var one: Int32 = 1
+        guard setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0 else { return false }
+        return Data("HTTP/1.1 100 Continue\r\n\r\n".utf8).withUnsafeBytes { bytes in
+            var sent = 0
+            while sent < bytes.count {
+                let n = write(fd, bytes.baseAddress!.advanced(by: sent), bytes.count - sent)
+                if n < 0 && errno == EINTR { continue }
+                guard n > 0 else { return false }
+                sent += n
+            }
+            return true
+        }
+    }
+
     package static func readRequest(_ fd: Int32) -> ReadOutcome {
         var buf = Data()
         var tmp = [UInt8](repeating: 0, count: 65536)
@@ -280,7 +321,8 @@ public final class Server {
         let contentLength: Int
         switch Self.parseHead(head) {
         case let .fail(status, message):
-            if status.hasPrefix("413"), let declared = head.split(separator: "\r\n").lazy
+            if status.hasPrefix("413"), Self.bodyExpectation(head) != .continueUpload,
+               let declared = head.split(separator: "\r\n").lazy
                 .compactMap({ line -> Int? in
                     let kv = line.split(separator: ":", maxSplits: 1)
                     guard kv.count == 2, kv[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length"
@@ -303,6 +345,7 @@ public final class Server {
             contentLength = length
         }
         var body = Data(buf[headerEnd!.upperBound...].prefix(contentLength))
+        if req.expectsContinue, body.count < contentLength, !Self.sendContinue(fd) { return .closed }
         while body.count < contentLength {
             let n = read(fd, &tmp, min(tmp.count, contentLength - body.count))
             if n <= 0 { break }
@@ -371,6 +414,12 @@ public final class Server {
                     message: "chunked request bodies are not supported; send Content-Length")
             }
             return .fail(status: "400 Bad Request", message: "Transfer-Encoding is not supported")
+        }
+        switch Self.bodyExpectation(head) {
+        case .none: break
+        case .continueUpload: req.expectsContinue = true
+        case .unsupported:
+            return .fail(status: "417 Expectation Failed", message: "only Expect: 100-continue is supported")
         }
         if contentLength > maxBodyBytes {
             return .fail(
