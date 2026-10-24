@@ -43,7 +43,7 @@ def main():
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parent.parent
     paths = [root / p for p in ['Package.swift', 'Package.resolved', 'apps/macos/Package.swift', 'apps/macos/Package.resolved', 'Tools/prepare_slotstream_build.py']]
-    for base in ['Sources', 'apps/macos/Runtime', 'apps/macos/Presentation', 'apps/macos/Text', 'apps/macos/App', 'apps/macos/CLI', 'apps/macos/Checks', 'apps/macos/ComposerChecks', 'apps/macos/PresentationTests']:
+    for base in ['Sources', 'apps/macos/Extract', 'apps/macos/CSandbox', 'apps/macos/Runtime', 'apps/macos/Presentation', 'apps/macos/Text', 'apps/macos/App', 'apps/macos/CLI', 'apps/macos/Checks', 'apps/macos/ComposerChecks', 'apps/macos/PresentationTests']:
         paths.extend(p for p in (root / base).rglob('*') if p.is_file())
     identity = hashlib.sha256()
     for path in sorted(set(paths)):
