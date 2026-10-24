@@ -16,6 +16,7 @@ body's trailing whitespace never matters. That normalization is the one
 difference from the documents as they were lifted on 2026-09-02: one heading
 in MEASUREMENTS.md had no blank line before it and now has one.
 """
+import argparse
 import os
 import re
 import sys
@@ -131,8 +132,19 @@ def render(doc):
 
 
 def main(argv):
-    check = '--check' in argv
-    only = [a for a in argv if not a.startswith('--')]
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument('--check', action='store_true',
+                        help='check selected projections without writing them')
+    parser.add_argument('documents', nargs='*', metavar='DOCUMENT',
+                        help='document key or filename (default: both)')
+    args = parser.parse_intermixed_args(argv)
+    choices = set(DOCS) | {spec['file'] for spec in DOCS.values()}
+    invalid = [name for name in args.documents if name not in choices]
+    if invalid:
+        parser.error('invalid document selector(s): %s (choose from %s)' %
+                     (', '.join(invalid), ', '.join(sorted(choices))))
+    check = args.check
+    only = args.documents
     status = 0
     for doc, spec in DOCS.items():
         if only and doc not in only and spec['file'] not in only:
