@@ -108,7 +108,8 @@ def main():
         counts = {key: int(value) for key, value in re.findall(r'^([^:\n]+):\s+(\d+)\.', vm, re.M)}
         available = sum(counts[key] for key in ('Pages free', 'Pages purgeable', 'File-backed pages')) * page / 1e9
         report['preflight_available_gb'] = available
-        assert available >= 13, 'at least 13 GB reclaimable required'
+        if available < 13:
+            raise RuntimeError('at least 13 GB reclaimable required')
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             port = probe.getsockname()[1]
