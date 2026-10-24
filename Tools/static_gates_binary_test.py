@@ -32,6 +32,7 @@ class StaticBinarySelection(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.trace = self.root/'trace.jsonl'
         self.suite_trace = self.root/'suite-trace.jsonl'
+        self.queue_trace = self.root/'queue-trace.jsonl'
         for directory in ['Tools/reference', 'Tools/slotpack', '.githooks',
                           'bench/parity31', 'Sources/Slotstream', '.build/release',
                           'legacy binary', 'frozen binary']:
@@ -65,6 +66,11 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/checkpoint_mirror_thread_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MIRROR_THREAD') == '1' else 0)\n")
         self.write('Tools/launch_request_deadline_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_DEADLINE') == '1' else 0)\n")
         self.write('Tools/safetensors_empty_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_EMPTY_TENSORS') == '1' else 0)\n")
+        self.write('Tools/generation_queue_cancel_test.py', '''import json, os
+with open(os.environ['SLOTSTREAM_QUEUE_TRACE'], 'a') as output:
+    output.write(json.dumps('generation_queue_cancel')+'\\n')
+raise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_GENERATION_QUEUE') == '1' else 0)
+''')
         self.write('Tools/pull_interrupt_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PULL_INTERRUPT') == '1' else 0)\n")
         self.write('Tools/memory_override_gate.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN']]\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MEMORY_OVERRIDES') == '1' else 0)\n")
         self.write('Tools/checkpoint_mirror_cli.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN'], '--weights-free']\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MIRROR_OPTIONS') == '1' else 0)\n")
@@ -108,6 +114,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
                if k != 'BIN' and not k.startswith(('SLOTSTREAM_', 'SS_DEBUG'))}
         env.update(SLOTSTREAM_SELECTION_TRACE=str(self.trace))
         env.update(SLOTSTREAM_SUITE_TRACE=str(self.suite_trace))
+        env.update(SLOTSTREAM_QUEUE_TRACE=str(self.queue_trace))
         env.update(changes)
         p = subprocess.run(['bash', 'Tools/static_gates.sh'], cwd=self.root,
                            env=env, text=True, capture_output=True, timeout=15)
@@ -195,6 +202,37 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_LAUNCH_DEADLINE': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
         self.assertEqual(rows, [])
+
+    def test_queue_cancellation_registered_once_before_suite_loop(self):
+        source = SCRIPT.read_text()
+        command = 'python3 Tools/generation_queue_cancel_test.py'
+        self.assertEqual(source.count(command), 1)
+        self.assertLess(source.index(command), source.index('for suite in '))
+
+    def test_queue_cancellation_success_runs_before_suites(self):
+        result, rows = self.run_entry({})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        trace = [json.loads(line) for line in self.queue_trace.read_text().splitlines()]
+        self.assertEqual(trace, ['generation_queue_cancel'])
+        suites = [json.loads(line) for line in self.suite_trace.read_text().splitlines()]
+        self.assertEqual(suites, OPTIMIZATION_SUITES)
+        self.assertEqual(len(rows), 5)
+
+    def test_failed_queue_cancellation_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_GENERATION_QUEUE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+        trace = [json.loads(line) for line in self.queue_trace.read_text().splitlines()]
+        self.assertEqual(trace, ['generation_queue_cancel'])
+        self.assertFalse(self.suite_trace.exists())
+
+    def test_missing_queue_cancellation_stops_acceptance(self):
+        (self.root/'Tools/generation_queue_cancel_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+        self.assertFalse(self.suite_trace.exists())
+        self.assertFalse(self.queue_trace.exists())
 
     def test_failed_empty_tensor_regression_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_EMPTY_TENSORS': '1'})

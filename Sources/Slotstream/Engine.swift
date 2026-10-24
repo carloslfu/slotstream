@@ -1471,7 +1471,7 @@ public final class Engine {
         do {
             if let contextAssignmentFailure = contextLock.withLock({ contextAssignmentFailure }) { throw contextAssignmentFailure }
             if let unavailable = planLock.withLock({ allocationUnavailable }) { throw unavailable }
-            control = try request ?? beginRequest()
+            control = try request ?? beginRequest(connected: { shouldContinue?() ?? true })
             control.useBaselinePrefillEstimate(resources.usesBaselineSpeedEvidence)
             try control.attachReservations(requestReservations)
             guard control.configuration.maxContextTokens <= allocatedContextTokens else {
