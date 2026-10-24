@@ -61,10 +61,13 @@ def openai_text(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('format', choices=['ollama-chat', 'ollama-generate', 'openai'])
+    parser.add_argument('--stream', action='store_true', help='Read Ollama newline-delimited JSON frames')
     args = parser.parse_args()
-    value = json.load(sys.stdin)
+    if args.stream and args.format == 'openai':
+        parser.error('--stream supports Ollama NDJSON only')
+    value = [json.loads(line) for line in sys.stdin if line.strip()] if args.stream else json.load(sys.stdin)
     text = openai_text(value) if args.format == 'openai' else ollama_text(
-        value, generated=args.format == 'ollama-generate')
+        value, stream=args.stream, generated=args.format == 'ollama-generate')
     print(text, end='')
 
 
