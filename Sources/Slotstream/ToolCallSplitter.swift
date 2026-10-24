@@ -157,10 +157,17 @@ public enum ToolParamKind: String, Sendable, Equatable {
 public struct ToolSchema: Sendable, Equatable {
     public let name: String
     public let params: [String: ToolParamKind]
+    /// Parameters whose resolved schema explicitly includes a null alternative.
+    public let nullableParams: Set<String>
 
     public init(name: String, params: [String: ToolParamKind]) {
+        self.init(name: name, params: params, nullableParams: [])
+    }
+
+    public init(name: String, params: [String: ToolParamKind], nullableParams: Set<String>) {
         self.name = name
         self.params = params
+        self.nullableParams = nullableParams
     }
 }
 
@@ -376,7 +383,8 @@ public final class ToolCallSplitter {
                 rawCall += Self.paramClose
                 buf = String(buf[r.upperBound...])
                 let kind = schemas[currentName]?.params[param] ?? .unknown
-                let value = Self.coerce(valueRaw, as: kind)
+                let value = Self.coerce(valueRaw, as: kind,
+                    allowsNull: schemas[currentName]?.nullableParams.contains(param) == true)
                 if currentArgs[param] == nil { currentOrder.append(param) }
                 currentArgs[param] = value
                 out.append(.toolInputDelta(id: currentID, delta: streamsString ? "\""
@@ -479,10 +487,19 @@ public final class ToolCallSplitter {
     /// `</parameter>`; both are framing, not content, and exactly one of each
     /// is removed. A value that itself ends in a blank line therefore survives.
     public static func coerce(_ raw: String, as kind: ToolParamKind) -> JSONValue {
+        coerce(raw, as: kind, allowsNull: false)
+    }
+
+    private static func coerce(_ raw: String, as kind: ToolParamKind, allowsNull: Bool) -> JSONValue {
         var v = raw
         if v.hasPrefix("\n") { v.removeFirst() }
         if v.hasSuffix("\n") { v.removeLast() }
         let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
+        // The native template JSON-encodes null for these scalar kinds. A
+        // string's literal "null" has the same spelling, so keep it literal.
+        if allowsNull, trimmed == "null", kind == .integer || kind == .number || kind == .boolean {
+            return .null
+        }
         switch kind {
         case .string:
             return .string(v)
@@ -552,6 +569,7 @@ public struct ToolDefinition: Sendable {
     /// The original schema remains intact for the prompt.
     public var schema: ToolSchema {
         var params: [String: ToolParamKind] = [:]
+        var nullableParams: Set<String> = []
         var inference = SchemaInference(document: parameters)
         if let (root, _, referencesAllowed) = inference.resolve(parameters, isRoot: true),
            case .object(let props)? = root["properties"] {
@@ -562,9 +580,10 @@ public struct ToolDefinition: Sendable {
                 let concrete = types.filter { $0 != "null" }
                 params[key] = concrete.count == 1
                     ? ToolParamKind(rawValue: concrete[0]) ?? .unknown : .unknown
+                if types.contains("null") { nullableParams.insert(key) }
             }
         }
-        return ToolSchema(name: name, params: params)
+        return ToolSchema(name: name, params: params, nullableParams: nullableParams)
     }
 
     /// Type inference only: no validation, remote retrieval, anchors or resource

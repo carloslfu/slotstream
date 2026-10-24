@@ -51,6 +51,7 @@ extension Catalogue {
             Check("toolcall-check", tier: .t0) { toolCallParsing() },
             Check("toolcall-stream-check", tier: .t0) { toolCallStreaming() },
             Check("toolcall-coercion", tier: .t0) { toolCallCoercion() },
+            Check("toolcall-nullable-scalars", tier: .t0) { toolCallNullableScalars() },
             Check("tool-schema-refs", tier: .t0) { toolSchemaRefs() },
             Check("tool-schema-ref-output", tier: .t0) { toolSchemaRefOutput() },
             Check("tool-schema-ref-dialects", tier: .t0) { try toolSchemaRefDialects() },
