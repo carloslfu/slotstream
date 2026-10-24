@@ -15,7 +15,8 @@ case "$(uname -s)-$(uname -m)" in
 esac
 
 dest="${DBMD_INSTALL_DIR:-$HOME/.dbmd/bin}"
-if [ -x "$dest/dbmd" ] && [ "$("$dest/dbmd" --version 2>/dev/null || true)" = "dbmd $VERSION" ]; then
+if [ -x "$dest/dbmd" ] && installed_version=$("$dest/dbmd" --version 2>/dev/null) \
+    && [ "$installed_version" = "dbmd $VERSION" ]; then
   echo "dbmd $VERSION already installed at $dest/dbmd"
   exit 0
 fi

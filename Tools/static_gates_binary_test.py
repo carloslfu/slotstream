@@ -58,6 +58,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
         self.write('Tools/parity_comparison_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PARITY') == '1' else 0)\n")
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
+        self.write('Tools/dbmd_install_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DBMD_INSTALLER') == '1' else 0)\n")
         self.write('Tools/planner_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PLANNER') == '1' else 0)\n")
         self.write('Tools/api_generation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_API_GENERATION') == '1' else 0)\n")
         self.write('Tools/consumer_smoke_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CONSUMER') == '1' else 0)\n")
@@ -256,6 +257,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 
     def test_failed_installer_metal_selection_stops_before_native_checks(self):
         p, rows = self.run_entry({'SLOTSTREAM_FAIL_METAL_SELECTION': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_dbmd_installer_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_DBMD_INSTALLER': '1'})
         self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
         self.assertEqual(rows, [])
 
