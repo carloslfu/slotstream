@@ -31,15 +31,15 @@ def main():
             with urllib.request.urlopen(request, timeout=120) as response:
                 data = response.read(obj['size']+1)
                 headers = {k.lower(): v for k, v in response.headers.items()}
-                assert response.status == 200
-            assert len(data) == obj['size'] and hashlib.sha256(data).hexdigest() == sha
-            if args.require_immutable: assert 'immutable' in headers.get('cache-control', '')
-            assert headers.get('content-encoding', 'identity') == 'identity'
+                if response.status != 200: raise ValueError('public object HTTP status differs')
+            if len(data) != obj['size'] or hashlib.sha256(data).hexdigest() != sha: raise ValueError('public object size or SHA-256 differs')
+            if args.require_immutable and 'immutable' not in headers.get('cache-control', ''): raise ValueError('public object immutable cache policy missing')
+            if headers.get('content-encoding', 'identity') != 'identity': raise ValueError('public object content encoding differs')
             rows.append(dict(sha256=sha, bytes=len(data), read=attempt+1,
                              resolvedHost=urllib.parse.urlsplit(response.url).hostname,
                              headers={k: headers[k] for k in ['cache-control', 'content-type', 'content-length',
                                       'cf-cache-status', 'x-cache', 'age', 'cf-ray', 'etag'] if k in headers}))
-    if args.require_edge_hit: assert any(r['headers'].get('cf-cache-status') == 'HIT' for r in rows)
+    if args.require_edge_hit and not any(r['headers'].get('cf-cache-status') == 'HIT' for r in rows): raise ValueError('public object edge HIT missing')
     result = dict(pass_=True, base=args.base, objects=rows)
     Path(args.receipt).write_text(json.dumps(result, indent=2)+'\n')
     print('ANONYMOUS PUBLIC OBJECT HASHES PASS')
