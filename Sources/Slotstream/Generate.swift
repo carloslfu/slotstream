@@ -329,6 +329,8 @@ public struct Sampler {
         if params.temperature <= 0 {
             return argMax(l).item(Int.self)
         }
+        // Preserve the penalty-adjusted ranking if temperature scaling overflows.
+        let fallbackLogits = l
         l = l / params.temperature
         if params.topK > 0 && params.topK < l.dim(0) {
             let kth: MLXArray
@@ -373,14 +375,14 @@ public struct Sampler {
             // search otherwise chooses a leading token with zero mass.
             let before = u == 0 ? cdf .<= MLXArray(Float(0)) : cdf .< (MLXArray(u) * total)
             let pick = minimum(before.sum(), MLXArray(probs.dim(0) - 1))
-            let fallback = argMax(logits.reshaped([-1]).asType(.float32)).asType(pick.dtype)
+            let fallback = argMax(fallbackLogits).asType(pick.dtype)
             return which(valid, pick, fallback).item(Int.self)
         }
         let total = cdf[probs.dim(0) - 1].item(Float.self)
         guard total.isFinite, total > 0 else {
             // Nothing survived filtering (or the logits were NaN): fall back to
             // the most likely token rather than emitting token 0 forever.
-            return argMax(logits.reshaped([-1]).asType(.float32)).item(Int.self)
+            return argMax(fallbackLogits).item(Int.self)
         }
         let before = u == 0 ? cdf .<= MLXArray(Float(0)) : cdf .< MLXArray(u * total)
         let pick = before.sum().item(Int.self)
