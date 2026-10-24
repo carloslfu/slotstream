@@ -144,7 +144,8 @@ case ":$PATH:" in
         */bash) PROFILE="$HOME/.bash_profile" ;;
         esac
         if [ -n "$PROFILE" ]; then
-            if ! grep -qs '\.slotstream/bin' "$PROFILE"; then
+            # Comments or other mentions are not an active PATH setup.
+            if ! grep -Fqxs 'export PATH="$HOME/.slotstream/bin:$PATH"' "$PROFILE"; then
                 printf '\nexport PATH="$HOME/.slotstream/bin:$PATH"\n' >> "$PROFILE"
                 echo "added ~/.slotstream/bin to PATH in $PROFILE (new terminals pick it up)"
             else
