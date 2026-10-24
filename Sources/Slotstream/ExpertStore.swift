@@ -950,6 +950,15 @@ public final class SlotPool {
                 for slot in reservedPins { pinned.unpin(slot) }
             }
         }
+        // Split claims transfer running workers to this call. On failure,
+        // cancel them all and join them before the rollback releases pins.
+        var pendingReads: [ExpertKey: ExpertPrefetchTicket] = [:]
+        defer {
+            if !completed {
+                for ticket in pendingReads.values { ticket.discard() }
+                for ticket in pendingReads.values { ticket.join() }
+            }
+        }
         for slot in hitSlots { refBit[slot] = true; pinned.pin(slot) }
         hits += requestHits
         misses += missPos.count
@@ -1047,7 +1056,6 @@ public final class SlotPool {
             // logical demand order. Everything else takes the demand path.
             var demandOrder: [Int] = []
             var scheduler: ExpertPrefetchScheduler? = nil
-            var pendingReads: [ExpertKey: ExpertPrefetchTicket] = [:]
             let specs = store.stagingPieceSpecs
             /// Adopt complete tickets into the slots the victim scan chose, in
             /// the logical demand order; returns the miss indices that could
