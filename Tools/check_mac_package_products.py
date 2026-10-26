@@ -39,6 +39,10 @@ def main():
             config = objects[identifier]
             settings = config["buildSettings"]
             module = settings.get("PRODUCT_MODULE_NAME", settings.get("PRODUCT_NAME", target["name"]))
+            # Literal compiler overrides take precedence; unresolved settings keep the fallback.
+            override = settings.get("SWIFT_MODULE_NAME")
+            if isinstance(override, str) and override and "$" not in override:
+                module = override
             if module in engine_modules:
                 collisions.append(f"{config['name']} app module {module} shadows an engine module")
     if collisions:
