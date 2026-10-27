@@ -248,12 +248,23 @@ public final class NgramStore {
         let wRowBytes: Int
         let sRowBytes: Int
         func read(_ gid: Int64,handles: [[TensorReadHandle]]?,fault: ReadFault?,shouldContinue: () -> Bool = { true }) throws -> [Float] {
-            guard let value = Int(exactly: gid), value >= 0, value / rowsPerShard < wRefs.count,
-                value % rowsPerShard < wRefs[value / rowsPerShard].shape[0]
+            guard rowsPerShard > 0, headDim > 0, headDim % 8 == 0,
+                qGroup > 0, headDim % qGroup == 0, headDim / qGroup <= Int.max / 2,
+                !wRefs.isEmpty, wRefs.count == sRefs.count, wRefs.count == bRefs.count
+            else { throw ModelError("unsupported n-gram shard layout") }
+            guard let value = Int(exactly: gid), value >= 0, value / rowsPerShard < wRefs.count
             else { throw CheckpointReadError.invalidRange }
+            let shard = value / rowsPerShard
+            let row = value % rowsPerShard
+            let groups = headDim / qGroup
+            // Shared strides come from shard zero; every selected shard must
+            // match the fixed packed decoder before any reads or fault hooks.
+            guard wRefs[shard].dtype == "U32", wRefs[shard].shape == [rowsPerShard, headDim / 8],
+                sRefs[shard].dtype == "BF16", sRefs[shard].shape == [rowsPerShard, groups],
+                bRefs[shard].dtype == "BF16", bRefs[shard].shape == [rowsPerShard, groups],
+                wRowBytes == headDim / 2, sRowBytes == groups * 2
+            else { throw ModelError("unsupported n-gram shard layout") }
             try fault?.beforeRead()
-            let shard = Int(gid) / rowsPerShard
-            let row = Int(gid) % rowsPerShard
             var wRaw = [UInt8](repeating: 0, count: wRowBytes)
             var sRaw = [UInt8](repeating: 0, count: sRowBytes)
             var bRaw = [UInt8](repeating: 0, count: sRowBytes)
