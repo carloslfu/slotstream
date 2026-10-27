@@ -1331,9 +1331,10 @@ public final class Engine {
     ///   later token can contribute a scalar that merges into the grapheme
     ///   already sent (an emoji plus U+FE0F is still one Character).
     /// - While stop sequences are active, the last `maxStopLength - 1` scalars
-    ///   are withheld, so the prefix of a stop sequence that straddles a token
-    ///   boundary is never emitted before the rest of it arrives. Whatever is
-    ///   still held back is flushed once generation ends.
+    ///   are withheld, where maxStopLength is the largest scalar count after
+    ///   canonical decomposition of a stop. This keeps canonically equivalent
+    ///   stop prefixes across token boundaries until the rest arrives. Whatever
+    ///   is still held back is flushed once generation ends.
     ///
     /// The invariant the tests hold this to: concatenating every streamed delta
     /// reproduces the non-streamed text exactly.
@@ -1511,7 +1512,7 @@ public final class Engine {
         params.maxTokens = min(params.maxTokens, room)
         let stops = params.stop
         let holdBack = stops.isEmpty
-            ? 0 : max(0, (stops.map { $0.unicodeScalars.count }.max() ?? 1) - 1)
+            ? 0 : max(0, (stops.map { $0.decomposedStringWithCanonicalMapping.unicodeScalars.count }.max() ?? 1) - 1)
         var pendingIds: [Int] = []
         var withheld = ""
         var delivered = ""

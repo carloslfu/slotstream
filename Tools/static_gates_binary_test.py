@@ -61,6 +61,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/checkpoint_mirror_thread_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MIRROR_THREAD') == '1' else 0)\n")
         self.write('Tools/launch_request_deadline_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_DEADLINE') == '1' else 0)\n")
         self.write('Tools/safetensors_empty_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_EMPTY_TENSORS') == '1' else 0)\n")
+        self.write('Tools/stop_sequence_stream_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_STOP_STREAM') == '1' else 0)\n")
         self.write('Tools/pull_interrupt_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PULL_INTERRUPT') == '1' else 0)\n")
         self.write('Tools/memory_override_gate.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN']]\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MEMORY_OVERRIDES') == '1' else 0)\n")
         self.write('Tools/checkpoint_mirror_cli.py', "import os,sys\nassert sys.argv[1:] == ['--binary', os.environ['BIN'], '--weights-free']\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MIRROR_OPTIONS') == '1' else 0)\n")
@@ -181,6 +182,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_empty_tensor_regression_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_EMPTY_TENSORS': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_stop_stream_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_STOP_STREAM': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_stop_stream_regression_stops_acceptance(self):
+        (self.root/'Tools/stop_sequence_stream_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(rows, [])
 
     def test_failed_memory_override_matrix_stops_acceptance(self):
