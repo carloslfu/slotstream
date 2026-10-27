@@ -12,6 +12,17 @@ import statistics
 from pathlib import Path
 
 
+def compare_outputs(rows, reference_outputs):
+    """Unknown until all clean cells have a reference; retain known failures."""
+    clean = [row for row in rows if row['clean'] and row['metrics']]
+    compared = [row for row in clean if row['request_id'] in reference_outputs]
+    missing = sorted({row['request_id'] for row in clean if row['request_id'] not in reference_outputs})
+    mismatched = sorted({row['request_id'] for row in compared
+                         if row['metrics']['output_ids'] != reference_outputs[row['request_id']]})
+    return {'exact': False if mismatched else True if compared and not missing else None,
+            'mismatched': mismatched, 'compared_cells': len(compared), 'uncompared_requests': missing}
+
+
 def arm_counters(cell_row, sweep_dir):
     """Full engine stats for one cell, from the retained arm JSON."""
     rid, rnd, cfg = cell_row["request_id"], cell_row["round"], cell_row["config"]
@@ -89,12 +100,8 @@ def summarize(sweep_dir, reference=None):
         if r["clean"] and r["metrics"]:
             ref_out.setdefault(r["request_id"], r["metrics"]["output_ids"])
     for cfg, rs in by_cfg.items():
-        bad = [r["request_id"] for r in rs if r["clean"] and r["metrics"]
-               and r["request_id"] in ref_out
-               and r["metrics"]["output_ids"] != ref_out[r["request_id"]]]
         if cfg in out and out[cfg].get("clean"):
-            out[cfg]["exact"] = not bad
-            out[cfg]["mismatched"] = sorted(set(bad))
+            out[cfg].update(compare_outputs(rs, ref_out))
 
     # Ratios are PAIRED: same request, same round, reference versus candidate,
     # then a geometric mean over pairs. A ratio of medians across requests is
