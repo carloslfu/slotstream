@@ -52,11 +52,14 @@ Codex needs the setup in the [Codex guide](CODEX.md). Apps that use the
 Anthropic Messages API use `http://127.0.0.1:11434` as the base URL, without
 `/v1`; see the [Claude Code guide](CLAUDE-CODE.md).
 
-If the app asks for a **full endpoint** instead of a base URL, use:
+If the app asks for a **full endpoint** instead of a base URL, match it to
+the app's API mode:
 
-```text
-http://127.0.0.1:11434/v1/chat/completions
-```
+| API mode | Full endpoint |
+|---|---|
+| OpenAI Chat Completions | `http://127.0.0.1:11434/v1/chat/completions` |
+| OpenAI Responses | `http://127.0.0.1:11434/v1/responses` |
+| Anthropic Messages | `http://127.0.0.1:11434/v1/messages` |
 
 Apps may have separate model settings for conversation titles, summaries,
 and fallbacks. Set those to the same local provider if you want those model
@@ -97,10 +100,10 @@ it actually reads the file and returns its contents.
 | Problem | What to check |
 |---|---|
 | Connection refused or the wrong model appears | Keep the Slotstream server running and copy the address and model name exactly. Check for [port conflicts](TROUBLESHOOTING.md#the-server-cant-listen-on-port-11434). |
-| Tools don't work | Use OpenAI Chat Completions with Slotstream 0.2.8 or later. The Ollama connection does not support tools. |
+| Tools don't work | Follow your agent's guide for the API mode and minimum Slotstream version. OpenAI Chat Completions, OpenAI Responses and Anthropic Messages support tools. The Ollama connection does not support tools. |
 | The app calls `/v1/responses` | Supported from Slotstream 0.2.20. Update with the install command if `slotstream --version` is older. Codex needs the [custom provider setup](CODEX.md); it cannot use `--oss`. |
 | The app calls `/v1/messages` | The Anthropic Messages API, supported from Slotstream 0.2.21. Set the base URL without `/v1`. |
-| The app sends `store` and gets a 400 | Update Slotstream; from 0.2.21 chat completions accept `store: false` without effect. `store: true` still returns 400, since the server keeps no completions to fetch later. |
+| `/v1/chat/completions` rejects `store` | Update Slotstream; from 0.2.21 chat completions accept `store: false` without effect. `store: true` still returns 400, since the server keeps no completions to fetch later. |
 | The conversation is too long | The window includes instructions, history, and reply. Auto picks it per Mac, often 32,768 tokens; `slotstream doctor` shows yours. Hermes needs the `--max-context 65536` setup in its guide. |
 | The first answer times out | Check progress in the Slotstream window. Long prompts can take minutes. See your agent's guide for its timeout settings. |
 | Summaries stop early or use a cloud model | Check the separate summary-provider and reply-length settings. Use the full configuration in the Hermes guide; fx has known summary limitations. |
