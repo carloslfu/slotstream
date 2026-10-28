@@ -14,6 +14,7 @@ python3 Tools/static_gates_binary_test.py
 python3 Tools/checkpoint_mirror_cli_test.py
 python3 Tools/installer_gates_binary_test.py
 python3 Tools/installer_metal_test.py
+python3 Tools/dbmd_install_test.py
 python3 Tools/verify_binary_test.py
 python3 Tools/adaptive_memory_e2e_test.py
 python3 Tools/parity_comparison_test.py
