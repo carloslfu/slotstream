@@ -24,6 +24,7 @@ extension Catalogue {
             Check("quantization-kernels", tier: .t1) { try Diagnostics.quantizationKernels() },
             Check("quantization-candidate-arithmetic", tier: .t1) { try Diagnostics.quantizationCandidateArithmetic() },
             Check("persistent-prefix-metadata-bounds", tier: .t0) { try persistentPrefixMetadataBounds() },
+            Check("persistent-prefix-rewrite-quota", tier: .t0) { try persistentPrefixRewriteQuota() },
             Check("prefill-schedule", tier: .t0) { Diagnostics.prefillSchedule() },
             Check("context-policy", tier: .t0) { contextPolicy() },
             Check("automatic-context-window", tier: .t0) { try automaticContextWindow() },
