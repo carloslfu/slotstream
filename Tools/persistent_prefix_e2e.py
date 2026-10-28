@@ -176,6 +176,23 @@ class Server:
             return [line.rstrip() for line in handle if "prefix cache disk" in line]
 
 
+def benchmark_token_ids(frame):
+    """Require complete raw token evidence before prefix equality checks."""
+    details = frame.get("slotstream_benchmark")
+    if not isinstance(details, dict):
+        raise RuntimeError("/api/chat is missing slotstream_benchmark token evidence")
+    result = []
+    for field, count_field in (("prompt_ids", "prompt_eval_count"), ("output_ids", "eval_count")):
+        ids = details.get(field)
+        if not isinstance(ids, list) or any(type(token) is not int or token < 0 for token in ids):
+            raise RuntimeError(f"/api/chat benchmark {field} must be an array of nonnegative integers")
+        count = frame.get(count_field)
+        if type(count) is not int or count < 0 or len(ids) != count:
+            raise RuntimeError(f"/api/chat benchmark {field} does not match {count_field}")
+        result.append(ids)
+    return result[0], result[1]
+
+
 def chat(port, messages, num_predict):
     body = {"model": MODEL, "messages": messages, "stream": False, "think": False,
             "options": {"temperature": 0, "seed": 7, "num_predict": num_predict}}
@@ -185,6 +202,7 @@ def chat(port, messages, num_predict):
     if status != 200:
         raise RuntimeError(f"/api/chat returned {status}: {payload[:500]!r}")
     frame = json.loads(payload)
+    prompt_ids, output_ids = benchmark_token_ids(frame)
     details = frame.get("slotstream_benchmark") or {}
     stats = details.get("stats") or {}
     return {
@@ -200,8 +218,8 @@ def chat(port, messages, num_predict):
         "peak_memory_gb": stats.get("peakMemoryGB"),
         "request_sampled_peak_bytes": (stats.get("sampledFootprint") or {}).get("peakBytes"),
         "persistent": stats.get("persistentPrefix") or {},
-        "prompt_ids": details.get("prompt_ids"),
-        "output_ids": details.get("output_ids"),
+        "prompt_ids": prompt_ids,
+        "output_ids": output_ids,
         "content": (frame.get("message") or {}).get("content"),
     }
 
