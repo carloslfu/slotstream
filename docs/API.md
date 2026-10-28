@@ -193,9 +193,12 @@ the call order for the native model template. An `input_image` needs an
 inline `image_url` data URL; see [Images](#images).
 
 Tools use the Responses shape, `{"type":"function","name":...,
-"description":...,"parameters":...}`. A `namespace` tool is flattened: each
-member renders as `namespace.name`, and a call to it is reported with the
-`name` and `namespace` fields split again. Hosted `web_search` and
+"description":...,"parameters":...}`. Freeform `custom` tools are also
+accepted. Their raw text is returned as a `custom_tool_call` item's `input`;
+a supplied grammar is shown to the model but not enforced. A `namespace`
+tool is flattened: each function member renders as `namespace.name`, and a
+call to it is reported with the `name` and `namespace` fields split again.
+Hosted `web_search` and
 `file_search` tools are dropped because the model cannot run them. Other
 tool types, `strict: true`, and the `text.format` constrained-output
 setting return 400, as on `/v1/chat/completions`. `tool_choice` accepts
@@ -224,29 +227,38 @@ next turn. Without `max_output_tokens` the reply budget is the
 up to 8,192 tokens, bounded by the room the prompt leaves.
 
 The response object, returned whole without `stream` and carried by the
-`response.created` and `response.completed` events, has `id`, `status`,
-`model`, `output`, and `usage`, and repeats the request's `tools`,
+`response.created`, `response.in_progress`, `response.completed`,
+`response.incomplete`, and `response.failed` events, has `id`, `status`,
+`model`, and `output`, and repeats the request's `tools`,
 `tool_choice`, `parallel_tool_calls`, `instructions`, `temperature`,
 `top_p`, `max_output_tokens`, `reasoning`, and `text` as the API does. It
 reports `store: false` and a null `previous_response_id` because nothing is
-kept.
+kept. `usage` is included in non-streamed responses with status `completed`
+or `incomplete` and in their corresponding terminal events; it is omitted
+from `response.created`, `response.in_progress`, and `response.failed`.
 
 A streamed reply is Server-Sent Events, each with an `event:` line and a
 `data:` line: `response.created`, `response.in_progress`,
 `response.output_item.added` and `.done`, `response.content_part.added` and
 `.done`, `response.output_text.delta` and `.done`,
-`response.reasoning_summary_part.added`, `.delta` and `.done`,
-`response.function_call_arguments.delta` and `.done`, and
+`response.reasoning_summary_part.added` and `.done`,
+`response.reasoning_summary_text.delta` and `.done`,
+`response.function_call_arguments.delta` and `.done`,
+`response.custom_tool_call_input.delta` and `.done`, and
 `response.completed` with `usage`. During a long prompt read the server sends
 a `response.in_progress` event every 10 seconds, because Codex's idle timeout
-counts events rather than bytes. Running out of tokens before the reply ends
-is `response.incomplete` with `incomplete_details.reason:
-"max_output_tokens"`, unless a complete function call was already delivered,
-in which case the response completes. An inference failure after the stream
+counts events rather than bytes. With no tool-call error, running out of
+tokens before the reply ends is `response.incomplete` with
+`incomplete_details.reason: "max_output_tokens"`, unless a complete tool call
+was already delivered, in which case the response completes. An unfinished
+call or an unsatisfied required `tool_choice` is an inference failure even
+at the token limit. An inference failure after the stream
 starts is a `response.failed` event carrying `error.code` and `error.message`,
 with no `response.completed` after it. Function calls are delivered whole:
 `response.output_item.added`, one arguments delta, `arguments.done`, and
-`output_item.done`, only once the model's call block is complete.
+`output_item.done`, only once the model's call block is complete. Custom calls
+follow the same sequence using one `response.custom_tool_call_input.delta`
+and then `response.custom_tool_call_input.done` for their raw input.
 
 ## `/v1/messages`
 
@@ -395,19 +407,25 @@ outputs. Out-of-range sampling values are clamped to supported ranges.
 Ollama endpoints stream newline-delimited JSON. The final object has
 `done: true`, `done_reason`, `prompt_eval_count`, and `eval_count`.
 
-The OpenAI endpoint streams Server-Sent Events (SSE) as `data:` lines ending
-with `[DONE]`. Its first delta includes `"role": "assistant"`.
+The OpenAI Chat Completions endpoint streams Server-Sent Events (SSE) as
+`data:` lines ending with `[DONE]`. Its first delta includes `"role": "assistant"`.
 
 Text is sent incrementally. Incomplete UTF-8 characters and possible stop
 sequences are held back until resolved. Concatenating the text deltas gives
 the same text as a non-streamed response under the same generation
 conditions; `Tools/api_robustness.sh` checks this.
 
-Tool streams carry `delta.tool_calls` with an `index`, ID, function name and
-complete argument string. The final choice has `finish_reason: "tool_calls"`.
+Chat Completions tool streams use `delta.tool_calls` entries keyed by
+`index`. The first entry supplies the ID and function name; concatenate the
+`function.arguments` fragments for each index. A normally completed tool
+turn has `finish_reason: "tool_calls"`; reaching the token limit gives
+`"length"` and may leave incomplete arguments.
 Reasoning uses `delta.reasoning_content`; it is excluded from answer text.
 An inference error after streaming starts is an SSE `error` object followed
 by connection termination, without a successful finish or `[DONE]` marker.
+
+For the other SSE APIs, see the distinct event sequences for
+[Responses](#v1responses) and [Messages](#v1messages).
 
 ## Images
 
@@ -545,8 +563,8 @@ under [`/v1/messages`](#v1messages).
 
 | Status | Meaning |
 |---|---|
-| 400 | Invalid or unsupported request, including tools on the Ollama endpoints, JSON-schema output, strict tool schemas, logprobs, embeddings, or named reasoning levels for `think` |
-| 500 | Inference failure, including an incomplete generated tool call or unsatisfied required tool choice |
+| 400 | Invalid or unsupported request, including tools on the Ollama endpoints, JSON-schema output, `strict: true` tool schemas on Chat Completions or Responses, logprobs, embeddings, or named reasoning levels for `think` |
+| 500 | Inference failure. Incomplete generated tool calls or missing required calls are errors except when generation hits a token limit on Chat Completions or Messages. |
 | 411 | Chunked request body; send `Content-Length` instead |
 | 413 | Request body exceeds 32 MiB |
 | 431 | Request headers exceed 64 KiB |
