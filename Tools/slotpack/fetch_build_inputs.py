@@ -23,9 +23,9 @@ def main():
    try:
     req=urllib.request.Request(urls[i],headers={'User-Agent':'Slotstream-Package-Builder/1','Range':f'bytes={off}-{off+n-1}','Accept-Encoding':'identity'})
     with urllib.request.urlopen(req,timeout=120) as r:
-     assert (r.status==206 and r.headers.get('Content-Range')==f'bytes {off}-{off+n-1}/{f["size"]}') or (r.status==200 and off==0 and n==f['size']), (f['path'],off,n,r.status,r.headers.get('Content-Range'),r.headers.get('Content-Length'))
+     if not ((r.status==206 and r.headers.get('Content-Range')==f'bytes {off}-{off+n-1}/{f["size"]}') or (r.status==200 and off==0 and n==f['size'])):raise ValueError((f['path'],off,n,r.status,r.headers.get('Content-Range'),r.headers.get('Content-Length')))
      data=r.read(n+1)
-    assert len(data)==n
+    if len(data)!=n:raise ValueError((f['path'],off,n,len(data)))
     written=0
     while written<n:written+=os.pwrite(fds[i],data[written:],off+written)
     os.fsync(fds[i]);break
@@ -41,6 +41,6 @@ def main():
  finally:
   for fd in fds:os.close(fd)
  for f in files:
-  assert pack.sha_file(dest/f['path'])==f['sha256'],f['path']
+  if pack.sha_file(dest/f['path'])!=f['sha256']:raise ValueError(f"{f['path']}: SHA-256 mismatch")
  print('ALL BUILD INPUTS VERIFIED',flush=True)
 if __name__=='__main__':main()
