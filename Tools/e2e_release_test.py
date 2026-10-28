@@ -138,13 +138,16 @@ class InstalledReleaseGate(unittest.TestCase):
             script = script.replace('/tmp/'+name,str(self.root/name))
         self.script = self.root/'e2e_release.sh'
         self.script.write_text(script)
+        (self.root/'api_generation.py').write_bytes(SCRIPT.with_name('api_generation.py').read_bytes())
 
     def run_gate(self, fault='', binary=None, **extra):
+        (self.root/'hits').unlink(missing_ok=True)
         env = {k:v for k,v in os.environ.items() if k!='BIN' and not k.startswith(('SLOTSTREAM_','SS_DEBUG','E2E_'))}
+        env.pop('PYTHONOPTIMIZE', None)
         env.update(BIN=str(binary or self.binary), E2E_FAULT=fault,
                    E2E_FIXTURE_ROOT=str(self.root), PATH=str(self.root/'bin')+os.pathsep+os.environ['PATH'])
         env.update(extra)
-        return subprocess.run(['bash',str(self.script),'12345'],env=env,
+        return subprocess.run(['bash',str(self.script),'12345'],env=env,cwd=self.root,
                               capture_output=True,text=True,timeout=20)
 
     def expect_fault(self, fault, predicate):
@@ -160,6 +163,33 @@ class InstalledReleaseGate(unittest.TestCase):
     def test_quoted_installed_binary_path_passes(self):
         result = self.run_gate(binary=self.quoted)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
+    def test_complete_responses_pass_with_python_optimization(self):
+        result = self.run_gate(PYTHONOPTIMIZE='1')
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertIn('failed 0',result.stdout)
+
+    def test_optimized_python_cannot_certify_incomplete_streams(self):
+        for fault in ['stream-eof', 'stream-duplicate-terminal', 'stream-after-terminal']:
+            with self.subTest(fault=fault):
+                result = self.run_gate(fault, PYTHONOPTIMIZE='1')
+                self.assertIn('FAIL  stream != nonstream',result.stdout,result.stdout+result.stderr)
+                self.assertNotEqual(result.returncode,0,result.stdout+result.stderr)
+
+    def test_optimized_python_cannot_certify_failed_ollama_completions(self):
+        for fault in ['stop-zero-tokens', 'stop-unfinished', 'stop-error-reason']:
+            with self.subTest(fault=fault):
+                result = self.run_gate(fault, PYTHONOPTIMIZE='1')
+                self.assertIn('FAIL  stop sequence ->',result.stdout,result.stdout+result.stderr)
+                self.assertNotEqual(result.returncode,0,result.stdout+result.stderr)
+
+    def test_optimized_python_cannot_certify_failed_openai_completions(self):
+        for fault in ['openai-error-finish', 'openai-null-finish', 'openai-tool-finish',
+                      'openai-error-field', 'openai-zero-tokens', 'openai-bool-tokens']:
+            with self.subTest(fault=fault):
+                result = self.run_gate(fault, PYTHONOPTIMIZE='1')
+                self.assertIn('FAIL  openai array ->',result.stdout,result.stdout+result.stderr)
+                self.assertNotEqual(result.returncode,0,result.stdout+result.stderr)
 
     def test_missing_colocated_metallib_fails(self):
         (self.binary.parent/'mlx.metallib').unlink()

@@ -14,6 +14,7 @@
 # Nesting python inside shell inside curl mangles the JSON and produces failures
 # that look like server bugs but are not — that cost a full debugging round.
 set -uo pipefail
+TOOLS=$(cd "$(dirname "$BASH_SOURCE")" && pwd) || exit 1
 PORT="${1:-11530}"
 B=${BIN:-"$HOME/.slotstream/bin/slotstream"}
 P=0; F=0
@@ -31,45 +32,15 @@ chat() { curl -fsS --max-time 900 "http://127.0.0.1:$PORT/api/chat" -H 'Content-
 # Every successful text comparison must first prove a complete generation.
 # In particular, two failed/empty responses must never count as stream parity.
 ollama_text() {
-  python3 -c '
-import json,sys
-stream = len(sys.argv) > 1 and sys.argv[1] == "stream"
-frames = [json.loads(line) for line in sys.stdin if line.strip()] if stream else [json.load(sys.stdin)]
-assert frames, "missing response"
-parts = []
-for index, frame in enumerate(frames):
-    assert isinstance(frame, dict) and "error" not in frame, "failed generation"
-    assert frame.get("done") is (index == len(frames)-1), "missing, repeated or early terminal"
-    message = frame["message"]
-    assert message.get("role") == "assistant" and isinstance(message.get("content"), str), "invalid message"
-    parts.append(message["content"])
-terminal = frames[-1]
-assert terminal.get("done_reason") in ("stop", "length"), "unsuccessful terminal"
-count = terminal.get("eval_count")
-assert type(count) is int and count > 0, "missing generated tokens"
-text = "".join(parts)
-assert text.strip(), "empty generation"
-print(text, end="")
-' "$@"
+  if [ "$#" -gt 0 ] && [ "$1" = stream ]; then
+    python3 "$TOOLS/api_generation.py" ollama-chat --stream
+  else
+    python3 "$TOOLS/api_generation.py" ollama-chat
+  fi
 }
 
 openai_text() {
-  python3 -c '
-import json,sys
-response = json.load(sys.stdin)
-assert isinstance(response, dict) and "error" not in response, "failed generation"
-choices = response["choices"]
-assert isinstance(choices, list) and len(choices) == 1, "missing or multiple completions"
-choice = choices[0]
-assert choice.get("finish_reason") in ("stop", "length"), "unsuccessful terminal"
-message = choice["message"]
-assert message.get("role") == "assistant", "invalid message role"
-text = message["content"]
-assert isinstance(text, str) and text.strip(), "empty generation"
-count = response["usage"]["completion_tokens"]
-assert type(count) is int and count > 0, "missing generated tokens"
-print(text, end="")
-'
+  python3 "$TOOLS/api_generation.py" openai
 }
 
 echo "== install integrity =="
