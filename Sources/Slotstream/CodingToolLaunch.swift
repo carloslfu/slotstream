@@ -241,6 +241,35 @@ package enum CodingToolLaunch {
         return nil
     }
 
+    /// One complete settings value, before the terminator. Multiple values
+    /// cannot all be merged into the launcher's connection settings.
+    package static func claudeSettingsOption(_ arguments: [String]) throws -> (index: Int, value: String)? {
+        let words = optionWords(arguments)
+        var setting: (index: Int, value: String)?
+        var index = words.startIndex
+        while index < words.endIndex {
+            let word = words[index]
+            guard word == "--settings" || word.hasPrefix("--settings=") else {
+                index += 1
+                continue
+            }
+            guard setting == nil else { throw Failure("--settings cannot be passed more than once") }
+            let optionIndex = index
+            let value: String
+            if word == "--settings" {
+                guard index + 1 < words.endIndex else { throw Failure("--settings requires a value") }
+                value = words[index + 1]
+                index += 2
+            } else {
+                value = String(word.dropFirst("--settings=".count))
+                index += 1
+            }
+            guard !value.isEmpty else { throw Failure("--settings requires a value") }
+            setting = (optionIndex, value)
+        }
+        return setting
+    }
+
     static func json(_ object: Any, pretty: Bool = false) -> String {
         var options: JSONSerialization.WritingOptions = [.sortedKeys, .withoutEscapingSlashes]
         if pretty { options.insert(.prettyPrinted) }
@@ -329,6 +358,7 @@ package enum CodingToolLaunch {
     static let claudeHostedTools = ["WebSearch"]
 
     static func claudePlan(_ inputs: Inputs) throws -> Plan {
+        let suppliedSettings = try claudeSettingsOption(inputs.arguments)
         let connection = claudeConnection(inputs.server)
         var environment = connection
         for (key, value) in claudeDefaults where inputs.environment[key] == nil { environment[key] = value }
@@ -358,7 +388,7 @@ package enum CodingToolLaunch {
         settings["permissions"] = permissions
 
         var arguments = inputs.arguments
-        if let existing = optionValue(arguments, "--settings") {
+        if let existing = suppliedSettings {
             let width = arguments[existing.index].hasPrefix("--settings=") ? 1 : 2
             arguments.removeSubrange(existing.index ..< existing.index + width)
         }
