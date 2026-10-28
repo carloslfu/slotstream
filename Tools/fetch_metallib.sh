@@ -6,11 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${OUT:-Tools/lib/mlx-0.32.2.metallib}"
-if [ -s "$OUT" ]; then
-    echo "already have $OUT"
-    exit 0
-fi
-mkdir -p "$(dirname "$OUT")"
+IDENTITY="$OUT.cache-identity"
 # CI overrides this to package a specific build regardless of runner OS.
 HOST=${SLOTSTREAM_METALLIB_MACOS:-$(sw_vers -productVersion | cut -d. -f1)}
 # URLs and digests are pinned with the MLX version. Live PyPI metadata used to
@@ -25,6 +21,17 @@ else
     URL=https://files.pythonhosted.org/packages/dd/cd/4e50bf325100e7165e13d025f264362bf0009196269f9eaf87f2c6e738a2/mlx_metal-0.32.2-py3-none-macosx_26_0_arm64.whl
     SHA=e6abeac9ac5265830c9c1541b6f96e9be37a85c2446763a46ad466c63a3837ab
 fi
+# A version-only filename does not identify the selected macOS wheel. Legacy
+# unmarked caches are refreshed once; later hits bind both wheel and contents.
+if [ -s "$OUT" ] && [ -f "$IDENTITY" ]; then
+    CACHED_SHA=$(shasum -a 256 "$OUT" | cut -d' ' -f1)
+    EXPECTED=$(printf '%s\n%s\n' "$SHA" "$CACHED_SHA")
+    if [ "$(cat "$IDENTITY")" = "$EXPECTED" ]; then
+        echo "already have $OUT"
+        exit 0
+    fi
+fi
+mkdir -p "$(dirname "$OUT")"
 echo "downloading $(basename "$URL") (about 50 MB)"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -36,5 +43,8 @@ if [ "$(stat -f%z "$TMP/mlx.metallib")" -lt 50000000 ]; then
     echo "extracted metallib is implausibly small; aborting" >&2
     exit 1
 fi
+LIB_SHA=$(shasum -a 256 "$TMP/mlx.metallib" | cut -d' ' -f1)
+printf '%s\n%s\n' "$SHA" "$LIB_SHA" > "$TMP/cache-identity"
 mv "$TMP/mlx.metallib" "$OUT"
+mv "$TMP/cache-identity" "$IDENTITY"
 echo "ok: $OUT"
