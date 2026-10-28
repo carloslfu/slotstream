@@ -36,7 +36,8 @@ def pins():
     rows = re.findall(r'File\(path: "([^"]+)", size: (\d+),\s*sha256: "([a-f0-9]{64})"(?:, optional: (true|false))?\)', text)
     if not rows:  # formatting permits .init in generated lists
         rows = re.findall(r'\.init\(path: "([^"]+)", size: (\d+),\s*sha256: "([a-f0-9]{64})"(?:, optional: (true|false))?\)', text)
-    assert len(rows) == 25, len(rows)
+    if len(rows) != 25:
+        raise ValueError(f'expected 25 pinned files, found {len(rows)}')
     return [dict(path=p, size=int(n), sha256=h, optional=o == 'true') for p, n, h, o in rows]
 
 
