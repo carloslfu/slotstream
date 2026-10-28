@@ -768,6 +768,13 @@ struct Launch: ParsableCommand {
             throw CodingToolLaunch.Failure("`codex --version` did not answer within 15 seconds. "
                 + "Check that `codex` starts, and run this again.")
         }
+        guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+            let reason = process.terminationReason == .exit
+                ? "exit status \(process.terminationStatus)"
+                : "signal \(process.terminationStatus)"
+            throw CodingToolLaunch.Failure("`codex --version` failed with \(reason). "
+                + "Check that `codex` starts, and run this again.")
+        }
         let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         guard let version = CodingToolLaunch.codexVersion(fromOutput: text) else {
             throw CodingToolLaunch.Failure("could not read a version from `codex --version`: "
