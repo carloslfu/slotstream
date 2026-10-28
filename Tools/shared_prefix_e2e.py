@@ -37,7 +37,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from persistent_prefix_e2e import (MODEL, ROOT, brief, http, model_process_running, prefix_cache, prose,  # noqa: E402
-                                   reclaimable_gb)
+                                   reclaimable_gb, _stop_owned_server, _cleanup_failed_server)
 
 GRID = 256
 
@@ -53,36 +53,37 @@ class Server:
         self.log = open(log_path, "w")
         args = [binary, "serve", "--port", str(port), "--memory-gb", str(memory_gb), *flags]
         env = dict(os.environ, SLOTSTREAM_BENCH_DETAILS="1")
-        self.process = subprocess.Popen(args, stdout=self.log, stderr=subprocess.STDOUT, env=env,
-                                        start_new_session=True)
+        try:
+            self.process = subprocess.Popen(args, stdout=self.log, stderr=subprocess.STDOUT, env=env,
+                                            start_new_session=True)
+        except BaseException:
+            _cleanup_failed_server(None, self.log)
+            raise
 
     def wait_ready(self, timeout=900):
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if self.process.poll() is not None:
-                self.log.close()
-                with open(self.log_path, errors="replace") as handle:
-                    if "already running" in handle.read():
-                        raise ModelSlotBusy(f"another model process holds the slot; see {self.log_path}")
-                raise RuntimeError(f"server exited with {self.process.returncode}; see {self.log_path}")
-            try:
-                status, _ = http(self.port, "GET", "/api/version", timeout=2)
-                if status == 200:
-                    return
-            except OSError:
-                pass
-            time.sleep(1)
-        raise RuntimeError(f"server not ready after {timeout} s; see {self.log_path}")
+        try:
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if self.process.poll() is not None:
+                    self.log.close()
+                    with open(self.log_path, errors="replace") as handle:
+                        if "already running" in handle.read():
+                            raise ModelSlotBusy(f"another model process holds the slot; see {self.log_path}")
+                    raise RuntimeError(f"server exited with {self.process.returncode}; see {self.log_path}")
+                try:
+                    status, _ = http(self.port, "GET", "/api/version", timeout=2)
+                    if status == 200:
+                        return
+                except OSError:
+                    pass
+                time.sleep(1)
+            raise RuntimeError(f"server not ready after {timeout} s; see {self.log_path}")
+        except BaseException:
+            _cleanup_failed_server(self.process, self.log)
+            raise
 
     def stop(self):
-        if self.process.poll() is None:
-            self.process.send_signal(signal.SIGINT)
-            try:
-                self.process.wait(timeout=60)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=30)
-        self.log.close()
+        _stop_owned_server(self.process, self.log)
         deadline = time.time() + 30
         while model_process_running() and time.time() < deadline:
             time.sleep(0.5)
