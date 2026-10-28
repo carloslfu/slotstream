@@ -7,7 +7,7 @@ from serve_bench import request_body, resource_exclusions, summaries, acceptance
 import json
 from memory_gate import check_memory
 from long_context_gate import check_answer
-from contextlib import redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -918,6 +918,200 @@ Swapouts: 23.
                 with self.assertRaises(ValueError): validate_metrics(bad)
         bad = copy.deepcopy(good); del bad["stats"]["prefillRecords"]
         with self.assertRaises(ValueError): validate_metrics(bad)
+
+
+class ServingReferenceTests(unittest.TestCase):
+    """Synthetic real-main comparisons: protocol key order is not a baseline."""
+
+    def _run_main(self, order, times, *, rounds=1, sorted_json=False):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / 'slotstream'
+            binary.write_bytes(b'inert fixture; never executable')
+            (root / 'mlx.metallib').write_bytes(b'inert fixture')
+            (root / 'build-source.tar.gz').write_bytes(b'inert fixture')
+            identity = {key: serve_bench.digest(root / name) for name, key in [
+                ('slotstream', 'binary_sha256'), ('mlx.metallib', 'metallib_sha256'),
+                ('build-source.tar.gz', 'source_archive_sha256')]}
+            (root / 'build-identity.json').write_text(json.dumps(identity))
+            fixture = root / 'prompt.txt'
+            fixture.write_text('tiny synthetic prompt')
+            protocol = {'arms': {name: {'chunk': 256, 'env': {'SLOTSTREAM_TEST_ARM': name}}
+                                 for name in order},
+                'binary': str(binary), 'model': str(root / 'inert-model'),
+                'fixture': str(fixture), 'fixture_sha256': serve_bench.digest(fixture),
+                'rounds': rounds, 'memory_gb': 8.1, 'max_tokens': 1, 'seed': 7,
+                'minimum_output_tokens': 1, 'required_equal_work': ['prefillTokens', 'decodeTokens'],
+                'acceptance': {'minimum_pairs': rounds, 'minimum_median_client_reduction': .05,
+                               'minimum_positive_fraction': 1, 'all_outputs_exact': True},
+                'startup_acceptance': {'minimum_pairs': rounds,
+                    'maximum_median_first_job_regression': .05, 'all_outputs_exact': True}}
+            source = root / 'protocol.json'
+            source.write_text(json.dumps(protocol, sort_keys=sorted_json))
+            out = root / 'output'
+            vm = {'swapins': 0, 'swapouts': 0, 'reclaimable_bytes': 20_000_000_000}
+            clock = [0.0]
+            state = {}
+            launched = []
+            stopped = []
+
+            class Reservation:
+                def __enter__(self): return self
+                def __exit__(self, *args): return False
+                def bind(self, address):
+                    if address != ('127.0.0.1', 0): raise AssertionError(address)
+                def getsockname(self): return ('127.0.0.1', 12345)
+
+            def launch(command, **kwargs):
+                name = kwargs['env']['SLOTSTREAM_TEST_ARM']
+                state.update(name=name, exchanges=0, origin=clock[0])
+                child = object()
+                launched.append((name, child))
+                return child
+
+            def ready(child, port):
+                self.assertIs(child, launched[-1][1])
+                self.assertEqual(port, 12345)
+                clock[0] = state['origin'] + times[state['name']][1] / 4
+
+            def exchange(port, body, timeout, **kwargs):
+                self.assertEqual(port, 12345)
+                self.assertEqual(json.loads(body)['prompt'], fixture.read_text())
+                seconds, first_job = times[state['name']]
+                state['exchanges'] += 1
+                if state['exchanges'] == 1: clock[0] = state['origin'] + first_job
+                self.assertIn(state['exchanges'], (1, 2))
+                metrics = {'schema_version': 1, 'prompt_ids': [1, 2], 'output_ids': [3],
+                    'effective_pool_slots': 640, 'effective_prefill_chunk': 256, 'effective_mtp': False,
+                    'stats': {'prefillSeconds': seconds / 2, 'decodeSeconds': seconds / 2,
+                        'requestSeconds': seconds, 'imageEncodeSeconds': 0, 'prefillRecords': 2,
+                        'decodeRecords': 1, 'prefillTokens': 2, 'promptTokens': 2, 'decodeTokens': 1,
+                        'lifetimeRSSPeakBytes': 1024, 'prefillPasses': [2], 'reusedPrefixTokens': 0,
+                        'generatorVMBefore': dict(vm), 'generatorVMAfter': dict(vm)}}
+                validate_metrics(metrics)
+                response = {'text': 'same exact output', 'metrics': metrics, 'client_seconds': seconds}
+                return response, (json.dumps(response) + '\n').encode()
+
+            def unexpected(*args, **kwargs):
+                raise AssertionError('unexpected external boundary')
+
+            stdout = io.StringIO()
+            with ExitStack() as stack:
+                boundaries = {'ROOT': root, 'model_identity': lambda model: {'synthetic': True},
+                    'preflight': lambda *args: dict(vm), 'vm_snapshot': lambda: dict(vm),
+                    'host_conditions': lambda: {'synthetic': True},
+                    'wait_for_headroom': lambda *args: (dict(vm), {'synthetic': True}),
+                    'reserved_cooldown': lambda *args: {'reserved': False, 'wait_seconds': 0},
+                    'competing_jobs': lambda: [], 'wait_for_quiet_workspace': unexpected,
+                    'subprocess': SimpleNamespace(Popen=launch),
+                    'socket': SimpleNamespace(socket=Reservation),
+                    'time': SimpleNamespace(monotonic=lambda: clock[0], sleep=unexpected),
+                    'wait_ready': ready, 'exchange': exchange, 'stop_server': stopped.append}
+                for name, replacement in boundaries.items():
+                    stack.enter_context(patch.object(serve_bench, name, replacement))
+                stack.enter_context(patch('sys.argv', ['serve_bench', '--protocol', str(source), '--out', str(out)]))
+                stack.enter_context(redirect_stdout(stdout))
+                code = serve_bench.main()
+            (root / 'main.stdout.txt').write_text(stdout.getvalue())
+            (root / 'main-status.json').write_text(json.dumps({'returncode': code}))
+            result = {name: json.loads((out / filename).read_text()) for name, filename in [
+                ('summary', 'summary.json'), ('startup', 'startup-summary.json'), ('completion', 'completion.json')]}
+            result['rows'] = [json.loads(line) for line in (out / 'results.jsonl').read_text().splitlines()]
+            result['code'] = code
+            result['stdout'] = stdout.getvalue()
+            result['order'] = [name for name, child in launched]
+            self.assertEqual(stopped, [child for name, child in launched])
+            return result
+
+    def _assert_main(self, result, order, times, *, rounds=1):
+        candidates = sorted(set(order) - {'reference'})
+        expected_order = [name for number in range(1, rounds + 1)
+                          for name in (order if number % 2 else list(reversed(order)))]
+        self.assertEqual(result['order'], expected_order)
+        self.assertEqual([row['arm'] for row in result['rows']], expected_order)
+        self.assertEqual(result['completion']['recorded_cells'], len(order) * rounds)
+        self.assertEqual(result['completion']['planned_cells'], len(order) * rounds)
+        self.assertFalse(result['completion']['interrupted'])
+        self.assertFalse(result['completion']['stopped_early'])
+        for row in result['rows']:
+            self.assertTrue(row['valid'])
+            self.assertTrue(row['startup_and_warmup_valid'])
+            self.assertNotIn('error', row)
+            self.assertNotIn('exclusion', row)
+            self.assertEqual(row['text'], 'same exact output')
+            self.assertEqual(row['metrics']['output_ids'], [3])
+            self.assertEqual(row['client_seconds'], times[row['arm']][0])
+            self.assertEqual(row['first_request']['complete_seconds_from_launch'], times[row['arm']][1])
+            validate_metrics(row['metrics'])
+        for key in ['summary', 'startup']:
+            with self.subTest(output=key):
+                self.assertEqual([item['candidate'] for item in result[key]], candidates)
+        expected_passes = []
+        for name in candidates:
+            measured = 1 - times[name][0] / times['reference'][0]
+            first_job = 1 - times[name][1] / times['reference'][1]
+            passed = measured >= .05 and first_job >= -.05
+            expected_passes.append(passed)
+            with self.subTest(candidate=name, output='summary'):
+                self.assertIn(name, [item['candidate'] for item in result['summary']])
+                item = next(item for item in result['summary'] if item['candidate'] == name)
+                self.assertEqual(item['reference'], 'reference')
+                self.assertEqual(item['excluded_rounds'], [])
+                self.assertEqual(len(item['pairs']), rounds)
+                self.assertEqual(item['median_client_reduction_fraction'], measured)
+                self.assertEqual(item['median_generator_reduction_fraction'], measured)
+                for pair in item['pairs']:
+                    self.assertEqual(pair['client_reduction_fraction'], measured)
+                    self.assertTrue(pair['output_ids_equal'])
+                    self.assertTrue(pair['wire_text_equal'])
+            with self.subTest(candidate=name, output='startup'):
+                self.assertIn(name, [item['candidate'] for item in result['startup']])
+                item = next(item for item in result['startup'] if item['candidate'] == name)
+                self.assertEqual(item['excluded_rounds'], [])
+                self.assertEqual(len(item['pairs']), rounds)
+                self.assertEqual(item['median_first_job_excess_seconds'], times[name][1] - times['reference'][1])
+            for key in ['acceptance', 'startup_acceptance']:
+                with self.subTest(candidate=name, output=key):
+                    self.assertIn(name, [item['candidate'] for item in result['completion'][key]])
+                    item = next(item for item in result['completion'][key] if item['candidate'] == name)
+                    self.assertEqual(item['passed'], passed)
+                    self.assertTrue(item['checks']['minimum_pairs'])
+                    if key == 'startup_acceptance':
+                        self.assertEqual(item['eligible_rounds'], list(range(1, rounds + 1)))
+                        self.assertEqual(item['median_first_job_reduction_fraction'], first_job)
+                    else:
+                        self.assertTrue(item['checks']['exact_outputs'])
+        with self.subTest(output='CLI status'):
+            self.assertEqual(result['code'], 0 if all(expected_passes) else 1)
+
+    def test_candidate_first_arm_schema_accepts_required_reference(self):
+        arms = {'candidate': {'chunk': 256, 'env': {}}, 'reference': {'chunk': 256, 'env': {}}}
+        self.assertIsNone(serve_bench.validate_arms(json.loads(json.dumps(arms))))
+
+    def test_reference_first_main_refuses_regression(self):
+        order = ['reference', 'candidate']
+        times = {'reference': (1, 4), 'candidate': (2, 8)}
+        self._assert_main(self._run_main(order, times), order, times)
+
+    def test_candidate_first_sorted_json_main_refuses_regression(self):
+        order = ['candidate', 'reference']
+        times = {'reference': (1, 4), 'candidate': (2, 8)}
+        self._assert_main(self._run_main(order, times, sorted_json=True), order, times)
+
+    def test_reference_first_main_accepts_improvement(self):
+        order = ['reference', 'candidate']
+        times = {'reference': (1, 4), 'candidate': (.5, 2)}
+        self._assert_main(self._run_main(order, times), order, times)
+
+    def test_candidate_first_main_accepts_improvement(self):
+        order = ['candidate', 'reference']
+        times = {'reference': (1, 4), 'candidate': (.5, 2)}
+        self._assert_main(self._run_main(order, times), order, times)
+
+    def test_three_arms_reference_last_preserves_candidates_and_round_order(self):
+        order = ['candidate', 'faster', 'reference']
+        times = {'reference': (1, 4), 'candidate': (2, 8), 'faster': (.5, 2)}
+        self._assert_main(self._run_main(order, times, rounds=2), order, times, rounds=2)
 
 
 if __name__ == "__main__": unittest.main()

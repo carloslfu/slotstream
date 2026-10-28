@@ -766,7 +766,7 @@ def main():
     warmup_checkpoint_stores = (protocol.get('prefix_cache') or {}).get('expected_warmup_checkpoint_stores')
     checkpoint_refusals = (protocol.get('prefix_cache') or {}).get('expected_checkpoint_refusals')
     expected_work = work_constraints(protocol)
-    startup_acceptance_results([], next(iter(protocol['arms'])), protocol.get('startup_acceptance'))
+    startup_acceptance_results([], 'reference', protocol.get('startup_acceptance'))
     stop_on_contention = contention_guard(protocol)
     initial_quiet = workspace_quiet_requirement(protocol)
     cooldown = cell_cooldown(protocol)
@@ -965,11 +965,11 @@ def main():
             print(json.dumps(progress),flush=True)
             if stop_requested: break
         if stop_requested: break
-    summary=summaries(rows,next(iter(arms)),comparison_basis,required_equal_work)
+    summary=summaries(rows,'reference',comparison_basis,required_equal_work)
     (a.out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
-    (a.out/'startup-summary.json').write_text(json.dumps(startup_summaries(rows,next(iter(arms))),indent=2)+'\n')
+    (a.out/'startup-summary.json').write_text(json.dumps(startup_summaries(rows,'reference'),indent=2)+'\n')
     assessment = acceptance_results(summary, protocol.get('acceptance'))
-    startup_assessment = startup_acceptance_results(rows, next(iter(arms)), protocol.get('startup_acceptance'))
+    startup_assessment = startup_acceptance_results(rows, 'reference', protocol.get('startup_acceptance'))
     (a.out/'completion.json').write_text(json.dumps({'interrupted': interrupted,
         'stopped_early': stop_requested, 'planned_cells': protocol['rounds'] * len(arms),
         'recorded_cells': len(rows), 'acceptance': assessment, 'startup_acceptance': startup_assessment}, indent=2)+'\n')
