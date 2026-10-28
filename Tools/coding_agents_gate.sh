@@ -421,3 +421,4 @@ tail -15 "$OUT/serve.log" | sed 's/^/   /'
 echo "== all tool traffic"
 reads_since 1
 echo "SUMMARY $P passed, $F failed ($(stamp))"
+[ "$F" -eq 0 ]

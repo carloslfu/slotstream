@@ -325,3 +325,4 @@ stopstart)
 esac
 done
 echo "SUMMARY $P passed, $F failed ($(stamp))"
+[ "$F" -eq 0 ]
