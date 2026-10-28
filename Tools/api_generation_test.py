@@ -148,7 +148,7 @@ class CompletionContracts(unittest.TestCase):
 
 
 class ActualPythonStreamPredicates(unittest.TestCase):
-    def run_block(self, marker, fault):
+    def run_block(self, marker, fault, optimize=0):
         text = SCRIPT.read_text()
         section = text[text.index(marker):]
         code = section.split("<<'PYEOF'\n", 1)[1].split('\nPYEOF\n', 1)[0]
@@ -179,7 +179,7 @@ class ActualPythonStreamPredicates(unittest.TestCase):
                 patch.object(sys, 'path', [str(ROOT), *sys.path]), \
                 contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
             try:
-                exec(compile(code, str(SCRIPT), 'exec'), {})
+                exec(compile(code, str(SCRIPT), 'exec', optimize=optimize), {})
             except SystemExit as error:
                 return error.code or 0
             except (ValueError, AssertionError, KeyError, TypeError):
@@ -197,9 +197,21 @@ class ActualPythonStreamPredicates(unittest.TestCase):
                 with self.subTest(marker=marker, fault=fault):
                     self.assertNotEqual(self.run_block(marker, fault), 0)
 
+    def test_complete_streams_preserve_both_predicates_in_all_modes(self):
+        for optimize in (0, 1, 2):
+            for marker in ('# --- silently wrong output', '# --- a short reply streams'):
+                with self.subTest(optimize=optimize, marker=marker):
+                    self.assertEqual(self.run_block(marker, 'success', optimize), 0)
+
+    def test_http_status_is_required_in_both_predicates_in_all_modes(self):
+        for optimize in (0, 1, 2):
+            for marker in ('# --- silently wrong output', '# --- a short reply streams'):
+                with self.subTest(optimize=optimize, marker=marker):
+                    self.assertNotEqual(self.run_block(marker, 'http-status', optimize), 0)
+
 
 class ActualMetadataConcurrencyPredicate(unittest.TestCase):
-    def run_block(self, fault):
+    def run_block(self, fault, optimize=0):
         source = SCRIPT.read_text()
         section = source[source.index('# --- metadata must not block'):]
         code = section.split("<<'PYEOF'\n", 1)[1].split('\nPYEOF\n', 1)[0]
@@ -256,7 +268,7 @@ class ActualMetadataConcurrencyPredicate(unittest.TestCase):
                 patch.object(sys, 'path', [str(ROOT), *sys.path]), \
                 contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
             try:
-                exec(compile(code, str(SCRIPT), 'exec'), {})
+                exec(compile(code, str(SCRIPT), 'exec', optimize=optimize), {})
             except SystemExit as error:
                 return error.code or 0
             except (ValueError, AssertionError, KeyError, TypeError):
@@ -271,6 +283,91 @@ class ActualMetadataConcurrencyPredicate(unittest.TestCase):
                       'no-overlap', 'late-error']:
             with self.subTest(fault=fault):
                 self.assertNotEqual(self.run_block(fault), 0)
+
+    def test_successful_generation_preserves_metadata_contract_in_all_modes(self):
+        for optimize in (0, 1, 2):
+            with self.subTest(optimize=optimize):
+                self.assertEqual(self.run_block('success', optimize), 0)
+
+    def test_generation_http_status_is_required_in_all_modes(self):
+        for optimize in (0, 1, 2):
+            with self.subTest(optimize=optimize):
+                self.assertNotEqual(self.run_block('http-error', optimize), 0)
+
+
+class ActualContextRefusalPredicate(unittest.TestCase):
+    def run_predicate(self, response, optimize, raw=None):
+        source = SCRIPT.read_text()
+        # Execute only the real already-fetched-response branch. No request,
+        # server launch, large prompt, or other robustness section is included.
+        block = region(source, 'if printf \'%s\' "$R" | python3 -c ', '\n\nV=$(curl')
+        preamble = 'set -u\nPASS=0; FAIL=0\nR=$API_CONTEXT_RESPONSE\n'
+        preamble += region(source, 'say() {', 'SERVER_ARGS=()')
+        script = preamble + block + '\n[ "$PASS" -eq 1 ] && [ "$FAIL" -eq 0 ]\n'
+        env = {k: v for k, v in os.environ.items()
+               if k != 'PYTHONOPTIMIZE' and not k.startswith(('SLOTSTREAM_', 'SS_DEBUG'))}
+        env.update(PYTHONOPTIMIZE=str(optimize),
+                   API_CONTEXT_PYTHON=sys.executable,
+                   API_CONTEXT_RESPONSE=json.dumps(response) if raw is None else raw)
+        with tempfile.TemporaryDirectory(prefix='slotstream-api-context-') as name:
+            path = Path(name)
+            # The real Bash branch names python3. Bind it to this exact test
+            # interpreter, rather than depending on another Python in PATH.
+            python = path / 'python3'
+            python.write_text('#!/bin/bash\nexec "$API_CONTEXT_PYTHON" "$@"\n')
+            python.chmod(0o755)
+            env['PATH'] = str(path) + os.pathsep + os.environ.get('PATH', os.defpath)
+            return subprocess.run(['bash', '-c', script], cwd=ROOT, env=env,
+                                  text=True, capture_output=True, timeout=5)
+
+    def test_typed_400_preserves_valid_cases_in_all_modes(self):
+        valid = {'status': 400, 'body': {
+            'code': 'context_length_exceeded', 'error': 'context limit', 'done': False}}
+        cases = [copy.deepcopy(valid) for _ in range(4)]
+        cases[1]['body']['error'] = ''  # The original predicate accepts any string.
+        cases[2]['body']['done'] = None
+        del cases[3]['body']['done']  # Original contract is `is not True`.
+        for optimize in (0, 1, 2):
+            for case, response in enumerate(cases):
+                with self.subTest(optimize=optimize, case=case):
+                    result = self.run_predicate(response, optimize)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn('PASS  over-length prompt is refused with a typed 400', result.stdout)
+                    self.assertNotIn('FAIL', result.stdout)
+
+    def test_typed_400_rejects_each_failed_condition_in_all_modes(self):
+        valid = {'status': 400, 'body': {
+            'code': 'context_length_exceeded', 'error': 'context limit', 'done': False}}
+        cases = []
+        for status in (200, 503):
+            response = copy.deepcopy(valid)
+            response['status'] = status
+            cases.append(('status-' + str(status), response))
+        for key, value in (('code', 'other_error'), ('error', None),
+                           ('error', 7), ('done', True)):
+            response = copy.deepcopy(valid)
+            response['body'][key] = value
+            cases.append((key + '-' + repr(value), response))
+        for key in ('code', 'error'):
+            response = copy.deepcopy(valid)
+            del response['body'][key]
+            cases.append(('missing-' + key, response))
+        for optimize in (0, 1, 2):
+            for case, response in cases:
+                with self.subTest(optimize=optimize, case=case):
+                    result = self.run_predicate(response, optimize)
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn('FAIL  over-length prompt lacks the typed HTTP 400 refusal', result.stdout)
+                    self.assertNotIn('PASS', result.stdout)
+
+    def test_invalid_json_and_missing_body_remain_failures_in_all_modes(self):
+        for optimize in (0, 1, 2):
+            for raw in ('{not json', '{}'):
+                with self.subTest(optimize=optimize, raw=raw):
+                    result = self.run_predicate(None, optimize, raw=raw)
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn('FAIL  over-length prompt lacks the typed HTTP 400 refusal', result.stdout)
+                    self.assertNotIn('PASS', result.stdout)
 
 
 if __name__ == '__main__':

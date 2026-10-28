@@ -116,7 +116,8 @@ def call(body, stream):
     c = http.client.HTTPConnection("127.0.0.1", P, timeout=300)
     c.request("POST", "/api/chat", json.dumps(b), {"Content-Type": "application/json"})
     response = c.getresponse()
-    assert response.status == 200, "generation HTTP failure"
+    if response.status != 200:
+        raise ValueError("generation HTTP failure")
     d = response.read().decode(); c.close()
     if not stream:
         return ollama_text(json.loads(d))
@@ -194,7 +195,7 @@ except urllib.error.HTTPError as e:
 print(json.dumps({"status": status, "body": json.loads(body)}))
 PY
 )
-if printf '%s' "$R" | python3 -c 'import json,sys; r=json.load(sys.stdin); b=r["body"]; assert r["status"]==400 and b.get("code")=="context_length_exceeded" and isinstance(b.get("error"),str) and b.get("done") is not True'; then
+if printf '%s' "$R" | python3 -c 'import json,sys; r=json.load(sys.stdin); b=r["body"]; sys.exit(0 if (r["status"]==400 and b.get("code")=="context_length_exceeded" and isinstance(b.get("error"),str) and b.get("done") is not True) else 1)'; then
   ok "over-length prompt is refused with a typed 400, not a silent stall"
 else
   bad "over-length prompt lacks the typed HTTP 400 refusal" "$(printf %.180s "$R")"
@@ -270,7 +271,8 @@ def gen():
             "messages": [{"role": "user", "content": "Write a long poem about the sea."}],
             "options": {"num_predict": 60, "temperature": 0}}), {"Content-Type": "application/json"})
         response = c.getresponse()
-        assert response.status == 200, "generation HTTP failure"
+        if response.status != 200:
+            raise ValueError("generation HTTP failure")
         frames = []
         for raw in response:
             if not raw.strip(): continue
@@ -391,7 +393,8 @@ c.request("POST", "/api/chat", json.dumps({"model": "qwen3.8-flash-next:4bit", "
     "messages": [{"role": "user", "content": "Count from 1 to 8, digits only, comma separated."}],
     "options": {"num_predict": 16, "temperature": 0}}), {"Content-Type": "application/json"})
 response = c.getresponse()
-assert response.status == 200, "generation HTTP failure"
+if response.status != 200:
+    raise ValueError("generation HTTP failure")
 objs = [json.loads(l) for l in response.read().decode().splitlines() if l.strip()]
 c.close()
 ollama_text(objs, stream=True)
