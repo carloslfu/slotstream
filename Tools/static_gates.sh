@@ -26,6 +26,7 @@ python3 Tools/coverage_ratchet_test.py
 python3 Tools/context_qualification_checks.py
 python3 Tools/process_cleanup_checks.py
 python3 Tools/launch_request_deadline_test.py
+python3 Tools/launch_log_rotation_test.py
 python3 Tools/safetensors_empty_test.py
 # These use tiny fixtures or mocked processes; none loads MLX, builds Swift,
 # reads model weights, or takes the live model lock. Syntax checks alone do

@@ -551,10 +551,12 @@ struct Launch: ParsableCommand {
             throw CodingToolLaunch.Failure("could not create the log folder for \(log): \(error.localizedDescription)")
         }
         if fm.fileExists(atPath: log) {
-            try? fm.removeItem(atPath: log + ".1")
-            try? fm.moveItem(atPath: log, toPath: log + ".1")
+            guard rename(log, log + ".1") == 0 else {
+                throw CodingToolLaunch.Failure("could not rotate \(log): \(String(cString: strerror(errno)))")
+            }
         }
-        let output = open(log, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0o600)
+        // A same-inode rename can be a no-op; never truncate an existing path.
+        let output = open(log, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
         guard output >= 0 else {
             throw CodingToolLaunch.Failure("could not open \(log): \(String(cString: strerror(errno)))")
         }
