@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500" role="img" aria-labelledby="title desc">
   <title id="title">carloslfu/slotstream GitHub star history</title>
-  <desc id="desc">487 GitHub stars from Aug 28–Oct 26, 2026.</desc>
+  <desc id="desc">640 GitHub stars from Aug 28–Nov 2, 2026.</desc>
   <defs>
     <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#54aeff" stop-opacity="0.30"/>
@@ -10,29 +10,33 @@
   <rect x="0.5" y="0.5" width="959" height="499" rx="12" fill="#ffffff" stroke="#d0d7de"/>
   <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
     <text x="42" y="49" fill="#1f2328" font-size="22" font-weight="600">GitHub stars over time</text>
-    <text x="42" y="78" fill="#656d76" font-size="14">carloslfu/slotstream · Aug 28–Oct 26, 2026</text>
-    <text x="918" y="50" text-anchor="end" fill="#1f2328" font-size="30" font-weight="600">487</text>
+    <text x="42" y="78" fill="#656d76" font-size="14">carloslfu/slotstream · Aug 28–Nov 2, 2026</text>
+    <text x="918" y="50" text-anchor="end" fill="#1f2328" font-size="30" font-weight="600">640</text>
     <text x="918" y="77" text-anchor="end" fill="#656d76" font-size="14">stars</text>
     <line x1="78" y1="432.00" x2="922" y2="432.00" stroke="#d8dee4" stroke-width="1"/>
     <text x="65" y="432.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">0</text>
-    <line x1="78" y1="370.00" x2="922" y2="370.00" stroke="#d8dee4" stroke-width="1"/>
-    <text x="65" y="370.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">100</text>
-    <line x1="78" y1="308.00" x2="922" y2="308.00" stroke="#d8dee4" stroke-width="1"/>
-    <text x="65" y="308.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">200</text>
-    <line x1="78" y1="246.00" x2="922" y2="246.00" stroke="#d8dee4" stroke-width="1"/>
-    <text x="65" y="246.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">300</text>
-    <line x1="78" y1="184.00" x2="922" y2="184.00" stroke="#d8dee4" stroke-width="1"/>
-    <text x="65" y="184.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">400</text>
+    <line x1="78" y1="387.71" x2="922" y2="387.71" stroke="#d8dee4" stroke-width="1"/>
+    <text x="65" y="387.71" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">100</text>
+    <line x1="78" y1="343.43" x2="922" y2="343.43" stroke="#d8dee4" stroke-width="1"/>
+    <text x="65" y="343.43" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">200</text>
+    <line x1="78" y1="299.14" x2="922" y2="299.14" stroke="#d8dee4" stroke-width="1"/>
+    <text x="65" y="299.14" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">300</text>
+    <line x1="78" y1="254.86" x2="922" y2="254.86" stroke="#d8dee4" stroke-width="1"/>
+    <text x="65" y="254.86" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">400</text>
+    <line x1="78" y1="210.57" x2="922" y2="210.57" stroke="#d8dee4" stroke-width="1"/>
+    <text x="65" y="210.57" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">500</text>
+    <line x1="78" y1="166.29" x2="922" y2="166.29" stroke="#d8dee4" stroke-width="1"/>
+    <text x="65" y="166.29" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">600</text>
     <line x1="78" y1="122.00" x2="922" y2="122.00" stroke="#d8dee4" stroke-width="1"/>
-    <text x="65" y="122.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">500</text>
+    <text x="65" y="122.00" text-anchor="end" dominant-baseline="middle" fill="#656d76" font-size="12">700</text>
     <text x="78.00" y="469" text-anchor="middle" fill="#656d76" font-size="12">Aug 28</text>
-    <text x="249.66" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 9</text>
-    <text x="421.32" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 21</text>
-    <text x="578.68" y="469" text-anchor="middle" fill="#656d76" font-size="12">Oct 2</text>
-    <text x="750.34" y="469" text-anchor="middle" fill="#656d76" font-size="12">Oct 14</text>
-    <text x="922.00" y="469" text-anchor="middle" fill="#656d76" font-size="12">Oct 26</text>
-    <path d="M 78.00 432.00 L 92.31 432.00 L 106.61 432.00 L 120.92 430.76 L 135.22 358.22 L 149.53 283.20 L 163.83 263.36 L 178.14 257.78 L 192.44 252.82 L 206.75 251.58 L 221.05 247.24 L 235.36 234.84 L 249.66 228.64 L 263.97 222.44 L 278.27 219.96 L 292.58 218.72 L 306.88 215.00 L 321.19 213.14 L 335.49 210.66 L 349.80 208.18 L 364.10 203.84 L 378.41 201.98 L 392.71 198.26 L 407.02 196.40 L 421.32 193.30 L 435.63 192.06 L 449.93 192.06 L 464.24 189.58 L 478.54 188.34 L 492.85 187.10 L 507.15 185.24 L 521.46 184.62 L 535.76 182.14 L 550.07 182.14 L 564.37 182.14 L 578.68 180.28 L 592.98 179.66 L 607.29 179.04 L 621.59 174.70 L 635.90 172.84 L 650.20 172.22 L 664.51 169.74 L 678.81 155.48 L 693.12 151.76 L 707.42 150.52 L 721.73 148.04 L 736.03 146.18 L 750.34 143.70 L 764.64 142.46 L 778.95 139.36 L 793.25 137.50 L 807.56 137.50 L 821.86 137.50 L 836.17 136.88 L 850.47 135.02 L 864.78 134.40 L 879.08 134.40 L 893.39 133.16 L 907.69 133.16 L 922.00 130.06 L 922.00 432.00 L 78.00 432.00 Z" fill="url(#area)"/>
-    <path d="M 78.00 432.00 L 92.31 432.00 L 106.61 432.00 L 120.92 430.76 L 135.22 358.22 L 149.53 283.20 L 163.83 263.36 L 178.14 257.78 L 192.44 252.82 L 206.75 251.58 L 221.05 247.24 L 235.36 234.84 L 249.66 228.64 L 263.97 222.44 L 278.27 219.96 L 292.58 218.72 L 306.88 215.00 L 321.19 213.14 L 335.49 210.66 L 349.80 208.18 L 364.10 203.84 L 378.41 201.98 L 392.71 198.26 L 407.02 196.40 L 421.32 193.30 L 435.63 192.06 L 449.93 192.06 L 464.24 189.58 L 478.54 188.34 L 492.85 187.10 L 507.15 185.24 L 521.46 184.62 L 535.76 182.14 L 550.07 182.14 L 564.37 182.14 L 578.68 180.28 L 592.98 179.66 L 607.29 179.04 L 621.59 174.70 L 635.90 172.84 L 650.20 172.22 L 664.51 169.74 L 678.81 155.48 L 693.12 151.76 L 707.42 150.52 L 721.73 148.04 L 736.03 146.18 L 750.34 143.70 L 764.64 142.46 L 778.95 139.36 L 793.25 137.50 L 807.56 137.50 L 821.86 137.50 L 836.17 136.88 L 850.47 135.02 L 864.78 134.40 L 879.08 134.40 L 893.39 133.16 L 907.69 133.16 L 922.00 130.06" fill="none" stroke="#0969da" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="922.00" cy="130.06" r="5" fill="#ffffff" stroke="#0969da" stroke-width="3"/>
+    <text x="244.24" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 10</text>
+    <text x="410.48" y="469" text-anchor="middle" fill="#656d76" font-size="12">Sep 23</text>
+    <text x="589.52" y="469" text-anchor="middle" fill="#656d76" font-size="12">Oct 7</text>
+    <text x="755.76" y="469" text-anchor="middle" fill="#656d76" font-size="12">Oct 20</text>
+    <text x="922.00" y="469" text-anchor="middle" fill="#656d76" font-size="12">Nov 2</text>
+    <path d="M 78.00 432.00 L 90.79 432.00 L 103.58 432.00 L 116.36 431.11 L 129.15 379.30 L 141.94 325.71 L 154.73 311.54 L 167.52 308.00 L 180.30 304.46 L 193.09 303.57 L 205.88 300.47 L 218.67 291.61 L 231.45 287.19 L 244.24 282.76 L 257.03 280.99 L 269.82 280.10 L 282.61 277.44 L 295.39 276.11 L 308.18 274.34 L 320.97 272.57 L 333.76 269.47 L 346.55 268.14 L 359.33 265.49 L 372.12 264.16 L 384.91 261.94 L 397.70 261.06 L 410.48 261.06 L 423.27 259.29 L 436.06 258.40 L 448.85 257.51 L 461.64 256.19 L 474.42 255.74 L 487.21 253.97 L 500.00 253.97 L 512.79 253.97 L 525.58 252.64 L 538.36 252.20 L 551.15 251.76 L 563.94 248.66 L 576.73 247.33 L 589.52 246.89 L 602.30 245.11 L 615.09 234.93 L 627.88 232.27 L 640.67 231.39 L 653.45 229.61 L 666.24 228.29 L 679.03 226.51 L 691.82 225.63 L 704.61 223.41 L 717.39 222.09 L 730.18 222.09 L 742.97 222.09 L 755.76 221.64 L 768.55 220.31 L 781.33 219.87 L 794.12 219.87 L 806.91 218.99 L 819.70 218.99 L 832.48 179.57 L 845.27 168.94 L 858.06 164.07 L 870.85 160.09 L 883.64 153.00 L 896.42 149.90 L 909.21 148.57 L 922.00 148.57 L 922.00 432.00 L 78.00 432.00 Z" fill="url(#area)"/>
+    <path d="M 78.00 432.00 L 90.79 432.00 L 103.58 432.00 L 116.36 431.11 L 129.15 379.30 L 141.94 325.71 L 154.73 311.54 L 167.52 308.00 L 180.30 304.46 L 193.09 303.57 L 205.88 300.47 L 218.67 291.61 L 231.45 287.19 L 244.24 282.76 L 257.03 280.99 L 269.82 280.10 L 282.61 277.44 L 295.39 276.11 L 308.18 274.34 L 320.97 272.57 L 333.76 269.47 L 346.55 268.14 L 359.33 265.49 L 372.12 264.16 L 384.91 261.94 L 397.70 261.06 L 410.48 261.06 L 423.27 259.29 L 436.06 258.40 L 448.85 257.51 L 461.64 256.19 L 474.42 255.74 L 487.21 253.97 L 500.00 253.97 L 512.79 253.97 L 525.58 252.64 L 538.36 252.20 L 551.15 251.76 L 563.94 248.66 L 576.73 247.33 L 589.52 246.89 L 602.30 245.11 L 615.09 234.93 L 627.88 232.27 L 640.67 231.39 L 653.45 229.61 L 666.24 228.29 L 679.03 226.51 L 691.82 225.63 L 704.61 223.41 L 717.39 222.09 L 730.18 222.09 L 742.97 222.09 L 755.76 221.64 L 768.55 220.31 L 781.33 219.87 L 794.12 219.87 L 806.91 218.99 L 819.70 218.99 L 832.48 179.57 L 845.27 168.94 L 858.06 164.07 L 870.85 160.09 L 883.64 153.00 L 896.42 149.90 L 909.21 148.57 L 922.00 148.57" fill="none" stroke="#0969da" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="922.00" cy="148.57" r="5" fill="#ffffff" stroke="#0969da" stroke-width="3"/>
   </g>
 </svg>
