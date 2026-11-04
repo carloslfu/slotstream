@@ -27,12 +27,14 @@ def digest(path):
     return h.hexdigest()
 
 
-def validate_schedule(value, count, start):
+def validate_schedule(value, count, start, chunk):
     if (type(count) is not int or type(start) is not int or count <= 0 or start < 0
             or start + count > MODEL_LIMIT):
         raise ValueError('invalid requested range')
+    if type(chunk) is not int or not 256 <= chunk <= 4096:
+        raise ValueError('invalid requested chunk')
     if not isinstance(value, dict) or any(type(value.get(key)) is not int or value[key] != expected
-            for key, expected in [('tokens', count), ('from', start), ('measured_query_key_product', PRODUCT_BOUND)]):
+            for key, expected in [('tokens', count), ('from', start), ('chunk', chunk), ('measured_query_key_product', PRODUCT_BOUND)]):
         raise ValueError('schedule does not match the requested window and fixed product bound')
     passes, queries, extents = [value.get(key) for key in ('passes', 'compute_query_rows', 'compute_key_extents')]
     if (any(not isinstance(rows, list) for rows in (passes, queries, extents))
@@ -40,7 +42,7 @@ def validate_schedule(value, count, start):
         raise ValueError('missing actual dispatch geometry')
     position = start
     for n, q, k in zip(passes, queries, extents):
-        if any(type(x) is not int for x in (n, q, k)) or not 0 < n <= q <= 4096:
+        if any(type(x) is not int for x in (n, q, k)) or not 0 < n <= q <= 4096 or n > chunk:
             raise ValueError('invalid dispatch rows')
         position += n
         if not position <= k <= MODEL_LIMIT or q * k > PRODUCT_BOUND:
@@ -111,7 +113,7 @@ def run(binary, out):
                     result = invoke(['prefill-schedule', '--tokens', str(count), '--from', str(start), '--chunk', str(chunk), '--json'])
                     if result['exit_code']:
                         raise ValueError('schedule diagnostic failed')
-                    observed = validate_schedule(json.loads(result['stdout']), count, start)
+                    observed = validate_schedule(json.loads(result['stdout']), count, start, chunk)
                     row['schedules'].append({'start': start, 'chunk': chunk, **observed})
             row['passed'] = True
         # Check the immediate public boundary separately from the larger windows.
