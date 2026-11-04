@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import copy
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 import json
 from pathlib import Path
 import signal
@@ -16,7 +16,10 @@ from prefill_bench import digest
 
 class SoakTests(unittest.TestCase):
     def setUp(self):
-        fixture = Path(__file__).parent / 'fixtures/optimization/short.txt'
+        fixtures = tempfile.TemporaryDirectory(prefix='slotstream-soak-prompts-')
+        self.addCleanup(fixtures.cleanup)
+        fixture = Path(fixtures.name) / 'short.txt'
+        fixture.write_text('Tiny lifetime qualification fixture.\n')
         self.protocol = {'classification': 'Frozen combined lifetime qualification',
             'memory_gb': 10, 'max_context': 32768, 'mtp': 'off',
             'warmup_cycles': 2, 'measured_cycles': 8, 'maximum_duration_seconds_per_mode': 900,
@@ -113,7 +116,7 @@ class SoakTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'already active'):
                 with wall_deadline(1): pass
 
-    def run_mock_driver(self, *, failure=None, startup_failure=None):
+    def run_mock_driver(self, *, failure=None, startup_failure=None, final_observer_error=None):
         """Exercise all driver phases without a build, model or listening server."""
         original_term = signal.getsignal(signal.SIGTERM)
         try:
@@ -130,6 +133,17 @@ class SoakTests(unittest.TestCase):
                 row['metrics'].update(effective_mtp=False, effective_prefill_chunk=256)
                 row['metrics']['output_ids'] = [7] * 8
                 child = Mock()
+                stopped = False
+                def stop_child(owned):
+                    nonlocal stopped
+                    self.assertIs(owned, child)
+                    stopped = True
+                def observe_vm():
+                    if stopped and final_observer_error is not None:
+                        raise final_observer_error
+                    return {'swapins': 0, 'swapouts': 0}
+                reservation = Mock()
+                reservation.getsockname.return_value = ('127.0.0.1', 49152)
                 def substitute(target, **kwargs):
                     return stack.enter_context(patch(target, **kwargs))
                 substitute('sys.argv', new=['optimization_soak.py', '--protocol', str(path), '--out', str(out)])
@@ -137,23 +151,38 @@ class SoakTests(unittest.TestCase):
                 substitute('optimization_soak.validate_prerequisites', return_value={'fixture': True})
                 substitute('optimization_soak.model_identity', return_value={'fixture': True})
                 substitute('optimization_soak.preflight', return_value={})
-                substitute('optimization_soak.vm_snapshot', return_value={'swapins': 0, 'swapouts': 0})
+                substitute('optimization_soak.vm_snapshot', side_effect=observe_vm)
                 substitute('optimization_soak.bench.competing_jobs', return_value=[])
+                substitute('optimization_soak.socket.socket', return_value=nullcontext(reservation))
                 substitute('optimization_soak.subprocess.Popen', return_value=child)
                 substitute('optimization_soak.bench.wait_ready', side_effect=startup_failure)
-                stop = substitute('optimization_soak.bench.stop_server')
+                stop = substitute('optimization_soak.bench.stop_server', side_effect=stop_child)
                 exchange = substitute('optimization_soak.bench.exchange',
                     side_effect=failure, return_value=({'metrics': row['metrics'], 'text': row['text']},
                                                      b'{"fixture":true}\n'))
                 substitute('optimization_soak.prefix_snapshot', return_value=row['prefix'])
                 substitute('builtins.print')
-                code = soak.main()
+                escaped = None
+                try:
+                    code = soak.main()
+                except (Exception, KeyboardInterrupt) as error:
+                    code = None
+                    escaped = f'{type(error).__name__}: {error}'
                 manifest = json.loads((out / 'manifest.json').read_text())
-                report = json.loads((out / 'assessment.json').read_text())
+                report = json.loads((out / 'assessment.json').read_text()) \
+                    if (out / 'assessment.json').exists() else None
                 records = [json.loads(line) for line in (out / 'results.jsonl').read_text().splitlines()] \
                     if (out / 'results.jsonl').exists() else []
                 stop.assert_called_once_with(child)
+                reservation.bind.assert_called_once_with(('127.0.0.1', 0))
+                reservation.getsockname.assert_called_once_with()
                 self.assertEqual(signal.getitimer(signal.ITIMER_REAL), (0.0, 0.0))
+                self.assertIsNone(escaped, {'escaped': escaped,
+                    'persisted_primary_error': manifest.get('error'),
+                    'expected_primary_error': str(failure or startup_failure),
+                    'assessment_exists': report is not None,
+                    'recorded_requests': len(records), 'stop_calls': stop.call_count})
+                self.assertIsNotNone(report)
                 return code, manifest, report, records, exchange.call_count
         finally:
             signal.signal(signal.SIGTERM, original_term)
@@ -191,6 +220,45 @@ class SoakTests(unittest.TestCase):
         code, manifest, report, rows, calls = self.run_mock_driver(startup_failure=TimeoutError('startup'))
         self.assertEqual((code, len(rows), calls), (1, 0, 0))
         self.assertFalse(manifest['passed']); self.assertFalse(report['passed'])
+
+    def assert_final_observation_failure(self, *, failure=None, startup_failure=None,
+                                         observer_error=None):
+        observer_error = observer_error or OSError('final observer unavailable')
+        code, manifest, report, rows, calls = self.run_mock_driver(
+            failure=failure, startup_failure=startup_failure,
+            final_observer_error=observer_error)
+        expected_count = 0 if startup_failure is not None else 1 if failure is not None else 60
+        self.assertEqual((code, len(rows), calls), (1, expected_count, expected_count))
+        self.assertFalse(manifest['passed'])
+        self.assertEqual(manifest['after_error'], f'{type(observer_error).__name__}: {observer_error}')
+        self.assertNotIn('after', manifest)
+        primary = failure if failure is not None else startup_failure
+        if primary is None:
+            self.assertNotIn('error', manifest)
+            self.assertTrue(report['passed'])
+            self.assertTrue(all(row['succeeded'] is True for row in rows))
+        else:
+            self.assertEqual(manifest['error'], f'{type(primary).__name__}: {primary}')
+            self.assertFalse(report['passed'])
+            if rows:
+                self.assertFalse(rows[-1]['succeeded'])
+
+    def test_final_observer_failure_disqualifies_completed_requests(self):
+        self.assert_final_observation_failure()
+
+    def test_final_observer_failure_preserves_primary_request_error(self):
+        self.assert_final_observation_failure(failure=ValueError('request failed'))
+
+    def test_final_observer_failure_preserves_primary_cancellation(self):
+        self.assert_final_observation_failure(failure=KeyboardInterrupt('cancelled'))
+
+    def test_final_observer_failure_preserves_primary_timeout(self):
+        self.assert_final_observation_failure(failure=TimeoutError('request deadline'),
+                                             observer_error=ValueError('vm_stat counters missing'))
+
+    def test_final_observer_failure_preserves_startup_error(self):
+        self.assert_final_observation_failure(startup_failure=TimeoutError('startup failed'),
+                                             observer_error=KeyboardInterrupt('cancelled final observer'))
 
 
 if __name__ == '__main__':

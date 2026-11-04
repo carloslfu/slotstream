@@ -496,12 +496,16 @@ def main():
         manifest['error'] = f'{type(error).__name__}: {error}'
     finally:
         if child is not None: bench.stop_server(child)
-        manifest['after'] = vm_snapshot()
+        try:
+            manifest['after'] = vm_snapshot()
+        except (Exception, KeyboardInterrupt) as error:
+            manifest['after_error'] = f'{type(error).__name__}: {error}'
     report = assess(protocol, rows)
-    manifest['passed'] = report['passed'] and 'error' not in manifest
+    manifest['passed'] = report['passed'] and 'error' not in manifest and 'after_error' not in manifest
     (args.out / 'assessment.json').write_text(json.dumps(report, indent=2) + '\n')
     (args.out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    print(json.dumps({'passed': manifest['passed'], 'recorded_requests': len(rows), 'error': manifest.get('error')}))
+    print(json.dumps({'passed': manifest['passed'], 'recorded_requests': len(rows), 'error': manifest.get('error'),
+                      'after_error': manifest.get('after_error')}))
     return 0 if manifest['passed'] else 1
 
 
