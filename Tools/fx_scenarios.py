@@ -75,16 +75,18 @@ def request(method, path, body=None, headers=None, timeout=1800):
             break
         out.append(chunk)
     s.close()
-    return b"".join(out).decode("utf-8", "replace"), time.time() - t0
+    return b"".join(out), time.time() - t0
 
 
 def dechunk(raw):
-    head, _, body = raw.partition("\r\n\r\n")
+    # HTTP chunk lengths count octets, not decoded Unicode characters.
+    head, _, body = raw.partition(b"\r\n\r\n")
+    head = head.decode("iso-8859-1")
     if "chunked" not in head.lower():
-        return head, body
+        return head, body.decode("utf-8", "replace")
     parts, i = [], 0
     while i < len(body):
-        j = body.find("\r\n", i)
+        j = body.find(b"\r\n", i)
         if j < 0:
             break
         try:
@@ -95,7 +97,7 @@ def dechunk(raw):
             break
         parts.append(body[j + 2 : j + 2 + n])
         i = j + 2 + n + 2
-    return head, "".join(parts)
+    return head, b"".join(parts).decode("utf-8", "replace")
 
 
 def events(text):
