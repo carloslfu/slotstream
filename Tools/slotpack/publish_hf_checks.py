@@ -61,6 +61,17 @@ class PublicationChecks(unittest.TestCase):
         (self.root/'build-receipt.json').write_text(json.dumps(self.build))
         with self.assertRaises(ValueError): publish_hf.package_files(self.root)
 
+    def test_build_qualification_requires_json_true(self):
+        for key in ['allOriginalHashesVerified', 'roundtripVerified', 'completeCoverage']:
+            for value in [False, None, 0, 1, -1, 0.5, '', 'false', 'true',
+                          [], [True], {}, {'passed': True}]:
+                with self.subTest(key=key, value=value):
+                    build = dict(self.build)
+                    build[key] = value
+                    (self.root/'build-receipt.json').write_text(json.dumps(build))
+                    with self.assertRaisesRegex(ValueError, '^package lacks build qualification$'):
+                        publish_hf.package_files(self.root)
+
     def test_different_model_pins_are_rejected(self):
         with patch.object(publish_hf.pack, 'pins', return_value=[]):
             with self.assertRaises(ValueError): publish_hf.package_files(self.root)

@@ -37,7 +37,7 @@ def package_files(root):
     build = json.loads((root/'build-receipt.json').read_text())
     if digest != (root/'manifest.sha256').read_text().strip() or digest != build['manifestSHA256']:
         raise ValueError('manifest identity mismatch')
-    if not all(build.get(key) for key in ['allOriginalHashesVerified', 'roundtripVerified', 'completeCoverage']):
+    if not all(build.get(key) is True for key in ['allOriginalHashesVerified', 'roundtripVerified', 'completeCoverage']):
         raise ValueError('package lacks build qualification')
     manifest = json.loads(data)
     if manifest['format'] != 'slotpack-v1' or manifest['files'] != pack.pins():
