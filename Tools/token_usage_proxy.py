@@ -24,6 +24,15 @@ def usage_of(text):
     found = {}
 
     def visit(obj):
+        # Only protocol-owned envelopes carry accounting. Tool inputs and
+        # echoed schemas can contain arbitrary domain fields named "usage".
+        if not isinstance(obj, dict):
+            return
+        event = obj.get("type")
+        if event == "message_start":
+            obj = obj.get("message")
+        elif isinstance(event, str) and event.startswith("response."):
+            obj = obj.get("response")
         if isinstance(obj, dict):
             u = obj.get("usage")
             if isinstance(u, dict):
@@ -34,12 +43,6 @@ def usage_of(text):
                 for details in ("prompt_tokens_details", "input_tokens_details"):
                     if isinstance(u.get(details), dict) and isinstance(u[details].get("cached_tokens"), int):
                         found["cached_tokens"] = u[details]["cached_tokens"]
-            for value in obj.values():
-                if isinstance(value, (dict, list)):
-                    visit(value)
-        elif isinstance(obj, list):
-            for value in obj:
-                visit(value)
 
     bodies = [line[5:].strip() for line in text.splitlines() if line.startswith("data:")] or [text]
     for body in bodies:
