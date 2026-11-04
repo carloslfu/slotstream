@@ -90,6 +90,7 @@ with open(os.environ['SLOTSTREAM_SELECTION_TRACE'], 'a') as output:
 raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 ''')
         self.write('Tools/installer_profile_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_INSTALLER_PROFILE') == '1' else 0)\n")
+        self.write('Tools/claims_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CLAIM_NEEDLE') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -394,6 +395,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 
     def test_missing_installer_profile_stops_acceptance(self):
         (self.root/'Tools/installer_profile_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_claim_needle_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_CLAIM_NEEDLE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_claim_needle_regression_stops_acceptance(self):
+        (self.root/'Tools/claims_gate_test.py').unlink()
         result, rows = self.run_entry({})
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(rows, [])

@@ -36,7 +36,7 @@ def main():
         needle = fm.get('needle', '')
         status = fm.get('status', '')
         surfaces = [s.strip() for s in fm.get('surfaces', '').split(',') if s.strip()]
-        if not needle or not surfaces or status not in ('current', 'withdrawn'):
+        if not squash(needle) or not surfaces or status not in ('current', 'withdrawn'):
             failures.append('%s: needs needle, surfaces, and a current/withdrawn status' % name)
             continue
         for surface in surfaces:
