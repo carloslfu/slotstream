@@ -38,25 +38,30 @@ def main():
     def current_token():return access_token or token()
     if not 1<=args.workers<=16:a.error('workers must be 1..16')
     data=(root/'manifest.json').read_bytes();digest=hashlib.sha256(data).hexdigest()
-    assert digest==(root/'manifest.sha256').read_text().strip()
+    if not (digest==(root/'manifest.sha256').read_text().strip()):
+        raise ValueError('package manifest identity mismatch')
     manifest=json.loads(data);build=json.loads((root/'build-receipt.json').read_text())
-    assert build['allOriginalHashesVerified'] and build['roundtripVerified'] and build['completeCoverage'] and build['manifestSHA256']==digest
+    if not (build['allOriginalHashesVerified'] and build['roundtripVerified'] and build['completeCoverage'] and build['manifestSHA256']==digest):
+        raise ValueError('package build qualification or manifest identity mismatch')
     prefix='slotpack/v1/'+digest
     address=f'https://api.cloudflare.com/client/v4/accounts/{args.account}/r2/buckets/{args.bucket}/objects/'
     done={};lock=threading.Lock();start=time.monotonic()
     if receipt.exists():
         previous=json.loads(receipt.read_text())
-        assert previous['manifestSHA256']==digest and previous['bucket']==args.bucket and previous['account']==args.account
+        if not (previous['manifestSHA256']==digest and previous['bucket']==args.bucket and previous['account']==args.account):
+            raise ValueError('resume receipt identity mismatch')
         done=previous['objects']
     jobs={f"objects/{o['sha256'][:2]}/{o['sha256']}.bin":(o['sha256'],o['size']) for o in manifest['objects']}
     jobs['manifest.json']=(digest,len(data))
     def upload(item):
         path,(sha,size)=item
         if path in done:
-            assert done[path]['sha256']==sha and done[path]['size']==size
+            if not (done[path]['sha256']==sha and done[path]['size']==size):
+                raise ValueError('completed object identity mismatch')
             return
         payload=(root/path).read_bytes()
-        assert len(payload)==size and hashlib.sha256(payload).hexdigest()==sha
+        if not (len(payload)==size and hashlib.sha256(payload).hexdigest()==sha):
+            raise ValueError('upload payload identity mismatch')
         headers={'Authorization':'Bearer '+current_token(),'Content-Type':'application/octet-stream' if path.endswith('.bin') else 'application/json',
                  'Cache-Control':'public, max-age=31536000, immutable','Content-Length':str(size)}
         url=address+urllib.parse.quote(prefix+'/'+path,safe='/')
