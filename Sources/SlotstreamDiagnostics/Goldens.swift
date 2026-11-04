@@ -47,12 +47,67 @@ public enum Goldens {
 }
 
 extension Diagnostics {
+    /// Literal expectations independently preserve the penalty when a tiny
+    /// positive temperature overflows finite logits before the draw.
+    static func samplerFallback(_ c: inout CheckBuilder) {
+        let cases: [(String, [Float], Set<Int>, Float, Float, Int, Float, Float, Int)] = [
+            // Adjusted [98.5, 99] must select 1 even though raw argmax is 0.
+            ("penalty", [100, 99], [0], 1.5, 1e-37, 0, 1, 0, 1),
+            ("filtered penalty", [100, 99], [0], 1.5, 1e-37, 1, 0.8, 0.1, 1),
+            // Reward reverses the raw winner; negative quotients overflow too.
+            ("reward", [99, 100], [0], -1.5, 1e-37, 0, 1, 0, 0),
+            ("negative logits", [-100, -101], [0], 1.5, 1e-37, 0, 1, 0, 1),
+            ("zero penalty", [100, 99], [0], 0, 1e-37, 0, 1, 0, 0),
+            ("empty history", [100, 99], [], 1.5, 1e-37, 0, 1, 0, 0),
+            ("greedy penalty", [100, 99], [0], 1.5, 0, 0, 1, 0, 1),
+        ]
+        for (name, values, seen, penalty, temperature, k, topP, minP, expected) in cases {
+            var p = SampleParams()
+            p.temperature = temperature; p.presencePenalty = penalty
+            p.topK = k; p.topP = topP; p.minP = minP
+            p = p.sanitized()
+            let logits = MLXArray(values)
+            for device in [false, true] {
+                for threshold in [false, true] {
+                    var sampler = Sampler(seed: 7)
+                    sampler.deviceDraw = device; sampler.valueOnlyTopK = threshold
+                    let label = "fallback \(name), device=\(device), threshold=\(threshold)"
+                    c.equal(label, sampler.next(logits, params: p, generated: seen), expected)
+                    c.equal("\(label) RNG", sampler.rngState,
+                            temperature > 0 ? Splitmix.mix(8) : UInt64(7))
+                }
+            }
+        }
+
+        // Ordinary finite draws must agree across source paths. Record the
+        // baseline token so before/after runs can also detect a shared change.
+        var p = SampleParams()
+        p.temperature = 0.8; p.topK = 3; p.topP = 0.9
+        p.minP = 0.1; p.presencePenalty = 0.5
+        let logits = MLXArray([Float(2), 0, -1, 1])
+        let seen: Set<Int> = [0]
+        var baseline = Sampler(seed: 7)
+        let expected = baseline.next(logits, params: p, generated: seen)
+        c.measure("sampler-finite-control-token", Double(expected))
+        c.equal("finite control baseline RNG", baseline.rngState, Splitmix.mix(8))
+        for device in [false, true] {
+            for threshold in [false, true] where device || threshold {
+                var sampler = Sampler(seed: 7)
+                sampler.deviceDraw = device; sampler.valueOnlyTopK = threshold
+                let label = "finite control, device=\(device), threshold=\(threshold)"
+                c.equal(label, sampler.next(logits, params: p, generated: seen), expected)
+                c.equal("\(label) RNG", sampler.rngState, baseline.rngState)
+            }
+        }
+    }
+
     /// Sampling properties that hold without a reference to diff against: a
     /// seed reproduces, a different seed does not, greedy is deterministic, and
     /// every draw is inside the vocabulary. The numpy comparison itself stays
     /// in `Tools/sampler_gates.sh`, which owns the reference.
     public static func samplerBehaviour() throws -> CheckReport {
         var c = CheckBuilder("sampler-behaviour")
+        samplerFallback(&c)
 
         let a = try Goldens.sampler(draws: 16, seed: 4242)
         let b = try Goldens.sampler(draws: 16, seed: 4242)

@@ -43,6 +43,7 @@ def sample(logits, a, state, generated):
         l[idx] = (l[idx] - np.float32(a.presence_penalty)).astype(np.float32)
     if a.temperature <= 0:
         return int(np.argmax(l)), state
+    fallback_logits = l
     l = (l / np.float32(a.temperature)).astype(np.float32)
     if 0 < a.top_k < l.shape[0]:
         kth = np.sort(l)[::-1][a.top_k - 1]
@@ -64,7 +65,7 @@ def sample(logits, a, state, generated):
     cdf = np.cumsum(probs, dtype=np.float32)
     total = cdf[-1]
     if not np.isfinite(total) or total <= 0:
-        return int(np.argmax(logits.astype(np.float32))), state
+        return int(np.argmax(fallback_logits)), state
     # A zero draw must skip any leading zero-mass tokens. Keep the historical
     # lower-bound convention for positive draws and its exact rounding path.
     pick = int(((cdf <= np.float32(0)) if u == 0 else (cdf < (u * total).astype(np.float32))).sum())
