@@ -73,7 +73,7 @@ Each agent is connected in the way that leaves your own setup alone:
 |---|---|---|
 | Claude Code | Variables and `--settings` for this run | Your settings files and login |
 | Codex | `-c` settings for this run, and a model description under `~/.slotstream/launch/codex/` | `~/.codex/config.toml` |
-| Pi | A `slotstream` provider in `~/.pi/agent/models.json` | Everything else in that file, as written, and your default model |
+| Pi | A `slotstream` provider in Pi's `models.json` (`~/.pi/agent/` by default) | Everything else in that file, as written, and your default model |
 | opencode | The `OPENCODE_CONFIG_CONTENT` variable for this run | Your opencode configuration files |
 | Hermes | Its own folder, `~/.hermes-slotstream`, created once | Your usual `~/.hermes` |
 
@@ -108,10 +108,12 @@ Start Pi in your project:
 slotstream launch pi
 ```
 
-Pi reads custom providers from `~/.pi/agent/models.json`, so the launch adds
-a `slotstream` provider there, or updates its address and window. Everything
-else in the file stays as you wrote it, including other models you added to
-that provider, and a file that is a link to your dotfiles stays a link. It
+Pi reads custom providers from `~/.pi/agent/models.json` by default. If you
+set `PI_CODING_AGENT_DIR` to another directory, the launch uses `models.json`
+there instead. It adds a `slotstream` provider, or updates its address and
+window. Everything else in the file stays as you wrote it, including other
+models you added to that provider, and a file that is a link to your dotfiles
+stays a link. It
 then starts Pi with `--provider slotstream --model qwen3.8-flash-next:4bit
 --thinking off`. A `--model` or `--thinking` you pass yourself replaces the
 launch's own. Pi uses `--provider` only together with `--model`, so
@@ -126,7 +128,8 @@ low` (or `medium` or `high`).
 
 ### Configure Pi yourself
 
-To add the provider by hand, put this in `~/.pi/agent/models.json`, merged
+To add the provider by hand, put this in `~/.pi/agent/models.json` (or
+`$PI_CODING_AGENT_DIR/models.json` when using a custom directory), merged
 with any providers already there:
 
 ```json
@@ -222,6 +225,15 @@ To use Slotstream from plain `opencode`, add the provider to
 Set `limit.context` to the window `slotstream serve` reports, and start the
 server yourself as shown in [how it works](#how-it-works).
 
+This sets the default and small models. Existing agent or command model
+overrides can still select another provider. For local-only use, also set
+`enabled_providers` to `["slotstream"]`, ensure `slotstream` is not disabled,
+and point explicit agent and command models at
+`slotstream/qwen3.8-flash-next:4bit`. This provider restriction applies to
+all sessions that read that configuration. `slotstream launch opencode`
+applies it only for that run and sets the `build` and `plan` models
+automatically.
+
 ## Troubleshooting
 
 | Problem | What to check |
@@ -235,7 +247,7 @@ server yourself as shown in [how it works](#how-it-works).
 | `Pi's models file is not plain JSON` | The file has comments or another format the launch does not rewrite. Add the provider by hand as shown above. |
 | Pi says `Unknown provider "slotstream"` | Pi could not read its models file. Its warning above names the entry to fix; Pi ignores the whole file while any entry is invalid. |
 | `` Pi uses `--provider` only together with `--model` `` | Name a model with `--model`, or run `pi` directly to use another provider. |
-| opencode fails with `UnknownError` | An agent or command in your opencode configuration names a model from another provider, which the launch does not enable. Set its model to `slotstream/qwen3.8-flash-next:4bit`, or run it with plain `opencode`. |
+| opencode fails with `UnknownError` | After `slotstream launch`, this can mean an agent or command names a model from another provider, which the launch does not enable. Set that model to `slotstream/qwen3.8-flash-next:4bit`. If the configuration already uses Slotstream, check the error details and opencode logs for the actual cause. |
 | `the server on port 11434 is busy` | Every connection the server takes is in use. Wait for running requests to finish and try again. |
 | The first reply is slow | `tail -f ~/.slotstream/logs/serve.log` shows its progress, or the Slotstream window when you started the server yourself. Long first prompts take minutes on small memory targets. |
 | A new session reads the instructions again | With a server you started yourself, add `--prefix-cache-dir` to keep shared instructions on disk, as in [the Claude Code guide](CLAUDE-CODE.md#keep-shared-prompts-on-disk). A server `slotstream launch` starts does this already. |

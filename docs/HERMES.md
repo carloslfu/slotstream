@@ -198,8 +198,11 @@ with the folder selected:
 
 ```sh
 HERMES_HOME="$HOME/.hermes-slotstream" \
-  hermes chat --provider slotstream --model qwen3.8-flash-next:4bit
+  hermes --profile default chat --provider slotstream --model qwen3.8-flash-next:4bit
 ```
+
+`--profile default` selects the configuration in this folder even if you
+previously selected another Hermes profile.
 
 ## Use it again
 
