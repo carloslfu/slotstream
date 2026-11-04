@@ -88,6 +88,8 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.write('Tools/pre_commit_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PRE_COMMIT') == '1' else 0)\n")
         self.write('Tools/launch_gate_status_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_GATE_STATUS') == '1' else 0)\n")
         self.write('Tools/terminal_confirmation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_TERMINAL_CONFIRMATION') == '1' else 0)\n")
+        self.write('Tools/http_head_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_HEAD') == '1' else 0)\n")
+        self.write('Tools/http_head_probe_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_HEAD_PROBE') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -461,6 +463,16 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         result, rows = self.run_entry({})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('terminal_confirmation_test.py', result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_head_fixture_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_HEAD': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_head_probe_fixture_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_HEAD_PROBE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
         self.assertEqual(rows, [])
 
 

@@ -26,6 +26,8 @@ python3 Tools/sampler_gates_test.py
 python3 Tools/planner_gates_test.py
 python3 Tools/api_generation_test.py
 python3 Tools/fx_scenarios_test.py
+python3 Tools/http_head_test.py
+python3 Tools/http_head_probe_test.py
 python3 Tools/consumer_smoke_test.py
 python3 Tools/support_bundle_test.py
 python3 Tools/e2e_release_test.py
