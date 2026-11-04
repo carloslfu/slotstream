@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 from build_identity import bind
+from release_candidate import contents
 
 
 class IdentityTests(unittest.TestCase):
@@ -50,6 +51,28 @@ class IdentityTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'changed during build'):
                     bind(root, 'after', 'out')
                 self.assertFalse((root/'out/build-identity.json').exists())
+
+    def test_hardlinked_inputs_reconstruct_as_regular_members(self):
+        for data in [b'', b'tiny resource']:
+            with self.subTest(size=len(data)), TemporaryDirectory() as d:
+                root = Path(d); self.fixture(root)
+                original = root/'Sources/App/Resources/table.bin'
+                linked = original.with_name('table-copy.bin')
+                original.write_bytes(data); os.link(original, linked)
+                self.assertEqual(original.stat().st_ino, linked.stat().st_ino)
+                self.assertFalse(original.is_symlink() or linked.is_symlink())
+                bind(root, 'before', 'out'); bind(root, 'after', 'out')
+                identity = json.loads((root/'out/build-identity.json').read_text())
+                with tarfile.open(root/'out/build-source.tar.gz', 'r:gz') as archive:
+                    entries = archive.getmembers()
+                    self.assertTrue(all(entry.isfile() for entry in entries),
+                                    'source archives must reconstruct every path as a regular file')
+                    restored = contents(archive, identity['source'])
+                self.assertEqual(restored, {name:(root/name).read_bytes() for name in identity['source']})
+                self.assertEqual(restored[str(original.relative_to(root))], data)
+                self.assertEqual(restored[str(linked.relative_to(root))], data)
+                self.assertEqual(hashlib.sha256((root/'out/build-source.tar.gz').read_bytes()).hexdigest(),
+                                 identity['source_archive_sha256'])
 
     def test_mutation_during_archive_never_publishes_identity(self):
         with TemporaryDirectory() as d:
