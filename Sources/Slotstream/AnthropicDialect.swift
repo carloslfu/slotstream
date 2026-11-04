@@ -334,7 +334,7 @@ public enum AnthropicDialect {
     /// The text without a leading attribution line.
     static func withoutAttribution(_ text: String) -> String {
         guard text.hasPrefix(attributionPrefix) else { return text }
-        guard let newline = text.firstIndex(of: "\n") else { return "" }
+        guard let newline = text.firstIndex(where: { $0 == "\n" || $0 == "\r\n" }) else { return "" }
         return String(text[text.index(after: newline)...]).trimmingCharacters(in: .newlines)
     }
 
