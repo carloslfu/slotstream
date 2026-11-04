@@ -93,8 +93,10 @@ def main():
         calls = message.get("tool_calls", [])
         check(label + " returns executable OpenAI function", finish == "tool_calls" and len(calls) == 1, message)
         call = calls[0]
+        arguments = json.loads(call["function"]["arguments"])
         check(label + " preserves function and typed arguments", call["function"]["name"] == "read_file"
-            and json.loads(call["function"]["arguments"]) == {"path": "diagnostic.txt", "start_line": 1}, call)
+            and arguments == {"path": "diagnostic.txt", "start_line": 1}
+            and not isinstance(arguments["start_line"], bool), call)
         check(label + " includes call identity and usage", bool(call["id"]) and usage["completion_tokens"] > 0)
         history = [user, message, {"role": "tool", "tool_call_id": call["id"], "content": "OPENAI_TOOL_FIXTURE_42"},
             {"role": "user", "content": "Reply with only the exact file contents. Do not call a tool."}]

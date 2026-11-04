@@ -73,4 +73,5 @@ Tools/installer_gates.sh
 
 python3 Tools/decode_summary_test.py
 
+python3 Tools/openai_tools_gate_test.py
 echo "STATIC GATES PASS"
