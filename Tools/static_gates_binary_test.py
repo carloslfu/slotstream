@@ -90,6 +90,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.write('Tools/terminal_confirmation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_TERMINAL_CONFIRMATION') == '1' else 0)\n")
         self.write('Tools/http_head_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_HEAD') == '1' else 0)\n")
         self.write('Tools/http_head_probe_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_HEAD_PROBE') == '1' else 0)\n")
+        self.write('Tools/http_request_octets_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_OCTETS') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -473,6 +474,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_http_head_probe_fixture_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_HEAD_PROBE': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_request_octets_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_OCTETS': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
         self.assertEqual(rows, [])
 
 
