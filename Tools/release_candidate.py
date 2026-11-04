@@ -14,11 +14,19 @@ MAX_BYTES = 512 * 1024 * 1024
 
 
 def contents(archive, expected):
-    entries = archive.getmembers()
-    if len(entries) != len(expected) or {e.name for e in entries} != set(expected):
+    entries, names, total = [], set(), 0
+    allowed = set(expected)
+    # Advancing to the next header can traverse the current payload. Reject
+    # invalid metadata before asking tarfile to skip/decompress those bytes.
+    for entry in archive:
+        if entry.name not in allowed or entry.name in names:
+            raise ValueError('archive members do not match the expected closure')
+        total += entry.size
+        if not entry.isfile() or entry.size < 0 or total > MAX_BYTES:
+            raise ValueError('archive contains unsupported entries or exceeds its byte bound')
+        entries.append(entry); names.add(entry.name)
+    if len(entries) != len(expected) or names != allowed:
         raise ValueError('archive members do not match the expected closure')
-    if any(not e.isfile() or e.size < 0 for e in entries) or sum(e.size for e in entries) > MAX_BYTES:
-        raise ValueError('archive contains unsupported entries or exceeds its byte bound')
     return {e.name: archive.extractfile(e).read() for e in entries}
 
 
