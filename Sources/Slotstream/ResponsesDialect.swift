@@ -501,7 +501,9 @@ public enum ResponsesDialect {
                 let name = namespace.isEmpty ? bare : namespace + "." + bare
                 guard let id = item["call_id"] as? String, !id.isEmpty else { throw Failure("invalid_request", "input[\(i)] needs a call_id") }
                 guard callIds.insert(id).inserted else { throw Failure("invalid_request", "input[\(i)]: duplicate call_id '\(id)'") }
-                let argumentsText = item["arguments"] as? String ?? ""
+                guard let argumentsText = item["arguments"] as? String else {
+                    throw Failure("invalid_request", "input[\(i)].arguments must be a JSON object encoded as text")
+                }
                 let arguments: [String: JSONValue]
                 if argumentsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     arguments = [:]
@@ -616,7 +618,7 @@ public enum ResponsesDialect {
     /// a picture inside a tool response the same way it renders one in a user
     /// turn, so both are carried.
     static func parseToolOutput(_ value: Any?, at label: String) throws -> (text: String, images: [String]) {
-        guard let value else { return ("", []) }
+        guard let value else { throw Failure("invalid_request", "\(label).output must be text or an array of content items") }
         if let text = value as? String { return (text, []) }
         guard let parts = value as? [[String: Any]] else { throw Failure("invalid_request", "\(label).output must be text or an array of content items") }
         var text: [String] = []
