@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Full exact-client HTTP reconstruction and independent pinned-file hashes."""
-import argparse,functools,hashlib,json,os,signal,subprocess,threading,time
+import argparse,functools,hashlib,json,os,re,signal,subprocess,sys,threading,time
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 import download_checks
@@ -11,7 +11,8 @@ def main():
  package=Path(args.package).resolve();dest=Path(args.destination).resolve();receipt=Path(args.receipt)
  binary=Path(args.binary).resolve() if args.binary else download_checks.compile_harness()
  binary_hash=pack.sha_file(binary)
- m=json.loads((package/'manifest.json').read_text());assert m['files']==pack.pins()
+ m=json.loads((package/'manifest.json').read_text())
+ if m['files']!=pack.pins():raise ValueError('manifest files do not match pinned files')
  server=None;server_stats={'requests':0,'bytes':0};stats_lock=threading.Lock()
  class Handler(SimpleHTTPRequestHandler):
   protocol_version='HTTP/1.1'
@@ -45,7 +46,7 @@ def main():
   command=[str(binary),str(package/'manifest.json'),str(dest),base,'-']
  fresh=not dest.exists() or not any(dest.iterdir())
  lines=[];memory=[];guard_failure=[];finished=threading.Event()
- start=time.monotonic()
+ start=time.monotonic();p=None
  try:
   p=subprocess.Popen(command,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
   def monitor():
@@ -54,21 +55,38 @@ def main():
     if result.returncode or not result.stdout.strip():continue
     rss=int(result.stdout.strip())*1024;memory.append(dict(seconds=round(time.monotonic()-start,2),rssBytes=rss))
     if rss>args.rss_limit_gb*1e9 and not guard_failure:
-     guard_failure.append('RSS guard exceeded');print('RSS guard: cancelling the test safely',flush=True);p.send_signal(signal.SIGINT)
+     guard_failure.append('RSS guard exceeded');p.send_signal(signal.SIGINT);print('RSS guard: cancelling the test safely',flush=True)
   threading.Thread(target=monitor,daemon=True).start()
   for line in p.stdout:print(line,end='',flush=True);lines.append(line)
   code=p.wait();finished.set()
   if code or guard_failure:
    receipt.write_text(json.dumps(dict(pass_=False,fresh=fresh,binarySHA256=binary_hash,sourceSHA256=source_hashes,exitCode=code,guardFailure=guard_failure,memory=memory,clientOutput=lines),indent=2)+'\n')
    raise RuntimeError(f'full HTTP pull failed, exit {code}, guard {guard_failure}')
-  assert any('0 raw fallback chunks' in line for line in lines), 'compressed qualification must not use raw fallbacks'
+  if not any(re.search(r'\b0 raw fallback chunks\b',line) for line in lines):raise ValueError('compressed qualification must not use raw fallbacks')
  finally:
+  primary=sys.exc_info()[1]
   finished.set()
-  if server:server.shutdown()
+  try:
+   try:
+    if p is not None and p.poll() is None:
+     try:p.send_signal(signal.SIGINT)
+     except ProcessLookupError:pass
+     try:p.wait(timeout=5)
+     except subprocess.TimeoutExpired:
+      try:p.kill()
+      except ProcessLookupError:pass
+      p.wait(timeout=5)
+   finally:
+    if server:server.shutdown()
+  except BaseException as cleanup:
+   if primary is not None:raise primary from cleanup
+   raise
  elapsed=time.monotonic()-start
  independent=[]
  for f in pack.pins():
-  sha=pack.sha_file(dest/f['path']);assert sha==f['sha256'];independent.append(dict(path=f['path'],size=(dest/f['path']).stat().st_size,sha256=sha))
+  sha=pack.sha_file(dest/f['path'])
+  if sha!=f['sha256']:raise ValueError('independent file SHA-256 mismatch: '+f['path'])
+  independent.append(dict(path=f['path'],size=(dest/f['path']).stat().st_size,sha256=sha))
 
  r=dict(pass_=True,peakRSSBytes=max((r['rssBytes'] for r in memory),default=0),memory=memory,fresh=fresh,cli=bool(args.binary),defaultSource=args.default_source,clientSummary=[line.strip() for line in lines if any(key in line for key in ['CDN responses:','connections observed','connection trial:','download verified:'])],kind='public-cdn' if args.base_url else 'loopback',base=base,manifestSHA256=pack.sha_file(package/'manifest.json'),binarySHA256=binary_hash,sourceSHA256=source_hashes,originalBytes=sum(f['size'] for f in m['files']),downloadObjectBytes=sum(o['size'] for o in m['objects']),server=server_stats,files=independent,secondsDiagnostic=elapsed)
  receipt.write_text(json.dumps(r,indent=2)+'\n');print(json.dumps({k:v for k,v in r.items() if k not in ('sourceSHA256','files','memory')},indent=2),flush=True)

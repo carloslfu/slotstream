@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-10-26T19:14:46.215135Z
+updated: 2026-11-04T20:54:20.744230Z
 ---
 
 # records/measurements
 
+- [[records/measurements/pr-hardening-integrated-qualification]] — PR hardening: integrated qualification
+- [[records/measurements/pr-hardening-initial-baseline]] — Original-versus-45-PR exact-output and bounded latency comparison
 - [[records/measurements/measured-facts]] — Measured facts
 - [[records/measurements/single-model-maintenance]] — One maintained model, preserved experiments, passing local engine/app checks and bounded real workflows
 - [[records/measurements/relevant-conversation-excerpts]] — Relevant conversation excerpts repair tested factual recall; citation quality remains open

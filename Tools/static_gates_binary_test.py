@@ -14,7 +14,7 @@ OPTIMIZATION_SUITES = [
     'build_identity', 'codex_catalog', 'optimization_build', 'optimization_serial_build', 'optimization_readiness',
     'thermal_readiness', 'prefill_bench', 'expert_layout_probe',
     'ngram_cache_probe', 'indexer_score_probe', 'vision_capacity_gate', 'vision_qualification',
-    'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results', 'public_probe',
+    'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results', 'public_probe', 'full_pull',
     'quantization_inventory', 'quantization_baseline', 'quantization_quality', 'quantization_paired', 'quantization_code_sandbox', 'quantization_bfcl', 'quantization_outcomes', 'quantization_long_context', 'quantization_image_outcomes', 'quantization_product_campaign', 'quantization_outcome_campaign', 'quantization_outcome_continuation', 'quantization_grader_source_audit', 'quantization_grader_continuation', 'quantization_tasks', 'quantization_performance_metrics', 'quantization_performance_campaign', 'quantization_logit_pilot',
     'affine_expert_control', 'affine_expert_reference', 'affine_standalone_metadata', 'affine_standalone_export', 'affine_standalone_run', 'research_payload_retirement', 'standalone_bundle', 'tensor_subset', 'vq_kernel_sources',
     'vq_ple_stream', 'vq_model_reference', 'vq_execution_profile', 'vq_draft_inventory', 'vq_dense_overlay', 'vq_dense_reinvestment', 'vq_uncached_expert', 'vq_contiguous_expert', 'vq_record_repack', 'vq_pilot_admission', 'vq_model_fetch', 'vq_rotary_table_source',
@@ -28,6 +28,7 @@ class StaticBinarySelection(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.trace = self.root/'trace.jsonl'
         self.suite_trace = self.root/'suite-trace.jsonl'
+        self.queue_trace = self.root/'queue-trace.jsonl'
         for directory in ['Tools/reference', 'Tools/slotpack', '.githooks',
                           'bench/parity31', 'Sources/Slotstream', '.build/release',
                           'legacy binary', 'frozen binary']:
@@ -43,16 +44,10 @@ set -eu
 BIN=${BIN:-.build/release/slotstream}
 "$BIN" doctor --json
 ''')
-        for path in ['Tools/static_gates_binary_test.py', 'Tools/checkpoint_mirror_cli_test.py', 'Tools/coverage_ratchet_test.py',
-                     'Tools/process_cleanup_checks.py', 'Tools/context_qualification_checks.py',
-                     'Tools/installer_gates_binary_test.py',
-                     'Tools/verify_binary_test.py',
-                     'Tools/adaptive_memory_e2e_test.py',
-                     'Tools/sampler_gates_test.py',
-                     'Tools/reference/fixture.py', 'Tools/slotpack/checks.py',
-                     'Tools/decode_summary_test.py']:
+        for path in ['Tools/static_gates_binary_test.py', 'Tools/checkpoint_mirror_cli_test.py', 'Tools/coverage_ratchet_test.py', 'Tools/process_cleanup_checks.py', 'Tools/context_qualification_checks.py', 'Tools/installer_gates_binary_test.py', 'Tools/verify_binary_test.py', 'Tools/adaptive_memory_e2e_test.py', 'Tools/sampler_gates_test.py', 'Tools/reference/fixture.py', 'Tools/slotpack/checks.py', 'Tools/decode_summary_test.py', 'Tools/openai_tools_gate_test.py']:
             self.write(path, '# Model-free dependency fixture.\n')
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
+        self.write('Tools/fetch_metallib_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_FETCH_METALLIB') == '1' else 0)\n")
         self.write('Tools/parity_comparison_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PARITY') == '1' else 0)\n")
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
         self.write('Tools/llms_full_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LLMS_FULL') == '1' else 0)\n")
@@ -62,6 +57,7 @@ BIN=${BIN:-.build/release/slotstream}
         self.write('Tools/consumer_smoke_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CONSUMER') == '1' else 0)\n")
         self.write('Tools/support_bundle_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_SUPPORT_BUNDLE') == '1' else 0)\n")
         self.write('Tools/process_memory_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_NATIVE_MEMORY') == '1' else 0)\n")
+        self.write('Tools/fx_gates_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_FX_STATUS') == '1' else 0)\n")
         self.write('Tools/checkpoint_mirror_thread_gate.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MIRROR_THREAD') == '1' else 0)\n")
         self.write('Tools/launch_request_deadline_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_DEADLINE') == '1' else 0)\n")
         self.write('Tools/optimization_check_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DIAGNOSTIC') == '1' else 0)\n")
@@ -96,6 +92,29 @@ with open(os.environ['SLOTSTREAM_SELECTION_TRACE'], 'a') as output:
         'BIN': os.environ.get('BIN'), 'SLOTSTREAM_TEST_BINARY': os.environ.get('SLOTSTREAM_TEST_BINARY')}})+'\\n')
 raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 ''')
+        self.write('Tools/installer_profile_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_INSTALLER_PROFILE') == '1' else 0)\n")
+        self.write('Tools/claims_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CLAIM_NEEDLE') == '1' else 0)\n")
+        self.write('Tools/pre_commit_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PRE_COMMIT') == '1' else 0)\n")
+        self.write('Tools/launch_gate_status_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_GATE_STATUS') == '1' else 0)\n")
+        self.write('Tools/terminal_confirmation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_TERMINAL_CONFIRMATION') == '1' else 0)\n")
+        self.write('Tools/http_head_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_HEAD') == '1' else 0)\n")
+        self.write('Tools/http_head_probe_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_HEAD_PROBE') == '1' else 0)\n")
+        self.write('Tools/http_request_octets_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_OCTETS') == '1' else 0)\n")
+        self.write('Tools/memory_override_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MEMORY_OVERRIDE_STATUS') == '1' else 0)\n")
+        self.write('Tools/monotonic_plan_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MONOTONIC') == '1' else 0)\n")
+        self.write('Tools/slotpack/raw_resume_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_RAW_RESUME') == '1' else 0)\n")
+        self.write('Tools/prefix_startup_cleanup_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFIX_STARTUP') == '1' else 0)\n")
+        self.write('Tools/prefix_token_evidence_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFIX_TOKEN_EVIDENCE') == '1' else 0)\n")
+        self.write('Tools/ngram_row_layout_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_NGRAM_LAYOUT') == '1' else 0)\n")
+        self.write('Tools/dbmd_install_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DBMD_INSTALLER') == '1' else 0)\n")
+        self.write('Tools/stop_sequence_stream_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_STOP_STREAM') == '1' else 0)\n")
+        self.write('Tools/launch_log_rotation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_LOG_ROTATION') == '1' else 0)\n")
+        self.write('Tools/generation_queue_cancel_test.py', '''import json, os
+with open(os.environ['SLOTSTREAM_QUEUE_TRACE'], 'a') as output:
+    output.write(json.dumps('generation_queue_cancel')+'\\n')
+raise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_GENERATION_QUEUE') == '1' else 0)
+''')
+        self.write('Tools/prefetch_claim_cleanup_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFETCH_CLAIM') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -107,6 +126,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
                if k != 'BIN' and not k.startswith(('SLOTSTREAM_', 'SS_DEBUG'))}
         env.update(SLOTSTREAM_SELECTION_TRACE=str(self.trace))
         env.update(SLOTSTREAM_SUITE_TRACE=str(self.suite_trace))
+        env.update(SLOTSTREAM_QUEUE_TRACE=str(self.queue_trace))
         env.update(changes)
         p = subprocess.run(['bash', 'Tools/static_gates.sh'], cwd=self.root,
                            env=env, text=True, capture_output=True, timeout=15)
@@ -146,6 +166,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_parity_comparison_stops_before_native_checks(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_PARITY': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_fetch_metallib_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_FETCH_METALLIB': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_fetch_metallib_regression_stops_acceptance(self):
+        (self.root/'Tools/fetch_metallib_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
         self.assertEqual(rows, [])
 
     def test_failed_draft_lock_stops_before_native_checks(self):
@@ -190,6 +221,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_MIRROR_THREAD': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
         self.assertEqual([row['arguments'] for row in rows], [['runtime-check']])
+
+    def test_failed_fx_client_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_FX_STATUS': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_fx_client_regression_stops_acceptance(self):
+        (self.root/'Tools/fx_gates_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
 
     def test_failed_launch_deadline_regression_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_LAUNCH_DEADLINE': '1'})
@@ -334,7 +376,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.assertEqual(rows, [])
 
     def test_failed_optimization_suite_stops_before_native_checks(self):
-        for suite in ('optimization_prerequisites', 'public_probe'):
+        for suite in ('optimization_prerequisites', 'public_probe', 'full_pull'):
             with self.subTest(suite=suite):
                 self.suite_trace.unlink(missing_ok=True)
                 p, rows = self.run_entry({'SLOTSTREAM_FAIL_SUITE': suite})
@@ -381,7 +423,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.assertEqual(rows, [])
 
     def test_missing_optimization_suite_is_a_failure(self):
-        for suite in ('optimization_prerequisites', 'public_probe'):
+        for suite in ('optimization_prerequisites', 'public_probe', 'full_pull'):
             with self.subTest(suite=suite):
                 path = self.root/f'Tools/{suite}_test.py'
                 original = path.read_text()
@@ -392,6 +434,194 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
                     self.write(f'Tools/{suite}_test.py', original)
                 self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
                 self.assertEqual(rows, [])
+
+    def test_failed_installer_profile_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_INSTALLER_PROFILE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_installer_profile_stops_acceptance(self):
+        (self.root/'Tools/installer_profile_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_claim_needle_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_CLAIM_NEEDLE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_claim_needle_regression_stops_acceptance(self):
+        (self.root/'Tools/claims_gate_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_pre_commit_fixture_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_PRE_COMMIT': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_pre_commit_fixture_is_a_failure(self):
+        (self.root/'Tools/pre_commit_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_launch_gate_status_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_LAUNCH_GATE_STATUS': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_launch_gate_status_regression_stops_acceptance(self):
+        (self.root/'Tools/launch_gate_status_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(rows, [])
+
+    def test_failed_terminal_confirmation_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_TERMINAL_CONFIRMATION': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_terminal_confirmation_regression_is_a_failure(self):
+        (self.root/'Tools/terminal_confirmation_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('terminal_confirmation_test.py', result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_head_fixture_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_HEAD': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_head_probe_fixture_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_HEAD_PROBE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_http_request_octets_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_HTTP_OCTETS': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_memory_override_status_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_MEMORY_OVERRIDE_STATUS': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_memory_override_status_regression_stops_acceptance(self):
+        (self.root/'Tools/memory_override_gate_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(rows, [])
+
+    def test_failed_monotonic_fixture_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_MONOTONIC': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_monotonic_fixture_stops_before_native_checks(self):
+        (self.root/'Tools/monotonic_plan_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_raw_resume_fixture_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_RAW_RESUME': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_raw_resume_fixture_stops_before_native_checks(self):
+        (self.root/'Tools/slotpack/raw_resume_gate_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_prefix_startup_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_PREFIX_STARTUP': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_prefix_startup_fixture_stops_before_native_checks(self):
+        (self.root/'Tools/prefix_startup_cleanup_test.py').unlink()
+        p, rows = self.run_entry({})
+        self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_prefix_token_evidence_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_PREFIX_TOKEN_EVIDENCE': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_prefix_token_evidence_fixture_is_a_failure(self):
+        (self.root/'Tools/prefix_token_evidence_test.py').unlink()
+        p, rows = self.run_entry({})
+        self.assertNotEqual(p.returncode, 0, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_ngram_layout_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_NGRAM_LAYOUT': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_dbmd_installer_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_DBMD_INSTALLER': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_stop_stream_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_STOP_STREAM': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_stop_stream_regression_stops_acceptance(self):
+        (self.root/'Tools/stop_sequence_stream_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_launch_log_rotation_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_LAUNCH_LOG_ROTATION': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_queue_cancellation_registered_once_before_suite_loop(self):
+        source = SCRIPT.read_text()
+        command = 'python3 Tools/generation_queue_cancel_test.py'
+        self.assertEqual(source.count(command), 1)
+        self.assertLess(source.index(command), source.index('for suite in '))
+
+    def test_queue_cancellation_success_runs_before_suites(self):
+        result, rows = self.run_entry({})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        trace = [json.loads(line) for line in self.queue_trace.read_text().splitlines()]
+        self.assertEqual(trace, ['generation_queue_cancel'])
+        suites = [json.loads(line) for line in self.suite_trace.read_text().splitlines()]
+        self.assertEqual(suites, OPTIMIZATION_SUITES)
+        self.assertEqual(len(rows), 3)
+
+    def test_failed_queue_cancellation_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_GENERATION_QUEUE': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+        trace = [json.loads(line) for line in self.queue_trace.read_text().splitlines()]
+        self.assertEqual(trace, ['generation_queue_cancel'])
+        self.assertFalse(self.suite_trace.exists())
+
+    def test_missing_queue_cancellation_stops_acceptance(self):
+        (self.root/'Tools/generation_queue_cancel_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+        self.assertFalse(self.suite_trace.exists())
+        self.assertFalse(self.queue_trace.exists())
+
+    def test_failed_prefetch_claim_cleanup_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_PREFETCH_CLAIM': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
 
 
 if __name__ == '__main__':

@@ -12,7 +12,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     subprocess.run(['python3', str(root/'Tools/slotpack/publish_hf_checks.py')], check=True)
     subprocess.run(['python3', str(root/'Tools/slotpack/fetch_build_inputs_checks.py')], check=True)
+    subprocess.run(['python3', str(root/'Tools/slotpack/fetch_build_inputs_validation_checks.py')], check=True)
     subprocess.run(['python3', str(root/'Tools/slotpack/pack_checks.py')], check=True)
+    subprocess.run(['python3', str(root/'Tools/slotpack/embed_checks.py')], check=True)
     binary = out/'codec-checks-sanitized'
     subprocess.run(['cc', '-O1', '-g', '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
                     '-I', str(root/'Sources/CSlotpack/include'), str(root/'Sources/CSlotpack/slotpack.c'),

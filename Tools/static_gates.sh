@@ -13,32 +13,53 @@ python3 -m py_compile Tools/*.py Tools/reference/*.py Tools/slotpack/*.py
 python3 Tools/token_usage_proxy_test.py
 python3 Tools/static_gates_binary_test.py
 python3 Tools/checkpoint_mirror_cli_test.py
+python3 Tools/pre_commit_test.py
 python3 Tools/installer_gates_binary_test.py
 python3 Tools/installer_metal_test.py
 python3 Tools/llms_full_test.py
+python3 Tools/installer_profile_test.py
+python3 Tools/dbmd_install_test.py
 python3 Tools/verify_binary_test.py
 python3 Tools/optimization_check_test.py
 python3 Tools/adaptive_memory_e2e_test.py
 python3 Tools/parity_comparison_test.py
 python3 Tools/sampler_gates_test.py
 python3 Tools/planner_gates_test.py
+python3 Tools/monotonic_plan_test.py
+python3 Tools/slotpack/raw_resume_gate_test.py
 python3 Tools/api_generation_test.py
 python3 Tools/fx_scenarios_test.py
+python3 Tools/http_head_test.py
+python3 Tools/http_head_probe_test.py
+python3 Tools/http_request_octets_test.py
+python3 Tools/memory_override_gate_test.py
+python3 Tools/prefix_startup_cleanup_test.py
+python3 Tools/prefix_token_evidence_test.py
 python3 Tools/consumer_smoke_test.py
 python3 Tools/support_bundle_test.py
 python3 Tools/e2e_release_test.py
 python3 Tools/coverage_ratchet_test.py
 python3 Tools/projections_test.py
+python3 Tools/claims_gate_test.py
+python3 Tools/fetch_metallib_test.py
+python3 Tools/fx_gates_test.py
 python3 Tools/context_qualification_checks.py
 python3 Tools/process_cleanup_checks.py
 python3 Tools/launch_request_deadline_test.py
+python3 Tools/launch_gate_status_test.py
+python3 Tools/terminal_confirmation_test.py
+python3 Tools/launch_log_rotation_test.py
 python3 Tools/safetensors_empty_test.py
+python3 Tools/ngram_row_layout_test.py
+python3 Tools/stop_sequence_stream_test.py
+python3 Tools/generation_queue_cancel_test.py
+python3 Tools/prefetch_claim_cleanup_test.py
 # These use tiny fixtures or mocked processes; none loads MLX, builds Swift,
 # reads model weights, or takes the live model lock. Syntax checks alone do
 # not exercise their benchmark validity and artifact-identity assertions.
 for suite in build_identity codex_catalog optimization_build optimization_serial_build optimization_readiness thermal_readiness prefill_bench expert_layout_probe \
              ngram_cache_probe indexer_score_probe vision_capacity_gate vision_qualification \
-             optimization_prerequisites optimization_soak optimization_campaign optimization_results public_probe \
+             optimization_prerequisites optimization_soak optimization_campaign optimization_results public_probe full_pull \
              quantization_inventory quantization_baseline quantization_quality quantization_paired quantization_code_sandbox quantization_bfcl quantization_outcomes quantization_long_context quantization_image_outcomes quantization_product_campaign quantization_outcome_campaign quantization_outcome_continuation quantization_grader_source_audit quantization_grader_continuation quantization_tasks quantization_performance_metrics quantization_performance_campaign quantization_logit_pilot affine_expert_control affine_expert_reference affine_standalone_metadata affine_standalone_export affine_standalone_run research_payload_retirement standalone_bundle tensor_subset vq_kernel_sources vq_ple_stream vq_model_reference vq_execution_profile vq_draft_inventory vq_dense_overlay vq_dense_reinvestment vq_uncached_expert vq_contiguous_expert vq_record_repack vq_pilot_admission vq_model_fetch vq_rotary_table_source; do
   python3 "Tools/${suite}_test.py"
 done
@@ -73,4 +94,5 @@ Tools/installer_gates.sh
 
 python3 Tools/decode_summary_test.py
 
+python3 Tools/openai_tools_gate_test.py
 echo "STATIC GATES PASS"

@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-10-26T19:18:31.055587Z
+updated: 2026-11-04T20:54:20.675358Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/11/2026-11-04-pr-prose-timing-exclusion]] — Discarded PR comparison prose timing pair: global paging
+- [[sources/runs/2026/11/2026-11-04-pr-integrated-qualification]] — Integrated PR hardening qualification and paired regression runs
+- [[sources/runs/2026/11/2026-11-04-pr-baseline-vs-45-merged]] — Frozen original-versus-45-PR release-build benchmark
 - [[sources/runs/2026/10/2026-10-26-mac-app-retirement]] — Mac app source archive, unchanged engine release comparison and scoped verification
 - [[sources/runs/2026/10/2026-10-26-single-model-maintenance]] — Single-model archive, app migration and native workflow verification
 - [[sources/runs/2026/10/2026-10-26-q2-compiler-and-workflow-checkpoint]] — Q2 compiler isolation, complete requests and app recall qualification
@@ -504,11 +507,8 @@ updated: 2026-10-26T19:18:31.055587Z
 - [[sources/runs/2026/09/2026-09-10-decode-attribution-discarded-attempts]] — Decode attribution discarded attempts and rejected profiler
 - [[sources/runs/2026/09/2026-09-10-decode-wall-time-attribution]] — Decode wall-time attribution on the M5 Pro, with production untouched
 - [[sources/runs/2026/09/2026-09-10-release-0-2-13-harness-correction]] — Unpublished v0.2.12 harness failure and corrected v0.2.13 preparation
-- [[sources/runs/2026/09/2026-09-10-release-0-2-12-restored-coverage]] — Restored serving and prefix checks pass in instrumented CI
-- [[sources/runs/2026/09/2026-09-10-release-0-2-12-planner-fixture-correction]] — Malformed checkpoint gates independent of CI inference headroom
-- [[sources/runs/2026/09/2026-09-10-release-0-2-12-prepublication-corrections]] — Release build identity and coverage corrections before v0.2.12 publication
 
 ## More
 
-This folder has 1002 files. The 500 most recent are listed above.
+This folder has 1005 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

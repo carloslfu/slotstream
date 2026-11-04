@@ -131,6 +131,41 @@ def http(port, method, path, body=None, timeout=3600):
             rest += data
 
 
+def _stop_owned_server(process, log):
+    """Stop only this wrapper's child and close its acquired log."""
+    error = None
+    try:
+        if process is not None and process.poll() is None:
+            process.send_signal(signal.SIGINT)
+            try:
+                process.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=30)
+    except BaseException as exc:
+        error = exc
+    finally:
+        try:
+            if not log.closed:
+                log.close()
+        except BaseException as exc:
+            if error is None:
+                error = exc
+    if error is not None:
+        raise error
+
+
+def _cleanup_failed_server(process, log):
+    """Best-effort cleanup while a constructor/readiness error stays primary."""
+    try:
+        _stop_owned_server(process, log)
+    except BaseException as exc:
+        try:
+            print(f"server cleanup failed: {exc!r}", file=sys.stderr)
+        except BaseException:
+            pass
+
+
 class Server:
     def __init__(self, binary, port, memory_gb, directory, min_tokens, log_path):
         self.port = port
@@ -139,32 +174,33 @@ class Server:
         args = [binary, "serve", "--port", str(port), "--memory-gb", str(memory_gb),
                 "--prefix-cache-dir", directory, "--prefix-cache-min-tokens", str(min_tokens)]
         env = dict(os.environ, SLOTSTREAM_BENCH_DETAILS="1")
-        self.process = subprocess.Popen(args, stdout=self.log, stderr=subprocess.STDOUT, env=env,
-                                        start_new_session=True)
+        try:
+            self.process = subprocess.Popen(args, stdout=self.log, stderr=subprocess.STDOUT, env=env,
+                                            start_new_session=True)
+        except BaseException:
+            _cleanup_failed_server(None, self.log)
+            raise
 
     def wait_ready(self, timeout=900):
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if self.process.poll() is not None:
-                raise RuntimeError(f"server exited with {self.process.returncode}; see {self.log_path}")
-            try:
-                status, _ = http(self.port, "GET", "/api/version", timeout=2)
-                if status == 200:
-                    return
-            except OSError:
-                pass
-            time.sleep(1)
-        raise RuntimeError(f"server not ready after {timeout} s; see {self.log_path}")
+        try:
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if self.process.poll() is not None:
+                    raise RuntimeError(f"server exited with {self.process.returncode}; see {self.log_path}")
+                try:
+                    status, _ = http(self.port, "GET", "/api/version", timeout=2)
+                    if status == 200:
+                        return
+                except OSError:
+                    pass
+                time.sleep(1)
+            raise RuntimeError(f"server not ready after {timeout} s; see {self.log_path}")
+        except BaseException:
+            _cleanup_failed_server(self.process, self.log)
+            raise
 
     def stop(self):
-        if self.process.poll() is None:
-            self.process.send_signal(signal.SIGINT)
-            try:
-                self.process.wait(timeout=60)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=30)
-        self.log.close()
+        _stop_owned_server(self.process, self.log)
         deadline = time.time() + 30
         while model_process_running() and time.time() < deadline:
             time.sleep(0.5)
@@ -176,6 +212,23 @@ class Server:
             return [line.rstrip() for line in handle if "prefix cache disk" in line]
 
 
+def benchmark_token_ids(frame):
+    """Require complete raw token evidence before prefix equality checks."""
+    details = frame.get("slotstream_benchmark")
+    if not isinstance(details, dict):
+        raise RuntimeError("/api/chat is missing slotstream_benchmark token evidence")
+    result = []
+    for field, count_field in (("prompt_ids", "prompt_eval_count"), ("output_ids", "eval_count")):
+        ids = details.get(field)
+        if not isinstance(ids, list) or any(type(token) is not int or token < 0 for token in ids):
+            raise RuntimeError(f"/api/chat benchmark {field} must be an array of nonnegative integers")
+        count = frame.get(count_field)
+        if type(count) is not int or count < 0 or len(ids) != count:
+            raise RuntimeError(f"/api/chat benchmark {field} does not match {count_field}")
+        result.append(ids)
+    return result[0], result[1]
+
+
 def chat(port, messages, num_predict):
     body = {"model": MODEL, "messages": messages, "stream": False, "think": False,
             "options": {"temperature": 0, "seed": 7, "num_predict": num_predict}}
@@ -185,6 +238,7 @@ def chat(port, messages, num_predict):
     if status != 200:
         raise RuntimeError(f"/api/chat returned {status}: {payload[:500]!r}")
     frame = json.loads(payload)
+    prompt_ids, output_ids = benchmark_token_ids(frame)
     details = frame.get("slotstream_benchmark") or {}
     stats = details.get("stats") or {}
     return {
@@ -200,8 +254,8 @@ def chat(port, messages, num_predict):
         "peak_memory_gb": stats.get("peakMemoryGB"),
         "request_sampled_peak_bytes": (stats.get("sampledFootprint") or {}).get("peakBytes"),
         "persistent": stats.get("persistentPrefix") or {},
-        "prompt_ids": details.get("prompt_ids"),
-        "output_ids": details.get("output_ids"),
+        "prompt_ids": prompt_ids,
+        "output_ids": output_ids,
         "content": (frame.get("message") or {}).get("content"),
     }
 
