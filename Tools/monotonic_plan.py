@@ -35,7 +35,17 @@ def plan(mem):
         [BIN, "doctor", "--mtp", "off", "--max-context", "32768", "--sim-ram", "137.4", "--sim-available", "130",
          "--memory-gb", str(mem), "--json"],
         capture_output=True, text=True)
-    return json.loads(r.stdout) if r.returncode == 0 else None
+    if r.returncode == 0:
+        return json.loads(r.stdout)
+    if r.returncode == 2:
+        try:
+            refusal = json.loads(r.stdout)
+        except ValueError:
+            refusal = None
+        if (isinstance(refusal, dict) and isinstance(refusal.get("error"), dict)
+                and refusal["error"].get("code") == "insufficient_memory"):
+            return None
+    raise RuntimeError(f"doctor --json failed at {mem} GB (exit {r.returncode}): {r.stderr.strip()}")
 
 
 def main():
