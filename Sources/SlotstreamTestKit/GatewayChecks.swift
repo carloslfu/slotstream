@@ -22,6 +22,7 @@ extension Catalogue {
             Check("gateway-v4-images", tier: .t0) { gatewayV4Images() },
             Check("gateway-catalog", tier: .t0) { gatewayCatalog() },
             Check("gateway-events", tier: .t0) { gatewayEvents() },
+            Check("gateway-reasoning-tail", tier: .t0) { try gatewayReasoningTail() },
             Check("chat-splice", tier: .t0) { chatSplice() },
             Check("gateway-null-bridge", tier: .t0) { gatewayNullBridge() },
             Check("gateway-anyof-types", tier: .t0) { gatewayAnyOfTypes() },
