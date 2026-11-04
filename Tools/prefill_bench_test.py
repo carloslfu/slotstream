@@ -904,6 +904,34 @@ Swapouts: 23.
     def test_missing_memory_fields_fail_closed(self):
         with self.assertRaises(ValueError): vm_snapshot("page size of 4096 bytes\nPages free: 9.\n")
 
+    def test_request_duration_must_be_positive_even_for_complete_prompt_hits(self):
+        normal = {"schema_version": 1, "stats": {"prefillSeconds": 1.0, "decodeSeconds": 0.2,
+                "requestSeconds": 1.2, "imageEncodeSeconds": 0, "prefillRecords": 17,
+                "decodeRecords": 3, "prefillTokens": 2, "promptTokens": 2, "decodeTokens": 1,
+                "lifetimeRSSPeakBytes": 123, "prefillPasses": [2]}, "prompt_ids": [1, 2], "output_ids": [3]}
+        complete = copy.deepcopy(normal)
+        complete["stats"].update(prefillSeconds=0, prefillTokens=0, prefillRecords=0,
+            prefillPasses=[], prefillComputePasses=[], prefillReadBytes=0,
+            completePromptHits=1, reusedPrefixTokens=2)
+        for payload, allow_complete in [(normal, False), (complete, True)]:
+            for seconds in [2, 2.5]:
+                valid = copy.deepcopy(payload); valid["stats"]["requestSeconds"] = seconds
+                self.assertIs(validate_metrics(valid, allow_complete_prompt=allow_complete), valid["stats"])
+            # Unused phase timers remain allowed to be zero. Only the total
+            # request interval is used as a paired speedup denominator.
+            zero_phases = copy.deepcopy(payload)
+            zero_phases["stats"].update(decodeSeconds=0, decodeTokens=0)
+            zero_phases["output_ids"] = []
+            self.assertIs(validate_metrics(zero_phases, allow_complete_prompt=allow_complete), zero_phases["stats"])
+            if allow_complete:
+                zero_phases["stats"]["requestSeconds"] = 1e-12
+                self.assertIs(validate_metrics(zero_phases, allow_complete_prompt=True), zero_phases["stats"])
+            for seconds in [0, 0.0, -0.0]:
+                with self.subTest(complete_prompt=allow_complete, request_seconds=seconds):
+                    invalid = copy.deepcopy(payload); invalid["stats"]["requestSeconds"] = seconds
+                    with self.assertRaisesRegex(ValueError, "requestSeconds"):
+                        validate_metrics(invalid, allow_complete_prompt=allow_complete)
+
     def test_metrics_fail_closed(self):
         good = {"schema_version": 1, "stats": {"prefillSeconds": 1.0, "decodeSeconds": 0.2,
                 "requestSeconds": 1.2, "imageEncodeSeconds": 0, "prefillRecords": 17,
