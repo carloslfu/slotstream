@@ -36,7 +36,7 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from persistent_prefix_e2e import (MODEL, ROOT, brief, http, model_process_running, prefix_cache, prose,  # noqa: E402
+from persistent_prefix_e2e import (MODEL, ROOT, benchmark_token_ids, brief, http, model_process_running, prefix_cache, prose,  # noqa: E402
                                    reclaimable_gb, _stop_owned_server, _cleanup_failed_server)
 
 GRID = 256
@@ -104,6 +104,7 @@ def chat(port, messages, num_predict):
     if status != 200:
         raise RuntimeError(f"/api/chat returned {status}: {payload[:500]!r}")
     frame = json.loads(payload)
+    prompt_ids, output_ids = benchmark_token_ids(frame)
     details = frame.get("slotstream_benchmark") or {}
     stats = details.get("stats") or {}
     return {
@@ -124,8 +125,8 @@ def chat(port, messages, num_predict):
         "shared_refusals": stats.get("sharedPrefixRefusals"),
         "shared_errors": stats.get("sharedPrefixErrors"),
         "persistent": stats.get("persistentPrefix") or {},
-        "prompt_ids": details.get("prompt_ids"),
-        "output_ids": details.get("output_ids"),
+        "prompt_ids": prompt_ids,
+        "output_ids": output_ids,
         "content": (frame.get("message") or {}).get("content"),
     }
 
