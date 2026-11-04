@@ -97,6 +97,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.write('Tools/prefix_startup_cleanup_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFIX_STARTUP') == '1' else 0)\n")
         self.write('Tools/prefix_token_evidence_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFIX_TOKEN_EVIDENCE') == '1' else 0)\n")
         self.write('Tools/ngram_row_layout_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_NGRAM_LAYOUT') == '1' else 0)\n")
+        self.write('Tools/dbmd_install_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DBMD_INSTALLER') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -545,6 +546,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_ngram_layout_regression_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_NGRAM_LAYOUT': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_dbmd_installer_fixture_stops_before_native_checks(self):
+        p, rows = self.run_entry({'SLOTSTREAM_FAIL_DBMD_INSTALLER': '1'})
+        self.assertEqual(p.returncode, 23, p.stdout+p.stderr)
         self.assertEqual(rows, [])
 
 
