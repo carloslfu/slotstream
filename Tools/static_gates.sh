@@ -53,6 +53,7 @@ python3 Tools/safetensors_empty_test.py
 python3 Tools/ngram_row_layout_test.py
 python3 Tools/stop_sequence_stream_test.py
 python3 Tools/generation_queue_cancel_test.py
+python3 Tools/prefetch_claim_cleanup_test.py
 # These use tiny fixtures or mocked processes; none loads MLX, builds Swift,
 # reads model weights, or takes the live model lock. Syntax checks alone do
 # not exercise their benchmark validity and artifact-identity assertions.

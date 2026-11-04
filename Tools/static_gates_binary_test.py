@@ -105,6 +105,7 @@ with open(os.environ['SLOTSTREAM_QUEUE_TRACE'], 'a') as output:
     output.write(json.dumps('generation_queue_cancel')+'\\n')
 raise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_GENERATION_QUEUE') == '1' else 0)
 ''')
+        self.write('Tools/prefetch_claim_cleanup_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PREFETCH_CLAIM') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -607,6 +608,11 @@ raise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_GENERATION_QUEUE') == '1'
         self.assertEqual(rows, [])
         self.assertFalse(self.suite_trace.exists())
         self.assertFalse(self.queue_trace.exists())
+
+    def test_failed_prefetch_claim_cleanup_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_PREFETCH_CLAIM': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
 
 
 if __name__ == '__main__':
