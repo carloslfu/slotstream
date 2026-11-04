@@ -147,6 +147,74 @@ class CompletionContracts(unittest.TestCase):
                 openai_text({**openai, 'usage': {'completion_tokens': count}})
 
 
+class GenerationCLI(unittest.TestCase):
+    def run_cli(self, format, value, *, stream=False, optimized=False, raw=None):
+        env = dict(os.environ)
+        env.pop('PYTHONOPTIMIZE', None)
+        if optimized:
+            env['PYTHONOPTIMIZE'] = '1'
+        args = [sys.executable, str(ROOT/'Tools/api_generation.py'), format]
+        if stream:
+            args.append('--stream')
+        if raw is None:
+            raw = '\n'.join(json.dumps(frame) for frame in value) if stream else json.dumps(value)
+        return subprocess.run(args, input=raw.encode(), env=env, capture_output=True, timeout=5)
+
+    def test_existing_nonstream_formats_preserve_exact_text_in_both_modes(self):
+        text = ' \n café 日本語\r\n '
+        chat = {'message': {'role': 'assistant', 'content': text},
+                'done': True, 'done_reason': 'stop', 'eval_count': 1}
+        generated = {'response': text, 'done': True, 'done_reason': 'stop', 'eval_count': 1}
+        openai = {'choices': [{'message': chat['message'], 'finish_reason': 'length'}],
+                  'usage': {'completion_tokens': 1}}
+        payloads = {'ollama-chat': chat, 'ollama-generate': generated, 'openai': openai}
+        for optimized in [False, True]:
+            for format in ['ollama-chat', 'ollama-generate', 'openai']:
+                with self.subTest(format=format, optimized=optimized):
+                    result = self.run_cli(format, payloads[format], optimized=optimized)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, text.encode())
+
+    def test_ollama_ndjson_stream_keeps_complete_output_in_both_modes(self):
+        for optimized in [False, True]:
+            for format in ['ollama-chat', 'ollama-generate']:
+                with self.subTest(format=format, optimized=optimized):
+                    def content(text):
+                        return {'response': text} if format == 'ollama-generate' else {
+                            'message': {'role': 'assistant', 'content': text}}
+                    delta = {**content('café '), 'done': False}
+                    tail = {**content('日本語'), 'done': True, 'done_reason': 'length', 'eval_count': 2}
+                    raw = '\n' + json.dumps(delta) + '\n\n' + json.dumps(tail) + '\n'
+                    result = self.run_cli(format, [], stream=True, optimized=optimized, raw=raw)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, 'café 日本語'.encode())
+
+    def test_incomplete_or_failed_ndjson_never_prints_success_text(self):
+        delta = {'message': {'role': 'assistant', 'content': 'text'}, 'done': False}
+        tail = {'message': {'role': 'assistant', 'content': ''}, 'done': True,
+                'done_reason': 'stop', 'eval_count': 1}
+        cases = [[], [delta], [delta, tail, tail], [tail, delta],
+                 [delta, {**tail, 'done_reason': 'error'}],
+                 [delta, {**tail, 'eval_count': True}],
+                 [delta, {**tail, 'error': 'failed after text'}]]
+        for optimized in [False, True]:
+            for frames in cases:
+                with self.subTest(frames=frames, optimized=optimized):
+                    result = self.run_cli('ollama-chat', frames, stream=True, optimized=optimized)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, b'')
+            result = self.run_cli('ollama-chat', [], stream=True, optimized=optimized, raw='{bad\n')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, b'')
+
+    def test_openai_stream_is_explicitly_refused(self):
+        for optimized in [False, True]:
+            result = self.run_cli('openai', [], stream=True, optimized=optimized)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b'--stream supports Ollama NDJSON only', result.stderr)
+            self.assertEqual(result.stdout, b'')
+
+
 class ActualPythonStreamPredicates(unittest.TestCase):
     def run_block(self, marker, fault):
         text = SCRIPT.read_text()
