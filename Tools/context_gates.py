@@ -82,6 +82,7 @@ def check(binary):
     automatic = json.loads((ROOT / "Tools/fixtures/context-automatic-v2.json").read_text())
     help_result = run(binary, ["context-check", "--help"])
     evidence.append(help_result)
+    expect('diagnostic help command succeeds', help_result['code'] == 0, help_result)
     help_text = help_result["stdout"]
     for flag, default in [("--reply-tokens", "16"), ("--wall-seconds", "7200.0")]:
         expect(f"diagnostic {flag} default is explicit", bool(re.search(
@@ -91,6 +92,7 @@ def check(binary):
     for tier in fixture["tiers"]:
         repeats = [run(binary, tier["args"]) for _ in range(2)]
         evidence.extend(repeats)
+        expect(f"default {tier['tier']} commands succeed", all(r['code'] == 0 for r in repeats), repeats)
         values = [json.loads(r["stdout"]) for r in repeats]
         projected = [{k: d[k] for k in fields if k in d} for d in values]
         expect(f"default {tier['tier']} preserved", projected[0] == projected[1] == tier["expected"], projected)
@@ -102,6 +104,7 @@ def check(binary):
     for tier in automatic["tiers"]:
         repeats = [run(binary, tier["args"]) for _ in range(2)]
         evidence.extend(repeats)
+        expect(f"automatic {tier['tier']} commands succeed", all(r['code'] == 0 for r in repeats), repeats)
         values = [json.loads(r["stdout"]) for r in repeats]
         expect(f"automatic {tier['tier']} window", all(d["max_context_tokens"] == tier["expected_window"]
             and d["context_window_source"] == "automatic" for d in values), [d.get("max_context_tokens") for d in values])
@@ -115,6 +118,7 @@ def check(binary):
     for start in [0, 1, 32768, 65535, 128256, 131071, 262079, 262143]:
         result = run(binary, ["prefill-schedule", "--tokens", str(262144 - start), "--from", str(start), "--chunk", "4096", "--json"])
         evidence.append(result)
+        expect(f'full schedule from {start} command succeeds', result['code'] == 0, result)
         d = json.loads(result["stdout"])
         pos = start
         bounded = True
@@ -127,6 +131,7 @@ def check(binary):
 
     result = run(binary, ["prefill-schedule", "--tokens", "512", "--from", "200000", "--chunk", "4095", "--json"])
     evidence.append(result)
+    expect('odd late diagnostic command succeeds', result['code'] == 0, result)
     d = json.loads(result["stdout"])
     expect("odd late diagnostic reports actual canonical runtime passes", d["passes"] == [64]*8, d)
     expect("odd late diagnostic includes masked key columns", d["compute_key_extents"] == [200256]*4+[200512]*4, d)
