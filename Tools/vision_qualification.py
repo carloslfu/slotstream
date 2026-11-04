@@ -71,8 +71,8 @@ def main():
     a = parse_arguments()
     binary = a.binary.resolve(); model = a.model.resolve(); out = a.out.resolve()
     identity = json.loads((binary.parent/'build-identity.json').read_text())
-    for name, key in [('slotstream', 'binary_sha256'), ('mlx.metallib', 'metallib_sha256'), ('build-source.tar.gz', 'source_archive_sha256')]:
-        if digest(binary.parent/name) != identity[key]: raise ValueError('frozen build identity differs')
+    for artifact, key in [(binary, 'binary_sha256'), (binary.parent/'mlx.metallib', 'metallib_sha256'), (binary.parent/'build-source.tar.gz', 'source_archive_sha256')]:
+        if digest(artifact) != identity[key]: raise ValueError('frozen build identity differs')
     before = preflight(a.memory_gb + 6)
     out.mkdir(parents=True, exist_ok=False)
     harness = ROOT/'Tools/vision_serving.py'

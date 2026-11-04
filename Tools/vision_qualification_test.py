@@ -6,6 +6,8 @@ import io
 import json
 from pathlib import Path
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -90,6 +92,119 @@ class VisionQualificationTest(unittest.TestCase):
                 admission.assert_called_once_with(20.5)
                 launch.assert_not_called()
                 self.assertFalse(output.exists())
+
+
+class SelectedBinaryIdentityTest(unittest.TestCase):
+    PROBE = r'''
+import json
+from pathlib import Path
+import sys
+from unittest.mock import patch
+
+sys.path.insert(0, sys.argv[1])
+import vision_qualification as v
+
+arguments = v.parse_arguments(json.loads(sys.argv[2]))
+
+class AdmissionReached(RuntimeError):
+    pass
+
+with patch.object(v, 'parse_arguments', return_value=arguments), \
+        patch.object(v, 'preflight', side_effect=AdmissionReached('identity accepted')) as admission, \
+        patch.object(v, 'model_identity', side_effect=AssertionError('model observation forbidden')) as model, \
+        patch.object(v.socket, 'socket', side_effect=AssertionError('socket reservation forbidden')) as socket, \
+        patch.object(v.subprocess, 'Popen', side_effect=AssertionError('process launch forbidden')) as launch, \
+        patch.object(v, 'vm_snapshot', side_effect=AssertionError('VM observation forbidden')) as vm, \
+        patch.object(v, 'wait_ready', side_effect=AssertionError('server wait forbidden')) as ready, \
+        patch.object(v.shutil, 'copy2', side_effect=AssertionError('attempt copy forbidden')) as copy:
+    outcome, message = 'returned', ''
+    try:
+        v.main()
+    except AdmissionReached as error:
+        outcome, message = 'admission', str(error)
+    except ValueError as error:
+        outcome, message = 'identity_error', str(error)
+    except OSError as error:
+        outcome, message = type(error).__name__, str(error)
+    print(json.dumps({'outcome': outcome, 'message': message,
+        'admission_calls': [list(call.args) for call in admission.call_args_list],
+        'forbidden_calls': [mock.call_count for mock in (model, socket, launch, vm, ready, copy)],
+        'output_exists': arguments.out.exists()}))
+'''
+
+    def observe_identity(self, selected_name, selected_bytes, canonical_bytes,
+                         *, changed_companion=None):
+        expected = b'inert verified executable; never run\n'
+        with tempfile.TemporaryDirectory(prefix="vision identity '") as folder:
+            root = Path(folder).resolve()
+            (root / 'home').mkdir()
+            (root / 'tmp').mkdir()
+            identity = {'binary_sha256': hashlib.sha256(expected).hexdigest()}
+            for name, field in [('mlx.metallib', 'metallib_sha256'),
+                                ('build-source.tar.gz', 'source_archive_sha256')]:
+                data = ('inert ' + name).encode()
+                identity[field] = hashlib.sha256(data).hexdigest()
+                (root / name).write_bytes(data + (b'changed' if name == changed_companion else b''))
+            if canonical_bytes is not None:
+                (root / 'slotstream').write_bytes(canonical_bytes)
+            if selected_bytes is not None:
+                (root / selected_name).write_bytes(selected_bytes)
+            (root / 'build-identity.json').write_text(json.dumps(identity))
+            output = root / 'unattempted'
+            argv = ['--binary', str(root / selected_name), '--out', str(output),
+                    '--model', str(root / 'unused model')]
+            result = subprocess.run([sys.executable, '-I', '-B', '-c', self.PROBE,
+                                     str(Path(__file__).resolve().parent), json.dumps(argv)],
+                env={**v.os.environ, 'HOME': str(root / 'home'), 'TMPDIR': str(root / 'tmp')},
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stderr, '')
+            observed = json.loads(result.stdout)
+            self.assertEqual(observed['forbidden_calls'], [0] * 6)
+            self.assertFalse(observed['output_exists'])
+            self.assertFalse(output.exists())
+            return observed
+
+    def assert_admitted(self, observed):
+        self.assertEqual(observed['outcome'], 'admission', observed)
+        self.assertEqual(observed['admission_calls'], [[20.5]])
+
+    def assert_identity_refused(self, observed):
+        self.assertEqual(observed['outcome'], 'identity_error', observed)
+        self.assertEqual(observed['message'], 'frozen build identity differs')
+        self.assertEqual(observed['admission_calls'], [])
+
+    def test_canonical_identity_reaches_admission(self):
+        data = b'inert verified executable; never run\n'
+        self.assert_admitted(self.observe_identity('slotstream', data, None))
+
+    def test_canonical_mismatch_refuses_before_admission(self):
+        self.assert_identity_refused(self.observe_identity('slotstream', b'wrong', None))
+
+    def test_companion_mismatches_refuse_before_admission(self):
+        data = b'inert verified executable; never run\n'
+        for name in ('mlx.metallib', 'build-source.tar.gz'):
+            with self.subTest(companion=name):
+                self.assert_identity_refused(self.observe_identity('slotstream', data, None,
+                                                                    changed_companion=name))
+
+    def test_selected_mismatch_refuses_despite_matching_sibling(self):
+        data = b'inert verified executable; never run\n'
+        self.assert_identity_refused(self.observe_identity('selected candidate', b'wrong', data))
+
+    def test_missing_selected_refuses_despite_matching_sibling(self):
+        data = b'inert verified executable; never run\n'
+        observed = self.observe_identity('missing candidate', None, data)
+        self.assertEqual(observed['outcome'], 'FileNotFoundError', observed)
+        self.assertEqual(observed['admission_calls'], [])
+
+    def test_verified_renamed_binary_needs_no_canonical_sibling(self):
+        data = b'inert verified executable; never run\n'
+        self.assert_admitted(self.observe_identity('selected candidate', data, None))
+
+    def test_verified_renamed_binary_ignores_unrelated_sibling(self):
+        data = b'inert verified executable; never run\n'
+        self.assert_admitted(self.observe_identity('selected candidate', data, b'unrelated sibling'))
 
 
 if __name__ == '__main__':
