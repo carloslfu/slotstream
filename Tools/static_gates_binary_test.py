@@ -46,6 +46,7 @@ BIN=${BIN:-.build/release/slotstream}
         for path in ['Tools/static_gates_binary_test.py', 'Tools/checkpoint_mirror_cli_test.py', 'Tools/coverage_ratchet_test.py', 'Tools/process_cleanup_checks.py', 'Tools/context_qualification_checks.py', 'Tools/installer_gates_binary_test.py', 'Tools/verify_binary_test.py', 'Tools/adaptive_memory_e2e_test.py', 'Tools/sampler_gates_test.py', 'Tools/reference/fixture.py', 'Tools/slotpack/checks.py', 'Tools/decode_summary_test.py', 'Tools/openai_tools_gate_test.py']:
             self.write(path, '# Model-free dependency fixture.\n')
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
+        self.write('Tools/fetch_metallib_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_FETCH_METALLIB') == '1' else 0)\n")
         self.write('Tools/parity_comparison_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PARITY') == '1' else 0)\n")
         self.write('Tools/installer_metal_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_METAL_SELECTION') == '1' else 0)\n")
         self.write('Tools/llms_full_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LLMS_FULL') == '1' else 0)\n")
@@ -142,6 +143,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
     def test_failed_parity_comparison_stops_before_native_checks(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_PARITY': '1'})
         self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_fetch_metallib_regression_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_FETCH_METALLIB': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_fetch_metallib_regression_stops_acceptance(self):
+        (self.root/'Tools/fetch_metallib_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
         self.assertEqual(rows, [])
 
     def test_failed_draft_lock_stops_before_native_checks(self):
