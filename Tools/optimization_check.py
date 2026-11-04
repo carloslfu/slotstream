@@ -2,6 +2,7 @@
 """Run a bounded native diagnostic against a frozen, verified executable."""
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import time
@@ -19,8 +20,8 @@ def main():
     p.add_argument('--result-key', choices=['passed', 'fits'], default='passed')
     p.add_argument('command', nargs=argparse.REMAINDER)
     a = p.parse_args()
-    if a.required_gb < 7 or not 1 <= a.timeout <= 1800 or not 0 <= a.wait_for_model_seconds <= 1800:
-        p.error('required headroom must be at least 7 GB and timeout 1..1800 s')
+    if not math.isfinite(a.required_gb) or a.required_gb < 7 or not 1 <= a.timeout <= 1800 or not 0 <= a.wait_for_model_seconds <= 1800:
+        p.error('required headroom must be finite and at least 7 GB and timeout 1..1800 s')
     binary = a.binary.resolve()
     identity = json.loads((binary.parent/'build-identity.json').read_text())
     for file, key in [(binary, 'binary_sha256'), (binary.parent/'mlx.metallib', 'metallib_sha256'),
@@ -63,9 +64,13 @@ def main():
         record['error'] = f'{type(e).__name__}: {e}'
     finally:
         record['duration_seconds'] = time.monotonic() - started
-        record['after'] = vm_snapshot()
+        try:
+            record['after'] = vm_snapshot()
+        except Exception as error:
+            record['after_error'] = f'{type(error).__name__}: {error}'
+            record['passed'] = False
         (a.out/'manifest.json').write_text(json.dumps(record, indent=2)+'\n')
-    print(json.dumps({k:v for k,v in record.items() if k in ('passed','assertions','error','duration_seconds')}), flush=True)
+    print(json.dumps({k:v for k,v in record.items() if k in ('passed','assertions','error','after_error','duration_seconds')}), flush=True)
     return 0 if record['passed'] else 1
 
 
