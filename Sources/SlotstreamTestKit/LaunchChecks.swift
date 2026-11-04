@@ -136,6 +136,31 @@ extension Catalogue {
             equals.claudeUserSettings = [:]
             c.equal("the --settings=value spelling is replaced too",
                     try L.plan(.claude, equals).arguments.filter { $0.hasPrefix("--settings") }, ["--settings"])
+            for arguments in [["--settings", "{}", "--settings", "{}"],
+                              ["--settings={}", "--settings={}"],
+                              ["--settings", "{}", "--settings={}"],
+                              ["--settings={}", "--settings", "{}"],
+                              ["--settings", "/missing/settings.json", "--settings={}"] ,
+                              ["--settings"], ["--settings", "--", "literal"], ["--settings="], ["--settings", ""]] {
+                var invalid = inputs(arguments)
+                // Direct package callers can supply parsed settings themselves.
+                // The plan must still reject duplicate/incomplete raw options.
+                invalid.claudeUserSettings = [:]
+                c.expect("duplicate or incomplete Claude settings are refused: \(arguments)",
+                         failure(.claude, invalid, "--settings"))
+            }
+            let literalTail = ["--", "--settings", "literal"]
+            c.equal("settings-like text after the terminator remains literal",
+                    Array(try L.plan(.claude, inputs(literalTail)).arguments.suffix(literalTail.count)), literalTail)
+            var withTail = inputs(["--settings", "{}"] + literalTail)
+            withTail.claudeUserSettings = ["keep": true]
+            let tailPlan = try L.plan(.claude, withTail)
+            c.equal("one real setting preserves the literal tail", Array(tailPlan.arguments.suffix(literalTail.count)), literalTail)
+            c.equal("one real setting still merges unrelated keys", object(tailPlan.arguments[safe: 1])["keep"] as? Bool, true)
+            var textOption = inputs(["--settings", #"{"note":"--settings=literal"}"#])
+            textOption.claudeUserSettings = ["note": "--settings=literal"]
+            c.equal("option-like text inside a JSON value is not another option",
+                    object(try L.plan(.claude, textOption).arguments[safe: 1])["note"] as? String, "--settings=literal")
             var broken = inputs()
             broken.claudeUserSettings = ["env": "not an object"]
             c.expect("a malformed env in the user's settings is named", failure(.claude, broken, "`env`"))

@@ -94,6 +94,7 @@ struct Launch: ParsableCommand {
         guard let executable = Self.find(tool.executable, path: path) else {
             throw CodingToolLaunch.Failure("`\(tool.executable)` is not on your PATH. \(tool.installHint), then run this again.")
         }
+        if tool == .claude { _ = try CodingToolLaunch.claudeSettingsOption(toolArguments) }
 
         let port = Int(self.port)
         // From here until the tool starts, a second launch that might start
@@ -801,7 +802,7 @@ struct Launch: ParsableCommand {
 
     /// The JSON a user passed to Claude Code with `--settings`, inline or as a file.
     static func claudeSettings(_ arguments: [String]) throws -> [String: Any]? {
-        guard let value = CodingToolLaunch.optionValue(arguments, "--settings")?.value else { return nil }
+        guard let value = try CodingToolLaunch.claudeSettingsOption(arguments)?.value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let text: String
         if trimmed.hasPrefix("{") {
