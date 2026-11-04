@@ -96,7 +96,8 @@ if [ -d "$RELEASE_DIR" ]; then
     # A content-addressed directory may already exist after a prior install.
     # Do not trust its name alone: local damage or an interrupted manual copy
     # must not be activated in place of the release we just verified.
-    cmp -s "$STAGE/slotstream" "$RELEASE_DIR/slotstream" \
+    test -x "$RELEASE_DIR/slotstream" \
+        && cmp -s "$STAGE/slotstream" "$RELEASE_DIR/slotstream" \
         && cmp -s "$STAGE/mlx.metallib" "$RELEASE_DIR/mlx.metallib" || {
         echo "existing staged release is incomplete or corrupt: $RELEASE_DIR" >&2
         echo "remove that one directory and rerun the installer" >&2

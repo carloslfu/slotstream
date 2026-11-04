@@ -53,6 +53,32 @@ install_into "$TEST_ROOT" >/dev/null
 test "$(readlink "$TEST_ROOT/bin")" = "$FIRST_TARGET"
 assert_installed_bytes "$TEST_ROOT"
 
+# Matching bytes do not make a cached binary runnable. Keep a separate working
+# activation while the original cached release has lost executable permission.
+WORKING_TARGET="releases/working-fixture"
+mkdir -p "$TEST_ROOT/$WORKING_TARGET"
+cp "$TEST_ROOT/bin/slotstream" "$TEST_ROOT/$WORKING_TARGET/slotstream"
+cp "$TEST_ROOT/bin/mlx.metallib" "$TEST_ROOT/$WORKING_TARGET/mlx.metallib"
+ln -s "$WORKING_TARGET" "$TEST_ROOT/working.next"
+mv -fh "$TEST_ROOT/working.next" "$TEST_ROOT/bin"
+assert_installed_bytes "$TEST_ROOT"
+chmod a-x "$TEST_ROOT/$FIRST_TARGET/slotstream"
+test ! -x "$TEST_ROOT/$FIRST_TARGET/slotstream"
+if install_into "$TEST_ROOT" >"$T/non-executable.log" 2>&1; then
+  echo "installer accepted a non-executable cached release" >&2
+  exit 1
+fi
+grep -q 'existing staged release is incomplete or corrupt' "$T/non-executable.log"
+test "$(readlink "$TEST_ROOT/bin")" = "$WORKING_TARGET"
+test ! -x "$TEST_ROOT/$FIRST_TARGET/slotstream"
+assert_installed_bytes "$TEST_ROOT"
+
+# A repaired cached binary can be reused and activated normally.
+chmod +x "$TEST_ROOT/$FIRST_TARGET/slotstream"
+install_into "$TEST_ROOT" >/dev/null
+test "$(readlink "$TEST_ROOT/bin")" = "$FIRST_TARGET"
+assert_installed_bytes "$TEST_ROOT"
+
 # A bad checksum must fail before changing the active installation.
 cp "$FIXTURE/slotstream-arm64.tar.gz.sha256" "$T/good.sha256"
 printf '%064d  slotstream-arm64.tar.gz\n' 0 > "$FIXTURE/slotstream-arm64.tar.gz.sha256"
