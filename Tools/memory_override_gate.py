@@ -36,11 +36,10 @@ def main():
             # for several seconds, and a loaded runner multiplies that.
             result = subprocess.run(command, env=env, text=True, capture_output=True, timeout=120)
             row = {'case': label, 'flags': flags, 'ram_gib': ram, 'available_gb': available,
-                   'context': context, 'mtp': mtp, 'exit_code': result.returncode}
+                   'context': context, 'mtp': mtp, 'exit_code': result.returncode, 'stderr': result.stderr}
             try:
                 value = json.loads(result.stdout)
             except ValueError:
-                row['stderr'] = result.stderr
                 value = None
             row['result'] = value
             rows.append(row)
@@ -55,6 +54,7 @@ def main():
                 failures.append(row['case'] + ': missing structured result')
                 return None
             if 'error' in value:
+                expect(row['exit_code'] == 2, row['case'] + ': memory refusal had unexpected exit')
                 expect(value['error']['code'] == 'insufficient_memory', row['case'] + ': unexpected refusal')
                 return None
             expect(row['exit_code'] == 0, row['case'] + ': successful plan had failing exit')
@@ -135,7 +135,7 @@ def main():
                 expect(any('ignored' in note for note in p.get('notes', [])), 'missing precedence diagnostic/' + source)
         for value in ('0', '-1', 'nan', 'inf', '-inf', '1e300'):
             row = run('invalid/' + value, ['--memory-gb', value])
-            expect(row['exit_code'] != 0 or (row['result'] and 'error' in row['result']), 'invalid size accepted/' + value)
+            expect(0 < row['exit_code'] < 128, 'invalid size accepted/' + value)
             expect(row['exit_code'] >= 0 and 'Fatal error' not in row.get('stderr', ''), 'invalid size trapped/' + value)
         for limit in (8.15, 9.99, 12.345678901234, 48.123456789):
             p = plan(run(f'fractional-ceiling/{limit}', ['--memory-limit-gb', str(limit)]))
