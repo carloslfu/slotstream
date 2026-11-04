@@ -93,6 +93,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.write('Tools/installer_profile_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_INSTALLER_PROFILE') == '1' else 0)\n")
         self.write('Tools/claims_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_CLAIM_NEEDLE') == '1' else 0)\n")
         self.write('Tools/pre_commit_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PRE_COMMIT') == '1' else 0)\n")
+        self.write('Tools/launch_gate_status_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_GATE_STATUS') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -432,6 +433,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         (self.root/'Tools/pre_commit_test.py').unlink()
         result, rows = self.run_entry({})
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_launch_gate_status_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_LAUNCH_GATE_STATUS': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_launch_gate_status_regression_stops_acceptance(self):
+        (self.root/'Tools/launch_gate_status_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0)
         self.assertEqual(rows, [])
 
 
