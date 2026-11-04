@@ -9,13 +9,14 @@ PORT="${1:-11466}"
 PASS=0; FAIL=0
 
 ask() { # ask <prompt> <extended-regex the answer must match> <label>
-  local out
-  out=$(curl -s --max-time 600 "http://127.0.0.1:$PORT/api/chat" -d "$(python3 -c '
+  local request out=""
+  if request=$(python3 -c '
 import json,sys; print(json.dumps({"model":"qwen3.8-flash-next:4bit",
  "messages":[{"role":"user","content":sys.argv[1]}],"stream":False,
- "options":{"temperature":0,"num_predict":60}}))' "$1")" \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin)["message"]["content"])' 2>/dev/null)
-  if printf '%s' "$out" | grep -Eqi "$2"; then
+ "options":{"temperature":0,"num_predict":60}}))' "$1") &&
+     out=$(curl -s --max-time 600 "http://127.0.0.1:$PORT/api/chat" -d "$request" \
+       | python3 -c 'import json,sys; print(json.load(sys.stdin)["message"]["content"])' 2>/dev/null) &&
+     printf '%s' "$out" | grep -Eqi "$2"; then
     echo "PASS  $3"; PASS=$((PASS+1))
   else
     echo "FAIL  $3 -> $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-90)"; FAIL=$((FAIL+1))
