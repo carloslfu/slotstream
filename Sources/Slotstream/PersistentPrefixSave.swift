@@ -136,12 +136,19 @@ extension PersistentPrefixCache {
             sequences.append(record)
         }
 
+        // A retained conversation lives in the head's JSON, not its payload
+        // arrays, and can exceed the fixed metadata allowance on its own.
+        var transcriptEstimate: Int64 = 0
+        if let transcript = existing?.splicingTokens {
+            do { transcriptEstimate = Int64(try PersistentPrefixFile.encodeHeader(transcript).count) }
+            catch { return finish(.failed("\(error)")) }
+        }
         let overhead = Int64(PersistentPrefixFile.magic.count + PersistentPrefixFile.footerBytes + 65_536)
         let extentCount = sequences.reduce(0) { $0 + $1.extents.count }
         let segmentEstimate = rowRecords.isEmpty ? 0
             : rowRecords.reduce(overhead) { $0 + $1.byteCount + 512 }
         let headEstimate = plan.arrays.reduce(overhead) { $0 + $1.byteCount + 512 }
-            + Int64(512 * (sequences.count + extentCount))
+            + Int64(512 * (sequences.count + extentCount)) + transcriptEstimate
         let estimate = headEstimate + segmentEstimate
         let (redundant, strictPrefixes) = lock.withLock { () -> ([PersistentPrefixEntry], Int) in
             (PersistentPrefixPolicy.redundantAncestors(heads, identity: identity.digest, by: tokens),
@@ -235,6 +242,11 @@ extension PersistentPrefixCache {
                 }
                 header.arrays = arrays
                 return try PersistentPrefixFile.encodeHeader(header)
+            }
+            // The new segment is already indexed, so its actual bytes are
+            // charged here. Replace the old head only if this exact head fits.
+            guard canWrite(incoming: size, replacingHead: name) else {
+                throw ModelError("prefix cache head exceeds disk quota")
             }
             guard rename(temp, path(name)) == 0 else {
                 throw ModelError("cannot rename \(temp): \(String(cString: strerror(errno)))")
