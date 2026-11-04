@@ -10,7 +10,15 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).with_name("static_gates.sh").resolve()
-OPTIMIZATION_SUITES = ['build_identity', 'codex_catalog', 'optimization_build', 'optimization_serial_build', 'optimization_readiness', 'thermal_readiness', 'prefill_bench', 'expert_layout_probe', 'ngram_cache_probe', 'indexer_score_probe', 'vision_capacity_gate', 'vision_qualification', 'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results', 'public_probe', 'quantization_inventory', 'quantization_baseline', 'quantization_quality', 'quantization_paired', 'quantization_code_sandbox', 'quantization_bfcl', 'quantization_outcomes', 'quantization_long_context', 'quantization_image_outcomes', 'quantization_product_campaign', 'quantization_outcome_campaign', 'quantization_outcome_continuation', 'quantization_grader_source_audit', 'quantization_grader_continuation', 'quantization_tasks', 'quantization_performance_metrics', 'quantization_performance_campaign', 'quantization_logit_pilot', 'affine_expert_control', 'affine_expert_reference', 'affine_standalone_metadata', 'affine_standalone_export', 'affine_standalone_run', 'research_payload_retirement', 'standalone_bundle', 'tensor_subset', 'vq_kernel_sources', 'vq_ple_stream', 'vq_model_reference', 'vq_execution_profile', 'vq_draft_inventory', 'vq_dense_overlay', 'vq_dense_reinvestment', 'vq_uncached_expert', 'vq_contiguous_expert', 'vq_record_repack', 'vq_pilot_admission', 'vq_model_fetch', 'vq_rotary_table_source', 'full_pull']
+OPTIMIZATION_SUITES = [
+    'build_identity', 'codex_catalog', 'optimization_build', 'optimization_serial_build', 'optimization_readiness',
+    'thermal_readiness', 'prefill_bench', 'expert_layout_probe',
+    'ngram_cache_probe', 'indexer_score_probe', 'vision_capacity_gate', 'vision_qualification',
+    'optimization_prerequisites', 'optimization_soak', 'optimization_campaign', 'optimization_results', 'public_probe', 'full_pull',
+    'quantization_inventory', 'quantization_baseline', 'quantization_quality', 'quantization_paired', 'quantization_code_sandbox', 'quantization_bfcl', 'quantization_outcomes', 'quantization_long_context', 'quantization_image_outcomes', 'quantization_product_campaign', 'quantization_outcome_campaign', 'quantization_outcome_continuation', 'quantization_grader_source_audit', 'quantization_grader_continuation', 'quantization_tasks', 'quantization_performance_metrics', 'quantization_performance_campaign', 'quantization_logit_pilot',
+    'affine_expert_control', 'affine_expert_reference', 'affine_standalone_metadata', 'affine_standalone_export', 'affine_standalone_run', 'research_payload_retirement', 'standalone_bundle', 'tensor_subset', 'vq_kernel_sources',
+    'vq_ple_stream', 'vq_model_reference', 'vq_execution_profile', 'vq_draft_inventory', 'vq_dense_overlay', 'vq_dense_reinvestment', 'vq_uncached_expert', 'vq_contiguous_expert', 'vq_record_repack', 'vq_pilot_admission', 'vq_model_fetch', 'vq_rotary_table_source',
+]
 
 
 class StaticBinarySelection(unittest.TestCase):
@@ -20,6 +28,7 @@ class StaticBinarySelection(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.trace = self.root/'trace.jsonl'
         self.suite_trace = self.root/'suite-trace.jsonl'
+        self.queue_trace = self.root/'queue-trace.jsonl'
         for directory in ['Tools/reference', 'Tools/slotpack', '.githooks',
                           'bench/parity31', 'Sources/Slotstream', '.build/release',
                           'legacy binary', 'frozen binary']:
@@ -591,7 +600,7 @@ raise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_GENERATION_QUEUE') == '1'
         self.assertEqual(trace, ['generation_queue_cancel'])
         suites = [json.loads(line) for line in self.suite_trace.read_text().splitlines()]
         self.assertEqual(suites, OPTIMIZATION_SUITES)
-        self.assertEqual(len(rows), 5)
+        self.assertEqual(len(rows), 3)
 
     def test_failed_queue_cancellation_stops_acceptance(self):
         result, rows = self.run_entry({'SLOTSTREAM_FAIL_GENERATION_QUEUE': '1'})

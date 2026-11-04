@@ -17,7 +17,8 @@ def main():
     receipt = json.loads((root/'build-receipt.json').read_text())
     if not digest == (root/'manifest.sha256').read_text().strip() == receipt['manifestSHA256']:
         raise ValueError('manifest identities do not match')
-    if not (receipt['allOriginalHashesVerified'] and receipt['roundtripVerified'] and receipt['completeCoverage']):
+    if not all(receipt.get(flag) is True for flag in
+               ('allOriginalHashesVerified', 'roundtripVerified', 'completeCoverage')):
         raise ValueError('package qualification is incomplete')
     if json.loads(data)['files'] != pack.pins():
         raise ValueError('manifest files do not match pinned inputs')

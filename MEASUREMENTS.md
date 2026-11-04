@@ -13857,3 +13857,36 @@ The static suite completed with `STATIC GATES PASS`. Afterwards, the outer
 zsh capture script failed because it assigned to the reserved `status`
 variable. Its status receipt keeps that capture-script error separate from
 the completed suite. No check was rerun or softened.
+
+## PR hardening: first integrated baseline comparison
+The first 45 reviewed PRs were built together and compared with the original pre-review baseline on the same 48 GB M5 Pro. [[sources/runs/2026/11/2026-11-04-pr-baseline-vs-45-merged]] preserves the raw twelve-process experiment and binary identities.
+
+The original commit is `c0c55d86866d77ae7fc2bf7b57b1c0faf7f9df25`. The comparison is main `d566a418bf41d5d41c92c218220f917c1a7fb575`, tree `702becbf8e6930e014a98c2141b1b3b2b3926d36`. Each arm has its own release executable and the same pinned metallib. Fresh processes start with empty expert and prefix caches; filesystem caching is uncontrolled and not purged.
+
+Three interleaved paired rounds for each short/prose fixture use an 8.1 GB target, 256-token passes, greedy output, seed 7, MTP off and 32 generated tokens. Every paired output-ID list is identical. All twelve cells are eligible, with no excluded or swapping round. Median paired complete-request reductions are 1.47% for short and 1.41% for prose. These small differences do not establish a general speed improvement; they show no meaningful slowdown in these bounded cases.
+
+This comparison does not qualify all prompts, longer contexts, MTP, clients, power conditions or the full 16–64 GB target range. It does not adopt a new default optimization. The remaining engine PRs and validation corrections are qualified separately before integration.
+
+## PR hardening: integrated qualification
+All 75 PRs from #60 through #134 were individually reviewed. At qualification capture, 45 were already merged and the remaining 26 engine PRs were integrated against current engine-only main, with shared gate registrations and prefix-test imports reconciled. The four archived-tooling PRs, #66, #79, #113 and #129, were closed with scope explanations. Raw per-PR decisions, exact heads and integration trees are in [[sources/runs/2026/11/2026-11-04-pr-integrated-qualification]].
+
+The integrated result preserves all existing checks and includes these corrections:
+
+- #75 keeps optimized-Python validation and requires each qualification flag to be exactly `true`; strings and other truthy values cannot authorize embedding.
+- #93 and #111 require expected rejection statuses and option-specific diagnostics or the structured `insufficient_memory` refusal. Missing executables, unrelated failures, unknown options and crashes fail the gates.
+- Negative invalid-size fixtures bind values with `--memory-gb=value`, reaching memory validation rather than accepting a missing-argument parser error.
+- Doctor now refuses explicitly non-finite or negative `--sim-available`. Zero remains valid input and receives the normal structured physical-memory refusal. Implicit simulated availability retains its existing semantics.
+- #131's mocked entry fixture counts the three maintained engine entrypoints. Combined static fixture registration is reconciled without dropping a suite.
+
+The release build passes all 115 native T0/T1 catalogue checks, with zero failures or skips. Full model acceptance, the complete model-free static suite, external Swift-library consumer and software context proxies pass. The live suite covers pinned weight verification, current-backend parity, cache and prefill equality, governor recovery, exact MTP verification, process memory, long-context recall, serving behavior, quality sanity and real-image serving. The historical MLX 0.31 draft-head diagnostic remains visible and differs from the current backend; its old bytes are preserved, and independent current-backend parity passes. The actual maintained n-gram payload has 384 relevant tensors with the layout required by the new guards.
+
+The original pre-review baseline is `c0c55d86866d77ae7fc2bf7b57b1c0faf7f9df25`. Independent frozen baseline and integrated release builds use the same pinned metallib. Three interleaved paired rounds per fixture use 256-token passes, greedy sampling, seed 7, 32 generated tokens and sampled process footprint. One original prose pair is discarded for global paging and retained as [[sources/runs/2026/11/2026-11-04-pr-prose-timing-exclusion]]. A frozen addendum repeats that whole pair with unchanged settings and thresholds. The analysis uses three eligible, non-swapping pairs per fixture, retaining every original and replacement cell; every captured paired output-ID list is identical. The plan was frozen before these runs and requires investigation of a median complete-request slowdown above five percent.
+
+| Prompt | Profile | Median paired request-time reduction | Output IDs |
+| --- | --- | ---: | --- |
+| code-brief-development | 10 GB, MTP on | 1.51% | identical |
+| code | 8.1 GB, MTP off | -0.54% | identical |
+| prose | 8.1 GB, MTP off | 4.99% | identical |
+| short | 8.1 GB, MTP off | -1.37% | identical |
+
+Every timed cell also passes the production memory gate at its explicit target. Median paired process-peak growth stays within the separately frozen threshold, the larger of 250 MB or five percent of its paired baseline peak. These bounded cases show no meaningful regression against the frozen thresholds. They do not establish a general speedup, qualify the entire 16–64 GB range, or replace full task-quality evaluation. Filesystem cache is uncontrolled with no purge; expert and prefix caches start empty per process. The earlier first-45-PR comparison is [[records/measurements/pr-hardening-initial-baseline]]. No new runtime optimization default, model, app scope or release tag is adopted.

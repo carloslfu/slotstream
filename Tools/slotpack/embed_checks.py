@@ -140,16 +140,16 @@ class EmbedGuards(unittest.TestCase):
                 mutations.append((f'{flag} missing={missing}', mutate))
         self.reject_mutations(mutations)
 
-    def test_existing_truthy_qualification_semantics_are_preserved(self):
-        for mode in MODES:
-            with self.subTest(mode=mode[0]), tempfile.TemporaryDirectory() as directory:
-                _, package, output = self.fixture(directory)
-                receipt = json.loads((package/'build-receipt.json').read_text())
-                receipt.update(zip(FLAGS, [1, 'true', [True]]))
-                (package/'build-receipt.json').write_text(json.dumps(receipt))
-                result, data = self.run_child(directory, mode)
-                self.assertEqual(result.returncode, 0, data)
-                self.assertEqual(output.read_bytes(), EXPECTED)
+    def test_qualification_requires_json_true_for_each_flag(self):
+        mutations = []
+        for flag in FLAGS:
+            for value in (1, 0, 'false', 'true', [True], {'verified': True}, None):
+                def mutate(root, package, flag=flag, value=value):
+                    receipt = json.loads((package/'build-receipt.json').read_text())
+                    receipt[flag] = value
+                    (package/'build-receipt.json').write_text(json.dumps(receipt))
+                mutations.append((f'{flag}={value!r}', mutate))
+        self.reject_mutations(mutations)
 
     def test_mismatched_pins_preserve_output(self):
         def mutate(root, package):

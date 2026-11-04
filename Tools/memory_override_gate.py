@@ -134,8 +134,17 @@ def main():
             if p:
                 expect(any('ignored' in note for note in p.get('notes', [])), 'missing precedence diagnostic/' + source)
         for value in ('0', '-1', 'nan', 'inf', '-inf', '1e300'):
-            row = run('invalid/' + value, ['--memory-gb', value])
-            expect(0 < row['exit_code'] < 128, 'invalid size accepted/' + value)
+            # Bind negative values to the option so ArgumentParser reaches
+            # memory validation instead of reporting a missing argument.
+            row = run('invalid/' + value, ['--memory-gb=' + value])
+            expect((row['exit_code'] == 2 and isinstance(row['result'], dict)
+                    and isinstance(row['result'].get('error'), dict)
+                    and row['result']['error'].get('code') == 'insufficient_memory')
+                   or (row['exit_code'] in (1, 64)
+                       and any(line.startswith('Error: --memory-gb ')
+                               and ('must be finite' in line or 'is below the minimum' in line)
+                               for line in row['stderr'].splitlines())),
+                   'invalid size accepted/' + value)
             expect(row['exit_code'] >= 0 and 'Fatal error' not in row.get('stderr', ''), 'invalid size trapped/' + value)
         for limit in (8.15, 9.99, 12.345678901234, 48.123456789):
             p = plan(run(f'fractional-ceiling/{limit}', ['--memory-limit-gb', str(limit)]))

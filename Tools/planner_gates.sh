@@ -24,13 +24,22 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 
 # A clean rejection must fail normally, not merely omit Swift crash text.
 clean_rejection() {
-  local status
+  local status expected
+  case "$2" in
+    --memory-gb) expected='--memory-gb must be finite' ;;
+    --pool-gb) expected='--pool-gb must be a finite number > 0' ;;
+    --sim-ram) expected='RAM must be a finite number > 0' ;;
+    --sim-working-set) expected='Metal working-set size must be a finite number > 0' ;;
+    --sim-available) expected='--sim-available must be finite and nonnegative' ;;
+    *) return 1 ;;
+  esac
   run_binary "$@" > "$T/rejection-output" 2>&1
   status=$?
   printf 'exit=%s\n' "$status"
   cat "$T/rejection-output"
-  [ "$status" -ne 0 ] && [ "$status" -lt 128 ] || return 1
-  ! grep -q 'Fatal error' "$T/rejection-output"
+  case "$status" in 1|2|64) ;; *) return 1 ;; esac
+  ! grep -q 'Fatal error' "$T/rejection-output" || return 1
+  grep -Eq "^Error: $expected(;|$)" "$T/rejection-output"
 }
 
 # Parsing a deliberately tiny invalid fixture must not depend on the host

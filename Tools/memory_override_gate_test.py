@@ -72,7 +72,7 @@ class Components:
                  and all(isinstance(value, ast.Constant) for value in node.iter.elts)
                  and tuple(value.value for value in node.iter.elts) == INVALID]
         invalid = one(loops, 'original six-value invalid-memory loop')
-        first = ast.parse("row = run('invalid/' + value, ['--memory-gb', value])").body[0]
+        first = ast.parse("row = run('invalid/' + value, ['--memory-gb=' + value])").body[0]
         if len(invalid.body) != 3 or invalid.orelse or shape(invalid.body[0]) != shape(first):
             raise AssertionError('invalid-memory loop controls changed')
         for node, message in zip(invalid.body[1:], ('invalid size accepted/', 'invalid size trapped/')):
@@ -196,7 +196,7 @@ class _HarnessCase(unittest.TestCase):
             expected_result = json.loads(stdout) if stdout in (REFUSAL, UNKNOWN, PLAN, '{}') else None
             values = INVALID if invalid else ('48',)
             for value, call, row in zip(values, provider.calls, report['results']):
-                flags = ['--memory-gb', value]
+                flags = ['--memory-gb=' + value] if invalid else ['--memory-gb', value]
                 self.assertEqual(call['argv'], [str(binary), 'doctor', '--model', str(model), '--vision', 'off', '--json',
                                                 '--sim-ram', str(physical), '--sim-working-set', str(physical * .75),
                                                 '--sim-available', str(available if available is not None else physical * .9),
@@ -235,9 +235,10 @@ class BaselineControls(_HarnessCase):
                 self.verdict(self.scenario(label, 2, stdout), [label + ': ' + failure])
 
     def test_six_invalid_values_clean_statuses(self):
-        for status, stdout in ((1, 'invalid memory size\n'), (2, REFUSAL), (64, 'invalid memory size\n')):
+        for status, stdout in ((1, ''), (2, REFUSAL), (64, '')):
             with self.subTest(status=status):
-                self.verdict(self.scenario('control/invalid-clean/' + str(status), status, stdout, invalid=True), [])
+                stderr = '' if status == 2 else 'Error: --memory-gb must be finite\n'
+                self.verdict(self.scenario('control/invalid-clean/' + str(status), status, stdout, stderr, invalid=True), [])
 
     def test_invalid_values_reject_negative_zero_and_plain_fatal(self):
         for label, status, stdout, stderr, message in (
@@ -258,6 +259,9 @@ class BaselineControls(_HarnessCase):
                         self.assertLessEqual(observed.count(failure), 1)
                     self.assertFalse(outcome['report']['passed'])
                     self.assertEqual(outcome['exit_code'], 1)
+                elif label == 'plain-fatal':
+                    self.verdict(outcome, [prefix + value for value in INVALID
+                                           for prefix in ('invalid size accepted/', 'invalid size trapped/')])
                 else:
                     self.verdict(outcome, [message + value for value in INVALID])
 
@@ -267,6 +271,17 @@ class BaselineControls(_HarnessCase):
 
 
 class RefusalRegression(_HarnessCase):
+    def test_missing_executable_and_unrelated_failure_are_rejected(self):
+        for status, stdout, stderr in ((127, REFUSAL, 'command not found'),
+                                       (1, '', 'Error: unrelated failure'),
+                                       (64, '', 'Error: unknown option'),
+                                       (64, '', "Error: Unknown option '--memory-gb'"),
+                                       (1, '', 'Error: --memory-gb could not read fixture'),
+                                       (2, UNKNOWN, '')):
+            with self.subTest(status=status, stdout=stdout, stderr=stderr):
+                outcome = self.scenario('invalid-unrelated', status, stdout, stderr, invalid=True)
+                self.verdict(outcome, ['invalid size accepted/' + value for value in INVALID])
+
     def test_structured_refusal_requires_exact_two(self):
         for status in (0, 1, 64, 137, -9):
             with self.subTest(status=status):

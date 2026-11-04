@@ -87,6 +87,13 @@ class CheckpointRejectionGate(unittest.TestCase):
 
 class InfinityRejectionGate(unittest.TestCase):
     FLAGS = ("--memory-gb", "--pool-gb", "--sim-ram", "--sim-working-set", "--sim-available")
+    DIAGNOSTICS = dict(zip(FLAGS, (
+        'Error: --memory-gb must be finite; maximum feasible window: 0 tokens',
+        'Error: --pool-gb must be a finite number > 0',
+        'Error: RAM must be a finite number > 0; maximum feasible window: 0 tokens',
+        'Error: Metal working-set size must be a finite number > 0; maximum feasible window: 0 tokens',
+        'Error: --sim-available must be finite and nonnegative',
+    )))
 
     def check_gate(self, status, output):
         # Run the real setup, selected check invocations, and final aggregation.
@@ -117,7 +124,8 @@ class InfinityRejectionGate(unittest.TestCase):
                 "import json, pathlib, sys",
                 f"log = pathlib.Path({str(log)!r})",
                 "with log.open('a') as fh: fh.write(json.dumps(sys.argv[1:]) + '\\n')",
-                f"print({output!r}, file=sys.stderr)",
+                f"diagnostics = {self.DIAGNOSTICS!r}",
+                f"print(diagnostics[sys.argv[2]] if {output!r} is None else {output!r}, file=sys.stderr)",
                 f"raise SystemExit({status!r})",
             ]) + "\n")
             binary.chmod(0o755)
@@ -132,12 +140,22 @@ class InfinityRejectionGate(unittest.TestCase):
             return result
 
     def test_clean_nonzero_refusals_pass(self):
-        for status in (1, 64, 127):
+        for status in (1, 2, 64):
             with self.subTest(status=status):
-                result = self.check_gate(status, "Error: a finite value is required")
+                result = self.check_gate(status, None)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("planner: passed 5, failed 0", result.stdout)
                 self.assertEqual(result.stdout.count("PASS  "), 5)
+
+    def test_missing_executable_and_unrelated_errors_do_not_pass(self):
+        for status, output in ((127, 'command not found'),
+                               (1, 'Error: unrelated failure'),
+                               (1, 'Error: unrelated finite-value failure'),
+                               (2, ''), (64, 'Error: unknown option')):
+            with self.subTest(status=status, output=output):
+                result = self.check_gate(status, output)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("planner: passed 0, failed 5", result.stdout)
 
     def test_successful_infinity_input_is_not_a_clean_refusal(self):
         result = self.check_gate(0, "target: 33.0 GB")

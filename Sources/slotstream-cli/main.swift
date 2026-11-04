@@ -955,6 +955,12 @@ struct Doctor: ParsableCommand {
             help: "What-if: pretend this much memory is reclaimable right now (GB)")
     var simAvailable: Double?
 
+    func validate() throws {
+        if let available = simAvailable, !(available.isFinite && available >= 0) {
+            throw ValidationError("--sim-available must be finite and nonnegative")
+        }
+    }
+
     @Flag(name: .customLong("json"),
           help: "Print the resolved plan as JSON instead of the report. Estimates are unrounded here; the report rounds them.")
     var asJSON = false
