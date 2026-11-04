@@ -49,7 +49,8 @@ BIN=${BIN:-.build/release/slotstream}
                      'Tools/verify_binary_test.py',
                      'Tools/adaptive_memory_e2e_test.py',
                      'Tools/sampler_gates_test.py',
-                     'Tools/reference/fixture.py', 'Tools/slotpack/checks.py']:
+                     'Tools/reference/fixture.py', 'Tools/slotpack/checks.py',
+                     'Tools/decode_summary_test.py']:
             self.write(path, '# Model-free dependency fixture.\n')
         self.write('Tools/e2e_release_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_E2E') == '1' else 0)\n")
         self.write('Tools/parity_comparison_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_PARITY') == '1' else 0)\n")
