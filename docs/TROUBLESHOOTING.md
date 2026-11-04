@@ -179,3 +179,8 @@ unavailable engine returns an explicit error instead of resuming partial state.
 For other unresolved problems, include your Mac model, memory, Slotstream
 version, the command you ran, and the error message. Remove credentials
 and private file contents before posting.
+
+To prepare selected existing logs locally, use the
+[offline support-bundle exporter](SUPPORT-BUNDLE.md). It creates a ZIP without
+starting a model or uploading anything. Its sanitization is best effort;
+inspect every member before any separate sharing action.
