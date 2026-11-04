@@ -99,6 +99,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.write('Tools/ngram_row_layout_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_NGRAM_LAYOUT') == '1' else 0)\n")
         self.write('Tools/dbmd_install_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_DBMD_INSTALLER') == '1' else 0)\n")
         self.write('Tools/stop_sequence_stream_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_STOP_STREAM') == '1' else 0)\n")
+        self.write('Tools/launch_log_rotation_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_LAUNCH_LOG_ROTATION') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -563,6 +564,11 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         (self.root/'Tools/stop_sequence_stream_test.py').unlink()
         result, rows = self.run_entry({})
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_launch_log_rotation_regression_stops_acceptance(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_LAUNCH_LOG_ROTATION': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
         self.assertEqual(rows, [])
 
 

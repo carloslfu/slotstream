@@ -48,6 +48,7 @@ python3 Tools/process_cleanup_checks.py
 python3 Tools/launch_request_deadline_test.py
 python3 Tools/launch_gate_status_test.py
 python3 Tools/terminal_confirmation_test.py
+python3 Tools/launch_log_rotation_test.py
 python3 Tools/safetensors_empty_test.py
 python3 Tools/ngram_row_layout_test.py
 python3 Tools/stop_sequence_stream_test.py
