@@ -51,7 +51,11 @@ case "${1:-}" in
   echo "llms-full.txt is current"
   ;;
 "")
-  render >llms-full.txt
+  # Do not truncate the previous output until every source has rendered.
+  # Copying also preserves the permissions of an existing destination.
+  tmp=$(mktemp) && trap 'rm -f "$tmp"' EXIT
+  render >"$tmp"
+  cat "$tmp" >llms-full.txt
   echo "wrote llms-full.txt ($(wc -l <llms-full.txt | tr -d ' ') lines)"
   ;;
 *)
