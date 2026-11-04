@@ -34,7 +34,7 @@ echo "== build (instrumented) =="
 swift build --scratch-path "$BUILD" \
     --skip-update \
     -Xswiftc -profile-generate -Xswiftc -profile-coverage-mapping \
-    --product slotstream-checks 2>&1 | grep -E 'error:|Build complete' || true
+    --product slotstream-checks 2>&1 | sed -nE '/error:|Build complete/p'
 
 BIN="$BUILD/debug/slotstream-checks"
 [ -x "$BIN" ] || { echo "no runner at $BIN" >&2; exit 1; }

@@ -1,12 +1,75 @@
 #!/usr/bin/env python3
-"""Weights-free regression checks for coverage_ratchet.py."""
+"""Weights-free regression checks for coverage collection and reporting."""
 
 from coverage_ratchet import compare
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
+
+
+def coverage_collection_checks():
+    """Run the real driver; a failed compiler must not run leftover output."""
+    root = Path(__file__).resolve().parent.parent
+    with tempfile.TemporaryDirectory(prefix="coverage collection test-") as temporary:
+        folder = Path(temporary)
+        (folder / "Tools").mkdir()
+        shutil.copy2(root / "Tools/coverage.sh", folder / "Tools/coverage.sh")
+        binaries = folder / "bin"
+        binaries.mkdir()
+        trace = folder / "trace"
+        swift = binaries / "swift"
+        swift.write_text("#!" + sys.executable + "\n" + '''import os
+from pathlib import Path
+with open(os.environ["COVERAGE_TEST_TRACE"], "a") as log:
+    log.write("build\\n")
+runner = Path(".build/coverage/debug/slotstream-checks")
+runner.parent.mkdir(parents=True)
+runner.write_text('#!/bin/sh\\nprintf "checks\\n" >> "$COVERAGE_TEST_TRACE"\\nexit "${COVERAGE_TEST_CHECK_EXIT:-0}"\\n')
+runner.chmod(0o755)
+print(os.environ["COVERAGE_TEST_BUILD_LOG"])
+raise SystemExit(int(os.environ["COVERAGE_TEST_BUILD_EXIT"]))
+''')
+        swift.chmod(0o755)
+        xcrun = binaries / "xcrun"
+        xcrun.write_text("#!" + sys.executable + "\n" + '''import os
+import sys
+with open(os.environ["COVERAGE_TEST_TRACE"], "a") as log:
+    log.write(sys.argv[1] + "\\n")
+if sys.argv[1] == "llvm-profdata":
+    raise SystemExit(0)
+if sys.argv[1:3] == ["llvm-cov", "report"]:
+    print("Filename")
+    print("Sources/Slotstream/Plan.swift 1 0 100.00%")
+    print("TOTAL 1 0 100.00%")
+    raise SystemExit(int(os.environ["COVERAGE_TEST_COLLECT_EXIT"]))
+raise SystemExit("unexpected LLVM command")
+''')
+        xcrun.chmod(0o755)
+
+        def run(build_exit=0, build_log="Build complete!", check_exit=0, collect_exit=0):
+            trace.write_text("")
+            env = dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ.get("PATH", ""),
+                       COVERAGE_TEST_TRACE=str(trace), COVERAGE_TEST_BUILD_EXIT=str(build_exit),
+                       COVERAGE_TEST_BUILD_LOG=build_log, COVERAGE_TEST_CHECK_EXIT=str(check_exit),
+                       COVERAGE_TEST_COLLECT_EXIT=str(collect_exit))
+            result = subprocess.run(["bash", str(folder / "Tools/coverage.sh")],
+                                    capture_output=True, text=True, env=env, timeout=10)
+            return result, trace.read_text().splitlines()
+
+        for log in ["Build complete!", "no matching build log lines"]:
+            result, steps = run(build_log=log)
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            assert steps == ["build", "checks", "llvm-profdata", "llvm-cov"], steps
+        result, steps = run(check_exit=19)
+        assert result.returncode == 19 and steps == ["build", "checks"], (result, steps)
+        result, steps = run(collect_exit=29)
+        assert result.returncode == 29, (result, steps)
+        for log in ["error: instrumented build failed", "no matching build log lines"]:
+            result, steps = run(build_exit=23, build_log=log)
+            assert result.returncode == 23 and steps == ["build"], (result, steps)
 
 
 def command_checks():
@@ -31,12 +94,21 @@ def command_checks():
         new = run("SF:Sources/Slotstream/NewForReport.swift\nDA:1,0\nLF:1\nLH:0\nend_of_record\n")
         assert new.returncode == 0 and "NEW" in new.stdout, new.stderr
 
+        complete = existing + "LF:4\nLH:1\nend_of_record\n"
+        repeated = run(complete + existing + "LF:5\nLH:2\nend_of_record\n")
+        assert repeated.returncode == 0 and "40.00% of 5 lines across 1 files" in repeated.stdout, repeated
+        ignored = run("SF:Sources/SlotstreamTestKit/Fixture.swift\nLF:1\nLH:0\nend_of_record\n" + complete)
+        assert ignored.returncode == 0 and "25.00% of 4 lines across 1 files" in ignored.stdout, ignored
+
         for broken in ["", existing + "end_of_record\n",
                        existing + "LH:1\nend_of_record\n",
                        existing + "LF:1\nLH:2\nend_of_record\n",
                        existing + "LF:1\nLH:-1\nend_of_record\n",
                        existing + "LF:oops\nLH:0\nend_of_record\n",
-                       existing + "LF:1\nLH:0\n"]:
+                       existing + "LF:1\nLH:0\n",
+                       existing + "LF:4\nLH:1\n" + existing + "LF:5\nLH:2\nend_of_record\n",
+                       complete + existing + "LF:5\nend_of_record\n",
+                       complete + existing + "LH:1\nend_of_record\n"]:
             assert run(broken).returncode != 0, repr(broken)
         missing = subprocess.run([sys.executable, str(root / "Tools/coverage_ratchet.py"),
                                   str(folder / "missing.info")], capture_output=True, text=True, env=env)
@@ -86,8 +158,9 @@ def main():
     assert failures == [
         ("Sources/Slotstream/Rounded.swift", 97.18, 100.0 * 307 / 319)
     ]
+    coverage_collection_checks()
     command_checks()
-    print("coverage comparison and report failure checks pass")
+    print("coverage collection, comparison and report failure checks pass")
 
 
 if __name__ == "__main__":

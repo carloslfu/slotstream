@@ -29,25 +29,29 @@ def parse_lcov(path):
     """{relative source path: (lines hit, lines found)} from an lcov file."""
     out = {}
     current = None
+    hit = found = None
     for line in open(path, encoding="utf-8"):
         line = line.strip()
         if line.startswith("SF:"):
+            if current is not None:
+                raise ValueError("unterminated coverage record for " + current)
             p = line[3:]
             p = p[len(ROOT) + 1:] if p.startswith(ROOT) else p
-            current = p if p.startswith(TRACKED) else None
-        elif current and line.startswith("LH:"):
-            out.setdefault(current, [None, None])[0] = int(line[3:])
-        elif current and line.startswith("LF:"):
-            out.setdefault(current, [None, None])[1] = int(line[3:])
+            current = p
+            hit = found = None
+        elif current is not None and current.startswith(TRACKED) and line.startswith("LH:"):
+            hit = int(line[3:])
+        elif current is not None and current.startswith(TRACKED) and line.startswith("LF:"):
+            found = int(line[3:])
         elif line == "end_of_record":
-            if current:
-                hit, found = out.get(current, (None, None))
+            if current is not None and current.startswith(TRACKED):
                 if hit is None or found is None or not 0 <= hit <= found:
                     raise ValueError("invalid or missing line totals for " + current)
+                out[current] = (hit, found)
             current = None
-    if current:
+    if current is not None:
         raise ValueError("unterminated coverage record for " + current)
-    return {k: tuple(v) for k, v in out.items()}
+    return out
 
 
 def pct(hit, found):
