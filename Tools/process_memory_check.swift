@@ -93,9 +93,12 @@ import Metal
         if ProcessMemory.peakResidentBytes() < sampled.peakBytes {
             failures.append("lifetime peak is below the independently sampled interval")
         }
-        let firstPeak = observations[1]["physical_footprint_bytes"] as! UInt64
-        let released = observations[2]["physical_footprint_bytes"] as! UInt64
-        if firstPeak <= released + 64 * 1024 * 1024 {
+        // Releasing a Metal resource need not immediately lower the process
+        // footprint. Check the observed decline across the complete GPU cycle,
+        // after the 64 + 128 MiB overlap and before the CPU allocation.
+        let gpuPeak = observations[4]["physical_footprint_bytes"] as! UInt64
+        let released = observations[6]["physical_footprint_bytes"] as! UInt64
+        if gpuPeak <= released + 64 * 1024 * 1024 {
             failures.append("fixture did not observe GPU memory release")
         }
         let result: [String: Any] = ["passed": failures.isEmpty, "device": device.name,
