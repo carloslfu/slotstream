@@ -93,6 +93,7 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
         self.write('Tools/http_request_octets_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_HTTP_OCTETS') == '1' else 0)\n")
         self.write('Tools/memory_override_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MEMORY_OVERRIDE_STATUS') == '1' else 0)\n")
         self.write('Tools/monotonic_plan_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_MONOTONIC') == '1' else 0)\n")
+        self.write('Tools/slotpack/raw_resume_gate_test.py', "import os\nraise SystemExit(23 if os.environ.get('SLOTSTREAM_FAIL_RAW_RESUME') == '1' else 0)\n")
 
     def write(self, relative, text):
         path = self.root/relative
@@ -501,6 +502,17 @@ raise SystemExit(int(os.environ.get('SLOTSTREAM_SELECTION_EXIT', '0')))
 
     def test_missing_monotonic_fixture_stops_before_native_checks(self):
         (self.root/'Tools/monotonic_plan_test.py').unlink()
+        result, rows = self.run_entry({})
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_failed_raw_resume_fixture_stops_before_native_checks(self):
+        result, rows = self.run_entry({'SLOTSTREAM_FAIL_RAW_RESUME': '1'})
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertEqual(rows, [])
+
+    def test_missing_raw_resume_fixture_stops_before_native_checks(self):
+        (self.root/'Tools/slotpack/raw_resume_gate_test.py').unlink()
         result, rows = self.run_entry({})
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(rows, [])

@@ -25,6 +25,7 @@ python3 Tools/parity_comparison_test.py
 python3 Tools/sampler_gates_test.py
 python3 Tools/planner_gates_test.py
 python3 Tools/monotonic_plan_test.py
+python3 Tools/slotpack/raw_resume_gate_test.py
 python3 Tools/api_generation_test.py
 python3 Tools/fx_scenarios_test.py
 python3 Tools/http_head_test.py

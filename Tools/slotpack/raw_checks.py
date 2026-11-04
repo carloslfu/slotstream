@@ -343,9 +343,9 @@ def main():
         assert not (optional/'mtp.safetensors').exists()
         dest = root/'resumed'
         check('raw-cancel', 'pause-resume', False, dest=dest, cancel='after-progress')
-        assert any(1 in p.read_bytes() for p in dest.glob('*.partmap'))
-        before = sum(counts.values()); check('raw-resume', dest=dest)
-        assert sum(counts.values()) - before < 8
+        assert (dest/'weights.safetensors.partmap').read_bytes()[:1] == b'\x01'
+        before = counts['good', 'weights.safetensors', 0]; check('raw-resume', dest=dest)
+        assert counts['good', 'weights.safetensors', 0] == before, ('completed weights chunk requested again', before, counts['good', 'weights.safetensors', 0])
         for path in good.glob('*.safetensors'):
             with path.open('r+b') as stream: stream.write(b'corrupt')
         check('raw-same-size-repair', dest=good)
