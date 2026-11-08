@@ -1567,6 +1567,7 @@ extension Generator {
             stats.decodeForwardPasses += 1
             stats.decodeModelTokens += verifyIds.count
             stats.verifySeconds += RuntimeClock.seconds(since: verifyStart)
+            DecodeTimeline.record(.verifyPass, layer: -1, count: verifyIds.count, start: verifyStart)
 
             // ---- sequential acceptance
             var good = 0  // accepted drafts == generation tokens consumed beyond p

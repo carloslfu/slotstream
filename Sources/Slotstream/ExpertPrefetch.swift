@@ -829,11 +829,15 @@ package final class ExpertPrefetchScheduler {
     package convenience init(store: ExpertStore, pool: SlotPool, configuration: ExpertPrefetchConfiguration,
                              predictor: ExpertPredictor?, layers: Int, experts: Int) {
         self.init(reader: { key, piece, destination, shouldContinue in
+            let start = RuntimeClock.now()
             try store.readPieceChecked(into: destination, key: key, piece: piece, shouldContinue: shouldContinue)
+            DecodeTimeline.record(.prefetchRead, layer: key.layer, count: 1, start: start)
         }, isResident: { [unowned pool] key in pool.isResident(key) }, pieceBytes: store.pieceRowBytes,
            configuration: configuration, predictor: predictor, layers: layers, experts: experts,
            recordReader: store.supportsRecordReads ? { key, destination, shouldContinue in
+               let start = RuntimeClock.now()
                try store.readRecordChecked(into: destination, key: key, shouldContinue: shouldContinue)
+               DecodeTimeline.record(.prefetchRead, layer: key.layer, count: 9, start: start)
            } : nil)
     }
 
