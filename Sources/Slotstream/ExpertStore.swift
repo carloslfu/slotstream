@@ -262,6 +262,8 @@ public final class ExpertStore {
     /// decode tokens at 30 experts/layer: 12 lanes 6.82 tok/s, 32 lanes 7.14,
     /// 64 lanes 7.16, output identical. 32 takes the gain without
     /// oversubscribing the sweep, which is why the two are separate numbers.
+    /// Those lane counts were measured under `concurrentPerform`, before these
+    /// lanes moved to `BlockingReadLanes` threads.
     public static let poolQueueDepth: Int = {
         guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_POOL_QUEUE_DEPTH"],
             let n = Int(raw)
@@ -317,7 +319,7 @@ public final class ExpertStore {
         // 9n reads, spread across worker lanes
         let jobs: [(piece: Int, slot: Int)] = (0 ..< n).flatMap { s in (0 ..< 9).map { (piece: $0, slot: s) } }
         let lanes = min(max(queueDepth, 1), jobs.count)
-        DispatchQueue.concurrentPerform(iterations: lanes) { lane in
+        BlockingReadLanes.shared.run(lanes: lanes) { lane in
             var j = lane
             while j < jobs.count {
                 let (p, s) = jobs[j]
@@ -367,7 +369,7 @@ public final class ExpertStore {
             guard n <= Self.defaultLoadBatch else { throw CheckpointReadError.invalidRange }
             let buffers = try allocateStaging(rows: n)
             defer { buffers.forEach { free($0) } }
-            DispatchQueue.concurrentPerform(iterations: lanes) { lane in
+            BlockingReadLanes.shared.run(lanes: lanes) { lane in
                 var j = lane
                 while j < jobs {
                     let (record, piece) = (j / 9, j % 9)
@@ -392,7 +394,7 @@ public final class ExpertStore {
             }
             return
         }
-        DispatchQueue.concurrentPerform(iterations: lanes) { lane in
+        BlockingReadLanes.shared.run(lanes: lanes) { lane in
             guard let (buffer, temporary) = scratch.acquire() else {
                 failure.record(ModelError("out of memory for a demand read buffer"))
                 return

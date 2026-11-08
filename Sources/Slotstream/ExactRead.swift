@@ -52,7 +52,7 @@ package enum ExactRead {
     }
 }
 
-/// concurrentPerform joins every worker before this result is inspected.
+/// The read lanes join every worker before this result is inspected.
 /// Successful jobs need no shared lock; errors are retained once and the
 /// entire partially filled destination is discarded after the join.
 package final class JoinedReadFailure {

@@ -5,6 +5,23 @@ import Slotstream
 extension Diagnostics {
     public static func optimizationExactRead() -> CheckReport {
         var c = CheckBuilder("optimization-exact-read")
+        let laneCount = max(32, ProcessInfo.processInfo.activeProcessorCount * 3)
+        let enteredLanes = DispatchSemaphore(value: 0), releaseLanes = DispatchSemaphore(value: 0)
+        let coordinator = DispatchQueue(label: "exact-read-lane-barrier")
+        var allLanesBlockedAtOnce = false
+        coordinator.async {
+            allLanesBlockedAtOnce = (0 ..< laneCount).allSatisfy { _ in
+                enteredLanes.wait(timeout: .now() + 20) == .success
+            }
+            for _ in 0 ..< laneCount { releaseLanes.signal() }
+        }
+        // Each lane blocks until all have entered, as if every one sat in pread.
+        BlockingReadLanes.shared.run(lanes: laneCount) { _ in
+            enteredLanes.signal()
+            releaseLanes.wait()
+        }
+        coordinator.sync {}
+        c.expect("read lanes all block at once beyond the CPU count", allLanesBlockedAtOnce)
         var destination = [UInt8](repeating: 0xaa, count: 23)
         let expected = (0..<17).map { UInt8($0 * 13) }
         var calls = 0, requests: [(Int, Int)] = []
