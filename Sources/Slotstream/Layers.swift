@@ -1431,12 +1431,14 @@ final class MoELayer {
         // decode barriers is evaluated in this same wait and finished before
         // these routes reach any observer.
         let routeIndices = idx.asType(.int32)
+        let routingStart = RuntimeClock.now()
         if let queue = readbackQueue, !queue.isEmpty {
             let waitStart = RuntimeClock.now()
             eval([routeIndices] + queue.arrays)
             queue.drain(waited: RuntimeClock.seconds(since: waitStart))
         }
         let expertIds = routeIndices.asArray(Int32.self)  // B*S*topK
+        DecodeTimeline.record(.routing, layer: layer, count: expertIds.count, start: routingStart)
         if RouterTrace.on {
             RouterTrace.record(layer: layer, tokens: B * S, topK: cfg.topK, ids: expertIds)
         }

@@ -159,3 +159,22 @@ extension Diagnostics {
         return c.report()
     }
 }
+
+extension Diagnostics {
+    /// The timeline's analysis tools read these JSON field names, so they are a
+    /// file format and every span has to produce them.
+    public static func decodeTimelineFormat() throws -> CheckReport {
+        var c = CheckBuilder("decode-timeline-format")
+        for span in DecodeTimeline.Span.allCases {
+            let event = DecodeTimeline.Event(span: span, layer: 47, count: 3, startNanos: 10, endNanos: 25)
+            c.expect("\(span.rawValue) ends its line", event.jsonLine.hasSuffix("}\n"))
+            let object = try JSONSerialization.jsonObject(with: Data(event.jsonLine.utf8)) as? [String: Any]
+            c.equal("\(span.rawValue) span", object?["span"] as? String, span.rawValue)
+            c.equal("\(span.rawValue) layer", object?["layer"] as? Int, 47)
+            c.equal("\(span.rawValue) count", object?["count"] as? Int, 3)
+            c.equal("\(span.rawValue) start", object?["start_ns"] as? Int, 10)
+            c.equal("\(span.rawValue) end", object?["end_ns"] as? Int, 25)
+        }
+        return c.report()
+    }
+}
