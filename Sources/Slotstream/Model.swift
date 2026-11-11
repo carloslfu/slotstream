@@ -419,16 +419,25 @@ public final class Qwen4ExpModel {
     /// Bound the next physical sequence allocations, keeping main, draft,
     /// raw-indexer and pooled-indexer capacity separate. Rollback retains spare
     /// rows, but they can only be reused by the buffer that actually owns them.
+    /// Buffers grow one at a time and an unaliased old buffer is released once
+    /// its rows are copied, so the peak is every buffer's growth plus the
+    /// largest old buffer still alive during its copy. With shared backing a
+    /// checkpoint keeps every old buffer, so each replacement is charged in full.
     package func sequenceAllocationBytes(tokens: Int, draftTokens: Int?, state: State,
                                          sharedBacking: Bool = false) -> Int {
         guard tokens >= 0, tokens <= ContextPolicy.modelLimit,
               draftTokens.map({ $0 >= 0 && $0 <= ContextPolicy.modelLimit }) ?? true else { return Int.max }
         let kvRowBytes = ContextBytes.product(cfg.numKVHeads, cfg.headDim, 2)
         let indexRowBytes = ContextBytes.product(cfg.indexerHeadDim, 2)
+        var largestCopiedBytes = 0
         func bytes(_ end: Int, kv: KVCache?, index: IndexerCache?, compact: Bool) -> Int {
             func replacement(_ count: Int, _ rowBytes: Int, _ owned: Int, step: Int = 1024) -> Int {
-                ContextGeometry.nextBufferAllocationBytes(tokens: count, rowBytes: rowBytes,
-                    allocatedBytes: sharedBacking ? 0 : owned, step: step)
+                let retained = sharedBacking ? 0 : owned
+                let next = ContextGeometry.nextBufferAllocationBytes(tokens: count, rowBytes: rowBytes,
+                    allocatedBytes: retained, step: step)
+                guard next > 0, next < Int.max else { return next }
+                largestCopiedBytes = max(largestCopiedBytes, retained)
+                return next - retained
             }
             let rawBase = index?.rawBase ?? 0
             guard end >= rawBase else { return Int.max }
@@ -463,7 +472,7 @@ public final class Qwen4ExpModel {
             total = ContextBytes.sum(total, bytes(draftTokens, kv: state.mtp?.kv,
                 index: state.mtp?.indexer, compact: state.mtp?.indexer.compactRaw ?? false))
         }
-        return total
+        return ContextBytes.sum(total, largestCopiedBytes)
     }
 
     public func makeState() -> State {
