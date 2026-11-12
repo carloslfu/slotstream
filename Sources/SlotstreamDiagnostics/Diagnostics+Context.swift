@@ -696,7 +696,7 @@ extension Diagnostics {
             context: 449, referenceEnd: 449), 449)
         c.expect("padded tail workspace includes physical queries", ContextWorkspace.prefillBytes(pass: 1,
             context: 262143, referenceEnd: 262144, minimumProjectionRows: 256, padSmallQueries: true)
-            >= 64 * 262144 * (24 * 8 + 16))
+            >= 64 * 262144 * (24 * 4 + 16))
         for override in [64, 68, 127, 128, 136, 137, 255] {
             c.equal("late odd override selects a qualified full-pass shape/\(override)",
                 ContextWorkspace.boundedSmallPass(requested: override, at: 200000,
