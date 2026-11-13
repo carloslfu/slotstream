@@ -3,6 +3,7 @@
 import CoreGraphics
 import CryptoKit
 import Foundation
+import Cmlx
 import MLX
 import Tokenizers
 
@@ -573,6 +574,18 @@ public final class Engine {
         // allocator cache. Only reference arithmetic uses the smaller probe cap.
         MLX.Memory.cacheLimit = affineSource == nil || affineSource?.nativeArithmetic == true
             ? 2 << 30 : 128_000_000
+        // MLX wires no buffers by default (wired limit 0). Under memory pressure
+        // macOS then compresses idle expert-pool and weight buffers, and because
+        // 4-bit weights barely compress, the compressor spills to swap. Measured
+        // on the 34.36 GB Mac mini at --memory-gb 26 and 27: thousands of swapouts per
+        // long prefill without this, zero with the limit set to the plan target.
+        if let target = plan?.targetGB, target.isFinite, target > 0 {
+            var previousWiredLimit: size_t = 0
+            if mlx_set_wired_limit(&previousWiredLimit, size_t(target * 1e9)) != 0 {
+                FileHandle.standardError.write(Data(
+                    "warning: could not set the MLX wired limit to \(UInt64(target * 1e9)) bytes; buffers stay pageable\n".utf8))
+            }
+        }
         self.modelName = affineSource?.nativeArithmetic == true
             ? PinnedAffineStandalone.id
             : affineSource?.artifact.modelName ?? "qwen3.8-flash-next:4bit"

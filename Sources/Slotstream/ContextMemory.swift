@@ -242,8 +242,12 @@ public enum ContextWorkspace {
                 ContextBytes.product(queries, attentionHeads, 256, 4),
                 ContextBytes.product(extent, kv, 256, 4))
         } else {
+            // MLX's unfused SDPA fallback keeps the per-head score matrix and its
+            // softmax output in the BF16 input dtype; 16 bytes cover the indexer
+            // score/mask. Pricing two FP32 copies made the guard refuse 104K+
+            // prefill passes on M4 that grew only 68 bytes per query-key element.
             attention = ContextBytes.product(queries, extent,
-                ContextBytes.sum(ContextBytes.product(attentionHeads, 8), 16))
+                ContextBytes.sum(ContextBytes.product(attentionHeads, 4), 16))
         }
         return ContextBytes.sum(max(ContextBytes.product(max(pass, minimumProjectionRows), PlannerCostModel.prefillBytesPerToken),
             attention), ContextBytes.product(max(0, scope - pass), 32_768))

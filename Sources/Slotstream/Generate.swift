@@ -746,9 +746,15 @@ public final class Generator {
         model.smallPrefillReferenceStart = reused
         model.smallPrefillReferenceEnd = promptIds.count
         var smallReferenceStart: Int?
+        // The live sequence buffers alias a retained checkpoint only after a
+        // fork from one, or after this request stores one: MLX cannot donate
+        // an aliased array, so the next write copies every buffer. Once a
+        // prefill pass has written, the request owns its buffers again, no
+        // matter how many unrelated checkpoints the cache holds.
+        var sequenceAliased = (cache?.checkpointHits ?? 0) > checkpointHitsBefore || hit?.logits != nil
         func allocationBytes(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0) -> Int {
             let allocated = model.sequenceAllocationBytes(tokens: end, draftTokens: draftEnd, state: state,
-                sharedBacking: (cache?.heldCheckpoints ?? 0) > 0 || hit?.logits != nil)
+                sharedBacking: sequenceAliased)
             return ContextBytes.sum(allocated, workspaceBytes)
         }
         func checkAllocation(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0, phase: String) throws {
@@ -1091,11 +1097,22 @@ public final class Generator {
             while let target = pendingShared.first, target < i + (passes.first ?? 0) {
                 pendingShared.removeFirst()
                 guard i <= target, i > reused else { continue }
+                let sharedStoresBefore = stats.sharedPrefixStores
                 retainSharedPrefix(cache: cache, state: state, promptIds: promptIds, at: i, images: images,
                     reserveTokens: promptIds.count + params.maxTokens,
                     reserveSequenceBytes: model.sequenceCapacityBytes(tokens: promptIds.count + params.maxTokens,
                         mtp: mtpHead != nil), request: request, aligned: alignedPrefill, key: producedKey, stats: &stats)
+                if stats.sharedPrefixStores > sharedStoresBefore, !sequenceAliased {
+                    // The pass above was priced before this snapshot aliased
+                    // its buffers; price the copy its first write now makes.
+                    sequenceAliased = true
+                    do {
+                        try request?.check(nextAllocationBytes: prefillAllocation(passes, options: executionOptimizations),
+                            phase: "prefill pass")
+                    } catch { cancelledPrefill = true; break }
+                }
             }
+            if cancelledPrefill { continue }
             let hi = i + passes.reduce(0, +)
             guard hi > i else {
                 request?.fail(RequestFailure(.contextLengthExceeded, "no bounded prefill pass fits the remaining model context"))
@@ -1160,6 +1177,7 @@ public final class Generator {
                 return finish([])
             }
             stats.prefillPasses.append(chunk.count)
+            sequenceAliased = false
             stats.prefillComputePasses.append(contentsOf: passes)
             var keyEnd = i
             for pass in passes {
@@ -1191,7 +1209,7 @@ public final class Generator {
                         reserveSequenceBytes: model.sequenceCapacityBytes(tokens: promptIds.count + params.maxTokens,
                             mtp: mtpHead != nil),
                         freshEquivalent: alignedPrefill, key: producedKey)
-                    if retained { stats.prefixCheckpointStores += 1 }
+                    if retained { stats.prefixCheckpointStores += 1; sequenceAliased = true }
                     else { stats.prefixCheckpointRefusals += 1 }
                 } catch {
                     // Optional retention must not publish an invalid state or
@@ -1211,7 +1229,7 @@ public final class Generator {
                     reserveSequenceBytes: model.sequenceCapacityBytes(tokens: promptIds.count + params.maxTokens,
                         mtp: mtpHead != nil), logits: logits, vocabularySize: model.cfg.vocabSize,
                     key: producedKey, freshEquivalent: alignedPrefill)
-                if retained { stats.completePromptStores += 1 }
+                if retained { stats.completePromptStores += 1; sequenceAliased = true }
                 else { stats.prefixCheckpointRefusals += 1 }
             } catch { stats.prefixCheckpointErrors += 1 }
         }
