@@ -43,6 +43,29 @@ public enum ContextGeometry {
         return required > allocatedBytes ? required : 0
     }
 
+    /// Peak bytes while a request's sequence buffers grow. Buffers grow one at
+    /// a time and an unaliased old buffer is released once its rows are copied,
+    /// so the peak is every buffer's growth plus the largest old buffer still
+    /// alive during its copy. With shared backing a checkpoint keeps every old
+    /// buffer, so each replacement is charged in full.
+    public struct SequenceRegrowth {
+        public let sharedBacking: Bool
+        public private(set) var largestCopiedBytes = 0
+
+        public init(sharedBacking: Bool) { self.sharedBacking = sharedBacking }
+
+        /// The growth one buffer adds; `Int.max` refuses invalid geometry.
+        public mutating func growthBytes(tokens: Int, rowBytes: Int, ownedBytes: Int,
+                                         step: Int = allocationStep) -> Int {
+            let retained = sharedBacking ? 0 : ownedBytes
+            let next = nextBufferAllocationBytes(tokens: tokens, rowBytes: rowBytes,
+                allocatedBytes: retained, step: step)
+            guard next > 0, next < Int.max else { return next }
+            largestCopiedBytes = max(largestCopiedBytes, retained)
+            return next - retained
+        }
+    }
+
     public static func capacityBytes(tokens: Int, layers: Int = attentionLayers,
                                      rowBytes: Int = rowBytes, pooledRowBytes: Int = 256,
                                      compressionRatio: Int = 4, indexerBudget: Int = 2048,

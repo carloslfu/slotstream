@@ -576,9 +576,9 @@ public final class Engine {
             ? 2 << 30 : 128_000_000
         // MLX wires no buffers by default (wired limit 0). Under memory pressure
         // macOS then compresses idle expert-pool and weight buffers, and because
-        // 4-bit weights barely compress, the compressor spills to swap. Measured
-        // on the 34.36 GB Mac mini at --memory-gb 26 and 27: thousands of swapouts per
-        // long prefill without this, zero with the limit set to the plan target.
+        // 4-bit weights barely compress, the compressor spills to swap. Evidence,
+        // scope and revision criterion:
+        // db/records/decisions/wire-mlx-buffers-to-the-memory-target.md
         if let target = plan?.targetGB, target.isFinite, target > 0 {
             var previousWiredLimit: size_t = 0
             if mlx_set_wired_limit(&previousWiredLimit, size_t(target * 1e9)) != 0 {

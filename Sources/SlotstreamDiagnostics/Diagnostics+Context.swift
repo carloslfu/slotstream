@@ -49,6 +49,24 @@ extension Diagnostics {
             tokens: Int.max, rowBytes: keyRow, allocatedBytes: 0), Int.max)
         c.equal("negative owned byte count refuses", ContextGeometry.nextBufferAllocationBytes(
             tokens: 1, rowBytes: keyRow, allocatedBytes: -1), Int.max)
+        // Keys and values of one layer cross the 1024-row step together. Each
+        // old buffer is released after its rows are copied, so only the larger
+        // old buffer overlaps its replacement; a checkpoint alias keeps both.
+        var unaliased = ContextGeometry.SequenceRegrowth(sharedBacking: false)
+        let unaliasedGrowth = unaliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+            + unaliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+            + unaliased.growthBytes(tokens: 900, rowBytes: keyRow, ownedBytes: 4096 * keyRow)
+        c.equal("unaliased regrowth charges growth plus one copied buffer",
+            unaliasedGrowth + unaliased.largestCopiedBytes, 2 * 1024 * keyRow + 1024 * keyRow)
+        c.equal("a buffer that fits is not counted as copied", unaliased.largestCopiedBytes, 1024 * keyRow)
+        var aliased = ContextGeometry.SequenceRegrowth(sharedBacking: true)
+        let aliasedGrowth = aliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+            + aliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+        c.equal("aliased regrowth charges every replacement in full",
+            aliasedGrowth + aliased.largestCopiedBytes, 2 * 2048 * keyRow)
+        var invalid = ContextGeometry.SequenceRegrowth(sharedBacking: false)
+        c.equal("invalid regrowth geometry refuses", invalid.growthBytes(tokens: Int.max, rowBytes: keyRow,
+            ownedBytes: 0), Int.max)
         for room in 0 ... 18 {
             let depth = ContextPolicy.maximumDraftDepth(requested: 16, at: 65536 - room, limit: 65536)
             c.equal("provisional context bounds draft depth/\(room)", depth, min(16, max(0, room - 1)))
@@ -697,6 +715,10 @@ extension Diagnostics {
         c.expect("padded tail workspace includes physical queries", ContextWorkspace.prefillBytes(pass: 1,
             context: 262143, referenceEnd: 262144, minimumProjectionRows: 256, padSmallQueries: true)
             >= 64 * 262144 * (24 * 4 + 16))
+        // 24 heads of BF16 scores plus their BF16 softmax, and 16 bytes of
+        // indexer score/mask per query-key element; the projection floor is smaller here.
+        c.equal("unfused prefill attention is priced at BF16 width", ContextWorkspace.prefillBytes(pass: 256,
+            context: 124928), 256 * 124928 * (24 * (2 + 2) + 16))
         for override in [64, 68, 127, 128, 136, 137, 255] {
             c.equal("late odd override selects a qualified full-pass shape/\(override)",
                 ContextWorkspace.boundedSmallPass(requested: override, at: 200000,
