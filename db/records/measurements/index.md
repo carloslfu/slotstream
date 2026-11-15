@@ -2,11 +2,13 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-11-04T20:54:20.744230Z
+updated: 2026-11-15T16:12:42.100414602Z
 ---
 
 # records/measurements
 
+- [[records/measurements/pr143-prefill-guard-usage-sequence]] — PR #143: the corrected prefill guard admits a 138240-token usage session the old guard refused
+- [[records/measurements/pr143-wired-limit-swap-ab]] — PR #143: wiring MLX buffers to the memory target removes swap-outs at 27 GB
 - [[records/measurements/pr-hardening-integrated-qualification]] — PR hardening: integrated qualification
 - [[records/measurements/pr-hardening-initial-baseline]] — Original-versus-45-PR exact-output and bounded latency comparison
 - [[records/measurements/measured-facts]] — Measured facts
