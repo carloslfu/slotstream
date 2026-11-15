@@ -3,7 +3,7 @@ import MLX
 import Slotstream
 
 extension Diagnostics {
-    public static func optimizationRequestReadRecovery(modelDir: URL, mtp: Bool, lookahead: Bool = false, slotSlices: Bool = false, wordWrites: Bool = false, cpuWrites: Bool = false, residentOverlap: Bool = false, directReads: Bool = false) throws -> CheckReport {
+    public static func optimizationRequestReadRecovery(modelDir: URL, mtp: Bool, lookahead: Bool = false, slotSlices: Bool = false, wordWrites: Bool = false, cpuWrites: Bool = false, residentOverlap: Bool = false, directReads: Bool = false, demandThreads: Bool = false) throws -> CheckReport {
         MLX.Memory.cacheLimit = 128 << 20
         let model = try Qwen4ExpModel(index: CheckpointIndex(dir: modelDir), poolSlots: 640)
         if mtp { try model.enableMTP(modelDir: modelDir) }
@@ -12,7 +12,7 @@ extension Diagnostics {
         generator.footprintSampling = true; generator.speculationEnabled = mtp; generator.draftDepth = 1
         var params = SampleParams.greedy; params.maxTokens = 4; params.seed = 7
         let seedIds = (0..<17).map { 1000 + $0*79 }
-        var c = CheckBuilder("optimization-request-read-recovery\(mtp ? "-mtp" : "")\(lookahead ? "-lookahead" : "")\(directReads ? "-direct" : "")")
+        var c = CheckBuilder("optimization-request-read-recovery\(mtp ? "-mtp" : "")\(lookahead ? "-lookahead" : "")\(directReads ? "-direct" : "")\(demandThreads ? "-threads" : "")")
         let cases: [(String,Int,Bool,Bool,Bool)] = [
             ("pool prefill",17,false,false,false),
             ("ngram prefill",17,true,false,false),
@@ -30,6 +30,7 @@ extension Diagnostics {
             options.cpuSlotWrites = cpuWrites
             options.overlapResidentExperts = residentOverlap
             options.directDemandReads = directReads ? true : nil
+            options.demandReadThreads = demandThreads ? true : nil
             options.compactStateWindows = true; options.skipUnusedFinalForward = true
             options.compactMTPRow = true
             if scope {
@@ -95,6 +96,7 @@ extension Diagnostics {
             options.cpuSlotWrites = cpuWrites
             options.overlapResidentExperts = residentOverlap
             options.directDemandReads = directReads ? true : nil
+            options.demandReadThreads = demandThreads ? true : nil
             options.compactStateWindows = true; options.compactMTPRow = true; options.skipUnusedFinalForward = true
             model.optimizations = options
             let reference = generator.generate(promptIds: seedIds,params: params,eosIds: [])
@@ -129,10 +131,11 @@ extension Diagnostics {
         return c.report()
     }
 
-    public static func optimizationReadRecovery(modelDir: URL, slotSlices: Bool = false, wordWrites: Bool = false, cpuWrites: Bool = false, directReads: Bool = false) throws -> CheckReport {
+    public static func optimizationReadRecovery(modelDir: URL, slotSlices: Bool = false, wordWrites: Bool = false, cpuWrites: Bool = false, directReads: Bool = false, demandThreads: Bool = false) throws -> CheckReport {
         MLX.Memory.cacheLimit = 64 << 20
         let store = try ExpertStore(index: CheckpointIndex(dir: modelDir))
-        var c = CheckBuilder("optimization-read-recovery\(directReads ? "-direct" : "")")
+        store.demandReadThreads = demandThreads
+        var c = CheckBuilder("optimization-read-recovery\(directReads ? "-direct" : "")\(demandThreads ? "-threads" : "")")
         let old = (0..<40).map { ExpertKey(5, $0) }
         let incoming = (0..<34).map { ExpertKey(0, $0) }
         func bytesEqual(_ label: String, _ pool: SlotPool, _ keys: [ExpertKey]) throws {

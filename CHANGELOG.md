@@ -17,6 +17,11 @@ determines which version the installer downloads.
 - Clarify the model's display name from "Original 4-bit" to
   "Qwen3.8-Flash-Next 4-bit". The checkpoint, quantization, inference behavior
   and released CLI/API/Swift interfaces are unchanged from v0.2.30.
+- Add `SLOTSTREAM_OPT_DEMAND_THREADS=1`, an experimental switch that runs the
+  demand path's read lanes on real threads, so more reads can wait on the disk
+  at once than there are CPU cores. It is off by default, output is unchanged,
+  and it is not a measured speedup. By [@spikezz](https://github.com/spikezz)
+  in [#141](https://github.com/carloslfu/slotstream/pull/141).
 
 ## 0.2.30 - 2026-10-19
 

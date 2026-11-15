@@ -85,6 +85,12 @@ public struct InferenceOptimizations: Codable, Equatable {
     /// same slots, so arithmetic is unchanged. In the deployment family.
     /// Optional so control sets saved before the path decode unchanged.
     public var directDemandReads: Bool? = nil
+    /// Experimental and off by default: run the demand path's read lanes on
+    /// real threads (`BlockingReadLanes`), so every lane can wait on the disk
+    /// at once instead of at most one per CPU. Same reads and bytes, so
+    /// arithmetic is unchanged. Not a measured speedup; for comparisons only.
+    /// Optional so control sets saved before the path decode unchanged.
+    public var demandReadThreads: Bool? = nil
     /// Exact already-scheduled commit boundary; zero disables common-prefix retention.
     public var prefixCheckpointTokens = 0
     /// Retain the complete committed prompt and its raw last logits. This is
@@ -256,6 +262,8 @@ public struct InferenceOptimizations: Codable, Equatable {
         }
         result.directDemandReads = try flag("SLOTSTREAM_OPT_DIRECT_DEMAND",
             fallback: result.directDemandReads ?? false) ? true : nil
+        result.demandReadThreads = try flag("SLOTSTREAM_OPT_DEMAND_THREADS",
+            fallback: result.demandReadThreads ?? false) ? true : nil
         let checkpointKey = "SLOTSTREAM_OPT_PREFIX_CHECKPOINT"
         recognized.insert(checkpointKey)
         if let value = env[checkpointKey] {

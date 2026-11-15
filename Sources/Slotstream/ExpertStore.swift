@@ -262,8 +262,11 @@ public final class ExpertStore {
     /// decode tokens at 30 experts/layer: 12 lanes 6.82 tok/s, 32 lanes 7.14,
     /// 64 lanes 7.16, output identical. 32 takes the gain without
     /// oversubscribing the sweep, which is why the two are separate numbers.
-    /// Those lane counts were measured under `concurrentPerform`, before these
-    /// lanes moved to `BlockingReadLanes` threads.
+    /// Those lane counts were measured under `concurrentPerform`, which runs
+    /// at most one lane per CPU at a time, so a depth above the CPU count
+    /// splits the jobs finer without putting more reads in flight. The
+    /// experimental `demandReadThreads` path is where the depth is also the
+    /// number of reads in flight; it has not been re-measured there.
     public static let poolQueueDepth: Int = {
         guard let raw = ProcessInfo.processInfo.environment["SLOTSTREAM_POOL_QUEUE_DEPTH"],
             let n = Int(raw)
@@ -282,6 +285,18 @@ public final class ExpertStore {
         else { return 32 }
         return min(max(n, 1), Geometry.expertsPerLayer)
     }()
+
+    /// Experimental and off by default (`SLOTSTREAM_OPT_DEMAND_THREADS`): run
+    /// the demand path's read lanes on `BlockingReadLanes` threads, so every
+    /// lane can wait on the disk at once. Same reads, same bytes, same joins.
+    package var demandReadThreads = false
+
+    /// The demand path's read lanes: every lane runs once, and this returns
+    /// after all of them have. `concurrentPerform` is the measured default.
+    private func demandLanes(_ lanes: Int, _ body: (Int) -> Void) {
+        if demandReadThreads { BlockingReadLanes.shared.run(lanes: lanes, body) }
+        else { DispatchQueue.concurrentPerform(iterations: lanes, execute: body) }
+    }
 
     public func readBatch(_ keys: [ExpertKey], queueDepth: Int = ExpertStore.poolQueueDepth)
         -> [MLXArray]
@@ -319,7 +334,7 @@ public final class ExpertStore {
         // 9n reads, spread across worker lanes
         let jobs: [(piece: Int, slot: Int)] = (0 ..< n).flatMap { s in (0 ..< 9).map { (piece: $0, slot: s) } }
         let lanes = min(max(queueDepth, 1), jobs.count)
-        BlockingReadLanes.shared.run(lanes: lanes) { lane in
+        demandLanes(lanes) { lane in
             var j = lane
             while j < jobs.count {
                 let (p, s) = jobs[j]
@@ -369,7 +384,7 @@ public final class ExpertStore {
             guard n <= Self.defaultLoadBatch else { throw CheckpointReadError.invalidRange }
             let buffers = try allocateStaging(rows: n)
             defer { buffers.forEach { free($0) } }
-            BlockingReadLanes.shared.run(lanes: lanes) { lane in
+            demandLanes(lanes) { lane in
                 var j = lane
                 while j < jobs {
                     let (record, piece) = (j / 9, j % 9)
@@ -394,7 +409,7 @@ public final class ExpertStore {
             }
             return
         }
-        BlockingReadLanes.shared.run(lanes: lanes) { lane in
+        demandLanes(lanes) { lane in
             guard let (buffer, temporary) = scratch.acquire() else {
                 failure.record(ModelError("out of memory for a demand read buffer"))
                 return
@@ -578,6 +593,12 @@ public final class SlotPool {
     /// the GPU. It skips one batch of staging arrays, one scatter per piece and
     /// the GPU sync each scatter cost, per layer that misses.
     package var directDemandReads = false
+    /// Experimental: demand read lanes on real threads; see
+    /// `ExpertStore.demandReadThreads`.
+    package var demandReadThreads: Bool {
+        get { store.demandReadThreads }
+        set { store.demandReadThreads = newValue }
+    }
     /// Research-only controls; no CLI/environment setting or changed default.
     /// Include validated ready slot tickets in the early compute batch and
     /// retain host copies by joining readers between demand I/O and copying.

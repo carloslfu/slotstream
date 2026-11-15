@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-10-26T19:18:31.134204Z
+updated: 2026-11-15T23:50:29.475551Z
 ---
 
 # records/decisions
 
+- [[records/decisions/demand-read-threads-stay-an-experimental-switch]] — Demand read lanes on real threads stay behind an off-by-default switch until real generation shows a gain
 - [[records/decisions/engine-only-maintenance]] — Retire the native Mac app and maintain only the Qwen3.8-Flash-Next 4-bit engine, CLI, APIs and Swift library.
 - [[records/decisions/slotstream-app-identity]] — Name the retained native Mac app Slotstream and remove separate-product promotion without changing the website
 - [[records/decisions/qualify-complete-native-workflows]] — Qualify useful native jobs across model, tools, evidence, reviewed effects and delivered bundle identity

@@ -1,6 +1,7 @@
 // Gates for demand misses that read straight into their pool slots. Direct
 // reads must leave the arithmetic untouched and recover from a failed read
-// without leaving a stale or partial slot behind.
+// without leaving a stale or partial slot behind. The experimental read
+// threads (SLOTSTREAM_OPT_DEMAND_THREADS) are held to the same two things.
 
 import ArgumentParser
 import Foundation

@@ -227,6 +227,13 @@ extension Diagnostics {
             try InferenceOptimizations.resolving(environment: ["SLOTSTREAM_OPT_DIRECT_DEMAND": "0"], defaults: candidate), staged)
         c.equal("explicit one restores direct demand reads",
             try InferenceOptimizations.resolving(environment: ["SLOTSTREAM_OPT_DIRECT_DEMAND": "1"], defaults: staged), candidate)
+        var threaded = candidate
+        threaded.demandReadThreads = true
+        c.expect("demand read threads are outside the deployed family", candidate.demandReadThreads == nil)
+        c.equal("explicit one selects only demand read threads",
+            try InferenceOptimizations.resolving(environment: ["SLOTSTREAM_OPT_DEMAND_THREADS": "1"], defaults: candidate), threaded)
+        c.equal("explicit zero restores the default read lanes",
+            try InferenceOptimizations.resolving(environment: ["SLOTSTREAM_OPT_DEMAND_THREADS": "0"], defaults: threaded), candidate)
         c.equal("explicit zeros restore the complete reference inference family",
             try InferenceOptimizations.resolving(environment: referenceOverrides, defaults: candidate),
             InferenceOptimizations())
