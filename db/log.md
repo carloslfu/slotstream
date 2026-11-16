@@ -13,3 +13,6 @@ PR #143 wired-limit A/B at 27 GB on the three-copy Mac mini: base 981ce2dd lost 
 ## [2026-11-15 16:13] create | records/measurements/pr143-prefill-guard-usage-sequence.md
 PR #143 prefill-guard usage sequence at ctx138240: db0f6c8c (old guard) refused the third main turn by 98.7 MB; 53f3fa58 and 200fb398 completed all requests and the disk-restore replay with peaks 25.64 and 25.53 GB. Archive 466 files including one operator-interrupted run.
 
+## [2026-11-16 00:31] update | records/decisions/wire-mlx-buffers-to-the-memory-target.md
+Make the wired limit opt-in (SLOTSTREAM_OPT_WIRED_LIMIT=1): clamp it to the Metal working set, report a refusal instead of ending the process, follow a moved target and restore the previous limit. State what a default needs.
+

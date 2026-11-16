@@ -428,6 +428,8 @@ public final class Qwen4ExpModel {
         let indexRowBytes = ContextBytes.product(cfg.indexerHeadDim, 2)
         var regrowth = ContextGeometry.SequenceRegrowth(sharedBacking: sharedBacking)
         func bytes(_ end: Int, kv: KVCache?, index: IndexerCache?, compact: Bool) -> Int {
+            // One layer: its old keys, values and indexer rows are alive together.
+            regrowth.beginGroup()
             func replacement(_ count: Int, _ rowBytes: Int, _ owned: Int, step: Int = 1024) -> Int {
                 regrowth.growthBytes(tokens: count, rowBytes: rowBytes, ownedBytes: owned, step: step)
             }

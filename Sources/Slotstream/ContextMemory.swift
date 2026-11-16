@@ -31,9 +31,10 @@ public enum ContextGeometry {
     public static let attentionLayers = 12
     public static let rowBytes = 2304
 
-    /// Physical bytes needed when one buffer grows. The old allocation can
-    /// still have GPU or checkpoint readers, so growth charges the complete
-    /// replacement. Capacity in another buffer never grants a credit here.
+    /// Physical bytes of the replacement when one buffer grows: the complete
+    /// new allocation. The old one can still have GPU or checkpoint readers;
+    /// `SequenceRegrowth` charges how much of it is alive at the same time.
+    /// Capacity in another buffer never grants a credit here.
     public static func nextBufferAllocationBytes(tokens: Int, rowBytes: Int,
                                                  allocatedBytes: Int, step: Int = allocationStep) -> Int {
         guard tokens >= 0, tokens <= ContextPolicy.modelLimit, rowBytes > 0,
@@ -43,16 +44,24 @@ public enum ContextGeometry {
         return required > allocatedBytes ? required : 0
     }
 
-    /// Peak bytes while a request's sequence buffers grow. Buffers grow one at
-    /// a time and an unaliased old buffer is released once its rows are copied,
-    /// so the peak is every buffer's growth plus the largest old buffer still
-    /// alive during its copy. With shared backing a checkpoint keeps every old
+    /// Peak bytes while a request's sequence buffers grow. A layer's buffers
+    /// are replaced in one evaluation (`KVCache.updateAndFetch` builds the new
+    /// keys and values in one graph), so that layer's old buffers are alive
+    /// together until their rows are copied; layers follow one another. The
+    /// peak is every buffer's growth plus the largest set of old buffers one
+    /// group keeps alive. With shared backing a checkpoint keeps every old
     /// buffer, so each replacement is charged in full.
     public struct SequenceRegrowth {
         public let sharedBacking: Bool
+        /// The most old bytes any one group keeps alive during its copy.
         public private(set) var largestCopiedBytes = 0
+        private var groupCopiedBytes = 0
 
         public init(sharedBacking: Bool) { self.sharedBacking = sharedBacking }
+
+        /// Start the buffers of the next layer. Buffers charged without a call
+        /// in between count as one group, which is the conservative reading.
+        public mutating func beginGroup() { groupCopiedBytes = 0 }
 
         /// The growth one buffer adds; `Int.max` refuses invalid geometry.
         public mutating func growthBytes(tokens: Int, rowBytes: Int, ownedBytes: Int,
@@ -61,7 +70,8 @@ public enum ContextGeometry {
             let next = nextBufferAllocationBytes(tokens: tokens, rowBytes: rowBytes,
                 allocatedBytes: retained, step: step)
             guard next > 0, next < Int.max else { return next }
-            largestCopiedBytes = max(largestCopiedBytes, retained)
+            groupCopiedBytes = ContextBytes.sum(groupCopiedBytes, retained)
+            largestCopiedBytes = max(largestCopiedBytes, groupCopiedBytes)
             return next - retained
         }
     }

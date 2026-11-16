@@ -680,9 +680,11 @@ public final class Generator {
             completePromptKey: completeKey, reserveTokens: promptIds.count + params.maxTokens,
             reserveSequenceBytes: reserveSequenceBytes, request: request, resume: resumeRule, stats: &stats) : nil
         var hit: (state: Qwen4ExpModel.State, reused: Int, logits: MLXArray?, freshEquivalent: Bool)?
+        var heldAliased = false
         if let continuing {
             let held = continuing.held
             continuing.held = nil
+            heldAliased = held?.aliased ?? false
             guard let held, images.isEmpty, held.state.tokenCount == held.tokens.count,
                   promptIds.count > held.tokens.count, promptIds.starts(with: held.tokens),
                   held.key == PromptCheckpointKey(model: model.promptCheckpointIdentity,
@@ -747,14 +749,16 @@ public final class Generator {
         model.smallPrefillReferenceEnd = promptIds.count
         var smallReferenceStart: Int?
         // The live sequence buffers alias a retained checkpoint only after a
-        // fork from one, or after this request stores one: MLX cannot donate
-        // an aliased array, so the next write copies every buffer. Once a
-        // prefill pass has written, the request owns its buffers again, no
+        // fork from one, after this request stores one, or when an earlier
+        // phase of this turn handed over a state that still did: MLX cannot
+        // donate an aliased array, so the next write copies every buffer. Once
+        // a prefill pass has written, the request owns its buffers again, no
         // matter how many unrelated checkpoints the cache holds.
         var sequenceAliased = (cache?.checkpointHits ?? 0) > checkpointHitsBefore || hit?.logits != nil
-        func allocationBytes(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0) -> Int {
+            || heldAliased
+        func allocationBytes(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0, aliased: Bool? = nil) -> Int {
             let allocated = model.sequenceAllocationBytes(tokens: end, draftTokens: draftEnd, state: state,
-                sharedBacking: sequenceAliased)
+                sharedBacking: aliased ?? sequenceAliased)
             return ContextBytes.sum(allocated, workspaceBytes)
         }
         func checkAllocation(end: Int, draftEnd: Int? = nil, workspaceBytes: Int = 0, phase: String) throws {
@@ -998,7 +1002,7 @@ public final class Generator {
                 headDimension: model.cfg.headDim, attentionHeads: model.cfg.numAttentionHeads,
                 kvHeads: model.cfg.numKVHeads, vision: vision != nil,
                 smallPass: model.smallPrefillSweep)
-            func prefillAllocation(_ group: [Int], options: InferenceOptimizations) -> Int {
+            func prefillAllocation(_ group: [Int], options: InferenceOptimizations, aliased: Bool? = nil) -> Int {
                 let end = i + group.reduce(0, +)
                 var at = i, workspace = 0
                 for pass in group {
@@ -1039,7 +1043,7 @@ public final class Generator {
                         hcCount: head.cfg.hcCount, attentionHeads: head.cfg.numAttentionHeads))
                 }
                 return allocationBytes(end: end, draftEnd: mtpHead != nil ? max(0, end - 1) : nil,
-                    workspaceBytes: workspace)
+                    workspaceBytes: workspace, aliased: aliased)
             }
             do {
                 let ordinaryBytes = prefillAllocation(passes, options: configuredOptimizations)
@@ -1097,20 +1101,27 @@ public final class Generator {
             while let target = pendingShared.first, target < i + (passes.first ?? 0) {
                 pendingShared.removeFirst()
                 guard i <= target, i > reused else { continue }
+                // A snapshot kept in memory aliases the live buffers, so the
+                // pass that follows copies every sequence buffer in full. The
+                // pass above was priced without that copy. The snapshot is
+                // optional work: keep it in memory only when the larger price
+                // also fits, and never fail the admitted request for it. The
+                // copy on disk aliases nothing and is written either way.
+                var keepInMemory = true
+                if !sequenceAliased, let request {
+                    do {
+                        keepInMemory = try request.admitsOptionalAllocation(
+                            prefillAllocation(passes, options: executionOptimizations, aliased: true),
+                            over: prefillAllocation(passes, options: executionOptimizations), phase: "prefill pass")
+                    } catch { cancelledPrefill = true; break }
+                }
                 let sharedStoresBefore = stats.sharedPrefixStores
                 retainSharedPrefix(cache: cache, state: state, promptIds: promptIds, at: i, images: images,
                     reserveTokens: promptIds.count + params.maxTokens,
                     reserveSequenceBytes: model.sequenceCapacityBytes(tokens: promptIds.count + params.maxTokens,
-                        mtp: mtpHead != nil), request: request, aligned: alignedPrefill, key: producedKey, stats: &stats)
-                if stats.sharedPrefixStores > sharedStoresBefore, !sequenceAliased {
-                    // The pass above was priced before this snapshot aliased
-                    // its buffers; price the copy its first write now makes.
-                    sequenceAliased = true
-                    do {
-                        try request?.check(nextAllocationBytes: prefillAllocation(passes, options: executionOptimizations),
-                            phase: "prefill pass")
-                    } catch { cancelledPrefill = true; break }
-                }
+                        mtp: mtpHead != nil), request: request, aligned: alignedPrefill, key: producedKey,
+                    keepInMemory: keepInMemory, stats: &stats)
+                if stats.sharedPrefixStores > sharedStoresBefore { sequenceAliased = true }
             }
             if cancelledPrefill { continue }
             let hi = i + passes.reduce(0, +)
@@ -1341,7 +1352,7 @@ public final class Generator {
             if let retaining {
                 // Transfer the active state rather than storing an alias that
                 // a later phase could mutate behind the cache's token ledger.
-                retaining.held = (state, consumed, producedKey)
+                retaining.held = (state, consumed, producedKey, sequenceAliased)
             } else {
             // The conversation entry holds generated tokens, so under the rule
             // it can never be continued exactly; it still carries this turn's

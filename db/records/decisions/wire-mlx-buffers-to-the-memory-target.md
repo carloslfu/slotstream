@@ -2,26 +2,39 @@
 type: decision
 id: 01m7fcsd5fdrbqpby393aj1ejw
 created: 2026-11-15T10:41:59.983275922+00:00
-updated: 2026-11-15T10:41:59.983275922+00:00
-summary: Wire MLX buffers up to the plan's total-process target instead of MLX's default of none
-decided_on: 2026-11-13
+updated: 2026-11-16T01:02:29.849723+00:00
+summary: SLOTSTREAM_WIRED_LIMIT=1 wires MLX buffers up to the plan target; off by default until it is measured on a Mac in desktop use
+decided_on: 2026-11-15
 evidence: '[[records/measurements/pr143-wired-limit-swap-ab]]'
-reversible_if: A Mac with the target within its RAM shows the wired limit causing a jetsam kill, a refused allocation the planner allowed, or a slower clean comparison than pageable buffers; or MLX changes the wired limit's semantics.
-title: Wire MLX buffers up to the memory target
+reversible_if: A comparison on a Mac in ordinary desktop use, with other applications open and the automatic target, shows no application killed for memory, no added pressure cancellations and no slower clean run than pageable buffers, which would justify making it the default for the measured configuration; or a Mac shows the limit causing a kill, a refused allocation the planner allowed or a slower clean run, which would remove it; or MLX changes what the wired limit means
+title: Wiring MLX buffers to the memory target is opt-in
 status: standing
 ---
-The engine sets MLX's wired limit to the plan's total-process target (`--memory-gb`, or the automatic target) right after the allocator cache limit. MLX's own default is 0, which keeps no Metal buffer resident.
+Carlos approved shipping the wired limit as opt-in first on November 15, 2026 ("Do it all", answering a proposal to land it that way). This replaces the first version of this record, written with the change in [#143](https://github.com/carloslfu/slotstream/pull/143), which made it an operating default.
+
+## Decision
+
+`SLOTSTREAM_WIRED_LIMIT=1` sets MLX's wired limit to the plan's total-process target (`--memory-gb`, or the automatic target) before the pool and weights are allocated. MLX's own default is 0, which keeps no Metal buffer resident. Without the switch nothing changes.
+
+The switch is its own variable and not one of the `SLOTSTREAM_OPT_` inference options, because those are part of a saved prefix's identity and wiring changes no arithmetic.
+
+`WiredLimit` clamps the limit to the Metal working set, reports a refusal and leaves buffers pageable, moves the limit when a resize moves the target, and puts back the limit that was in force when the engine is released.
 
 ## Kind of limit and scope
 
-This is an operating default inside the existing safety envelope. It changes how much of the already-planned process budget macOS may compress or page out. It does not raise the target and adds no new allocation: the planner, real-headroom checks and the process ceiling are unchanged. If MLX rejects the limit, the engine prints a warning and continues with pageable buffers, which is the old behavior.
+It changes how much of the already-planned process budget macOS may compress or page out. It does not raise the target and adds no allocation: the planner, real-headroom checks and the process ceiling are unchanged. Wired pages cannot be reclaimed by macOS for other applications while the process holds them, so under pressure the cost moves to whatever else is running.
 
 ## Evidence
 
-On [[records/machines/mac-mini-m4-32gb-three-copies]] at a 27 GB target, two base runs without the limit lost their server early in a 32736-token prefill after 82292 and 50304 swap-outs. Two runs with the limit completed cold, reuse and disk-restore phases with 0 swap-outs; [[records/measurements/pr143-wired-limit-swap-ab]] has the numbers. The tradeoff is that wired pages cannot be reclaimed by macOS for other applications while the server holds them; the target already reserves that memory for the process, so the displaced cost is the compressor's ability to borrow from an idle pool.
+On [[records/machines/mac-mini-m4-32gb-three-copies]] at a 27 GB target, two base runs without the limit lost their server early in a 32736-token prefill after 82292 and 50304 swap-outs. Two runs with the limit completed cold, reuse and disk-restore phases with 0 swap-outs; [[records/measurements/pr143-wired-limit-swap-ab]] has the numbers. Those runs used a build that set the limit unconditionally, on a Mac with user applications stopped.
 
-The evidence is one Mac with the target near its RAM. Macs with more headroom were not measured; on them the limit should change little because macOS had no reason to compress the pool.
+## Why opt-in
+
+- The evidence is one Mac that mainly serves the model, with other applications stopped and an explicit target near its RAM. The automatic target and a Mac in ordinary desktop use were not measured, and that is where wired memory competes with other applications.
+- MLX refuses a limit above the Metal working set, and an unhandled MLX error ends the process. A plan whose expected peak is above the working set loads today with a note to expect paging; setting the limit unconditionally would have ended that process at startup. `wired-limit-process` triggers the refusal and checks that it arrives as an error the engine reports.
+- MLX accepted a 27 GB limit on the measured Mac, so it reported a working set of at least 27 GB there. The records do not say whether `iogpu.wired_limit_mb` was raised on it.
+- MLX keeps buffers resident only on macOS 15 and later, so the limit has no effect on macOS 14.
 
 ## Override
 
-There is no separate flag. Lowering `--memory-gb` lowers the wired amount with the target.
+`SLOTSTREAM_WIRED_LIMIT=1` turns it on; `0` or unset leaves buffers pageable. Lowering `--memory-gb` lowers the wired amount with the target.

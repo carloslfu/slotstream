@@ -17,14 +17,16 @@ determines which version the installer downloads.
 - Clarify the model's display name from "Original 4-bit" to
   "Qwen3.8-Flash-Next 4-bit". The checkpoint, quantization, inference behavior
   and released CLI/API/Swift interfaces are unchanged from v0.2.30.
-- Set MLX's wired limit to the memory target. With MLX's default of 0, macOS
-  compressed idle expert-pool and weight buffers under pressure and, because
-  4-bit weights barely compress, spilled them to swap. By
+- Add `SLOTSTREAM_WIRED_LIMIT=1`, which sets MLX's wired limit to the
+  memory target so macOS keeps MLX buffers resident instead of compressing and
+  swapping them. On a 32 GiB Mac mini serving near its RAM, runs with it had 0
+  swap-outs where runs without it had more than 50,000. Off by default until it
+  is measured on a Mac in desktop use. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).
 - Stop the prefill guard refusing long requests that fit: charge a full
   sequence copy only while the live buffers alias a checkpoint, charge
-  regrowth as per-buffer growth plus the largest buffer being copied, and price
+  regrowth as per-buffer growth plus one layer's old buffers, and price
   unfused prefill attention at the BF16 width MLX actually allocates. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).

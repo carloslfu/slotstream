@@ -300,6 +300,17 @@ public final class RequestController: @unchecked Sendable {
             phase: phase) != nil
     }
 
+    /// Optional work that would raise the next allocation from `admittedBytes`
+    /// to `largerBytes`, such as a snapshot that makes the next pass copy its
+    /// buffers. True when the larger price also fits. A larger price that does
+    /// not fit declines the optional work and leaves the request as admitted;
+    /// only cancellation, a deadline, pressure or a lost admission fails it.
+    package func admitsOptionalAllocation(_ largerBytes: Int, over admittedBytes: Int,
+                                          phase: String) throws -> Bool {
+        guard largerBytes > admittedBytes else { return true }
+        return try chooseAllocation(preferredBytes: largerBytes, fallbackBytes: admittedBytes, phase: phase)
+    }
+
     /// Price alternatives in caller preference order under the same atomic
     /// ownership transaction. Rejected larger groups reserve no bytes and
     /// cannot make failure sticky while a smaller group or fallback fits.

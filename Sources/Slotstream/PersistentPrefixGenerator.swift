@@ -182,20 +182,27 @@ extension Generator {
     /// then writes only the rows after it.
     func retainSharedPrefix(cache: PrefixCache?, state: Qwen4ExpModel.State, promptIds: [Int], at boundary: Int,
                             images: [ImageSegment], reserveTokens: Int, reserveSequenceBytes: Int,
-                            request: RequestController?, aligned: Bool, key: PromptCheckpointKey, stats: inout GenStats) {
+                            request: RequestController?, aligned: Bool, key: PromptCheckpointKey,
+                            keepInMemory: Bool = true, stats: inout GenStats) {
         guard let cache, boundary > 0, boundary < promptIds.count, state.tokenCount == boundary,
               !stats.sharedPrefixBoundaries.contains(boundary) else { return }
         let tokens = Array(promptIds.prefix(boundary))
         Stream.gpu.synchronize()
         persistPrefix(cache: cache, state: state, tokens: tokens, images: images, request: request,
             aligned: aligned || !model.optimizations.resumesOnPassBoundaries, stats: &stats, shared: true)
-        do {
-            let retained = try cache.storeReusableCheckpoint(state: state, tokens: tokens, images: images,
-                reserveTokens: reserveTokens, reserveSequenceBytes: reserveSequenceBytes,
-                retention: request?.sharedPrefixRetention ?? .optional, freshEquivalent: aligned, key: key)
-            if retained { stats.sharedPrefixStores += 1 } else { stats.sharedPrefixRefusals += 1 }
-        } catch {
-            stats.sharedPrefixErrors += 1
+        if keepInMemory {
+            do {
+                let retained = try cache.storeReusableCheckpoint(state: state, tokens: tokens, images: images,
+                    reserveTokens: reserveTokens, reserveSequenceBytes: reserveSequenceBytes,
+                    retention: request?.sharedPrefixRetention ?? .optional, freshEquivalent: aligned, key: key)
+                if retained { stats.sharedPrefixStores += 1 } else { stats.sharedPrefixRefusals += 1 }
+            } catch {
+                stats.sharedPrefixErrors += 1
+            }
+        } else {
+            // The request could not afford the copy an in-memory snapshot
+            // forces on its next pass. The disk copy above is still written.
+            stats.sharedPrefixRefusals += 1
         }
         stats.sharedPrefixBoundaries.append(boundary)
     }
