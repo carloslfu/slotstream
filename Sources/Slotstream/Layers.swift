@@ -1438,7 +1438,7 @@ final class MoELayer {
             queue.drain(waited: RuntimeClock.seconds(since: waitStart))
         }
         let expertIds = routeIndices.asArray(Int32.self)  // B*S*topK
-        DecodeTimeline.record(.routing, layer: layer, count: expertIds.count, start: routingStart)
+        DecodeTimeline.record(.routingWait, layer: layer, count: expertIds.count, start: routingStart)
         if RouterTrace.on {
             RouterTrace.record(layer: layer, tokens: B * S, topK: cfg.topK, ids: expertIds)
         }

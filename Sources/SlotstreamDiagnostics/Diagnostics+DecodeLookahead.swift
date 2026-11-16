@@ -175,6 +175,45 @@ extension Diagnostics {
             c.equal("\(span.rawValue) start", object?["start_ns"] as? Int, 10)
             c.equal("\(span.rawValue) end", object?["end_ns"] as? Int, 25)
         }
+        c.equal("the routing span is named for the wait it times",
+                DecodeTimeline.Span.routingWait.rawValue, "routing-wait")
+
+        // The file is written a block at a time. Cross two block boundaries
+        // and leave a partial block, then read every line back in order.
+        let total = DecodeTimeline.writeBlockEvents * 2 + 5
+        let spans = DecodeTimeline.Span.allCases
+        let events = UnsafeMutablePointer<DecodeTimeline.Event>.allocate(capacity: total)
+        defer { events.deallocate() }
+        for index in 0 ..< total {
+            (events + index).initialize(to: DecodeTimeline.Event(
+                span: spans[index % spans.count], layer: Int32(index % 48), count: 1,
+                startNanos: UInt64(index), endNanos: UInt64(index) + 7))
+        }
+        let path = NSTemporaryDirectory() + "slotstream-decode-timeline-\(UUID().uuidString).jsonl"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try DecodeTimeline.write(UnsafeBufferPointer(start: events, count: total), to: path)
+        let lines = try String(contentsOfFile: path, encoding: .utf8).split(separator: "\n", omittingEmptySubsequences: false)
+        c.equal("one line per event and a final newline", lines.count, total + 1)
+        c.equal("the file ends with a newline", lines.last.map(String.init), "")
+        var ordered = true
+        for (index, line) in lines.dropLast().enumerated() {
+            let object = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+            if object?["start_ns"] as? Int != index || object?["end_ns"] as? Int != index + 7
+                || object?["span"] as? String != spans[index % spans.count].rawValue { ordered = false; break }
+        }
+        c.expect("every event is written once, in order, across blocks", ordered)
+
+        // A second write replaces the file instead of appending to it.
+        try DecodeTimeline.write(UnsafeBufferPointer(start: events, count: 3), to: path)
+        c.equal("a later write replaces the file",
+                try String(contentsOfFile: path, encoding: .utf8).split(separator: "\n").count, 3)
+
+        var refused = false
+        do {
+            try DecodeTimeline.write(UnsafeBufferPointer(start: events, count: 1),
+                                     to: NSTemporaryDirectory() + "slotstream-no-such-folder-\(UUID().uuidString)/t.jsonl")
+        } catch { refused = true }
+        c.expect("an unwritable path is an error, not a silent drop", refused)
         return c.report()
     }
 }

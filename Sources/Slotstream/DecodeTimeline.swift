@@ -12,16 +12,20 @@
 // routed ids for a routing wait, misses for an ensure, records for a demand
 // read, tickets for a join and pieces for a prefetch read.
 //
+// A routing wait is the time until a layer's routes come back from the GPU.
+// Evaluation is lazy, so it includes whatever earlier work was still queued,
+// such as the previous layer's experts. It is not the router's own cost.
+//
 // The buffer is allocated once, so a recording never allocates inside a layer.
 // Off unless the variable is set, and then each site costs one static Bool.
 
 import Foundation
 
-public enum DecodeTimeline {
-    public enum Span: String, CaseIterable {
+package enum DecodeTimeline {
+    package enum Span: String, CaseIterable {
         case verifyPass = "verify-pass"
         case layer
-        case routing
+        case routingWait = "routing-wait"
         case ensure
         case demandRead = "demand-read"
         case ticketJoin = "ticket-join"
@@ -47,9 +51,9 @@ public enum DecodeTimeline {
         }
     }
 
-    public static let path: String? =
+    package static let path: String? =
         ProcessInfo.processInfo.environment["SLOTSTREAM_DECODE_TIMELINE"]
-    public static let on: Bool = path != nil
+    package static let on: Bool = path != nil
 
     /// About 64 MB at most, committed only as it is filled. A 256-token decode
     /// with every piece prefetched stays near 1.2 million events.
@@ -60,7 +64,7 @@ public enum DecodeTimeline {
     private static var dropped = 0
 
     /// Close a span that began at `start`. Prefetch workers call this concurrently.
-    public static func record(_ span: Span, layer: Int, count: Int, start: UInt64) {
+    package static func record(_ span: Span, layer: Int, count: Int, start: UInt64) {
         guard on else { return }
         let end = RuntimeClock.now()
         lock.lock()
@@ -74,16 +78,13 @@ public enum DecodeTimeline {
 
     /// Write the timeline out and report it. Called once, at the end of a generation.
     @discardableResult
-    public static func flush() -> String? {
+    package static func flush() -> String? {
         guard on, let path else { return nil }
         lock.lock()
         defer { lock.unlock() }
         guard used > 0 else { return nil }
-        var text = ""
-        text.reserveCapacity(used * 80)
-        for event in UnsafeBufferPointer(start: events, count: used) { text += event.jsonLine }
         do {
-            try Data(text.utf8).write(to: URL(fileURLWithPath: path))
+            try write(UnsafeBufferPointer(start: events, count: used), to: path)
         } catch {
             return "decode timeline: could not write \(path): \(error)"
         }
@@ -91,5 +92,31 @@ public enum DecodeTimeline {
         used = 0
         dropped = 0
         return line
+    }
+
+    /// Events per block written to the file, about 0.8 MB of text.
+    package static let writeBlockEvents = 8192
+
+    /// Write `events` to `path` as JSON lines, one block at a time, so the text
+    /// of a full buffer (about 200 MB) is never held in memory at once.
+    package static func write(_ events: UnsafeBufferPointer<Event>, to path: String) throws {
+        guard FileManager.default.createFile(atPath: path, contents: nil),
+              let file = FileHandle(forWritingAtPath: path) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        defer { try? file.close() }
+        var block = ""
+        block.reserveCapacity(writeBlockEvents * 104)
+        var pending = 0
+        for event in events {
+            block += event.jsonLine
+            pending += 1
+            if pending == writeBlockEvents {
+                try file.write(contentsOf: Data(block.utf8))
+                block.removeAll(keepingCapacity: true)
+                pending = 0
+            }
+        }
+        if pending > 0 { try file.write(contentsOf: Data(block.utf8)) }
     }
 }
