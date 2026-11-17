@@ -419,16 +419,19 @@ public final class Qwen4ExpModel {
     /// Bound the next physical sequence allocations, keeping main, draft,
     /// raw-indexer and pooled-indexer capacity separate. Rollback retains spare
     /// rows, but they can only be reused by the buffer that actually owns them.
+    /// `ContextGeometry.SequenceRegrowth` charges the growth.
     package func sequenceAllocationBytes(tokens: Int, draftTokens: Int?, state: State,
                                          sharedBacking: Bool = false) -> Int {
         guard tokens >= 0, tokens <= ContextPolicy.modelLimit,
               draftTokens.map({ $0 >= 0 && $0 <= ContextPolicy.modelLimit }) ?? true else { return Int.max }
         let kvRowBytes = ContextBytes.product(cfg.numKVHeads, cfg.headDim, 2)
         let indexRowBytes = ContextBytes.product(cfg.indexerHeadDim, 2)
+        var regrowth = ContextGeometry.SequenceRegrowth(sharedBacking: sharedBacking)
         func bytes(_ end: Int, kv: KVCache?, index: IndexerCache?, compact: Bool) -> Int {
+            // One layer: its old keys, values and indexer rows are alive together.
+            regrowth.beginGroup()
             func replacement(_ count: Int, _ rowBytes: Int, _ owned: Int, step: Int = 1024) -> Int {
-                ContextGeometry.nextBufferAllocationBytes(tokens: count, rowBytes: rowBytes,
-                    allocatedBytes: sharedBacking ? 0 : owned, step: step)
+                regrowth.growthBytes(tokens: count, rowBytes: rowBytes, ownedBytes: owned, step: step)
             }
             let rawBase = index?.rawBase ?? 0
             guard end >= rawBase else { return Int.max }
@@ -463,7 +466,7 @@ public final class Qwen4ExpModel {
             total = ContextBytes.sum(total, bytes(draftTokens, kv: state.mtp?.kv,
                 index: state.mtp?.indexer, compact: state.mtp?.indexer.compactRaw ?? false))
         }
-        return total
+        return ContextBytes.sum(total, regrowth.largestCopiedBytes)
     }
 
     public func makeState() -> State {

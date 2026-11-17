@@ -13890,3 +13890,82 @@ The original pre-review baseline is `c0c55d86866d77ae7fc2bf7b57b1c0faf7f9df25`. 
 | short | 8.1 GB, MTP off | -1.37% | identical |
 
 Every timed cell also passes the production memory gate at its explicit target. Median paired process-peak growth stays within the separately frozen threshold, the larger of 250 MB or five percent of its paired baseline peak. These bounded cases show no meaningful regression against the frozen thresholds. They do not establish a general speedup, qualify the entire 16–64 GB range, or replace full task-quality evaluation. Filesystem cache is uncontrolled with no purge; expert and prefix caches start empty per process. The earlier first-45-PR comparison is [[records/measurements/pr-hardening-initial-baseline]]. No new runtime optimization default, model, app scope or release tag is adopted.
+
+## PR #143: wiring MLX buffers to the memory target removes swap-outs at 27 GB
+slotstream never set MLX's wired limit, and MLX's default is 0, so no Metal buffer was kept resident. On a Mac whose memory target is close to its RAM, macOS compresses idle expert-pool and weight buffers under pressure. Because 4-bit weights barely compress, the compressor overflows to swap, and later expert reads page back in. `db0f6c8c` sets the wired limit to the plan target right after the allocator cache limit and warns and continues with pageable buffers if MLX rejects it.
+
+The comparison runs the same full-window workload on release builds of base `981ce2dd` and head `200fb398` (which contains `db0f6c8c`) in ABBA order on [[records/machines/mac-mini-m4-32gb-three-copies]]: `--memory-gb 27 --max-context 32768`, MTP and vision on, three copies, 5869 expert slots, 256-token prefill passes, then an image request and a 32736-token prompt, an in-process reuse and a fresh-process disk restore. Raw manifests, server logs and samples are in [[sources/runs/2026/11/2026-11-13-pr143-wired-limit-swap-ab]].
+
+| Run | Build | Outcome | Swapouts | Swapins | Observed peak |
+|---|---|---|---:|---:|---:|
+| 1 | base | server gone; its last log line is 15 s into the long prefill, and the harness saw the disconnect 37 s after start | 82292 | 2469 | — |
+| 2 | head | all three phases complete | 0 | 725 | 25.56 GB |
+| 3 | head | all three phases complete | 0 | 204 | 25.55 GB |
+| 4 | base | server gone; its last log line is 15 s into the long prefill, and the harness saw the disconnect 33 s after start | 50304 | 1791 | — |
+
+Swap counts are global `vm_stat` deltas over each run. With the wired limit, the cold 32736-token prefill takes 489–491 s, and the reuse and disk-restore phases take 18–19 s each with 0 swapouts. The base servers' logs end without an error line, and no crash report or jetsam entry was found; this record does not attribute their exit beyond the paging that preceded it. Global paging is diagnostic under [[records/decisions/global-paging-is-diagnostic]]; the base runs are kept as failures, not timings.
+
+This is one machine with one workload near its RAM. It shows that the wired limit removes the swap-outs at this target; it does not measure the effect on Macs with more headroom.
+
+## PR #143: the corrected prefill guard admits a 138240-token usage session the old guard refused
+The prefill guard refuses a request when its estimated peak exceeds the memory still available. Before PR #143 it charged a full copy of every sequence buffer whenever a buffer grew. PR #143 makes the charge match how the buffers are actually replaced: `62fb305c` charges a full copy only while the live buffers alias a retained checkpoint, and `53f3fa58` charges regrowth as every buffer's growth plus the largest old buffer alive during its copy. `200fb398` also prices unfused prefill attention at the BF16 width MLX allocates instead of two fp32 copies.
+
+The comparison runs one usage sequence on release builds of `db0f6c8c` (the wired limit with the old guard), `53f3fa58` (both sequence-charging fixes) and `200fb398` (the PR head) on [[records/machines/mac-mini-m4-32gb-three-copies]]: `--memory-gb 27 --max-context 138240`, MTP and vision on, three copies, 2968 expert slots, 256-token prefill passes and a disk prefix cache. After an image request, one main conversation starts at 100027 tokens and grows by about 4096 tokens per turn to 124878, with two side conversations, a side follow-up and a title request in between. The last main turn (126986 tokens) asks for a long reply, and a fresh process then restores 126976 of its tokens from disk and replays it. Raw requests, responses, manifests and server logs are in [[sources/runs/2026/11/2026-11-15-pr143-guard-usage]].
+
+| Build | Outcome | Highest phase peak | Swapouts | Swapins |
+|---|---|---:|---:|---:|
+| `db0f6c8c` | refused the third main turn (108310 tokens, 4374 to prefill): required 10412284006 bytes, available 10313596928 | 21.20 GB before the refusal | 0 | 0 |
+| `53f3fa58` | the image request, all 12 sequence requests and the disk-restore replay complete | 25.64 GB | 20 | 0 |
+| `200fb398` | the image request, all 12 sequence requests and the disk-restore replay complete | 25.53 GB | 0 | 0 |
+
+Peaks are the server's per-phase physical high-water marks; the highest is the long-reply turn in both completed runs. Swap counts are global `vm_stat` deltas over each run; the 20 swapouts are 0.33 MB. In both completed runs the long reply decodes 299 tokens and ends on its own, and the restarted process restores 126976 tokens and prefills 10.
+
+The old guard's refusal is a false refusal: the same request on the same machine and plan runs under the corrected guard, and the run's highest peak, 25.64 GB, stays inside the 27 GB target. This record does not separate the two sequence-charging fixes, because `53f3fa58` carries both. The BF16 pricing in `200fb398` changes no outcome in this sequence. This is one machine and one workload; it shows that the corrected guard admits a realistic long session that the old guard refused, and that the admitted session stays inside its target.
+
+## PR #143 on 4423adb5: opt-in wired limit, larger regrowth charge and passes above 128256 keys
+Carlos's commit `4423adb5` on [#143](https://github.com/carloslfu/slotstream/pull/143) changes three things that the earlier records measured: the wired limit is opt-in through `SLOTSTREAM_WIRED_LIMIT=1` and clamped to the Metal working set, sequence regrowth is charged as every buffer's growth plus one layer's old buffers, and two alias-flag holes are closed. This record reruns the earlier measurements on that commit and adds prefill passes above 128256 keys, where the passes get smaller than 256 rows and the BF16 attention price had not been measured. Raw evidence is in [[sources/runs/2026/11/2026-11-17-pr143-4423adb-rerun]].
+
+The machine is [[records/machines/mac-mini-m4-32gb-three-copies]]. `slotstream doctor` reports a 30.1 GB Metal working set there, because `iogpu.wired_limit_mb` is 28700. The 27 GB limit is therefore below the working set and is not clamped; every head server logged `memory: wiring MLX buffers up to 27.0 GB (SLOTSTREAM_WIRED_LIMIT)`.
+
+## Wired limit
+
+The workload is the one in [[records/measurements/pr143-wired-limit-swap-ab]]: `--memory-gb 27 --max-context 32768`, 5869 expert slots, then a 32736-token prompt, an in-process reuse and a fresh-process disk restore. Compressor and swap numbers are `vm_stat` deltas between the first and last 60 s samples of each run.
+
+| Run | Build | Outcome | Cold prefill | Swapouts | Compressions | Largest compressor | Observed peak |
+|---|---|---|---:|---:|---:|---:|---:|
+| 1 | base `981ce2dd` | all three phases complete | 786.9 s | 0 | 21781115 | 6.03 GB | 25.62 GB |
+| 2 | `4423adb5`, wired | all three phases complete | 500.7 s | 0 | 278405 | 0.99 GB | 25.55 GB |
+| 3 | `4423adb5`, wired | all three phases complete | 500.9 s | 0 | 422622 | 1.04 GB | 25.56 GB |
+| 4 | base `981ce2dd` | refused by the harness after the cold phase: the host swapped out 10 MB or more | 762.2 s | 104480 | 23543031 | 5.67 GB | 25.74 GB |
+
+Both wired runs completed with no swap-outs and prefilled the 32736-token prompt in about 501 s. One of the two base runs swapped heavily, as both base runs did on November 13. The other base run did not swap, but macOS still compressed about 22 million pages during it, held up to 6.03 GB in the compressor, and the cold prefill took 786.9 s. So pageable buffers cost time here even when they do not reach swap. The comparison is between builds, not between the switch on and off on one build; `981ce2dd` also lacks the guard changes, which do not refuse or delay anything at this context.
+
+## Prefill guard
+
+The usage sequence of [[records/measurements/pr143-prefill-guard-usage-sequence]] at `--context 138240` (2968 expert slots) completed every request on `4423adb5`: the image request, the main conversation from 100027 to 124878 tokens, two side conversations, a side follow-up, a title request, the 126986-token long reply (299 tokens decoded, ending on its own) and the fresh-process replay that restores it from disk. The highest phase peak was 25.63 GB, against 25.53 GB on `200fb398`, with 0 swap-outs. The server logged no guard refusal or wait. Two prefills were slower than on `200fb398`: the 124878-token turn took 217.3 s against 147.0 s and the long-reply turn 119.1 s against 88.8 s. Each build ran the sequence once.
+
+The server logs show how those turns differ. On both builds the turns up to 112452 tokens and the 120736-token turn read most of their new tokens in one automatic read scope of 3584 or 4096 tokens. On `200fb398` so did the other three: 3584 tokens on the 116594-token and 124878-token turns and 1792 on the long reply. On `4423adb5` the 116594-token turn split that scope into 2048 and 1536 tokens, and the 124878-token and long-reply turns took no scope and ran 256-token passes to the end. Across all 15 requests the pass rows, key extents and output tokens are identical between the builds, and the expert hit rates agree to within 0.001. Prefill read the same bytes to within 0.1 GB on every request except those three: 195.2 GB against 148.7 GB on the 116594-token turn, 560.1 GB against 156.9 GB on the 124878-token turn and 299.5 GB against 118.7 GB on the long reply.
+
+A read scope is optional work. `RequestController.chooseAllocation` takes the largest scope whose price fits in reclaimable memory at that moment and otherwise runs ordinary passes without a refusal, so the server logs nothing. `guard-samples.jsonl` samples reclaimable memory about twice a second, and the readings swing by about 1 GB within a few seconds, so the figures here are means over the samples within 3 s of the log line that ends the second pass, where the scope is chosen.
+
+| Turn | `200fb398` | Scope taken | `4423adb5` | Scope taken |
+|---|---:|---|---:|---|
+| 112452 tokens | 9.29 GB | 3584 tokens | 9.02 GB | 3584 tokens |
+| 116594 tokens | 9.28 GB | 3584 tokens | 8.62 GB | 2048, then 1536 tokens |
+| 120736 tokens | 10.08 GB | 3584 tokens | 9.68 GB | 3584 tokens |
+| 124878 tokens | 8.83 GB | 3584 tokens | 7.62 GB | none |
+| 126986 tokens, long reply | 8.42 GB | 1792 tokens | 7.25 GB | none |
+
+The host had 0.7 to 1.2 GB less reclaimable memory at the three decisions that changed, and 0.3 to 0.4 GB less at the two that did not. That is enough to explain the slower turns. It is not the only candidate: `4423adb5` also raises every scope's price by about 0.13 to 0.16 GB at these lengths, because sequence regrowth now charges one layer's old keys, values and indexer rows instead of the largest single buffer. One run per build cannot separate the two, and this was read from the archived evidence, not measured by a controlled comparison.
+
+## Passes above 128256 keys
+
+`PrefillSchedule.measuredQueryKeyProduct` is 4096 × 8016, so 256-row passes stop at 128256 keys. The 128000-token full-window run (`--full-window-contexts 138240`) completed with a 21.10 GB peak and 0 swap-outs, but every pass had 256 rows. Extending the saved 128000-token prefix past that point gave these passes:
+
+| Prompt tokens | Restored from disk | Passes after the restore | Wall time | Request peak | Guard refusals | Swapouts |
+|---:|---:|---|---:|---:|---:|---:|
+| 129025 | 127744 | 2 × 256 rows to 128256 keys, 6 × 128 rows to 129024, 1 × 1 row | 74.8 s | 21.40 GB | 0 | 0 |
+| 132096 | 128000 | 1 × 256 rows, 30 × 128 rows to 132096 keys | 236.6 s | 23.52 GB | 0 | 0 |
+| 136000 | 128000 | 1 × 256 rows, 60 × 128 rows to 135936 keys, 1 × 64 rows at 136000 | 431.6 s | 22.54 GB | 0 | 0 |
+
+Every request completed, the guard admitted every pass, and the highest peak, 23.52 GB, stays inside the 27 GB target. In this range prefill runs at about 17 tokens per second (4096 tokens in 236.6 s), against about 29 for the 4142-token turn ending at 120736 tokens in the usage sequence (143.2 s), which ran in 256-row passes. This is one machine and one run per length; it shows that the BF16 price admits these passes without exceeding the target, not how close the price is to their real growth.

@@ -49,6 +49,36 @@ extension Diagnostics {
             tokens: Int.max, rowBytes: keyRow, allocatedBytes: 0), Int.max)
         c.equal("negative owned byte count refuses", ContextGeometry.nextBufferAllocationBytes(
             tokens: 1, rowBytes: keyRow, allocatedBytes: -1), Int.max)
+        // Keys and values of one layer cross the 1024-row step together and
+        // are replaced in one evaluation, so both old buffers are alive while
+        // their rows are copied. Layers follow one another, so one layer's old
+        // buffers are the overlap; a checkpoint alias keeps every old buffer.
+        var unaliased = ContextGeometry.SequenceRegrowth(sharedBacking: false)
+        var unaliasedGrowth = 0
+        for _ in 0 ..< 3 {
+            unaliased.beginGroup()
+            unaliasedGrowth += unaliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+                + unaliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+                + unaliased.growthBytes(tokens: 900, rowBytes: keyRow, ownedBytes: 4096 * keyRow)
+        }
+        c.equal("unaliased regrowth charges growth plus one layer's old buffers",
+            unaliasedGrowth + unaliased.largestCopiedBytes, 3 * 2 * 1024 * keyRow + 2 * 1024 * keyRow)
+        c.equal("a layer's old keys and values are alive together, and a buffer that fits is not copied",
+            unaliased.largestCopiedBytes, 2 * 1024 * keyRow)
+        var ungrouped = ContextGeometry.SequenceRegrowth(sharedBacking: false)
+        for _ in 0 ..< 3 {
+            _ = ungrouped.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+        }
+        c.equal("buffers charged without a layer boundary count as alive together",
+            ungrouped.largestCopiedBytes, 3 * 1024 * keyRow)
+        var aliased = ContextGeometry.SequenceRegrowth(sharedBacking: true)
+        let aliasedGrowth = aliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+            + aliased.growthBytes(tokens: 1025, rowBytes: keyRow, ownedBytes: 1024 * keyRow)
+        c.equal("aliased regrowth charges every replacement in full",
+            aliasedGrowth + aliased.largestCopiedBytes, 2 * 2048 * keyRow)
+        var invalid = ContextGeometry.SequenceRegrowth(sharedBacking: false)
+        c.equal("invalid regrowth geometry refuses", invalid.growthBytes(tokens: Int.max, rowBytes: keyRow,
+            ownedBytes: 0), Int.max)
         for room in 0 ... 18 {
             let depth = ContextPolicy.maximumDraftDepth(requested: 16, at: 65536 - room, limit: 65536)
             c.equal("provisional context bounds draft depth/\(room)", depth, min(16, max(0, room - 1)))
@@ -98,6 +128,30 @@ extension Diagnostics {
             c.equal("completed dispatch releases only transient ownership", reservations.reservedBytes, 1_600_000)
         }
         c.equal("request completion returns all reservations", reservations.reservedBytes, 0)
+        // Optional work that raises the next allocation, such as a snapshot
+        // that makes the next pass copy its buffers, is declined when the
+        // larger price does not fit. It never fails the admitted request.
+        for shared in [false, true] {
+            let label = "optional allocation/shared=\(shared)"
+            let pool = RequestMemoryReservations()
+            var room = 0.006
+            let control = RequestController(configuration: reservationPolicy,
+                slackBytes: 1_000_000, availableGB: { room })
+            if shared { try control.attachReservations(pool) }
+            c.expect("\(label): a larger price that does not fit declines the optional work",
+                !(try control.admitsOptionalAllocation(8_000_000, over: 2_000_000, phase: label)))
+            c.equal("\(label): declining leaves the request admitted", control.failure, nil)
+            c.expect("\(label): and able to retain its state", control.mayRetainState)
+            c.equal("\(label): the admitted price stays the dispatch", pool.reservedBytes, shared ? 2_000_000 : 0)
+            room = 0.010
+            c.expect("\(label): a larger price that fits is admitted",
+                try control.admitsOptionalAllocation(8_000_000, over: 2_000_000, phase: label))
+            c.equal("\(label): and becomes the dispatch", pool.reservedBytes, shared ? 8_000_000 : 0)
+            room = 0
+            c.expect("\(label): work that costs no more needs no room",
+                try control.admitsOptionalAllocation(2_000_000, over: 2_000_000, phase: label))
+            c.equal("\(label): and still does not fail the request", control.failure, nil)
+        }
         // Optional workspace selection must not turn a feasible ordinary
         // request into a sticky refusal, or spend another request's lease.
         for shared in [false, true] {
@@ -696,7 +750,11 @@ extension Diagnostics {
             context: 449, referenceEnd: 449), 449)
         c.expect("padded tail workspace includes physical queries", ContextWorkspace.prefillBytes(pass: 1,
             context: 262143, referenceEnd: 262144, minimumProjectionRows: 256, padSmallQueries: true)
-            >= 64 * 262144 * (24 * 8 + 16))
+            >= 64 * 262144 * (24 * 4 + 16))
+        // 24 heads of BF16 scores plus their BF16 softmax, and 16 bytes of
+        // indexer score/mask per query-key element; the projection floor is smaller here.
+        c.equal("unfused prefill attention is priced at BF16 width", ContextWorkspace.prefillBytes(pass: 256,
+            context: 124928), 256 * 124928 * (24 * (2 + 2) + 16))
         for override in [64, 68, 127, 128, 136, 137, 255] {
             c.equal("late odd override selects a qualified full-pass shape/\(override)",
                 ContextWorkspace.boundedSmallPass(requested: override, at: 200000,

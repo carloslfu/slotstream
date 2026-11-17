@@ -277,6 +277,9 @@ public final class Engine {
     /// never block behind a running generation.
     private var _plan: MemoryPlan?
     private let planLock = NSLock()
+    /// The process-wide MLX wired limit this engine asked for, if any. It is
+    /// released with the engine, which restores the limit that was in force.
+    private var wiredLimit: WiredLimit?
     public var currentPlan: MemoryPlan? {
         planLock.lock()
         defer { planLock.unlock() }
@@ -292,6 +295,13 @@ public final class Engine {
         }
         _plan = p
         planLock.unlock()
+        // A resize can move the target; the wired limit follows it.
+        if let wiredLimit, let bytes = WiredLimit.bytes(targetGB: p.targetGB, workingSetGB: p.workingSetGB) {
+            do { try wiredLimit.update(bytes: bytes) } catch {
+                FileHandle.standardError.write(Data(
+                    "warning: could not move the MLX wired limit (\(error)); it stays at \(wiredLimit.bytes) bytes\n".utf8))
+            }
+        }
     }
 
     private let lock = GenerationGate()
@@ -573,6 +583,34 @@ public final class Engine {
         // allocator cache. Only reference arithmetic uses the smaller probe cap.
         MLX.Memory.cacheLimit = affineSource == nil || affineSource?.nativeArithmetic == true
             ? 2 << 30 : 128_000_000
+        // Opt-in (SLOTSTREAM_WIRED_LIMIT=1): keep MLX buffers resident up to
+        // the plan's total-process target instead of letting macOS compress and
+        // swap them. Set before the pool and weights are allocated, because a
+        // buffer is wired when it is created. `WiredLimit` clamps to the Metal
+        // working set and reports a refusal; a refused limit leaves buffers
+        // pageable, which is the default behavior.
+        if try WiredLimit.requested() {
+            if let bytes = WiredLimit.bytes(targetGB: plan?.targetGB,
+                                            workingSetGB: plan?.workingSetGB ?? Planner.deviceWorkingSetGB()) {
+                do {
+                    let limit = try WiredLimit.apply(bytes: bytes)
+                    self.wiredLimit = limit
+                    let wanted = Int((plan?.targetGB ?? 0) * 1e9)
+                    let clamp = limit.bytes < wanted
+                        ? String(format: "; the %.1f GB target is above the Metal working set, so the rest stays pageable",
+                                 Double(wanted) / 1e9) : ""
+                    FileHandle.standardError.write(Data(String(format:
+                        "memory: wiring MLX buffers up to %.1f GB (SLOTSTREAM_WIRED_LIMIT)%@\n",
+                        Double(limit.bytes) / 1e9, clamp).utf8))
+                } catch {
+                    FileHandle.standardError.write(Data(
+                        "warning: could not set the MLX wired limit (\(error)); buffers stay pageable\n".utf8))
+                }
+            } else {
+                FileHandle.standardError.write(Data(
+                    "warning: SLOTSTREAM_WIRED_LIMIT needs a total-process memory target; buffers stay pageable\n".utf8))
+            }
+        }
         self.modelName = affineSource?.nativeArithmetic == true
             ? PinnedAffineStandalone.id
             : affineSource?.artifact.modelName ?? "qwen3.8-flash-next:4bit"

@@ -63,9 +63,11 @@ extension Catalogue {
             Check("decode-timeline-format", tier: .t0) { try Diagnostics.decodeTimelineFormat() },
             Check("vision-check", tier: .t0) { Diagnostics.vision() },
             Check("prefill-read-policy", tier: .t0) { Diagnostics.fusedWorkspaceReservation() },
+            Check("wired-limit-policy", tier: .t0) { Diagnostics.wiredLimitPolicy() },
             // T1: touches MLX, so it needs the Metal library beside the runner.
             Check("fused-prefill-attention", tier: .t1) { Diagnostics.fusedPrefillAttention() },
             Check("sampler-behaviour", tier: .t1) { try Diagnostics.samplerBehaviour() },
+            Check("wired-limit-process", tier: .t1) { try Diagnostics.wiredLimitProcess() },
             Check("expert-lookahead-adoption", tier: .t1) { try Diagnostics.expertLookaheadAdoption() },
             Check("expert-lookahead-routing-readback", tier: .t1) { try Diagnostics.expertLookaheadRoutingReadback() },
             Check("compact-indexer", tier: .t1) { Diagnostics.optimizationCompactIndexer() },

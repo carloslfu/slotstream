@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/machines
-updated: 2026-10-18T10:19:17.861150921Z
+updated: 2026-11-17T14:01:40.157204283Z
 ---
 
 # records/machines
 
+- [[records/machines/mac-mini-m4-32gb-three-copies]] — Mac mini M4 32 GiB, three checkpoint copies on three devices
 - [[records/machines/mac-mini-m4-32gb-mirror-review]] — Mac mini M4 32 GiB, external and internal mirror comparison
 - [[records/machines/mac-studio-m1-max-32gb-issue59]] — Mac Studio M1 Max 32 GB, keepalive regression report
 - [[records/machines/macbook-air-m5-32gb-issue55]] — Base M5 MacBook Air configuration reported by Arsenitim in issue 55

@@ -2,11 +2,14 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-11-04T20:54:20.675358Z
+updated: 2026-11-17T14:01:11.513977659Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/11/2026-11-17-pr143-4423adb-rerun]] — PR #143 reruns on 4423adb5 with SLOTSTREAM_WIRED_LIMIT=1: wired-limit ABBA, usage sequence at ctx138240 and prefill passes above 128256 keys
+- [[sources/runs/2026/11/2026-11-15-pr143-guard-usage]] — PR #143 prefill-guard usage sequence at ctx138240: db0f6c8c, 53f3fa58 and 200fb398
+- [[sources/runs/2026/11/2026-11-13-pr143-wired-limit-swap-ab]] — PR #143 wired-limit swap A/B, base 981ce2dd vs head 200fb398, ABBA at 27 GB
 - [[sources/runs/2026/11/2026-11-04-pr-prose-timing-exclusion]] — Discarded PR comparison prose timing pair: global paging
 - [[sources/runs/2026/11/2026-11-04-pr-integrated-qualification]] — Integrated PR hardening qualification and paired regression runs
 - [[sources/runs/2026/11/2026-11-04-pr-baseline-vs-45-merged]] — Frozen original-versus-45-PR release-build benchmark
@@ -504,11 +507,8 @@ updated: 2026-11-04T20:54:20.675358Z
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-governor-invalid-interval]] — v0.2.14 governor swap-invalidated interval and prospective targeted rerun
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-publication]] — v0.2.14 successful CI, exact public archive, provenance and installer evidence
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-candidate-gates]] — v0.2.14 startup refusal checks and exact CI archive reuse
-- [[sources/runs/2026/09/2026-09-10-decode-attribution-discarded-attempts]] — Decode attribution discarded attempts and rejected profiler
-- [[sources/runs/2026/09/2026-09-10-decode-wall-time-attribution]] — Decode wall-time attribution on the M5 Pro, with production untouched
-- [[sources/runs/2026/09/2026-09-10-release-0-2-13-harness-correction]] — Unpublished v0.2.12 harness failure and corrected v0.2.13 preparation
 
 ## More
 
-This folder has 1005 files. The 500 most recent are listed above.
+This folder has 1008 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.
