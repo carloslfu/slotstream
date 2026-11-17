@@ -680,6 +680,24 @@ same place, without the scatter. `SLOTSTREAM_OPT_DIRECT_DEMAND=0` restores the
 staged path. `decode-overlap-check` verifies identical output with and without
 the draft head and checks recovery from failed reads.
 
+### Demand read threads (experimental)
+
+The demand path spreads a layer's misses across a fixed number of read lanes.
+`DispatchQueue.concurrentPerform` runs at most one lane per CPU core at a time
+and starts no replacement while one waits on the disk, so the reads in flight
+are bounded by the core count, and `--mirror` divides them among the copies.
+`SLOTSTREAM_OPT_DEMAND_THREADS=1` runs the lanes on parked threads instead, so
+every lane can wait at once.
+
+It is off by default and is not a measured speedup. In the one comparison so
+far, on a Mac mini with two and three checkpoint copies
+([#141](https://github.com/carloslfu/slotstream/pull/141)), more reads in
+flight raised disk-only replay throughput and left generation no faster. The
+switch keeps the experiment runnable on a release build; the
+[decision](../db/records/decisions/demand-read-threads-stay-an-experimental-switch.md)
+records what would promote or remove it. `decode-overlap-check` verifies identical output
+and failed-read recovery with the switch on.
+
 ### Optimize useful work
 
 GPU keepalive was removed in 0.2.29 after a base-M5 user reported severe
@@ -1684,6 +1702,7 @@ See
 | `SLOTSTREAM_OPT_ROW_INVARIANT` | engine | `1` selects the exact mode: the model's small dense matmuls run through one kernel at every row count, and the split verify attention makes one call per row. With `SLOTSTREAM_OPT_VERIFY_SPLIT_CONTEXT=0`, speculative and plain decode give identical output for draft depths up to 4. It changes plain decode's rounding, so it is off by default. |
 | `SLOTSTREAM_MTP_EXPERTS` | planner | `resident` or `streamed` forces where the draft head keeps its 512 experts; unset or `automatic`, they stay resident on a cache of 76 experts per layer or more after the resident charge and stream below it. For comparisons. |
 | `SLOTSTREAM_OPT_DIRECT_DEMAND` | engine | `0` reads cache misses through staging arrays and a GPU scatter, the previous path; the default reads them into host memory and copies each record straight into its slot. Both put the same bytes in the same slots. |
+| `SLOTSTREAM_OPT_DEMAND_THREADS` | engine | `1` runs the demand path's read lanes on parked threads, so every lane can wait on the disk at once. The default dispatches them through `concurrentPerform`, which keeps at most one read in flight per CPU core. Experimental and off by default: the same bytes land in the same slots, and the one comparison so far did not make generation faster. For comparisons only; [the decision](../db/records/decisions/demand-read-threads-stay-an-experimental-switch.md) records what would promote or remove it. |
 | `SLOTSTREAM_DECODE_BARRIER_LAYERS` | engine | Layers between GPU drains, 1…48. The decode lookahead uses 4; `1` drains after every layer. A pass that could not keep that many layers of experts pinned drains after every layer anyway. |
 | `SLOTSTREAM_EXPERT_PREFETCH_TAP` | engine | `boundary` keeps the 0.2.16 forecast (the layer-boundary router forecast at stride 2) when the correction file is present, charging 373 MiB instead of 409; the configuration 0.2.19 was benchmarked against. Other values belong to the experimental configuration and are for comparisons only. |
 | `SLOTSTREAM_ROOT_DIR` | installer | Install somewhere other than `~/.slotstream`. |
@@ -5539,6 +5558,11 @@ determines which version the installer downloads.
   unfused prefill attention at the BF16 width MLX actually allocates. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).
+- Add `SLOTSTREAM_OPT_DEMAND_THREADS=1`, an experimental switch that runs the
+  demand path's read lanes on real threads, so more reads can wait on the disk
+  at once than there are CPU cores. It is off by default, output is unchanged,
+  and it is not a measured speedup. By [@spikezz](https://github.com/spikezz)
+  in [#141](https://github.com/carloslfu/slotstream/pull/141).
 
 ## 0.2.30 - 2026-10-19
 

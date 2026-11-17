@@ -9,6 +9,7 @@ updated: 2026-11-17T17:20:08.600475Z
 
 - [[records/decisions/newcomer-documentation]] — Keep the README compact and the author easy to reach; preserve essential setup, evidence and community, with detailed results and memory guidance in linked pages.
 - [[records/decisions/wire-mlx-buffers-to-the-memory-target]] — SLOTSTREAM_WIRED_LIMIT=1 wires MLX buffers up to the plan target; off by default until it is measured on a Mac in desktop use
+- [[records/decisions/demand-read-threads-stay-an-experimental-switch]] — Demand read lanes on real threads stay behind an off-by-default switch until real generation shows a gain
 - [[records/decisions/engine-only-maintenance]] — Retire the native Mac app and maintain only the Qwen3.8-Flash-Next 4-bit engine, CLI, APIs and Swift library.
 - [[records/decisions/slotstream-app-identity]] — Name the retained native Mac app Slotstream and remove separate-product promotion without changing the website
 - [[records/decisions/qualify-complete-native-workflows]] — Qualify useful native jobs across model, tools, evidence, reviewed effects and delivered bundle identity

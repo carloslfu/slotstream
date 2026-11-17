@@ -247,6 +247,24 @@ same place, without the scatter. `SLOTSTREAM_OPT_DIRECT_DEMAND=0` restores the
 staged path. `decode-overlap-check` verifies identical output with and without
 the draft head and checks recovery from failed reads.
 
+### Demand read threads (experimental)
+
+The demand path spreads a layer's misses across a fixed number of read lanes.
+`DispatchQueue.concurrentPerform` runs at most one lane per CPU core at a time
+and starts no replacement while one waits on the disk, so the reads in flight
+are bounded by the core count, and `--mirror` divides them among the copies.
+`SLOTSTREAM_OPT_DEMAND_THREADS=1` runs the lanes on parked threads instead, so
+every lane can wait at once.
+
+It is off by default and is not a measured speedup. In the one comparison so
+far, on a Mac mini with two and three checkpoint copies
+([#141](https://github.com/carloslfu/slotstream/pull/141)), more reads in
+flight raised disk-only replay throughput and left generation no faster. The
+switch keeps the experiment runnable on a release build; the
+[decision](../db/records/decisions/demand-read-threads-stay-an-experimental-switch.md)
+records what would promote or remove it. `decode-overlap-check` verifies identical output
+and failed-read recovery with the switch on.
+
 ### Optimize useful work
 
 GPU keepalive was removed in 0.2.29 after a base-M5 user reported severe

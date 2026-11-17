@@ -35,6 +35,11 @@ determines which version the installer downloads.
   unfused prefill attention at the BF16 width MLX actually allocates. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).
+- Add `SLOTSTREAM_OPT_DEMAND_THREADS=1`, an experimental switch that runs the
+  demand path's read lanes on real threads, so more reads can wait on the disk
+  at once than there are CPU cores. It is off by default, output is unchanged,
+  and it is not a measured speedup. By [@spikezz](https://github.com/spikezz)
+  in [#141](https://github.com/carloslfu/slotstream/pull/141).
 
 ## 0.2.30 - 2026-10-19
 
