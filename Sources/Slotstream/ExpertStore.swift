@@ -822,6 +822,8 @@ public final class SlotPool {
 
     private func ensureCore(_ keys: [ExpertKey], reservedHits: (([Int]) -> Void)?,
                             finishReaders: (() -> Void)?) throws -> [Int] {
+        let ensureStart = RuntimeClock.now()
+        let timelineLayer = keys.first?.layer ?? -1
         for key in keys where key.layer < 0 || key.layer >= cfg.numLayers || key.expert < 0 || key.expert >= cfg.numExperts {
             throw SlotPoolError.invalidKey(key)
         }
@@ -1072,6 +1074,7 @@ public final class SlotPool {
                         }
                         laneBudget?.endDemand()
                         ioSeconds += RuntimeClock.seconds(since: tIO)
+                        DecodeTimeline.record(.demandRead, layer: timelineLayer, count: hi - lo, start: tIO)
                         for j in batchIndices {
                             let s = Int(slotIdx[j])
                             keyOf[s] = missKeys[j]
@@ -1095,6 +1098,7 @@ public final class SlotPool {
                     }
                     laneBudget?.endDemand()
                     ioSeconds += RuntimeClock.seconds(since: tIO)
+                    DecodeTimeline.record(.demandRead, layer: timelineLayer, count: hi - lo, start: tIO)
                     finishResidentReaders()
                     if let profile = transferProfile {
                         let start = RuntimeClock.now()
@@ -1164,7 +1168,9 @@ public final class SlotPool {
             // pieces ran while the demand batch was read. Join them now, adopt
             // the complete ones and read anything else at demand priority.
             if let scheduler, slotScheduler != nil, !pendingReads.isEmpty {
+                let joinStart = RuntimeClock.now()
                 let finished = scheduler.finishReading(pendingReads)
+                DecodeTimeline.record(.ticketJoin, layer: timelineLayer, count: pendingReads.count, start: joinStart)
                 let tAdopt = RuntimeClock.now()
                 let bases = slotBases
                 var rest: [Int] = []
@@ -1189,7 +1195,9 @@ public final class SlotPool {
                 event?.adoptNanos = RuntimeClock.now()
                 if !rest.isEmpty { try readDemand(rest) }
             } else if let scheduler, !pendingReads.isEmpty {
+                let joinStart = RuntimeClock.now()
                 let finished = scheduler.finishReading(pendingReads)
+                DecodeTimeline.record(.ticketJoin, layer: timelineLayer, count: pendingReads.count, start: joinStart)
                 let tAdopt = RuntimeClock.now()
                 finishResidentReaders()
                 let fallback = Set(adoptTickets(finished))
@@ -1209,6 +1217,7 @@ public final class SlotPool {
             event.endNanos = RuntimeClock.now()
             session.demand(event)
         }
+        DecodeTimeline.record(.ensure, layer: timelineLayer, count: missKeys.count, start: ensureStart)
         completed = true
         return result
     }

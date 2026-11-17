@@ -60,6 +60,7 @@ extension Catalogue {
             Check("expert-lookahead-forecast-merge", tier: .t0) { try Diagnostics.expertLookaheadForecastMerge() },
             Check("expert-lookahead-forecast-tap", tier: .t0) { try Diagnostics.expertLookaheadForecastTap() },
             Check("decode-lookahead-defaults", tier: .t0) { try Diagnostics.decodeLookaheadDefaults() },
+            Check("decode-timeline-format", tier: .t0) { try Diagnostics.decodeTimelineFormat() },
             Check("vision-check", tier: .t0) { Diagnostics.vision() },
             Check("prefill-read-policy", tier: .t0) { Diagnostics.fusedWorkspaceReservation() },
             // T1: touches MLX, so it needs the Metal library beside the runner.

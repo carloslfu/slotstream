@@ -672,6 +672,7 @@ public final class Qwen4ExpModel {
         // queue is installed for them even when every layer is a barrier.
         let attentionTaps = self.lookahead?.attentionForecastTaps ?? []
         for l in 0 ..< runLayers {
+            let layerStart = RuntimeClock.now()
             if shouldContinue?() == false { return nil }
             if MemTrace.on { MemTrace.enterLayer(l, kind: gdn[l] != nil ? "gdn" : "qsa") }
             moe[l]!.specializedRouter = optimizations.routerTopK
@@ -770,6 +771,7 @@ public final class Qwen4ExpModel {
                 eval(h)
                 self.lookahead?.layerCompleted(layer: l, x2: input)
                 MemTrace.mark("layer-end", h)
+                DecodeTimeline.record(.layer, layer: l, count: S, start: layerStart)
                 perLayerHook?(l, h)
                 continue
             }
@@ -921,6 +923,7 @@ public final class Qwen4ExpModel {
                 let evalStart = RuntimeClock.now()
                 eval([h] + routingReadbacks.arrays + (forecastBatch?.targets.map { $0.logits } ?? []))
                 let waited = RuntimeClock.seconds(since: evalStart)
+                DecodeTimeline.record(.barrier, layer: l, count: period, start: evalStart)
                 // Normally empty, because this layer's own routing readback drained
                 // it; anything left belongs to earlier layers and finishes first.
                 routingReadbacks.drain(waited: 0)
@@ -945,6 +948,7 @@ public final class Qwen4ExpModel {
                 state.linear[l]?.compactWindows()
             }
             MemTrace.mark("layer-end", h)
+            DecodeTimeline.record(.layer, layer: l, count: S, start: layerStart)
             perLayerHook?(l, h)
         }
         if shouldContinue?() == false { return nil }
