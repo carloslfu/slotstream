@@ -2,13 +2,13 @@
 type: claim
 id: 01m49j8r5k8xc8hatqwskcaffv
 created: 2026-10-06T21:35:13.587702+00:00
-updated: 2026-10-06T21:35:13.587702+00:00
+updated: 2026-11-17T17:14:00.003215+00:00
 summary: Original four-bit completed-coding median is 21.59 tok/s at a 33 GB budget
 basis: measured
 gate: Tools/claims_gate.py; semantic review against the pinned run
 needle: 21.59 tok/s
 supported_by: '[[records/measurements/quantization-screen-2026-10-02]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md
 title: Original four-bit completed-coding median is 21.59 tok/s at a 33 GB budget
 status: current
 ---

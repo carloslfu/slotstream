@@ -2,11 +2,31 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-10-16T06:32:39.206486Z
+updated: 2026-11-17T17:14:00.356620Z
 ---
 
 # records/claims
 
+- [[records/claims/warm-decode-0-2-19-at-22-gb]] — Warm decode is 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target on the development Mac
+- [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
+- [[records/claims/release-2k-prose-current-timing]] — Installed-release prose first-read range and ordinary exact-repeat latency at the measured small-budget profile.
+- [[records/claims/release-2k-code-current-timing]] — Installed-release code first-read range and ordinary exact-repeat latency at the measured small-budget profile.
+- [[records/claims/prose-prefix-reuse-public-timing]] — Exact prose prefix reuse reduces follow-up request time
+- [[records/claims/mtp-prefill-policy-public-timing]] — Qualified long MTP prefill policy reduces paired prefill time
+- [[records/claims/hardware-planning-range-ultra]] — Estimated warm reply range for 96 GB or more Macs
+- [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
+- [[records/claims/hardware-planning-range-low]] — Estimated warm reply range for 16 to less than 24 GB Macs
+- [[records/claims/hardware-planning-range-high]] — Estimated warm reply range for 48 to less than 96 GB Macs
+- [[records/claims/development-original-33gb-short]] — Original four-bit short-workload median is 20.91 tok/s at a 33 GB budget
+- [[records/claims/development-original-33gb-context]] — Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
+- [[records/claims/development-original-33gb-coding]] — Original four-bit completed-coding median is 21.59 tok/s at a 33 GB budget
+- [[records/claims/context-opt-in-65536]] — --max-context 65536 fixes a 65,536-token window
+- [[records/claims/context-cap-32768-tokens]] — Auto keeps a 32,768-token window through 32 GB of RAM
+- [[records/claims/automatic-context-window-131072-at-64-gb]] — Auto takes a 131,072-token window at 64 GB
+- [[records/claims/automatic-context-at-48-gb]] — Automatic context preserves unmeasured cache at the simulated 48 GB tier
+- [[records/claims/automatic-context-at-36-gb]] — Automatic context at the simulated 36 GB tier
+- [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
+- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
 - [[records/claims/sevra-mac-recognition-40-pages]] — Slotstream recognizes text on at most 40 pages per request
 - [[records/claims/sevra-mac-working-notes-eight-responses]] — Slotstream keeps working notes in memory for the eight most recent responses
 - [[records/claims/continued-turn-prefill-cost]] — A continued turn pays one partial prefill pass: 2.47 s against 8.56 s of follow-up prefill, against 26.3 s cold
@@ -17,15 +37,9 @@ updated: 2026-10-16T06:32:39.206486Z
 - [[records/claims/keepalive-and-direct-reads-1-22x-at-22-gb]] — The GPU keepalive and direct demand reads made decode 1.22x faster at 22 GB with the draft head and lookahead
 - [[records/claims/keepalive-and-direct-reads-1-28x-at-10-gb]] — The GPU keepalive and direct demand reads made decode 1.28x faster at a 10 GB target without the draft head
 - [[records/claims/gpu-keepalive-energy-7-percent-at-16-gb]] — The GPU keepalive raised energy per generated token 7% at 16 GB
-- [[records/claims/development-original-33gb-coding]] — Original four-bit completed-coding median is 21.59 tok/s at a 33 GB budget
-- [[records/claims/development-original-33gb-context]] — Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
-- [[records/claims/development-original-33gb-short]] — Original four-bit short-workload median is 20.91 tok/s at a 33 GB budget
 - [[records/claims/development-original-33gb-workload-range]] — Original four-bit generation spans 20.91–23.69 tok/s across three development-workload medians at 33 GB
 - [[records/claims/warm-decode-m4-pro-24gb-0-2-25-rerun-community]] — M4 Pro 24 GB community re-run on 0.2.25: 5.41 tok/s
 - [[records/claims/persistent-prefix-default-minimum-tokens]] — The persistent prefix cache writes states of 1024 tokens or more by default
-- [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
-- [[records/claims/hardware-planning-range-high]] — Estimated warm reply range for 48 to less than 96 GB Macs
-- [[records/claims/hardware-planning-range-medium]] — Estimated warm reply range for 24 to less than 48 GB Macs
 - [[records/claims/warm-decode-m4-pro-24gb-community]] — M4 Pro 24 GB community report: 3.57 tok/s
 - [[records/claims/full-context-wait-about-8-minutes-at-65536]] — M5 Pro-based prefill estimate is about 8 minutes near the larger window from a 32 GB simulation, about 9 at 24 GB
 - [[records/claims/mtp-auto-floor-28-per-layer-12-gb-target]] — Auto turns speculative decode on when the cache still reaches 28 experts per layer after the head, a 12 GB target
@@ -43,16 +57,7 @@ updated: 2026-10-16T06:32:39.206486Z
 - [[records/claims/warm-decode-m4-max-64gb-external-ssd-community]] — M4 Max 64 GB from a 10 Gb/s external SSD: 2.98 tok/s
 - [[records/claims/warm-decode-m4-max-64gb-community]] — M4 Max 64 GB community report: 15.93 tok/s
 - [[records/claims/warm-decode-m2-16gb-0-2-3-rerun-community]] — M2 mini 0.2.3 re-run: 1.48 tok/s
-- [[records/claims/release-2k-prose-current-timing]] — Installed-release prose first-read range and ordinary exact-repeat latency at the measured small-budget profile.
-- [[records/claims/release-2k-code-current-timing]] — Installed-release code first-read range and ordinary exact-repeat latency at the measured small-budget profile.
 - [[records/claims/tier-estimate-10-tok-s-at-32-gb]] — A 32 GB Mac is estimated at about 10 tok/s with speculative decoding
-- [[records/claims/warm-decode-0-2-19-at-22-gb]] — Warm decode is 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target on the development Mac
-- [[records/claims/prose-prefix-reuse-public-timing]] — Exact prose prefix reuse reduces follow-up request time
-- [[records/claims/mtp-prefill-policy-public-timing]] — Qualified long MTP prefill policy reduces paired prefill time
-- [[records/claims/context-opt-in-65536]] — --max-context 65536 fixes a 65,536-token window
-- [[records/claims/context-cap-32768-tokens]] — Auto keeps a 32,768-token window through 32 GB of RAM
-- [[records/claims/automatic-context-at-36-gb]] — Automatic context at the simulated 36 GB tier
-- [[records/claims/automatic-context-at-48-gb]] — Automatic context preserves unmeasured cache at the simulated 48 GB tier
 - [[records/claims/automatic-context-window-tolerance-10-percent]] — A larger automatic window may add at most 10% to a typical request
 - [[records/claims/recommended-context-65536-from-36-gb]] — Auto picks a 65,536-token window from 36 GB and 32,768 below
 - [[records/claims/malformed-tool-call-token-scores]] — The token a continued turn flipped: a fresh read scored > at 0.9576 and ] at 0.0421
@@ -101,7 +106,6 @@ updated: 2026-10-16T06:32:39.206486Z
 - [[records/claims/context-read-38-minutes-at-131072]] — A 131,072-token prompt took 38 minutes to read at a 16 GB target
 - [[records/claims/shared-prefix-save-grid-256-tokens]] — A shared prefix is saved at the last existing prefill pass end at or before its boundary, the 256-token grid by default
 - [[records/claims/shared-prefix-minimum-512-tokens]] — A shared prefix is kept from 512 tokens; the disk tier's own minimum applies on top
-- [[records/claims/hardware-planning-range-ultra]] — Estimated warm reply range for 96 GB or more Macs
 - [[records/claims/expert-lookahead-default-two-layer-forecast]] — The qualified expert lookahead forecasts two layers ahead
 - [[records/claims/decode-lookahead-charges-409-mib-with-the-correction]] — The decode lookahead charges 409 MiB with the checkpoint's correction file
 - [[records/claims/decode-forecast-corrected-over-shipped-1-111x]] — The corrected forecast decoded 1.111x over the shipped configuration on held-out prompts
@@ -121,9 +125,6 @@ updated: 2026-10-16T06:32:39.206486Z
 - [[records/claims/decode-lookahead-charges-373-mib]] — The decode lookahead charges 373 MiB to the memory plan
 - [[records/claims/automatic-target-54-7-gb-from-96-gb]] — Auto targets 54.7 GB from 96 GB with the full window
 - [[records/claims/automatic-target-43-2-gb-at-64-gb]] — Auto targets 43.2 GB at 64 GB with its 131,072-token window
-- [[records/claims/automatic-context-window-131072-at-64-gb]] — Auto takes a 131,072-token window at 64 GB
-- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
-- [[records/claims/hardware-planning-range-low]] — Estimated warm reply range for 16 to less than 24 GB Macs
 - [[records/claims/context-state-27-kib-per-token]] — Main sequence-cache capacity costs about 27 KiB per allocated token
 - [[records/claims/engine-start-about-2-s]] — Historical engine load is about 2 s; current startup verification is additional
 - [[records/claims/output-byte-identical-across-cache-sizes]] — Greedy output is byte-identical across cache sizes and live resizes
@@ -135,7 +136,6 @@ updated: 2026-10-16T06:32:39.206486Z
 - [[records/claims/minimum-mac-memory-16-gb]] — Slotstream needs a Mac with at least 16 GB of memory
 - [[records/claims/draft-head-31-7-percent-faster-at-76-per-layer]] — Two drafts decoded 31.7% faster than plain decode on the same memory at 76 experts per layer
 - [[records/claims/peak-memory-32-gb-at-auto]] — The 32 GB automatic-plan figure is an estimate, not a measured lifetime footprint peak
-- [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
 - [[records/claims/hermes-auxiliary-timeout]] — Hermes guide sets explicit auxiliary timeouts
 - [[records/claims/hermes-title-output-budget]] — Hermes guide bounds local title output
 - [[records/claims/hermes-explicit-output-budget]] — Hermes guide sends a 4096-token output ceiling

@@ -34,3 +34,6 @@ Explain the two slower prefills from the archived evidence: the read scope was n
 ## [2026-11-17 16:26] update | records/decisions/wire-mlx-buffers-to-the-memory-target.md
 Correction to the 2026-11-15 entry for this record: the switch is SLOTSTREAM_WIRED_LIMIT=1. The name SLOTSTREAM_OPT_WIRED_LIMIT in that entry never shipped
 
+## [2026-11-17 17:18] update | records/decisions/newcomer-documentation.md
+Shorten the README from 2948 to 1051 whitespace-delimited words and move the author after 510 rather than 2814 words. Link existing prompt-processing and speed tables, move memory and disk guidance to HARDWARE, preserve the author copy and all 46 original anchors, and repair one stale Hermes setup link. Update 20 active claim surfaces without altering measured evidence or withdrawn-claim checks. Rendered desktop preview, 294 local documentation links, generated docs and all brain gates pass with zero errors or warnings. No engine or release change.
+

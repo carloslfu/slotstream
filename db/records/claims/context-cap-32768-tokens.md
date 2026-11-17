@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwpa9e6h7te9vpqfjpv2s
 created: 2026-09-02T17:15:28.457232+00:00
-updated: 2026-09-18T21:49:31.674684+00:00
+updated: 2026-11-17T17:13:59.952449+00:00
 summary: Auto keeps a 32,768-token window through 32 GB of RAM
 basis: derived
 gate: Tools/planner_gates.sh
@@ -10,7 +10,7 @@ needle: 32,768
 supported_by:
 - '[[records/measurements/adversarial-review-of-the-serving-layer-2026-08-29-0-1-5]]'
 - '[[records/measurements/resolution-bound-expert-load-staging-2026-08-31]]'
-surfaces: docs/API.md, docs/CLIENTS.md, llms.txt, docs/ENGINEERING.md, README.md, docs/HARDWARE.md
+surfaces: docs/API.md, docs/CLIENTS.md, llms.txt, docs/ENGINEERING.md, docs/HARDWARE.md
 title: Auto keeps a 32,768-token window through 32 GB of RAM
 status: current
 ---

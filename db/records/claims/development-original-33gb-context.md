@@ -2,13 +2,13 @@
 type: claim
 id: 01m49j8r4x7768e6z2dayw1yzw
 created: 2026-10-06T21:35:13.565843+00:00
-updated: 2026-10-06T21:35:13.565843+00:00
+updated: 2026-11-17T17:14:00.030628+00:00
 summary: Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
 basis: measured
 gate: Tools/claims_gate.py; semantic review against the pinned run
 needle: 23.69 tok/s
 supported_by: '[[records/measurements/quantization-screen-2026-10-02]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md
 title: Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
 status: current
 ---

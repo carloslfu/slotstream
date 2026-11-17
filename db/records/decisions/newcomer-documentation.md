@@ -2,8 +2,8 @@
 type: decision
 id: 01m21jj97w5hteckpk2khdy25h
 created: 2026-09-08T22:35:06.876703+00:00
-updated: 2026-10-26T18:09:26.297117+00:00
-summary: Keep the README approachable and complete, with evidence and community sections; reserve detailed setup and engineering references for linked guides.
+updated: 2026-11-17T17:20:08.600475+00:00
+summary: Keep the README compact and the author easy to reach; preserve essential setup, evidence and community, with detailed results and memory guidance in linked pages.
 decided_on: 2026-09-08
 reversible_if: The public setup changes or users demonstrate that a different entry point makes installation and first use clearer.
 title: Newcomer documentation and engineering references
@@ -113,3 +113,8 @@ This is documentation maintenance, not a new model default, performance result o
 
 ## One maintained model, October 26, 2026
 The later owner decision [[records/decisions/one-maintained-model]] supersedes the Fast/Smart development positioning in the earlier section. Current surfaces name Qwen3.8-Flash-Next 4-bit only, keep SSD streaming and fully native Swift/MLX/Metal with no Python runtime prominent, and link retired experiments separately. Preserve the released engine versus source-built app distinction. v0.2.30 remains the latest release.
+
+## Shorter introduction and earlier author, November 17, 2026
+Carlos requested a shorter README so readers reach the author section sooner. Keep the introduction, requirements, install and first-use commands, a short measured-speed summary and a plain mechanism explanation before the author. Link to the author from the top navigation. Keep the model scope, limitations, FAQs, origin, guides, support, sponsor and star history concise and visible.
+
+Prompt-processing tables and speed estimates already live in `docs/HARDWARE.md`; link there instead of repeating them in the README. Move the detailed RAM FAQ and disk-write explanation to that guide. Preserve the dated benchmark scope, measurement evidence, author wording and all old README anchors. Update claim surfaces when numbers move, retaining withdrawn-claim checks. This changes documentation structure, not engine behavior, model policy or performance evidence.

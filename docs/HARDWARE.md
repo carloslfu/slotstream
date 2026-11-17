@@ -16,7 +16,7 @@ cannot fit. It runs on 96 GB and larger Macs too, where the model fits in
 memory, but it is not optimized for them; see
 [Who it's for](../README.md#who-its-for).
 
-**Compatibility-tier support is coming soon.** An 8 GB Mac can't run the
+An 8 GB Mac can't run the
 current model: even the smallest memory plan needs more
 memory than it has, so Slotstream refuses to start instead of swapping. On
 other Macs, close memory-heavy apps before running the model.
@@ -268,14 +268,49 @@ The manual rows are the reporter's warm-speed summaries, without the repeated
 per-run timings supplied for auto. They have not been independently rerun or
 remeasured on 0.2.16. The report does not establish a universal scaling curve,
 a best automatic target, or a larger qualified context window. See
-[memory defaults and overrides](../README.md#why-doesnt-slotstream-use-all-of-my-ram)
+[memory defaults and overrides](#memory-defaults-and-overrides)
 to try a larger target while leaving room for macOS and other apps.
+
+## Memory defaults and overrides
+
+`--memory-gb 48` is a maximum process budget, not a promise to keep 48 GB
+resident. Slotstream allocates the expert cache at load, while conversation
+state and temporary work grow only when a request needs them. A short request
+can therefore peak well below the target. The startup report shows the budget,
+expert cache, runtime allowances and safety headroom separately.
+
+For the released CLI's original model, Auto uses a **33 GB** base ceiling,
+or **34.6 GB** with speculative decoding at the 32,768-token window. This measured default
+leaves memory for other apps. To use more, stop any running server and preview
+the plan without loading the model:
+
+```sh
+slotstream doctor --memory-gb 40
+```
+
+If it fits with headroom, `slotstream serve --memory-gb 40` uses that budget
+with a fixed cache. Use `--memory-limit-gb` instead to choose an upper limit while the cache adapts
+to other apps. Custom limits can exceed the automatic default; the Mac's
+supported budget and available memory still bound actual use.
+Auto keeps expert cache when a larger automatic context would trade it away
+without a measured benefit. Use `--max-context N` when you explicitly want a
+longer window. Leave room for macOS and other apps. See the
+[memory options](CLI.md#memory-options) for details.
+
+### Disk reads and writes
+
+Generation reads the model files without rewriting them. macOS swap adds
+writes when memory runs short. Automatic memory sizing helps, but a small
+Mac or an oversized manual setting can still swap heavily. Servers that
+`slotstream launch` starts, and `serve --prefix-cache-dir`, also save each
+turn of a longer conversation to a cache folder, and the system prompts
+conversations share, within a disk quota.
 
 ## Speed estimates
 
 ### Planning ranges
 
-The README's estimates combine the real reports above with the development
+These estimates combine the real reports above with the development
 Mac's measured configurations and planner curve. They are rough expectations
 across hardware and settings, not a fitted scaling model or statistical
 confidence intervals. Endpoints are rounded outward to whole tok/s.
@@ -392,7 +427,7 @@ The repeated target from 96 GB is the intentional conservative default: the
 33 GB base ceiling plus the draft head and the full window's charge. Auto does
 not increase its ceiling for the M5 Max's demonstrated larger-cache gains. These simulated plans
 describe allocation policy; they do not measure speed. See
-[memory defaults and overrides](../README.md#why-doesnt-slotstream-use-all-of-my-ram).
+[memory defaults and overrides](#memory-defaults-and-overrides).
 
 ## How to measure
 

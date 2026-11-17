@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwp9ts773ev6nke5639h6
 created: 2026-09-02T17:15:28.442518+00:00
-updated: 2026-09-13T17:08:29.989754+00:00
+updated: 2026-11-17T17:13:59.802526+00:00
 summary: The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
 basis: derived
 gate: Tools/planner_gates.sh
@@ -10,7 +10,7 @@ needle: 34.6 GB
 supported_by:
 - '[[records/measurements/the-auto-memory-target-70-of-ram-was-the-wrong-shape-2026-08-31]]'
 - '[[records/measurements/the-head-exists-again-the-pinned-conversion-had-dropped-it]]'
-surfaces: README.md, llms.txt, docs/ENGINEERING.md, docs/HARDWARE.md
+surfaces: llms.txt, docs/ENGINEERING.md, docs/HARDWARE.md
 title: The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
 status: current
 ---
