@@ -28,3 +28,9 @@ Record the Metal working set and link the 4423adb5 rerun
 ## [2026-11-17 14:01] update | records/decisions/wire-mlx-buffers-to-the-memory-target.md
 Record the Metal working set and link the 4423adb5 rerun
 
+## [2026-11-17 16:26] update | records/measurements/pr143-opt-in-wired-limit-rerun.md
+Explain the two slower prefills from the archived evidence: the read scope was not taken on those turns, the host had less reclaimable memory at those decisions, and the larger regrowth charge cannot be ruled out
+
+## [2026-11-17 16:26] update | records/decisions/wire-mlx-buffers-to-the-memory-target.md
+Correction to the 2026-11-15 entry for this record: the switch is SLOTSTREAM_WIRED_LIMIT=1. The name SLOTSTREAM_OPT_WIRED_LIMIT in that entry never shipped
+

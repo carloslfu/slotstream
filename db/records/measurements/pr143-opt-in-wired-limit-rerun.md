@@ -2,7 +2,7 @@
 type: measurement
 id: 01m7mwzjq1shgf5pkfedjm6f00
 created: 2026-11-17T14:01:11.649105029+00:00
-updated: 2026-11-17T14:01:11.649105029+00:00
+updated: 2026-11-17T16:26:00.833780+00:00
 summary: 'PR #143 on 4423adb5: the opt-in wired limit keeps 27 GB runs off swap and the compressor, the guard admits the usage session, and passes above 128256 keys stay inside the target'
 date: 2026-11-17
 doc: measurements
@@ -32,7 +32,21 @@ Both wired runs completed with no swap-outs and prefilled the 32736-token prompt
 
 ## Prefill guard
 
-The usage sequence of [[records/measurements/pr143-prefill-guard-usage-sequence]] at `--context 138240` (2968 expert slots) completed every request on `4423adb5`: the image request, the main conversation from 100027 to 124878 tokens, two side conversations, a side follow-up, a title request, the 126986-token long reply (299 tokens decoded, ending on its own) and the fresh-process replay that restores it from disk. The highest phase peak was 25.63 GB, against 25.53 GB on `200fb398`, with 0 swap-outs. The server logged no guard refusal or wait. Two prefills were slower than on `200fb398`: the 124878-token turn took 217.3 s against 147.0 s and the long-reply turn 119.1 s against 88.8 s. Each build ran the sequence once, and nothing in the logs ties the difference to the guard.
+The usage sequence of [[records/measurements/pr143-prefill-guard-usage-sequence]] at `--context 138240` (2968 expert slots) completed every request on `4423adb5`: the image request, the main conversation from 100027 to 124878 tokens, two side conversations, a side follow-up, a title request, the 126986-token long reply (299 tokens decoded, ending on its own) and the fresh-process replay that restores it from disk. The highest phase peak was 25.63 GB, against 25.53 GB on `200fb398`, with 0 swap-outs. The server logged no guard refusal or wait. Two prefills were slower than on `200fb398`: the 124878-token turn took 217.3 s against 147.0 s and the long-reply turn 119.1 s against 88.8 s. Each build ran the sequence once.
+
+The server logs show how those turns differ. On both builds the turns up to 112452 tokens and the 120736-token turn read most of their new tokens in one automatic read scope of 3584 or 4096 tokens. On `200fb398` so did the other three: 3584 tokens on the 116594-token and 124878-token turns and 1792 on the long reply. On `4423adb5` the 116594-token turn split that scope into 2048 and 1536 tokens, and the 124878-token and long-reply turns took no scope and ran 256-token passes to the end. Across all 15 requests the pass rows, key extents and output tokens are identical between the builds, and the expert hit rates agree to within 0.001. Prefill read the same bytes to within 0.1 GB on every request except those three: 195.2 GB against 148.7 GB on the 116594-token turn, 560.1 GB against 156.9 GB on the 124878-token turn and 299.5 GB against 118.7 GB on the long reply.
+
+A read scope is optional work. `RequestController.chooseAllocation` takes the largest scope whose price fits in reclaimable memory at that moment and otherwise runs ordinary passes without a refusal, so the server logs nothing. `guard-samples.jsonl` samples reclaimable memory about twice a second, and the readings swing by about 1 GB within a few seconds, so the figures here are means over the samples within 3 s of the log line that ends the second pass, where the scope is chosen.
+
+| Turn | `200fb398` | Scope taken | `4423adb5` | Scope taken |
+|---|---:|---|---:|---|
+| 112452 tokens | 9.29 GB | 3584 tokens | 9.02 GB | 3584 tokens |
+| 116594 tokens | 9.28 GB | 3584 tokens | 8.62 GB | 2048, then 1536 tokens |
+| 120736 tokens | 10.08 GB | 3584 tokens | 9.68 GB | 3584 tokens |
+| 124878 tokens | 8.83 GB | 3584 tokens | 7.62 GB | none |
+| 126986 tokens, long reply | 8.42 GB | 1792 tokens | 7.25 GB | none |
+
+The host had 0.7 to 1.2 GB less reclaimable memory at the three decisions that changed, and 0.3 to 0.4 GB less at the two that did not. That is enough to explain the slower turns. It is not the only candidate: `4423adb5` also raises every scope's price by about 0.13 to 0.16 GB at these lengths, because sequence regrowth now charges one layer's old keys, values and indexer rows instead of the largest single buffer. One run per build cannot separate the two, and this was read from the archived evidence, not measured by a controlled comparison.
 
 ## Passes above 128256 keys
 
