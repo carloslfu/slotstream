@@ -22,6 +22,19 @@ determines which version the installer downloads.
   finding idle gaps inside a layer. Off unless set; generation is unchanged. By
   [@spikezz](https://github.com/spikezz) in
   [#140](https://github.com/carloslfu/slotstream/pull/140).
+- Add `SLOTSTREAM_WIRED_LIMIT=1`, which sets MLX's wired limit to the
+  memory target so macOS keeps MLX buffers resident instead of compressing and
+  swapping them. On a 32 GiB Mac mini serving near its RAM, four runs with it
+  had 0 swap-outs, and three of four runs without it had more than 50,000. Off
+  by default until it is measured on a Mac in desktop use. By
+  [@spikezz](https://github.com/spikezz) in
+  [#143](https://github.com/carloslfu/slotstream/pull/143).
+- Stop the prefill guard refusing long requests that fit: charge a full
+  sequence copy only while the live buffers alias a checkpoint, charge
+  regrowth as per-buffer growth plus one layer's old buffers, and price
+  unfused prefill attention at the BF16 width MLX actually allocates. By
+  [@spikezz](https://github.com/spikezz) in
+  [#143](https://github.com/carloslfu/slotstream/pull/143).
 - Add `SLOTSTREAM_OPT_DEMAND_THREADS=1`, an experimental switch that runs the
   demand path's read lanes on real threads, so more reads can wait on the disk
   at once than there are CPU cores. It is off by default, output is unchanged,

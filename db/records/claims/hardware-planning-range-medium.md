@@ -2,13 +2,13 @@
 type: claim
 id: 01m2dtc5q2ebnctx8mbwhxwhj0
 created: 2026-09-13T16:42:28.450829+00:00
-updated: 2026-09-27T05:04:11.794440+00:00
+updated: 2026-11-17T17:14:00.154203+00:00
 summary: Estimated warm reply range for 24 to less than 48 GB Macs
 basis: estimated
 gate: none; semantic review against the supporting evidence
 needle: ~5–16 tok/s
 supported_by: '[[records/measurements/hardware-planning-ranges-2026-09-13]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md
 title: Estimated warm reply range for 24 to less than 48 GB Macs
 status: current
 ---

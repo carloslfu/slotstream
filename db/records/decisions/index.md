@@ -2,17 +2,18 @@
 type: index
 scope: type-folder
 folder: records/decisions
-updated: 2026-11-15T23:50:29.475551Z
+updated: 2026-11-17T17:20:08.600475Z
 ---
 
 # records/decisions
 
+- [[records/decisions/newcomer-documentation]] — Keep the README compact and the author easy to reach; preserve essential setup, evidence and community, with detailed results and memory guidance in linked pages.
+- [[records/decisions/wire-mlx-buffers-to-the-memory-target]] — SLOTSTREAM_WIRED_LIMIT=1 wires MLX buffers up to the plan target; off by default until it is measured on a Mac in desktop use
 - [[records/decisions/demand-read-threads-stay-an-experimental-switch]] — Demand read lanes on real threads stay behind an off-by-default switch until real generation shows a gain
 - [[records/decisions/engine-only-maintenance]] — Retire the native Mac app and maintain only the Qwen3.8-Flash-Next 4-bit engine, CLI, APIs and Swift library.
 - [[records/decisions/slotstream-app-identity]] — Name the retained native Mac app Slotstream and remove separate-product promotion without changing the website
 - [[records/decisions/qualify-complete-native-workflows]] — Qualify useful native jobs across model, tools, evidence, reviewed effects and delivered bundle identity
 - [[records/decisions/one-maintained-model]] — Maintain Qwen3.8-Flash-Next 4-bit only; archive Fast, Q2 and associated runtime work without releasing.
-- [[records/decisions/newcomer-documentation]] — Keep the README approachable and complete, with evidence and community sections; reserve detailed setup and engineering references for linked guides.
 - [[records/decisions/q2-precompilation-stays-experimental]] — Keep Q2 precompilation experimental
 - [[records/decisions/native-input-read-ahead]] — Keep measured bounded Q2 input read-ahead, reject its Fast default and buffer reuse, and require actual app recipe and branch evidence
 - [[records/decisions/smart-dflash-and-target-quantization]] — Prioritize exact native Q2 qualification for its speed/capability tradeoff; separate target quantization from drafting and keep the maintained app until complete workflows pass.

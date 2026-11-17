@@ -2,13 +2,13 @@
 type: claim
 id: 01m356k61m0yygpgphjs2wbq6e
 created: 2026-09-22T18:38:33.012017+00:00
-updated: 2026-09-22T18:38:33.012017+00:00
+updated: 2026-11-17T17:14:00.249477+00:00
 summary: Exact prose prefix reuse reduces follow-up request time
 basis: measured
 gate: Tools/claims_gate.py
 needle: '| 2K prose follow-up, MTP off | Prefix checkpoints disabled | 30.73 s → 4.42 s request | 85.62% |'
 supported_by: '[[records/measurements/published-prompt-speed-audit-2026-09-22]]'
-surfaces: README.md, docs/HARDWARE.md
+surfaces: docs/HARDWARE.md
 title: Exact prose prefix reuse reduces follow-up request time
 status: current
 ---

@@ -305,9 +305,17 @@ These were all real bugs found by adversarial probing. Each is now gated by
   with native 131,072-token runs with and without the draft head inside their
   plans and no native 262,144-token run; images stay at 65,536. The planner
   charges actual stepped active capacity, bounded retained state, resident modes
-  and workspace. `Engine.generate` clamps new tokens to the remaining room. Full
-  replacement buffers are charged before releasing their old readers; spare
-  main, draft and indexer buffers cannot credit each other. The open native
+  and workspace. `Engine.generate` clamps new tokens to the remaining room.
+  A layer's buffers are replaced in one evaluation, so regrowth is charged as
+  every buffer's growth plus the largest set of old buffers one layer keeps
+  alive during its copy. While the live buffers alias a retained checkpoint
+  (after a fork from it, after this request stores one, or after an earlier
+  phase of the turn hands over a state that still does, until the next prefill
+  pass writes), every replacement is charged in full because the checkpoint
+  keeps the old readers. A shared-prefix snapshot is kept in memory only when
+  the copy it forces on the next pass also fits; it never fails an admitted
+  request. Spare main, draft and
+  indexer buffers cannot credit each other. The open native
   gates stay listed in the configurable-context plan; never describe them as
   passed.
 - **One accepted request owns its guards through preparation and queuing.**

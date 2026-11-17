@@ -14,7 +14,7 @@ Codex; constrained JSON generation is not implemented. See the [API reference](A
 
 ## Context and memory
 
-The startup command in the [setup guide](HERMES.md#start-slotstream) leaves
+The startup command in the [setup guide](HERMES.md#run-the-server-yourself) leaves
 memory planning and speculative decoding on their automatic defaults.
 Slotstream decides whether to enable the MTP draft head from its availability
 and the planned expert cache. Hermes does not require an MTP override.
