@@ -16,3 +16,15 @@ PR #143 prefill-guard usage sequence at ctx138240: db0f6c8c (old guard) refused 
 ## [2026-11-16 00:31] update | records/decisions/wire-mlx-buffers-to-the-memory-target.md
 Make the wired limit opt-in (SLOTSTREAM_OPT_WIRED_LIMIT=1): clamp it to the Metal working set, report a refusal instead of ending the process, follow a moved target and restore the previous limit. State what a default needs.
 
+## [2026-11-17 14:01] create | sources/runs/2026/11/2026-11-17-pr143-4423adb-rerun.md
+PR #143 reruns on 4423adb5 with SLOTSTREAM_WIRED_LIMIT=1
+
+## [2026-11-17 14:01] create | records/measurements/pr143-opt-in-wired-limit-rerun.md
+PR #143 reruns on 4423adb5 with SLOTSTREAM_WIRED_LIMIT=1
+
+## [2026-11-17 14:01] update | records/machines/mac-mini-m4-32gb-three-copies.md
+Record the Metal working set and link the 4423adb5 rerun
+
+## [2026-11-17 14:01] update | records/decisions/wire-mlx-buffers-to-the-memory-target.md
+Record the Metal working set and link the 4423adb5 rerun
+

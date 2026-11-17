@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-11-15T16:12:42.100414602Z
+updated: 2026-11-17T14:01:11.649105029Z
 ---
 
 # records/measurements
 
+- [[records/measurements/pr143-opt-in-wired-limit-rerun]] — PR #143 on 4423adb5: the opt-in wired limit keeps 27 GB runs off swap and the compressor, the guard admits the usage session, and passes above 128256 keys stay inside the target
 - [[records/measurements/pr143-prefill-guard-usage-sequence]] — PR #143: the corrected prefill guard admits a 138240-token usage session the old guard refused
 - [[records/measurements/pr143-wired-limit-swap-ab]] — PR #143: wiring MLX buffers to the memory target removes swap-outs at 27 GB
 - [[records/measurements/pr-hardening-integrated-qualification]] — PR hardening: integrated qualification
