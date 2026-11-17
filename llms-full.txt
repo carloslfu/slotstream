@@ -424,8 +424,10 @@ Thank you for supporting its development.
 I'm [Carlos Galarza](https://www.carlosgalarza.com). I build local AI and
 make it run efficiently on the computers people already own. Slotstream is
 written natively for the Mac and tuned as one system.
-I also help teams run open models on their own hardware and debug agent
-workflows. For help or consulting, [email me](mailto:carloslfu@gmail.com).
+
+I also build AI agents and help teams with AI engineering, from integrating
+models into products to debugging agent workflows. For help or consulting,
+[email me](mailto:carloslfu@gmail.com).
 
 ## Star history
 
