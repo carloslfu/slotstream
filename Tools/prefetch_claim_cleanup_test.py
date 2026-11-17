@@ -117,6 +117,11 @@ final class Session {
     func demand(_ event: ExpertLookaheadDemandEvent) { fatalError("unexpected observer") }
 }
 final class Profile { var scatterPriorWaitSeconds = 0.0; var scatterExecutionSeconds = 0.0 }
+// The decode timeline is a debug trace. Its call sites compile here and record nothing.
+enum DecodeTimeline {
+    enum Span { case ensure, demandRead, ticketJoin }
+    static func record(_ span: Span, layer: Int, count: Int, start: UInt64) {}
+}
 // Synchronized observation wrapper delegates every operation to actual SlotPins.
 final class PinProbe {
     private let lock = NSLock(); private var storage = SlotPins(count: 12)

@@ -17,6 +17,11 @@ determines which version the installer downloads.
 - Clarify the model's display name from "Original 4-bit" to
   "Qwen3.8-Flash-Next 4-bit". The checkpoint, quantization, inference behavior
   and released CLI/API/Swift interfaces are unchanged from v0.2.30.
+- Add `SLOTSTREAM_DECODE_TIMELINE=<path>`, a debug trace that writes one JSON
+  line per step of the decode layer loop at the end of `slotstream run`, for
+  finding idle gaps inside a layer. Off unless set; generation is unchanged. By
+  [@spikezz](https://github.com/spikezz) in
+  [#140](https://github.com/carloslfu/slotstream/pull/140).
 - Add `SLOTSTREAM_OPT_DEMAND_THREADS=1`, an experimental switch that runs the
   demand path's read lanes on real threads, so more reads can wait on the disk
   at once than there are CPU cores. It is off by default, output is unchanged,
