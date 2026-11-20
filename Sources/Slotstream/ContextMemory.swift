@@ -150,7 +150,8 @@ public struct ContextMemoryLedger: Sendable {
         poolBytes = resources.poolBytes(slots)
         activeCapacityBytes = ContextGeometry.sequenceBytes(tokens: context, mtp: mtp)
         additionalActiveBytes = ContextGeometry.additionalActiveBytes(tokens: context, mtp: mtp)
-        retainedCapacityBytes = ContextBytes.product(retentionTokens, PrefixCache.bytesPerToken)
+        // Retained sequence bytes share the active capacity; see Planner.prefixCacheCostGB.
+        retainedCapacityBytes = 0
         retainedRecurrentBytes = retentionTokens > 0
             ? (PrefixCache.maxEntries - 1) * PrefixCache.fixedBytesPerEntry : 0
         prefillBytes = ContextBytes.product(chunk, PlannerCostModel.prefillBytesPerToken)
