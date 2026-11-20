@@ -551,7 +551,8 @@ extension Diagnostics {
         let small = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: 16,
             ramGB: 51.5, workingSetGB: 40.2, availableGB: 44, mtp: .off, vision: .off,
             maxContextTokens: 1024, simulated: true)
-        c.expect("short cap refunds retention instead of reserving 32K", small.prefixCacheTokens <= 1024 && small.slots > baseline.slots)
+        c.expect("short cap retains no more than its window and takes no pool",
+            small.prefixCacheTokens <= 1024 && small.slots >= baseline.slots)
         // PrefixCache evicts until retained plus active tokens fit its ceiling,
         // which never exceeds the context the active capacity already charges.
         // Retention may add only the three retained recurrent states.

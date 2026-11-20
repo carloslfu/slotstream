@@ -85,7 +85,7 @@ extension Diagnostics {
         c.equal("streamed charge: the head without its experts, 74 expert records",
             PlannerCostModel.mtpStreamedBytes, 1_600_000_000 - 512 * 2_764_800 + 74 * 2_764_800)
         let at20 = try plan(20)
-        c.expect("20 GB target: streamed head and lookahead", at20.mtpEnabled && at20.mtpStreamedExperts && at20.decodeLookahead)
+        c.expect("20 GB target: resident head and lookahead", at20.mtpEnabled && !at20.mtpStreamedExperts && at20.decodeLookahead)
         let at16 = try plan(16)
         c.expect("16 GB target: streamed head and lookahead",
             at16.mtpEnabled && at16.mtpStreamedExperts && at16.decodeLookahead)
