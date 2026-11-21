@@ -551,7 +551,27 @@ extension Diagnostics {
         let small = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: 16,
             ramGB: 51.5, workingSetGB: 40.2, availableGB: 44, mtp: .off, vision: .off,
             maxContextTokens: 1024, simulated: true)
-        c.expect("short cap refunds retention instead of reserving 32K", small.prefixCacheTokens <= 1024 && small.slots > baseline.slots)
+        c.expect("short cap retains no more than its window and takes no pool",
+            small.prefixCacheTokens <= 1024 && small.slots >= baseline.slots)
+        // PrefixCache evicts until retained plus active tokens fit its ceiling,
+        // which never exceeds the context the active capacity already charges.
+        // Retention may add only the three retained recurrent states.
+        for cap in [32768, 65536, 138240, 262144] {
+            func plan(_ prefix: Bool) throws -> MemoryPlan {
+                try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: 27,
+                    ramGB: 34.4, workingSetGB: 30.1, availableGB: 33, mtp: .off, vision: .off,
+                    maxContextTokens: cap, simulated: true, qualification: true,
+                    runtimePolicy: try RuntimeAllocationPolicy(prefillChunkOverride: 256, prefixCacheEnabled: prefix))
+            }
+            guard let retained = try? plan(true), let none = try? plan(false) else { continue }
+            let recurrent = (PrefixCache.maxEntries - 1) * PrefixCache.fixedBytesPerEntry
+            c.equal("retention \(cap) adds only retained recurrent state",
+                retained.memoryLedger.expectedPeakBytes - none.memoryLedger.expectedPeakBytes
+                    - (retained.memoryLedger.poolBytes + retained.memoryLedger.expertWorkspaceBytes)
+                    + (none.memoryLedger.poolBytes + none.memoryLedger.expertWorkspaceBytes),
+                recurrent)
+            c.equal("retention \(cap) charges no second sequence capacity", retained.memoryLedger.retainedCapacityBytes, 0)
+        }
         let machine = Machine.simulated(ramGB: 51.5, workingSetGB: 40.2, availableGB: 44)
         for target in [8.1, 10, 16, 24, 33] {
             let request = PlanRequest(memoryGB: target, mtp: .off, vision: .off, maxContextTokens: ContextPolicy.modelLimit)

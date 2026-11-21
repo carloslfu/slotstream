@@ -690,12 +690,12 @@ public enum Planner {
     /// PrefixCache evicts before a miss allocation, so no more than four
     /// states coexist: the active state already in fixedFootprintGB plus three
     /// retained states. Their fixed GDN memory is additive to KV/indexer bytes.
+    /// Their sequence bytes are not: `reserveActiveTokens` evicts until retained
+    /// plus active tokens fit the retention ceiling, which never exceeds the
+    /// context the active capacity already charges.
     public static func prefixCacheCostGB(tokens: Int) -> Double {
         guard tokens > 0 else { return 0 }
-        let tokenGB = Double(tokens) * Double(PrefixCache.bytesPerToken) / 1e9
-        let fixedGB = Double(PrefixCache.maxEntries - 1)
-            * Double(PrefixCache.fixedBytesPerEntry) / 1e9
-        return tokenGB + fixedGB
+        return Double(PrefixCache.maxEntries - 1) * Double(PrefixCache.fixedBytesPerEntry) / 1e9
     }
 
     /// Prefill throughput estimate for the banner, from the anchors above.

@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: sources/runs
-updated: 2026-11-17T14:01:11.513977659Z
+updated: 2026-11-21T11:17:48.073633569Z
 ---
 
 # sources/runs
 
+- [[sources/runs/2026/11/2026-11-21-retention-shares-active-capacity]] — Retained prefix-cache bytes inside the active capacity and sequential read-scope pricing: main, pr and fix at ctx 138240, --memory-gb 27 to 32, multi-conversation turns and doctor tiers
 - [[sources/runs/2026/11/2026-11-17-pr143-4423adb-rerun]] — PR #143 reruns on 4423adb5 with SLOTSTREAM_WIRED_LIMIT=1: wired-limit ABBA, usage sequence at ctx138240 and prefill passes above 128256 keys
 - [[sources/runs/2026/11/2026-11-15-pr143-guard-usage]] — PR #143 prefill-guard usage sequence at ctx138240: db0f6c8c, 53f3fa58 and 200fb398
 - [[sources/runs/2026/11/2026-11-13-pr143-wired-limit-swap-ab]] — PR #143 wired-limit swap A/B, base 981ce2dd vs head 200fb398, ABBA at 27 GB
@@ -506,9 +507,8 @@ updated: 2026-11-17T14:01:11.513977659Z
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-initial-local-acceptance]] — v0.2.14 first installed-public acceptance pass and swap-invalidated memory intervals
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-governor-invalid-interval]] — v0.2.14 governor swap-invalidated interval and prospective targeted rerun
 - [[sources/runs/2026/09/2026-09-10-release-0-2-14-publication]] — v0.2.14 successful CI, exact public archive, provenance and installer evidence
-- [[sources/runs/2026/09/2026-09-10-release-0-2-14-candidate-gates]] — v0.2.14 startup refusal checks and exact CI archive reuse
 
 ## More
 
-This folder has 1008 files. The 500 most recent are listed above.
+This folder has 1009 files. The 500 most recent are listed above.
 Use `dbmd query --type run --in sources` for the complete catalog.

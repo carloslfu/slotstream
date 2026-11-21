@@ -1017,7 +1017,7 @@ memory planning and speculative decoding on their automatic defaults.
 Slotstream decides whether to enable the MTP draft head from its availability
 and the planned expert cache. Hermes does not require an MTP override.
 Hermes requires a larger context than the 32,768 tokens auto keeps on Macs
-through 32 GB, so the setup guide fixes 65,536 tokens on every Mac. The
+through 24 GB, so the setup guide fixes 65,536 tokens on every Mac. The
 explicit flag charges that window's extra active state and a measured
 transient reserve before allocating the expert cache. The
 minimum memory target rises with this larger window. If overriding automatic
@@ -2404,8 +2404,9 @@ A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
 
 Prompt plus completion is capped by the served window. By default the server
-picks it for the Mac: 32,768 tokens through 32 GB of RAM, 65,536 at 36 GB,
-32,768 at 48 GB, 131,072 at 64 GB and 262,144 from 96 GB, or less on a Mac
+picks it for the Mac: 32,768 tokens through 24 GB of RAM, 65,536 at 32 GB,
+65,536 at 36 GB, 131,072 at 48 GB, 131,072 at 64 GB and 262,144 from 96 GB,
+or less on a Mac
 that is busy at startup. Use `serve --max-context 65536` to fix a
 65,536-token window, or any size from 1 to 262,144. Requests with images stay
 within 65,536 tokens. The
@@ -3193,7 +3194,7 @@ Wait until you see `slotstream listening on http://127.0.0.1:11434`, and
 leave the window open; `slotstream launch hermes` then uses this server as it
 is. Slotstream chooses its memory plan and whether to use speculative
 decoding automatically. Without the flag the window depends on the Mac, for
-example 32,768 at 48 GB; the flag keeps the window Hermes is configured for on
+example 131,072 at 48 GB; the flag keeps the window Hermes is configured for on
 every Mac. Press
 **Control+C** in the window, or run `slotstream stop`, to stop the server.
 
@@ -5381,14 +5382,16 @@ guidance, independently of reply speed.
 
 ### Automatic memory plans
 
-The columns were checked against a build of `main` after 0.2.24, which
-streams the draft head's experts on smaller caches and runs the decode
+The columns were checked against a build of `main` after 0.2.30 that
+charges retained conversations inside the active context instead of on top
+of it, streams the draft head's experts on smaller caches and runs the decode
 lookahead in plain decode. They describe the plans in auto mode, which picks the
 context window along with the target and speculative decoding. The draft file
 is available and no other apps hold memory. Simulated RAM is in decimal GB; a
 Mac's marketed memory capacity can produce a different decimal-GB device
-reading and target. Auto picks 32,768 tokens through 32 GB of simulated RAM,
-65,536 at 36 GB, 32,768 at 48 GB, 131,072 at 64 GB and 262,144 from 96 GB.
+reading and target. Auto picks 32,768 tokens through 24 GB of simulated RAM,
+65,536 at 32 GB, 65,536 at 36 GB, 131,072 at 48 GB, 131,072 at 64 GB and
+262,144 from 96 GB.
 
 | Simulated RAM (decimal GB) | Automatic memory target | Speculative decoding | Decode lookahead | Automatic context window |
 |---|---|---|---|---|
@@ -5396,11 +5399,11 @@ reading and target. Auto picks 32,768 tokens through 32 GB of simulated RAM,
 | 16 GB | 10 GB | Off | On | 32,768 |
 | 18 GB | 11.5 GB | Off | On | 32,768 |
 | 24 GB | 16 GB | On, experts streamed | On | 32,768 |
-| 32 GB | 22 GB | On | On | 32,768 |
+| 32 GB | 22 GB | On | On | 65,536 |
 | 36 GB | 25 GB | On | On | 65,536 |
-| 48 GB | 33.6 GB | On | On | 32,768 |
-| 64 GB | 43.2 GB | On | On | 131,072 |
-| 96 or 128 GB | 54.7 GB | On | On | 262,144 |
+| 48 GB | 33.6 GB | On | On | 131,072 |
+| 64 GB | 40.5 GB | On | On | 131,072 |
+| 96 or 128 GB | 48.3 GB | On | On | 262,144 |
 
 These are allocation plans, not measured performance tiers. The planner's
 M5 Pro-based warm-decode estimates for the rows without speculative decoding
@@ -5431,21 +5434,23 @@ one complete conversation of that length for follow-up turns, and adds at
 most 10% to the planner's estimate for a typical request of 2,000 prompt
 tokens and a 400-token reply. `slotstream doctor
 --sim-ram <GB>` shows every candidate and its reason. At 24 GB a 65,536-token
-window would add 22%, and at 32 GB it would stream the draft head's experts,
-whose reads the estimate does not price.
-At 36 GB it adds 9%, as the cache drops from 96 to 75 experts per layer.
-At 48 GB, auto keeps the original cache because its size exceeds the measured
-decode range: the estimate cannot price the loss, even when it reports little
-or no change. At 64 GB, 262,144 would add 18%.
+window would add 11%. At 32 GB it adds 6%, and 131,072 would stream the draft
+head's experts, whose reads the estimate does not price.
+At 36 GB 65,536 adds 5%, as the cache drops from 103 to 88 experts per layer.
+At 48 GB 131,072 adds 8%, as the cache drops from 148 to 124 experts per
+layer. A cache above the measured decode range is kept: the estimate cannot
+price its loss, even when it reports little or no change, so a 52 GB
+simulation stays at 32,768 and 64 GB declines 262,144.
 From 64 GB the larger window's memory comes from room the 32,768-token plan
 leaves unused, so the cache keeps its size and the target rises above that
-plan's 34.6 GB, to 43.2 GB at 64 GB and 54.7 GB from 96 GB. Real available
+plan's 34.6 GB, to 40.5 GB at 64 GB and 48.3 GB from 96 GB. Real available
 memory and Metal limits can change these decisions; a busy start applies the
 same cache and speed rules before choosing its window. A larger Mac can
 therefore receive a smaller window when widening it would sacrifice cache
 whose performance benefit is unmeasured. `--max-context N` fixes any
-window up to 262,144; on a 32 GB Mac, `--max-context 65536` gives the larger
-window with the draft head's experts streamed.
+window up to 262,144; `--max-context 65536` keeps 65,536 tokens on every Mac,
+and on a 32 GB Mac `--max-context 131072` gives the larger window with the
+draft head's experts streamed.
 
 For prompts near 32,768 tokens, the planner estimates about 3 minutes of
 prefill from 24 GB and 6.4 minutes at 16 GB; near 65,536 it estimates
@@ -5539,6 +5544,20 @@ determines which version the installer downloads.
   unfused prefill attention at the BF16 width MLX actually allocates. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).
+- Give a single long request the memory that prefix-cache retention was
+  holding back: charge retained prefix-cache sequence bytes inside the active
+  capacity instead of on top of it, so the expert pool gets the difference.
+  Price an automatic read scope's attention ranges and its layer expert
+  workspace as the sequential phases they run in, and clear the MLX buffer
+  cache before the fit check as the scope itself does, so the larger pool
+  keeps the 8192-token read scope. On a 32 GB Mac mini at `--memory-gb 27`
+  with a 137984-token prompt, the expert pool grows from 3109 to 4491 slots,
+  expert hit rate rises from 0.625 to 0.717 and decode from 4.47 to
+  4.88 tok/s, and prefill stays at 47.1 tok/s (46.9 on `main`), with 0
+  swap-outs. Automatic plans move with the smaller charge: `--max-context auto`
+  now picks 65,536 tokens at 32 GB and 131,072 at 48 GB, and the target from
+  64 GB is 40.5 GB at 131,072 tokens and 48.3 GB from 96 GB. By
+  [@spikezz](https://github.com/spikezz).
 
 ## 0.2.30 - 2026-10-19
 

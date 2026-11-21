@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/measurements
-updated: 2026-11-17T16:26:00.833780Z
+updated: 2026-11-21T11:18:15.591690264Z
 ---
 
 # records/measurements
 
+- [[records/measurements/retention-shares-active-capacity-2026-11-21]] — Retained prefix-cache bytes share the active capacity: at 27 GB the pool grows from 3109 to 4491 slots, long decode 4.47 to 4.88 tok/s, prefill stays at 47.1 tok/s
 - [[records/measurements/pr143-opt-in-wired-limit-rerun]] — PR #143 on 4423adb5: the opt-in wired limit keeps 27 GB runs off swap and the compressor, the guard admits the usage session, and passes above 128256 keys stay inside the target
 - [[records/measurements/pr143-prefill-guard-usage-sequence]] — PR #143: the corrected prefill guard admits a 138240-token usage session the old guard refused
 - [[records/measurements/pr143-wired-limit-swap-ab]] — PR #143: wiring MLX buffers to the memory target removes swap-outs at 27 GB
