@@ -1004,17 +1004,18 @@ public final class Generator {
                 smallPass: model.smallPrefillSweep)
             func prefillAllocation(_ group: [Int], options: InferenceOptimizations, aliased: Bool? = nil) -> Int {
                 let end = i + group.reduce(0, +)
-                var at = i, workspace = 0
+                var at = i, attention = 0
                 for pass in group {
                     at += pass
-                    workspace = max(workspace, ContextWorkspace.prefillBytes(pass: pass, context: at,
+                    attention = max(attention, ContextWorkspace.prefillBytes(pass: pass, context: at,
                         attentionHeads: model.cfg.numAttentionHeads,
                         referenceStart: model.smallPrefillReferenceStart, referenceEnd: promptIds.count,
                         minimumProjectionRows: model.smallPrefillSweep && model.stableSmallPrefillProjections ? 256 : 0,
                         padSmallQueries: model.smallPrefillSweep && model.stableSmallPrefillAttention,
                         fusedKVHeads: readPolicy.fusedKVHeads))
                 }
-                workspace = ContextBytes.sum(workspace, ContextBytes.product(max(0, end - i - (group.max() ?? 0)), 32_768))
+                let frontier = ContextBytes.product(max(0, end - i - (group.max() ?? 0)), 32_768)
+                var workspace = ContextBytes.sum(attention, frontier)
                 let intrinsic = model.intrinsicExpertWorkspaceBytes(tokens: end - i,
                     admits: end == promptIds.count && SlotPool.sweepAdmitEnabled)
                 if intrinsic > 0 {
@@ -1023,14 +1024,22 @@ public final class Generator {
                     let admits = end == promptIds.count && SlotPool.sweepAdmitEnabled
                     let admissionRecords = admits ? min(model.cfg.numExperts,
                         max(1, model.pool.slots / model.cfg.numLayers)) : 0
-                    workspace = ContextBytes.sum(workspace, ContextWorkspace.expertWorkspaceBytes(
+                    let expert = ContextWorkspace.expertWorkspaceBytes(
                         tokens: end - i, tile: options.workspaceTokenTile,
                         experts: model.cfg.numExperts, topK: model.cfg.topK,
                         hidden: model.cfg.hiddenSize, intermediate: model.cfg.moeIntermediate,
                         recordBytes: model.pool.recordBytes, loadBatch: ExpertStore.defaultLoadBatch,
                         admissionPoolBytes: admits ? model.pool.poolBytes : 0,
                         admissionRecords: admissionRecords,
-                        largestWriteBytes: options.workspacePiecewiseWrites ? model.pool.largestWorkspacePieceBytes : nil))
+                        largestWriteBytes: options.workspacePiecewiseWrites ? model.pool.largestWorkspacePieceBytes : nil)
+                    // A layer-major scope evaluates every attention range, and with the
+                    // workspace cache limit at zero frees its temporaries, before the
+                    // layer's expert workspace loads; only the frontier spans both
+                    // phases. Measured on M4 at 138240 context: 2.5-2.8 GB above active
+                    // memory per 8192 scope while attention plus expert priced 4.1-7.5 GB.
+                    workspace = group.count > 1
+                        ? ContextBytes.sum(max(attention, expert), frontier)
+                        : ContextBytes.sum(workspace, expert)
                 }
                 if let head = mtpHead {
                     // runHiddenMulti evaluates and releases the main expert
@@ -1066,6 +1075,10 @@ public final class Generator {
                     scoped.layerExpertWorkspace = true; scoped.readScopeTokens = groups[0].reduce(0, +)
                     scoped.boundedIndexer = true; scoped.boundedPLE = true
                     scoped.workspaceTokenTile = 1024; scoped.compactScopeFrontier = true
+                    // A layer-major scope clears the MLX buffer cache before it runs
+                    // (`Model` sets the cache limit to zero), so the cache left by
+                    // ordinary passes (up to 2.15 GB measured) is not in its peak.
+                    MLX.Memory.clearCache()
                     let footprintBytes = Int(clamping: ProcessMemory.residentBytes())
                     let priced = groups.map { (passes: $0, bytes: prefillAllocation($0, options: scoped)) }
                     automaticScopePricingObserver?(priced.map(\.passes), priced.map(\.bytes), footprintBytes)
