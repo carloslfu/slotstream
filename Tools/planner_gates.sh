@@ -155,8 +155,8 @@ check "32 GB Mac: auto runs the head and the lookahead" "grep -q 'draft head on'
 run_binary doctor $M --sim-ram 24 > "$T/mtp24mac" 2>&1
 check "24 GB Mac: auto streams the head's experts and runs the lookahead" \
       "grep -q 'draft head on' $T/mtp24mac && grep -q 'stream through' $T/mtp24mac && grep -q 'lookahead: on' $T/mtp24mac"
-run_binary doctor $M --sim-ram 32 --max-context 65536 > "$T/mtp32ctx" 2>&1
-check "32 GB Mac at 65,536 tokens keeps the head by streaming its experts" \
+run_binary doctor $M --sim-ram 32 --max-context 131072 > "$T/mtp32ctx" 2>&1
+check "32 GB Mac at 131,072 tokens keeps the head by streaming its experts" \
       "grep -q 'draft head on' $T/mtp32ctx && grep -q 'stream through' $T/mtp32ctx"
 run_binary doctor $M --sim-ram 36 --max-context 65536 > "$T/mtp36ctx" 2>&1
 check "36 GB Mac at 65,536 tokens keeps the head and the lookahead" \
@@ -256,24 +256,25 @@ auto_window_is() {
 }
 check "16 GB Mac: automatic window is 32,768"                  "auto_window_is 32768 --sim-ram 16"
 check "24 GB Mac: automatic window is 32,768"                  "auto_window_is 32768 --sim-ram 24"
-check "32 GB Mac: automatic window is 32,768 (65,536 would stream the head)" "auto_window_is 32768 --sim-ram 32"
+check "32 GB Mac: automatic window is 65,536 (131,072 would stream the head)" "auto_window_is 65536 --sim-ram 32"
 check "36 GB Mac: automatic window is 65,536"                  "auto_window_is 65536 --sim-ram 36"
-check "48 GB Mac: auto preserves cache with unmeasured benefit" "auto_window_is 32768 --sim-ram 48"
+check "48 GB Mac: automatic window is 131,072"                 "auto_window_is 131072 --sim-ram 48"
+check "52 GB Mac: auto preserves cache with unmeasured benefit" "auto_window_is 32768 --sim-ram 52"
 check "64 GB Mac: automatic window is 131,072"                 "auto_window_is 131072 --sim-ram 64"
 check "96 GB Mac: automatic window is 262,144"                 "auto_window_is 262144 --sim-ram 96"
 check "128 GB Mac: automatic window is 262,144"                "auto_window_is 262144 --sim-ram 128"
-check "--max-context auto is the default"                      "auto_window_is 32768 --sim-ram 48 --max-context auto"
+check "--max-context auto is the default"                      "auto_window_is 32768 --sim-ram 52 --max-context auto"
 check "a fixed cache size keeps the default window"            "auto_window_is 32768 --sim-ram 128 --experts-per-layer 120"
 check "an explicit window is reported as explicit"             "auto_window_is explicit --sim-ram 128 --max-context 65536"
 run_binary doctor $M --sim-ram 128 > "$T/auto128" 2>&1
 check "128 GB: the window rides above the knee and doctor marks the choice" \
-      "grep -q 'target: 54.7' $T/auto128 && grep -q 'context window: automatic, 262144' $T/auto128 && grep -q '<- auto' $T/auto128"
+      "grep -q 'target: 48.3' $T/auto128 && grep -q 'context window: automatic, 262144' $T/auto128 && grep -q '<- auto' $T/auto128"
 run_binary doctor $M --sim-ram 128 --sim-available 40 > "$T/autobusy" 2>&1
 check "a busy big Mac lowers the automatic window and keeps the head" \
-      "grep -q 'lowered to 32768 tokens right now' $T/autobusy && grep -q 'draft head on' $T/autobusy && grep -q 'automatic context window lowered from 262144 to 32768' $T/autobusy"
+      "grep -q 'lowered to 131072 tokens right now' $T/autobusy && grep -q 'draft head on' $T/autobusy && grep -q 'automatic context window lowered from 262144 to 131072' $T/autobusy"
 run_binary doctor $M --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5 --max-context 65536 > "$T/ret16" 2>&1
-check "an explicit window too large to retain says how much follow-ups reuse" \
-      "grep -q 'does not fit retained at this size' $T/ret16"
+check "an explicit window that fits retains one complete conversation" \
+      "grep -q 'reuse:  up to 65536 tokens' $T/ret16"
 check "automatic window JSON lists every candidate and retains the chosen window" \
       "run_binary doctor $M --sim-ram 64 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); a=d[\"automatic_context_window\"]; assert a[\"window\"]==131072 and [c[\"window\"] for c in a[\"candidates\"]]==[32768,65536,131072,262144] and d[\"prefix_cache_max_tokens\"]>=131072, a'"
 check "serve --max-context auto is accepted by the parser" "run_binary serve --help | tr -s ' \\n' ' ' | grep -q 'auto, or tokens up to 262144'"

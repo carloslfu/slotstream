@@ -45,7 +45,10 @@ determines which version the installer downloads.
   with a 137984-token prompt, the expert pool grows from 3109 to 4491 slots,
   expert hit rate rises from 0.625 to 0.717 and decode from 4.47 to
   4.88 tok/s, and prefill stays at 47.1 tok/s (46.9 on `main`), with 0
-  swap-outs. By [@spikezz](https://github.com/spikezz).
+  swap-outs. Automatic plans move with the smaller charge: `--max-context auto`
+  now picks 65,536 tokens at 32 GB and 131,072 at 48 GB, and the target from
+  64 GB is 40.5 GB at 131,072 tokens and 48.3 GB from 96 GB. By
+  [@spikezz](https://github.com/spikezz).
 
 ## 0.2.30 - 2026-10-19
 
