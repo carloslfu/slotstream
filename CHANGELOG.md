@@ -35,6 +35,12 @@ determines which version the installer downloads.
   unfused prefill attention at the BF16 width MLX actually allocates. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).
+- Return disk-restored prefix buffers to the system when MLX releases them.
+  They were allocated with `posix_memalign`, and after `free` they stayed
+  charged to the process outside the memory plan, so a long conversation
+  restored from disk twice could exceed its memory target. By
+  [@spikezz](https://github.com/spikezz), reported in
+  [#146](https://github.com/carloslfu/slotstream/issues/146).
 
 ## 0.2.30 - 2026-10-19
 

@@ -181,7 +181,8 @@ extension PersistentPrefixCache {
             throw Failure("\(record.name) has an invalid layout")
         }
         let span = layout.rowBytes * record.shape[record.axis]
-        let memory = try Self.allocate(layout.capacityBytes, for: record.name)
+        let buffer = try Self.allocate(layout.capacityBytes, for: record.name)
+        let memory = buffer.memory
         var read: Int64 = 0
         do {
             for extent in record.extents {
@@ -215,8 +216,9 @@ extension PersistentPrefixCache {
                     } else {
                         // Rows released since the segment was written, such as
                         // compacted indexer history: check all, keep the live part.
-                        let scratch = try Self.allocate(Int(rows.byteCount), for: record.name)
-                        defer { free(scratch) }
+                        let scratchBuffer = try Self.allocate(Int(rows.byteCount), for: record.name)
+                        defer { scratchBuffer.release() }
+                        let scratch = scratchBuffer.memory
                         try PersistentPrefixFile.readAll(reader, scratch, Int(rows.byteCount), at: rows.offset)
                         guard PersistentPrefixFile.crc32(scratch, Int(rows.byteCount)) == rows.crc32 else {
                             throw Failure("\(record.name) checksum mismatch in segment \(extent.segment)")
@@ -234,10 +236,10 @@ extension PersistentPrefixCache {
             let live = record.live * layout.rowBytes
             for chunk in 0 ..< layout.leading { memset(memory.advanced(by: chunk * span + live), 0, span - live) }
         } catch {
-            free(memory)
+            buffer.release()
             throw error
         }
-        return (MLXArray(rawPointer: memory, record.shape, dtype: dtype) { free(memory) }, read)
+        return (buffer.adopt(record.shape, dtype), read)
     }
 
     private static func reader(for segment: String, directory: URL, readers: inout [String: Int32]) throws -> Int32 {
@@ -255,14 +257,31 @@ extension PersistentPrefixCache {
     }
 
     /// Page-aligned, so MLX can adopt the buffer instead of copying it.
-    private static func allocate(_ bytes: Int, for name: String) throws -> UnsafeMutableRawPointer {
+    ///
+    /// Mapped directly rather than taken from malloc: freed malloc blocks of
+    /// this size stayed charged to the process as dirty MALLOC_LARGE_REUSABLE
+    /// memory (3 GB after two restores of a 100K-token state, issue #146),
+    /// outside every MLX and planner figure. `release` returns the pages to
+    /// the system.
+    private static func allocate(_ bytes: Int, for name: String) throws -> RestoreBuffer {
         let pageBytes = 16_384
-        let allocation = max(pageBytes, (bytes + pageBytes - 1) / pageBytes * pageBytes)
-        var pointer: UnsafeMutableRawPointer?
-        guard posix_memalign(&pointer, pageBytes, allocation) == 0, let memory = pointer else {
+        let length = max(pageBytes, (bytes + pageBytes - 1) / pageBytes * pageBytes)
+        guard let memory = mmap(nil, length, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0),
+              memory != MAP_FAILED else {
             throw ModelError("out of memory restoring \(name) (\(bytes) bytes)")
         }
-        return memory
+        return RestoreBuffer(memory: memory, length: length)
+    }
+
+    private struct RestoreBuffer {
+        let memory: UnsafeMutableRawPointer
+        let length: Int
+
+        func release() { munmap(memory, length) }
+
+        func adopt(_ shape: [Int], _ dtype: DType) -> MLXArray {
+            MLXArray(rawPointer: memory, shape, dtype: dtype) { [self] in release() }
+        }
     }
 
     /// A whole fixed array stored in the head.
@@ -272,7 +291,8 @@ extension PersistentPrefixCache {
                 itemBytes: dtype.size), Int64(layout.logicalBytes) == record.byteCount else {
             throw PersistentPrefixFileError("\(record.name) has an invalid layout")
         }
-        let memory = try allocate(layout.capacityBytes, for: record.name)
+        let buffer = try allocate(layout.capacityBytes, for: record.name)
+        let memory = buffer.memory
         let live = layout.rowBytes * record.length
         let span = layout.rowBytes * record.shape[record.axis]
         var crc: UInt32 = 0
@@ -285,9 +305,9 @@ extension PersistentPrefixCache {
             }
             guard crc == record.crc32 else { throw PersistentPrefixFileError("\(record.name) checksum mismatch") }
         } catch {
-            free(memory)
+            buffer.release()
             throw error
         }
-        return MLXArray(rawPointer: memory, record.shape, dtype: dtype) { free(memory) }
+        return buffer.adopt(record.shape, dtype)
     }
 }
