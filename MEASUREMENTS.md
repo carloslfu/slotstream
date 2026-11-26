@@ -13991,7 +13991,7 @@ At 31 GB the long request was refused with `insufficient_memory` after 2372 s, a
 
 ## Interleaved conversation
 
-`multi.py` on `fix` at 27 GB completed all five turns with 0 swap-outs; the continued chat turns restored 128000 tokens from the disk tier and peaked at 27.1 GB, against 23.1 GB on `main`. At 29 and 30 GB the first continued turn was refused after its first 256-token pass with `insufficient_memory`: at 29 GB it required 3.57 GB of reclaimable memory and 3.40 GB was available.
+`multi.py` on `fix` at 27 GB completed all five turns with 0 swap-outs; the continued chat turns restored 128000 tokens from the disk tier and peaked at 27.13 and 27.14 GB, against 23.1 GB on `main`. Both peaks exceed the 27 GB target, so this change takes the interleaved conversation over its budget where `main` stayed 3.9 GB under it. `main` was not run at 29 or 30 GB. At 29 and 30 GB the first continued turn was refused after its first 256-token pass with `insufficient_memory`: at 29 GB it required 3.57 GB of reclaimable memory and 3.40 GB was available.
 
 ## Automatic plans
 
@@ -14007,7 +14007,22 @@ The pool and the context window choice move with the charge. `doctor --sim-ram` 
 | 64 GB | 131,072, 43.2 GB, 149 | 131,072, 40.5 GB, 156 |
 | 96 and 128 GB | 262,144, 54.7 GB, 149 | 262,144, 48.3 GB, 156 |
 
-At 32 GB a 65,536-token window now keeps the draft head's experts resident and adds 6.4% to the typical-request estimate. At 48 GB the 32,768-token plan takes a 4096-token prefill pass, which leaves 148 experts per layer, inside the measured decode range, so auto weighs 131,072 tokens at +7.6% and takes it. A cache above the measured decode range is still preserved: a 52 GB simulation stays at 32,768. From 64 GB the target no longer pays for a second copy of the window. An explicit window that fits now always retains one complete conversation, so the fallback note for one that does not cannot appear.
+At 32 GB a 65,536-token window now keeps the draft head's experts resident and adds 6.4% to the typical-request estimate. At 48 GB the 32,768-token plan takes a 4096-token prefill pass, which leaves 148 experts per layer, inside the measured decode range, so auto weighs 131,072 tokens at +7.6% and takes it. A cache above the measured decode range is still preserved: a 52 GB simulation stays at 32,768. From 64 GB the target no longer pays for a second copy of the window. An explicit window that fits now always retains one complete conversation, so the planner no longer has a fallback for one that does not.
+
+## Real Macs
+
+`--sim-ram N` treats N as decimal GB with a 75% Metal working set. A real Mac reports more memory and a smaller working-set share, so the planner gates use the device readings below. [[sources/runs/2026/11/2026-11-26-real-mac-automatic-plans]] ran `doctor` on `main` (`d30ee840`) and on the PR head (`e744ac2d`) at those readings:
+
+| Real Mac (RAM / working set / available) | Draft head | `main` window, experts per layer | PR window, experts per layer |
+|---|---|---|---|
+| 16 GB (17.2 / 11.8 / 12.5) | available | 32,768, 19 | 32,768, 18 |
+| 24 GB (25.8 / 18 / 21) | available | 32,768, 48 | 32,768, 55 |
+| 24 GB | off | 32,768, 51 | 65,536, 44 |
+| 32 GB (34.4 / 25.8 / 29) | available | 65,536, 76 | 65,536, 79 |
+| 48 GB (51.5 / 40.2 / 44) | available | 65,536, 158 | 32,768, 156 |
+| 48 GB | off | 131,072, 130 | 131,072, 158 |
+
+A real 48 GB Mac with the draft head gets a smaller window from this change. Its 34.6 GB target leaves the 32,768-token plan 156 experts per layer, above the measured decode range, and every larger window removes cache (0.5 GB for 65,536), so auto declines them as an unmeasured cost. On `main` the target was 36.05 GB, and 65,536 tokens kept 158 experts per layer while adding 1.2% to the typical request. The 131,072-token window at 48 GB holds only for the simulated tier, which is 48e9 bytes. At 16 GB the freed memory crosses the 20 experts per layer at which the plain-decode lookahead turns on; its 373 MiB reserve leaves 18 experts per layer, one fewer than `main`.
 
 ## Checks
 

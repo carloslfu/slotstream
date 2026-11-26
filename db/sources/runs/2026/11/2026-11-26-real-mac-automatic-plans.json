@@ -1,0 +1,1410 @@
+[
+ {
+  "build": "main",
+  "tier": 16,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "17.2",
+   "--sim-working-set",
+   "11.8",
+   "--sim-available",
+   "12.5"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 19,
+  "target_gb": 9.8,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 16,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "17.2",
+   "--sim-working-set",
+   "11.8",
+   "--sim-available",
+   "12.5"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 19,
+  "target_gb": 9.8,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 16,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "16"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 17,
+  "target_gb": 10,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 16,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "16"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 17,
+  "target_gb": 10,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 24,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "25.8",
+   "--sim-working-set",
+   "18",
+   "--sim-available",
+   "21"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 48,
+  "target_gb": 16,
+  "mtp": true,
+  "mtp_streamed": true,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "adds 21.5% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 24,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "25.8",
+   "--sim-working-set",
+   "18",
+   "--sim-available",
+   "21"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 51,
+  "target_gb": 16,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "adds 19.0% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 24,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "24"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 48,
+  "target_gb": 16,
+  "mtp": true,
+  "mtp_streamed": true,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "adds 21.5% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 24,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "24"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 51,
+  "target_gb": 16,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "adds 19.0% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 32,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "34.4",
+   "--sim-working-set",
+   "25.8",
+   "--sim-available",
+   "29"
+  ],
+  "draft_head": "head",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 76,
+  "target_gb": 23.8,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 9.4% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 32,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "34.4",
+   "--sim-working-set",
+   "25.8",
+   "--sim-available",
+   "29"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 79,
+  "target_gb": 23.8,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 8.0% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 32.7% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 32,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "32"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 74,
+  "target_gb": 22,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ],
+   [
+    131072,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 32,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "32"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 75,
+  "target_gb": 22,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 8.9% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 41.5% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit with one complete conversation retained",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 48,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "51.5",
+   "--sim-working-set",
+   "40.2",
+   "--sim-available",
+   "44"
+  ],
+  "draft_head": "head",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 158,
+  "target_gb": 36.05,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 1.2% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 10.4% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 48,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "51.5",
+   "--sim-working-set",
+   "40.2",
+   "--sim-available",
+   "44"
+  ],
+  "draft_head": "off",
+  "window": 131072,
+  "source": "automatic",
+  "experts_per_layer": 130,
+  "target_gb": 36.05,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 0.0% to a typical request",
+    null
+   ],
+   [
+    131072,
+    true,
+    "adds 5.9% to a typical request",
+    null
+   ],
+   [
+    262144,
+    false,
+    "adds 43.9% to a typical request, above the 10% limit",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 48,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "48"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 161,
+  "target_gb": 33.599999999999994,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "would remove 2.9 GB of expert cache with an unmeasured performance cost; use --max-context 65536 to choose this tradeoff",
+    null
+   ],
+   [
+    131072,
+    false,
+    "would remove 8.6 GB of expert cache with an unmeasured performance cost; use --max-context 131072 to choose this tradeoff",
+    null
+   ],
+   [
+    262144,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "main",
+  "tier": 48,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "48"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 153,
+  "target_gb": 33.599999999999994,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 1.2% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 11.3% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "adds 63.4% to a typical request, above the 10% limit",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 16,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "17.2",
+   "--sim-working-set",
+   "11.8",
+   "--sim-available",
+   "12.5"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 18,
+  "target_gb": 9.8,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "turns the decode lookahead off",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit in this memory target",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 16,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "17.2",
+   "--sim-working-set",
+   "11.8",
+   "--sim-available",
+   "12.5"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 18,
+  "target_gb": 9.8,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "turns the decode lookahead off",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit in this memory target",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 16,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "16"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 20,
+  "target_gb": 10,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "turns the decode lookahead off",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit in this memory target",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 16,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "16"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 20,
+  "target_gb": 10,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "turns the decode lookahead off",
+    null
+   ],
+   [
+    131072,
+    false,
+    "does not fit in this memory target",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 24,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "25.8",
+   "--sim-working-set",
+   "18",
+   "--sim-available",
+   "21"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 55,
+  "target_gb": 16,
+  "mtp": true,
+  "mtp_streamed": true,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "adds 11.2% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    131072,
+    false,
+    "turns speculative decoding off",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 24,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "25.8",
+   "--sim-working-set",
+   "18",
+   "--sim-available",
+   "21"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 44,
+  "target_gb": 16,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 9.5% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 68.6% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 24,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "24"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 55,
+  "target_gb": 16,
+  "mtp": true,
+  "mtp_streamed": true,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "adds 11.2% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    131072,
+    false,
+    "turns speculative decoding off",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 24,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "24"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 44,
+  "target_gb": 16,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 9.5% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 68.6% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "does not fit in this memory target",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 32,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "34.4",
+   "--sim-working-set",
+   "25.8",
+   "--sim-available",
+   "29"
+  ],
+  "draft_head": "head",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 79,
+  "target_gb": 23.8,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 5.9% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ],
+   [
+    262144,
+    false,
+    "turns speculative decoding off",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 32,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "34.4",
+   "--sim-working-set",
+   "25.8",
+   "--sim-available",
+   "29"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 93,
+  "target_gb": 23.8,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 4.7% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 16.9% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "adds 89.4% to a typical request, above the 10% limit",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 32,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "32"
+  ],
+  "draft_head": "head",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 76,
+  "target_gb": 22,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 6.4% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "streams the draft head's experts, a cost the estimate does not price",
+    null
+   ],
+   [
+    262144,
+    false,
+    "turns speculative decoding off",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 32,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "32"
+  ],
+  "draft_head": "off",
+  "window": 65536,
+  "source": "automatic",
+  "experts_per_layer": 79,
+  "target_gb": 22,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 5.5% to a typical request",
+    null
+   ],
+   [
+    131072,
+    false,
+    "adds 19.2% to a typical request, above the 10% limit",
+    null
+   ],
+   [
+    262144,
+    false,
+    "turns the decode lookahead off",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 48,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "51.5",
+   "--sim-working-set",
+   "40.2",
+   "--sim-available",
+   "44"
+  ],
+  "draft_head": "head",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 156,
+  "target_gb": 34.6,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "would remove 0.5 GB of expert cache with an unmeasured performance cost; use --max-context 65536 to choose this tradeoff",
+    null
+   ],
+   [
+    131072,
+    false,
+    "would remove 1.8 GB of expert cache with an unmeasured performance cost; use --max-context 131072 to choose this tradeoff",
+    null
+   ],
+   [
+    262144,
+    false,
+    "would remove 9.6 GB of expert cache with an unmeasured performance cost; use --max-context 262144 to choose this tradeoff",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 48,
+  "machine": "real",
+  "args": [
+   "--sim-ram",
+   "51.5",
+   "--sim-working-set",
+   "40.2",
+   "--sim-available",
+   "44"
+  ],
+  "draft_head": "off",
+  "window": 131072,
+  "source": "automatic",
+  "experts_per_layer": 158,
+  "target_gb": 36.05,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 0.0% to a typical request",
+    null
+   ],
+   [
+    131072,
+    true,
+    "adds 1.5% to a typical request",
+    null
+   ],
+   [
+    262144,
+    false,
+    "would remove 7.0 GB of expert cache with an unmeasured performance cost; use --max-context 262144 to choose this tradeoff",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 48,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "48"
+  ],
+  "draft_head": "head",
+  "window": 131072,
+  "source": "automatic",
+  "experts_per_layer": 124,
+  "target_gb": 33.599999999999994,
+  "mtp": true,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    true,
+    "adds 1.1% to a typical request",
+    null
+   ],
+   [
+    131072,
+    true,
+    "adds 7.6% to a typical request",
+    null
+   ],
+   [
+    262144,
+    false,
+    "adds 32.6% to a typical request, above the 10% limit",
+    null
+   ]
+  ]
+ },
+ {
+  "build": "pr",
+  "tier": 48,
+  "machine": "simulated",
+  "args": [
+   "--sim-ram",
+   "48"
+  ],
+  "draft_head": "off",
+  "window": 32768,
+  "source": "automatic",
+  "experts_per_layer": 156,
+  "target_gb": 33,
+  "mtp": false,
+  "mtp_streamed": false,
+  "candidates": [
+   [
+    32768,
+    true,
+    "default window",
+    null
+   ],
+   [
+    65536,
+    false,
+    "would remove 1.2 GB of expert cache with an unmeasured performance cost; use --max-context 65536 to choose this tradeoff",
+    null
+   ],
+   [
+    131072,
+    false,
+    "would remove 2.2 GB of expert cache with an unmeasured performance cost; use --max-context 131072 to choose this tradeoff",
+    null
+   ],
+   [
+    262144,
+    false,
+    "would remove 9.4 GB of expert cache with an unmeasured performance cost; use --max-context 262144 to choose this tradeoff",
+    null
+   ]
+  ]
+ }
+]

@@ -173,7 +173,7 @@ Wait until you see `slotstream listening on http://127.0.0.1:11434`, and
 leave the window open; `slotstream launch hermes` then uses this server as it
 is. Slotstream chooses its memory plan and whether to use speculative
 decoding automatically. Without the flag the window depends on the Mac, for
-example 131,072 at 48 GB; the flag keeps the window Hermes is configured for on
+example 65,536 at 32 GB; the flag keeps the window Hermes is configured for on
 every Mac. Press
 **Control+C** in the window, or run `slotstream stop`, to stop the server.
 

@@ -364,6 +364,24 @@ reading and target. Auto picks 32,768 tokens through 24 GB of simulated RAM,
 | 64 GB | 40.5 GB | On | On | 131,072 |
 | 96 or 128 GB | 48.3 GB | On | On | 262,144 |
 
+A real Mac reports more than its marketed size in decimal GB, and less of it
+as Metal working set, so its plan differs from the simulation of the same
+size. With the readings the planner gates use for real Macs:
+
+| Mac | Device reading | Automatic memory target | Speculative decoding | Automatic context window |
+|---|---|---|---|---|
+| 16 GB | 17.2 GB, 11.8 GB working set | 9.8 GB | Off | 32,768 |
+| 24 GB | 25.8 GB, 18 GB working set | 16 GB | On, experts streamed | 32,768 |
+| 32 GB | 34.4 GB, 25.8 GB working set | 23.8 GB | On | 65,536 |
+| 48 GB | 51.5 GB, 40.2 GB working set | 34.6 GB | On | 32,768 |
+
+Auto gives 32,768 on a 48 GB Mac with the draft head. Its 34.6 GB target
+leaves the 32,768-token plan 156 experts per layer, above the measured decode
+range, and every larger window removes cache (0.5 GB for 65,536), so auto
+declines them as an unmeasured cost. Without the draft head the same Mac gets
+131,072. `--max-context 65536` or `--max-context 131072` gives the larger
+window with the draft head.
+
 These are allocation plans, not measured performance tiers. The planner's
 M5 Pro-based warm-decode estimates for the rows without speculative decoding
 are ~3.5 tok/s at 16 GB and ~5 tok/s at 18 GB of simulated RAM. They leave
@@ -396,8 +414,8 @@ tokens and a 400-token reply. `slotstream doctor
 window would add 11%. At 32 GB it adds 6%, and 131,072 would stream the draft
 head's experts, whose reads the estimate does not price.
 At 36 GB 65,536 adds 5%, as the cache drops from 103 to 88 experts per layer.
-At 48 GB 131,072 adds 8%, as the cache drops from 148 to 124 experts per
-layer. A cache above the measured decode range is kept: the estimate cannot
+At the simulated 48 GB tier 131,072 adds 8%, as the cache drops from 148 to
+124 experts per layer; a real 48 GB Mac keeps 32,768, as the table above shows. A cache above the measured decode range is kept: the estimate cannot
 price its loss, even when it reports little or no change, so a 52 GB
 simulation stays at 32,768 and 64 GB declines 262,144.
 From 64 GB the larger window's memory comes from room the 32,768-token plan

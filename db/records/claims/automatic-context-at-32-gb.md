@@ -8,7 +8,7 @@ basis: derived
 gate: Tools/planner_gates.sh
 needle: 65,536 at 32 GB
 supported_by: '[[records/measurements/retention-shares-active-capacity-2026-11-21]]'
-surfaces: docs/HARDWARE.md, docs/API.md, llms.txt
+surfaces: docs/HARDWARE.md, docs/API.md, llms.txt, docs/HERMES.md
 title: Auto takes a 65,536-token window at the simulated 32 GB tier
 status: current
 ---

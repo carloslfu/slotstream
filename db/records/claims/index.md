@@ -2,11 +2,12 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-11-21T11:19:44.829763397Z
+updated: 2026-11-26T20:19:12.574429018Z
 ---
 
 # records/claims
 
+- [[records/claims/automatic-context-on-a-real-48-gb-mac]] — Auto gives a real 48 GB Mac a 32,768-token window with the draft head
 - [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
 - [[records/claims/context-opt-in-65536]] — --max-context 65536 fixes a 65,536-token window
 - [[records/claims/automatic-context-window-262144-from-96-gb]] — Auto takes the full 262,144-token window from 96 GB
