@@ -454,7 +454,10 @@ These were all real bugs found by adversarial probing. Each is now gated by
   optimization settings, so every rebuild starts fresh; do not loosen that key
   without a check that rejects changed arithmetic. A speculating request takes
   only states with the draft cache, or every later save of that conversation
-  would lack it.
+  would lack it. Restore buffers are mapped with `mmap` and unmapped when MLX
+  releases them; do not take them from malloc. Freed malloc blocks of that size
+  stayed charged to the process (3 GB after two 100K-token restores, #146),
+  which no MLX or planner figure sees.
 
 ## Prefill
 
