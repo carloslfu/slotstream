@@ -78,8 +78,8 @@ def check(binary):
     def expect(name, condition, detail=None):
         assertions.append({"name": name, "passed": bool(condition), "detail": detail if not condition else None})
 
-    fixture = json.loads((ROOT / "Tools/fixtures/context-default-v3.json").read_text())
-    automatic = json.loads((ROOT / "Tools/fixtures/context-automatic-v2.json").read_text())
+    fixture = json.loads((ROOT / "Tools/fixtures/context-default-v4.json").read_text())
+    automatic = json.loads((ROOT / "Tools/fixtures/context-automatic-v3.json").read_text())
     help_result = run(binary, ["context-check", "--help"])
     evidence.append(help_result)
     expect('diagnostic help command succeeds', help_result['code'] == 0, help_result)

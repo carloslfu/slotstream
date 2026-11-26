@@ -2,7 +2,7 @@
 type: claim
 id: 01m1hhwp9ts773ev6nke5639h6
 created: 2026-09-02T17:15:28.442518+00:00
-updated: 2026-11-17T17:13:59.802526+00:00
+updated: 2026-11-21T11:19:44.829763397+00:00
 summary: The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
 basis: derived
 gate: Tools/planner_gates.sh
@@ -19,3 +19,6 @@ The 33 GB knee plus the head's 1.6 GB charge, arithmetic the planner does; no ru
 ## Scope audit, 2026-09-13
 
 The 34.6 GB ceiling describes the 32,768-token window. Plan.swift adds the head's resident charge plus additional draft context state to the 33 GB base, then applies RAM-share, Metal and live-availability bounds. A larger window raises the ceiling by its own charge, and from 0.2.17 auto picks larger windows on large Macs: the hardware table's automatic targets are 43.2 GB at 64 GB and 54.7 GB from 96 GB ([[records/measurements/automatic-context-window-plans-2026-09-13]]). Those targets are decimal-GB simulations, not installed-memory requirements or predicted performance.
+
+## Update, 2026-11-21
+Retained conversations are charged inside the active context, so a larger window raises the ceiling by its context state alone: 40.5 GB at 64 GB and 48.3 GB from 96 GB ([[records/measurements/retention-shares-active-capacity-2026-11-21]]). The 32,768-token ceiling stays 34.6 GB.

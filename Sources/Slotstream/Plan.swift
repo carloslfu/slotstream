@@ -690,12 +690,12 @@ public enum Planner {
     /// PrefixCache evicts before a miss allocation, so no more than four
     /// states coexist: the active state already in fixedFootprintGB plus three
     /// retained states. Their fixed GDN memory is additive to KV/indexer bytes.
+    /// Their sequence bytes are not: `reserveActiveTokens` evicts until retained
+    /// plus active tokens fit the retention ceiling, which never exceeds the
+    /// context the active capacity already charges.
     public static func prefixCacheCostGB(tokens: Int) -> Double {
         guard tokens > 0 else { return 0 }
-        let tokenGB = Double(tokens) * Double(PrefixCache.bytesPerToken) / 1e9
-        let fixedGB = Double(PrefixCache.maxEntries - 1)
-            * Double(PrefixCache.fixedBytesPerEntry) / 1e9
-        return tokenGB + fixedGB
+        return Double(PrefixCache.maxEntries - 1) * Double(PrefixCache.fixedBytesPerEntry) / 1e9
     }
 
     /// Prefill throughput estimate for the banner, from the anchors above.
@@ -1018,9 +1018,8 @@ public enum Planner {
 
     /// How much conversation state a window above the default retains.
     public enum ContextRetention: String, Sendable, Codable {
-        /// One complete conversation of the window when the plan can hold it;
-        /// otherwise a tenth of the pool budget, with a note saying how long a
-        /// conversation follow-up turns can still reuse.
+        /// One complete conversation of the window. Retaining it costs only
+        /// the fixed recurrent state, so a window that fits always retains it.
         case automatic
         /// One complete conversation or the plan is refused. The automatic
         /// window uses this, so an automatic window can always be continued.
@@ -1121,16 +1120,7 @@ public enum Planner {
               ContextPolicy.validationError(maxContextTokens, qualification: qualification) == nil else {
             return try resolve(0)
         }
-        do {
-            return try resolve(maxContextTokens)
-        } catch {
-            guard retention == .automatic else { throw error }
-            let shared = try resolve(0)
-            guard shared.prefixCacheTokens > 0 else { return shared }
-            return shared.addingNotes([String(
-                format: "one complete %d-token conversation does not fit retained at this size: follow-up turns reuse up to %d tokens, and a longer conversation is read again",
-                maxContextTokens, shared.prefixCacheTokens)])
-        }
+        return try resolve(maxContextTokens)
     }
 
     private static func resolvePlan(
@@ -1213,12 +1203,9 @@ public enum Planner {
         func mtpCharge(streamed: Bool) -> Double { streamed ? mtpStreamedCharge : mtpResidentCharge }
         // Auto lifts its model ceiling by a larger window's own memory, as it
         // does for the draft head: the window's active state and transient
-        // reserve, plus the retention that keeps one complete conversation.
-        // The expert cache keeps its budget where the RAM share, working set
-        // and live availability allow; they still bound the total.
+        // reserve. The expert cache keeps its budget where the RAM share,
+        // working set and live availability allow; they still bound the total.
         let windowChargeGB = extraContextMemoryGB(maxContextTokens: maxContextTokens)
-            + (retentionFloor > ContextPolicy.defaultTokens
-                ? prefixCacheCostGB(tokens: retentionFloor) - prefixCacheCostGB(tokens: ContextPolicy.defaultTokens) : 0)
         let ram = ramGB ?? deviceRAMGB()
         let ws = workingSetGB ?? deviceWorkingSetGB()
         // A simulated machine with no availability constraint must never

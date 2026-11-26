@@ -19,7 +19,7 @@ memory planning and speculative decoding on their automatic defaults.
 Slotstream decides whether to enable the MTP draft head from its availability
 and the planned expert cache. Hermes does not require an MTP override.
 Hermes requires a larger context than the 32,768 tokens auto keeps on Macs
-through 32 GB, so the setup guide fixes 65,536 tokens on every Mac. The
+through 24 GB, so the setup guide fixes 65,536 tokens on every Mac. The
 explicit flag charges that window's extra active state and a measured
 transient reserve before allocating the expert cache. The
 minimum memory target rises with this larger window. If overriding automatic

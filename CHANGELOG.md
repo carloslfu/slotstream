@@ -35,6 +35,25 @@ determines which version the installer downloads.
   unfused prefill attention at the BF16 width MLX actually allocates. By
   [@spikezz](https://github.com/spikezz) in
   [#143](https://github.com/carloslfu/slotstream/pull/143).
+- Give a single long request the memory that prefix-cache retention was
+  holding back: charge retained prefix-cache sequence bytes inside the active
+  capacity instead of on top of it, so the expert pool gets the difference.
+  Price an automatic read scope's attention ranges and its layer expert
+  workspace as the sequential phases they run in, and clear the MLX buffer
+  cache before the fit check as the scope itself does, so the larger pool
+  keeps the 8192-token read scope. On a 32 GB Mac mini at `--memory-gb 27`
+  with a 137984-token prompt, the expert pool grows from 3109 to 4491 slots,
+  expert hit rate rises from 0.625 to 0.717 and decode from 4.47 to
+  4.88 tok/s, and prefill stays at 47.1 tok/s (46.9 on `main`), with 0
+  swap-outs. An interleaved conversation that restores 128000 tokens from
+  disk now peaks at 27.13 GB at that target, over it, where `main` peaked at
+  23.1 GB. Automatic plans move with the smaller charge: `--max-context auto`
+  now picks 65,536 tokens at 32 GB and 131,072 at the simulated 48 GB tier,
+  while a real 48 GB Mac with the draft head drops from 65,536 to 32,768
+  because a larger window would remove cache above the measured decode range.
+  The target from 64 GB is 40.5 GB at 131,072 tokens and 48.3 GB from 96 GB.
+  By [@spikezz](https://github.com/spikezz) in
+  [#145](https://github.com/carloslfu/slotstream/pull/145).
 
 ## 0.2.30 - 2026-10-19
 

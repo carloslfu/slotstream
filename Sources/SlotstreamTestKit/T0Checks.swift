@@ -161,8 +161,8 @@ extension Catalogue {
     /// the retention fallback. Planning only; nothing reads this Mac's memory.
     static func automaticContextWindow() throws -> CheckReport {
         var c = CheckBuilder("automatic-context-window")
-        let tiers: [(Double, Int)] = [(16, 32_768), (24, 32_768), (32, 32_768), (36, 65_536),
-                                      (48, 32_768), (64, 131_072), (96, 262_144), (128, 262_144)]
+        let tiers: [(Double, Int)] = [(16, 32_768), (24, 32_768), (32, 65_536), (36, 65_536),
+                                      (48, 131_072), (64, 131_072), (96, 262_144), (128, 262_144)]
         for (ram, window) in tiers {
             let gb = Int(ram)
             let device = Machine(ramGB: ram, workingSetGB: ram * 0.75, availableGB: ram, isSimulated: true)
@@ -201,13 +201,13 @@ extension Catalogue {
         // declined; asked for explicitly, that window keeps the head.
         let mac32 = Machine(ramGB: 32, workingSetGB: 24, availableGB: 32, isSimulated: true)
         let choice32 = Planner.automaticContextWindow(PlanRequest(), on: mac32, mtpAvailable: true, visionAvailable: true)
-        let declined32 = choice32.candidates.first { $0.window == 65_536 }
-        c.expect("32 GB declines 65,536 because the head's experts would stream",
+        let declined32 = choice32.candidates.first { $0.window == 131_072 }
+        c.expect("32 GB declines 131,072 because the head's experts would stream",
             declined32?.accepted == false && declined32?.reason.contains("streams the draft head's experts") == true,
             declined32?.reason ?? "no candidate")
-        let explicit32 = try Planner.resolveContextWindow(.tokens(65_536), request: PlanRequest(), on: mac32,
+        let explicit32 = try Planner.resolveContextWindow(.tokens(131_072), request: PlanRequest(), on: mac32,
             mtpAvailable: true, visionAvailable: true)
-        c.expect("an explicit 65,536 on 32 GB keeps the head by streaming its experts",
+        c.expect("an explicit 131,072 on 32 GB keeps the head by streaming its experts",
             explicit32.plan.mtpEnabled && explicit32.plan.mtpStreamedExperts && explicit32.plan.decodeLookahead)
         let big = Machine(ramGB: 128, workingSetGB: 96, availableGB: 128, isSimulated: true)
         c.expect("a fixed cache size keeps the default window",
@@ -233,8 +233,7 @@ extension Catalogue {
         }
         let small = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 17.2, workingSetGB: 11.8,
             availableGB: 12.5, maxContextTokens: 65_536, simulated: true)
-        c.expect("an explicit window too large to retain keeps the budget share with a note",
-            small.prefixCacheTokens < 65_536 && small.notes.contains { $0.contains("does not fit retained") }, "\(small.notes)")
+        c.equal("an explicit window on a small machine retains the whole window", small.prefixCacheTokens, 65_536)
         let legacy = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 51.5, workingSetGB: 40.2,
             availableGB: 44, maxContextTokens: 32_768, simulated: true)
         let share = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 51.5, workingSetGB: 40.2,

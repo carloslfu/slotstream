@@ -2,11 +2,24 @@
 type: index
 scope: type-folder
 folder: records/claims
-updated: 2026-11-17T17:14:00.356620Z
+updated: 2026-11-26T20:19:12.574429018Z
 ---
 
 # records/claims
 
+- [[records/claims/automatic-context-on-a-real-48-gb-mac]] — Auto gives a real 48 GB Mac a 32,768-token window with the draft head
+- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
+- [[records/claims/context-opt-in-65536]] — --max-context 65536 fixes a 65,536-token window
+- [[records/claims/automatic-context-window-262144-from-96-gb]] — Auto takes the full 262,144-token window from 96 GB
+- [[records/claims/automatic-context-window-131072-at-64-gb]] — Auto takes a 131,072-token window at 64 GB
+- [[records/claims/context-cap-32768-tokens]] — Auto keeps a 32,768-token window through 24 GB of RAM
+- [[records/claims/automatic-target-54-7-gb-from-96-gb]] — Auto targets 54.7 GB from 96 GB with the full window
+- [[records/claims/automatic-target-43-2-gb-at-64-gb]] — Auto targets 43.2 GB at 64 GB with its 131,072-token window
+- [[records/claims/automatic-context-at-48-gb]] — Automatic context preserves unmeasured cache at the simulated 48 GB tier
+- [[records/claims/automatic-target-48-3-gb-from-96-gb]] — Auto targets 48.3 GB from 96 GB with the full window
+- [[records/claims/automatic-target-40-5-gb-at-64-gb]] — Auto targets 40.5 GB at 64 GB with its 131,072-token window
+- [[records/claims/automatic-context-at-32-gb]] — Auto takes a 65,536-token window at the simulated 32 GB tier
+- [[records/claims/automatic-context-at-48-gb-131072]] — Auto takes a 131,072-token window at the simulated 48 GB tier
 - [[records/claims/warm-decode-0-2-19-at-22-gb]] — Warm decode is 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target on the development Mac
 - [[records/claims/two-tier-rows-are-measured-on-real-macs]] — Hardware results are measured on real Macs from 16 to 128 GB; planner estimates remain separate.
 - [[records/claims/release-2k-prose-current-timing]] — Installed-release prose first-read range and ordinary exact-repeat latency at the measured small-budget profile.
@@ -20,13 +33,8 @@ updated: 2026-11-17T17:14:00.356620Z
 - [[records/claims/development-original-33gb-short]] — Original four-bit short-workload median is 20.91 tok/s at a 33 GB budget
 - [[records/claims/development-original-33gb-context]] — Original four-bit context-workload median is 23.69 tok/s at a 33 GB budget
 - [[records/claims/development-original-33gb-coding]] — Original four-bit completed-coding median is 21.59 tok/s at a 33 GB budget
-- [[records/claims/context-opt-in-65536]] — --max-context 65536 fixes a 65,536-token window
-- [[records/claims/context-cap-32768-tokens]] — Auto keeps a 32,768-token window through 32 GB of RAM
-- [[records/claims/automatic-context-window-131072-at-64-gb]] — Auto takes a 131,072-token window at 64 GB
-- [[records/claims/automatic-context-at-48-gb]] — Automatic context preserves unmeasured cache at the simulated 48 GB tier
 - [[records/claims/automatic-context-at-36-gb]] — Automatic context at the simulated 36 GB tier
 - [[records/claims/auto-memory-target-ceiling-33-gb]] — Automatic sizing has an intentional 33 GB base target ceiling, with explicit overrides and measurement-led revisions.
-- [[records/claims/auto-ceiling-34-6-gb-with-the-head]] — The auto ceiling is 34.6 GB with the draft head at the 32,768-token window
 - [[records/claims/sevra-mac-recognition-40-pages]] — Slotstream recognizes text on at most 40 pages per request
 - [[records/claims/sevra-mac-working-notes-eight-responses]] — Slotstream keeps working notes in memory for the eight most recent responses
 - [[records/claims/continued-turn-prefill-cost]] — A continued turn pays one partial prefill pass: 2.47 s against 8.56 s of follow-up prefill, against 26.3 s cold
@@ -89,7 +97,6 @@ updated: 2026-11-17T17:14:00.356620Z
 - [[records/claims/codex-stream-idle-timeout]] — The Codex guide sets the stream idle timeout to 1,800,000 ms
 - [[records/claims/codex-guide-verified-version]] — The Codex guide was verified with Codex 0.148.0
 - [[records/claims/context-default-wait-policy]] — Default request to first token wait policy
-- [[records/claims/automatic-context-window-262144-from-96-gb]] — Auto takes the full 262,144-token window from 96 GB
 - [[records/claims/draft-depth-default-two]] — The adopted speculative draft-chain default is two tokens
 - [[records/claims/corrected-forecast-0-2-19-medians-tok-s]] — Median decode rose from 14.38 to 15.86 tok/s with the 0.2.19 corrected forecast at a 22 GB target
 - [[records/claims/corrected-forecast-0-2-19-faster-decode]] — The 0.2.19 corrected forecast decodes 1.10x faster than the 0.2.18 forecast
@@ -123,8 +130,6 @@ updated: 2026-11-17T17:14:00.356620Z
 - [[records/claims/expert-lookahead-prefetch-b0-1-105x]] — Slot-adoption prefetch achieved 1.105x decode throughput in the B0 cohort
 - [[records/claims/lookahead-parts-add-about-2-percent-each]] — The router weight cache and the deferred GPU drains each add about 2% over prefetch
 - [[records/claims/decode-lookahead-charges-373-mib]] — The decode lookahead charges 373 MiB to the memory plan
-- [[records/claims/automatic-target-54-7-gb-from-96-gb]] — Auto targets 54.7 GB from 96 GB with the full window
-- [[records/claims/automatic-target-43-2-gb-at-64-gb]] — Auto targets 43.2 GB at 64 GB with its 131,072-token window
 - [[records/claims/context-state-27-kib-per-token]] — Main sequence-cache capacity costs about 27 KiB per allocated token
 - [[records/claims/engine-start-about-2-s]] — Historical engine load is about 2 s; current startup verification is additional
 - [[records/claims/output-byte-identical-across-cache-sizes]] — Greedy output is byte-identical across cache sizes and live resizes

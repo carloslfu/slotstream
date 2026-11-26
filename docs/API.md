@@ -574,8 +574,9 @@ A query string doesn't affect routing. `HEAD` returns 200 or 404 for the
 requested path.
 
 Prompt plus completion is capped by the served window. By default the server
-picks it for the Mac: 32,768 tokens through 32 GB of RAM, 65,536 at 36 GB,
-32,768 at 48 GB, 131,072 at 64 GB and 262,144 from 96 GB, or less on a Mac
+picks it for the Mac: 32,768 tokens through 24 GB of RAM, 65,536 at 32 GB,
+65,536 at 36 GB, 32,768 on a 48 GB Mac, 131,072 at 64 GB and 262,144 from 96 GB,
+or less on a Mac
 that is busy at startup. Use `serve --max-context 65536` to fix a
 65,536-token window, or any size from 1 to 262,144. Requests with images stay
 within 65,536 tokens. The

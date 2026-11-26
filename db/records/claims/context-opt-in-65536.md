@@ -2,7 +2,7 @@
 type: claim
 id: 01m1t5edz7vmdf8wqr1wftpn9t
 created: 2026-09-06T01:31:08.135324+00:00
-updated: 2026-11-17T17:13:59.978247+00:00
+updated: 2026-11-21T11:19:44.791655608+00:00
 summary: --max-context 65536 fixes a 65,536-token window
 basis: derived
 gate: Tools/planner_gates.sh and Tools/openai_tools_gate.py
@@ -12,4 +12,4 @@ surfaces: docs/API.md, docs/CLI.md, docs/CLIENTS.md, docs/HERMES.md, llms.txt, d
 title: --max-context 65536 fixes a 65,536-token window
 status: current
 ---
-The explicit window selector is enforced by ContextPolicy and reported by both discovery endpoints. Hermes uses it so its configured `context_length` matches the served window on every Mac; without it auto picks the window per Mac, 65,536 tokens at 36 GB but 32,768 at 48 GB ([[records/measurements/memory-budget-context-policy-2026-09-18]]). The measurement distinguishes this policy and bounded text capacity from answer quality or the model training window.
+The explicit window selector is enforced by ContextPolicy and reported by both discovery endpoints. Hermes uses it so its configured `context_length` matches the served window on every Mac; without it auto picks the window per Mac, 32,768 tokens at 24 GB, 65,536 at 32 and 36 GB and 131,072 at 48 GB ([[records/measurements/retention-shares-active-capacity-2026-11-21]]). The measurement distinguishes this policy and bounded text capacity from answer quality or the model training window.

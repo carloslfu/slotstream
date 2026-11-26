@@ -2,7 +2,7 @@
 type: claim
 id: 01m2dvvtsngs2j5b8qgy969ah8
 created: 2026-09-13T17:08:30.133445+00:00
-updated: 2026-11-17T17:13:59.925708+00:00
+updated: 2026-11-21T11:19:44.726596601+00:00
 summary: Auto takes a 131,072-token window at 64 GB
 basis: derived
 gate: Tools/planner_gates.sh and Tools/context_gates.py
@@ -12,4 +12,4 @@ surfaces: docs/HARDWARE.md, docs/API.md, llms.txt, CHANGELOG.md
 title: Auto takes a 131,072-token window at 64 GB
 status: current
 ---
-At 64 GB auto takes 131,072 tokens: the cache keeps 149 experts per layer and the target rises from 34.6 GB to 43.2 GB, while 262,144 tokens would add 17.8% to a typical request. Derived from `doctor --sim-ram` plans ([[records/measurements/automatic-context-window-plans-2026-09-13]]); live availability can lower the window at startup.
+At 64 GB auto takes 131,072 tokens: the cache keeps 156 experts per layer and the target rises from 34.6 GB to 40.5 GB, while 262,144 tokens would remove 0.9 GB of cache above the measured decode range ([[records/measurements/retention-shares-active-capacity-2026-11-21]]). Derived from `doctor --sim-ram` plans ([[records/measurements/automatic-context-window-plans-2026-09-13]]); live availability can lower the window at startup.

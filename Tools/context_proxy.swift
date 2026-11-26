@@ -282,7 +282,7 @@ import Foundation
     }
 
     static func automaticWindows() throws {
-        let tiers: [(Double, Int)] = [(16, 32768), (24, 32768), (32, 32768), (36, 65536), (48, 32768),
+        let tiers: [(Double, Int)] = [(16, 32768), (24, 32768), (32, 65536), (36, 65536), (48, 131072),
                                       (64, 131072), (96, 262144), (128, 262144)]
         for (ram, window) in tiers {
             let device = Machine(ramGB: ram, workingSetGB: ram * 0.75, availableGB: ram, isSimulated: true)
@@ -328,8 +328,8 @@ import Foundation
         check("C23", "a busy machine keeps speculative decoding", busy.plan.mtpEnabled)
         let small = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 17.2, workingSetGB: 11.8,
             availableGB: 12.5, maxContextTokens: 65536, simulated: true)
-        check("C23", "an explicit window too large to retain keeps the budget share with a note",
-            small.prefixCacheTokens < 65536 && small.notes.contains { $0.contains("does not fit retained") })
+        check("C23", "an explicit window that fits retains one complete conversation",
+            small.maxContextTokens == 65536 && small.prefixCacheTokens >= 65536)
         let legacy = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 51.5, workingSetGB: 40.2,
             availableGB: 44, maxContextTokens: 32768, simulated: true)
         let share = try Planner.plan(expertsPerLayer: nil, poolGB: nil, memoryGB: nil, ramGB: 51.5, workingSetGB: 40.2,
