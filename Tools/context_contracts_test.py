@@ -86,8 +86,8 @@ class FiniteContextCommands:
     def __init__(self, failed_coordinate=None, code=0, bad_content=None):
         self.responses = []
         self.cursor = 0
-        default = json.loads((gates.ROOT / 'Tools/fixtures/context-default-v3.json').read_text())
-        automatic = json.loads((gates.ROOT / 'Tools/fixtures/context-automatic-v2.json').read_text())
+        default = json.loads((gates.ROOT / 'Tools/fixtures/context-default-v4.json').read_text())
+        automatic = json.loads((gates.ROOT / 'Tools/fixtures/context-automatic-v3.json').read_text())
 
         def add(args, value='', status=0, stderr='finite positive fixture diagnostic\n'):
             stdout = value if isinstance(value, str) else json.dumps(value)

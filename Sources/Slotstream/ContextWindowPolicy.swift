@@ -263,7 +263,7 @@ extension Planner {
             guard let value else {
                 candidates.append(Candidate(window: window, plan: nil, refusal: refusal, requestSeconds: nil,
                     relativeRequestCost: nil, accepted: false,
-                    reason: "does not fit with one complete conversation retained"))
+                    reason: "does not fit in this memory target"))
                 continue
             }
             let seconds = estimatedRequestSeconds(value)

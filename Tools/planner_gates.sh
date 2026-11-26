@@ -258,8 +258,16 @@ check "16 GB Mac: automatic window is 32,768"                  "auto_window_is 3
 check "24 GB Mac: automatic window is 32,768"                  "auto_window_is 32768 --sim-ram 24"
 check "32 GB Mac: automatic window is 65,536 (131,072 would stream the head)" "auto_window_is 65536 --sim-ram 32"
 check "36 GB Mac: automatic window is 65,536"                  "auto_window_is 65536 --sim-ram 36"
-check "48 GB Mac: automatic window is 131,072"                 "auto_window_is 131072 --sim-ram 48"
+check "--sim-ram 48 (48e9 bytes): automatic window is 131,072"  "auto_window_is 131072 --sim-ram 48"
 check "52 GB Mac: auto preserves cache with unmeasured benefit" "auto_window_is 32768 --sim-ram 52"
+check "real 16 GB Mac: automatic window is 32,768" \
+      "auto_window_is 32768 --sim-ram 17.2 --sim-working-set 11.8 --sim-available 12.5"
+check "real 24 GB Mac: automatic window is 32,768" \
+      "auto_window_is 32768 --sim-ram 25.8 --sim-working-set 18 --sim-available 21"
+check "real 32 GB Mac: automatic window is 65,536" \
+      "auto_window_is 65536 --sim-ram 34.4 --sim-working-set 25.8 --sim-available 29"
+check "real 48 GB Mac: auto preserves cache with unmeasured benefit" \
+      "auto_window_is 32768 --sim-ram 51.5 --sim-working-set 40.2 --sim-available 44"
 check "64 GB Mac: automatic window is 131,072"                 "auto_window_is 131072 --sim-ram 64"
 check "96 GB Mac: automatic window is 262,144"                 "auto_window_is 262144 --sim-ram 96"
 check "128 GB Mac: automatic window is 262,144"                "auto_window_is 262144 --sim-ram 128"
